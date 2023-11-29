@@ -161,3 +161,4 @@ cython_debug/
 #
 stderr.log
 config.yaml
+*.swp
