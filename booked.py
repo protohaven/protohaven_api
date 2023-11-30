@@ -1,0 +1,53 @@
+from config import get_config
+import requests
+import json
+
+cfg = get_config()['booked']
+
+# https://github.com/protohaven/systems-integration/blob/main/airtable-automations/UpdateBookedStatus.js
+
+STATUS_UNAVAILABLE = 2
+STATUS_AVAILABLE = 1
+
+SCHEDULE_ID = 1 # We only have one schedule
+
+baseUrl = "https://reserve.protohaven.org";
+def resource_url(resource_id):
+    return f"{baseUrl}/Web/Services/Resources/{resource_id}"
+
+def get_headers():
+  return {
+        'X-Booked-ApiId': cfg['id'], 
+        'X-Booked-ApiKey': cfg['key'],
+    }
+
+def get_resource(resource_id):
+  resp = requests.get(resource_url(resource_id), headers=get_headers())
+  return resp.json()
+
+def set_resource_status(resource_id, resource_name, status):
+  resp = requests.post(resource_url(resource_id), 
+    headers=get_headers(),
+    json=dict(
+    statusId=status,
+    name=resource_name,
+    scheduleId=SCHEDULE_ID,
+    ))
+  print(resp.request.headers)
+  return resp.json()
+
+def reserve_resource(resource_id, start_time, end_time):
+    raise Exception("TODO implement")
+
+if __name__ == "__main__":
+  OTHERMILL_ID = 4
+  res = get_resource(OTHERMILL_ID)
+  name = res['name']
+  print(res['name'], "STATUSID", res['statusId'])
+  input("Testing booked API - press enter to set the Othermill to unavailable")
+  print(set_resource_status(OTHERMILL_ID, name, STATUS_UNAVAILABLE))
+  print("STATUSID", get_resource(OTHERMILL_ID)['statusId'])
+  input("enter to set available")
+  print(set_resource_status(OTHERMILL_ID, name, STATUS_AVAILABLE))
+  print("STATUSID", get_resource(OTHERMILL_ID)['statusId'])
+  print("done")

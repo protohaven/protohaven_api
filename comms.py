@@ -3,12 +3,11 @@
 import smtplib
 from email.mime.text import MIMEText
 from config import get_config
+cfg = get_config()['comms'] 
 
 def send_email(subject, body, recipients):
-    cfg = get_config()['email'] 
-    sender = cfg['username']
-    passwd = cfg['password']
-
+    sender = cfg['email_username']
+    passwd = cfg['email_password']
     msg = MIMEText(body)
     msg['Subject'] = subject
     msg['From'] = sender
@@ -17,6 +16,11 @@ def send_email(subject, body, recipients):
        smtp_server.login(sender, passwd)
        smtp_server.sendmail(sender, recipients, msg.as_string())
     print("Message sent!")
+
+
+def send_discord_message(content) {
+  	result = requests.post(cfg['techs_live'], json=dict(content=content))
+	result.raise_for_status()
 
 if __name__ == "__main__":
     subject = "Test Email"
