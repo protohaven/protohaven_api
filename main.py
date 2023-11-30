@@ -10,21 +10,51 @@
 #    response = '\n'.join([message, version])
 #    return [response.encode()]
 
-from flask import Flask, render_template
+from flask import Flask, render_template, session, redirect, request, url_for
+
+from config import get_config
+
 app = Flask(__name__)
 application = app # our hosting requires application in passenger_wsgi
+cfg = get_config()['general']
+app.secret_key = cfg['session_secret']
 
 import neon
 import datetime
 import time
 import json
+import oauth
+
+def require_login(fn):
+    def do_login_check(*args, **kwargs):
+        if session.get('neon_id') is None:
+            return redirect(url_for(login_user_neon_oauth.__name__))
+        return fn(*args, **kwargs)
+    do_login_check.__name__ = fn.__name__
+    return do_login_check 
 
 @app.route("/")
-def hello():
-  return "This is Helloo World!\n"
+@require_login
+def index():
+    return f"This is Helloo World! User {session.get('neon_id')}\n"
+
+@app.route("/login")
+def login_user_neon_oauth():
+    session['login_referrer'] = request.referrer or "/"
+    return redirect(oauth.prep_request(
+        "https://api.protohaven.org/oauth_redirect"))
+       # request.url_root + url_for(neon_oauth_redirect.__name__)))
+
+@app.route("/oauth_redirect")
+def neon_oauth_redirect():
+    code = request.args.get('code')
+    rep = oauth.retrieve_token(url_for(neon_oauth_redirect.__name__), code)
+    session['neon_id'] = rep.get("access_token")
+    return redirect(session.get('login_referrer', '/')) 
 
 # TODO cache events, attendees, and emails
 @app.route("/instructor_hours")
+@require_login
 def instructor_hours_handler():
   events = neon.fetch_events(datetime.datetime.now() - datetime.timedelta(days=14))
   print("Fetched", len(events), "events")
