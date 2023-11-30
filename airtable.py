@@ -8,24 +8,31 @@ import requests
 #https://protohaven.app.neoncrm.com/np/admin/systemsetting/customDataEdit.do?id=75
 from config import get_config
 cfg = get_config()['airtable']
-AIRTABLE_URL = f"https://api.airtable.com/v0/{cfg['base_id']}"
-AIRTABLE_TOKEN = cfg['token']
+AIRTABLE_URL = f"https://api.airtable.com/v0"
 
-class Tables:
-	TOOLS = cfg['tables']['tools']
-	CLEARANCES = cfg['tables']['clearances']
-
-def get_all_records(tbl):
-  url = f"{AIRTABLE_URL}/{tbl}"
+def get_record(base, tbl, rec):
+  url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
   headers = {
-    'Authorization': f'Bearer {AIRTABLE_TOKEN}',
+    'Authorization': f"Bearer {cfg[base]['token']}",
     'Content-Type': 'application/json'
   }
+  response = requests.request("GET", url, headers=headers)
+  if response.status_code != 200:
+    raise Exception("Airtable fetch", response.status_code, response.content)
+  return json.loads(response.content)
 
+def get_all_records(base, tbl):
+  url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}"
+  headers = {
+    'Authorization': f"Bearer {cfg[base]['token']}",
+    'Content-Type': 'application/json'
+  }
   records = []
   offs = ""
   while offs is not None:
-    response = requests.request("GET", f"{AIRTABLE_URL}/{tbl}?offset={offs}", headers=headers)
+    url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}?offset={offs}"
+    print(url)
+    response = requests.request("GET", url, headers=headers)
     if response.status_code != 200:
       raise Exception("Airtable fetch", response.status_code, response.content)
     data = json.loads(response.content)
@@ -34,10 +41,10 @@ def get_all_records(tbl):
       return records
     offs = data['offset']
 
-def insert_records(data, tbl):
-  url = f"{AIRTABLE_URL}/{tbl}"
+def insert_records(data, base, tbl):
+  url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}"
   headers = {
-    'Authorization': f'Bearer {AIRTABLE_TOKEN}',
+    'Authorization': f"Bearer {cfg[base]['token']}",
     'Content-Type': 'application/json'
   }
   post_data = dict(records=[
@@ -45,6 +52,28 @@ def insert_records(data, tbl):
   ])
   response = requests.request("POST", url, headers=headers, data=json.dumps(post_data))
   return response
+
+
+def update_record(data, base, tbl, rec):
+  url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
+  print(url)
+  headers = {
+    'Authorization': f"Bearer {cfg[base]['token']}",
+    'Content-Type': 'application/json'
+  }
+  post_data = dict(fields=data)
+  response = requests.request("PATCH", url, headers=headers, data=json.dumps(post_data))
+  return response
+
+def get_class_automation_schedule():
+    return get_all_records('class_automation', 'schedule')
+
+def respond_class_automation_schedule(eid, pub):
+    if pub:
+      data = dict(Confirmed=datetime.datetime.now().isoformat())
+    else:
+      data = dict(Confirmed="")
+    return update_record(data, 'class_automation', 'schedule', eid)
 
 
 if __name__ == "__main__":

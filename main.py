@@ -20,6 +20,7 @@ cfg = get_config()['general']
 app.secret_key = cfg['session_secret']
 
 import neon
+import airtable
 import datetime
 import time
 import json
@@ -33,24 +34,58 @@ def require_login(fn):
     do_login_check.__name__ = fn.__name__
     return do_login_check 
 
+def user_email():
+    acct = session.get('neon_account')['individualAccount']
+    return acct['primaryContact']['email1']
+
+def user_fullname():
+    acct = session.get('neon_account')['individualAccount']
+    return acct['primaryContact']['firstName'] + ' ' + acct['primaryContact']['lastName']
+
 @app.route("/")
 @require_login
 def index():
-    return f"This is Helloo World! User {session.get('neon_id')}\n"
+    return f"{user_fullname()}: {user_email()} ({session.get('neon_id')})<br>{session.get('neon_account')}\n"
 
 @app.route("/login")
 def login_user_neon_oauth():
-    session['login_referrer'] = request.referrer or "/"
+    referrer = request.referrer
+    if referrer is None or referrer == "/login":
+        referrer = "/"
+    session['login_referrer'] = referrer 
     return redirect(oauth.prep_request(
         "https://api.protohaven.org/oauth_redirect"))
        # request.url_root + url_for(neon_oauth_redirect.__name__)))
+
+@app.route("/logout")
+def logout():
+    session['neon_id'] = None
+    session['neon_account'] = None
+    return "You've been logged out"
 
 @app.route("/oauth_redirect")
 def neon_oauth_redirect():
     code = request.args.get('code')
     rep = oauth.retrieve_token(url_for(neon_oauth_redirect.__name__), code)
     session['neon_id'] = rep.get("access_token")
+    session['neon_account'] = neon.fetch_account(session['neon_id'])
     return redirect(session.get('login_referrer', '/')) 
+
+@app.route("/instructor_class_selector")
+@require_login
+def instructor_class_selector():
+    email = user_email()
+    sched = [(s['id'], s['fields']) for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
+    return render_template("instructor_class_selector.html", schedule=sched)
+
+@app.route("/instructor_class_selector/update", methods=["POST"])
+@require_login
+def instructor_class_selector_update():
+    email = user_email()
+    eid = request.form.get('eid')
+    pub = request.form.get('pub') == 'true'
+    return airtable.respond_class_automation_schedule(eid, pub).content
+
 
 # TODO cache events, attendees, and emails
 @app.route("/instructor_hours")
