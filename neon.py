@@ -15,10 +15,14 @@ GROUP_ID_CLEARANCES = 1
 CUSTOM_FIELD_CLEARANCES = 75
 URL_BASE = "https://api.neoncrm.com/v2"
 
-def fetch_events(after):
+def fetch_events(after=None, before=None, published=True):
   # Load events from Neon CRM
-  q_params = {'startDateAfter': after.strftime('%Y-%m-%d'),
-              'publishedEvent': True}
+  q_params = {'publishedEvent': published}
+  if after is not None:
+    q_params['startDateAfter'] = after.strftime('%Y-%m-%d')
+  if before is not None:
+    q_params['startDateBefore'] = before.strftime('%Y-%m-%d')
+
   encoded_params = urllib.parse.urlencode(q_params)
   h = httplib2.Http(".cache")
   h.add_credentials(cfg['domain'], cfg['api_key1'])
@@ -88,6 +92,42 @@ def fetch_account(account_id):
   if type(content) is list:
       raise Exception(content)
   return content
+
+def search_member_by_name(firstname, lastname):
+  # Do we need to search email 2 and 3 as well?
+  data = {
+    "searchFields": [
+      {
+        "field": "First Name",
+        "operator": "EQUAL",
+        "value": firstname.strip(),
+      },
+      {
+        "field": "Last Name",
+        "operator": "EQUAL",
+        "value": lastname.strip(),
+      }
+    ],
+    "outputFields": [
+      "Account ID",
+      "Email 1",
+    ],
+    "pagination": {
+      "currentPage": 0,
+      "pageSize": 1,
+    }
+  }
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key2'])
+  resp, content = h.request(
+      f"{URL_BASE}/accounts/search",
+      "POST", body=json.dumps(data), headers={'content-type':'application/json'})
+  if resp.status != 200:
+    raise Exception(f"Error {resp.status}: {content}")
+  content = json.loads(content)
+  if content.get('searchResults') is None:
+    raise Exception(f"Search for {email} failed: {content}")
+  return content['searchResults'][0] if  len(content['searchResults']) > 0 else None
 
 def search_member(email):
   # Do we need to search email 2 and 3 as well?

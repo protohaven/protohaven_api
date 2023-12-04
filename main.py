@@ -18,6 +18,7 @@ app = Flask(__name__)
 application = app # our hosting requires application in passenger_wsgi
 cfg = get_config()['general']
 app.secret_key = cfg['session_secret']
+app.config['TEMPLATES_AUTO_RELOAD'] = True # Reload template if signature differs
 
 import neon
 import airtable
@@ -45,7 +46,7 @@ def user_fullname():
 @app.route("/")
 @require_login
 def index():
-    return f"{user_fullname()}: {user_email()} ({session.get('neon_id')})<br>{session.get('neon_account')}\n"
+    return render_template("dashboard.html", fullname=user_fullname(), email=user_email(), neon_id=session.get('neon_id'), neon_account=session.get('neon_account'))
 
 @app.route("/login")
 def login_user_neon_oauth():
@@ -97,8 +98,12 @@ def instructor_hours_handler():
   def prefill(instructor, start_date, hours, class_name, pass_emails, clearances):
       start_yyyy_mm_dd = start_date.strftime('%Y-%m-%d')
       return f"https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url&entry.1719418402={instructor}&entry.1405633595={start_yyyy_mm_dd}&entry.1276102155={hours}&entry.654625226={class_name}&entry.362496408=Nope,+just+a+single+session+class&entry.204701066={pass_emails}&entry.965251553={clearances}&entry.1116111507=No"
+  result = []
   for e in events:
       e['attendees'] = []
+      if user_fullname() not in e['name']:
+          print("Skipping", e['name'], "not taught by logged in user")
+          continue
       for a in neon.fetch_attendees(e['id']):
           email = "please add email here"
           if a['accountId']:
@@ -111,15 +116,16 @@ def instructor_hours_handler():
 
       print(f"Attendees for {e['name']}:", e['attendees'])
       e['prefill_form'] = prefill(
-        instructor='', # TODO extract instructor from a new event custom field
+        instructor=user_fullname(),
         start_date=datetime.datetime.strptime(e['startDate'], '%Y-%m-%d'),
         hours=3, # TODO fetch from class
         class_name=e['name'],
         pass_emails=", ".join(e['attendees']), # TODO Fetch event registrations
         clearances='', # TODO extract clearance details from a new event custom field
         )
+      result.append(e)
 
-  return render_template("instructor_hours.html", events=events)
+  return render_template("instructor_hours.html", events=result)
 
 if __name__ == "__main__":
   app.run()

@@ -5,6 +5,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from dateutil import parser as dateparser
 
 # If modifying these scopes, delete the file token.json.
 
@@ -52,9 +53,10 @@ def get_sheet_range(sheet_id, range_name):
 
 def get_instructor_submissions(from_row):
     headers = get_sheet_range(cfg['instructor_hours'], 'Form Responses 1!A1:M')[0]
-    print("headers", headers)
     for row in get_sheet_range(cfg['instructor_hours'], 'Form Responses 1!A800:M'):
-        yield dict(zip(headers, row))
+        data = dict(zip(headers, row))
+        data['Timestamp'] = dateparser.parse(data['Timestamp'])
+        yield data
 
 if __name__ == "__main__":
     for row in get_instructor_submissions(from_row=800):

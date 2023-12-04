@@ -15,12 +15,11 @@ def send_email(subject, body, recipients):
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
        smtp_server.login(sender, passwd)
        smtp_server.sendmail(sender, recipients, msg.as_string())
-    print("Message sent!")
 
 
-def send_discord_message(content) {
-  	result = requests.post(cfg['techs_live'], json=dict(content=content))
-	result.raise_for_status()
+def send_discord_message(content):
+    result = requests.post(cfg['techs_live'], json=dict(content=content))
+    result.raise_for_status()
 
 if __name__ == "__main__":
     subject = "Test Email"

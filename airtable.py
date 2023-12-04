@@ -31,7 +31,6 @@ def get_all_records(base, tbl):
   offs = ""
   while offs is not None:
     url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}?offset={offs}"
-    print(url)
     response = requests.request("GET", url, headers=headers)
     if response.status_code != 200:
       raise Exception("Airtable fetch", response.status_code, response.content)
@@ -56,7 +55,6 @@ def insert_records(data, base, tbl):
 
 def update_record(data, base, tbl, rec):
   url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
-  print(url)
   headers = {
     'Authorization': f"Bearer {cfg[base]['token']}",
     'Content-Type': 'application/json'
@@ -75,6 +73,9 @@ def respond_class_automation_schedule(eid, pub):
       data = dict(Confirmed="")
     return update_record(data, 'class_automation', 'schedule', eid)
 
+
+def get_tools():
+    return get_all_records('tools_and_equipment', 'tools')
 
 if __name__ == "__main__":
   print(get_all_records(Tables.CLEARANCES))
