@@ -1,0 +1,27 @@
+<html>
+<head>
+<style>
+  .event {
+    padding: 10px; margin: 5px;
+    border: 1px grey solid;
+  }
+</style>
+</head>
+<body>
+  {% for s, aa in schedule %}
+  <div class="event">
+    <h3>{{ s['startDate'] }} {{ s['startTime'] }}: {{ s['name'] }} (
+    <a href="https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id={{ s['id'] }}" target="_blank">#{{s['id']}}</a>)
+    </h3>
+    <div>{{ aa|length }} out of {{ s['capacity'] }} seat(s) reserved:</div>
+    <ul>
+      {% for a in aa %}
+      <li>{{ a['firstName'] }} {{ a['lastName'] }} ({{a['attendeeId']}}) {{ a['registrationStatus'] }} on {{ a['registrationDate'] }}</li>
+      {% endfor %}
+    </ul>
+    <div>
+    </div>
+  </div>
+  {% endfor %}
+</body>
+</html>

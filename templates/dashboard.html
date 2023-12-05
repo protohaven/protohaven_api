@@ -1,0 +1,24 @@
+<html>
+  <head>
+<style>
+.account_data {
+  width: 90%;
+  padding: 15px;
+  border: 1px grey solid;
+  text-overflow: wrap;
+}
+</style>
+  </head>
+  <body>
+    <h1>{{fullname}} ({{email}}, id {{neon_id}})</h1>
+    <div>
+      <ul>
+        <li><a href="/instructor_class_selector">Select classes to teach</a></li>
+        <li><a href="/instructor_hours">Submit hours (may take a few seconds to load)</a></li>
+      </ul>
+    </div>
+
+    <h4>Neon account data:</h4>
+    <div class="account_data">{{neon_account}}</div>
+  </body>
+</html>

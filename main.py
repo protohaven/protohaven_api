@@ -72,14 +72,22 @@ def neon_oauth_redirect():
     session['neon_account'] = neon.fetch_account(session['neon_id'])
     return redirect(session.get('login_referrer', '/')) 
 
-@app.route("/instructor_class_selector")
+@app.route("/instructor/events")
+@require_login
+def instructor_events():
+    after_date = datetime.datetime.now() - datetime.timedelta(hours=24)
+    email = user_email()
+    sched = [(s, neon.fetch_attendees(s['id'])) for s in neon.fetch_events(after=after_date)]
+    return render_template("instructor_events.html", schedule=sched)
+
+@app.route("/instructor/class_selector")
 @require_login
 def instructor_class_selector():
     email = user_email()
     sched = [(s['id'], s['fields']) for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
     return render_template("instructor_class_selector.html", schedule=sched)
 
-@app.route("/instructor_class_selector/update", methods=["POST"])
+@app.route("/instructor/class_selector/update", methods=["POST"])
 @require_login
 def instructor_class_selector_update():
     email = user_email()

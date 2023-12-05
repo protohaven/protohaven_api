@@ -36,6 +36,8 @@ def fetch_attendees(event_id):
   h = httplib2.Http(".cache")
   h.add_credentials(cfg['domain'], cfg['api_key1'])
   resp, content = h.request(f"https://api.neoncrm.com/v2/events/{event_id}/attendees")
+  if resp.status != 200:
+      raise Exception(f"fetch_attendees({event_id}) {resp.status}: {content}")
   content = json.loads(content)
 
   if type(content) is list:
