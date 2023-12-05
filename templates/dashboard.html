@@ -13,12 +13,17 @@
     <h1>{{fullname}} ({{email}}, id {{neon_id}})</h1>
     <div>
       <ul>
-        <li><a href="/instructor_class_selector">Select classes to teach</a></li>
-        <li><a href="/instructor_hours">Submit hours (may take a few seconds to load)</a></li>
+        <li><a href="/instructor/events">Upcoming events and registrants</a></li>
+        <li><a href="/instructor/class_selector">Select classes to teach</a></li>
+        <li><a href="/instructor/hours">Submit hours (may take a while to load)</a></li>
       </ul>
     </div>
-
-    <h4>Neon account data:</h4>
-    <div class="account_data">{{neon_account}}</div>
+    <h4>Clearances</h4>
+    <ul>
+    {% for cf in neon_account['custom_fields']['Clearances']['optionValues'] %}
+      <li>{{ cf['name'] }}</li>
+    {% endfor %}
+    </ul>
+    <div style="display:none">{{neon_account}}</div>
   </body>
 </html>
