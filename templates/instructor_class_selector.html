@@ -39,7 +39,7 @@
           let pub = e.target.className === "publish";
           console.log(eid, pub);
 
-          $.post("/instructor_class_selector/update", {eid, pub}).then(function(data) {
+          $.post("/instructor/class_selector/update", {eid, pub}).then(function(data) {
                 location.reload();
           });
         });
