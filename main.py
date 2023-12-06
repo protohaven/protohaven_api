@@ -30,6 +30,7 @@ import oauth
 def require_login(fn):
     def do_login_check(*args, **kwargs):
         if session.get('neon_id') is None:
+            session['redirect_to_login_url'] = request.url
             return redirect(url_for(login_user_neon_oauth.__name__))
         return fn(*args, **kwargs)
     do_login_check.__name__ = fn.__name__
@@ -56,9 +57,13 @@ def index():
 @app.route("/login")
 def login_user_neon_oauth():
     referrer = request.referrer
+    if referrer is None:
+        referrer = session.get('redirect_to_login_url')
     if referrer is None or referrer == "/login":
         referrer = "/"
     session['login_referrer'] = referrer 
+    
+    print("Set login referrer:", session['login_referrer'])
     return redirect(oauth.prep_request(
         "https://api.protohaven.org/oauth_redirect"))
        # request.url_root + url_for(neon_oauth_redirect.__name__)))
@@ -75,7 +80,9 @@ def neon_oauth_redirect():
     rep = oauth.retrieve_token(url_for(neon_oauth_redirect.__name__), code)
     session['neon_id'] = rep.get("access_token")
     session['neon_account'] = neon.fetch_account(session['neon_id'])
-    return redirect(session.get('login_referrer', '/')) 
+    referrer = session.get('login_referrer', '/')
+    print("Login referrer redirect:", referrer)
+    return redirect(referrer)
 
 @app.route("/instructor/events")
 @require_login
