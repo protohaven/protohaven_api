@@ -23,7 +23,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True # Reload template if signature differ
 
 import neon
 import airtable
-# import discord_bot
+import discord_bot
 import datetime
 import time
 import json
@@ -196,11 +196,10 @@ def discord_member_add():
     if not is_admin():
         return "Access Denied"
     name = request.args.get('name')
-    result = "Discord bot not installed"
-    # client = discord_bot.get_client()
-    #result = asyncio.run_coroutine_threadsafe(
-    #        client.grant_role(name, 'Members'),
-    #        client.loop).result()
+    client = discord_bot.get_client()
+    result = asyncio.run_coroutine_threadsafe(
+            client.grant_role(name, 'Members'),
+            client.loop).result()
     print(result)
     if result == False:
         return "Member not found"
@@ -210,7 +209,7 @@ def discord_member_add():
         return result
 
 if __name__ == "__main__":
-  #import threading
-  # t = threading.Thread(target=discord_bot.run, daemon=True)
-  #t.start()
+  import threading
+  t = threading.Thread(target=discord_bot.run, daemon=True)
+  t.start()
   app.run()
