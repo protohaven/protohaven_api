@@ -1,0 +1,104 @@
+<html>
+  <head>
+    <title>Protohaven Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.jpg">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+  </head>
+  <body>
+    <div class="header">
+      <img src="/static/img/logo_color.webp"></img>
+    </div>
+    <div class="content">
+      <div>
+      <label for="email">Email:</label>
+      <input type="text" id="email"/>
+      </div>
+      <h2>Membership checker</h2>
+      <button id="check_membership">Check membership</button>
+      <img id="check_spinner" style="display:none" src="/static/img/spinner.gif"></img>
+      <br/>
+      <div id="check_output"></div>
+      <h2>Coupon creator</h2>
+      <button id="create_coupon">Create coupon</button>
+      <img id="coupon_spinner" style="display:none" src="/static/img/spinner.gif"></img>
+      </br>
+      <div id="coupon_output"></div>
+
+      <h2>Discord connection</h2>
+      <p>Make sure discord is installed on their phone, then have them scan this QR code (tap bottom right profile button, scroll to "Scan QR Code"):</p>
+      <img src="static/img/join_discord.png"></img>
+      <p>
+      Or they can go to <a href="https://api.protohaven.org/discord">api.protohaven.org/discord</a> in a web browser.
+      </p>
+      <h2>Discord role</h2>
+      <p>Grant the Members role to the member's discord user so they can see all the member channels</p>
+      <label for="discord_user">Discord User:</label>
+      <input type="text" id="discord_user"></input>
+      <button id="discord_member_submit">Add Role</button>
+      <img id="discord_spinner" style="display:none" src="/static/img/spinner.gif"></img>
+      <div id="discord_output"></div>
+
+
+
+    </div>
+    <script
+        src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+    <script>
+      let spin_check = $("#check_spinner");
+      let spin_discord= $("#discord_spinner");
+      let email = $("#email");
+      email.val(localStorage.getItem("onboarding.email", ""));
+      email.change(function(e) {
+        localStorage.setItem("onboarding.email", email.val());
+        console.log("Set", email.val());
+      });
+      $("#discord_member_submit").click(function() {
+        let user = $("#discord_user").val();
+        if (!user) {
+          alert("Please input a discord user");
+        }
+        spin_discord.show();
+        $.get("/onboarding/discord_member_add?name=" + user)
+              .done(function(d) {
+                spin_discord.hide();
+                console.log(d);
+                $("#discord_output").text(d)
+              })
+              .fail(function(x, e) {
+                spin_discord.hide();
+                $("#discord_output").text(e.toString());
+              });
+      });
+      $("#check_membership").click(function() {
+        spin_check.show();
+        $.get("/onboarding/check_membership?email=" + email.val())
+              .done(function(d) {
+                spin_check.hide();
+                console.log(d);
+                $("#check_output").text(`${d.first} ${d.last}: ${d.level} (${d.status})`);
+              })
+                .fail(function(x, e) {
+                spin_check.hide();
+                $("#check_output").text(e.toString());
+                    });
+      });
+      let spin_coupon = $("#coupon_spinner");
+      $("#create_coupon").click(function() {
+        spin_coupon.show();
+        $.get("/onboarding/coupon?email=" + email.val())
+              .done(function(data) {
+                spin_coupon.hide();
+                console.log(data);
+                $("#coupon_output").text(`Created coupon: ${data}`);
+              })
+              .fail(function(x, e) {
+                spin_coupon.hide();
+                $("#coupon_output").text(e.toString());
+                    });
+      });
+
+    </script>
+  </body>
+</html>

@@ -11,6 +11,7 @@
 #    return [response.encode()]
 
 from flask import Flask, render_template, session, redirect, request, url_for
+import asyncio
 
 from config import get_config
 
@@ -22,6 +23,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True # Reload template if signature differ
 
 import neon
 import airtable
+import discord_bot
 import datetime
 import time
 import json
@@ -35,6 +37,10 @@ def require_login(fn):
         return fn(*args, **kwargs)
     do_login_check.__name__ = fn.__name__
     return do_login_check 
+
+def is_admin():
+    user_id = session['neon_id'] 
+    return str(user_id) in cfg['admin_users']
 
 def user_email():
     acct = session.get('neon_account')['individualAccount']
@@ -53,6 +59,10 @@ def index():
     for cf in neon_account['individualAccount']['accountCustomFields']:
         neon_account['custom_fields'][cf['name']] = cf
     return render_template("dashboard.html", fullname=user_fullname(), email=user_email(), neon_id=session.get('neon_id'), neon_account=neon_account, neon_json=neon_json)
+
+@app.route("/discord")
+def discord_redirect():
+    return redirect("https://discord.gg/twmKh749aH")
 
 @app.route("/login")
 def login_user_neon_oauth():
@@ -147,5 +157,59 @@ def instructor_hours_handler():
 
   return render_template("instructor_hours.html", events=result)
 
+
+@app.route("/onboarding")
+@require_login
+def onboarding():
+    if not is_admin():
+        return "Access Denied"
+    return render_template("onboarding_wizard.html")
+
+@app.route("/onboarding/check_membership")
+@require_login
+def onboarding_check_membership():
+    if not is_admin():
+        return "Access Denied"
+    email = request.args.get('email')
+    m = neon.search_member(email.strip())
+    print(m)
+    return dict(
+            first=m['First Name'], 
+            last=m['Last Name'], 
+            status=m['Account Current Membership Status'], 
+            level=m['Membership Level'])
+
+@app.route("/onboarding/coupon")
+@require_login
+def onboarding_create_coupon():
+    if not is_admin():
+        return "Access Denied"
+    email = request.args.get('email')
+    m = neon.search_member(email.strip())
+    code = f"NM-{m['Last Name'].upper()[:3]}{int(time.time())%1000}"
+    print("Creating coupon code", code)
+    return neon.create_coupon_code(code, 45)
+
+@app.route("/onboarding/discord_member_add")
+@require_login
+def discord_member_add():
+    if not is_admin():
+        return "Access Denied"
+    name = request.args.get('name')
+    client = discord_bot.get_client()
+    result = asyncio.run_coroutine_threadsafe(
+            client.grant_role(name, 'Members'),
+            client.loop).result()
+    print(result)
+    if result == False:
+        return "Member not found"
+    elif result == True:
+        return "Members role added"
+    else:
+        return result
+
 if __name__ == "__main__":
+  import threading
+  t = threading.Thread(target=discord_bot.run, daemon=True)
+  t.start()
   app.run()

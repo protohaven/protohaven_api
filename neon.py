@@ -3,6 +3,7 @@ from http.client import HTTPSConnection
 import httplib2
 import json
 import datetime
+import time
 import urllib
 import yaml
 import requests
@@ -145,6 +146,8 @@ def search_member(email):
       "Account ID",
       "First Name",
       "Last Name",
+      "Account Current Membership Status",
+      "Membership Level",
       CUSTOM_FIELD_CLEARANCES,
     ],
     "pagination": {
@@ -152,6 +155,8 @@ def search_member(email):
       "pageSize": 1,
     }
   }
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key2'])
   resp, content = h.request(
       f"{URL_BASE}/accounts/search",
       "POST", body=json.dumps(data), headers={'content-type':'application/json'})
@@ -164,7 +169,7 @@ def search_member(email):
 
 class DuplicateRequestToken:
   def __init__(self):
-    self.i = 12
+    self.i = int(time.time())
   def get(self):
     self.i += 1
     return self.i
@@ -186,17 +191,18 @@ class NeonOne:
     r = self.s.post("https://app.neonsso.com/login",
                     data=dict(_token=csrf, email=user, password=passwd))
     assert r.status_code == 200
-    assert "Log Out" in r.content.decode("utf8")
 
     # Select Neon SSO and go through the series of SSO redirects to properly set cookies
     r = self.s.get("https://app.neoncrm.com/np/ssoAuth")
-    assert "Mission Control Dashboard" in r.content.decode("utf8")
+    dec = r.content.decode("utf8")
+    if "Mission Control Dashboard" not in dec:
+        raise Exception(dec)
 
   def _get_csrf(self):
     rlogin = self.s.get("https://app.neonsso.com/login")
     assert rlogin.status_code == 200
     csrf = None
-    soup = BeautifulSoup(rlogin.content.decode("utf8"))
+    soup = BeautifulSoup(rlogin.content.decode("utf8"), features="html.parser")
     for m in soup.head.find_all("meta"):
       if m.get('name') == "csrf-token":
         csrf = m['content']
@@ -208,11 +214,11 @@ class NeonOne:
   def _post_discount(self, typ, code, pct, amt, from_date='11/19/2023', to_date='11/21/2024', max_uses=1):
     # We must appear to be coming from the specific discount settings page (Event or Membership)
     referer = f"https://protohaven.app.neoncrm.com/np/admin/systemsetting/newCouponCodeDiscount.do?sellingItemType={typ}&discountType=1"
-    rg = s.get(referer)
+    rg = self.s.get(referer)
     assert rg.status_code == 200
 
     # Must set referer so the server knows which "selling item type" this POST is for
-    s.headers.update(dict(Referer=rg.url))
+    self.s.headers.update(dict(Referer=rg.url))
     drt_i = self.drt.get()
     data = {
         'z2DuplicateRequestToken': drt_i,
@@ -233,20 +239,25 @@ class NeonOne:
     else:
       data['currentDiscount.absoluteDiscountAmount'] = amt
 
-    r = s.post(
+    r = self.s.post(
         'https://protohaven.app.neoncrm.com/np/admin/systemsetting/couponCodeDiscountSave.do',
         allow_redirects=False, data =data)
 
-    print(r)
-    print("Request")
-    print(r.request.url)
-    print(r.request.body)
-    print(r.request.headers)
+    #print(r)
+    #print("Request")
+    #print(r.request.url)
+    #print(r.request.body)
+    #print(r.request.headers)
 
     print("Response")
     print(r.status_code)
     print(r.headers)
 
-    assert "discountList.do" in r.headers['Location']
+    if not "discountList.do" in r.headers.get('Location', ''):
+        raise Exception("Failed to land on appropriate page - wanted discountList.do, got " + r.headers.get('Location', ''))
     return code
 
+
+def create_coupon_code(code, amt):
+    n = NeonOne(cfg['login_user'], cfg['login_pass'])
+    return n.create_single_use_abs_event_discount(code, amt)

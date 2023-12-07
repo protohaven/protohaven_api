@@ -1,29 +1,39 @@
 <html>
   <head>
-<style>
-.account_data {
-  width: 90%;
-  padding: 15px;
-  border: 1px grey solid;
-  text-overflow: wrap;
-}
-</style>
+    <title>Protohaven Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.jpg">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
   </head>
   <body>
-    <h1>{{fullname}} ({{email}}, id {{neon_id}})</h1>
-    <div>
-      <ul>
-        <li><a href="/instructor/events">Upcoming events and registrants</a></li>
-        <li><a href="/instructor/class_selector">Select classes to teach</a></li>
-        <li><a href="/instructor/hours">Submit hours (may take a while to load)</a></li>
-      </ul>
+    <div class="header">
+      <img src="/static/img/logo_color.webp"></img>
     </div>
-    <h4>Clearances</h4>
-    <ul>
-    {% for cf in neon_account['custom_fields']['Clearances']['optionValues'] %}
-      <li>{{ cf['name'] }}</li>
-    {% endfor %}
-    </ul>
-    <pre>{{neon_json}}</pre>
+    <div class="content">
+      <h1>{{fullname}} ({{email}}, id {{neon_id}})</h1>
+      <div class="linktables">
+        <div class="linktable">
+          <h2>Instructor Links</h2>
+          <ul>
+            <li><a href="/instructor/events">Upcoming events and registrants</a></li>
+            <li><a href="/instructor/class_selector">Select classes to teach</a></li>
+            <li><a href="/instructor/hours">Submit hours (may take a while to load)</a></li>
+          </ul>
+        </div>
+        <div class="linktable">
+          <h2>Onboarding Links</h2>
+          <ul>
+            <li><a href="https://protohaven.org/wiki/clearance_crew">Wiki Guide</a></li>
+            <li><a href="/onboarding">Onboarding wizard</a></li>
+          </ul>
+        </div>
+      </div>
+      <h4>Clearances</h4>
+      <div class="clearances">
+      {% for cf in neon_account['custom_fields']['Clearances']['optionValues'] %}
+        <div>{{ cf['name'] }}</div>
+      {% endfor %}
+      </div>
+      <pre style="display:none">{{neon_json}}</pre>
+    </div>
   </body>
 </html>

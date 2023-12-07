@@ -1,0 +1,41 @@
+
+.account_data {
+  width: 90%;
+  padding: 15px;
+  border: 1px grey solid;
+  text-overflow: wrap;
+}
+
+.header {
+  width: 100%;
+  padding: 10px;
+  border-bottom: 1px black solid;
+}
+.header > img {
+  height: 40px;
+}
+
+.linktables {
+  display: flex;
+  flex-direction: row;
+}
+.linktable {
+  padding: 5px;
+  margin: 5px;
+  border: 1px gray solid;
+}
+.linktable h2 {
+  text-align: center;
+}
+
+.clearances {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.clearances > div {
+  position: inline;
+  border: 1px grey solid;
+  padding: 5px;
+  margin: 5px;
+}
