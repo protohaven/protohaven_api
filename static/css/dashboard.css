@@ -18,6 +18,7 @@
 .linktables {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
 }
 .linktable {
   padding: 5px;

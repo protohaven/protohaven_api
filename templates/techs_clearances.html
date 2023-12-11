@@ -1,0 +1,40 @@
+<html>
+  <head>
+<style>
+table {
+  border: 1px gray solid;
+  padding: 5px;
+  margin: 5px;
+}
+td {
+  border: 1px gray solid;
+  margin: 5px;
+  padding: 5px;
+}
+</style>
+  </head>
+  <body>
+    <table>
+      <thead>
+          <th>ID</th>
+          <th>Name</th>
+          <th># Clearances</td>
+          <th>Tools</th>
+      </thead>
+      <tbody>
+        {% for t in techs %}
+        <tr>
+          <td>{{ t['id'] }}</td>
+          <td>{{ t['name'] }}</td>
+          <td>{{ t['clearances']|length }}</td>
+          <td>
+            {% for c in t['clearances'] %}
+            <div>{{ c }}</div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

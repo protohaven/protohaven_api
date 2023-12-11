@@ -29,6 +29,13 @@ import time
 import json
 import oauth
 
+class Role:
+    INSTRUCTOR = dict(name="Instructor", id="75")
+    SHOP_TECH = dict(name="Shop Tech", id="238")
+    SHOP_TECH_LEAD = dict(name="Shop Tech Lead", id="241")
+    ONBOARDING = dict(name="Onboarding", id="240")
+    ADMIN = dict(name="Admin", id="239")
+
 def require_login(fn):
     def do_login_check(*args, **kwargs):
         if session.get('neon_id') is None:
@@ -38,9 +45,24 @@ def require_login(fn):
     do_login_check.__name__ = fn.__name__
     return do_login_check 
 
-def is_admin():
-    user_id = session['neon_id'] 
-    return str(user_id) in cfg['admin_users']
+def require_login_role(role):
+    def fn_setup(fn):
+        def do_role_check(*args, **kwargs):
+            acct = session.get('neon_account', {}).get('individualAccount')
+            if acct is None:
+                session['redirect_to_login_url'] = request.url
+                return redirect(url_for(login_user_neon_oauth.__name__))
+
+            for cf in acct.get('accountCustomFields', []):
+                if cf['name'] == 'API server role':
+                    print(cf)
+                    for ov in cf['optionValues']:
+                        if role['name'] == ov.get('name'):
+                            return fn(*args, **kwargs)
+            return "Access Denied"
+        do_role_check.__name__ = fn.__name__
+        return do_role_check
+    return fn_setup
 
 def user_email():
     acct = session.get('neon_account')['individualAccount']
@@ -54,11 +76,26 @@ def user_fullname():
 @require_login
 def index():
     neon_account = session.get('neon_account')
-    neon_account['custom_fields'] = {}
+    clearances = []
+    roles = []
+    neon_account['custom_fields'] = {'Clearances': {'optionValues': []}}
     neon_json = json.dumps(neon_account, indent=2)
     for cf in neon_account['individualAccount']['accountCustomFields']:
+        if cf['name'] == 'Clearances':
+            clearances = [v['name'] for v in cf['optionValues']]
+        if cf['name'] == 'API server role':
+            roles = [v['name'] for v in cf['optionValues']]
         neon_account['custom_fields'][cf['name']] = cf
-    return render_template("dashboard.html", fullname=user_fullname(), email=user_email(), neon_id=session.get('neon_id'), neon_account=neon_account, neon_json=neon_json)
+    print(roles)
+
+    return render_template("dashboard.html", 
+            fullname=user_fullname(), 
+            email=user_email(), 
+            neon_id=session.get('neon_id'), 
+            neon_account=neon_account, 
+            neon_json=neon_json, 
+            clearances=clearances, 
+            roles=roles)
 
 @app.route("/discord")
 def discord_redirect():
@@ -95,7 +132,7 @@ def neon_oauth_redirect():
     return redirect(referrer)
 
 @app.route("/instructor/events")
-@require_login
+@require_login_role(Role.INSTRUCTOR)
 def instructor_events():
     after_date = datetime.datetime.now() - datetime.timedelta(hours=24)
     email = user_email()
@@ -103,24 +140,23 @@ def instructor_events():
     return render_template("instructor_events.html", schedule=sched)
 
 @app.route("/instructor/class_selector")
-@require_login
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class_selector():
     email = user_email()
     sched = [(s['id'], s['fields']) for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
     return render_template("instructor_class_selector.html", schedule=sched)
 
 @app.route("/instructor/class_selector/update", methods=["POST"])
-@require_login
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class_selector_update():
     email = user_email()
     eid = request.form.get('eid')
     pub = request.form.get('pub') == 'true'
     return airtable.respond_class_automation_schedule(eid, pub).content
 
-
 # TODO cache events, attendees, and emails
-@app.route("/instructor_hours")
-@require_login
+@app.route("/instructor/hours")
+@require_login_role(Role.INSTRUCTOR)
 def instructor_hours_handler():
   events = neon.fetch_events(datetime.datetime.now() - datetime.timedelta(days=14))
   print("Fetched", len(events), "events")
@@ -159,17 +195,13 @@ def instructor_hours_handler():
 
 
 @app.route("/onboarding")
-@require_login
+@require_login_role(Role.ONBOARDING)
 def onboarding():
-    if not is_admin():
-        return "Access Denied"
     return render_template("onboarding_wizard.html")
 
 @app.route("/onboarding/check_membership")
-@require_login
+@require_login_role(Role.ONBOARDING)
 def onboarding_check_membership():
-    if not is_admin():
-        return "Access Denied"
     email = request.args.get('email')
     m = neon.search_member(email.strip())
     print(m)
@@ -180,10 +212,8 @@ def onboarding_check_membership():
             level=m['Membership Level'])
 
 @app.route("/onboarding/coupon")
-@require_login
+@require_login_role(Role.ONBOARDING)
 def onboarding_create_coupon():
-    if not is_admin():
-        return "Access Denied"
     email = request.args.get('email')
     m = neon.search_member(email.strip())
     code = f"NM-{m['Last Name'].upper()[:3]}{int(time.time())%1000}"
@@ -191,10 +221,8 @@ def onboarding_create_coupon():
     return neon.create_coupon_code(code, 45)
 
 @app.route("/onboarding/discord_member_add")
-@require_login
+@require_login_role(Role.ONBOARDING)
 def discord_member_add():
-    if not is_admin():
-        return "Access Denied"
     name = request.args.get('name')
     client = discord_bot.get_client()
     result = asyncio.run_coroutine_threadsafe(
@@ -207,6 +235,22 @@ def discord_member_add():
         return "Members role added"
     else:
         return result
+
+@app.route("/tech_lead/techs_clearances")
+@require_login_role(Role.SHOP_TECH_LEAD)
+def techs_clearances():
+    techs = []
+    for t in neon.getMembersWithRole(Role.SHOP_TECH, [neon.CUSTOM_FIELD_CLEARANCES]):
+        clr = []
+        if t.get('Clearances') is not None:
+            clr = t['Clearances'].split('|')
+
+        techs.append(dict(
+            id=t['Account ID'], 
+            name=f"{t['First Name']} {t['Last Name']}", 
+            clearances=clr))
+    techs.sort(key=lambda t: len(t['clearances']))
+    return render_template("techs_clearances.html", techs=techs)
 
 if __name__ == "__main__":
   import threading

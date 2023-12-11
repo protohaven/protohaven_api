@@ -97,7 +97,6 @@ def fetch_account(account_id):
   return content
 
 def search_member_by_name(firstname, lastname):
-  # Do we need to search email 2 and 3 as well?
   data = {
     "searchFields": [
       {
@@ -133,11 +132,10 @@ def search_member_by_name(firstname, lastname):
   return content['searchResults'][0] if  len(content['searchResults']) > 0 else None
 
 def search_member(email):
-  # Do we need to search email 2 and 3 as well?
   data = {
     "searchFields": [
       {
-        "field": "Email 1",
+        "field": "Email",
         "operator": "EQUAL",
         "value": email,
       }
@@ -166,6 +164,48 @@ def search_member(email):
   if content.get('searchResults') is None:
     raise Exception(f"Search for {email} failed: {content}")
   return content['searchResults'][0] if  len(content['searchResults']) > 0 else None
+
+def getMembersWithRole(role, extra_fields):
+  # Do we need to search email 2 and 3 as well?
+  cur = 0
+  data = {
+    "searchFields": [{
+        "field": "85",
+        "operator": "CONTAIN",
+        "value": role['id'],   
+    }],
+    "outputFields": [
+      "Account ID",
+      "First Name", 
+      "Last Name",
+      *extra_fields
+    ],
+    "pagination": {
+      "currentPage": cur,
+      "pageSize": 50,
+    }
+  }
+  total = 1
+  result = []
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key2'])
+  while cur < total:
+    resp, content = h.request(
+        f"{URL_BASE}/accounts/search",
+        "POST", body=json.dumps(data), headers={'content-type':'application/json'})
+    if resp.status != 200:
+      raise Exception(f"Error {resp.status}: {content}")
+    content = json.loads(content)
+    if content.get('searchResults') is None or content.get('pagination') is None:
+      raise Exception(f"Search for {email} failed: {content}")
+
+    #print(f"======= Page {cur} of {total} (size {len(content['searchResults'])}) =======")
+    total = content['pagination']['totalPages']
+    cur += 1
+    data['pagination']['currentPage'] = cur
+
+    for r in content['searchResults']:
+      yield r
 
 class DuplicateRequestToken:
   def __init__(self):
