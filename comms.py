@@ -21,6 +21,10 @@ def send_discord_message(content):
     result = requests.post(cfg['techs_live'], json=dict(content=content))
     result.raise_for_status()
 
+def send_help_wanted(content):
+    result = requests.post(cfg['help_wanted'], json=dict(content=content))
+    result.raise_for_status()
+
 if __name__ == "__main__":
     subject = "Test Email"
     body = "This is the body of the text message"

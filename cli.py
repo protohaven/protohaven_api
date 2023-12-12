@@ -5,10 +5,12 @@ import sheets
 import airtable
 import datetime
 import comms
+import tasks
 import re
 from collections import defaultdict
 import requests
 import sys
+from dateutil import parser as dateparser
 
 def send_hours_submission_reminders(dry_run = True):
     now = datetime.datetime.now()
@@ -128,6 +130,31 @@ def validate_tool_documentation():
     comms.send_email(subject, body, recipients)
     print("Email sent")
 
+def cancel_low_attendance_classes():
+    # TODO fetch classes from neon
+    pass
+
+completion_re = re.compile('Deadline for Project Completion:\n(.*?)\n', re.MULTILINE)
+description_re = re.compile('Project Description:\n(.*?)Materials Budget', re.MULTILINE)
+def project_request_alerts():
+    for req in tasks.get_project_requests():
+        if req['completed']:
+            continue
+        req['notes'] = req['notes'].replace('\\n', '\n')
+        deadline = completion_re.search(req['notes'])
+        if deadline is None:
+            raise Exception("Failed to extract deadline from request by " + req['name'])
+        deadline = dateparser.parse(deadline[1])
+        if deadline < datetime.datetime.now():
+            print(f"Skipping expired project request by {req['name']} (expired {deadline})")
+            continue
+
+        content = "**New Project Request:**\n"
+        content += req['notes']
+        send_help_wanted(content)
+        tasks.complete(req['gid'])
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                     prog='Protohaven CLI',
@@ -139,3 +166,5 @@ if __name__ == "__main__":
         send_hours_submission_reminders()
     elif args.command == "validate_docs":
         validate_tool_documentation()
+    elif args.command == "project_requests":
+        project_request_alerts()

@@ -13,7 +13,18 @@ def get_tech_tasks():
   return client.tasks.get_tasks_for_project(cfg['techs_project'], {
         "opt_fields": ["completed", "custom_fields.name", "custom_fields.number_value", "custom_fields.text_value"],
         "limit": 10, # TODO remove
-      }, opt_pretty=True)
+      })
+
+
+def get_project_requests():
+  #https://developers.asana.com/reference/gettasksforproject
+  return client.tasks.get_tasks_for_project(cfg['project_requests'], {
+        "opt_fields": ["completed", "notes", "name"],
+      })
+
+def complete(gid):
+  #https://developers.asana.com/reference/updatetask
+  return client.tasks.update_task(gid, dict(completed=True))
 
 # TODO create tech task for maintenance
 
