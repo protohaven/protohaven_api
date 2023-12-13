@@ -1,6 +1,7 @@
 # Required, IMAP enabled in gmail, also less secure access turned on
 # see https://myaccount.google.com/u/3/lesssecureapps
 import smtplib
+import requests
 from email.mime.text import MIMEText
 from config import get_config
 cfg = get_config()['comms'] 

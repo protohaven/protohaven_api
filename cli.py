@@ -151,7 +151,7 @@ def project_request_alerts():
 
         content = "**New Project Request:**\n"
         content += req['notes']
-        send_help_wanted(content)
+        comms.send_help_wanted(content)
         tasks.complete(req['gid'])
 
 

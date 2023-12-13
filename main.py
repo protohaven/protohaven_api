@@ -24,6 +24,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True # Reload template if signature differ
 import neon
 import airtable
 import discord_bot
+import wiki
 import datetime
 import time
 import json
@@ -251,6 +252,12 @@ def techs_clearances():
             clearances=clr))
     techs.sort(key=lambda t: len(t['clearances']))
     return render_template("techs_clearances.html", techs=techs)
+
+@app.route("/shop_tech/handoff")
+@require_login_role(Role.SHOP_TECH)
+def shop_tech_handoff():
+    shift_tasks = wiki.get_shop_tech_shift_tasks()
+    return render_template("shop_tech_handoff.html", shift_tasks=shift_tasks)
 
 if __name__ == "__main__":
   import threading
