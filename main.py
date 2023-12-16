@@ -29,6 +29,8 @@ import datetime
 import time
 import json
 import oauth
+from dateutil import parser as dateparser
+import pytz
 
 class Role:
     INSTRUCTOR = dict(name="Instructor", id="75")
@@ -144,7 +146,15 @@ def instructor_events():
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_selector():
     email = user_email()
-    sched = [(s['id'], s['fields']) for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
+    sched = [[s['id'], s['fields']] for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
+    sched.sort(key=lambda s: s[1]['Start Time'])
+    tz = pytz.timezone("US/Eastern")
+    for sid, fields in sched:
+        date = dateparser.parse(fields['Start Time']).astimezone(tz)
+        fields['Dates'] = []
+        for i in range(fields['Days (from Class)'][0]):
+            fields['Dates'].append(date.strftime("%A %b %-d, %-I:%M %p"))
+            date += datetime.timedelta(days=7)
     return render_template("instructor_class_selector.html", schedule=sched)
 
 @app.route("/instructor/class_selector/update", methods=["POST"])

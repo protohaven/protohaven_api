@@ -153,6 +153,8 @@ def project_request_alerts():
         content += req['notes']
         comms.send_help_wanted(content)
         tasks.complete(req['gid'])
+        print(content)
+    print("done")
 
 
 if __name__ == "__main__":

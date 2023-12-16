@@ -17,9 +17,12 @@
       {% for id, event in schedule %}
       <div id="{{id}}" class="schedule_class">
           <div>
-          {{event['Name (from Class)'][0]}}
-          {{event['Start Time']}}
-          <br/>Seats: {{event['Capacity (from Class)'][0]}}
+          {{event['Name (from Class)'][0]}} ({{event['Capacity (from Class)'][0]}} seats)
+          <ul>
+            {% for d in event['Dates'] %}
+            <li>{{d}}</li>
+            {% endfor %}
+          </ul>
           </div>
           <div class="status">
             {% if event['Confirmed'] %}
