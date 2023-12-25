@@ -58,7 +58,6 @@ def require_login_role(role):
 
             for cf in acct.get('accountCustomFields', []):
                 if cf['name'] == 'API server role':
-                    print(cf)
                     for ov in cf['optionValues']:
                         if role['name'] == ov.get('name'):
                             return fn(*args, **kwargs)
@@ -75,6 +74,34 @@ def user_fullname():
     acct = session.get('neon_account')['individualAccount']
     return acct['primaryContact']['firstName'] + ' ' + acct['primaryContact']['lastName']
 
+def prefill_form(instructor, start_date, hours, class_name, pass_emails, clearances, event_id):
+    individual = airtable.get_instructor_log_tool_codes()
+    clearance_codes = []
+    tool_codes = []
+    for c in clearances:
+        if c in individual:
+            tool_codes.append(c)
+        else:
+            clearance_codes.append(c)
+
+    start_yyyy_mm_dd = start_date.strftime('%Y-%m-%d')
+    result = "https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url"
+    result += f"&entry.1719418402={instructor}"
+    result += f"&entry.1405633595={start_yyyy_mm_dd}"
+    result += f"&entry.1276102155={hours}"
+    result += f"&entry.654625226={class_name}"
+    result += "&entry.362496408=Nope,+just+a+single+session+class"
+    result += f"&entry.204701066={', '.join(pass_emails)}"
+    for cc in clearance_codes:
+        result += f"&entry.965251553={cc}"
+    result += f"&entry.1116111507={'Yes' if len(tool_codes) > 0 else 'No'}"
+    result += f"&entry.1646535924={event_id}"
+    for tc in tool_codes:
+        result += f"&entry.1725748243={tc}"
+    print(result)
+    return result
+
+
 @app.route("/")
 @require_login
 def index():
@@ -89,7 +116,6 @@ def index():
         if cf['name'] == 'API server role':
             roles = [v['name'] for v in cf['optionValues']]
         neon_account['custom_fields'][cf['name']] = cf
-    print(roles)
 
     return render_template("dashboard.html", 
             fullname=user_fullname(), 
@@ -134,76 +160,64 @@ def neon_oauth_redirect():
     print("Login referrer redirect:", referrer)
     return redirect(referrer)
 
-@app.route("/instructor/events")
-@require_login_role(Role.INSTRUCTOR)
-def instructor_events():
-    after_date = datetime.datetime.now() - datetime.timedelta(hours=24)
-    email = user_email()
-    sched = [(s, neon.fetch_attendees(s['id'])) for s in neon.fetch_events(after=after_date)]
-    return render_template("instructor_events.html", schedule=sched)
 
-@app.route("/instructor/class_selector")
+@app.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
-def instructor_class_selector():
+def instructor_class():
     email = user_email()
     sched = [[s['id'], s['fields']] for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
     sched.sort(key=lambda s: s[1]['Start Time'])
     tz = pytz.timezone("US/Eastern")
-    for sid, fields in sched:
-        date = dateparser.parse(fields['Start Time']).astimezone(tz)
-        fields['Dates'] = []
-        for i in range(fields['Days (from Class)'][0]):
-            fields['Dates'].append(date.strftime("%A %b %-d, %-I:%M %p"))
-            date += datetime.timedelta(days=7)
-    return render_template("instructor_class_selector.html", schedule=sched)
+    for sid, e in sched:
+        date = dateparser.parse(e['Start Time']).astimezone(tz)
 
-@app.route("/instructor/class_selector/update", methods=["POST"])
+        # If it's in neon, fetch attendee info and generate a log URL
+        if e.get('Neon ID'):
+            e['attendees_for_log'] = []
+            e['attendees'] = neon.fetch_attendees(e['Neon ID'])
+            for a in e['attendees']:
+                email = "unknown email"
+                if a['accountId']:
+                    acc = neon.fetch_account(a['accountId'])
+                    if acc is not None:
+                        email = acc.get('individualAccount', 
+                                acc.get('companyAccount'))['primaryContact']['email1'] 
+                    e['attendees_for_log'].append(f"{a['firstName']} {a['lastName']} ({email})")
+                time.sleep(0.22) # API limits fetching to 5 per second
+
+            print(f"Attendees for {e['Name (from Class)'][0]}:", e['attendees'])
+            e['prefill'] = prefill_form(
+                instructor=e['Instructor'],
+                start_date=date,
+                hours=e['Hours (from Class)'][0],
+                class_name=e['Name (from Class)'][0],
+                pass_emails=e['attendees_for_log'], 
+                clearances=e['Form Name (from Clearance) (from Class)'],
+                event_id=e['Neon ID'])
+
+        for dateField in ('Confirmed', 'Instructor Log Date'):
+            if e.get(dateField):
+                e[dateField] = dateparser.parse(e[dateField])
+        e['Dates'] = []
+        for i in range(e['Days (from Class)'][0]):
+            e['Dates'].append(date.strftime("%A %b %-d, %-I%p"))
+            date += datetime.timedelta(days=7)
+    return render_template("instructor_class.html", schedule=sched)
+
+@app.route("/instructor/class/update", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
-def instructor_class_selector_update():
+def instructor_class_update():
     email = user_email()
     eid = request.form.get('eid')
     pub = request.form.get('pub') == 'true'
     return airtable.respond_class_automation_schedule(eid, pub).content
 
-# TODO cache events, attendees, and emails
-@app.route("/instructor/hours")
+@app.route("/instructor/class/supply_req", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
-def instructor_hours_handler():
-  events = neon.fetch_events(datetime.datetime.now() - datetime.timedelta(days=14))
-  print("Fetched", len(events), "events")
-
-  def prefill(instructor, start_date, hours, class_name, pass_emails, clearances):
-      start_yyyy_mm_dd = start_date.strftime('%Y-%m-%d')
-      return f"https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url&entry.1719418402={instructor}&entry.1405633595={start_yyyy_mm_dd}&entry.1276102155={hours}&entry.654625226={class_name}&entry.362496408=Nope,+just+a+single+session+class&entry.204701066={pass_emails}&entry.965251553={clearances}&entry.1116111507=No"
-  result = []
-  for e in events:
-      e['attendees'] = []
-      if user_fullname() not in e['name']:
-          print("Skipping", e['name'], "not taught by logged in user")
-          continue
-      for a in neon.fetch_attendees(e['id']):
-          email = "please add email here"
-          if a['accountId']:
-              print("Fetch account for", a['accountId'])
-              acc = neon.fetch_account(a['accountId'])
-              if acc is not None:
-                email = acc['individualAccount']['primaryContact']['email1'] 
-          e['attendees'].append(f"{a['firstName']} {a['lastName']} ({email})")
-          time.sleep(0.22) # API limits fetching to 5 per second
-
-      print(f"Attendees for {e['name']}:", e['attendees'])
-      e['prefill_form'] = prefill(
-        instructor=user_fullname(),
-        start_date=datetime.datetime.strptime(e['startDate'], '%Y-%m-%d'),
-        hours=3, # TODO fetch from class
-        class_name=e['name'],
-        pass_emails=", ".join(e['attendees']), # TODO Fetch event registrations
-        clearances='', # TODO extract clearance details from a new event custom field
-        )
-      result.append(e)
-
-  return render_template("instructor_hours.html", events=result)
-
+def instructor_class_supply_req():
+    eid = request.form.get('eid')
+    missing = request.form.get('missing') == 'true'
+    return airtable.mark_schedule_supply_request(eid, missing).content
 
 @app.route("/onboarding")
 @require_login_role(Role.ONBOARDING)
@@ -217,10 +231,12 @@ def onboarding_check_membership():
     m = neon.search_member(email.strip())
     print(m)
     return dict(
+            neon_id=m['Account ID'],
             first=m['First Name'], 
             last=m['Last Name'], 
             status=m['Account Current Membership Status'], 
-            level=m['Membership Level'])
+            level=m['Membership Level'],
+            discord_user=m['Discord User'])
 
 @app.route("/onboarding/coupon")
 @require_login_role(Role.ONBOARDING)
@@ -234,16 +250,29 @@ def onboarding_create_coupon():
 @app.route("/onboarding/discord_member_add")
 @require_login_role(Role.ONBOARDING)
 def discord_member_add():
-    name = request.args.get('name')
+    name = request.args.get('name', '')
+    neon_id = request.args.get('neon_id', '')
+    nick = request.args.get('nick', '')
+    if name == "" or neon_id == "" or nick == "":
+        return "Require params: name, neon_id, nick"
+    
+
+    print(neon.set_discord_user(neon_id, name))
+
     client = discord_bot.get_client()
     result = asyncio.run_coroutine_threadsafe(
             client.grant_role(name, 'Members'),
             client.loop).result()
-    print(result)
     if result == False:
-        return "Member not found"
+        return "Failed to grant Members role: member not found"
+
+    result = asyncio.run_coroutine_threadsafe(
+            client.set_nickname(name, nick),
+            client.loop).result()
+    if result == False:
+        return "Failed to set nickname: member not found"
     elif result == True:
-        return "Members role added"
+        return "Setup complete"
     else:
         return result
 
@@ -251,14 +280,15 @@ def discord_member_add():
 @require_login_role(Role.SHOP_TECH_LEAD)
 def techs_clearances():
     techs = []
-    for t in neon.getMembersWithRole(Role.SHOP_TECH, [neon.CUSTOM_FIELD_CLEARANCES]):
+    for t in neon.getMembersWithRole(Role.SHOP_TECH, [neon.CUSTOM_FIELD_CLEARANCES, neon.CUSTOM_FIELD_INTEREST]):
         clr = []
         if t.get('Clearances') is not None:
             clr = t['Clearances'].split('|')
-
+        interest = t.get('Interest', '')
         techs.append(dict(
             id=t['Account ID'], 
             name=f"{t['First Name']} {t['Last Name']}", 
+            interest=interest,
             clearances=clr))
     techs.sort(key=lambda t: len(t['clearances']))
     return render_template("techs_clearances.html", techs=techs)
@@ -268,6 +298,39 @@ def techs_clearances():
 def shop_tech_handoff():
     shift_tasks = wiki.get_shop_tech_shift_tasks()
     return render_template("shop_tech_handoff.html", shift_tasks=shift_tasks)
+
+@app.route("/shop_tech/profile", methods=["GET", "POST"])
+@require_login_role(Role.SHOP_TECH)
+def shop_tech_profile():
+    user = session['neon_id']
+    if request.method == "POST":
+        interest = request.form['interest']
+        neon.set_interest(user, interest)
+        session['neon_account'] = neon.fetch_account(session['neon_id'])
+
+    interest = ""
+    for cf in session['neon_account']['individualAccount']['accountCustomFields']:
+        if cf['name'] == 'Interest':
+            interest = cf['value']
+            break
+    return render_template("shop_tech_profile.html", interest=interest)
+
+@app.route("/admin/set_discord_nick")
+@require_login_role(Role.ADMIN)
+def set_discord_nick():
+    name = request.args.get('name')
+    nick = request.args.get('nick')
+    if name == "" or nick == "":
+        return "Bad argument: want ?name=foo&nick=bar"
+    client = discord_bot.get_client()
+    result = asyncio.run_coroutine_threadsafe(
+            client.set_nickname(name, nick),
+            client.loop).result()
+    print(result)
+    if result == False:
+        return f"Member '{name}' not found"
+    else:
+        return f"Member '{name}' now nicknamed '{nick}'"
 
 if __name__ == "__main__":
   import threading

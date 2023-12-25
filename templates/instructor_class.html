@@ -1,0 +1,107 @@
+<html>
+  <head>
+    <script
+        src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+    <style>
+      .schedule_class {
+        padding: 5px;
+        margin: 5px;
+        border: 1px gray solid;
+      }
+      #schedule {
+        min-width: 600px;
+      }
+      #schedule td {
+        padding: 5px;
+        margin: 5px;
+        border: 1px gray solid;
+      }
+      #schedule th {
+        padding: 25px;
+      }
+    </style>
+  </head>
+  <body>
+    <table id="schedule">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Registrants</th>
+          <th>Supply State</th>
+          <th>Instructor Log</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for id, event in schedule %}
+      <tr id="{{id}}" class="schedule_class">
+          <td>
+            <div>{{event['Name (from Class)'][0]}}</div>
+            <div>{{event['Capacity (from Class)'][0]}} Seats</div>
+            <ul>
+              {% for d in event['Dates'] %}
+              <li>{{d}}</li>
+              {% endfor %}
+            </ul>
+
+            <div class="status">
+              {% if event['Confirmed'] %}
+                Confirmed available on {{event['Confirmed'].strftime('%Y-%m-%d')}} 
+                {% if not event['Neon ID'] %}
+                <button class="unpublish">Mark unavailable</button>
+                {% endif %}
+              {% else %}
+                <button class="publish">Confirm available</button>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <div>{{ event['attendees']|length }} attendee(s):</div>
+            <ul>
+              {% for a in event['attendees'] %}
+              <li>{{ a['firstName'] }} {{ a['lastName'] }} ({{a['attendeeId']}}) {{ a['registrationStatus'] }} on {{ a['registrationDate'] }}</li>
+              {% endfor %}
+            </ul>
+          </td>
+          <td>
+            <div>{{ event['Supply State']}}</div>
+            {% if event['Supply State'] != 'Supplies Requested' %}
+              <button class="supply_req">Supplies needed</button>
+            {% elif event['Supply State'] != 'Supplies Confirmed' %}
+              <button class="supply_conf">Supplies OK</button>
+            {% endif %}
+          </td>
+          <td>
+            {% if event['Instructor Log Date'] %}
+              {{event['Instructor Log Date'].strftime('%Y-%m-%d')}}
+            {% elif event['Confirmed'] %}
+            <button class="log_submit" href="{{event['prefill']}}">Submit Log</button>
+            {% endif %} 
+          </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </body>
+  <script type="text/javascript">
+    $("#schedule button").click(function(e) {
+          let eid = $(e.target).parentsUntil(".schedule_class").parent().attr("id");
+          let cls = e.target.className;
+
+          if (cls === 'publish' || cls == 'unpublish') {
+            console.log(eid, pub);
+
+            $.post("/instructor/class/update", {eid, pub: cls === 'publish'}).then(function(data) {
+                  location.reload();
+            });
+          } else if (cls === 'log_submit') {
+            window.location = e.target.getAttribute('href');
+          } else if (cls === 'supply_req' || cls == 'supply_conf') {
+            $.post("/instructor/class/supply_req", {eid, missing: cls === 'supply_req'}).then(function(data) {
+                  location.reload();
+            });
+          }
+        });
+  </script>
+</html>

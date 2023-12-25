@@ -20,6 +20,7 @@ td {
           <th>Name</th>
           <th># Clearances</td>
           <th>Tools</th>
+          <th>Interest</th>
       </thead>
       <tbody>
         {% for t in techs %}
@@ -32,6 +33,7 @@ td {
             <div>{{ c }}</div>
             {% endfor %}
           </td>
+          <td>{{ t['interest'] }}</td>
         </tr>
         {% endfor %}
       </tbody>

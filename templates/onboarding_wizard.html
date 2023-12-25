@@ -9,9 +9,24 @@
       <img src="/static/img/logo_color.webp"></img>
     </div>
     <div class="content">
+      <h2>Input fields</h2>
       <div>
       <label for="email">Email:</label>
       <input type="text" id="email"/>
+      </div>
+
+      <p>The fields below will be auto-populated when you click "Check membership", if they're available in Neon</p>
+      <div>
+      <label for="neon_id">Neon ID:</label>
+      <input type="text" id="neon_id"/>
+      </div>
+      <div>
+      <label for="fullname">Full Name</label>
+      <input type="text" id="fullname"/>
+      </div>
+      <div>
+      <label for="discord_user">Discord User:</label>
+      <input type="text" id="discord_user"></input>
       </div>
       <h2>Membership checker</h2>
       <button id="check_membership">Check membership</button>
@@ -30,14 +45,18 @@
       <p>
       Or they can go to <a href="https://api.protohaven.org/discord">api.protohaven.org/discord</a> in a web browser.
       </p>
-      <h2>Discord role</h2>
-      <p>Grant the Members role to the member's discord user so they can see all the member channels</p>
-      <label for="discord_user">Discord User:</label>
-      <input type="text" id="discord_user"></input>
-      <button id="discord_member_submit">Add Role</button>
+      <h2>Discord role, name, and Neon association</h2>
+      <p>This automation does the following:</p>
+      <ul>
+        <li>Grants the Members role to the member's discord user so they can see all the member channels</li>
+        <li>Associates their discord user ID into Neon, so we can later automatically manage their roles and name</li>
+        <li>Sets their display name (nickname) on the server to their full name (using the input field above)</li>
+      </ul>
+      <p>You can run this multiple times on the same user without causing problems</p>
+      <button id="discord_member_submit">Run Discord Setup</button>
       <img id="discord_spinner" style="display:none" src="/static/img/spinner.gif"></img>
       <div id="discord_output"></div>
-
+      <div style="height:200px; width:100%"></div>
 
 
     </div>
@@ -48,19 +67,29 @@
     <script>
       let spin_check = $("#check_spinner");
       let spin_discord= $("#discord_spinner");
-      let email = $("#email");
-      email.val(localStorage.getItem("onboarding.email", ""));
-      email.change(function(e) {
-        localStorage.setItem("onboarding.email", email.val());
-        console.log("Set", email.val());
-      });
+      for (let id of ['email', 'neon_id', 'fullname', 'discord_user']) {
+        let field = $("#" + id);
+        field.val(localStorage.getItem("onboarding." + id, ""));
+        field.change(function(e) {
+          localStorage.setItem("onboarding." + id, field.val());
+        });
+      }
+
       $("#discord_member_submit").click(function() {
         let user = $("#discord_user").val();
         if (!user) {
           alert("Please input a discord user");
         }
+        let neon_id = $("#neon_id").val();
+        if (!neon_id) {
+          alert("Please input a Neon ID");
+        }
+        let fullname = $("#fullname").val();
+        if (!fullname) {
+          alert("Please input full name so it can be set on Discord");
+        }
         spin_discord.show();
-        $.get("/onboarding/discord_member_add?name=" + user)
+        $.get(`/onboarding/discord_member_add?name=${user}&neon_id=${neon_id}&nick=${fullname}`)
               .done(function(d) {
                 spin_discord.hide();
                 console.log(d);
@@ -73,21 +102,28 @@
       });
       $("#check_membership").click(function() {
         spin_check.show();
-        $.get("/onboarding/check_membership?email=" + email.val())
+        $.get("/onboarding/check_membership?email=" + $("#email").val())
               .done(function(d) {
                 spin_check.hide();
                 console.log(d);
                 $("#check_output").text(`${d.first} ${d.last}: ${d.level} (${d.status})`);
+                $("#neon_id").val(d.neon_id);
+                localStorage.setItem("onboarding.neon_id", d.neon_id);
+                let fullname = `${d.first} ${d.last}`;
+                $("#fullname").val(fullname);
+                localStorage.setItem("onboarding.fullname", fullname);
+                $("#discord_user").val(d.discord_user);
+                localStorage.setItem("onboarding.discord_user", d.discord_user);
               })
-                .fail(function(x, e) {
+              .fail(function(x, e) {
                 spin_check.hide();
                 $("#check_output").text(e.toString());
-                    });
+              });
       });
       let spin_coupon = $("#coupon_spinner");
       $("#create_coupon").click(function() {
         spin_coupon.show();
-        $.get("/onboarding/coupon?email=" + email.val())
+        $.get("/onboarding/coupon?email=" + $("#email").val())
               .done(function(data) {
                 spin_coupon.hide();
                 console.log(data);

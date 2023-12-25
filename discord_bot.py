@@ -27,12 +27,25 @@ class PHClient(discord.Client):
             self.role_map[r.name] = r
         print("Roles:", self.role_map)
 
-    async def grant_role(self, name, role_name):
-        print("Get member named", name)
+    async def set_nickname(self, name, nickname):
         mem = self.guild.get_member_named(name)
         if mem is None:
+            print("set_nickname: failed to find", name)
+            return False
+        try:
+            await mem.edit(nick=nickname)
+            return True
+        except discord.HTTPException as e:
+            print(str(e))
+            return str(e)
+
+    async def grant_role(self, name, role_name):
+        mem = self.guild.get_member_named(name)
+        if mem is None:
+            print("Member", name, "not found")
             return False
 
+        print("Adding role", role_name, "to", name)
         try:
             await mem.add_roles(self.role_map[role_name])
             #await self.onboarding_channel.send(content=f"Added Members role to user {name}")

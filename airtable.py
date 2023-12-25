@@ -1,4 +1,5 @@
 from http.client import HTTPSConnection
+from functools import cache
 import httplib2
 import json
 import datetime
@@ -66,6 +67,12 @@ def update_record(data, base, tbl, rec):
 def get_class_automation_schedule():
     return get_all_records('class_automation', 'schedule')
 
+@cache
+def get_instructor_log_tool_codes():
+    codes = get_all_records('class_automation', 'clearance_codes')
+    individual = tuple(c['fields']['Form Name'] for c in codes if c['fields'].get('Individual'))
+    return individual
+
 def respond_class_automation_schedule(eid, pub):
     if pub:
       data = dict(Confirmed=datetime.datetime.now().isoformat())
@@ -73,9 +80,12 @@ def respond_class_automation_schedule(eid, pub):
       data = dict(Confirmed="")
     return update_record(data, 'class_automation', 'schedule', eid)
 
+def mark_schedule_supply_request(eid, missing):
+    return update_record({'Supply State': 'Supplies Requested' if missing else 'Supplies Confirmed'}, 'class_automation', 'schedule', eid)
 
 def get_tools():
     return get_all_records('tools_and_equipment', 'tools')
+
 
 if __name__ == "__main__":
   print(get_all_records(Tables.CLEARANCES))

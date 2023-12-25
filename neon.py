@@ -14,6 +14,8 @@ cfg = get_config()['neon']
 TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
 CUSTOM_FIELD_CLEARANCES = 75
+CUSTOM_FIELD_INTEREST = 148
+CUSTOM_FIELD_DISCORD_USER = 150
 URL_BASE = "https://api.neoncrm.com/v2"
 
 def fetch_events(after=None, before=None, published=True):
@@ -33,6 +35,14 @@ def fetch_events(after=None, before=None, published=True):
       raise Exception(content)
   return content['events'] 
 
+def fetch_event(event_id):
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key1'])
+  resp, content = h.request(f"https://api.neoncrm.com/v2/events/{event_id}")
+  if resp.status != 200:
+      raise Exception(f"fetch_event({event_id}) {resp.status}: {content}")
+  return json.loads(content)
+
 def fetch_attendees(event_id):
   h = httplib2.Http(".cache")
   h.add_credentials(cfg['domain'], cfg['api_key1'])
@@ -48,6 +58,8 @@ def fetch_attendees(event_id):
   return content['attendees'] or []
 
 def fetch_clearance_codes():
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key1'])
   resp, content = h.request(f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "GET")
   assert(resp.status == 200)
   return json.loads(content)['optionValues']
@@ -63,13 +75,34 @@ def set_clearance_codes(codes):
     "component": "Account",
     "optionValues": codes,
   }
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key1'])
   resp, content = h.request(
       f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "PUT",
       body=json.dumps(data), headers={'content-type':'application/json'})
   print("PUT", resp.status, content)
 
 
-def set_clearances(user, codes):
+def set_custom_field(user_id, data):
+  data = {
+    "individualAccount": {
+      "accountCustomFields": [data],
+    }
+  }
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key2'])
+  resp, content = h.request(
+      f"{URL_BASE}/accounts/{user_id}", "PATCH",
+      body=json.dumps(data), headers={'content-type':'application/json'})
+  print("PATCH", resp.status, content)
+
+def set_interest(user_id, interest:str):
+    return set_custom_field(user_id, dict(id=CUSTOM_FIELD_INTEREST, value=interest))
+
+def set_discord_user(user_id, discord_user:str):
+    return set_custom_field(user_id, dict(id=CUSTOM_FIELD_DISCORD_USER, value=discord_user))
+
+def set_clearances(user_id, codes):
   #ids = [code_mapping[c]['id'] for c in codes]
   data = {
     "individualAccount": {
@@ -81,8 +114,10 @@ def set_clearances(user, codes):
       ],
     }
   }
+  h = httplib2.Http(".cache")
+  h.add_credentials(cfg['domain'], cfg['api_key2'])
   resp, content = h.request(
-      f"{URL_BASE}/accounts/{user}", "PATCH",
+      f"{URL_BASE}/accounts/{user_id}", "PATCH",
       body=json.dumps(data), headers={'content-type':'application/json'})
   print("PATCH", resp.status, content)
 
@@ -147,6 +182,7 @@ def search_member(email):
       "Account Current Membership Status",
       "Membership Level",
       CUSTOM_FIELD_CLEARANCES,
+      CUSTOM_FIELD_DISCORD_USER,
     ],
     "pagination": {
       "currentPage": 0,
