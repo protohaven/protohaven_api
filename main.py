@@ -74,7 +74,7 @@ def user_fullname():
     acct = session.get('neon_account')['individualAccount']
     return acct['primaryContact']['firstName'] + ' ' + acct['primaryContact']['lastName']
 
-def prefill_form(instructor, start_date, hours, class_name, pass_emails, clearances, event_id):
+def prefill_form(instructor, start_date, hours, class_name, pass_emails, clearances, volunteer, event_id):
     individual = airtable.get_instructor_log_tool_codes()
     clearance_codes = []
     tool_codes = []
@@ -90,6 +90,8 @@ def prefill_form(instructor, start_date, hours, class_name, pass_emails, clearan
     result += f"&entry.1405633595={start_yyyy_mm_dd}"
     result += f"&entry.1276102155={hours}"
     result += f"&entry.654625226={class_name}"
+    if volunteer:
+        result += f"&entry.1406934632=Yes,+please+donate+my+time."
     result += "&entry.362496408=Nope,+just+a+single+session+class"
     result += f"&entry.204701066={', '.join(pass_emails)}"
     for cc in clearance_codes:
@@ -193,6 +195,7 @@ def instructor_class():
                 class_name=e['Name (from Class)'][0],
                 pass_emails=e['attendees_for_log'], 
                 clearances=e['Form Name (from Clearance) (from Class)'],
+                volunteer=e['Volunteer'],
                 event_id=e['Neon ID'])
 
         for dateField in ('Confirmed', 'Instructor Log Date'):
@@ -218,6 +221,13 @@ def instructor_class_supply_req():
     eid = request.form.get('eid')
     missing = request.form.get('missing') == 'true'
     return airtable.mark_schedule_supply_request(eid, missing).content
+
+@app.route("/instructor/class/volunteer", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
+def instructor_class_volunteer():
+    eid = request.form.get('eid')
+    v = request.form.get('volunteer') == 'true'
+    return airtable.mark_schedule_volunteer(eid, v).content
 
 @app.route("/onboarding")
 @require_login_role(Role.ONBOARDING)

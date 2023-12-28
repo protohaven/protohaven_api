@@ -10,6 +10,12 @@
         margin: 5px;
         border: 1px gray solid;
       }
+      .schedule_class.unscheduled {
+        font-color: #333;
+      }
+      .schedule_class.scheduled {
+        background-color: #EEEEFF;
+      }
       #schedule {
         min-width: 600px;
       }
@@ -35,9 +41,10 @@
       </thead>
       <tbody>
       {% for id, event in schedule %}
-      <tr id="{{id}}" class="schedule_class">
+      <tr id="{{id}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}">
           <td>
             <div>{{event['Name (from Class)'][0]}}</div>
+            <div><strong>{{ 'Published' if event['Neon ID'] else 'Not Yet Scheduled' }}</strong></div>
             <div>{{event['Capacity (from Class)'][0]}} Seats</div>
             <ul>
               {% for d in event['Dates'] %}
@@ -57,19 +64,35 @@
             </div>
           </td>
           <td>
+            {% if event['Neon ID'] %}
             <div>{{ event['attendees']|length }} attendee(s):</div>
             <ul>
               {% for a in event['attendees'] %}
               <li>{{ a['firstName'] }} {{ a['lastName'] }} ({{a['attendeeId']}}) {{ a['registrationStatus'] }} on {{ a['registrationDate'] }}</li>
               {% endfor %}
             </ul>
+            {% endif %}
           </td>
           <td>
             <div>{{ event['Supply State']}}</div>
-            {% if event['Supply State'] != 'Supplies Requested' %}
+            {% if event['Supply State'] != 'Supplies Requested' and event['Neon ID'] %}
+            <div>
               <button class="supply_req">Supplies needed</button>
-            {% elif event['Supply State'] != 'Supplies Confirmed' %}
+            </div>
+            {% endif %}
+            {% if event['Supply State'] != 'Supplies Confirmed' and event['Neon ID'] %}
+            <div>
               <button class="supply_conf">Supplies OK</button>
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if event['Volunteer'] %}
+            <div>Volunteer (no pay)</div>
+            <button class="pay_on">Switch to Paid</button>
+            {% else %}
+            <div>Paid instruction</div>
+            <button class="pay_off">Volunteer</button>
             {% endif %}
           </td>
           <td>
@@ -97,8 +120,12 @@
             });
           } else if (cls === 'log_submit') {
             window.location = e.target.getAttribute('href');
-          } else if (cls === 'supply_req' || cls == 'supply_conf') {
+          } else if (cls === 'supply_req' || cls === 'supply_conf') {
             $.post("/instructor/class/supply_req", {eid, missing: cls === 'supply_req'}).then(function(data) {
+                  location.reload();
+            });
+          } else if (cls === 'pay_on' || cls === 'pay_off') {
+            $.post("/instructor/class/volunteer", {eid, volunteer: cls === 'pay_off'}).then(function(data) {
                   location.reload();
             });
           }

@@ -83,6 +83,9 @@ def respond_class_automation_schedule(eid, pub):
 def mark_schedule_supply_request(eid, missing):
     return update_record({'Supply State': 'Supplies Requested' if missing else 'Supplies Confirmed'}, 'class_automation', 'schedule', eid)
 
+def mark_schedule_volunteer(eid, volunteer):
+    return update_record({'Volunteer': volunteer}, 'class_automation', 'schedule', eid)
+
 def get_tools():
     return get_all_records('tools_and_equipment', 'tools')
 
