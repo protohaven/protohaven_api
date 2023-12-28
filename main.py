@@ -51,6 +51,9 @@ def require_login(fn):
 def require_login_role(role):
     def fn_setup(fn):
         def do_role_check(*args, **kwargs):
+            if session is None:
+                session['redirect_to_login_url'] = request.url
+                return redirect(url_for(login_user_neon_oauth.__name__))
             acct = session.get('neon_account', {}).get('individualAccount')
             if acct is None:
                 session['redirect_to_login_url'] = request.url
