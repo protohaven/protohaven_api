@@ -200,7 +200,7 @@ def instructor_class():
                 class_name=e['Name (from Class)'][0],
                 pass_emails=e['attendees_for_log'], 
                 clearances=e['Form Name (from Clearance) (from Class)'],
-                volunteer=e['Volunteer'],
+                volunteer=e.get('Volunteer', False),
                 event_id=e['Neon ID'])
 
         for dateField in ('Confirmed', 'Instructor Log Date'):
