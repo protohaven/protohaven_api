@@ -156,6 +156,46 @@ def project_request_alerts():
         print(content)
     print("done")
 
+def purchase_request_alerts():
+    content = "**Open Purchase Requests Report:**"
+    sections = defaultdict(list)
+    counts = defaultdict(int)
+    now = datetime.datetime.now().astimezone()
+    thresholds = dict(low_pri=7, high_pri=2, class_supply=3, on_hold=30, unknown=0)
+    headers = dict(low_pri="Low Priority", high_pri="High Priority", class_supply="Class Supplies", on_hold="On Hold", unknown="Unknown/Unparsed Tasks")
+    def format(t):
+        if (t['modified_at'] - t['created_at']).days > 1:
+            dt = (now - t['modified_at']).days
+            dstr = f"modified {dt}d ago"
+        else:
+            dt = (now - t['created_at']).days
+            dstr = f"created {dt}d ago"
+        return (f"- {t['name']} ({dstr})", dt)
+    for t in tasks.get_open_purchase_requests():
+        counts[t['category']] += 1
+        thresh = now - datetime.timedelta(days=thresholds[t['category']])
+        if t['created_at'] < thresh and t['modified_at'] < thresh:
+            sections[t['category']].append(format(t))
+
+    # Sort oldest to youngest, by section
+    for k,v in sections.items():
+        v.sort(key=lambda t: -t[1])
+        sections[k] = [t[0] for t in v]
+
+    section_added = False
+    for k in ("high_pri", "class_supply", "low_pri", "on_hold", "unknown"):    
+        if len(sections[k]) > 0:
+            section_added = True
+            content += f"\n\n{headers[k]} ({counts[k]} total open; showing only tasks older than {thresholds[k]} days):\n"
+            content += "\n".join(sections[k])
+
+    if not section_added:
+        content += "\nAll caught up. Nice."
+
+    print(content)
+    comms.send_board_message(content)
+    print("Done")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -170,3 +210,5 @@ if __name__ == "__main__":
         validate_tool_documentation()
     elif args.command == "project_requests":
         project_request_alerts()
+    elif args.command == "purchase_requests":
+        purchase_request_alerts()

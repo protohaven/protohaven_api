@@ -26,6 +26,11 @@ def send_help_wanted(content):
     result = requests.post(cfg['help_wanted'], json=dict(content=content))
     result.raise_for_status()
 
+def send_board_message(content):
+    result = requests.post(cfg['board_private'], json=dict(content=content))
+    result.raise_for_status()
+
+
 if __name__ == "__main__":
     subject = "Test Email"
     body = "This is the body of the text message"
