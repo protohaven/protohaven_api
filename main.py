@@ -48,24 +48,31 @@ def require_login(fn):
     do_login_check.__name__ = fn.__name__
     return do_login_check 
 
+def get_roles():
+    neon_acct = session.get('neon_account')
+    if neon_acct is None:
+        return None
+    acct = neon_acct.get('individualAccount') or neon_acct.get('companyAccount')
+    if acct is None:
+        return None
+
+    result = []
+    for cf in acct.get('accountCustomFields', []):
+        if cf['name'] == 'API server role':
+            for ov in cf['optionValues']:
+                result.append(ov.get('name'))
+            break
+    return result
+
 def require_login_role(role):
     def fn_setup(fn):
         def do_role_check(*args, **kwargs):
-            neon_acct = session.get('neon_account')
-            if neon_acct is None:
+            roles = get_roles()
+            if roles is None:
                 session['redirect_to_login_url'] = request.url
                 return redirect(url_for(login_user_neon_oauth.__name__))
-            
-            acct = neon_acct.get('individualAccount') or neon_acct.get('companyAccount')
-            if acct is None:
-                session['redirect_to_login_url'] = request.url
-                return redirect(url_for(login_user_neon_oauth.__name__))
-
-            for cf in acct.get('accountCustomFields', []):
-                if cf['name'] == 'API server role':
-                    for ov in cf['optionValues']:
-                        if role['name'] == ov.get('name'):
-                            return fn(*args, **kwargs)
+            elif role['name'] in roles:
+                return fn(*args, **kwargs)
             return "Access Denied"
         do_role_check.__name__ = fn.__name__
         return do_role_check
@@ -171,7 +178,13 @@ def neon_oauth_redirect():
 @app.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class():
-    email = user_email()
+    email = request.args.get('email')
+    if email is not None:
+        roles = get_roles()
+        if roles is None or Role.ADMIN['name'] not in roles:
+            return "Not Authorized"
+    else:
+        email = user_email()
     sched = [[s['id'], s['fields']] for s in airtable.get_class_automation_schedule() if s['fields']['Email'] == email]
     sched.sort(key=lambda s: s[1]['Start Time'])
     tz = pytz.timezone("US/Eastern")
@@ -183,13 +196,13 @@ def instructor_class():
             e['attendees_for_log'] = []
             e['attendees'] = neon.fetch_attendees(e['Neon ID'])
             for a in e['attendees']:
-                email = "unknown email"
+                aemail = "unknown email"
                 if a['accountId']:
                     acc = neon.fetch_account(a['accountId'])
                     if acc is not None:
-                        email = acc.get('individualAccount', 
+                        aemail = acc.get('individualAccount', 
                                 acc.get('companyAccount'))['primaryContact']['email1'] 
-                    e['attendees_for_log'].append(f"{a['firstName']} {a['lastName']} ({email})")
+                    e['attendees_for_log'].append(f"{a['firstName']} {a['lastName']} ({aemail})")
                 time.sleep(0.22) # API limits fetching to 5 per second
 
             print(f"Attendees for {e['Name (from Class)'][0]}:", e['attendees'])
@@ -210,7 +223,10 @@ def instructor_class():
         for i in range(e['Days (from Class)'][0]):
             e['Dates'].append(date.strftime("%A %b %-d, %-I%p"))
             date += datetime.timedelta(days=7)
-    return render_template("instructor_class.html", schedule=sched)
+    return render_template("instructor_class.html", 
+            schedule=sched,
+            now=datetime.datetime.now(),
+            email=email)
 
 @app.route("/instructor/class/update", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)

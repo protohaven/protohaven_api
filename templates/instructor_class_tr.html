@@ -1,0 +1,69 @@
+<tr id="{{id}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}">
+		<td>
+			<div>{{event['Name (from Class)'][0]}}</div>
+			<div><strong>{{ 'Published' if event['Neon ID'] else 'Not Yet Scheduled' }}</strong></div>
+			<div>{{event['Capacity (from Class)'][0]}} Seats</div>
+			<ul>
+				{% for d in event['Dates'] %}
+				<li>{{d}}</li>
+				{% endfor %}
+			</ul>
+
+			<div class="status">
+				{% if event['Confirmed'] %}
+					Confirmed available on {{event['Confirmed'].strftime('%Y-%m-%d')}} 
+					{% if not event['Neon ID'] %}
+					<button class="unpublish">Mark unavailable</button>
+					{% endif %}
+				{% else %}
+					<button class="publish">Confirm available</button>
+				{% endif %}
+			</div>
+		</td>
+		<td>
+			{% if event['Neon ID'] %}
+			<div>{{ event['attendees']|length }} attendee(s):</div>
+			<ul>
+				{% for a in event['attendees'] %}
+				<li>{{ a['firstName'] }} {{ a['lastName'] }} ({{a['attendeeId']}}) {{ a['registrationStatus'] }} on {{ a['registrationDate'] }}</li>
+				{% endfor %}
+			</ul>
+			{% endif %}
+		</td>
+		<td>
+			<div><strong>Current state:</strong></div>			
+			<div>{{ event['Supply State']}}</div>
+			<br/>
+			<div><strong>Actions:</strong></div>
+			{% if event['Supply State'] != 'Supplies Requested' and event['Neon ID'] %}
+			<div>
+				<button class="supply_req">Supplies needed</button>
+			</div>
+			{% endif %}
+			{% if event['Supply State'] != 'Supplies Confirmed' and event['Neon ID'] %}
+			<div>
+				<button class="supply_conf">Supplies OK</button>
+			</div>
+			{% endif %}
+			<a href="https://form.asana.com/?k=B1nhetIpeWN_rTEFNQPVbA&d=1199692158232291" target="_blank">New Request</a>
+		</td>
+		<td>
+			{% if event['Volunteer'] %}
+			<div><strong>Current state:</strong></div>			
+			<div>Volunteer (no pay)</div>
+			<br/>
+			<div><strong>Actions:</strong></div>
+			<button class="pay_on">Switch to Paid</button>
+			{% else %}
+			<div>Paid instruction</div>
+			<button class="pay_off">Volunteer</button>
+			{% endif %}
+		</td>
+		<td>
+			{% if event['Instructor Log Date'] %}
+				{{event['Instructor Log Date'].strftime('%Y-%m-%d')}}
+			{% elif event['Confirmed'] %}
+			<button class="log_submit" href="{{event['prefill']}}">Submit Log</button>
+			{% endif %} 
+		</td>
+</tr>

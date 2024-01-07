@@ -23,6 +23,7 @@
         padding: 5px;
         margin: 5px;
         border: 1px gray solid;
+				vertical-align: top;
       }
       #schedule th {
         padding: 25px;
@@ -30,80 +31,43 @@
     </style>
   </head>
   <body>
+    <h2>Instructor Dashboard</h2>
+    <p>Showing events for instructor email {{email}}</p>
+    <p>It's currently {{now.strftime('%A %b %-d, %-I%p')}}</p>
+		<h2>Scheduled classes:</h2>
     <table id="schedule">
       <thead>
         <tr>
           <th>Class</th>
           <th>Registrants</th>
           <th>Supply State</th>
+					<th>Pay Type</th>
           <th>Instructor Log</th>
         </tr>
       </thead>
       <tbody>
       {% for id, event in schedule %}
-      <tr id="{{id}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}">
-          <td>
-            <div>{{event['Name (from Class)'][0]}}</div>
-            <div><strong>{{ 'Published' if event['Neon ID'] else 'Not Yet Scheduled' }}</strong></div>
-            <div>{{event['Capacity (from Class)'][0]}} Seats</div>
-            <ul>
-              {% for d in event['Dates'] %}
-              <li>{{d}}</li>
-              {% endfor %}
-            </ul>
-
-            <div class="status">
-              {% if event['Confirmed'] %}
-                Confirmed available on {{event['Confirmed'].strftime('%Y-%m-%d')}} 
-                {% if not event['Neon ID'] %}
-                <button class="unpublish">Mark unavailable</button>
-                {% endif %}
-              {% else %}
-                <button class="publish">Confirm available</button>
-              {% endif %}
-            </div>
-          </td>
-          <td>
-            {% if event['Neon ID'] %}
-            <div>{{ event['attendees']|length }} attendee(s):</div>
-            <ul>
-              {% for a in event['attendees'] %}
-              <li>{{ a['firstName'] }} {{ a['lastName'] }} ({{a['attendeeId']}}) {{ a['registrationStatus'] }} on {{ a['registrationDate'] }}</li>
-              {% endfor %}
-            </ul>
-            {% endif %}
-          </td>
-          <td>
-            <div>{{ event['Supply State']}}</div>
-            {% if event['Supply State'] != 'Supplies Requested' and event['Neon ID'] %}
-            <div>
-              <button class="supply_req">Supplies needed</button>
-            </div>
-            <a href="https://form.asana.com/?k=B1nhetIpeWN_rTEFNQPVbA&d=1199692158232291" target="_blank">New Request</a>
-            {% endif %}
-            {% if event['Supply State'] != 'Supplies Confirmed' and event['Neon ID'] %}
-            <div>
-              <button class="supply_conf">Supplies OK</button>
-            </div>
-            {% endif %}
-          </td>
-          <td>
-            {% if event['Volunteer'] %}
-            <div>Volunteer (no pay)</div>
-            <button class="pay_on">Switch to Paid</button>
-            {% else %}
-            <div>Paid instruction</div>
-            <button class="pay_off">Volunteer</button>
-            {% endif %}
-          </td>
-          <td>
-            {% if event['Instructor Log Date'] %}
-              {{event['Instructor Log Date'].strftime('%Y-%m-%d')}}
-            {% elif event['Confirmed'] %}
-            <button class="log_submit" href="{{event['prefill']}}">Submit Log</button>
-            {% endif %} 
-          </td>
-      </tr>
+				{% if event['Confirmed'] %}
+					{% include "instructor_class_tr.html" %}
+				{% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+		<h2>Proposed classes:</h2>
+    <table id="schedule">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Registrants</th>
+          <th>Supply State</th>
+          <th>Pay Type</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for id, event in schedule %}
+				{% if not event['Confirmed'] %}
+					{% include "instructor_class_tr.html" %}
+				{% endif %}
       {% endfor %}
       </tbody>
     </table>
