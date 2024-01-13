@@ -189,7 +189,7 @@ def user_clearances():
     for e in emails:
         m = neon.search_member(e)
         if m is None:
-            results[m] = "NotFound"
+            results[e] = "NotFound"
             continue
         neon_id = m['Account ID']
 
