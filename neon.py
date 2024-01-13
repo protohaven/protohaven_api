@@ -72,7 +72,12 @@ def get_user_clearances(account_id):
     acc = fetch_account(account_id)
     if acc is None:
         raise Exception("Account not found")
-    custom = acc.get('individualAccount', acc.get('companyAccount')).get('accountCustomFields', [])
+    custom = acc.get('individualAccount')
+    if custom is None:
+        custom = acc.get('companyAccount')
+    if custom is None:
+        return []
+    custom = custom.get('accountCustomFields', [])
     for cf in custom:
         if cf['name'] == 'Clearances':
             return [id_to_code.get(v['id']) for v in cf['optionValues']]
