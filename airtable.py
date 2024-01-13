@@ -89,6 +89,29 @@ def mark_schedule_volunteer(eid, volunteer):
 def get_tools():
     return get_all_records('tools_and_equipment', 'tools')
 
+@cache
+def get_clearance_to_tool_map():
+    airtable_clearances = get_all_records('tools_and_equipment','clearances')
+    airtable_tools = get_all_records('tools_and_equipment', 'tools')
+    airtable_tool_codes = set([t['fields']['Tool Code'] for t in airtable_tools])
+    tool_code_by_id = dict([(t['id'], t['fields']['Tool Code']) for t in airtable_tools])
+    clearance_to_tool = dict()
+    for c in airtable_clearances:
+      cc = c['fields'].get('Clearance Code')
+      if cc is None:
+        print(f"Skipping (missing clearance code): '{c['fields'].get('Name')}'")
+        continue
+      ctt = set()
+      for tool_id in c['fields'].get('Tool Records', []):
+        ct = tool_code_by_id.get(tool_id)
+        # print(cc, tool_id, '->', ct)
+        if ct is None:
+          print("Skipping (missing code)")
+          continue
+        else:
+          ctt.add(ct)
+      clearance_to_tool[cc] = ctt
+    return clearance_to_tool
 
 if __name__ == "__main__":
   print(get_all_records(Tables.CLEARANCES))

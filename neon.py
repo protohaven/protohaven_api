@@ -64,6 +64,18 @@ def fetch_clearance_codes():
   assert(resp.status == 200)
   return json.loads(content)['optionValues']
 
+def get_user_clearances(account_id):
+    # TODO cache
+    id_to_code = dict([(c['id'], c['code']) for c in fetch_clearance_codes()])
+    acc = fetch_account(account_id)
+    if acc is None:
+        raise Exception("Account not found")
+    custom = acc.get('individualAccount', acc.get('companyAccount'))['accountCustomFields'] 
+    for cf in custom:
+        if cf['name'] == 'Clearances':
+            return [id_to_code.get(v['id']) for v in cf['optionValues']]
+    return []
+
 def set_clearance_codes(codes):
   #ids = [code_mapping[c]['id'] for c in codes]
   data = {
@@ -103,13 +115,14 @@ def set_discord_user(user_id, discord_user:str):
     return set_custom_field(user_id, dict(id=CUSTOM_FIELD_DISCORD_USER, value=discord_user))
 
 def set_clearances(user_id, codes):
-  #ids = [code_mapping[c]['id'] for c in codes]
+  code_to_id = dict([(c['code'], c['id']) for c in fetch_clearance_codes()])
+  ids = [code_to_id[c] for c in codes]
   data = {
     "individualAccount": {
       "accountCustomFields": [
         {
           "id": CUSTOM_FIELD_CLEARANCES,
-          "optionValues": [{"id": id} for id in codes]
+          "optionValues": [{"id": i} for i in ids]
         }
       ],
     }
@@ -120,6 +133,7 @@ def set_clearances(user_id, codes):
       f"{URL_BASE}/accounts/{user_id}", "PATCH",
       body=json.dumps(data), headers={'content-type':'application/json'})
   print("PATCH", resp.status, content)
+  return resp, content
 
 
 def fetch_account(account_id):

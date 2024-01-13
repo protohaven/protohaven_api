@@ -49,6 +49,11 @@ def require_login(fn):
     return do_login_check 
 
 def get_roles():
+    if "api_key" in request.values:
+        roles = cfg.get('external_access_codes').get(request.values.get('api_key'))
+        print("Request with API key - roles", roles)
+        return roles
+
     neon_acct = session.get('neon_account')
     if neon_acct is None:
         return None
@@ -174,6 +179,46 @@ def neon_oauth_redirect():
     print("Login referrer redirect:", referrer)
     return redirect(referrer)
 
+@app.route("/user/clearances", methods=['GET', 'PATCH', 'DELETE'])
+@require_login_role(Role.ADMIN)
+def user_clearances():
+    emails = [e.strip() for e in request.values.get('emails', "").split(",")]
+    if len(emails) == 0:
+        raise Exception("require param emails")
+    results = {}
+    for e in emails:
+        m = neon.search_member(e)
+        neon_id = m['Account ID']
+
+        codes = set(neon.get_user_clearances(neon_id))
+        if request.method == "GET":
+            results[e] = list(codes)
+            continue
+        
+        initial = [c.strip() for c in request.values.get('codes').split(',')]
+        if len(initial) == 0:
+            raise Exception("Require param codes")
+
+        # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP, GDD, MCS, MDP, SHP, SBG, VMB)
+        mapping = airtable.get_clearance_to_tool_map()
+        delta = []
+        for c in initial:
+            if c in mapping:
+                delta += list(mapping[c])
+            else:
+                delta.append(c)
+
+        if request.method == "PATCH":
+            codes.update(delta)
+        elif request.method == "DELETE":
+            codes -= set(delta)
+        print(email, codes)
+        rep, content = neon.set_clearances(neon_id, codes)
+        if rep.status != 200:
+            raise Exception(content)
+        else:
+            results[e] = "OK"
+    return results
 
 @app.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
@@ -345,6 +390,10 @@ def shop_tech_profile():
             interest = cf['value']
             break
     return render_template("shop_tech_profile.html", interest=interest)
+
+@app.route("/admin/user_clearances")
+def admin_user_clearances():
+    return render_template("admin_set_clearances.html")
 
 @app.route("/admin/set_discord_nick")
 @require_login_role(Role.ADMIN)
