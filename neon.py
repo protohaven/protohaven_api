@@ -124,16 +124,28 @@ def set_discord_user(user_id, discord_user:str):
 def set_clearances(user_id, codes):
   code_to_id = dict([(c['code'], c['id']) for c in fetch_clearance_codes()])
   ids = [code_to_id[c] for c in codes]
+
+  # Need to confirm whether the user is an individual or company account
+  m = fetch_account(user_id)
+  if m is None:
+      return None
+  
   data = {
-    "individualAccount": {
       "accountCustomFields": [
         {
           "id": CUSTOM_FIELD_CLEARANCES,
           "optionValues": [{"id": i} for i in ids]
         }
       ],
-    }
   }
+
+  if m.get('individualAccount'):
+      data = {"individualAccount": data}
+  elif m.get('companyAccount'):
+      data = {"companyAccount": data}
+  else:
+      raise Exception("Unknown account type for " + str(user_id))
+
   h = httplib2.Http(".cache")
   h.add_credentials(cfg['domain'], cfg['api_key2'])
   resp, content = h.request(
