@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from http.client import HTTPSConnection
+from functools import cache
 import httplib2
 import json
 import datetime
@@ -57,6 +58,7 @@ def fetch_attendees(event_id):
       raise Exception("TODO implement pagination for fetch_attendees()")
   return content['attendees'] or []
 
+@cache
 def fetch_clearance_codes():
   h = httplib2.Http(".cache")
   h.add_credentials(cfg['domain'], cfg['api_key1'])
@@ -70,7 +72,7 @@ def get_user_clearances(account_id):
     acc = fetch_account(account_id)
     if acc is None:
         raise Exception("Account not found")
-    custom = acc.get('individualAccount', acc.get('companyAccount'))['accountCustomFields'] 
+    custom = acc.get('individualAccount', acc.get('companyAccount')).get('accountCustomFields', [])
     for cf in custom:
         if cf['name'] == 'Clearances':
             return [id_to_code.get(v['id']) for v in cf['optionValues']]
