@@ -188,6 +188,9 @@ def user_clearances():
     results = {}
     for e in emails:
         m = neon.search_member(e)
+        if m is None:
+            results[m] = "NotFound"
+            continue
         neon_id = m['Account ID']
 
         codes = set(neon.get_user_clearances(neon_id))
@@ -212,7 +215,7 @@ def user_clearances():
             codes.update(delta)
         elif request.method == "DELETE":
             codes -= set(delta)
-        print(email, codes)
+        print(e, codes)
         rep, content = neon.set_clearances(neon_id, codes)
         if rep.status != 200:
             raise Exception(content)
