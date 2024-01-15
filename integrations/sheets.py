@@ -1,3 +1,4 @@
+"""Read from google spreadsheets"""
 import os.path
 
 from dateutil import parser as dateparser
@@ -7,7 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from config import get_config
+from config import get_config  # pylint: disable=import-error
 
 # If modifying these scopes, delete the file token.json.
 
@@ -35,7 +36,7 @@ def get_sheet_range(sheet_id, range_name):
             )
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open("token.json", "w") as token:
+        with open("token.json", "w", encoding="utf-8") as token:
             token.write(creds.to_json())
 
     service = build("sheets", "v4", credentials=creds)
@@ -46,11 +47,12 @@ def get_sheet_range(sheet_id, range_name):
     values = result.get("values", [])
 
     if not values:
-        raise Exception("No data found")
+        raise RuntimeError("No data found")
     return values
 
 
 def get_instructor_submissions(from_row):
+    """Get log submissions from instructors"""
     headers = get_sheet_range(cfg["instructor_hours"], "Form Responses 1!A1:M")[0]
     for row in get_sheet_range(cfg["instructor_hours"], "Form Responses 1!A800:M"):
         data = dict(zip(headers, row))

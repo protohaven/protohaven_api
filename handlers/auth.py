@@ -1,16 +1,26 @@
-from flask import Blueprint, redirect, request, session, url_for
+"""User auth handlers for login/logout and metadata"""
+from flask import (  # pylint: disable=import-error
+    Blueprint,
+    redirect,
+    request,
+    session,
+    url_for,
+)
 
 import oauth
+from integrations import neon
 
 page = Blueprint("auth", __name__, template_folder="templates")
 
 
 def user_email():
+    """Get the logged in user's email"""
     acct = session.get("neon_account")["individualAccount"]
     return acct["primaryContact"]["email1"]
 
 
 def user_fullname():
+    """Get the logged in user's full name"""
     acct = session.get("neon_account")["individualAccount"]
     return (
         acct["primaryContact"]["firstName"] + " " + acct["primaryContact"]["lastName"]
@@ -19,6 +29,7 @@ def user_fullname():
 
 @page.route("/login")
 def login_user_neon_oauth():
+    """Redirect to Neon CRM oauth server"""
     referrer = request.referrer
     if referrer is None:
         referrer = session.get("redirect_to_login_url")
@@ -33,6 +44,7 @@ def login_user_neon_oauth():
 
 @page.route("/logout")
 def logout():
+    """Log out the curernt user and destroy the session data"""
     session["neon_id"] = None
     session["neon_account"] = None
     return "You've been logged out"
@@ -40,6 +52,7 @@ def logout():
 
 @page.route("/oauth_redirect")
 def neon_oauth_redirect():
+    """Redirect back to the page the user came from for login"""
     code = request.args.get("code")
     rep = oauth.retrieve_token(url_for(neon_oauth_redirect.__name__), code)
     session["neon_id"] = rep.get("access_token")

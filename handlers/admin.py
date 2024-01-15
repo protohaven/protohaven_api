@@ -1,6 +1,10 @@
-from flask import Blueprint, render_template, request
+"""Administrative pages and endpoints"""
 
-from integrations import airtable, neon
+import asyncio
+
+from flask import Blueprint, render_template, request  # pylint: disable=import-error
+
+from integrations import airtable, discord_bot, neon
 from rbac import Role, require_login_role
 
 page = Blueprint("admin", __name__, template_folder="templates")
@@ -9,9 +13,10 @@ page = Blueprint("admin", __name__, template_folder="templates")
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.ADMIN)
 def user_clearances():
+    """CRUD operations for member clearances"""
     emails = [e.strip() for e in request.values.get("emails", "").split(",")]
     if len(emails) == 0:
-        raise Exception("require param emails")
+        raise RuntimeError("require param emails")
     results = {}
     for e in emails:
         m = neon.search_member(e)
@@ -27,9 +32,9 @@ def user_clearances():
 
         initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
-            raise Exception("Require param codes")
+            raise RuntimeError("Require param codes")
 
-        # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP, GDD, MCS, MDP, SHP, SBG, VMB)
+        # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP...)
         mapping = airtable.get_clearance_to_tool_map()
         delta = []
         for c in initial:
@@ -45,20 +50,21 @@ def user_clearances():
         print(e, codes)
         rep, content = neon.set_clearances(neon_id, codes)
         if rep.status != 200:
-            raise Exception(content)
-        else:
-            results[e] = "OK"
+            raise RuntimeError(content)
+        results[e] = "OK"
     return results
 
 
 @page.route("/admin/user_clearances")
 def admin_user_clearances():
+    """Admin page for managing user clearances"""
     return render_template("admin_set_clearances.html")
 
 
 @page.route("/admin/set_discord_nick")
 @require_login_role(Role.ADMIN)
 def set_discord_nick():
+    """Set the nickname of a particular discord user"""
     name = request.args.get("name")
     nick = request.args.get("nick")
     if name == "" or nick == "":
@@ -68,7 +74,6 @@ def set_discord_nick():
         client.set_nickname(name, nick), client.loop
     ).result()
     print(result)
-    if result == False:
+    if result is False:
         return f"Member '{name}' not found"
-    else:
-        return f"Member '{name}' now nicknamed '{nick}'"
+    return f"Member '{name}' now nicknamed '{nick}'"

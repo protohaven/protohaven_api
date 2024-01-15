@@ -1,35 +1,42 @@
-import discord
+"""A bot for monitoring the Protohaven server and performing automated activities"""
+import discord  # pylint: disable=import-error
 
 from config import get_config
 
 
 class PHClient(discord.Client):
+    """A discord bot that handles non-webhook tasks on the Protohaven discord server"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.role_map = {}
 
     @property
     def guild(self):
+        """Fetches the guild name for the Protohaven server"""
         guild = self.get_guild(cfg["guild_id"])
         if guild is None:
-            raise Exception(f"Guild {cfg['guild_id']} not found")
+            raise RuntimeError(f"Guild {cfg['guild_id']} not found")
         return guild
 
     @property
     def onboarding_channel(self):
+        """Returns the onboarding channel ID"""
         chan = self.guild.get_channel(cfg["onboarding_channel_id"])
         if chan is None:
-            raise Exception(f"Channel {cfg['onboarding_channel_id']} not found")
+            raise RuntimeError(f"Channel {cfg['onboarding_channel_id']} not found")
         return chan
 
     async def on_ready(self):
+        """Runs when the bot is connected and ready to go"""
         print(f"We have logged in as {self.user}")
         # role = guild.get_role(role_id)
-        self.role_map = {}
         for r in self.guild.roles:
             self.role_map[r.name] = r
         print("Roles:", self.role_map)
 
     async def set_nickname(self, name, nickname):
+        """Set the nickname of a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
             print("set_nickname: failed to find", name)
@@ -42,6 +49,7 @@ class PHClient(discord.Client):
             return str(e)
 
     async def grant_role(self, name, role_name):
+        """Grants a role (e.g. "Members") to a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
             print("Member", name, "not found")
@@ -50,14 +58,13 @@ class PHClient(discord.Client):
         print("Adding role", role_name, "to", name)
         try:
             await mem.add_roles(self.role_map[role_name])
-            # await self.onboarding_channel.send(content=f"Added Members role to user {name}")
             return True
         except discord.HTTPException as e:
-            # await self.onboarding_channel.send(content=f"Error adding Members role to user {name}: {str(e)}")
             print(str(e))
             return str(e)
 
     async def on_message(self, msg):
+        """Runs on every message"""
         if msg.author == client.user:
             return
         if isinstance(msg.channel, discord.DMChannel):
@@ -82,12 +89,13 @@ client = PHClient(intents=intents)
 
 
 def run():
-    global client
+    """Run the bot"""
     print("Initializing discord bot")
     client.run(cfg["token"])
 
 
 def get_client():
+    """Fetches the bot instance"""
     return client
 
 

@@ -1,17 +1,14 @@
-#!/usr/bin/env python
-import datetime
+""" Neon CRM integration methods"""
 import json
 import time
 import urllib
 from functools import cache
-from http.client import HTTPSConnection
 
 import httplib2
 import requests
-import yaml
 from bs4 import BeautifulSoup
 
-from config import get_config
+from config import get_config  # pylint: disable=import-error
 
 cfg = get_config()["neon"]
 TEST_MEMBER = 1727
@@ -23,7 +20,7 @@ URL_BASE = "https://api.neoncrm.com/v2"
 
 
 def fetch_events(after=None, before=None, published=True):
-    # Load events from Neon CRM
+    """Load events from Neon CRM"""
     q_params = {"publishedEvent": published}
     if after is not None:
         q_params["startDateAfter"] = after.strftime("%Y-%m-%d")
@@ -33,41 +30,42 @@ def fetch_events(after=None, before=None, published=True):
     encoded_params = urllib.parse.urlencode(q_params)
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key1"])
-    resp, content = h.request(
-        "https://api.neoncrm.com/v2/events?" + encoded_params, "GET"
-    )
+    _, content = h.request("https://api.neoncrm.com/v2/events?" + encoded_params, "GET")
     content = json.loads(content)
-    if type(content) is list:
-        raise Exception(content)
+    if isinstance(content, list):
+        raise RuntimeError(content)
     return content["events"]
 
 
 def fetch_event(event_id):
+    """Fetch data on an individual (legacy) event in Neon"""
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key1"])
     resp, content = h.request(f"https://api.neoncrm.com/v2/events/{event_id}")
     if resp.status != 200:
-        raise Exception(f"fetch_event({event_id}) {resp.status}: {content}")
+        raise RuntimeError(f"fetch_event({event_id}) {resp.status}: {content}")
     return json.loads(content)
 
 
 def fetch_attendees(event_id):
+    """Fetch attendee data on an individual (legacy) event in Neon"""
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key1"])
     resp, content = h.request(f"https://api.neoncrm.com/v2/events/{event_id}/attendees")
     if resp.status != 200:
-        raise Exception(f"fetch_attendees({event_id}) {resp.status}: {content}")
+        raise RuntimeError(f"fetch_attendees({event_id}) {resp.status}: {content}")
     content = json.loads(content)
 
-    if type(content) is list:
-        raise Exception(content)
+    if isinstance(content, list):
+        raise RuntimeError(content)
     if content["pagination"]["totalPages"] > 1:
-        raise Exception("TODO implement pagination for fetch_attendees()")
+        raise RuntimeError("TODO implement pagination for fetch_attendees()")
     return content["attendees"] or []
 
 
 @cache
 def fetch_clearance_codes():
+    """Fetch all the possible clearance codes that can be used in Neon"""
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key1"])
     resp, content = h.request(
@@ -78,11 +76,12 @@ def fetch_clearance_codes():
 
 
 def get_user_clearances(account_id):
-    # TODO cache
-    id_to_code = dict([(c["id"], c["code"]) for c in fetch_clearance_codes()])
+    """Fetch clearances for an individual user in Neon"""
+    # Should probably cache this a bit
+    id_to_code = {c["id"]: c["code"] for c in fetch_clearance_codes()}
     acc = fetch_account(account_id)
     if acc is None:
-        raise Exception("Account not found")
+        raise RuntimeError("Account not found")
     custom = acc.get("individualAccount")
     if custom is None:
         custom = acc.get("companyAccount")
@@ -96,6 +95,10 @@ def get_user_clearances(account_id):
 
 
 def set_clearance_codes(codes):
+    """Set all the possible clearance codes that can be used in Neon
+    DANGER: Get clearance codes and extend that list, otherwise
+    you risk losing clearance data for users.
+    """
     # ids = [code_mapping[c]['id'] for c in codes]
     data = {
         "groupId": GROUP_ID_CLEARANCES,
@@ -118,6 +121,7 @@ def set_clearance_codes(codes):
 
 
 def set_custom_field(user_id, data):
+    """Set any custom field for a user in Neon"""
     data = {
         "individualAccount": {
             "accountCustomFields": [data],
@@ -135,17 +139,20 @@ def set_custom_field(user_id, data):
 
 
 def set_interest(user_id, interest: str):
-    return set_custom_field(user_id, dict(id=CUSTOM_FIELD_INTEREST, value=interest))
+    """Assign interest to user custom field"""
+    return set_custom_field(user_id, {"id": CUSTOM_FIELD_INTEREST, "value": interest})
 
 
 def set_discord_user(user_id, discord_user: str):
+    """Sets the discord user used by this user"""
     return set_custom_field(
-        user_id, dict(id=CUSTOM_FIELD_DISCORD_USER, value=discord_user)
+        user_id, {"id": CUSTOM_FIELD_DISCORD_USER, "value": discord_user}
     )
 
 
 def set_clearances(user_id, codes):
-    code_to_id = dict([(c["code"], c["id"]) for c in fetch_clearance_codes()])
+    """Sets all clearances for a specific user - company or individual"""
+    code_to_id = {c["code"]: c["id"] for c in fetch_clearance_codes()}
     ids = [code_to_id[c] for c in codes]
 
     # Need to confirm whether the user is an individual or company account
@@ -164,7 +171,7 @@ def set_clearances(user_id, codes):
     elif m.get("companyAccount"):
         data = {"companyAccount": data}
     else:
-        raise Exception("Unknown account type for " + str(user_id))
+        raise RuntimeError("Unknown account type for " + str(user_id))
 
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key2"])
@@ -179,16 +186,18 @@ def set_clearances(user_id, codes):
 
 
 def fetch_account(account_id):
+    """Fetches account information for a specific user in Neon"""
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key1"])
-    resp, content = h.request(f"https://api.neoncrm.com/v2/accounts/{account_id}")
+    _, content = h.request(f"https://api.neoncrm.com/v2/accounts/{account_id}")
     content = json.loads(content)
-    if type(content) is list:
-        raise Exception(content)
+    if isinstance(content, list):
+        raise RuntimeError(content)
     return content
 
 
 def search_member_by_name(firstname, lastname):
+    """Lookup a user by first and last name"""
     data = {
         "searchFields": [
             {
@@ -220,14 +229,15 @@ def search_member_by_name(firstname, lastname):
         headers={"content-type": "application/json"},
     )
     if resp.status != 200:
-        raise Exception(f"Error {resp.status}: {content}")
+        raise RuntimeError(f"Error {resp.status}: {content}")
     content = json.loads(content)
     if content.get("searchResults") is None:
-        raise Exception(f"Search for {email} failed: {content}")
+        raise RuntimeError(f"Search for {firstname} {lastname} failed: {content}")
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
 
 def search_member(email):
+    """Lookup a user by their email"""
     data = {
         "searchFields": [
             {
@@ -259,14 +269,15 @@ def search_member(email):
         headers={"content-type": "application/json"},
     )
     if resp.status != 200:
-        raise Exception(f"Error {resp.status}: {content}")
+        raise RuntimeError(f"Error {resp.status}: {content}")
     content = json.loads(content)
     if content.get("searchResults") is None:
-        raise Exception(f"Search for {email} failed: {content}")
+        raise RuntimeError(f"Search for {email} failed: {content}")
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
 
-def getMembersWithRole(role, extra_fields):
+def get_members_with_role(role, extra_fields):
+    """Fetch all members with a specific assigned role (e.g. all shop techs)"""
     # Do we need to search email 2 and 3 as well?
     cur = 0
     data = {
@@ -284,7 +295,6 @@ def getMembersWithRole(role, extra_fields):
         },
     }
     total = 1
-    result = []
     h = httplib2.Http(".cache")
     h.add_credentials(cfg["domain"], cfg["api_key2"])
     while cur < total:
@@ -295,10 +305,10 @@ def getMembersWithRole(role, extra_fields):
             headers={"content-type": "application/json"},
         )
         if resp.status != 200:
-            raise Exception(f"Error {resp.status}: {content}")
+            raise RuntimeError(f"Error {resp.status}: {content}")
         content = json.loads(content)
         if content.get("searchResults") is None or content.get("pagination") is None:
-            raise Exception(f"Search for {email} failed: {content}")
+            raise RuntimeError(f"Search for {role} failed: {content}")
 
         # print(f"======= Page {cur} of {total} (size {len(content['searchResults'])}) =======")
         total = content["pagination"]["totalPages"]
@@ -310,15 +320,20 @@ def getMembersWithRole(role, extra_fields):
 
 
 class DuplicateRequestToken:
+    """A quick little emulator of the duplicat request token behavior on Neon's site"""
+
     def __init__(self):
         self.i = int(time.time())
 
     def get(self):
+        """Gets a new dupe token"""
         self.i += 1
         return self.i
 
 
 class NeonOne:
+    """Masquerade as a web user to perform various actions not available in the public API"""
+
     TYPE_MEMBERSHIP_DISCOUNT = 2
     TYPE_EVENT_DISCOUNT = 3
 
@@ -334,7 +349,7 @@ class NeonOne:
         # Submit login info to initial login page
         r = self.s.post(
             "https://app.neonsso.com/login",
-            data=dict(_token=csrf, email=user, password=passwd),
+            data={"_token": csrf, "email": user, "password": passwd},
         )
         assert r.status_code == 200
 
@@ -342,7 +357,7 @@ class NeonOne:
         r = self.s.get("https://app.neoncrm.com/np/ssoAuth")
         dec = r.content.decode("utf8")
         if "Mission Control Dashboard" not in dec:
-            raise Exception(dec)
+            raise RuntimeError(dec)
 
     def _get_csrf(self):
         rlogin = self.s.get("https://app.neonsso.com/login")
@@ -355,6 +370,7 @@ class NeonOne:
         return csrf
 
     def create_single_use_abs_event_discount(self, code, amt):
+        """Creates an absolute discount, usable once"""
         return self._post_discount(
             self.TYPE_EVENT_DISCOUNT, code=code, pct=False, amt=amt
         )
@@ -370,12 +386,15 @@ class NeonOne:
         max_uses=1,
     ):
         # We must appear to be coming from the specific discount settings page (Event or Membership)
-        referer = f"https://protohaven.app.neoncrm.com/np/admin/systemsetting/newCouponCodeDiscount.do?sellingItemType={typ}&discountType=1"
+        referer = (
+            "https://protohaven.app.neoncrm.com/np/admin/systemsetting/"
+            + f"newCouponCodeDiscount.do?sellingItemType={typ}&discountType=1"
+        )
         rg = self.s.get(referer)
         assert rg.status_code == 200
 
         # Must set referer so the server knows which "selling item type" this POST is for
-        self.s.headers.update(dict(Referer=rg.url))
+        self.s.headers.update({"Referer": rg.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -413,7 +432,7 @@ class NeonOne:
         print(r.headers)
 
         if not "discountList.do" in r.headers.get("Location", ""):
-            raise Exception(
+            raise RuntimeError(
                 "Failed to land on appropriate page - wanted discountList.do, got "
                 + r.headers.get("Location", "")
             )
@@ -421,5 +440,6 @@ class NeonOne:
 
 
 def create_coupon_code(code, amt):
+    """Creates a coupon code for a specific absolute amount"""
     n = NeonOne(cfg["login_user"], cfg["login_pass"])
     return n.create_single_use_abs_event_discount(code, amt)

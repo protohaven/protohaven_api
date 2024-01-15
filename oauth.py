@@ -1,4 +1,5 @@
-# from oauthlib.oauth2 import WebApplicationClient
+"""OAuth integration with Neon CRM"""
+
 import urllib.parse
 
 import requests
@@ -12,23 +13,29 @@ client_secret = cfg["oauth_client_secret"]
 
 
 def prep_request(redirect_uri):
+    """Prepare an oauth URI"""
     redirect_uri = urllib.parse.quote_plus(
         redirect_uri.replace("localhost", "127.0.0.1")
     )
 
-    return f"https://protohaven.app.neoncrm.com/np/oauth/auth?response_type=code&client_id={client_id}&redirect_uri={redirect_uri}"
+    return (
+        "https://protohaven.app.neoncrm.com/np/oauth/auth?"
+        + f"response_type=code&client_id={client_id}&redirect_uri={redirect_uri}"
+    )
 
 
 def retrieve_token(redirect_uri, authorization_code):
+    """Get the user token (i.e. the user's account_id) after a successful OAuth"""
     rep = requests.post(
         "https://app.neoncrm.com/np/oauth/token",
-        data=dict(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            code=authorization_code,
-            grant_type="authorization_code",
-        ),
+        data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "code": authorization_code,
+            "grant_type": "authorization_code",
+        },
+        timeout=5.0,
     )
     rep.raise_for_status()
     return rep.json()
@@ -37,8 +44,8 @@ def retrieve_token(redirect_uri, authorization_code):
 if __name__ == "__main__":
     # Note: this just proves user identity - need to track session and
     # carefully consider permissions when deciding what data to return to them.
-    url = "foo.bar/asdf"
-    print(prep_request(url))
+    URL = "foo.bar/asdf"
+    print(prep_request(URL))
     code = input("Enter your code:")
-    rep = retrieve_token(url, code)
-    print(rep)
+    tkn = retrieve_token(URL, code)
+    print(tkn)

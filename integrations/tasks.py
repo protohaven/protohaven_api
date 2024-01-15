@@ -1,4 +1,6 @@
-import asana
+"""Asana task integration methods"""
+
+import asana  # pylint: disable=import-error
 from dateutil import parser as dateparser
 
 from config import get_config
@@ -9,10 +11,12 @@ client = asana.Client.access_token(cfg["token"])
 
 
 def get_all_projects():
+    """Get all projects in the Protohaven workspace"""
     return client.projects.get_projects_for_workspace(cfg["gid"], {}, opt_pretty=True)
 
 
 def get_tech_tasks():
+    """Get tasks assigned to techs"""
     # https://developers.asana.com/reference/gettasksforproject
     return client.tasks.get_tasks_for_project(
         cfg["techs_project"],
@@ -23,12 +27,12 @@ def get_tech_tasks():
                 "custom_fields.number_value",
                 "custom_fields.text_value",
             ],
-            "limit": 10,  # TODO remove
         },
     )
 
 
 def get_project_requests():
+    """Get project requests submitted by members & nonmembers"""
     # https://developers.asana.com/reference/gettasksforproject
     return client.tasks.get_tasks_for_project(
         cfg["project_requests"],
@@ -39,10 +43,12 @@ def get_project_requests():
 
 
 def get_open_purchase_requests():
+    """Get purchase requests made by techs & instructors"""
+
     # https://developers.asana.com/reference/gettasksforproject
     def aggregate(t):
         if t["completed"]:
-            return
+            return None
         cats = {
             cfg["purchase_low_priority_section"]: "low_pri",
             cfg["purchase_high_priority_section"]: "high_pri",
@@ -79,17 +85,14 @@ def get_open_purchase_requests():
 
 
 def complete(gid):
+    """Complete a task"""
     # https://developers.asana.com/reference/updatetask
-    return client.tasks.update_task(gid, dict(completed=True))
+    return client.tasks.update_task(gid, {"completed": True})
 
 
-# TODO create tech task for maintenance
+# Could also create tech task for maintenance here
 
 if __name__ == "__main__":
-    # for project in get_all_projects():
-    #    print(project)
-    # for task in get_tech_tasks():
-    #    print(task)
     for task in get_open_purchase_requests():
         print(task)
         break

@@ -1,4 +1,4 @@
-# A set of command line tools, usually run by CRON
+""" A set of command line tools, possibly run by CRON"""
 import argparse
 import datetime
 import re
@@ -16,14 +16,13 @@ def send_hours_submission_reminders(dry_run=True):
     now = datetime.datetime.now()
     earliest = now - datetime.timedelta(days=14)
     classes = neon.fetch_events(after=earliest, before=now + datetime.timedelta(days=1))
-    # TODO binary search for date, or store submissions better in general
-    subs = set(
-        [
-            s["Class Name (Please type out full name of class)"]
-            for s in sheets.get_instructor_submissions(900)
-            if s["Timestamp"] > earliest
-        ]
-    )
+    # Would be more efficient to binary search for date
+    # or store submissions better in general
+    subs = {
+        s["Class Name (Please type out full name of class)"]
+        for s in sheets.get_instructor_submissions(900)
+        if s["Timestamp"] > earliest
+    }
 
     print(f"Loaded {len(subs)} submissions after {earliest}")
 
@@ -33,12 +32,12 @@ def send_hours_submission_reminders(dry_run=True):
             print("Class", c["name"], "already submitted, skipping")
             continue
 
-        m = re.match(".*w\/ (\w+) (\w+)", c["name"])
+        m = re.match(r".*w\/ (\w+) (\w+)", c["name"])
         if m is None:
             print("Skipping unparseable event:", c["name"])
             continue
 
-        # TODO lookup and cache
+        # Could lookup and cache this, later
         inst = neon.search_member_by_name(m[1], m[2])
         if inst is None:
             print("Couldn't find Neon info for ", m[1], m[2])
@@ -47,14 +46,14 @@ def send_hours_submission_reminders(dry_run=True):
         to_remind[email].append(c["name"])
 
     for email, names in to_remind.items():
-        body = f"Greetings!"
-        body += (
-            f"\n\nWe haven't yet seen your submission for the following course(s):\n"
-        )
+        body = "Greetings!"
+        body += "\n\nWe haven't yet seen your submission for the following course(s):\n"
         for n in names:
             body += "\n - " + n
-        body += "\n\nPlease submit your hours and any clearances earned by visiting the following link ASAP: https://api.protohaven.org/instructor_hours"
-        body += "\n\nThanks for being a great instructor!\nSincerely, the Protohaven Automation System"
+        body += "\n\nPlease submit your hours and any clearances earned by visiting"
+        body += " the following link ASAP: https://api.protohaven.org/instructor_hours"
+        body += "\n\nThanks for being a great instructor!"
+        body += "\nSincerely, the Protohaven Automation System"
 
         subject = "Please submit your hours!"
         if dry_run:
@@ -63,20 +62,20 @@ def send_hours_submission_reminders(dry_run=True):
             print("Subject:", subject)
             print(body)
         else:
-            raise Exception("TEST THIS FIRST")
-            comms.send_email(subject, body, [email])
+            raise RuntimeError("TEST THIS FIRST")
+            # comms.send_email(subject, body, [email])
 
 
 def send_storage_violation_reminders():
     """For any violation tagged with a user, send an email.
     Summary of violations without users to a discord channel / email location"""
-    raise Exception("TODO implement")
+    raise NotImplementedError("TODO implement")
 
 
 def validate_member_clearances():
     """Match clearances in spreadsheet with clearances in Neon.
     Remove this when clearance information is primarily stored in Neon."""
-    raise Exception("TODO implement")
+    raise NotImplementedError("TODO implement")
 
 
 def validate_tool_documentation():
@@ -85,8 +84,8 @@ def validate_tool_documentation():
 
     def probe(url, name, stats):
         url = url.strip()
-        if url != "" and url != "https://protohaven.org/wiki/tools//":
-            rep = requests.get(url)
+        if url not in ("", "https://protohaven.org/wiki/tools//"):
+            rep = requests.get(url, timeout=5.0)
             if rep.status_code == 200:
                 stats["ok"] += 1
             else:
@@ -95,8 +94,8 @@ def validate_tool_documentation():
             stats["missing"].append(name)
 
     stats = {
-        "tooldoc": dict(missing=[], error=[], ok=0),
-        "clearance": dict(missing=[], error=[], ok=0),
+        "tooldoc": {"missing": [], "error": [], "ok": 0},
+        "clearance": {"missing": [], "error": [], "ok": 0},
     }
     tools = airtable.get_tools()
     sys.stdout.write(f"Checking links for {len(tools)} tools")
@@ -112,8 +111,8 @@ def validate_tool_documentation():
         tutorial_url = tool["fields"]["Docs"]["url"]
         probe(tutorial_url, name, stats["tooldoc"])
 
-        rep = requests.head(tutorial_url)
-        tutorial_exists = rep.status_code == 200
+        # rep = requests.head(tutorial_url, timeout=5.0)
+        # tutorial_exists = rep.status_code == 200
 
         # print(f"{name}\n - Clearance url: {clearance_url}\n - Tutorial url: {tutorial_url}\n")
         sys.stdout.write(".")
@@ -143,8 +142,9 @@ def validate_tool_documentation():
 
 
 def cancel_low_attendance_classes():
-    """fetch classes from neon and cancel the ones with low attendance near enough to the deadline"""
-    pass
+    """fetch classes from neon and cancel the ones with low
+    attendance near enough to the deadline"""
+    raise NotImplementedError("TODO")
 
 
 completion_re = re.compile("Deadline for Project Completion:\n(.*?)\n", re.MULTILINE)
@@ -159,7 +159,9 @@ def project_request_alerts():
         req["notes"] = req["notes"].replace("\\n", "\n")
         deadline = completion_re.search(req["notes"])
         if deadline is None:
-            raise Exception("Failed to extract deadline from request by " + req["name"])
+            raise RuntimeError(
+                "Failed to extract deadline from request by " + req["name"]
+            )
         deadline = dateparser.parse(deadline[1])
         if deadline < datetime.datetime.now():
             print(
@@ -181,16 +183,22 @@ def purchase_request_alerts():
     sections = defaultdict(list)
     counts = defaultdict(int)
     now = datetime.datetime.now().astimezone()
-    thresholds = dict(low_pri=7, high_pri=2, class_supply=3, on_hold=30, unknown=0)
-    headers = dict(
-        low_pri="Low Priority",
-        high_pri="High Priority",
-        class_supply="Class Supplies",
-        on_hold="On Hold",
-        unknown="Unknown/Unparsed Tasks",
-    )
+    thresholds = {
+        "low_pri": 7,
+        "high_pri": 2,
+        "class_supply": 3,
+        "on_hold": 30,
+        "unknown": 0,
+    }
+    headers = {
+        "low_pri": "Low Priority",
+        "high_pri": "High Priority",
+        "class_supply": "Class Supplies",
+        "on_hold": "On Hold",
+        "unknown": "Unknown/Unparsed Tasks",
+    }
 
-    def format(t):
+    def format_request(t):
         if (t["modified_at"] - t["created_at"]).days > 1:
             dt = (now - t["modified_at"]).days
             dstr = f"modified {dt}d ago"
@@ -203,7 +211,7 @@ def purchase_request_alerts():
         counts[t["category"]] += 1
         thresh = now - datetime.timedelta(days=thresholds[t["category"]])
         if t["created_at"] < thresh and t["modified_at"] < thresh:
-            sections[t["category"]].append(format(t))
+            sections[t["category"]].append(format_request(t))
 
     # Sort oldest to youngest, by section
     for k, v in sections.items():
@@ -214,7 +222,8 @@ def purchase_request_alerts():
     for k in ("high_pri", "class_supply", "low_pri", "on_hold", "unknown"):
         if len(sections[k]) > 0:
             section_added = True
-            content += f"\n\n{headers[k]} ({counts[k]} total open; showing only tasks older than {thresholds[k]} days):\n"
+            content += f"\n\n{headers[k]} ({counts[k]} total open; "
+            content += f"showing only tasks older than {thresholds[k]} days):\n"
             content += "\n".join(sections[k])
 
     if not section_added:
