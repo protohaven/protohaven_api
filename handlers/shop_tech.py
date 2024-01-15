@@ -1,27 +1,38 @@
-from flask import Blueprint, request, render_template, session
-from rbac import require_login_role, Role
-from integrations import wiki, neon
+"""Web pages for shop techs"""
+from flask import (  # pylint: disable=import-error
+    Blueprint,
+    render_template,
+    request,
+    session,
+)
 
-page = Blueprint('shop_tech', __name__, template_folder='templates')
+from integrations import neon, wiki
+from rbac import Role, require_login_role
+
+page = Blueprint("shop_tech", __name__, template_folder="templates")
+
 
 @page.route("/shop_tech/handoff")
 @require_login_role(Role.SHOP_TECH)
 def shop_tech_handoff():
+    """Form for submitting handoff reports at the end of a shift"""
     shift_tasks = wiki.get_shop_tech_shift_tasks()
     return render_template("shop_tech_handoff.html", shift_tasks=shift_tasks)
+
 
 @page.route("/shop_tech/profile", methods=["GET", "POST"])
 @require_login_role(Role.SHOP_TECH)
 def shop_tech_profile():
-    user = session['neon_id']
+    """Editable profile for shop tech specific information"""
+    user = session["neon_id"]
     if request.method == "POST":
-        interest = request.form['interest']
+        interest = request.form["interest"]
         neon.set_interest(user, interest)
-        session['neon_account'] = neon.fetch_account(session['neon_id'])
+        session["neon_account"] = neon.fetch_account(session["neon_id"])
 
     interest = ""
-    for cf in session['neon_account']['individualAccount']['accountCustomFields']:
-        if cf['name'] == 'Interest':
-            interest = cf['value']
+    for cf in session["neon_account"]["individualAccount"]["accountCustomFields"]:
+        if cf["name"] == "Interest":
+            interest = cf["value"]
             break
     return render_template("shop_tech_profile.html", interest=interest)

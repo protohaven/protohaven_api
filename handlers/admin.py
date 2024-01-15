@@ -1,13 +1,15 @@
 from flask import Blueprint, render_template, request
-from rbac import require_login_role, Role
-from integrations import neon, airtable
 
-page = Blueprint('admin', __name__, template_folder='templates')
+from integrations import airtable, neon
+from rbac import Role, require_login_role
 
-@page.route("/user/clearances", methods=['GET', 'PATCH', 'DELETE'])
+page = Blueprint("admin", __name__, template_folder="templates")
+
+
+@page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.ADMIN)
 def user_clearances():
-    emails = [e.strip() for e in request.values.get('emails', "").split(",")]
+    emails = [e.strip() for e in request.values.get("emails", "").split(",")]
     if len(emails) == 0:
         raise Exception("require param emails")
     results = {}
@@ -16,14 +18,14 @@ def user_clearances():
         if m is None:
             results[e] = "NotFound"
             continue
-        neon_id = m['Account ID']
+        neon_id = m["Account ID"]
 
         codes = set(neon.get_user_clearances(neon_id))
         if request.method == "GET":
             results[e] = list(codes)
             continue
-        
-        initial = [c.strip() for c in request.values.get('codes').split(',')]
+
+        initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
             raise Exception("Require param codes")
 
@@ -53,20 +55,20 @@ def user_clearances():
 def admin_user_clearances():
     return render_template("admin_set_clearances.html")
 
+
 @page.route("/admin/set_discord_nick")
 @require_login_role(Role.ADMIN)
 def set_discord_nick():
-    name = request.args.get('name')
-    nick = request.args.get('nick')
+    name = request.args.get("name")
+    nick = request.args.get("nick")
     if name == "" or nick == "":
         return "Bad argument: want ?name=foo&nick=bar"
     client = discord_bot.get_client()
     result = asyncio.run_coroutine_threadsafe(
-            client.set_nickname(name, nick),
-            client.loop).result()
+        client.set_nickname(name, nick), client.loop
+    ).result()
     print(result)
     if result == False:
         return f"Member '{name}' not found"
     else:
         return f"Member '{name}' now nicknamed '{nick}'"
-
