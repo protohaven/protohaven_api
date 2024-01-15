@@ -14,12 +14,27 @@ This repo uses pre-commit to autoformat and lint code. Ensure it's set up by fol
 **Note: you must activate the virtualenv for pylint to properly run on pre-commit**. This is because it does dynamic checking of modules and needs
 those modules to be loaded or else it raises module import errors.
 
-## Running locally
+## Running server locally
 
 **There is currently no staging instance for integrations - actions taken on a local server will affect production.**
 
 ```
+# Set up the environment
 source venv/bin/activate
 pip install -e .
+
+# Run the server
 python3 -m protohaven_api.main
+```
+
+## Running the CLI
+
+```
+# Set up the environment
+source venv/bin/activate
+pip install -e .
+
+
+# Run the command
+python3 -m protohaven_api.cli project_requests
 ```
