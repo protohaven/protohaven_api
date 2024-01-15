@@ -8,7 +8,7 @@ from collections import defaultdict
 import requests
 from dateutil import parser as dateparser
 
-from integrations import airtable, comms, neon, sheets, tasks
+from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 
 
 def send_hours_submission_reminders(dry_run=True):

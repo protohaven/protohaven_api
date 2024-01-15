@@ -8,7 +8,7 @@ import httplib2
 import requests
 from bs4 import BeautifulSoup
 
-from config import get_config  # pylint: disable=import-error
+from protohaven_api.config import get_config
 
 cfg = get_config()["neon"]
 TEST_MEMBER = 1727
@@ -319,7 +319,7 @@ def get_members_with_role(role, extra_fields):
             yield r
 
 
-class DuplicateRequestToken:
+class DuplicateRequestToken:  # pylint: disable=too-few-public-methods
     """A quick little emulator of the duplicat request token behavior on Neon's site"""
 
     def __init__(self):
@@ -331,7 +331,7 @@ class DuplicateRequestToken:
         return self.i
 
 
-class NeonOne:
+class NeonOne:  # pylint: disable=too-few-public-methods
     """Masquerade as a web user to perform various actions not available in the public API"""
 
     TYPE_MEMBERSHIP_DISCOUNT = 2
@@ -375,7 +375,7 @@ class NeonOne:
             self.TYPE_EVENT_DISCOUNT, code=code, pct=False, amt=amt
         )
 
-    def _post_discount(
+    def _post_discount(  # pylint: disable=too-many-arguments
         self,
         typ,
         code,

@@ -2,10 +2,10 @@
 
 import asyncio
 
-from flask import Blueprint, render_template, request  # pylint: disable=import-error
+from flask import Blueprint, render_template, request
 
-from integrations import airtable, discord_bot, neon
-from rbac import Role, require_login_role
+from protohaven_api.integrations import airtable, discord_bot, neon
+from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("admin", __name__, template_folder="templates")
 

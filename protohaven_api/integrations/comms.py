@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 
 import requests
 
-from config import get_config
+from protohaven_api.config import get_config
 
 cfg = get_config()["comms"]
 

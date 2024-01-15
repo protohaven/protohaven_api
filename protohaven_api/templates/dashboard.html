@@ -19,9 +19,8 @@
           <h2>{{role}} Links</h2>
           <ul>
             {% if role == 'Instructor' %}
-            <li><a href="/instructor/events">Upcoming events and registrants</a></li>
-            <li><a href="/instructor/class_selector">Select classes to teach</a></li>
-            <li><a href="/instructor/hours">Submit hours (may take a while to load)</a></li>
+            <li><a href="/instructor/events">All upcoming events and registrants</a></li>
+            <li><a href="/instructor/class">Manage your classes and accept new ones</a></li>
             {% elif role == 'Onboarding' %}
             <li><a href="https://protohaven.org/wiki/clearance_crew">Wiki Guide</a></li>
             <li><a href="/onboarding">Onboarding wizard</a></li>
@@ -37,7 +36,7 @@
         </div>
         {% endfor %}
       </div>
-      <h4>Clearances</h4>
+      <h4>Your Clearances</h4>
       <div class="clearances">
       {% for clr in clearances %}
         <div>{{ clr }}</div>

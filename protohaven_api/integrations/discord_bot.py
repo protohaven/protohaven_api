@@ -1,7 +1,7 @@
 """A bot for monitoring the Protohaven server and performing automated activities"""
-import discord  # pylint: disable=import-error
+import discord
 
-from config import get_config
+from protohaven_api.config import get_config
 
 
 class PHClient(discord.Client):

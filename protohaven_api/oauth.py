@@ -4,7 +4,7 @@ import urllib.parse
 
 import requests
 
-from config import get_config
+from protohaven_api.config import get_config
 
 cfg = get_config()["neon"]
 client_id = cfg["oauth_client_id"]

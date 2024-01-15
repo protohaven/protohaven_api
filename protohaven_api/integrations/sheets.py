@@ -6,9 +6,8 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
-from config import get_config  # pylint: disable=import-error
+from protohaven_api.config import get_config
 
 # If modifying these scopes, delete the file token.json.
 
@@ -42,7 +41,7 @@ def get_sheet_range(sheet_id, range_name):
     service = build("sheets", "v4", credentials=creds)
 
     # Call the Sheets API
-    sheet = service.spreadsheets()
+    sheet = service.spreadsheets()  # pylint: disable=no-member
     result = sheet.values().get(spreadsheetId=sheet_id, range=range_name).execute()
     values = result.get("values", [])
 
@@ -51,15 +50,17 @@ def get_sheet_range(sheet_id, range_name):
     return values
 
 
-def get_instructor_submissions(from_row):
+def get_instructor_submissions(from_row=800):
     """Get log submissions from instructors"""
     headers = get_sheet_range(cfg["instructor_hours"], "Form Responses 1!A1:M")[0]
-    for row in get_sheet_range(cfg["instructor_hours"], "Form Responses 1!A800:M"):
+    for row in get_sheet_range(
+        cfg["instructor_hours"], f"Form Responses 1!A{from_row}:M"
+    ):
         data = dict(zip(headers, row))
         data["Timestamp"] = dateparser.parse(data["Timestamp"])
         yield data
 
 
 if __name__ == "__main__":
-    for row in get_instructor_submissions(from_row=800):
-        print(row)
+    for r in get_instructor_submissions(from_row=800):
+        print(r)

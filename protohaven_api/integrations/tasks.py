@@ -1,9 +1,9 @@
 """Asana task integration methods"""
 
-import asana  # pylint: disable=import-error
+import asana
 from dateutil import parser as dateparser
 
-from config import get_config
+from protohaven_api.config import get_config
 
 cfg = get_config()["asana"]
 

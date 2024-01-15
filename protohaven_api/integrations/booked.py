@@ -1,7 +1,7 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
 import requests
 
-from config import get_config
+from protohaven_api.config import get_config
 
 cfg = get_config()["booked"]
 

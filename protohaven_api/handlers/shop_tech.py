@@ -1,13 +1,8 @@
 """Web pages for shop techs"""
-from flask import (  # pylint: disable=import-error
-    Blueprint,
-    render_template,
-    request,
-    session,
-)
+from flask import Blueprint, render_template, request, session
 
-from integrations import neon, wiki
-from rbac import Role, require_login_role
+from protohaven_api.integrations import neon, wiki
+from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("shop_tech", __name__, template_folder="templates")
 

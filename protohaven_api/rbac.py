@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from flask import redirect, request, session, url_for  # pylint: disable=import-error
 
-from config import get_config
-from handlers.auth import login_user_neon_oauth
+from protohaven_api.config import get_config
+from protohaven_api.handlers.auth import login_user_neon_oauth
 
 cfg = get_config()["general"]
 

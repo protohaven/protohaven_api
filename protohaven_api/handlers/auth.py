@@ -1,14 +1,8 @@
 """User auth handlers for login/logout and metadata"""
-from flask import (  # pylint: disable=import-error
-    Blueprint,
-    redirect,
-    request,
-    session,
-    url_for,
-)
+from flask import Blueprint, redirect, request, session, url_for
 
-import oauth
-from integrations import neon
+from protohaven_api import oauth
+from protohaven_api.integrations import neon
 
 page = Blueprint("auth", __name__, template_folder="templates")
 

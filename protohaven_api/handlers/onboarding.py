@@ -2,15 +2,10 @@
 import asyncio
 import time
 
-from flask import (  # pylint: disable=import-error
-    Blueprint,
-    redirect,
-    render_template,
-    request,
-)
+from flask import Blueprint, redirect, render_template, request
 
-from integrations import discord_bot, neon
-from rbac import Role, require_login_role
+from protohaven_api.integrations import discord_bot, neon
+from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("onboarding", __name__, template_folder="templates")
 

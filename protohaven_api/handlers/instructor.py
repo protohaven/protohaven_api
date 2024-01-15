@@ -1,3 +1,4 @@
+"""Handlers for instructor actions on classes"""
 import datetime
 import time
 
@@ -5,14 +6,14 @@ import pytz
 from dateutil import parser as dateparser
 from flask import Blueprint, render_template, request
 
-from handlers.auth import user_email
-from integrations import airtable, neon
-from rbac import Role, require_login_role
+from protohaven_api.handlers.auth import user_email
+from protohaven_api.integrations import airtable, neon
+from protohaven_api.rbac import Role, get_roles, require_login_role
 
 page = Blueprint("instructor", __name__, template_folder="templates")
 
 
-def prefill_form(
+def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     instructor,
     start_date,
     hours,
@@ -22,6 +23,7 @@ def prefill_form(
     volunteer,
     event_id,
 ):
+    """Return prefilled instructor log submission form"""
     individual = airtable.get_instructor_log_tool_codes()
     clearance_codes = []
     tool_codes = []
@@ -32,13 +34,16 @@ def prefill_form(
             clearance_codes.append(c)
 
     start_yyyy_mm_dd = start_date.strftime("%Y-%m-%d")
-    result = "https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url"
+    result = (
+        "https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-"
+        + "Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url"
+    )
     result += f"&entry.1719418402={instructor}"
     result += f"&entry.1405633595={start_yyyy_mm_dd}"
     result += f"&entry.1276102155={hours}"
     result += f"&entry.654625226={class_name}"
     if volunteer:
-        result += f"&entry.1406934632=Yes,+please+donate+my+time."
+        result += "&entry.1406934632=Yes,+please+donate+my+time."
     result += "&entry.362496408=Nope,+just+a+single+session+class"
     result += f"&entry.204701066={', '.join(pass_emails)}"
     for cc in clearance_codes:
@@ -54,6 +59,7 @@ def prefill_form(
 @page.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class():
+    """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
         roles = get_roles()
@@ -68,7 +74,7 @@ def instructor_class():
     ]
     sched.sort(key=lambda s: s[1]["Start Time"])
     tz = pytz.timezone("US/Eastern")
-    for sid, e in sched:
+    for _, e in sched:
         date = dateparser.parse(e["Start Time"]).astimezone(tz)
 
         # If it's in neon, fetch attendee info and generate a log URL
@@ -100,11 +106,11 @@ def instructor_class():
                 event_id=e["Neon ID"],
             )
 
-        for dateField in ("Confirmed", "Instructor Log Date"):
-            if e.get(dateField):
-                e[dateField] = dateparser.parse(e[dateField])
+        for date_field in ("Confirmed", "Instructor Log Date"):
+            if e.get(date_field):
+                e[date_field] = dateparser.parse(e[date_field])
         e["Dates"] = []
-        for i in range(e["Days (from Class)"][0]):
+        for _ in range(e["Days (from Class)"][0]):
             e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
             date += datetime.timedelta(days=7)
     return render_template(
@@ -118,7 +124,7 @@ def instructor_class():
 @page.route("/instructor/class/update", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_update():
-    email = user_email()
+    """Confirm or unconfirm a class to run, by the instructor"""
     eid = request.form.get("eid")
     pub = request.form.get("pub") == "true"
     return airtable.respond_class_automation_schedule(eid, pub).content
@@ -127,6 +133,7 @@ def instructor_class_update():
 @page.route("/instructor/class/supply_req", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_supply_req():
+    """Mark supplies as missing or confirmed for a class"""
     eid = request.form.get("eid")
     missing = request.form.get("missing") == "true"
     return airtable.mark_schedule_supply_request(eid, missing).content
@@ -135,6 +142,7 @@ def instructor_class_supply_req():
 @page.route("/instructor/class/volunteer", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_volunteer():
+    """Change the volunteer state of a class"""
     eid = request.form.get("eid")
     v = request.form.get("volunteer") == "true"
     return airtable.mark_schedule_volunteer(eid, v).content

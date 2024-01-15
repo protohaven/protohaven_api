@@ -1,9 +1,10 @@
+"""handlers for main landing page"""
 import json
 
 from flask import Blueprint, render_template, session
 
-from handlers.auth import user_email, user_fullname
-from rbac import require_login
+from protohaven_api.handlers.auth import user_email, user_fullname
+from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
 
@@ -11,6 +12,7 @@ page = Blueprint("index", __name__, template_folder="templates")
 @page.route("/")
 @require_login
 def index():
+    """Show the main dashboard page"""
     neon_account = session.get("neon_account")
     clearances = []
     roles = []

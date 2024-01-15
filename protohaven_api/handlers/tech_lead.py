@@ -1,8 +1,8 @@
 """Site for tech leads to manage shop techs"""
-from flask import Blueprint, render_template  # pylint: disable=import-error
+from flask import Blueprint, render_template
 
-from integrations import neon
-from rbac import Role, require_login_role
+from protohaven_api.integrations import neon
+from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("tech_lead", __name__, template_folder="templates")
 
