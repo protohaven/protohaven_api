@@ -1,6 +1,7 @@
 """ A set of command line tools, possibly run by CRON"""
 import argparse
 import datetime
+import json
 import re
 import sys
 from collections import defaultdict
@@ -8,6 +9,7 @@ from collections import defaultdict
 import requests
 from dateutil import parser as dateparser
 
+from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 
 
@@ -78,69 +80,6 @@ def validate_member_clearances():
     raise NotImplementedError("TODO implement")
 
 
-def validate_tool_documentation():
-    """Go through list of tools in airtable, ensure all of them have
-    links to a tool guide and a clearance doc that resolve successfully"""
-
-    def probe(url, name, stats):
-        url = url.strip()
-        if url not in ("", "https://protohaven.org/wiki/tools//"):
-            rep = requests.get(url, timeout=5.0)
-            if rep.status_code == 200:
-                stats["ok"] += 1
-            else:
-                stats["error"].append(f"{name} ({url})")
-        else:
-            stats["missing"].append(name)
-
-    stats = {
-        "tooldoc": {"missing": [], "error": [], "ok": 0},
-        "clearance": {"missing": [], "error": [], "ok": 0},
-    }
-    tools = airtable.get_tools()
-    sys.stdout.write(f"Checking links for {len(tools)} tools")
-    sys.stdout.flush()
-    for i, tool in enumerate(tools):
-        if i != 0 and i % 5 == 0:
-            sys.stdout.write(str(i))
-        name = tool["fields"]["Tool Name"]
-
-        clearance_url = tool["fields"]["Clearance"]["url"]
-        probe(clearance_url, name, stats["clearance"])
-
-        tutorial_url = tool["fields"]["Docs"]["url"]
-        probe(tutorial_url, name, stats["tooldoc"])
-
-        # rep = requests.head(tutorial_url, timeout=5.0)
-        # tutorial_exists = rep.status_code == 200
-
-        # print(f"{name}\n - Clearance url: {clearance_url}\n - Tutorial url: {tutorial_url}\n")
-        sys.stdout.write(".")
-        sys.stdout.flush()
-
-    subject = "Tool documentation report, " + datetime.datetime.now().isoformat()
-    body = "\nChecked {len(tools)} tools"
-
-    def write_stats(stats, title):
-        b = f"\n\n=== {title} ==="
-        b += f"\n{stats['ok']} links resolved OK"
-        b += f"\nMissing links for {len(stats['missing'])} tools"
-        for m in stats["missing"]:
-            b += f"\n - {m}"
-        b += f"\nFailed to resolve {len(stats['error'])} links for tools"
-        for m in stats["error"]:
-            b += f"\n - {m}"
-        return b
-
-    body += write_stats(stats["tooldoc"], "Tool Tutorials")
-    body += "\n"
-    body += write_stats(stats["clearance"], "Clearance Docs")
-    recipients = ["scott@protohaven.org"]
-    print(f"Sending email to {recipients}:\n{subject}\n\n{body}")
-    comms.send_email(subject, body, recipients)
-    print("Email sent")
-
-
 def cancel_low_attendance_classes():
     """fetch classes from neon and cancel the ones with low
     attendance near enough to the deadline"""
@@ -149,32 +88,6 @@ def cancel_low_attendance_classes():
 
 completion_re = re.compile("Deadline for Project Completion:\n(.*?)\n", re.MULTILINE)
 description_re = re.compile("Project Description:\n(.*?)Materials Budget", re.MULTILINE)
-
-
-def project_request_alerts():
-    """Send alerts when new project requests fall into Asana"""
-    for req in tasks.get_project_requests():
-        if req["completed"]:
-            continue
-        req["notes"] = req["notes"].replace("\\n", "\n")
-        deadline = completion_re.search(req["notes"])
-        if deadline is None:
-            raise RuntimeError(
-                "Failed to extract deadline from request by " + req["name"]
-            )
-        deadline = dateparser.parse(deadline[1])
-        if deadline < datetime.datetime.now():
-            print(
-                f"Skipping expired project request by {req['name']} (expired {deadline})"
-            )
-            continue
-
-        content = "**New Project Request:**\n"
-        content += req["notes"]
-        comms.send_help_wanted(content)
-        tasks.complete(req["gid"])
-        print(content)
-    print("done")
 
 
 def purchase_request_alerts():
@@ -234,19 +147,201 @@ def purchase_request_alerts():
     print("Done")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="Protohaven CLI",
-        description="Command line utility for protohaven operations",
-    )
-    parser.add_argument("command")
+class ProtohavenCLI:
+    """argparser-based CLI for protohaven operations"""
 
-    args = parser.parse_args()
-    if args.command == "reminder":
-        send_hours_submission_reminders()
-    elif args.command == "validate_docs":
-        validate_tool_documentation()
-    elif args.command == "project_requests":
-        project_request_alerts()
-    elif args.command == "purchase_requests":
-        purchase_request_alerts()
+    def __init__(self):
+        helptext = "\n".join(
+            [
+                f"{a}: {getattr(self, a).__doc__}"
+                for a in dir(self)
+                if not a.startswith("__")
+            ]
+        )
+        parser = argparse.ArgumentParser(
+            description="Protohaven CLI",
+            usage=f"{sys.argv[0]} <command> [<args>]\n\n{helptext}\n\n\n",
+        )
+        parser.add_argument("command", help="Subcommand to run")
+        args = parser.parse_args(sys.argv[1:2])  # Limit to only initial command args
+        if not hasattr(self, args.command):
+            parser.print_help()
+            sys.exit(1)
+        getattr(self, args.command)(
+            sys.argv[2:]
+        )  # Ignore first two argvs - already parsed
+
+    def validate_docs(self, argv):  # pylint: disable=too-many-statements
+        """Go through list of tools in airtable, ensure all of them have
+        links to a tool guide and a clearance doc that resolve successfully"""
+        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
+        parser.add_argument(
+            "--email",
+            help="send email to address. if empty, no email is sent",
+            type=str,
+            default="",
+        )
+        args = parser.parse_args(argv)
+        if args.email != "":
+            print(f"A report will be sent to {args.email}")
+        else:
+            print("Use --email to send the report to an email address")
+
+        def probe(url, name, stats):
+            url = url.strip()
+            if url not in ("", "https://protohaven.org/wiki/tools//"):
+                rep = requests.get(url, timeout=5.0)
+                if rep.status_code == 200:
+                    stats["ok"] += 1
+                else:
+                    stats["error"].append(f"{name} ({url})")
+            else:
+                stats["missing"].append(name)
+
+        stats = {
+            "tooldoc": {"missing": [], "error": [], "ok": 0},
+            "clearance": {"missing": [], "error": [], "ok": 0},
+        }
+        tools = airtable.get_tools()
+        sys.stdout.write(
+            f"Checking links for {len(tools)} tools\n"
+            + "Tools that do not require a clearance will be skipped.\n"
+        )
+        sys.stdout.flush()
+        for i, tool in enumerate(tools):
+            # recZz04FDZ9zr1PVh is "None" clearance
+            if (
+                tool["fields"]["Clearance Required"] is None
+                or "recZz04FDZ9zr1PVh" in tool["fields"]["Clearance Required"]
+            ):
+                sys.stdout.write(".")
+                sys.stdout.flush()
+                continue
+            if i != 0 and i % 5 == 0:
+                sys.stdout.write(str(i))
+            name = tool["fields"]["Tool Name"]
+
+            clearance_url = tool["fields"]["Clearance"]["url"]
+            probe(clearance_url, name, stats["clearance"])
+
+            tutorial_url = tool["fields"]["Docs"]["url"]
+            probe(tutorial_url, name, stats["tooldoc"])
+
+            # rep = requests.head(tutorial_url, timeout=5.0)
+            # tutorial_exists = rep.status_code == 200
+
+            # print(f"{name}\n - Clearance url: {clearance_url}\n - Tutorial url: {tutorial_url}\n")
+            sys.stdout.write("+")
+            sys.stdout.flush()
+
+        subject = "Tool documentation report, " + datetime.datetime.now().isoformat()
+        body = f"\nChecked {len(tools)} tools"
+
+        def write_stats(stats, title):
+            b = f"\n\n=== {title} ==="
+            b += f"\n{stats['ok']} links resolved OK"
+            b += f"\nMissing links for {len(stats['missing'])} tools"
+            for m in stats["missing"]:
+                b += f"\n - {m}"
+            b += f"\nFailed to resolve {len(stats['error'])} links for tools"
+            for m in stats["error"]:
+                b += f"\n - {m}"
+            return b
+
+        body += write_stats(stats["tooldoc"], "Tool Tutorials")
+        body += "\n"
+        body += write_stats(stats["clearance"], "Clearance Docs")
+        if args.email != "":
+            print(f"Sending email to {args.email}:\n{subject}\n\n{body}")
+            comms.send_email(subject, body, [args.email])
+            print("Email sent")
+        else:
+            print(subject)
+            print(body)
+
+    def project_requests(self, argv):
+        """Send alerts when new project requests fall into Asana"""
+        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
+        parser.add_argument(
+            "--notify",
+            help="when true, send requests to Discord and complete their task in Asana",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        args = parser.parse_args(argv)
+        if not args.notify:
+            print(
+                "\n***   --notify is not set, so projects will not be "
+                + "checked off or posted to Discord   ***\n"
+            )
+        num = 0
+        for req in tasks.get_project_requests():
+            if req["completed"]:
+                continue
+            req["notes"] = req["notes"].replace("\\n", "\n")
+            deadline = completion_re.search(req["notes"])
+            if deadline is None:
+                raise RuntimeError(
+                    "Failed to extract deadline from request by " + req["name"]
+                )
+            deadline = dateparser.parse(deadline[1])
+            if deadline < datetime.datetime.now():
+                print(
+                    f"Skipping expired project request by {req['name']} (expired {deadline})"
+                )
+                continue
+
+            content = "**New Project Request:**\n"
+            content += req["notes"]
+            if args.notify:
+                comms.send_help_wanted(content)
+                tasks.complete(req["gid"])
+                print("Sent to discord & marked complete:")
+            num += 1
+            print(content)
+        print(f"Done - handled {num} project request(s)")
+
+    def mock_data(self, argv):
+        """Fetch mock data from airtable, neon etc.
+        Write this to a file for running without touching production data"""
+        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
+        parser.parse_args(argv)
+
+        sys.stderr.write("Fetching events from neon...\n")
+        events = neon.fetch_events()
+        # Could also fetch attendees here if needed
+        sys.stderr.write("Fetching clearance codes from neon...\n")
+        clearance_codes = neon.fetch_clearance_codes()
+
+        sys.stderr.write("Fetching accounts from neon...\n")
+        accounts = []
+        for acct_id in [1797, 1727, 1438, 1355]:
+            accounts.append(neon.fetch_account(acct_id))
+
+        sys.stderr.write("Fetching airtable data...\n")
+        cfg = get_config()
+        tables = defaultdict(dict)
+        for k, v in cfg["airtable"].items():
+            for k2 in v.keys():
+                if k2 in ("base_id", "token"):
+                    continue
+                sys.stderr.write(f"{k} {k2}...\n")
+                tables[k][k2] = airtable.get_all_records(k, k2)
+
+        sys.stderr.write("Done. Results:\n")
+        print(
+            json.dumps(
+                {
+                    "neon": {
+                        "events": events,
+                        "accounts": accounts,
+                        "clearance_codes": clearance_codes,
+                    },
+                    "airtable": tables,
+                }
+            )
+        )
+
+
+if __name__ == "__main__":
+    ProtohavenCLI()

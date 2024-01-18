@@ -3,42 +3,41 @@
 Required, IMAP enabled in gmail, also less secure access turned on
 see https://myaccount.google.com/u/3/lesssecureapps
 """
-import smtplib
-from email.mime.text import MIMEText
-
-import requests
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["comms"]
 
 
 def send_email(subject, body, recipients):
     """Sends an email via GMail API"""
-    sender = cfg["email_username"]
-    passwd = cfg["email_password"]
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = ", ".join(recipients)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp_server:
-        smtp_server.login(sender, passwd)
-        smtp_server.sendmail(sender, recipients, msg.as_string())
+    return get_connector().email(subject, body, recipients)
 
 
 def send_discord_message(content):
     """Sends a message to the techs-live channel"""
-    result = requests.post(cfg["techs_live"], json={"content": content}, timeout=5.0)
+    result = get_connector().discord_webhook(cfg["techs_live"], content)
     result.raise_for_status()
 
 
 def send_help_wanted(content):
     """Sends a message to the help-wanted channel"""
-    result = requests.post(cfg["help_wanted"], json={"content": content}, timeout=5.0)
+    result = get_connector().discord_webhook(cfg["help_wanted"], content)
     result.raise_for_status()
 
 
 def send_board_message(content):
     """Sends a message to the board-private channel"""
-    result = requests.post(cfg["board_private"], json={"content": content}, timeout=5.0)
+    result = get_connector().discord_webhook(cfg["board_private"], content)
     result.raise_for_status()
+
+
+def set_discord_nickname(name, nick):
+    """Sets the nickname of a discord user"""
+    return get_connector().discord_bot_setnick(name, nick)
+
+
+def set_discord_role(name, role):
+    """Adds a role for a discord user, e.g. Members"""
+    return get_connector().discord_bot_setrole(name, role)

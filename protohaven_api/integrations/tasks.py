@@ -1,24 +1,30 @@
 """Asana task integration methods"""
 
-import asana
+from functools import cache
+
 from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["asana"]
 
-client = asana.Client.access_token(cfg["token"])
+
+@cache
+def client():
+    """Fetches the asana client via the connector module"""
+    get_connector().asana_client()
 
 
 def get_all_projects():
     """Get all projects in the Protohaven workspace"""
-    return client.projects.get_projects_for_workspace(cfg["gid"], {}, opt_pretty=True)
+    return client().projects.get_projects_for_workspace(cfg["gid"], {}, opt_pretty=True)
 
 
 def get_tech_tasks():
     """Get tasks assigned to techs"""
     # https://developers.asana.com/reference/gettasksforproject
-    return client.tasks.get_tasks_for_project(
+    return client().tasks.get_tasks_for_project(
         cfg["techs_project"],
         {
             "opt_fields": [
@@ -34,7 +40,7 @@ def get_tech_tasks():
 def get_project_requests():
     """Get project requests submitted by members & nonmembers"""
     # https://developers.asana.com/reference/gettasksforproject
-    return client.tasks.get_tasks_for_project(
+    return client().tasks.get_tasks_for_project(
         cfg["project_requests"],
         {
             "opt_fields": ["completed", "notes", "name"],
@@ -74,11 +80,11 @@ def get_open_purchase_requests():
             "modified_at",
         ],
     }
-    for t in client.tasks.get_tasks_for_project(cfg["purchase_requests"], opts):
+    for t in client().tasks.get_tasks_for_project(cfg["purchase_requests"], opts):
         t2 = aggregate(t)
         if t2:
             yield t2
-    for t in client.tasks.get_tasks_for_project(cfg["class_supply_requests"], opts):
+    for t in client().tasks.get_tasks_for_project(cfg["class_supply_requests"], opts):
         t2 = aggregate(t)
         if t2:
             yield t2
@@ -87,7 +93,7 @@ def get_open_purchase_requests():
 def complete(gid):
     """Complete a task"""
     # https://developers.asana.com/reference/updatetask
-    return client.tasks.update_task(gid, {"completed": True})
+    return client().tasks.update_task(gid, {"completed": True})
 
 
 # Could also create tech task for maintenance here

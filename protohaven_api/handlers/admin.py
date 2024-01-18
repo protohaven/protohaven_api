@@ -1,10 +1,8 @@
 """Administrative pages and endpoints"""
 
-import asyncio
-
 from flask import Blueprint, render_template, request
 
-from protohaven_api.integrations import airtable, discord_bot, neon
+from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("admin", __name__, template_folder="templates")
@@ -69,10 +67,7 @@ def set_discord_nick():
     nick = request.args.get("nick")
     if name == "" or nick == "":
         return "Bad argument: want ?name=foo&nick=bar"
-    client = discord_bot.get_client()
-    result = asyncio.run_coroutine_threadsafe(
-        client.set_nickname(name, nick), client.loop
-    ).result()
+    result = comms.set_discord_nickname(name, nick)
     print(result)
     if result is False:
         return f"Member '{name}' not found"

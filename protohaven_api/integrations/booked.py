@@ -1,9 +1,5 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
-import requests
-
-from protohaven_api.config import get_config
-
-cfg = get_config()["booked"]
+from protohaven_api.integrations.data.connector import get as get_connector
 
 # https://github.com/protohaven/systems-integration/blob/main/airtable-automations/UpdateBookedStatus.js
 
@@ -20,33 +16,23 @@ def resource_url(resource_id):
     return f"{BASE_URL}/Web/Services/Resources/{resource_id}"
 
 
-def get_headers():
-    """Generates API headers for Booked"""
-    return {
-        "X-Booked-ApiId": cfg["id"],
-        "X-Booked-ApiKey": cfg["key"],
-    }
-
-
 def get_resource(resource_id):
     """Get the current info about a tool or equipment"""
-    resp = requests.get(resource_url(resource_id), headers=get_headers(), timeout=5.0)
+    resp = get_connector().booked_request(resource_url(resource_id), "GET")
     return resp.json()
 
 
 def set_resource_status(resource_id, resource_name, status):
     """Enable or disable a specific tool by ID"""
-    resp = requests.post(
+    resp = get_connector().booked_request(
         resource_url(resource_id),
-        headers=get_headers(),
+        "POST",
         json={
             "statusId": status,
             "name": resource_name,
             "scheduleId": SCHEDULE_ID,
         },
-        timeout=5.0,
     )
-    print(resp.request.headers)
     return resp.json()
 
 

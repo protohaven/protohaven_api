@@ -1,10 +1,9 @@
 """Handlers for onboarding steps for new members"""
-import asyncio
 import time
 
 from flask import Blueprint, redirect, render_template, request
 
-from protohaven_api.integrations import discord_bot, neon
+from protohaven_api.integrations import comms, neon
 from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("onboarding", __name__, template_folder="templates")
@@ -58,16 +57,11 @@ def discord_member_add():
 
     print(neon.set_discord_user(neon_id, name))
 
-    client = discord_bot.get_client()
-    result = asyncio.run_coroutine_threadsafe(
-        client.grant_role(name, "Members"), client.loop
-    ).result()
+    result = comms.set_discord_role(name, "Members")
     if result is False:
         return "Failed to grant Members role: member not found"
 
-    result = asyncio.run_coroutine_threadsafe(
-        client.set_nickname(name, nick), client.loop
-    ).result()
+    result = comms.set_discord_nickname(name, nick)
     if result is False:
         return "Failed to set nickname: member not found"
     if result is True:

@@ -4,11 +4,10 @@ import time
 import urllib
 from functools import cache
 
-import httplib2
-import requests
 from bs4 import BeautifulSoup
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["neon"]
 TEST_MEMBER = 1727
@@ -26,11 +25,10 @@ def fetch_events(after=None, before=None, published=True):
         q_params["startDateAfter"] = after.strftime("%Y-%m-%d")
     if before is not None:
         q_params["startDateBefore"] = before.strftime("%Y-%m-%d")
-
     encoded_params = urllib.parse.urlencode(q_params)
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key1"])
-    _, content = h.request("https://api.neoncrm.com/v2/events?" + encoded_params, "GET")
+    _, content = get_connector().neon_request(
+        cfg["api_key1"], "https://api.neoncrm.com/v2/events?" + encoded_params, "GET"
+    )
     content = json.loads(content)
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -39,9 +37,9 @@ def fetch_events(after=None, before=None, published=True):
 
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key1"])
-    resp, content = h.request(f"https://api.neoncrm.com/v2/events/{event_id}")
+    resp, content = get_connector().neon_request(
+        cfg["api_key1"], f"https://api.neoncrm.com/v2/events/{event_id}"
+    )
     if resp.status != 200:
         raise RuntimeError(f"fetch_event({event_id}) {resp.status}: {content}")
     return json.loads(content)
@@ -49,9 +47,9 @@ def fetch_event(event_id):
 
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key1"])
-    resp, content = h.request(f"https://api.neoncrm.com/v2/events/{event_id}/attendees")
+    resp, content = get_connector().neon_request(
+        cfg["api_key1"], f"https://api.neoncrm.com/v2/events/{event_id}/attendees"
+    )
     if resp.status != 200:
         raise RuntimeError(f"fetch_attendees({event_id}) {resp.status}: {content}")
     content = json.loads(content)
@@ -66,10 +64,8 @@ def fetch_attendees(event_id):
 @cache
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key1"])
-    resp, content = h.request(
-        f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "GET"
+    resp, content = get_connector().neon_request(
+        cfg["api_key1"], f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "GET"
     )
     assert resp.status == 200
     return json.loads(content)["optionValues"]
@@ -99,7 +95,6 @@ def set_clearance_codes(codes):
     DANGER: Get clearance codes and extend that list, otherwise
     you risk losing clearance data for users.
     """
-    # ids = [code_mapping[c]['id'] for c in codes]
     data = {
         "groupId": GROUP_ID_CLEARANCES,
         "id": CUSTOM_FIELD_CLEARANCES,
@@ -109,9 +104,8 @@ def set_clearance_codes(codes):
         "component": "Account",
         "optionValues": codes,
     }
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key1"])
-    resp, content = h.request(
+    resp, content = get_connector().neon_request(
+        cfg["api_key1"],
         f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}",
         "PUT",
         body=json.dumps(data),
@@ -127,9 +121,8 @@ def set_custom_field(user_id, data):
             "accountCustomFields": [data],
         }
     }
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key2"])
-    resp, content = h.request(
+    resp, content = get_connector().neon_request(
+        cfg["api_key2"],
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -173,9 +166,8 @@ def set_clearances(user_id, codes):
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
 
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key2"])
-    resp, content = h.request(
+    resp, content = get_connector().neon_request(
+        cfg["api_key2"],
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -187,9 +179,9 @@ def set_clearances(user_id, codes):
 
 def fetch_account(account_id):
     """Fetches account information for a specific user in Neon"""
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key1"])
-    _, content = h.request(f"https://api.neoncrm.com/v2/accounts/{account_id}")
+    _, content = get_connector().neon_request(
+        cfg["api_key1"], f"https://api.neoncrm.com/v2/accounts/{account_id}"
+    )
     content = json.loads(content)
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -220,9 +212,8 @@ def search_member_by_name(firstname, lastname):
             "pageSize": 1,
         },
     }
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key2"])
-    resp, content = h.request(
+    resp, content = get_connector().neon_request(
+        cfg["api_key2"],
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
@@ -260,9 +251,8 @@ def search_member(email):
             "pageSize": 1,
         },
     }
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key2"])
-    resp, content = h.request(
+    resp, content = get_connector().neon_request(
+        cfg["api_key2"],
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
@@ -295,10 +285,9 @@ def get_members_with_role(role, extra_fields):
         },
     }
     total = 1
-    h = httplib2.Http(".cache")
-    h.add_credentials(cfg["domain"], cfg["api_key2"])
     while cur < total:
-        resp, content = h.request(
+        resp, content = get_connector().neon_request(
+            cfg["api_key2"],
             f"{URL_BASE}/accounts/search",
             "POST",
             body=json.dumps(data),
@@ -338,7 +327,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
     TYPE_EVENT_DISCOUNT = 3
 
     def __init__(self, user, passwd):
-        self.s = requests.Session()
+        self.s = get_connector().neon_session()
         self.drt = DuplicateRequestToken()
         self._do_login(user, passwd)
 

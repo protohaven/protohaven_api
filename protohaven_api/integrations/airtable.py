@@ -3,9 +3,8 @@ import datetime
 import json
 from functools import cache
 
-import requests
-
 from protohaven_api.config import get_config
+from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["airtable"]
 AIRTABLE_URL = "https://api.airtable.com/v0"
@@ -14,11 +13,7 @@ AIRTABLE_URL = "https://api.airtable.com/v0"
 def get_record(base, tbl, rec):
     """Grabs a record from a named table (from config.yaml)"""
     url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
-    headers = {
-        "Authorization": f"Bearer {cfg[base]['token']}",
-        "Content-Type": "application/json",
-    }
-    response = requests.request("GET", url, headers=headers, timeout=5.0)
+    response = get_connector().airtable_request(cfg[base]["token"], "GET", url)
     if response.status_code != 200:
         raise RuntimeError("Airtable fetch", response.status_code, response.content)
     return json.loads(response.content)
@@ -26,16 +21,11 @@ def get_record(base, tbl, rec):
 
 def get_all_records(base, tbl):
     """Get all records for a given named table (ID in config.yaml)"""
-    url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}"
-    headers = {
-        "Authorization": f"Bearer {cfg[base]['token']}",
-        "Content-Type": "application/json",
-    }
     records = []
     offs = ""
     while offs is not None:
         url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}?offset={offs}"
-        response = requests.request("GET", url, headers=headers, timeout=5.0)
+        response = get_connector().airtable_request(cfg[base]["token"], "GET", url)
         if response.status_code != 200:
             raise RuntimeError("Airtable fetch", response.status_code, response.content)
         data = json.loads(response.content)
@@ -49,13 +39,9 @@ def get_all_records(base, tbl):
 def insert_records(data, base, tbl):
     """Inserts one or more records into a named table"""
     url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}"
-    headers = {
-        "Authorization": f"Bearer {cfg[base]['token']}",
-        "Content-Type": "application/json",
-    }
     post_data = {"records": [{"fields": d} for d in data]}
-    response = requests.request(
-        "POST", url, headers=headers, data=json.dumps(post_data), timeout=5.0
+    response = get_connector().airtable_request(
+        cfg[base]["token"], "POST", url, data=json.dumps(post_data)
     )
     return response
 
@@ -63,13 +49,9 @@ def insert_records(data, base, tbl):
 def update_record(data, base, tbl, rec):
     """Updates/patches a record in a named table"""
     url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
-    headers = {
-        "Authorization": f"Bearer {cfg[base]['token']}",
-        "Content-Type": "application/json",
-    }
     post_data = {"fields": data}
-    response = requests.request(
-        "PATCH", url, headers=headers, data=json.dumps(post_data), timeout=5.0
+    response = get_connector().airtable_request(
+        cfg[base]["token"], "PATCH", url, data=json.dumps(post_data)
     )
     return response
 

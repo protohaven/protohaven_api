@@ -2,6 +2,7 @@
 from flask import Flask  # pylint: disable=import-error
 
 from protohaven_api.config import get_config
+from protohaven_api.discord_bot import run as run_bot
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
 from protohaven_api.handlers.index import page as index_pages
@@ -9,7 +10,7 @@ from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.shop_tech import page as shop_tech_pages
 from protohaven_api.handlers.tech_lead import page as tech_lead_pages
-from protohaven_api.integrations import discord_bot
+from protohaven_api.integrations.data.connector import init as init_connector
 
 app = Flask(__name__)
 application = app  # our hosting requires application in passenger_wsgi
@@ -28,8 +29,26 @@ for p in (
     app.register_blueprint(p)
 
 if __name__ == "__main__":
-    import threading
+    import argparse
 
-    t = threading.Thread(target=discord_bot.run, daemon=True)
-    t.start()
+    parser = argparse.ArgumentParser(description="Protohaven API Server")
+    parser.add_argument(
+        "--prod",
+        help=(
+            "When true, run against production services (Neon, Airtable etc.) "
+            + "- when false, use local data stored in mock_data.json"
+        ),
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
+    args = parser.parse_args()
+    init_connector(dev=not args.prod)
+
+    if args.prod:
+        import threading
+
+        t = threading.Thread(target=run_bot, daemon=True)
+        t.start()
+    else:
+        print("DEV MODE: Skipping startup of discord bot")
     app.run()
