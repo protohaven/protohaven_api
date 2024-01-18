@@ -12,19 +12,24 @@ class PHClient(discord.Client):
         self.role_map = {}
 
     @property
+    def cfg(self):
+        """Fetches the bot config"""
+        return get_config()["discord_bot"]
+
+    @property
     def guild(self):
         """Fetches the guild name for the Protohaven server"""
-        guild = self.get_guild(cfg["guild_id"])
+        guild = self.get_guild(self.cfg["guild_id"])
         if guild is None:
-            raise RuntimeError(f"Guild {cfg['guild_id']} not found")
+            raise RuntimeError(f"Guild {self.cfg['guild_id']} not found")
         return guild
 
     @property
     def onboarding_channel(self):
         """Returns the onboarding channel ID"""
-        chan = self.guild.get_channel(cfg["onboarding_channel_id"])
+        chan = self.guild.get_channel(self.cfg["onboarding_channel_id"])
         if chan is None:
-            raise RuntimeError(f"Channel {cfg['onboarding_channel_id']} not found")
+            raise RuntimeError(f"Channel {self.cfg['onboarding_channel_id']} not found")
         return chan
 
     async def on_ready(self):
@@ -79,19 +84,20 @@ class PHClient(discord.Client):
         # await message.channel.send('Hello!')
 
 
-cfg = get_config()["discord_bot"]
-intents = discord.Intents.default()
-intents.message_content = True
-intents.dm_messages = True
-intents.members = True
-
-client = PHClient(intents=intents)
+client = None  # pylint: disable=invalid-name
 
 
 def run():
     """Run the bot"""
+    global client  # pylint: disable=global-statement
+
     print("Initializing discord bot")
-    client.run(cfg["token"])
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.dm_messages = True
+    intents.members = True
+    client = PHClient(intents=intents)
+    client.run(get_config()["discord_bot"]["token"])
 
 
 def get_client():
