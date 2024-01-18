@@ -7,8 +7,6 @@ from flask import redirect, request, session, url_for  # pylint: disable=import-
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_user_neon_oauth
 
-cfg = get_config()["general"]
-
 
 @dataclass
 class Role:
@@ -37,7 +35,11 @@ def require_login(fn):
 def get_roles():
     """Gets all the roles accessible by the incoming request/user"""
     if "api_key" in request.values:
-        roles = cfg.get("external_access_codes").get(request.values.get("api_key"))
+        roles = (
+            get_config()["general"]
+            .get("external_access_codes")
+            .get(request.values.get("api_key"))
+        )
         print("Request with API key - roles", roles)
         return roles
 

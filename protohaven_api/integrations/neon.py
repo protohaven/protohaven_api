@@ -9,7 +9,12 @@ from bs4 import BeautifulSoup
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
-cfg = get_config()["neon"]
+
+def cfg(param):
+    """Load neon configuration"""
+    return get_config()[param]
+
+
 TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
 CUSTOM_FIELD_CLEARANCES = 75
@@ -27,7 +32,7 @@ def fetch_events(after=None, before=None, published=True):
         q_params["startDateBefore"] = before.strftime("%Y-%m-%d")
     encoded_params = urllib.parse.urlencode(q_params)
     _, content = get_connector().neon_request(
-        cfg["api_key1"], "https://api.neoncrm.com/v2/events?" + encoded_params, "GET"
+        cfg("api_key1"), "https://api.neoncrm.com/v2/events?" + encoded_params, "GET"
     )
     content = json.loads(content)
     if isinstance(content, list):
@@ -38,7 +43,7 @@ def fetch_events(after=None, before=None, published=True):
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
     resp, content = get_connector().neon_request(
-        cfg["api_key1"], f"https://api.neoncrm.com/v2/events/{event_id}"
+        cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}"
     )
     if resp.status != 200:
         raise RuntimeError(f"fetch_event({event_id}) {resp.status}: {content}")
@@ -48,7 +53,7 @@ def fetch_event(event_id):
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
     resp, content = get_connector().neon_request(
-        cfg["api_key1"], f"https://api.neoncrm.com/v2/events/{event_id}/attendees"
+        cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}/attendees"
     )
     if resp.status != 200:
         raise RuntimeError(f"fetch_attendees({event_id}) {resp.status}: {content}")
@@ -65,7 +70,7 @@ def fetch_attendees(event_id):
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
     resp, content = get_connector().neon_request(
-        cfg["api_key1"], f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "GET"
+        cfg("api_key1"), f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "GET"
     )
     assert resp.status == 200
     return json.loads(content)["optionValues"]
@@ -105,7 +110,7 @@ def set_clearance_codes(codes):
         "optionValues": codes,
     }
     resp, content = get_connector().neon_request(
-        cfg["api_key1"],
+        cfg("api_key1"),
         f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}",
         "PUT",
         body=json.dumps(data),
@@ -122,7 +127,7 @@ def set_custom_field(user_id, data):
         }
     }
     resp, content = get_connector().neon_request(
-        cfg["api_key2"],
+        cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -167,7 +172,7 @@ def set_clearances(user_id, codes):
         raise RuntimeError("Unknown account type for " + str(user_id))
 
     resp, content = get_connector().neon_request(
-        cfg["api_key2"],
+        cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -180,7 +185,7 @@ def set_clearances(user_id, codes):
 def fetch_account(account_id):
     """Fetches account information for a specific user in Neon"""
     _, content = get_connector().neon_request(
-        cfg["api_key1"], f"https://api.neoncrm.com/v2/accounts/{account_id}"
+        cfg("api_key1"), f"https://api.neoncrm.com/v2/accounts/{account_id}"
     )
     content = json.loads(content)
     if isinstance(content, list):
@@ -213,7 +218,7 @@ def search_member_by_name(firstname, lastname):
         },
     }
     resp, content = get_connector().neon_request(
-        cfg["api_key2"],
+        cfg("api_key2"),
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
@@ -252,7 +257,7 @@ def search_member(email):
         },
     }
     resp, content = get_connector().neon_request(
-        cfg["api_key2"],
+        cfg("api_key2"),
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
@@ -287,7 +292,7 @@ def get_members_with_role(role, extra_fields):
     total = 1
     while cur < total:
         resp, content = get_connector().neon_request(
-            cfg["api_key2"],
+            cfg("api_key2"),
             f"{URL_BASE}/accounts/search",
             "POST",
             body=json.dumps(data),
@@ -430,5 +435,5 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
 def create_coupon_code(code, amt):
     """Creates a coupon code for a specific absolute amount"""
-    n = NeonOne(cfg["login_user"], cfg["login_pass"])
+    n = NeonOne(cfg("login_user"), cfg("login_pass"))
     return n.create_single_use_abs_event_discount(code, amt)

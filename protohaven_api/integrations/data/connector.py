@@ -13,8 +13,6 @@ from square.client import Client as SquareClient
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
 
-cfg = get_config()
-
 
 class Connector:
     """Provides dev and production access to dependencies.
@@ -23,6 +21,7 @@ class Connector:
 
     def __init__(self, dev):
         self.dev = dev
+        self.cfg = get_config()
         self.data = None
         if dev:
             with open("mock_data.json", "r", encoding="utf-8") as f:
@@ -38,7 +37,7 @@ class Connector:
         if self.dev:
             return self._neon_request_dev(*args, **kwargs)
         h = httplib2.Http(".cache")
-        h.add_credentials(cfg["neon"]["domain"], api_key)
+        h.add_credentials(self.cfg["neon"]["domain"], api_key)
         return h.request(*args, **kwargs)
 
     def _neon_session_dev(self):
@@ -83,8 +82,8 @@ class Connector:
         """Send an email via GMail SMTP"""
         if self.dev:
             return self._email_dev(subject, body, recipients)
-        sender = cfg["comms"]["email_username"]
-        passwd = cfg["comms"]["email_password"]
+        sender = self.cfg["comms"]["email_username"]
+        passwd = self.cfg["comms"]["email_password"]
         msg = MIMEText(body)
         msg["Subject"] = subject
         msg["From"] = sender
@@ -131,15 +130,15 @@ class Connector:
         if self.dev:
             return self._booked_request_dev(*args, **kwargs)
         headers = {
-            "X-Booked-ApiId": cfg["booked"]["id"],
-            "X-Booked-ApiKey": cfg["booked"]["key"],
+            "X-Booked-ApiId": self.cfg["booked"]["id"],
+            "X-Booked-ApiKey": self.cfg["booked"]["key"],
         }
         return requests.request(*args, headers=headers, timeout=5.0, **kwargs)
 
     def square_client(self):
         """Create and return Square API client"""
         client = SquareClient(
-            access_token=cfg["square"]["token"],
+            access_token=self.cfg["square"]["token"],
             environment="production" if not self.dev else "sandbox",
         )
         return client
@@ -152,7 +151,7 @@ class Connector:
         """Create and return an Asana API client"""
         if self.dev:
             return self._asana_client_dev()
-        client = AsanaClient.access_token(cfg["asana"]["token"])
+        client = AsanaClient.access_token(self.cfg["asana"]["token"])
         return client
 
 
