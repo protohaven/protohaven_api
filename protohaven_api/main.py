@@ -31,14 +31,15 @@ for p in (
     app.register_blueprint(p)
 
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
+run_discord_bot = os.getenv("DISCORD_BOT", "false").lower() == "true"
 init_connector(dev=server_mode != "prod")
-if server_mode == "prod":
+if run_discord_bot:
     import threading
 
     t = threading.Thread(target=run_bot, daemon=True)
     t.start()
 else:
-    print("DEV MODE: Skipping startup of discord bot")
+    print("Skipping startup of discord bot")
 
 if __name__ == "__main__":
     app.run()
