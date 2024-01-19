@@ -1,4 +1,6 @@
 """Collect various blueprints and start the flask server - also the discord bot"""
+import os
+
 from flask import Flask  # pylint: disable=import-error
 
 from protohaven_api.config import get_config
@@ -28,17 +30,15 @@ for p in (
 ):
     app.register_blueprint(p)
 
+server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
+init_connector(dev=server_mode != "prod")
+if server_mode == "prod":
+    import threading
+
+    t = threading.Thread(target=run_bot, daemon=True)
+    t.start()
+else:
+    print("DEV MODE: Skipping startup of discord bot")
+
 if __name__ == "__main__":
-    import os
-
-    server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
-    init_connector(dev=server_mode != "prod")
-
-    if server_mode == "prod":
-        import threading
-
-        t = threading.Thread(target=run_bot, daemon=True)
-        t.start()
-    else:
-        print("DEV MODE: Skipping startup of discord bot")
     app.run()
