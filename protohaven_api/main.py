@@ -29,22 +29,12 @@ for p in (
     app.register_blueprint(p)
 
 if __name__ == "__main__":
-    import argparse
+    import os
 
-    parser = argparse.ArgumentParser(description="Protohaven API Server")
-    parser.add_argument(
-        "--prod",
-        help=(
-            "When true, run against production services (Neon, Airtable etc.) "
-            + "- when false, use local data stored in mock_data.json"
-        ),
-        action=argparse.BooleanOptionalAction,
-        default=False,
-    )
-    args = parser.parse_args()
-    init_connector(dev=not args.prod)
+    server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
+    init_connector(dev=server_mode != "prod")
 
-    if args.prod:
+    if server_mode == "prod":
         import threading
 
         t = threading.Thread(target=run_bot, daemon=True)
