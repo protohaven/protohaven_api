@@ -12,7 +12,7 @@ from protohaven_api.integrations.data.connector import get as get_connector
 
 def cfg(param):
     """Load neon configuration"""
-    return get_config()[param]
+    return get_config()["neon"][param]
 
 
 TEST_MEMBER = 1727
