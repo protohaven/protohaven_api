@@ -25,7 +25,7 @@ def require_login(fn):
     def do_login_check(*args, **kwargs):
         if session.get("neon_id") is None:
             session["redirect_to_login_url"] = request.url
-            return redirect(url_for(login_user_neon_oauth.__name__))
+            return redirect(url_for("auth." + login_user_neon_oauth.__name__))
         return fn(*args, **kwargs)
 
     do_login_check.__name__ = fn.__name__
@@ -67,7 +67,7 @@ def require_login_role(role):
             roles = get_roles()
             if roles is None:
                 session["redirect_to_login_url"] = request.url
-                return redirect(url_for(login_user_neon_oauth.__name__))
+                return redirect(url_for("auth." + login_user_neon_oauth.__name__))
             if role["name"] in roles:
                 return fn(*args, **kwargs)
             return "Access Denied"
