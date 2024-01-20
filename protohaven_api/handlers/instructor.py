@@ -1,6 +1,5 @@
 """Handlers for instructor actions on classes"""
 import datetime
-import time
 
 import pytz
 from dateutil import parser as dateparser
@@ -52,7 +51,25 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     result += f"&entry.1646535924={event_id}"
     for tc in tool_codes:
         result += f"&entry.1725748243={tc}"
-    print(result)
+    return result
+
+
+@page.route("/instructor/class/attendees")
+@require_login_role(Role.INSTRUCTOR)
+def instructor_class_attendees():
+    """Gets the attendees for a given class, by its neon ID"""
+    event_id = request.args.get("id")
+    if event_id is None:
+        raise RuntimeError("Requires param id")
+    result = neon.fetch_attendees(event_id)
+    for a in result:
+        if a["accountId"]:
+            acc = neon.fetch_account(a["accountId"])
+            if acc is not None:
+                a["email"] = acc.get("individualAccount", acc.get("companyAccount"))[
+                    "primaryContact"
+                ]["email1"]
+
     return result
 
 
@@ -77,30 +94,16 @@ def instructor_class():
     for _, e in sched:
         date = dateparser.parse(e["Start Time"]).astimezone(tz)
 
-        # If it's in neon, fetch attendee info and generate a log URL
+        # If it's in neon, generate a log URL.
+        # Placeholder for attendee names/emails as that's loaded
+        # lazily on page load.
         if e.get("Neon ID"):
-            e["attendees_for_log"] = []
-            e["attendees"] = neon.fetch_attendees(e["Neon ID"])
-            for a in e["attendees"]:
-                aemail = "unknown email"
-                if a["accountId"]:
-                    acc = neon.fetch_account(a["accountId"])
-                    if acc is not None:
-                        aemail = acc.get(
-                            "individualAccount", acc.get("companyAccount")
-                        )["primaryContact"]["email1"]
-                    e["attendees_for_log"].append(
-                        f"{a['firstName']} {a['lastName']} ({aemail})"
-                    )
-                time.sleep(0.22)  # API limits fetching to 5 per second
-
-            print(f"Attendees for {e['Name (from Class)'][0]}:", e["attendees"])
             e["prefill"] = prefill_form(
                 instructor=e["Instructor"],
                 start_date=date,
                 hours=e["Hours (from Class)"][0],
                 class_name=e["Name (from Class)"][0],
-                pass_emails=e["attendees_for_log"],
+                pass_emails=["$ATTENDEE_NAMES"],
                 clearances=e["Form Name (from Clearance) (from Class)"],
                 volunteer=e.get("Volunteer", False),
                 event_id=e["Neon ID"],

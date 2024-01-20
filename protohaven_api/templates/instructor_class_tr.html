@@ -1,4 +1,4 @@
-<tr id="{{id}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}">
+<tr id="{{event['Neon ID']}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}">
 		<td>
 			<div>{{event['Name (from Class)'][0]}}</div>
 			<div><strong>{{ 'Published' if event['Neon ID'] else 'Not Yet Scheduled' }}</strong></div>
@@ -22,11 +22,9 @@
 		</td>
 		<td>
 			{% if event['Neon ID'] %}
-			<div>{{ event['attendees']|length }} attendee(s):</div>
-			<ul>
-				{% for a in event['attendees'] %}
-				<li>{{ a['firstName'] }} {{ a['lastName'] }} ({{a['attendeeId']}}) {{ a['registrationStatus'] }} on {{ a['registrationDate'] }}</li>
-				{% endfor %}
+			<div>Attendees:</div>
+			<ul class="attendees">
+        <li>Loading...</li>
 			</ul>
 			{% endif %}
 		</td>
@@ -66,7 +64,7 @@
 			{% if event['Instructor Log Date'] %}
 				{{event['Instructor Log Date'].strftime('%Y-%m-%d')}}
 			{% elif event['Confirmed'] %}
-			<button class="log_submit" href="{{event['prefill']}}">Submit Log</button>
+			<button class="log_submit" href="{{event['prefill']}}" disabled>Submit Log</button>
 			{% endif %}
 		</td>
 </tr>

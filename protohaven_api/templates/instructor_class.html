@@ -73,6 +73,33 @@
     </table>
   </body>
   <script type="text/javascript">
+    $("tr").each(function(i, tr) {
+      let eid = $(tr).attr("id");
+      if (!eid) {
+        return;
+      }
+      console.log(eid);
+      let a = $(tr).find(".attendees")[0];
+      setTimeout(() => { // Prevent throttling by Neon
+        $.get("/instructor/class/attendees?id=" + eid).done(function(data) {
+          console.log(data);
+          console.log(a);
+          $(a).html("");
+          let attendees_for_log = [];
+          for (let d of data) {
+                $(a).append(`<li>${d.firstName} ${d.lastName} (${d.email}) ${d.registrationStatus} on ${d.registrationDate}</li>`);
+                attendees_for_log.push(`${d.firstName} ${d.lastName} (${d.email})`);
+          }
+          let logbtn = $(tr).find(".log_submit");
+          let log_url = logbtn.attr("href");
+          logbtn.attr("href", log_url.replace("$ATTENDEE_NAMES", encodeURIComponent(attendees_for_log.join(", "))));
+          logbtn.prop("disabled",false);
+        }).fail(function(data) {
+          console.log(data);
+          $(a).html("Error (likely no event in Neon)");
+        });
+      }, i*220);
+    });
     $("#schedule button").click(function(e) {
           let eid = $(e.target).parentsUntil(".schedule_class").parent().attr("id");
           let cls = e.target.className;
