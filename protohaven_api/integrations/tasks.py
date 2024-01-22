@@ -13,7 +13,7 @@ cfg = get_config()["asana"]
 @cache
 def client():
     """Fetches the asana client via the connector module"""
-    get_connector().asana_client()
+    return get_connector().asana_client()
 
 
 def get_all_projects():

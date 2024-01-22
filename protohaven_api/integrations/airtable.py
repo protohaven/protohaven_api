@@ -19,12 +19,14 @@ def get_record(base, tbl, rec):
     return json.loads(response.content)
 
 
-def get_all_records(base, tbl):
+def get_all_records(base, tbl, suffix=None):
     """Get all records for a given named table (ID in config.yaml)"""
     records = []
     offs = ""
     while offs is not None:
         url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}?offset={offs}"
+        if suffix is not None:
+            url += "&" + suffix
         response = get_connector().airtable_request(cfg[base]["token"], "GET", url)
         if response.status_code != 200:
             raise RuntimeError("Airtable fetch", response.status_code, response.content)
@@ -35,6 +37,8 @@ def get_all_records(base, tbl):
         offs = data["offset"]
     return records
 
+def get_all_records_after(base, tbl, after_date):
+      return get_all_records(base, tbl, suffix=f"filterByFormula=IS_AFTER(%7BCreated%7D,'{after_date.isoformat()}')")
 
 def insert_records(data, base, tbl):
     """Inserts one or more records into a named table"""
@@ -60,6 +64,27 @@ def get_class_automation_schedule():
     """Grab the current automated class schedule"""
     return get_all_records("class_automation", "schedule")
 
+
+def get_emails_notified_after(neon_id: str, after_date):
+  emails = set()
+  for row in get_all_records_after("class_automation", "email_log", after_date):
+    if row['fields'].get('Neon ID', '') != str(neon_id):
+      continue
+    emails.add(row['fields']['To'].lower())
+  return emails
+
+def get_instructor_email_map():
+  result = dict()
+  for row in get_all_records("class_automation", "capabilities"):
+    if row['fields'].get('Email') is None:
+      continue
+    result[row['fields']['Instructor'].strip()] = row['fields']['Email'].strip()
+  return result
+
+def log_email(neon_id, to, subject, status):
+  rep = insert_records([{'To': to, 'Subject': subject, 'Status': status, 'Neon ID': str(neon_id)}], 'class_automation', 'email_log')
+  if rep.status_code != 200:
+    raise Exception(rep.content)
 
 @cache
 def get_instructor_log_tool_codes():

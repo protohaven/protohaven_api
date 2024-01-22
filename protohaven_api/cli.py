@@ -1,17 +1,31 @@
 """ A set of command line tools, possibly run by CRON"""
 import argparse
 import datetime
+import logging
 import json
+import os
 import re
 import sys
+import yaml
 from collections import defaultdict
 
 import requests
 from dateutil import parser as dateparser
 
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("cli")
+
+from protohaven_api.integrations.data.connector import init as init_connector
+
+server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
+log.info(f"Mode is {server_mode}\n")
+init_connector(dev=server_mode != "prod")
+
 from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
-
+from protohaven_api.class_automation.builder import ClassEmailBuilder
+from protohaven_api.integrations.airtable import log_email
+from protohaven_api.integrations.comms import send_email
 
 def send_hours_submission_reminders(dry_run=True):
     """Sends reminders to instructors to submit their hours"""
@@ -26,23 +40,23 @@ def send_hours_submission_reminders(dry_run=True):
         if s["Timestamp"] > earliest
     }
 
-    print(f"Loaded {len(subs)} submissions after {earliest}")
+    log.info(f"Loaded {len(subs)} submissions after {earliest}")
 
     to_remind = defaultdict(list)
     for c in classes:
         if c["name"] in subs:
-            print("Class", c["name"], "already submitted, skipping")
+            log.info("Class", c["name"], "already submitted, skipping")
             continue
 
         m = re.match(r".*w\/ (\w+) (\w+)", c["name"])
         if m is None:
-            print("Skipping unparseable event:", c["name"])
+            log.info("Skipping unparseable event:", c["name"])
             continue
 
         # Could lookup and cache this, later
         inst = neon.search_member_by_name(m[1], m[2])
         if inst is None:
-            print("Couldn't find Neon info for ", m[1], m[2])
+            log.info("Couldn't find Neon info for ", m[1], m[2])
             continue
         email = inst["Email 1"]
         to_remind[email].append(c["name"])
@@ -59,10 +73,10 @@ def send_hours_submission_reminders(dry_run=True):
 
         subject = "Please submit your hours!"
         if dry_run:
-            print("\n\nDRY RUN - NOT SENDING:")
-            print("To:", email)
-            print("Subject:", subject)
-            print(body)
+            log.info("\n\nDRY RUN - NOT SENDING:")
+            log.info("To:", email)
+            log.info("Subject:", subject)
+            log.info(body)
         else:
             raise RuntimeError("TEST THIS FIRST")
             # comms.send_email(subject, body, [email])
@@ -142,15 +156,16 @@ def purchase_request_alerts():
     if not section_added:
         content += "\nAll caught up. Nice."
 
-    print(content)
+    log.info(content)
     comms.send_board_message(content)
-    print("Done")
+    log.info("Done")
 
 
 class ProtohavenCLI:
     """argparser-based CLI for protohaven operations"""
 
     def __init__(self):
+        self.log = logging.getLogger("cli")
         helptext = "\n".join(
             [
                 f"{a}: {getattr(self, a).__doc__}"
@@ -165,11 +180,57 @@ class ProtohavenCLI:
         parser.add_argument("command", help="Subcommand to run")
         args = parser.parse_args(sys.argv[1:2])  # Limit to only initial command args
         if not hasattr(self, args.command):
-            parser.print_help()
+            parser.log.info_help()
             sys.exit(1)
         getattr(self, args.command)(
             sys.argv[2:]
         )  # Ignore first two argvs - already parsed
+
+    def gen_class_emails(self, argv):
+        """Reads schedule of classes from Neon and Airtable and outputs
+        a list of emails to send to instructors, techs, and students.
+        This does not actually send the emails; for that, see send_class_emails."""
+        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
+        parser.add_argument(
+            "--ignore_ovr",
+            help="class IDs to ignore when generating emails",
+            type=int,
+            nargs="+",
+        )
+        builder = ClassEmailBuilder(logging.getLogger("cli.email_builder"))
+        result = builder.build()
+        print(yaml.dump(result, default_flow_style=False, default_style=''))
+
+    def send_class_emails(self, argv):
+        """Reads a list of emails and sends them to their recipients"""
+        parser = argparse.ArgumentParser(description=self.send_class_emails.__doc__)
+        parser.add_argument(
+            "--path",
+            help="path to email YAML file",
+            type=str,
+        )
+        args = parser.parse_args(argv)
+
+        with open(args.path, 'r', encoding="utf-8") as f:
+            data = yaml.safe_load(f.read())
+        self.log.info(f"Loaded {len(data)} notifications:")
+        for e in data:
+            self.log.info(f" - {e['target']}: {e['subject']}")
+
+        confstr = f"send {len(data)} notifications"
+        confirm = input(f"Please type \"{confstr}\" to continue: ")
+        if confirm != confstr:
+            self.log.error("Confirmation string does not match; exiting")
+            return sys.exit(1)
+
+        for e in data:
+            if e['target'].startswith("#"):
+                send_discord_message(subject + "\n\n" + body, e['target'].split("#")[1])
+            else:
+                send_email(e['subject'], e['body'], [e['target']])
+                log_email(e['id'], e['target'], e['subject'], "Sent")
+                self.log.info(f"Sent to {e['target']}: '{e['subject']}' (logged in Airtable)")
+        self.log.info("Done")
 
     def validate_docs(self, argv):  # pylint: disable=too-many-statements
         """Go through list of tools in airtable, ensure all of them have
@@ -183,9 +244,9 @@ class ProtohavenCLI:
         )
         args = parser.parse_args(argv)
         if args.email != "":
-            print(f"A report will be sent to {args.email}")
+            log.info(f"A report will be sent to {args.email}")
         else:
-            print("Use --email to send the report to an email address")
+            log.info("Use --email to send the report to an email address")
 
         def probe(url, name, stats):
             url = url.strip()
@@ -230,7 +291,7 @@ class ProtohavenCLI:
             # rep = requests.head(tutorial_url, timeout=5.0)
             # tutorial_exists = rep.status_code == 200
 
-            # print(f"{name}\n - Clearance url: {clearance_url}\n - Tutorial url: {tutorial_url}\n")
+            # log.info(f"{name}\n - Clearance url: {clearance_url}\n - Tutorial url: {tutorial_url}\n")
             sys.stdout.write("+")
             sys.stdout.flush()
 
@@ -252,12 +313,12 @@ class ProtohavenCLI:
         body += "\n"
         body += write_stats(stats["clearance"], "Clearance Docs")
         if args.email != "":
-            print(f"Sending email to {args.email}:\n{subject}\n\n{body}")
+            log.info(f"Sending email to {args.email}:\n{subject}\n\n{body}")
             comms.send_email(subject, body, [args.email])
-            print("Email sent")
+            log.info("Email sent")
         else:
-            print(subject)
-            print(body)
+            log.info(subject)
+            log.info(body)
 
     def project_requests(self, argv):
         """Send alerts when new project requests fall into Asana"""
@@ -270,7 +331,7 @@ class ProtohavenCLI:
         )
         args = parser.parse_args(argv)
         if not args.notify:
-            print(
+            log.info(
                 "\n***   --notify is not set, so projects will not be "
                 + "checked off or posted to Discord   ***\n"
             )
@@ -286,7 +347,7 @@ class ProtohavenCLI:
                 )
             deadline = dateparser.parse(deadline[1])
             if deadline < datetime.datetime.now():
-                print(
+                log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"
                 )
                 continue
@@ -296,10 +357,10 @@ class ProtohavenCLI:
             if args.notify:
                 comms.send_help_wanted(content)
                 tasks.complete(req["gid"])
-                print("Sent to discord & marked complete:")
+                log.info("Sent to discord & marked complete:")
             num += 1
-            print(content)
-        print(f"Done - handled {num} project request(s)")
+            log.info(content)
+        log.info(f"Done - handled {num} project request(s)")
 
     def mock_data(self, argv):
         """Fetch mock data from airtable, neon etc.
@@ -329,7 +390,7 @@ class ProtohavenCLI:
                 tables[k][k2] = airtable.get_all_records(k, k2)
 
         sys.stderr.write("Done. Results:\n")
-        print(
+        log.info(
             json.dumps(
                 {
                     "neon": {
@@ -343,5 +404,4 @@ class ProtohavenCLI:
         )
 
 
-if __name__ == "__main__":
-    ProtohavenCLI()
+ProtohavenCLI()
