@@ -13,7 +13,7 @@ def test_require_login_redirect(monkeypatch):
 
     fn = rbac.require_login(lambda: "called")
     result = fn()
-    assert result == "login_user_neon_oauth"
+    assert result == "auth.login_user_neon_oauth"
 
 
 def test_require_login_ok(monkeypatch):
