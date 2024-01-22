@@ -48,7 +48,7 @@ def logout():
 def neon_oauth_redirect():
     """Redirect back to the page the user came from for login"""
     code = request.args.get("code")
-    rep = oauth.retrieve_token(url_for(neon_oauth_redirect.__name__), code)
+    rep = oauth.retrieve_token(url_for("auth." + neon_oauth_redirect.__name__), code)
     session["neon_id"] = rep.get("access_token")
     session["neon_account"] = neon.fetch_account(session["neon_id"])
     referrer = session.get("login_referrer", "/")

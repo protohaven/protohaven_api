@@ -1,4 +1,5 @@
 """ Neon CRM integration methods"""
+import datetime
 import json
 import time
 import urllib
@@ -21,6 +22,35 @@ CUSTOM_FIELD_CLEARANCES = 75
 CUSTOM_FIELD_INTEREST = 148
 CUSTOM_FIELD_DISCORD_USER = 150
 URL_BASE = "https://api.neoncrm.com/v2"
+
+
+def fetch_published_upcoming_events(back_days=7):
+    """Load upcoming events from Neon CRM, with back_days of trailing event data"""
+    q_params = {
+        "startDateAfter": (
+            datetime.datetime.now() - datetime.timedelta(days=back_days)
+        ).strftime("%Y-%m-%d"),
+        "publishedEvent": True,
+        "archived": False,
+        "pagination": {
+            "currentPage": 0,
+        },
+    }
+    current_page = 0
+    total_pages = 1
+    while current_page < total_pages:
+        q_params["pagination"]["currentPage"] = current_page
+        encoded_params = urllib.parse.urlencode(q_params)
+        _, content = get_connector().neon_request(
+            cfg("api_key1"),
+            "https://api.neoncrm.com/v2/events?" + encoded_params,
+            "GET",
+        )
+        content = json.loads(content)
+        total_pages = content["pagination"]["totalPages"]
+        for cls in content["events"]:
+            yield cls
+        current_page += 1
 
 
 def fetch_events(after=None, before=None, published=True):
@@ -48,6 +78,35 @@ def fetch_event(event_id):
     if resp.status != 200:
         raise RuntimeError(f"fetch_event({event_id}) {resp.status}: {content}")
     return json.loads(content)
+
+
+def fetch_registrations(event_id):
+    """Fetch registrations for a specific Neon event"""
+    resp, content = get_connector().neon_request(
+        cfg("api_key1"),
+        f"https://api.neoncrm.com/v2/events/{event_id}/eventRegistrations",
+    )
+    if resp.status != 200:
+        raise RuntimeError(f"fetch_registrations({event_id}) {resp.status}: {content}")
+    content = json.loads(content)
+    if isinstance(content, list):
+        raise RuntimeError(content)
+    if content["pagination"]["totalPages"] > 1:
+        raise RuntimeError("TODO implement pagination for fetch_attendees()")
+    return content["eventRegistrations"] or []
+
+
+def fetch_tickets(event_id):
+    """Fetch ticket information for a specific Neon event"""
+    resp, content = get_connector().neon_request(
+        cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}/tickets"
+    )
+    if resp.status != 200:
+        raise RuntimeError(f"fetch_tickets({event_id}) {resp.status}: {content}")
+    content = json.loads(content)
+    if isinstance(content, list):
+        return content
+    raise RuntimeError(content)
 
 
 def fetch_attendees(event_id):
