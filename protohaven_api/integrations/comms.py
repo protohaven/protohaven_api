@@ -24,6 +24,7 @@ def send_discord_message(content, channel=None):
     result = get_connector().discord_webhook(channel, content)
     result.raise_for_status()
 
+
 def send_help_wanted(content):
     """Sends a message to the help-wanted channel"""
     return send_discord_message(content, "help-wanted")

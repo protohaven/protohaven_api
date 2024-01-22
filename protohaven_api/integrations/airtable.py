@@ -37,8 +37,16 @@ def get_all_records(base, tbl, suffix=None):
         offs = data["offset"]
     return records
 
+
 def get_all_records_after(base, tbl, after_date):
-      return get_all_records(base, tbl, suffix=f"filterByFormula=IS_AFTER(%7BCreated%7D,'{after_date.isoformat()}')")
+    """Returns a list of all records in the table with the
+    Created field timestamp after a certain date"""
+    return get_all_records(
+        base,
+        tbl,
+        suffix=f"filterByFormula=IS_AFTER(%7BCreated%7D,'{after_date.isoformat()}')",
+    )
+
 
 def insert_records(data, base, tbl):
     """Inserts one or more records into a named table"""
@@ -66,25 +74,36 @@ def get_class_automation_schedule():
 
 
 def get_emails_notified_after(neon_id: str, after_date):
-  emails = set()
-  for row in get_all_records_after("class_automation", "email_log", after_date):
-    if row['fields'].get('Neon ID', '') != str(neon_id):
-      continue
-    emails.add(row['fields']['To'].lower())
-  return emails
+    """Gets all logged emails that were sent after a specific date"""
+    emails = set()
+    for row in get_all_records_after("class_automation", "email_log", after_date):
+        if row["fields"].get("Neon ID", "") != str(neon_id):
+            continue
+        emails.add(row["fields"]["To"].lower())
+    return emails
+
 
 def get_instructor_email_map():
-  result = dict()
-  for row in get_all_records("class_automation", "capabilities"):
-    if row['fields'].get('Email') is None:
-      continue
-    result[row['fields']['Instructor'].strip()] = row['fields']['Email'].strip()
-  return result
+    """Get a mapping of the instructor's full name to
+    their email address, from the Capabilities automation table"""
+    result = {}
+    for row in get_all_records("class_automation", "capabilities"):
+        if row["fields"].get("Email") is None:
+            continue
+        result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
+    return result
+
 
 def log_email(neon_id, to, subject, status):
-  rep = insert_records([{'To': to, 'Subject': subject, 'Status': status, 'Neon ID': str(neon_id)}], 'class_automation', 'email_log')
-  if rep.status_code != 200:
-    raise Exception(rep.content)
+    """Logs the sending of an email in Airtable"""
+    rep = insert_records(
+        [{"To": to, "Subject": subject, "Status": status, "Neon ID": str(neon_id)}],
+        "class_automation",
+        "email_log",
+    )
+    if rep.status_code != 200:
+        raise RuntimeError(rep.content)
+
 
 @cache
 def get_instructor_log_tool_codes():

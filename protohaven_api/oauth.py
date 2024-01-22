@@ -33,7 +33,9 @@ def prep_request(redirect_uri):
 def retrieve_token(redirect_uri, authorization_code):
     """Get the user token (i.e. the user's account_id) after a successful OAuth"""
     client_id, client_secret = client_data()
-    sys.stderr.write(f"client_id {client_id} client_secret {client_secret}  auth_code {authorization_code}\n")
+    sys.stderr.write(
+        f"client_id {client_id} client_secret {client_secret}  auth_code {authorization_code}\n"
+    )
     sys.stderr.flush()
     rep = requests.post(
         "https://app.neoncrm.com/np/oauth/token",
