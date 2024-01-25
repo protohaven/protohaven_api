@@ -35,7 +35,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     """Builds emails and other notifications for class updates"""
 
     CACHE_FILE = "class_email_builder_cache.pkl"
+    CACHE_EXPIRY_HOURS = 1
     ignore_ovr = []  # @param {type:'raw'}
+    filter_ovr = []
     confirm_ovr = []  # @param {type:'raw'}
     pro_bono_classes = []  # @param {type:'raw'}
     cancel_ovr = []  # @param {type:'raw'}
@@ -53,13 +55,22 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
         self.output = []  # [{target, subject, body}]
 
+        self.cached = False
         if Path(self.CACHE_FILE).exists():
             self.log.info(f"Loading from cache {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "rb") as f:
                 data = pickle.load(f)
             self.log.info(f"Cache date {data['date']}")
-            self.for_techs = data["for_techs"]
-            self.actionable_classes = data["actionable_classes"]
+            if datetime.datetime.now() <= data["date"] + datetime.timedelta(
+                hours=self.CACHE_EXPIRY_HOURS
+            ):
+                self.events = data["events"]
+                self.cached = True
+                self.log.info("Cache is fresh; using it for event data")
+            else:
+                self.log.info(
+                    f"Skipping cache; more than {self.CACHE_EXPIRY_HOURS} hour(s) old"
+                )
         else:
             self.events = list(fetch_published_upcoming_events())
             self.log.info(f"Fetched {len(self.events)} events fron Neon")
@@ -140,7 +151,12 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         """Annotate an event with additional data needed to properly categorize it"""
         evt["python_date"] = dateparser.parse(evt["startDate"] + " " + evt["startTime"])
         evt["python_date_end"] = dateparser.parse(evt["endDate"] + " " + evt["endTime"])
-        evt["attendees"] = fetch_attendees(evt["id"])
+        # Only operate on attendees that successfully registered
+        evt["attendees"] = [
+            a
+            for a in fetch_attendees(evt["id"])
+            if a["registrationStatus"] == "SUCCEEDED"
+        ]
         for a in evt["attendees"]:
             email = get_account_email(
                 a.get("registrantAccountId") or a.get("accountId")
@@ -148,6 +164,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             if email is None:
                 raise RuntimeError(f"Failed to resolve email for attendee: {a}")
             a["email"] = email.lower()
+            self.log.debug(f" - {a['firstName']} {a['lastName']} ({a['email']}) : {a}")
 
         evt["unique"] = {a["attendeeId"] for a in evt["attendees"]}
         evt["signups"] = len(evt["unique"])
@@ -175,15 +192,23 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         evt["already_notified"] = []  # assigned during sort
         return evt
 
-    def _sort_events_for_notification(self, now):
+    def _sort_events_for_notification(self, now):  # pylint: disable=too-many-branches
         """Sort events into various notification buckets"""
         for evt in self.events:
             neon_id = evt["id"]
-            if neon_id in self.ignore_ovr:
-                self.log.info(f"IGNORE {evt['name']} (per override)")
-                continue
             self.log.debug(f"sorting event {neon_id}")
-            evt = self._annotate(evt)
+
+            # We annotate before handling filter/ignore overrides so
+            # we have a complete cache
+            if not self.cached:
+                evt = self._annotate(evt)
+
+            if neon_id in self.ignore_ovr or (
+                len(self.filter_ovr) > 0 and neon_id not in self.filter_ovr
+            ):
+                self.log.info(f"IGNORE {evt['name']} (override)")
+                continue
+
             date = evt["python_date"]
             prior_10days = date - datetime.timedelta(days=11)
             prior_week = date - datetime.timedelta(days=8)
@@ -191,9 +216,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             prior_day = date - datetime.timedelta(days=1, hours=10)
 
             if neon_id in self.confirm_ovr:
-                self.push_class(evt, "CONFIRM", "per override")
+                self.push_class(evt, "CONFIRM", "override")
             elif neon_id in self.cancel_ovr:
-                self.push_class(evt, "CANCEL", "per override")
+                self.push_class(evt, "CANCEL", "override")
             elif now > evt["python_date_end"]:
                 evt["already_notified"] = get_emails_notified_after(neon_id, date)
                 self.log.info("after run survey notify")
@@ -317,21 +342,19 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if now is None:
             now = datetime.datetime.now()
 
-        if len(self.actionable_classes) == 0:
-            self.log.info("Sorting events...")
-            self._sort_events_for_notification(now)
+        self.log.info("Sorting events...")
+        self._sort_events_for_notification(now)
+
+        if not self.cached:
             self.log.info(f"Sorting complete, caching result in {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "wb") as f:
                 pickle.dump(
                     {
                         "date": now,
-                        "for_techs": self.for_techs,
-                        "actionable_classes": self.actionable_classes,
+                        "events": self.events,
                     },
                     f,
                 )
-        else:
-            self.log.warning("Skipping sort; using cache")
 
         events_missing_email = [
             (evt["id"], evt["name"], evt["python_date"])
