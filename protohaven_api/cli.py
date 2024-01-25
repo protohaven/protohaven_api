@@ -20,7 +20,8 @@ from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
 from protohaven_api.integrations.data.connector import init as init_connector
 
-logging.basicConfig(level=logging.INFO)
+LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
+logging.basicConfig(level=LOGLEVEL)
 log = logging.getLogger("cli")
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
 log.info(f"Mode is {server_mode}\n")
@@ -192,18 +193,40 @@ class ProtohavenCLI:
         This does not actually send the emails; for that, see send_class_emails."""
         parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
         parser.add_argument(
-            "--ignore_ovr",
+            "--confirm",
+            help="class IDs to auto-confirm when generating emails",
+            type=int,
+            nargs="+",
+        )
+        parser.add_argument(
+            "--cancel",
+            help="class IDs to auto-cancel when generating emails",
+            type=int,
+            nargs="+",
+        )
+        parser.add_argument(
+            "--ignore",
             help="class IDs to ignore when generating emails",
+            type=int,
+            nargs="+",
+        )
+        parser.add_argument(
+            "--filter",
+            help="class IDs to restrict processing to when generating emails",
             type=int,
             nargs="+",
         )
         args = parser.parse_args(argv)
         builder = ClassEmailBuilder(logging.getLogger("cli.email_builder"))
-        builder.ignore_ovr = args.ignore_ovr or []
+        builder.ignore_ovr = args.ignore or []
+        builder.cancel_ovr = args.cancel or []
+        builder.confirm_ovr = args.confirm or []
+        builder.filter_ovr = args.filter or []
         # Add the rest here as needed
 
         result = builder.build()
         print(yaml.dump(result, default_flow_style=False, default_style=""))
+        self.log.info(f"Generated {len(result)} notification(s)")
 
     def send_class_emails(self, argv):
         """Reads a list of emails and sends them to their recipients"""
@@ -230,13 +253,26 @@ class ProtohavenCLI:
         for e in data:
             if e["target"].startswith("#"):
                 send_discord_message(
-                    f"{data['subject']}\n\n{data['body']}", e["target"].split("#")[1]
+                    f"{e['subject']}\n\n{e['body']}", e["target"].split("#")[1]
                 )
             else:
-                send_email(e["subject"], e["body"], [e["target"]])
-                log_email(e["id"], e["target"], e["subject"], "Sent")
+                email_validate_pattern = r"\S+@\S+\.\S+"
+                emails = re.findall(
+                    email_validate_pattern,
+                    e["target"].replace(";", " ").replace(",", " ").lower(),
+                )
+                emails = [
+                    e.replace("(", "")
+                    .replace(")", "")
+                    .replace('"', "")
+                    .replace("'", "")
+                    for e in emails
+                ]
+
+                send_email(e["subject"], e["body"], emails)
+                log_email(e["id"], ", ".join(emails), e["subject"], "Sent")
                 self.log.info(
-                    f"Sent to {e['target']}: '{e['subject']}' (logged in Airtable)"
+                    f"Sent to {emails}: '{e['subject']}' (logged in Airtable)"
                 )
         self.log.info("Done")
 

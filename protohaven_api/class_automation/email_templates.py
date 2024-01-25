@@ -70,7 +70,9 @@ def instructor_check_supplies_email(evt):
     classname = evt["name"]
     evt_date = evt["python_date"]
 
-    subject = f"{classname} - please confirm class supplies"
+    subject = (
+        f"{classname} on {evt_date.strftime('%B %-d')} - please confirm class supplies"
+    )
     body = (
         f"Hi {firstname},"
         f"\n\nThanks for agreeing to teach {classname} on {evt_date.strftime('%B %-d')}."
@@ -94,7 +96,9 @@ def instructor_low_attendance_email(evt):
     evt_date = evt["python_date"]
     need = evt["need"]
 
-    subject = f"{classname} - needs {need} students to run"
+    subject = (
+        f"{classname} on {evt_date.strftime('%B %-d')} - needs {need} students to run"
+    )
     body = (
         f"Hi {firstname},"
         f"\n\nThanks for agreeing to teach {classname} on {evt_date.strftime('%B %-d')}."
