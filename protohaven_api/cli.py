@@ -199,7 +199,7 @@ class ProtohavenCLI:
         )
         args = parser.parse_args(argv)
         builder = ClassEmailBuilder(logging.getLogger("cli.email_builder"))
-        builder.ignore_ovr = args.ignore_ovr
+        builder.ignore_ovr = args.ignore_ovr or []
         # Add the rest here as needed
 
         result = builder.build()

@@ -35,10 +35,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     """Builds emails and other notifications for class updates"""
 
     CACHE_FILE = "class_email_builder_cache.pkl"
-    ignore_ovr = [17682, 17675]  # @param {type:'raw'}
+    ignore_ovr = []  # @param {type:'raw'}
     confirm_ovr = []  # @param {type:'raw'}
     pro_bono_classes = []  # @param {type:'raw'}
-    cancel_ovr = [17676]  # @param {type:'raw'}
+    cancel_ovr = []  # @param {type:'raw'}
     ignore_email = []  # List of email destinations to ignore
     ignore_all_survey = False  # @param {type: 'boolean'}
     ignore_all_cancelled = False  # @param {type: 'boolean'}
@@ -138,8 +138,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def _annotate(self, evt):
         """Annotate an event with additional data needed to properly categorize it"""
-        date = dateparser.parse(evt["startDate"] + " " + evt["startTime"])
-        evt["python_date"] = date
+        evt["python_date"] = dateparser.parse(evt["startDate"] + " " + evt["startTime"])
+        evt["python_date_end"] = dateparser.parse(evt["endDate"] + " " + evt["endTime"])
         evt["attendees"] = fetch_attendees(evt["id"])
         for a in evt["attendees"]:
             email = get_account_email(
@@ -194,7 +194,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 self.push_class(evt, "CONFIRM", "per override")
             elif neon_id in self.cancel_ovr:
                 self.push_class(evt, "CANCEL", "per override")
-            elif now > date:
+            elif now > evt["python_date_end"]:
                 evt["already_notified"] = get_emails_notified_after(neon_id, date)
                 self.log.info("after run survey notify")
                 self.handle_after(evt)
