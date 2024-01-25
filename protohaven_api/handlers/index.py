@@ -1,9 +1,15 @@
 """handlers for main landing page"""
+import datetime
 import json
 
+from dateutil import parser as dateparser
 from flask import Blueprint, render_template, session
 
 from protohaven_api.handlers.auth import user_email, user_fullname
+from protohaven_api.integrations.neon import (
+    fetch_attendees,
+    fetch_published_upcoming_events,
+)
 from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
@@ -35,3 +41,34 @@ def index():
         clearances=clearances,
         roles=roles,
     )
+
+
+@page.route("/events")
+def events_dashboard():
+    """Show relevant upcoming events - designed for a kiosk display"""
+    events = []
+    now = datetime.datetime.now()
+    # NOTE: does not currently support intensive date periods. Need to expand
+    # dates to properly show this.
+    for e in fetch_published_upcoming_events():
+        date = dateparser.parse(e["startDate"] + " " + e["startTime"])
+        if date < now:
+            continue
+        attendees = 0
+        for a in fetch_attendees(e["id"]):
+            if a["registrationStatus"] == "SUCCEEDED":
+                attendees += 1
+
+        events.append(
+            {
+                "neon_id": e["id"],
+                "name": e["name"],
+                "date": date,
+                "attendees": attendees,
+                "capacity": e["capacity"],
+                "registration": e["enableEventRegistrationForm"],
+            }
+        )
+
+    events.sort(key=lambda e: e["date"])
+    return render_template("events.html", events=events)

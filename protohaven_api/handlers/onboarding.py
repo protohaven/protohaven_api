@@ -1,7 +1,7 @@
 """Handlers for onboarding steps for new members"""
 import time
 
-from flask import Blueprint, redirect, render_template, request
+from flask import Blueprint, render_template, request
 
 from protohaven_api.integrations import comms, neon
 from protohaven_api.rbac import Role, require_login_role
@@ -68,9 +68,3 @@ def discord_member_add():
         return "Setup complete"
 
     return result
-
-
-@page.route("/discord")
-def discord_redirect():
-    """Redirect users to the discord invite link"""
-    return redirect("https://discord.gg/twmKh749aH")

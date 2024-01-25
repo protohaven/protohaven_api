@@ -1,0 +1,54 @@
+<html>
+  <head>
+    <script
+        src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+    <style>
+      .schedule_class {
+        padding: 5px;
+        margin: 5px;
+        border: 1px gray solid;
+      }
+      .schedule_class.unscheduled {
+        font-color: #333;
+      }
+      .schedule_class.scheduled {
+        background-color: #EEEEFF;
+      }
+      #schedule {
+        min-width: 600px;
+      }
+      #schedule td {
+        padding: 5px;
+        margin: 5px;
+        border: 1px gray solid;
+				vertical-align: top;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Upcoming Events</h2>
+    <p><strong>NOTE: Multi-day classes are only shown by their start date</strong></p>
+    <table id="schedule">
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Date</th>
+          <th>Attendees</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for event in events %}
+        <tr>
+          <td>{{event['name']}}</td>
+          <td>{{event['date']}}</td>
+          <td>{{event['attendees']}} / {{event['capacity']}}</td>
+          <td>{{ "Registration open" if event['registration'] else "Registration closed"}}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>
