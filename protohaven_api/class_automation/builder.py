@@ -67,27 +67,28 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 self.events = data["events"]
                 self.cached = True
                 self.log.info("Cache is fresh; using it for event data")
-            else:
-                self.log.info(
-                    f"Skipping cache; more than {self.CACHE_EXPIRY_HOURS} hour(s) old"
-                )
-        else:
-            self.events = list(fetch_published_upcoming_events())
-            self.log.info(f"Fetched {len(self.events)} events fron Neon")
-            self.log.debug(f"example data:\n{self.events[0]}")
+                return
 
-            airtable_schedule = get_class_automation_schedule()
-            self.airtable_schedule = {
-                s["fields"]["Neon ID"]: s
-                for s in airtable_schedule
-                if s["fields"].get("Neon ID") is not None
-            }
             self.log.info(
-                f"Fetched {len(self.airtable_schedule)}) schedule items from Airtable"
+                f"Skipping cache; more than {self.CACHE_EXPIRY_HOURS} hour(s) old"
             )
-            self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
-            self.email_map = get_instructor_email_map()
-            self.log.info(f"Fetched {len(self.email_map)} instructor emails")
+
+        self.events = list(fetch_published_upcoming_events())
+        self.log.info(f"Fetched {len(self.events)} events fron Neon")
+        self.log.debug(f"example data:\n{self.events[0]}")
+
+        airtable_schedule = get_class_automation_schedule()
+        self.airtable_schedule = {
+            s["fields"]["Neon ID"]: s
+            for s in airtable_schedule
+            if s["fields"].get("Neon ID") is not None
+        }
+        self.log.info(
+            f"Fetched {len(self.airtable_schedule)}) schedule items from Airtable"
+        )
+        self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
+        self.email_map = get_instructor_email_map()
+        self.log.info(f"Fetched {len(self.email_map)} instructor emails")
 
     def push_class(self, evt, action, reason):
         """Push a class onto the actionable list. It'll later be used in email templates"""

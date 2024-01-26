@@ -3,7 +3,9 @@ configured state of the server"""
 import asyncio
 import json
 import smtplib
+import time
 from email.mime.text import MIMEText
+from threading import Lock
 
 import httplib2
 import requests
@@ -22,6 +24,7 @@ class Connector:
     def __init__(self, dev):
         self.dev = dev
         self.cfg = get_config()
+        self.neon_ratelimit = Lock()
         self.data = None
         if dev:
             with open("mock_data.json", "r", encoding="utf-8") as f:
@@ -38,6 +41,16 @@ class Connector:
             return self._neon_request_dev(*args, **kwargs)
         h = httplib2.Http(".cache")
         h.add_credentials(self.cfg["neon"]["domain"], api_key)
+
+        # Attendee endpoint is often called repeatedly; runs into
+        # neon request ratelimit. Here we globally synchronize and
+        # include a sleep timer to prevent us from overrunning
+        if args[0].endswith("/attendees"):
+            with self.neon_ratelimit:
+                rep = h.request(*args, **kwargs)
+                time.sleep(0.22)
+                return rep
+
         return h.request(*args, **kwargs)
 
     def _neon_session_dev(self):

@@ -3,7 +3,7 @@ import datetime
 import json
 
 from dateutil import parser as dateparser
-from flask import Blueprint, render_template, session
+from flask import Blueprint, render_template, request, session
 
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations.neon import (
@@ -43,6 +43,19 @@ def index():
     )
 
 
+@page.route("/events/attendees")
+def events_dashboard_attendee_count():
+    """Gets the attendee count for a given event, by its neon ID"""
+    event_id = request.args.get("id")
+    if event_id is None:
+        raise RuntimeError("Requires param id")
+    attendees = 0
+    for a in fetch_attendees(event_id):
+        if a["registrationStatus"] == "SUCCEEDED":
+            attendees += 1
+    return str(attendees)
+
+
 @page.route("/events")
 def events_dashboard():
     """Show relevant upcoming events - designed for a kiosk display"""
@@ -54,17 +67,11 @@ def events_dashboard():
         date = dateparser.parse(e["startDate"] + " " + e["startTime"])
         if date < now:
             continue
-        attendees = 0
-        for a in fetch_attendees(e["id"]):
-            if a["registrationStatus"] == "SUCCEEDED":
-                attendees += 1
-
         events.append(
             {
-                "neon_id": e["id"],
+                "id": e["id"],
                 "name": e["name"],
                 "date": date,
-                "attendees": attendees,
                 "capacity": e["capacity"],
                 "registration": e["enableEventRegistrationForm"],
             }
