@@ -36,19 +36,36 @@
           <th>Event</th>
           <th>Date</th>
           <th>Attendees</th>
+          <th>Capacity</th>
           <th>Status</th>
         </tr>
       </thead>
       <tbody>
-      {% for event in events %}
-        <tr>
+        {% for event in events %}
+        <tr id="{{event['id']}}">
           <td>{{event['name']}}</td>
           <td>{{event['date']}}</td>
-          <td>{{event['attendees']}} / {{event['capacity']}}</td>
+          <td class="attendees">Loading...</td>
+          <td>{{event['capacity']}}</td>
           <td>{{ "Registration open" if event['registration'] else "Registration closed"}}</td>
         </tr>
-      {% endfor %}
+        {% endfor %}
       </tbody>
     </table>
   </body>
+  <script>
+    $("tr").each(function(i, tr) {
+      console.log(tr);
+      let eid = $(tr).attr("id");
+      console.log(eid);
+      if (!eid) {
+        return;
+      }
+      console.log(eid);
+      let a = $(tr).find(".attendees")[0];
+      $.get("/events/attendees?id=" + eid).done(function(data) {
+        $(a).html(data);
+      });
+    });
+  </script>
 </html>

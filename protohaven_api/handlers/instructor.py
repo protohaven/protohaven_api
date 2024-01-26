@@ -84,10 +84,11 @@ def instructor_class():
             return "Not Authorized"
     else:
         email = user_email()
+    email = email.lower()
     sched = [
         [s["id"], s["fields"]]
         for s in airtable.get_class_automation_schedule()
-        if s["fields"]["Email"] == email
+        if s["fields"]["Email"].lower() == email
     ]
     sched.sort(key=lambda s: s[1]["Start Time"])
     tz = pytz.timezone("US/Eastern")
