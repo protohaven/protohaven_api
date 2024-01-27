@@ -3,7 +3,7 @@ import datetime
 
 import pytz
 from dateutil import parser as dateparser
-from flask import Blueprint, render_template, request
+from flask import Blueprint, redirect, render_template, request
 
 from protohaven_api.handlers.auth import user_email
 from protohaven_api.integrations import airtable, neon
@@ -71,6 +71,12 @@ def instructor_class_attendees():
                 ]["email1"]
 
     return result
+
+
+@page.route("/instructor/class_selector")
+def instructor_class_selector():
+    """Used previously. This redirects to the new endpoint"""
+    return redirect("/instructor/class")
 
 
 @page.route("/instructor/class")
