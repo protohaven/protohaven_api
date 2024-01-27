@@ -222,7 +222,6 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 self.push_class(evt, "CANCEL", "override")
             elif now > evt["python_date_end"]:
                 evt["already_notified"] = get_emails_notified_after(neon_id, date)
-                self.log.info("after run survey notify")
                 self.handle_after(evt)
             elif now >= prior_day:
                 evt["already_notified"] = get_emails_notified_after(neon_id, prior_day)
