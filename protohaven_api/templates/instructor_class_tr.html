@@ -1,4 +1,4 @@
-<tr id="{{event['Neon ID']}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}">
+<tr id="{{event['Neon ID']}}" class="schedule_class {{ 'scheduled' if event['Neon ID'] else 'unscheduled' }}" data-airtableid="{{event['_id']}}">
 		<td>
 			<div>{{event['Name (from Class)'][0]}}</div>
 			<div><strong>{{ 'Published' if event['Neon ID'] else 'Not Yet Scheduled' }}</strong></div>
