@@ -91,13 +91,19 @@ def instructor_class():
     else:
         email = user_email()
     email = email.lower()
-    sched = [
-        [s["id"], s["fields"]]
-        for s in airtable.get_class_automation_schedule()
-        if s["fields"]["Email"].lower() == email
-    ]
-    sched.sort(key=lambda s: s[1]["Start Time"])
+    sched = []
     tz = pytz.timezone("US/Eastern")
+    age_out_thresh = datetime.datetime.now().astimezone(tz) - datetime.timedelta(
+        days=10
+    )
+    for s in airtable.get_class_automation_schedule():
+        end_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(
+            tz
+        ) + datetime.timedelta(days=7 * (s["fields"]["Days (from Class)"][0] - 1))
+        if s["fields"]["Email"].lower() == email and end_date > age_out_thresh:
+            s["fields"]["_id"] = s["id"]
+            sched.append([s["id"], s["fields"]])
+    sched.sort(key=lambda s: s[1]["Start Time"])
     for _, e in sched:
         date = dateparser.parse(e["Start Time"]).astimezone(tz)
 
