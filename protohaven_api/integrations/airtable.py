@@ -164,3 +164,88 @@ def get_clearance_to_tool_map():
                 ctt.add(ct)
         clearance_to_tool[cc] = ctt
     return clearance_to_tool
+
+
+def get_policy_sections():
+    return get_all_records("policy_enforcement", "sections")
+
+
+def get_policy_violations():
+    return get_all_records("policy_enforcement", "violations")
+
+
+def open_violation(reporter, suspect, sections, evidence, onset, fee, notes):
+    # Opens a new violation with a fee schedule and/or suspension
+    section_map = {s["fields"]["id"]: s["id"] for s in get_policy_sections()}
+    return insert_records(
+        [
+            {
+                "Reporter": reporter,
+                "Suspect": suspect,
+                "Relevant Sections": [section_map[int(s)] for s in sections],
+                "Evidence": evidence,
+                "Onset": onset.isoformat(),
+                "Daily Fee": fee,
+                "Notes": notes,
+            }
+        ],
+        "policy_enforcement",
+        "violations",
+    )
+
+
+def close_violation(instance, closer, resolution, suspect, notes):
+    # Close out a violation, with potentially some notes
+    match = [
+        p for p in get_policy_violations() if p["fields"]["Instance #"] == instance
+    ]
+    if len(match) != 1:
+        raise RuntimeError(
+            "No matching violation with instance number " + str(instance)
+        )
+    data = {
+        "Closer": closer,
+        "Closing Notes": notes,
+        "Resolution": resolution.isoformat(),
+    }
+    if suspect is not None:
+        data["Suspect"] = suspect
+    return update_record(data, "policy_enforcement", "violations", match[0]["id"])
+
+
+def get_policy_suspensions():
+    return get_all_records("policy_enforcement", "suspensions")
+
+
+def create_suspension(neon_id, violations, start_date, end_date):
+    data = [
+        {
+            "Neon ID": neon_id,
+            "Relevant Violations": violations,
+            "Start Date": start_date.isoformat(),
+            "End Date": end_date.isoformat(),
+        }
+    ]
+    return insert_records(data, "policy_enforcement", "suspensions")
+
+
+def get_lapsed_suspensions():
+    # Return all suspensions that have ended, but haven't yet been reinstated.
+    raise NotImplementedError()
+
+
+def get_policy_fees():
+    return get_all_records("policy_enforcement", "fees")
+
+
+def create_fees(created, violation_map):
+    data = [
+        {"Created": created.isoformat(), "Violation": [vid], "Amount": amt}
+        for vid, amt in violation_map
+    ]
+    print(data)
+    return insert_records(data, "policy_enforcement", "fees")
+
+
+def pay_fee(fee_id):
+    raise NotImplementedError()

@@ -19,6 +19,7 @@ from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
 from protohaven_api.integrations.data.connector import init as init_connector
+from protohaven_api.policy_enforcement import enforcer
 
 LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
 logging.basicConfig(level=LOGLEVEL)
@@ -404,6 +405,95 @@ class ProtohavenCLI:
             num += 1
             log.info(content)
         log.info(f"Done - handled {num} project request(s)")
+
+    def new_violation(self, argv):
+        """Create a new Violation in Airtable"""
+        parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
+        parser.add_argument(
+            "--reporter",
+            help="who's reporting the violation",
+            type=str,
+            required=True,
+        )
+        parser.add_argument(
+            "--suspect",
+            help="who's suspected of causing the violation",
+            type=str,
+            default=None,
+        )
+        parser.add_argument(
+            "--sections",
+            help="comma-separated list of section IDs relevant to violation. See help for list",
+            type=str,
+            required=True,
+        )
+        parser.add_argument(
+            "--fee", help="fee per day while violation is open", type=float, default=0.0
+        )
+        parser.add_argument("--notes", help="additional context", type=str, default="")
+        args = parser.parse_args(argv)
+        result = airtable.open_violation(
+            args.reporter,
+            args.suspect,
+            args.sections.split(","),
+            None,
+            datetime.datetime.now(),
+            args.fee,
+            args.notes,
+        )
+        print(result)
+
+    def close_violation(self, argv):
+        """Close out a violation so consequences cease"""
+        parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
+        parser.add_argument(
+            "--id",
+            help="instance number for the violation",
+            type=int,
+            required=True,
+        )
+        parser.add_argument(
+            "--closer",
+            help="who's closing the violation",
+            type=str,
+            required=True,
+        )
+        parser.add_argument(
+            "--suspect",
+            help="suspect (if known)",
+            type=str,
+        )
+        parser.add_argument(
+            "--notes",
+            help="any additionald details",
+            type=str,
+        )
+        args = parser.parse_args(argv)
+        result = airtable.close_violation(
+            args.id, args.closer, datetime.datetime.now(), args.suspect, args.notes
+        )
+        print(result.status_code, result.content)
+
+    def apply_fees(self, argv):
+        """Post new fees for open violations"""
+        parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
+        parser.add_argument(
+            "--apply",
+            help="Apply fees in Airtable. If false, no new fees will be created",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        args = parser.parse_args(argv)
+
+        fees = enforcer.generate_fees()
+        print("Generated fees:", fees)
+
+        if args.apply:
+            rep = airtable.create_fees(datetime.datetime.now(), fees)
+            print(rep.status_code, rep.content)
+            print(f"Applied {len(fees)} fee(s) into Airtable")
+        else:
+            print("--apply not set; no fee will be added")
 
     def mock_data(self, argv):
         """Fetch mock data from airtable, neon etc.
