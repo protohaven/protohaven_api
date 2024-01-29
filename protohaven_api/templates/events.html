@@ -28,8 +28,21 @@
     </style>
   </head>
   <body>
-    <h2>Upcoming Events</h2>
+    <h2>Tours and Other Events</h2>
+    <ul>
+    {% for name, start in shop_events %}
+    <li>{{start.strftime("%B %-d %H %p")}}: {{name}}</li>
+    {% endfor %}
+    </ul>
+    <h2>Reservations</h2>
+    <ul>
+    {% for r in reservations %}
+    <li>{{r['resource']}}: {{r['start']}} - {{r['end']}} by {{r['name']}}</li>
+    {% endfor %}
+    </ul>
+    <h2>Classes</h2>
     <p><strong>NOTE: Multi-day classes are only shown by their start date</strong></p>
+
     <table id="schedule">
       <thead>
         <tr>

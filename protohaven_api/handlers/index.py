@@ -2,14 +2,17 @@
 import datetime
 import json
 
+import pytz
 from dateutil import parser as dateparser
 from flask import Blueprint, render_template, request, session
 
 from protohaven_api.handlers.auth import user_email, user_fullname
+from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.neon import (
     fetch_attendees,
     fetch_published_upcoming_events,
 )
+from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
@@ -63,19 +66,50 @@ def events_dashboard():
     now = datetime.datetime.now()
     # NOTE: does not currently support intensive date periods. Need to expand
     # dates to properly show this.
-    for e in fetch_published_upcoming_events():
-        date = dateparser.parse(e["startDate"] + " " + e["startTime"])
-        if date < now:
-            continue
-        events.append(
+    try:
+        for e in fetch_published_upcoming_events():
+            date = dateparser.parse(e["startDate"] + " " + e["startTime"])
+            if date < now:
+                continue
+            events.append(
+                {
+                    "id": e["id"],
+                    "name": e["name"],
+                    "date": date,
+                    "capacity": e["capacity"],
+                    "registration": e["enableEventRegistrationForm"],
+                }
+            )
+
+        events.sort(key=lambda e: e["date"])
+    except json.decoder.JSONDecodeError:
+        print("Neon error, proceeding anyways")
+
+    shop_events = []
+    for e, dates in fetch_shop_events().items():
+        for start, end in dates:
+            shop_events.append((e, dateparser.parse(start)))
+
+    reservations = []
+    tz = pytz.timezone("EST")
+    now = now.astimezone(tz)
+    for r in get_reservations(
+        now.replace(hour=0, minute=0, second=0),
+        now.replace(hour=23, minute=59, second=59),
+    )["reservations"]:
+        start = dateparser.parse(r["startDate"]).astimezone(tz)
+        end = dateparser.parse(r["endDate"]).astimezone(tz)
+        open_time = now.replace(hour=10)
+        close_time = now.replace(hour=22)
+        reservations.append(
             {
-                "id": e["id"],
-                "name": e["name"],
-                "date": date,
-                "capacity": e["capacity"],
-                "registration": e["enableEventRegistrationForm"],
+                "start": start.strftime("%-I:%M %p") if start > open_time else "open",
+                "end": end.strftime("%-I:%M %p") if start < close_time else "close",
+                "name": f"{r['firstName']} {r['lastName']}",
+                "resource": r["resourceName"],
             }
         )
-
-    events.sort(key=lambda e: e["date"])
-    return render_template("events.html", events=events)
+    print(reservations)
+    return render_template(
+        "events.html", events=events, shop_events=shop_events, reservations=reservations
+    )
