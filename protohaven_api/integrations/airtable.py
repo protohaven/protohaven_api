@@ -167,15 +167,19 @@ def get_clearance_to_tool_map():
 
 
 def get_policy_sections():
+    """Gets all sections of policy that require enforcement"""
     return get_all_records("policy_enforcement", "sections")
 
 
 def get_policy_violations():
+    """Returns all policy violations"""
     return get_all_records("policy_enforcement", "violations")
 
 
-def open_violation(reporter, suspect, sections, evidence, onset, fee, notes):
-    # Opens a new violation with a fee schedule and/or suspension
+def open_violation(
+    reporter, suspect, sections, evidence, onset, fee, notes
+):  # pylint: disable=too-many-arguments
+    """Opens a new violation with a fee schedule and/or suspension"""
     section_map = {s["fields"]["id"]: s["id"] for s in get_policy_sections()}
     return insert_records(
         [
@@ -195,7 +199,7 @@ def open_violation(reporter, suspect, sections, evidence, onset, fee, notes):
 
 
 def close_violation(instance, closer, resolution, suspect, notes):
-    # Close out a violation, with potentially some notes
+    """Close out a violation, with potentially some notes"""
     match = [
         p for p in get_policy_violations() if p["fields"]["Instance #"] == instance
     ]
@@ -214,10 +218,12 @@ def close_violation(instance, closer, resolution, suspect, notes):
 
 
 def get_policy_suspensions():
+    """Gets all suspensions due to policy violation"""
     return get_all_records("policy_enforcement", "suspensions")
 
 
 def create_suspension(neon_id, violations, start_date, end_date):
+    """Create a new suspension spanning `start_date` to `end_date`"""
     data = [
         {
             "Neon ID": neon_id,
@@ -230,15 +236,17 @@ def create_suspension(neon_id, violations, start_date, end_date):
 
 
 def get_lapsed_suspensions():
-    # Return all suspensions that have ended, but haven't yet been reinstated.
+    """Return all suspensions that have ended, but haven't yet been reinstated."""
     raise NotImplementedError()
 
 
 def get_policy_fees():
+    """Returns all fees in the table"""
     return get_all_records("policy_enforcement", "fees")
 
 
 def create_fees(created, violation_map):
+    """Create fees for each violation and fee amount in the map"""
     data = [
         {"Created": created.isoformat(), "Violation": [vid], "Amount": amt}
         for vid, amt in violation_map
@@ -248,4 +256,5 @@ def create_fees(created, violation_map):
 
 
 def pay_fee(fee_id):
+    """Mark fee as paid"""
     raise NotImplementedError()

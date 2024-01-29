@@ -485,7 +485,7 @@ class ProtohavenCLI:
         )
         args = parser.parse_args(argv)
 
-        fees = enforcer.generate_fees()
+        fees = enforcer.gen_fees()
         print("Generated fees:", fees)
 
         if args.apply:
