@@ -18,15 +18,15 @@ def resource_url(resource_id):
 
 def get_resource(resource_id):
     """Get the current info about a tool or equipment"""
-    resp = get_connector().booked_request(resource_url(resource_id), "GET")
+    resp = get_connector().booked_request("GET", resource_url(resource_id))
     return resp.json()
 
 
 def set_resource_status(resource_id, resource_name, status):
     """Enable or disable a specific tool by ID"""
     resp = get_connector().booked_request(
-        resource_url(resource_id),
         "POST",
+        resource_url(resource_id),
         json={
             "statusId": status,
             "name": resource_name,
@@ -36,12 +36,22 @@ def set_resource_status(resource_id, resource_name, status):
     return resp.json()
 
 
+def get_reservations(start, end):
+    """Get all reservations within the start and end times"""
+    url = f"{BASE_URL}/Web/Services/Reservations/?startDateTime={start.isoformat()}&endDateTime={end.isoformat()}"  # pylint: disable=line-too-long
+    resp = get_connector().booked_request("GET", url)
+    return resp.json()
+
+
 def reserve_resource(resource_id, start_time, end_time):
     """Reserve a tool or equipment for a time"""
     raise NotImplementedError("TODO")
 
 
 if __name__ == "__main__":
+    from protohaven_api.integrations.data.connector import init as init_config
+
+    init_config(dev=False)
     OTHERMILL_ID = 4
     res = get_resource(OTHERMILL_ID)
     name = res["name"]

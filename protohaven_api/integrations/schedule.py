@@ -16,14 +16,13 @@ from googleapiclient.discovery import build
 from protohaven_api.config import get_config
 
 cfg = get_config()["calendar"]
-CALENDAR_ID = cfg["id"]
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
 
-def fetch_instructor_schedules():
-    """Fetches instructor-provided availability from the google calendar"""
+def fetch_calendar(calendar_id):
+    """Fetches calendar data for the next 30 days"""
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -47,10 +46,12 @@ def fetch_instructor_schedules():
     time_max = (
         datetime.utcnow() + timedelta(days=30)
     ).isoformat() + "Z"  # 'Z' indicates UTC time
+
+    print("Fetching calendar")
     events_result = (
         service.events()  # pylint: disable=no-member
         .list(
-            calendarId=CALENDAR_ID,
+            calendarId=calendar_id,
             timeMin=now,
             timeMax=time_max,
             maxResults=100,
@@ -75,3 +76,13 @@ def fetch_instructor_schedules():
         output[name].append([start, end])
 
     return output
+
+
+def fetch_instructor_schedules():
+    """Fetches instructor-provided availability from the google calendar"""
+    return fetch_calendar(cfg["instructor_schedules"])
+
+
+def fetch_shop_events():
+    """Fetches onboardings, tours etc. happening in the shop"""
+    return fetch_calendar(cfg["shop_events"])
