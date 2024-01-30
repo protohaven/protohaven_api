@@ -126,12 +126,12 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         """Handle 3-days-until notifications for event."""
         # Only claim low occupancy shortly before the class if it's a
         # paid class
-        if evt["occupancy"] < 0.5 and not evt["volunteer_instructor"]:
+        if evt["signups"] < 2 and not evt["volunteer_instructor"]:
             self.push_class(evt, "LOW_ATTENDANCE_3DAYS", "not enough registrants")
 
     def handle_week_before(self, evt):
         """Handle week-before notifications for event"""
-        if evt["occupancy"] < 0.5 and not evt["volunteer_instructor"]:
+        if evt["signups"] < 2 and not evt["volunteer_instructor"]:
             self.push_class(evt, "LOW_ATTENDANCE_7DAYS", "not enough registrants")
 
     def handle_10days_before(self, evt):
