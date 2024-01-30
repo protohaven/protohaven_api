@@ -1,6 +1,7 @@
 """Airtable integration (classes, tool state etc)"""
 import datetime
 import json
+from collections import defaultdict
 from functools import cache
 
 from protohaven_api.config import get_config
@@ -92,6 +93,37 @@ def get_instructor_email_map():
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
     return result
+
+
+def fetch_instructor_teachable_classes():
+    """Fetch teachable classes from airtable"""
+    instructor_caps = defaultdict(list)
+    for row in get_all_records("class_automation", "capabilities"):
+        if not row["fields"].get("Instructor"):
+            continue
+        inst = row["fields"]["Instructor"].strip()
+        if "Class" in row["fields"].keys():
+            instructor_caps[inst] += row["fields"]["Class"]
+    return instructor_caps
+
+
+DEFAULT_LOAD = 5
+
+
+def fetch_instructor_max_load():
+    """Fetch max teachable classes per month per instructor"""
+    result = defaultdict(lambda: DEFAULT_LOAD)
+    for row in get_all_records("class_automation", "capabilities"):
+        if not row["fields"].get("Instructor"):
+            continue
+        inst = row["fields"]["Instructor"].strip()
+        if "Max Class Load" in row["fields"].keys():
+            result[inst] += row["fields"]["Max Class Load"]
+    return result
+
+
+def get_all_class_templates():
+    return get_all_records("class_automation", "classes")
 
 
 def log_email(neon_id, to, subject, status):

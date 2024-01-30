@@ -13,6 +13,7 @@ import requests
 import yaml
 from dateutil import parser as dateparser
 
+from protohaven_api.class_automation import scheduler
 from protohaven_api.class_automation.builder import ClassEmailBuilder
 from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
@@ -442,6 +443,50 @@ class ProtohavenCLI:
             args.notes,
         )
         print(result)
+
+    def build_scheduler_env(self, argv):
+        """Construct an environment for assigning classes at times to instructors"""
+        parser = argparse.ArgumentParser(description=self.build_scheduler_env.__doc__)
+        parser.add_argument(
+            "--start",
+            help="Start date (yyyy-mm-dd)",
+            type=str,
+            required=True,
+        )
+        parser.add_argument(
+            "--end",
+            help="End date (yyyy-mm-dd)",
+            type=str,
+            required=True,
+        )
+        parser.add_argument(
+            "--filter",
+            help="CSV of subset instructors to filter scheduling to",
+            type=str,
+            required=False,
+        )
+        args = parser.parse_args(argv)
+        start = dateparser.parse(args.start)
+        end = dateparser.parse(args.end)
+        inst = {a.strip() for a in args.filter.split(",")} if args.filter else None
+        env = scheduler.generate_env(start, end, inst)
+        print(yaml.dump(env, default_flow_style=False, default_style=""))
+
+    def run_scheduler(self, argv):
+        """Run the class scheduler on a provided env"""
+        parser = argparse.ArgumentParser(description=self.run_scheduler.__doc__)
+        parser.add_argument(
+            "--path",
+            help="path to env file",
+            type=str,
+            required=True,
+        )
+        args = parser.parse_args(argv)
+        with open(args.path, "r", encoding="utf-8") as f:
+            env = yaml.safe_load(f.read())
+        instructor_classes, final_score = scheduler.solve_with_env(env)
+        self.log.info(f"Final score: {final_score}")
+        print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
 
     def close_violation(self, argv):
         """Close out a violation so consequences cease"""
