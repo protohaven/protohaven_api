@@ -98,9 +98,13 @@
         $(a).html("Error (likely no event in Neon)");
       });
     });
-    $("#schedule button").click(function(e) {
+    $("button").click(function(e) {
           let eid = $(e.target).parentsUntil(".schedule_class").parent().attr("data-airtableid");
           let cls = e.target.className;
+          console.log(`Clicked button: ${cls}, airtable record ${eid}`);
+          if (!eid) {
+            return;
+          }
 
           if (cls === 'publish' || cls == 'unpublish') {
             console.log(eid, cls);
