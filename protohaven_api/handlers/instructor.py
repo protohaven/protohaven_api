@@ -117,7 +117,7 @@ def instructor_class():
                 hours=e["Hours (from Class)"][0],
                 class_name=e["Name (from Class)"][0],
                 pass_emails=["$ATTENDEE_NAMES"],
-                clearances=e["Form Name (from Clearance) (from Class)"],
+                clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
                 volunteer=e.get("Volunteer", False),
                 event_id=e["Neon ID"],
             )
