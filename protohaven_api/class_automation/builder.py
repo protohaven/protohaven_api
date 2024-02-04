@@ -36,6 +36,12 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     CACHE_FILE = "class_email_builder_cache.pkl"
     CACHE_EXPIRY_HOURS = 1
+
+    # Events we know to not be useful when building emails
+    BLOCKLIST = [
+        3775,  # Equipment clearance
+        17631,  # Private instruction
+    ]
     ignore_ovr = []  # @param {type:'raw'}
     filter_ovr = []
     confirm_ovr = []  # @param {type:'raw'}
@@ -75,6 +81,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
         self.events = list(fetch_published_upcoming_events())
         self.log.info(f"Fetched {len(self.events)} events fron Neon")
+        self.log.debug(" - ".join([e["name"] for e in self.events]))
         self.log.debug(f"example data:\n{self.events[0]}")
 
         airtable_schedule = get_class_automation_schedule()
@@ -158,6 +165,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             for a in fetch_attendees(evt["id"])
             if a["registrationStatus"] == "SUCCEEDED"
         ]
+        if evt["capacity"] is None:
+            evt["capacity"] = 0
         for a in evt["attendees"]:
             email = get_account_email(
                 a.get("registrantAccountId") or a.get("accountId")
@@ -193,66 +202,57 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         evt["already_notified"] = []  # assigned during sort
         return evt
 
-    def _sort_events_for_notification(self, now):  # pylint: disable=too-many-branches
+    def _sort_event_for_notification(
+        self, evt, now
+    ):  # pylint: disable=too-many-branches
         """Sort events into various notification buckets"""
-        for evt in self.events:
-            neon_id = evt["id"]
-            self.log.debug(f"sorting event {neon_id}")
+        neon_id = evt["id"]
+        if neon_id in self.BLOCKLIST:
+            return
 
-            # We annotate before handling filter/ignore overrides so
-            # we have a complete cache
-            if not self.cached:
-                evt = self._annotate(evt)
+        self.log.debug(f"sorting event {neon_id}")
 
-            if neon_id in self.ignore_ovr or (
-                len(self.filter_ovr) > 0 and neon_id not in self.filter_ovr
-            ):
-                self.log.info(f"IGNORE {evt['name']} (override)")
-                continue
+        # We annotate before handling filter/ignore overrides so
+        # we have a complete cache
+        if not self.cached:
+            evt = self._annotate(evt)
 
-            date = evt["python_date"]
-            prior_10days = date - datetime.timedelta(days=11)
-            prior_week = date - datetime.timedelta(days=8)
-            prior_3days = date - datetime.timedelta(days=3)
-            prior_day = date - datetime.timedelta(days=1, hours=10)
+        if neon_id in self.ignore_ovr or (
+            len(self.filter_ovr) > 0 and neon_id not in self.filter_ovr
+        ):
+            self.log.info(f"IGNORE {evt['name']} (override)")
+            return
 
-            if neon_id in self.confirm_ovr:
-                self.push_class(evt, "CONFIRM", "override")
-            elif neon_id in self.cancel_ovr:
-                self.push_class(evt, "CANCEL", "override")
-            elif now > evt["python_date_end"]:
-                evt["already_notified"] = get_emails_notified_after(neon_id, date)
-                self.handle_after(evt)
-            elif now >= prior_day:
-                evt["already_notified"] = get_emails_notified_after(neon_id, prior_day)
-                self.handle_day_before(evt)
-            elif now >= prior_3days:
-                evt["already_notified"] = get_emails_notified_after(
-                    neon_id, prior_3days
-                )
-                self.handle_3days_before(evt)
-            elif now >= prior_week:
-                evt["already_notified"] = get_emails_notified_after(neon_id, prior_week)
-                self.handle_week_before(evt)
-            elif now >= prior_10days:
-                evt["already_notified"] = get_emails_notified_after(
-                    neon_id, prior_10days
-                )
-                self.handle_10days_before(evt)
-            else:
-                self.log.info(
-                    f"IGNORE ({(date - now).days} day(s) out; too far): {evt['name']}"
-                )
-                continue
+        date = evt["python_date"]
+        prior_10days = date - datetime.timedelta(days=11)
+        prior_week = date - datetime.timedelta(days=8)
+        prior_3days = date - datetime.timedelta(days=3)
+        prior_day = date - datetime.timedelta(days=1, hours=10)
 
-        self.log.info(f"{len(self.for_techs)} classes available for techs")
-        for e in self.for_techs:
+        if neon_id in self.confirm_ovr:
+            self.push_class(evt, "CONFIRM", "override")
+        elif neon_id in self.cancel_ovr:
+            self.push_class(evt, "CANCEL", "override")
+        elif now > evt["python_date_end"]:
+            evt["already_notified"] = get_emails_notified_after(neon_id, date)
+            self.handle_after(evt)
+        elif now >= prior_day:
+            evt["already_notified"] = get_emails_notified_after(neon_id, prior_day)
+            self.handle_day_before(evt)
+        elif now >= prior_3days:
+            evt["already_notified"] = get_emails_notified_after(neon_id, prior_3days)
+            self.handle_3days_before(evt)
+        elif now >= prior_week:
+            evt["already_notified"] = get_emails_notified_after(neon_id, prior_week)
+            self.handle_week_before(evt)
+        elif now >= prior_10days:
+            evt["already_notified"] = get_emails_notified_after(neon_id, prior_10days)
+            self.handle_10days_before(evt)
+        else:
             self.log.info(
-                f" - {e['id']} {e['name']} ({e['signups']} / {e['capacity']} seats filled)"
+                f"IGNORE ({(date - now).days} day(s) out; too far): {evt['name']}"
             )
-        self.log.info(f"{len(self.actionable_classes)} Actionable classes")
-        for e, action in self.actionable_classes:
-            self.log.info(f" - {action} - {e['id']} {e['name']}")
+            return
 
     def _append(self, action, target, fn, evt, *args):
         """Append notification details onto the `output` list"""
@@ -343,7 +343,22 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             now = datetime.datetime.now()
 
         self.log.info("Sorting events...")
-        self._sort_events_for_notification(now)
+        for evt in self.events:
+            try:
+                self._sort_event_for_notification(evt, now)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to sort event {evt['id']} - {evt['name']}"
+                ) from e
+
+        self.log.info(f"{len(self.for_techs)} classes available for techs")
+        for e in self.for_techs:
+            self.log.info(
+                f" - {e['id']} {e['name']} ({e['signups']} / {e['capacity']} seats filled)"
+            )
+        self.log.info(f"{len(self.actionable_classes)} Actionable classes")
+        for e, action in self.actionable_classes:
+            self.log.info(f" - {action} - {e['id']} {e['name']}")
 
         if not self.cached:
             self.log.info(f"Sorting complete, caching result in {self.CACHE_FILE}")

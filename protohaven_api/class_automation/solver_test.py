@@ -1,7 +1,9 @@
-from protohaven_api.class_automation.solver import Class, Person, solve
+"""Test behavior of linear solver for class scheduling"""
+from protohaven_api.class_automation.solver import Class, Instructor, solve
 
 
 def test_solve():
+    """Run an example set of classes and instructors through the solver"""
     classes = [
         Class(*v)
         for v in [
@@ -15,7 +17,7 @@ def test_solve():
     ]
 
     people = [
-        Person(*v)
+        Instructor(*v)
         for v in [
             ("A", ["Embroidery", "Sewing Basics"], 6, [1, 7, 14, 21, 29]),
             (
@@ -29,4 +31,5 @@ def test_solve():
         ]
     ]
 
-    (schedule, load, score) = solve(classes, people)
+    solve(classes, people)
+    # (schedule, load, score) = solve(classes, people)

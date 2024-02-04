@@ -123,6 +123,7 @@ def fetch_instructor_max_load():
 
 
 def get_all_class_templates():
+    """Get all class templates"""
     return get_all_records("class_automation", "classes")
 
 
@@ -205,7 +206,8 @@ def get_policy_sections():
 
 def get_policy_violations():
     """Returns all policy violations"""
-    return get_all_records("policy_enforcement", "violations")
+    rows = get_all_records("policy_enforcement", "violations")
+    return [v for v in rows if v["fields"].get("Onset")]
 
 
 def open_violation(
@@ -251,7 +253,8 @@ def close_violation(instance, closer, resolution, suspect, notes):
 
 def get_policy_suspensions():
     """Gets all suspensions due to policy violation"""
-    return get_all_records("policy_enforcement", "suspensions")
+    rows = get_all_records("policy_enforcement", "suspensions")
+    return [s for s in rows if s["fields"].get("Start Date")]
 
 
 def create_suspension(neon_id, violations, start_date, end_date):
@@ -274,7 +277,8 @@ def get_lapsed_suspensions():
 
 def get_policy_fees():
     """Returns all fees in the table"""
-    return get_all_records("policy_enforcement", "fees")
+    rows = get_all_records("policy_enforcement", "fees")
+    return [f for f in rows if f["fields"].get("Created")]
 
 
 def create_fees(created, violation_map):

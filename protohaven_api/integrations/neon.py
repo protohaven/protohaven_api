@@ -1,6 +1,7 @@
 """ Neon CRM integration methods"""
 import datetime
 import json
+import logging
 import time
 import urllib
 from functools import cache
@@ -9,6 +10,8 @@ from bs4 import BeautifulSoup
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
+
+log = logging.getLogger("integrations.neon")
 
 
 def cfg(param):
@@ -25,9 +28,11 @@ URL_BASE = "https://api.neoncrm.com/v2"
 
 
 def fetch_published_upcoming_events(back_days=7):
-    """Load upcoming events from Neon CRM, with back_days of trailing event data"""
+    """Load upcoming events from Neon CRM, with `back_days` of trailing event data.
+    Note that querying is done based on the end date so multi-week intensives
+    can still appear even if they started earlier than `back_days`."""
     q_params = {
-        "startDateAfter": (
+        "endDateAfter": (
             datetime.datetime.now() - datetime.timedelta(days=back_days)
         ).strftime("%Y-%m-%d"),
         "publishedEvent": True,
@@ -111,18 +116,28 @@ def fetch_tickets(event_id):
 
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
-    resp, content = get_connector().neon_request(
-        cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}/attendees"
-    )
-    if resp.status != 200:
-        raise RuntimeError(f"fetch_attendees({event_id}) {resp.status}: {content}")
-    content = json.loads(content)
-
-    if isinstance(content, list):
-        raise RuntimeError(content)
-    if content["pagination"]["totalPages"] > 1:
-        raise RuntimeError("TODO implement pagination for fetch_attendees()")
-    return content["attendees"] or []
+    current_page = 0
+    total_pages = 1
+    while current_page < total_pages:
+        url = f"https://api.neoncrm.com/v2/events/{event_id}/attendees?currentPage={current_page}"
+        log.debug(url)
+        resp, content = get_connector().neon_request(
+            cfg("api_key1"),
+            url,
+            "GET",
+        )
+        if resp.status != 200:
+            raise RuntimeError(f"fetch_attendees({event_id}) {resp.status}: {content}")
+        content = json.loads(content)
+        if isinstance(content, list):
+            raise RuntimeError(content)
+        if content["pagination"]["totalResults"] == 0:
+            return  # basically an empty yield
+        total_pages = content["pagination"]["totalPages"]
+        log.debug(content)
+        for a in content["attendees"]:
+            yield a
+        current_page += 1
 
 
 @cache

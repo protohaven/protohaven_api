@@ -1,0 +1,19 @@
+{% if vs|length > 0 %}
+{{vs|length}} active violation(s):
+{% for v in vs %}
+  - {{v['onset']}}
+    Suspect: {{v['suspect']}}
+    Daily fee: ${{v['fee']}}
+    Accrued: ${{v['unpaid']}}
+    Notes: {{v['notes']}}
+{% endfor %}
+{% endif %}
+{% if ss|length > 0 %}
+There are {{ss|length}} new suspension(s).
+{% for s in ss %}
+ - from {{s['start']}} until {{s['end']}}
+{% endfor %}
+{% endif %}
+{% if outstanding > 0 %}
+Closed violations have ${{outstanding}} in unpaid fees.
+{% endif %}
