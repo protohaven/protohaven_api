@@ -1,52 +1,7 @@
 """Unit tests for policy enforcement methods"""
-import datetime
 
 from protohaven_api.policy_enforcement import enforcer
-
-
-class Any:  # pylint: disable=too-few-public-methods
-    """Matches any value - used for placeholder matching in asserts"""
-
-    def __eq__(self, other):
-        """Check for equality - always true"""
-        return True
-
-
-TESTFEE = 5
-
-
-def violation(instance, onset, resolution, fee=TESTFEE):
-    """Create test violation"""
-    return {
-        "id": instance,  # for testing, to simplify. This is actually an airtable id
-        "fields": {
-            "Instance #": instance,
-            "Neon ID": "12345",
-            "Onset": onset.isoformat() if onset else None,
-            "Resolution": resolution.isoformat() if resolution else None,
-            "Daily Fee": fee,
-        },
-    }
-
-
-def suspension(start, end):
-    """Create test suspension"""
-    return {
-        "id": "12345",  # For testing, to simplify. Actually an airtable ID
-        "fields": {
-            "Neon ID": "12345",
-            "Start Date": start.isoformat(),
-            "End Date": end.isoformat() if end else None,
-        },
-    }
-
-
-now = datetime.datetime.now()
-
-
-def dt(days):
-    """Returns a date that is `days` away from now"""
-    return now + datetime.timedelta(days=days)
+from protohaven_api.policy_enforcement.testing import *  # pylint: disable=unused-wildcard-import,wildcard-import
 
 
 def test_gen_fees_closed_violation_subday():
@@ -117,7 +72,7 @@ def test_next_suspension_duration_single():
         dt(-enforcer.SUSPENSION_MAX_AGE_DAYS / 2 + 1),
     )
     assert (
-        enforcer.next_suspension_duration([s], now)["12345"]
+        enforcer.next_suspension_duration([s], now)[TESTMEMBER["id"]]
         == enforcer.SUSPENSION_DAYS_INITIAL + enforcer.SUSPENSION_DAYS_INCREMENT
     )
 
@@ -135,7 +90,7 @@ def test_next_suspension_duration_multi():
         ),
     ]
     assert (
-        enforcer.next_suspension_duration(ss, now)["12345"]
+        enforcer.next_suspension_duration(ss, now)[TESTMEMBER["id"]]
         == enforcer.SUSPENSION_DAYS_INITIAL + 2 * enforcer.SUSPENSION_DAYS_INCREMENT
     )
 
@@ -165,7 +120,7 @@ def test_gen_suspensions_basic():
         for i in range(enforcer.MAX_VIOLATIONS_BEFORE_SUSPENSION)
     ]
     got = enforcer.gen_suspensions(vs, [], now)
-    assert got == [("12345", enforcer.SUSPENSION_DAYS_INITIAL)]
+    assert got == [("1111", enforcer.SUSPENSION_DAYS_INITIAL, [0, 1, 2])]
 
 
 def test_gen_suspensions_all_anonymous():
@@ -239,7 +194,7 @@ def test_gen_suspensions_unresolved_overlapping():
     # Plus one that's almost aged out, but still open
     vs.append(violation(999, dt(enforcer.VIOLATION_MAX_AGE_DAYS + 1), None))
     got = enforcer.gen_suspensions(vs, [], now)
-    assert got == [("12345", enforcer.SUSPENSION_DAYS_INITIAL)]
+    assert got == [("1111", enforcer.SUSPENSION_DAYS_INITIAL, [1, 0, 999])]
 
 
 def test_gen_suspensions_reset_after_suspended():
@@ -261,5 +216,116 @@ def test_gen_suspensions_reset_after_suspended():
     vs.append(violation(999, dt(-1), None))
     got = enforcer.gen_suspensions(vs, ss, now)
     assert got == [
-        ("12345", enforcer.SUSPENSION_DAYS_INITIAL + enforcer.SUSPENSION_DAYS_INCREMENT)
+        (
+            "1111",
+            enforcer.SUSPENSION_DAYS_INITIAL + enforcer.SUSPENSION_DAYS_INCREMENT,
+            [2, 1, 0, 999],
+        )
     ]
+
+
+def test_gen_comms_for_violation_new():
+    """Violation comms render properly for a new violation"""
+    v = violation(1, dt(-1), None)
+    subject, got = enforcer.gen_comms_for_violation(
+        v, 0, 0, ["section1", "section2"], TESTMEMBER
+    )
+    assert "new violation issued" in subject
+    assert "$5 per day" in got
+    assert "testname" in got
+    assert dt(-1).strftime("%Y-%m-%d") in got
+    assert "section1" in got
+    assert "section2" in got
+
+
+def test_gen_comms_for_violation_existing():
+    """Violation comms render properly for an ongoing violation"""
+    v = violation(1, dt(-1), None)
+    subject, got = enforcer.gen_comms_for_violation(
+        v, 50, 15, ["section1", "section2"], TESTMEMBER
+    )
+    assert "ongoing" in subject
+    assert "$65" in subject
+    assert "$5 per day" in got
+    assert "testname" in got
+    assert dt(-1).strftime("%Y-%m-%d") in got
+    assert "section1" in got
+    assert "section2" in got
+
+
+def test_gen_comms_for_violation_resolved():
+    """Resolved violations do not result in comms"""
+    v = violation(1, dt(-1), now)
+    got = enforcer.gen_comms_for_violation(
+        v, 50, 15, ["section1", "section2"], TESTMEMBER
+    )
+    assert not got
+
+
+def test_gen_comms_for_violation_incomplete():
+    """Violations missing start date aren't given comms"""
+    v = violation(1, None, None)
+    got = enforcer.gen_comms_for_violation(v, 50, 15, [], TESTMEMBER)
+    assert not got
+
+
+def test_gen_comms_for_violation_unknown_member():
+    """If member is unknown, don't generate comms to the violation member"""
+    v = violation(1, None, None)
+    got = enforcer.gen_comms_for_violation(v, 0, 0, [], None)
+    assert not got
+
+
+def test_gen_comms_for_violation_no_fee():
+    """Violations without fees are still sent to the suspect"""
+    v = violation(1, dt(-1), None)
+    v["fields"]["Daily Fee"] = 0
+
+    subject, got = enforcer.gen_comms_for_violation(
+        v, 0, 0, ["section1", "section2"], TESTMEMBER
+    )
+    assert "violation" in subject
+    assert "has been logged" in got
+    assert "no fee" in got
+    assert "testname" in got
+    assert dt(-1).strftime("%Y-%m-%d") in got
+    assert "section1" in got
+    assert "section2" in got
+
+
+def test_gen_comms_for_suspensions_with_accrued():
+    """Suspensions with accrued fees are indicated in comms"""
+    s = suspension(
+        dt(-1),
+        None,
+    )
+    subject, got = enforcer.gen_comms_for_suspension(s, 100, TESTMEMBER)
+    assert "suspended" in subject
+    assert "accrued $100" in got
+    assert "testname" in got
+    assert dt(-1).strftime("%Y-%m-%d") in got
+
+
+def test_gen_comms_for_suspensions_no_end():
+    """Indefinite suspensions are indicated in comms"""
+    s = suspension(
+        dt(-1),
+        None,
+    )
+    subject, got = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
+    assert "suspended" in subject
+    assert "accrued" not in got
+    assert "testname" in got
+    assert dt(-1).strftime("%Y-%m-%d") in got
+
+
+def test_gen_comms_for_suspension_bounded():
+    """Bounded suspensions mention the end date"""
+    s = suspension(
+        dt(-1),
+        dt(4),
+    )
+    subject, got = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
+    assert "suspended" in subject
+    assert f"until {dt(4).strftime('%Y-%m-%d')}"
+    assert "testname" in got

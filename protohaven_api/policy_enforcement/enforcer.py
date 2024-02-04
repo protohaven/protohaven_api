@@ -4,9 +4,11 @@ storage, equipment damage, and other violations"""
 import datetime
 from collections import defaultdict
 
+import pytz
 from dateutil import parser as dateparser
 
-from protohaven_api.integrations import airtable
+from protohaven_api.integrations import airtable, neon
+from protohaven_api.policy_enforcement import comms as ecomms
 
 VIOLATION_MAX_AGE_DAYS = 90
 SUSPENSION_MAX_AGE_DAYS = 365
@@ -14,6 +16,8 @@ MAX_VIOLATIONS_BEFORE_SUSPENSION = 3
 SUSPENSION_DAYS_INITIAL = 30
 SUSPENSION_DAYS_INCREMENT = 60
 OPEN_VIOLATION_GRACE_PD_DAYS = 14
+
+tz = pytz.timezone("EST")
 
 
 def gen_fees(violations=None, latest_fee=None, now=None):
@@ -27,12 +31,12 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     if latest_fee is None:
         latest_fee = {}
         for f in airtable.get_policy_fees():
-            d = dateparser.parse(f["fields"]["Created"])
+            d = dateparser.parse(f["fields"]["Created"]).astimezone(tz)
             vid = f["fields"]["Violation"][0]
             if vid not in latest_fee or latest_fee[vid] < d:
                 latest_fee[vid] = d
     if now is None:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now().astimezone(tz)
 
     for v in violations:
         fee = v["fields"].get("Daily Fee")
@@ -43,7 +47,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
         ) + datetime.timedelta(days=1)
         tr = v["fields"].get("Resolution")
         if tr is not None:
-            tr = dateparser.parse(tr)
+            tr = dateparser.parse(tr).astimezone(tz)
         while t <= now and (tr is None or t <= tr):
             fees.append((v["id"], fee, t))
             t += datetime.timedelta(days=1)
@@ -58,13 +62,20 @@ def _tally_violations(violations, suspensions, now):
     date_thresh = now - datetime.timedelta(days=VIOLATION_MAX_AGE_DAYS)
     latest_suspension = {}
     for s in suspensions:
+        if not s["fields"].get("End Date"):
+            continue  # Happens if the suspensions row is blank/empty
         end = dateparser.parse(s["fields"]["End Date"])
         nid = s["fields"]["Neon ID"]
         if not latest_suspension.get(nid) or latest_suspension[nid] < end:
             latest_suspension[nid] = end
 
     counts = defaultdict(
-        lambda: {"before_susp": 0, "after_susp": 0, "suspended": False}
+        lambda: {
+            "before_susp": 0,
+            "after_susp": 0,
+            "suspended": False,
+            "violations": [],
+        }
     )
     grace_pd = None
 
@@ -76,7 +87,7 @@ def _tally_violations(violations, suspensions, now):
         nid = v["fields"].get("Neon ID")
         onset = dateparser.parse(v["fields"]["Onset"])
         resolution = None
-        if v["fields"]["Resolution"]:
+        if v["fields"].get("Resolution"):
             resolution = dateparser.parse(v["fields"]["Resolution"])
         if (
             nid is None
@@ -94,6 +105,7 @@ def _tally_violations(violations, suspensions, now):
                 counts[nid]["after_susp"] += 1
         else:
             counts[nid]["before_susp"] += 1
+        counts[nid]["violations"].append(v)
         if not resolution:
             grace_pd = onset + datetime.timedelta(days=OPEN_VIOLATION_GRACE_PD_DAYS)
         else:
@@ -121,20 +133,116 @@ def gen_suspensions(violations=None, suspensions=None, now=None):
         violations = airtable.get_policy_violations()
     if suspensions is None:
         suspensions = airtable.get_policy_suspensions()
+    if now is None:
+        now = datetime.datetime.now().astimezone(tz)
 
     counts = _tally_violations(violations, suspensions, now)
     durations = next_suspension_duration(suspensions, now)
     result = []
+    print(counts)
     for nid, cc in counts.items():
+        vs = [v["id"] for v in cc["violations"]]
         if (
             not cc["suspended"]
             and cc["before_susp"] >= MAX_VIOLATIONS_BEFORE_SUSPENSION
         ):
-            result.append((nid, durations[nid]))
+            result.append((nid, durations[nid], vs))
         elif (
             cc["suspended"]
             and cc["before_susp"] >= MAX_VIOLATIONS_BEFORE_SUSPENSION
             and cc["after_susp"] > 0
         ):
-            result.append((nid, durations[nid]))
+            result.append((nid, durations[nid], vs))
     return result
+
+
+def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
+    """Notify members of new violations and update them on active violations"""
+    fields = v["fields"]
+    if fields.get("Resolution"):
+        return None  # Resolved violation, nothing to do here
+    if not fields.get("Onset"):
+        return None  # Incomplete record
+    onset = dateparser.parse(fields["Onset"]).astimezone(tz).strftime("%Y-%m-%d")
+
+    if member and fields.get("Daily Fee", 0) != 0:
+        if old_accrued == 0:  # New violation, no fees accrued
+            return ecomms.violation_started(
+                member["firstname"],
+                onset,
+                sections,
+                fields["Notes"],
+                fields["Daily Fee"],
+            )
+        # Ongoing violation with accrued fees
+        return ecomms.violation_ongoing(
+            member["firstname"],
+            onset,
+            sections,
+            fields["Notes"],
+            old_accrued + new_accrued,
+            fields["Daily Fee"],
+        )
+    if member and fields.get("Daily Fee", 0) == 0:
+        return ecomms.violation_started(
+            member["firstname"], onset, sections, fields["Notes"], 0
+        )
+    return None  # No member known, therefore no comms to send
+
+
+def gen_comms_for_suspension(sus, accrued, member):
+    """Create comms to newly suspended users"""
+    fields = sus["fields"]
+    start = dateparser.parse(fields["Start Date"]).astimezone(tz).strftime("%Y-%m-%d")
+    end = None
+    if fields.get("End Time"):
+        end = dateparser.parse(fields["End Date"]).astimezone(tz).strftime("%Y-%m-%d")
+    return ecomms.suspension_started(member["firstname"], start, accrued, end)
+
+
+def gen_comms(violations, old_fees, new_fees, new_sus):
+    """Generate comms for inbound fees and suspensions"""
+    result = []
+    section_map = {
+        s["id"]: s["fields"]["Section"] for s in airtable.get_policy_sections()
+    }
+    violation_map = {v["id"]: v["fields"] for v in violations}
+    # Email users with new fees and violations
+    for v in violations:
+        old_accrued = sum(f[1] for f in old_fees if f[0] == v["id"])
+        new_accrued = sum(f[1] for f in new_fees if f[0] == v["id"])
+        sections = [section_map[s] for s in v["fields"]["Relevant Sections"]]
+        neon_id = v["fields"].get("Neon ID")
+        member = neon.fetch_account(neon_id) if neon_id else None
+        result.append(
+            gen_comms_for_violation(v, old_accrued, new_accrued, sections, member)
+        )
+
+    # For each new suspension, build an admin email mentioning the suspension steps
+    # Also build an email to the suspended user notifying of suspension
+    # i.e. no Suspended bool column checked
+    for sus in new_sus:
+        member = neon.fetch_account(sus["fields"]["Neon ID"]) if neon_id else None
+        violations = [violation_map[v] for v in sus["fields"]["Relevant Violations"]]
+        sections = {section_map[s] for v in violations for s in v["Relevant Sections"]}
+        accrued = sum(
+            f[1] for f in old_fees if f[0] in sus["fields"]["Relevant Violations"]
+        )
+        accrued += sum(
+            f[1] for f in new_fees if f[0] in sus["fields"]["Relevant Violations"]
+        )
+        result.append(
+            gen_comms_for_suspension(  # pylint: disable=too-many-function-args
+                sus, sections, accrued, member
+            )
+        )
+        result.append(
+            ecomms.admin_create_suspension(
+                sus["fields"]["Neon ID"], sus["fields"]["End Date"]
+            )
+        )
+
+    result = [r for r in result if r is not None]
+
+    # Also send a summary of violations/fees/suspensions to Discord #storage
+    result.append(ecomms.enforcement_summary(violations, old_fees, new_fees, new_sus))

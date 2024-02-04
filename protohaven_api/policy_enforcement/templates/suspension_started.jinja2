@@ -1,0 +1,18 @@
+
+Hello {{firstname}},
+
+On {{start}}, you violated one or more of our shop policies incurring a daily fee until the violation is resolved. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
+
+{% if accrued > 0 %}
+**At this time you have accrued ${{accrued}} in penalties. The violating item or items are now property of Protohaven and will be removed, and your membership is suspended until any outstanding fees are paid.**
+{% endif %}
+
+You no longer have access to Protohaven tools, equipment, and member perks. If you wish, you may cancel any active storage subscriptions and remove any storage or materials you have left at the shop while escorted by an on-duty tech.
+
+{% if accrued > 0 %}
+Please take immediate action to pay any accrued fees and reinstate your membership. To pay fees, please ask the shop tech on duty. We will send a confirmation by the next business day to confirm the violation has been resolved.
+{% endif %}
+
+Any additional questions and appeals may be sent to hello@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
+
+Protohaven Automation
