@@ -1,6 +1,7 @@
 """ Methods for scheduling new classes """
 import datetime
 import logging
+from collections import defaultdict
 
 import pytz
 from dateutil import parser as dateparser
@@ -15,8 +16,6 @@ tz = pytz.timezone("EST")
 
 def fetch_formatted_schedule(time_min, time_max):
     """Fetch schedule info from google calendar and massage it a bit"""
-    import re
-    from collections import defaultdict
 
     sched = fetch_instructor_schedules(time_min, time_max)
     log.info(f"Found {len(sched)} instructor schedule events from calendar")
@@ -43,11 +42,15 @@ def slice_date_range(start_date, end_date):
     return ret
 
 
-def compute_score(cls):
+def compute_score(cls):  # pylint: disable=unused-argument
+    """Compute an integer score based on a class' desirability to run"""
     return 1.0  # Improve this later
 
 
-def generate_env(start_date, end_date, instructor_filter=None):
+def generate_env(
+    start_date, end_date, instructor_filter=None
+):  # pylint: disable=too-many-locals
+    """Generates the environment to be passed to the solver"""
     instructor_caps = airtable.fetch_instructor_teachable_classes()
     sched_formatted = fetch_formatted_schedule(start_date, end_date)
     max_loads = airtable.fetch_instructor_max_load()
@@ -73,13 +76,14 @@ def generate_env(start_date, end_date, instructor_filter=None):
 
     if skipped > 0:
         log.warning(
-            f"Direct the {skipped} instructor(s) missing capabilities to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
+            f"Direct the {skipped} instructor(s) missing capabilities "
+            "to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
         )
 
     # Load classes from airtable
     classes = []
     for c in airtable.get_all_class_templates():
-        if c["fields"].get("Schedulable") == True:
+        if c["fields"].get("Schedulable") is True:
             classes.append(
                 Class(
                     c["id"],
@@ -114,6 +118,7 @@ def generate_env(start_date, end_date, instructor_filter=None):
 
 
 def solve_with_env(env):
+    """Solves a scheduling problem given a specific env"""
     classes = [Class(**c) for c in env["classes"]]
     instructors = [Instructor(**i) for i in env["instructors"]]
     return solve(classes, instructors)
