@@ -39,7 +39,7 @@ def suspension(start, end=None, reinstated=None):
     return {
         "id": "12345",  # For testing, to simplify. Actually an airtable ID
         "fields": {
-            "Neon ID": "12345",
+            "Neon ID": TESTMEMBER["id"],
             "Start Date": start.isoformat(),
             "End Date": end.isoformat() if end else None,
             "Reinstated": reinstated,
@@ -47,7 +47,7 @@ def suspension(start, end=None, reinstated=None):
     }
 
 
-def testfee(amt=5, created=now, vid="1234", paid=False):
+def tfee(amt=5, created=now, vid="1234", paid=False):
     """Create a test fee"""
     return {
         "id": "testfee",

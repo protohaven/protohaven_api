@@ -13,8 +13,8 @@ def test_enforcement_summary_only_resolved():
     """No summary sent if all items are resolved"""
     got = comms.enforcement_summary(
         [violation(1, dt(-2), dt(-1))],
-        [testfee(paid=True), testfee(paid=True)],
-        [testfee(paid=True), testfee(paid=True)],
+        [tfee(paid=True), tfee(paid=True)],
+        [tfee(paid=True), tfee(paid=True)],
         [suspension(dt(-1), dt(0), reinstated=True)],
     )
     assert not got
@@ -25,8 +25,8 @@ def test_enforcement_summary_ignores_complete_but_preserves_fees():
     unpaid fees from closed violations are mentioned"""
     _, got = comms.enforcement_summary(
         [violation(1, dt(-2)), violation(2, dt(-1), dt(0))],
-        [testfee(vid=2), testfee(vid=1, paid=True)],
-        [testfee(paid=True), testfee(vid=1)],
+        [tfee(vid=2), tfee(vid=1, paid=True)],
+        [tfee(paid=True), tfee(vid=1)],
         [suspension(dt(-1), dt(0))],
     )
     assert "1 active violation(s)" in got
@@ -38,7 +38,7 @@ def test_enforcement_summary_unknown_suspect_with_fees():
     """Unknown suspects are summarized, with their accrued fees"""
     _, got = comms.enforcement_summary(
         [violation(1, dt(-1), neon_id=None)],
-        [testfee(vid=1, amt=15)],
+        [tfee(vid=1, amt=15)],
         [],
         [],
     )
@@ -50,7 +50,7 @@ def test_enforcement_summary_known_suspect_with_fees():
     """Known suspects are summarized, with their accrued fees"""
     _, got = comms.enforcement_summary(
         [violation(1, dt(-1))],
-        [testfee(vid=1, amt=15)],
+        [tfee(vid=1, amt=15)],
         [],
         [],
     )

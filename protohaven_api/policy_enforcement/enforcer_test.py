@@ -72,7 +72,7 @@ def test_next_suspension_duration_single():
         dt(-enforcer.SUSPENSION_MAX_AGE_DAYS / 2 + 1),
     )
     assert (
-        enforcer.next_suspension_duration([s], now)["12345"]
+        enforcer.next_suspension_duration([s], now)[TESTMEMBER["id"]]
         == enforcer.SUSPENSION_DAYS_INITIAL + enforcer.SUSPENSION_DAYS_INCREMENT
     )
 
@@ -90,7 +90,7 @@ def test_next_suspension_duration_multi():
         ),
     ]
     assert (
-        enforcer.next_suspension_duration(ss, now)["12345"]
+        enforcer.next_suspension_duration(ss, now)[TESTMEMBER["id"]]
         == enforcer.SUSPENSION_DAYS_INITIAL + 2 * enforcer.SUSPENSION_DAYS_INCREMENT
     )
 
@@ -120,7 +120,7 @@ def test_gen_suspensions_basic():
         for i in range(enforcer.MAX_VIOLATIONS_BEFORE_SUSPENSION)
     ]
     got = enforcer.gen_suspensions(vs, [], now)
-    assert got == [("12345", enforcer.SUSPENSION_DAYS_INITIAL)]
+    assert got == [("1111", enforcer.SUSPENSION_DAYS_INITIAL, [0, 1, 2])]
 
 
 def test_gen_suspensions_all_anonymous():
@@ -194,7 +194,7 @@ def test_gen_suspensions_unresolved_overlapping():
     # Plus one that's almost aged out, but still open
     vs.append(violation(999, dt(enforcer.VIOLATION_MAX_AGE_DAYS + 1), None))
     got = enforcer.gen_suspensions(vs, [], now)
-    assert got == [("12345", enforcer.SUSPENSION_DAYS_INITIAL)]
+    assert got == [("1111", enforcer.SUSPENSION_DAYS_INITIAL, [1, 0, 999])]
 
 
 def test_gen_suspensions_reset_after_suspended():
@@ -216,7 +216,11 @@ def test_gen_suspensions_reset_after_suspended():
     vs.append(violation(999, dt(-1), None))
     got = enforcer.gen_suspensions(vs, ss, now)
     assert got == [
-        ("12345", enforcer.SUSPENSION_DAYS_INITIAL + enforcer.SUSPENSION_DAYS_INCREMENT)
+        (
+            "1111",
+            enforcer.SUSPENSION_DAYS_INITIAL + enforcer.SUSPENSION_DAYS_INCREMENT,
+            [2, 1, 0, 999],
+        )
     ]
 
 

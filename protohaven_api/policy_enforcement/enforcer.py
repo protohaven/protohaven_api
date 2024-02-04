@@ -139,6 +139,7 @@ def gen_suspensions(violations=None, suspensions=None, now=None):
     counts = _tally_violations(violations, suspensions, now)
     durations = next_suspension_duration(suspensions, now)
     result = []
+    print(counts)
     for nid, cc in counts.items():
         vs = [v["id"] for v in cc["violations"]]
         if (
