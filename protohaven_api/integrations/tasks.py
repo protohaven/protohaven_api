@@ -96,9 +96,52 @@ def complete(gid):
     return client().tasks.update_task(gid, {"completed": True})
 
 
+def get_shop_tech_maintenance_section_map():
+    result = client().sections.get_sections_for_project(cfg["techs_project"])
+    return {r["name"]: r["gid"] for r in result}
+
+
 # Could also create tech task for maintenance here
+def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None):
+    """Add a task to the shop tech asana project if it doesn't already exist"""
+    matching = client().tasks.search_tasks_for_workspace(
+        cfg["gid"],
+        {
+            f"custom_fields.{cfg['custom_field_airtable_id']}.value": airtable_id,
+            "completed": False,
+            "limit": 1,
+        },
+    )
+    if len(list(matching)) > 0:
+        return False  # Already exists
+
+    result = client().tasks.create_task(
+        {
+            "projects": [cfg["techs_project"]],
+            "section": section_gid,
+            "tags": [cfg["tech_ready_tag"]],
+            "custom_fields": {
+                cfg["custom_field_airtable_id"]: str(airtable_id),
+            },
+            "name": name,
+            "notes": desc,
+        }
+    )
+    # print(result)
+    task_gid = result.get("gid")
+    if section_gid and task_gid:
+        client().sections.add_task_for_section(str(section_gid), {"task": task_gid})
+    return True
+
 
 if __name__ == "__main__":
-    for task in get_open_purchase_requests():
-        print(task)
-        break
+    # for task in get_open_purchase_requests():
+    #    print(task)
+    #    break
+    #
+    from protohaven_api.integrations.data.connector import init as init_connector
+
+    init_connector(dev=False)
+    # upsert_maintenance_task("test task; please ignore", 'test description', section_gid=1204501947520301)
+    for name, _ in get_shop_tech_maintenance_section_map().items():
+        print(name)
