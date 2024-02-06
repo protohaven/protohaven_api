@@ -1,0 +1,13 @@
+{% if new_count > 0 %}Today we have {{new_count}} new tech_ready task{% if new_count != 1 %}s{% endif %}. Here's a couple of them:
+{% for t in new_tasks %}
+- {{ t['name'] }}{% endfor %}
+{% endif %}
+{% if stale_count > 0 %}We have {{stale_count}} tech_ready {% if stale_count != 1 %}tasks that haven't{% else %}task that hasn't{% endif %} seen any updates in {{stale_thresh}} days or more. These are the most stale ones:
+{% for t in stale_tasks %}
+- {{ t['name'] }} ({{ t['days_ago'] }} days stale){% endfor %}
+{% endif %}{% if new_count == 0 and stale_count == 0 %}Your comrades in tech are really on top of things - there are no new or stale tech_ready tasks today! But there's always something to do.
+{% endif %}
+To see the full list of tasks, check out the Shop & Maintenance Tasks project in Asana here: https://app.asana.com/0/1202469740885594/1204138662113052. While you're on duty, could you take a look at these and see if you can help them along? Anything you can do to help us complete these maintenance tasks would be immensely helpful.
+
+{{closing}}
+Protohaven Automation

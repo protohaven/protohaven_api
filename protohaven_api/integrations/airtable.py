@@ -177,6 +177,21 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
+def get_all_maintenance_tasks():
+    """Get all recurring maintenance tasks in the tool DB"""
+    return get_all_records("tools_and_equipment", "recurring_tasks")
+
+
+def update_recurring_task_date(task_id, date):
+    """Updates the last-scheduled date on a specific recurring task"""
+    return update_record(
+        {"Last Scheduled": date.strftime("%Y-%m-%d")},
+        "tools_and_equipment",
+        "recurring_tasks",
+        task_id,
+    )
+
+
 @cache
 def get_clearance_to_tool_map():
     """Returns a mapping of clearance codes (e.g. MWB) to individual tool codes"""

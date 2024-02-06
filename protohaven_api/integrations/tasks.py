@@ -21,14 +21,19 @@ def get_all_projects():
     return client().projects.get_projects_for_workspace(cfg["gid"], {}, opt_pretty=True)
 
 
-def get_tech_tasks():
+def get_tech_ready_tasks(modified_before):
     """Get tasks assigned to techs"""
     # https://developers.asana.com/reference/gettasksforproject
-    return client().tasks.get_tasks_for_project(
-        cfg["techs_project"],
+    return client().tasks.search_tasks_for_workspace(
+        cfg["gid"],
         {
+            "projects.all": cfg["techs_project"],
+            "completed": False,
+            "modified_on.before": modified_before.strftime("%Y-%m-%d"),
+            "tags.all": cfg["tech_ready_tag"],
             "opt_fields": [
-                "completed",
+                "name",
+                "modified_at",
                 "custom_fields.name",
                 "custom_fields.number_value",
                 "custom_fields.text_value",
@@ -96,9 +101,52 @@ def complete(gid):
     return client().tasks.update_task(gid, {"completed": True})
 
 
+def get_shop_tech_maintenance_section_map():
+    """Gets a mapping of Asana section names to their ID's"""
+    result = client().sections.get_sections_for_project(cfg["techs_project"])
+    return {r["name"]: r["gid"] for r in result}
+
+
 # Could also create tech task for maintenance here
+def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None):
+    """Add a task to the shop tech asana project if it doesn't already exist"""
+    matching = client().tasks.search_tasks_for_workspace(
+        cfg["gid"],
+        {
+            f"custom_fields.{cfg['custom_field_airtable_id']}.value": airtable_id,
+            "completed": False,
+            "limit": 1,
+        },
+    )
+    if len(list(matching)) > 0:
+        return False  # Already exists
+
+    result = client().tasks.create_task(
+        {
+            "projects": [cfg["techs_project"]],
+            "section": section_gid,
+            "tags": [cfg["tech_ready_tag"]],
+            "custom_fields": {
+                cfg["custom_field_airtable_id"]: str(airtable_id),
+            },
+            "name": name,
+            "notes": desc,
+        }
+    )
+    # print(result)
+    task_gid = result.get("gid")
+    if section_gid and task_gid:
+        client().sections.add_task_for_section(str(section_gid), {"task": task_gid})
+    return True
+
 
 if __name__ == "__main__":
-    for task in get_open_purchase_requests():
-        print(task)
-        break
+    # for task in get_open_purchase_requests():
+    #    print(task)
+    #    break
+    #
+    from protohaven_api.integrations.data.connector import init as init_connector
+
+    init_connector(dev=False)
+    for n, _ in get_shop_tech_maintenance_section_map().items():
+        print(n)
