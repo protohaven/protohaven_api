@@ -183,6 +183,7 @@ def get_all_maintenance_tasks():
 
 
 def update_recurring_task_date(task_id, date):
+    """Updates the last-scheduled date on a specific recurring task"""
     return update_record(
         {"Last Scheduled": date.strftime("%Y-%m-%d")},
         "tools_and_equipment",
