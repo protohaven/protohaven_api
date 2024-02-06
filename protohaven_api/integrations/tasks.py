@@ -21,14 +21,19 @@ def get_all_projects():
     return client().projects.get_projects_for_workspace(cfg["gid"], {}, opt_pretty=True)
 
 
-def get_tech_tasks():
+def get_tech_ready_tasks(modified_before):
     """Get tasks assigned to techs"""
     # https://developers.asana.com/reference/gettasksforproject
-    return client().tasks.get_tasks_for_project(
-        cfg["techs_project"],
+    return client().tasks.search_tasks_for_workspace(
+        cfg["gid"],
         {
+            "projects.all": cfg["techs_project"],
+            "completed": False,
+            "modified_on.before": modified_before.strftime("%Y-%m-%d"),
+            "tags.all": cfg["tech_ready_tag"],
             "opt_fields": [
-                "completed",
+                "name",
+                "modified_at",
                 "custom_fields.name",
                 "custom_fields.number_value",
                 "custom_fields.text_value",
@@ -97,6 +102,7 @@ def complete(gid):
 
 
 def get_shop_tech_maintenance_section_map():
+    """Gets a mapping of Asana section names to their ID's"""
     result = client().sections.get_sections_for_project(cfg["techs_project"])
     return {r["name"]: r["gid"] for r in result}
 
@@ -142,6 +148,5 @@ if __name__ == "__main__":
     from protohaven_api.integrations.data.connector import init as init_connector
 
     init_connector(dev=False)
-    # upsert_maintenance_task("test task; please ignore", 'test description', section_gid=1204501947520301)
-    for name, _ in get_shop_tech_maintenance_section_map().items():
-        print(name)
+    for n, _ in get_shop_tech_maintenance_section_map().items():
+        print(n)

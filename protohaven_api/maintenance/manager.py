@@ -1,3 +1,4 @@
+"""Manages maintenance tasks - scheduling new ones, notifying techs etc."""
 import datetime
 import logging
 
@@ -5,12 +6,15 @@ import pytz
 from dateutil import parser as dateparser
 
 from protohaven_api.integrations import airtable, tasks
+from protohaven_api.maintenance import comms as mcomms
 
 tz = pytz.timezone("EST")
 log = logging.getLogger("maintenance.manager")
 
 
 def get_maintenance_needed_tasks(now=None):
+    """Fetches a list of recurring tasks from Airtable that are due to be scheduled
+    into asana for action"""
     if not now:
         now = datetime.datetime.now().astimezone(tz)
     needed = []
@@ -53,7 +57,41 @@ def apply_maintenance_tasks(tt, now=None):
             log.debug("Task already inserted")
         rep = airtable.update_recurring_task_date(t["id"], now)
         if rep.status_code != 200:
-            raise Exception(rep.content)
+            raise RuntimeError(rep.content)
+
+
+DEFAULT_STALE_DAYS = 14
+
+
+def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
+    """Get tasks in Asana that haven't been acted upon within a certain threshold"""
+    if now is None:
+        now = datetime.datetime.now().astimezone(tz)
+    thresh = now - datetime.timedelta(days=thresh)
+    result = []
+    for t in tasks.get_tech_ready_tasks(thresh):
+        mod = dateparser.parse(t["modified_at"]).astimezone(tz)
+        result.append({"name": t["name"], "days_ago": (now - mod).days})
+    return result
+
+
+def run_daily_maintenance(num_to_generate=3):
+    """Generates a bounded number of new maintenance tasks per day,
+    also looks up stale tasks and creates a summary message for Techs"""
+    tt = get_maintenance_needed_tasks()
+    log.info(f"Found {len(tt)} needed maintenance tasks")
+    tt.sort(key=lambda t: t["next_schedule"])
+    tt = tt[:num_to_generate]
+    # apply_maintenance_tasks(tt)
+    stale = get_stale_tech_ready_tasks(thresh=DEFAULT_STALE_DAYS)
+    log.info(f"Found {len(stale)} stale tasks")
+    subject, body = mcomms.daily_tasks_summary(tt, stale, DEFAULT_STALE_DAYS)
+    return {
+        "id": "daily_maintenance",
+        "target": "#techs-live",
+        "subject": subject,
+        "body": body,
+    }
 
 
 if __name__ == "__main__":
@@ -61,10 +99,6 @@ if __name__ == "__main__":
 
     init_connector(dev=False)
     logging.basicConfig(level=logging.INFO)
-    tt = get_maintenance_needed_tasks()
-    log.info(f"Found {len(tt)} needed maintenance tasks")
-    tt.sort(key=lambda t: t["next_schedule"])
-    apply_maintenance_tasks(tt[:5])
-    log.info("Done")
-    # for t in get_maintenance_needed_tasks():
-    #    print(t)
+    report = run_daily_maintenance()
+    print(report["subject"])
+    print(report["body"])

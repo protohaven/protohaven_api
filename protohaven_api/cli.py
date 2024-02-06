@@ -20,6 +20,7 @@ from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
 from protohaven_api.integrations.data.connector import init as init_connector
+from protohaven_api.maintenance import manager
 from protohaven_api.policy_enforcement import enforcer
 from protohaven_api.validation.docs import validate as validate_docs
 
@@ -491,6 +492,14 @@ class ProtohavenCLI:
                 log.warning("--apply not set; no suspension(s) will be added")
 
         return enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
+
+    def gen_maintenance_tasks(self, argv):
+        """Check recurring tasks list in Airtable, add new tasks to asana
+        And notify techs about new and stale tasks that are tech_ready."""
+        parser = argparse.ArgumentParser(description=self.gen_maintenance_tasks.__doc__)
+        parser.parse_args(argv)
+        report = manager.run_daily_maintenance()
+        print(yaml.dump([report], default_flow_style=False, default_style=""))
 
     def validate_member_clearances(self, argv):
         """Match clearances in spreadsheet with clearances in Neon.
