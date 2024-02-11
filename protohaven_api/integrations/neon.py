@@ -437,6 +437,14 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 csrf = m["content"]
         return csrf
 
+    def soft_search(self, keyword):
+        r = self.s.get(
+            f"https://protohaven.app.neoncrm.com/nx/top-search/search?keyword={keyword}"
+        )
+        assert r.status_code == 200
+        content = json.loads(r.content.decode("utf8"))
+        return content
+
     def create_single_use_abs_event_discount(self, code, amt):
         """Creates an absolute discount, usable once"""
         return self._post_discount(
@@ -507,7 +515,33 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         return code
 
 
+def set_event_scheduled_state(neon_id, scheduled=True):
+    data = {
+        "publishEvent": False,
+        "enableEventRegistrationForm": False,
+        "archived": True,
+        "enableWaitListing": False,
+    }
+    resp, content = get_connector().neon_request(
+        cfg("api_key3"),
+        f"{URL_BASE}/events/{neon_id}",
+        "PATCH",
+        body=json.dumps(data),
+        headers={"content-type": "application/json"},
+    )
+    if resp.status != 200:
+        raise RuntimeError(f"Error {resp.status}: {content}")
+    content = json.loads(content)
+    return content["id"]
+
+
 def create_coupon_code(code, amt):
     """Creates a coupon code for a specific absolute amount"""
     n = NeonOne(cfg("login_user"), cfg("login_pass"))
     return n.create_single_use_abs_event_discount(code, amt)
+
+
+def soft_search(keyword):
+    """Creates a coupon code for a specific absolute amount"""
+    n = NeonOne(cfg("login_user"), cfg("login_pass"))
+    return n.soft_search(keyword)

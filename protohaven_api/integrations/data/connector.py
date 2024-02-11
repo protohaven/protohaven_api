@@ -5,11 +5,12 @@ import json
 import smtplib
 import time
 from email.mime.text import MIMEText
+from functools import cache
 from threading import Lock
 
+import asana
 import httplib2
 import requests
-from asana import Client as AsanaClient
 from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
@@ -160,12 +161,25 @@ class Connector:
         """Dev handler for asana client creation"""
         raise NotImplementedError("TODO")
 
+    @cache
     def asana_client(self):
         """Create and return an Asana API client"""
         if self.dev:
             return self._asana_client_dev()
-        client = AsanaClient.access_token(self.cfg["asana"]["token"])
+        acfg = asana.Configuration()
+        acfg.access_token = self.cfg["asana"]["token"]
+        client = asana.ApiClient(acfg)
+        client.default_headers["asana-enable"] = "new_goal_memberships"
         return client
+
+    def asana_tasks(self):
+        return asana.TasksApi(self.asana_client())
+
+    def asana_projects(self):
+        return asana.ProjectsApi(self.asana_client())
+
+    def asana_sections(self):
+        return asana.SectionsApi(self.asana_client())
 
 
 C = None

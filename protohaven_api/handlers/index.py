@@ -11,6 +11,7 @@ from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.neon import (
     fetch_attendees,
     fetch_published_upcoming_events,
+    soft_search,
 )
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
@@ -44,6 +45,26 @@ def index():
         clearances=clearances,
         roles=roles,
     )
+
+
+@page.route("/neon_lookup", methods=["GET", "POST"])
+def neon_id_lookup():
+    """Look up the ID of a user in Neon based on a search by name or email"""
+    if request.method == "GET":
+        return render_template("search.html")
+    elif request.method == "POST":
+        result = []
+        search = request.values.get("search")
+        if search is None:
+            return result
+        rep = soft_search(search)
+        if not rep.get("success"):
+            raise RuntimeError(rep)
+
+        for i in rep["data"]["individuals"]:
+            i = i["data"]
+            result.append(f"{i['firstName']} {i['lastName']} (#{i['accountId']})")
+        return result
 
 
 @page.route("/events/attendees")

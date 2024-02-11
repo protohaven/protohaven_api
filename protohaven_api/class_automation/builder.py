@@ -292,6 +292,11 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 f"Skipping email to instructor {evt['instructor_firstname']}; already notified"
             )
             return
+        if evt["instructor_email"] is None:
+            self.log.error(
+                f"Could not build instructor notification for {evt['name']} - no email given"
+            )
+            return
         if evt["instructor_email"].strip() in self.ignore_email:
             self.log.info(
                 f"Skipping email to instructor {evt['instructor_firstname']} "

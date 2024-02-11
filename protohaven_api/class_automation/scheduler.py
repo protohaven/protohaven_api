@@ -122,3 +122,47 @@ def solve_with_env(env):
     classes = [Class(**c) for c in env["classes"]]
     instructors = [Instructor(**i) for i in env["instructors"]]
     return solve(classes, instructors)
+
+
+def format_class(cls):
+    _, name, date = cls
+    start = dateparser.parse(date).astimezone(pytz.timezone("EST"))
+    return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
+
+
+def push_schedule(sched):
+    email_map = airtable.get_instructor_email_map()
+    payload = []
+    for inst, classes in sched.items():
+        for record_id, name, date in classes:
+            payload.append(
+                {
+                    "Instructor": inst,
+                    "Email": email_map[inst],
+                    "Start Time": date,
+                    "Class": [record_id],
+                }
+            )
+
+    notifications = []
+    for inst, classes in sched.items():
+        classes.sort(key=lambda c: c[2])
+        formatted = [format_class(f) for f in classes]
+        subject = "Confirm class schedule"
+        email = email_map[inst]
+        body = f"Hello, {inst}!"
+        body += "\nWe have a new set of potential classes for you to teach, and we are looking for your confirmation:\n\n"
+        body += "\n".join(formatted)
+        body += "\n\nConfirm the classes you would like to teach ASAP by going to http://api.protohaven.org/instructor/class."
+        body += "\n\nPlease note:"
+        body += "\n - Some classes may overlap in time; just pick whichever you prefer"
+        body += "\n - Not all classes you confirm will be scheduled"
+        body += "\n - Not all classes that are scheduled will fill up."
+        body += "\n\nWe will schedule your confirmed classes in the next few days."
+        body += "\n\nThank you!"
+        notifications.append(
+            {"id": None, "subject": subject, "body": body, "target": email}
+        )
+
+    # airtable.append_classes_to_schedule(sched)
+    return notifications

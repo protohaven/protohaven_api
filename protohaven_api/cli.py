@@ -410,6 +410,20 @@ class ProtohavenCLI:
         self.log.info(f"Final score: {final_score}")
         print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
 
+    def append_schedule(self, argv):
+        parser = argparse.ArgumentParser(description=self.append_schedule.__doc__)
+        parser.add_argument(
+            "--path",
+            help="path to schedule file",
+            type=str,
+            required=True,
+        )
+        args = parser.parse_args(argv)
+        with open(args.path, "r", encoding="utf-8") as f:
+            sched = yaml.safe_load(f.read())
+        notifications = scheduler.push_schedule(sched)
+        print(yaml.dump(notifications, default_flow_style=False, default_style=""))
+
     def close_violation(self, argv):
         """Close out a violation so consequences cease"""
         parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
@@ -507,11 +521,20 @@ class ProtohavenCLI:
         raise NotImplementedError("TODO implement")
 
     def cancel_classes(self, argv):
-        """fetch classes from neon and cancel the ones with low
-        attendance near enough to the deadline"""
+        """cancel passed classes by unpublishing and disabling registration"""
         parser = argparse.ArgumentParser(description=self.cancel_classes.__doc__)
-        parser.parse_args(argv)
-        raise NotImplementedError("TODO")
+        parser.add_argument(
+            "--id",
+            help="class IDs to cancel",
+            type=str,
+            nargs="+",
+        )
+        args = parser.parse_args(argv)
+        for i in args.id:
+            i = i.strip()
+            log.info(f"Cancelling #{i}")
+            neon.set_event_scheduled_state(i, scheduled=False)
+        log.info("Done")
 
     def mock_data(self, argv):
         """Fetch mock data from airtable, neon etc.

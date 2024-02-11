@@ -1,0 +1,30 @@
+<html>
+  <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+      crossorigin="anonymous"></script>
+  <body>
+    <input type="text" id="keyword"></input>
+    <button id="search">Search</button>
+    <div id="results"></div>
+  </body>
+  <script type="text/javascript">
+    $("#search").click(function() {
+      console.log("CLicky");
+      $("#results").html("");
+      $("#search").prop('disabled', true);
+      $.post("/neon_lookup?search=" + $("#keyword").val())
+          .done((result) => {
+            console.log(result);
+            for (let r of result) {
+                  $("#results").append(`<div>${r}</div>`);
+            }
+            $("#search").prop('disabled', false);
+          })
+          .fail((err) => {
+            alert(err);
+            $("#search").prop('disabled', false);
+          });
+    });
+  </script>
+</html>

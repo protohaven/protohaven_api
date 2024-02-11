@@ -127,6 +127,13 @@ def get_all_class_templates():
     return get_all_records("class_automation", "classes")
 
 
+def append_classes_to_schedule(payload):
+    """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
+    rep = insert_records(payload, "class_automation", "schedule")
+    if rep.status_code != 200:
+        raise RuntimeError(rep.content)
+
+
 def log_email(neon_id, to, subject, status):
     """Logs the sending of an email in Airtable"""
     rep = insert_records(

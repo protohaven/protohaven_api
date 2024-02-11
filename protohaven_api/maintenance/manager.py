@@ -82,7 +82,7 @@ def run_daily_maintenance(num_to_generate=3):
     log.info(f"Found {len(tt)} needed maintenance tasks")
     tt.sort(key=lambda t: t["next_schedule"])
     tt = tt[:num_to_generate]
-    # apply_maintenance_tasks(tt)
+    apply_maintenance_tasks(tt)
     stale = get_stale_tech_ready_tasks(thresh=DEFAULT_STALE_DAYS)
     log.info(f"Found {len(stale)} stale tasks")
     subject, body = mcomms.daily_tasks_summary(tt, stale, DEFAULT_STALE_DAYS)

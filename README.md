@@ -38,3 +38,49 @@ pip install -e .
 # Run the command
 python3 -m protohaven_api.cli project_requests
 ```
+
+# Common Actions
+
+## Maintenance tasks
+
+Maintenance tasks are hosted in Airtable (See 'Tools & Equipment' base, 'Recurring Tasks' sheet). When tasks come due, they are transfered
+to the ['Shop & Maintenance Tasks' asana project](https://app.asana.com/0/1202469740885594/1204138662113052).
+
+The following command picks up to three tasks that are due to be scheduled and schedules them in Asana, then generates a post to Discord's #techs-live
+channel announcing the new tasks plus the three oldest tasks.
+
+```
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli gen_maintenance_tasks > comms.yaml
+```
+
+## Forwarding project requests
+
+Project requests are submitted by members and non-members via the Asana form: https://app.asana.com/0/1204107875202537/1204159014519513
+
+These should be forwarded daily to the #help-wanted channel on discord, and can be done automatically via this command:
+
+```
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli project_requests  --notify
+```
+
+## Managing classes
+
+Class emails will need to be triggered daily. This sends reminders to instructors to check for class materials, reminds both instructors and students when a class is happening, sends post-class feedback requests, and notifies when classes are cancelled due to low attendance.
+
+Do so via the following command:
+
+```
+LOGLEVEL=info PH_SERVER_MODE=prod python3 -m protohaven_api.cli gen_class_emails > comms.yaml
+```
+
+You can then inspect `comms.yaml` to ensure that everything is in order, before sending the comms:
+
+```
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli send_comms --path=comms.yaml
+```
+
+When classes are cancelled, run the following command to remove them from the events page and prevent additional signups:
+
+```
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id=<id2>
+```
