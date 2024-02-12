@@ -438,6 +438,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         return csrf
 
     def soft_search(self, keyword):
+        """Search based on a keyword - matches email, first/last names etc"""
         r = self.s.get(
             f"https://protohaven.app.neoncrm.com/nx/top-search/search?keyword={keyword}"
         )
@@ -516,11 +517,12 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
 
 def set_event_scheduled_state(neon_id, scheduled=True):
+    """Publishes or unpublishes an event in Neon"""
     data = {
-        "publishEvent": False,
-        "enableEventRegistrationForm": False,
-        "archived": True,
-        "enableWaitListing": False,
+        "publishEvent": scheduled,
+        "enableEventRegistrationForm": scheduled,
+        "archived": not scheduled,
+        "enableWaitListing": scheduled,
     }
     resp, content = get_connector().neon_request(
         cfg("api_key3"),

@@ -125,16 +125,18 @@ def solve_with_env(env):
 
 
 def format_class(cls):
+    """Convert a class into bulleted representation, for email summary"""
     _, name, date = cls
     start = dateparser.parse(date).astimezone(pytz.timezone("EST"))
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
 def push_schedule(sched):
+    """Pushes the created schedule to airtable and generates notifications"""
     email_map = airtable.get_instructor_email_map()
     payload = []
     for inst, classes in sched.items():
-        for record_id, name, date in classes:
+        for record_id, _, date in classes:
             payload.append(
                 {
                     "Instructor": inst,
@@ -151,9 +153,11 @@ def push_schedule(sched):
         subject = "Confirm class schedule"
         email = email_map[inst]
         body = f"Hello, {inst}!"
-        body += "\nWe have a new set of potential classes for you to teach, and we are looking for your confirmation:\n\n"
+        body += "\nWe have a new set of potential classes for you to teach, and we are"
+        body += " looking for your confirmation:\n\n"
         body += "\n".join(formatted)
-        body += "\n\nConfirm the classes you would like to teach ASAP by going to http://api.protohaven.org/instructor/class."
+        body += "\n\nConfirm the classes you would like to teach ASAP by going to"
+        body += " http://api.protohaven.org/instructor/class."
         body += "\n\nPlease note:"
         body += "\n - Some classes may overlap in time; just pick whichever you prefer"
         body += "\n - Not all classes you confirm will be scheduled"

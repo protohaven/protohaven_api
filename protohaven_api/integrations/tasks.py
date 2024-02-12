@@ -1,7 +1,5 @@
 """Asana task integration methods"""
 
-from functools import cache
-
 from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config
@@ -111,7 +109,7 @@ def get_open_purchase_requests():
 def complete(gid):
     """Complete a task"""
     # https://developers.asana.com/reference/updatetask
-    return _tasks().update_task(gid, {"completed": True})
+    return _tasks().update_task(gid, {"completed": True}, {})
 
 
 def get_shop_tech_maintenance_section_map():

@@ -5,7 +5,6 @@ import json
 import smtplib
 import time
 from email.mime.text import MIMEText
-from functools import cache
 from threading import Lock
 
 import asana
@@ -161,7 +160,6 @@ class Connector:
         """Dev handler for asana client creation"""
         raise NotImplementedError("TODO")
 
-    @cache
     def asana_client(self):
         """Create and return an Asana API client"""
         if self.dev:
@@ -173,12 +171,15 @@ class Connector:
         return client
 
     def asana_tasks(self):
+        """Create and return asana TasksApi"""
         return asana.TasksApi(self.asana_client())
 
     def asana_projects(self):
+        """Create and return asana ProjectsApi"""
         return asana.ProjectsApi(self.asana_client())
 
     def asana_sections(self):
+        """Create and return asana SectionsApi"""
         return asana.SectionsApi(self.asana_client())
 
 

@@ -221,7 +221,7 @@ def gen_comms_for_suspension(sus, accrued, member):
     end = None
     if fields.get("End Time"):
         end = dateparser.parse(fields["End Date"]).astimezone(tz).strftime("%Y-%m-%d")
-    return ecomms.suspension_started(member["firstname"], start, accrued, end)
+    return ecomms.suspension_started(member["firstName"], start, accrued, end)
 
 
 def gen_comms(
@@ -301,6 +301,7 @@ def gen_comms(
         )
 
     # Also send a summary of violations/fees/suspensions to Discord #storage
-    subject, body = ecomms.enforcement_summary(violations, old_fees, new_fees, new_sus)
+    fees = airtable.get_policy_fees()
+    subject, body = ecomms.enforcement_summary(violations, fees, new_sus)
     result.append({"target": "#storage", "subject": subject, "body": body, "id": None})
     return result

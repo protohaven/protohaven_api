@@ -9,17 +9,13 @@ env = Environment(
 )
 
 
-def enforcement_summary(violations, old_fees, new_fees, new_sus):
+def enforcement_summary(violations, fees, new_sus):
     """Generate a summary of violation and suspension state, if there is any"""
     # Make sure we're only looking at open/unresolved policy stuff
     violations = [v for v in violations if not v["fields"].get("Resolution")]
     new_sus = [f for f in new_sus if not f["fields"].get("Reinstated")]
-    if (
-        len(violations) == 0
-        and len(old_fees) == 0
-        and len(new_fees) == 0
-        and len(new_sus) == 0
-    ):
+    fees = [f for f in fees if not f["fields"].get("Paid")]
+    if len(violations) == 0 and len(fees) == 0 and len(new_sus) == 0:
         return None
 
     # Condense violation and fee info into a list of updates
@@ -33,9 +29,13 @@ def enforcement_summary(violations, old_fees, new_fees, new_sus):
             "notes": v["fields"].get("Notes", ""),
             "unpaid": 0,
         }
-    for vid, amt, _ in old_fees + new_fees:
-        if len(vid) > 0 and vs.get(vid[0]):
-            vs[vid[0]]["unpaid"] += amt
+    for f in fees:
+        amt = f["fields"]["Amount"]
+        if f["fields"].get("Paid"):
+            continue
+        vid = f["fields"].get("Violation", [None])[0]
+        if vs.get(vid):
+            vs[vid]["unpaid"] += amt
         else:
             outstanding += amt
 

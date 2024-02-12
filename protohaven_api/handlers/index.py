@@ -52,19 +52,20 @@ def neon_id_lookup():
     """Look up the ID of a user in Neon based on a search by name or email"""
     if request.method == "GET":
         return render_template("search.html")
-    elif request.method == "POST":
-        result = []
-        search = request.values.get("search")
-        if search is None:
-            return result
-        rep = soft_search(search)
-        if not rep.get("success"):
-            raise RuntimeError(rep)
 
-        for i in rep["data"]["individuals"]:
-            i = i["data"]
-            result.append(f"{i['firstName']} {i['lastName']} (#{i['accountId']})")
+    # invariant: request.method == "POST"
+    result = []
+    search = request.values.get("search")
+    if search is None:
         return result
+    rep = soft_search(search)
+    if not rep.get("success"):
+        raise RuntimeError(rep)
+
+    for i in rep["data"]["individuals"]:
+        i = i["data"]
+        result.append(f"{i['firstName']} {i['lastName']} (#{i['accountId']})")
+    return result
 
 
 @page.route("/events/attendees")

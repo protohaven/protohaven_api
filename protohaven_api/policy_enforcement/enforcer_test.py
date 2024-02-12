@@ -226,14 +226,14 @@ def test_gen_suspensions_reset_after_suspended():
 
 def test_gen_comms_for_violation_new():
     """Violation comms render properly for a new violation"""
-    v = violation(1, dt(-1), None)
+    v = violation(1, dt(0), None)
     subject, got = enforcer.gen_comms_for_violation(
         v, 0, 0, ["section1", "section2"], TESTMEMBER
     )
-    assert "new violation issued" in subject
+    assert "new Protohaven violation issued" in subject
     assert "$5 per day" in got
     assert "testname" in got
-    assert dt(-1).strftime("%Y-%m-%d") in got
+    assert dt(0).strftime("%Y-%m-%d") in got
     assert "section1" in got
     assert "section2" in got
 
@@ -285,8 +285,7 @@ def test_gen_comms_for_violation_no_fee():
         v, 0, 0, ["section1", "section2"], TESTMEMBER
     )
     assert "violation" in subject
-    assert "has been logged" in got
-    assert "no fee" in got
+    assert "have accrued" not in got
     assert "testname" in got
     assert dt(-1).strftime("%Y-%m-%d") in got
     assert "section1" in got

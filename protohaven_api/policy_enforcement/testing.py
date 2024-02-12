@@ -16,7 +16,7 @@ class Any:  # pylint: disable=too-few-public-methods
 
 
 TESTFEE = 5
-TESTMEMBER = {"id": "1111", "firstname": "testname"}
+TESTMEMBER = {"firstName": "testname", "id": "1111"}
 
 
 def violation(instance, onset, resolution=None, fee=TESTFEE, neon_id=TESTMEMBER["id"]):
@@ -52,7 +52,7 @@ def tfee(amt=5, created=now, vid="1234", paid=False):
     return {
         "id": "testfee",
         "fields": {
-            "Violation": vid,
+            "Violation": [vid],
             "Created": created,
             "Amount": amt,
             "Paid": paid,
