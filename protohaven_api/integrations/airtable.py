@@ -164,6 +164,11 @@ def respond_class_automation_schedule(eid, pub):
     return update_record(data, "class_automation", "schedule", eid)
 
 
+def apply_violation_accrual(vid, accrued):
+    """Sets the Accrued value of a Violation"""
+    return update_record({"Accrued": accrued}, "policy_enforcement", "violations", vid)
+
+
 def mark_schedule_supply_request(eid, missing):
     """Mark a Scheduled class as needing supplies or fully supplied"""
     return update_record(
@@ -303,13 +308,12 @@ def get_policy_fees():
     return [f for f in rows if f["fields"].get("Created")]
 
 
-def create_fees(created, violation_map):
+def create_fees(fees):
     """Create fees for each violation and fee amount in the map"""
     data = [
-        {"Created": created.isoformat(), "Violation": [vid], "Amount": amt}
-        for vid, amt in violation_map
+        {"Created": t.isoformat(), "Violation": [vid], "Amount": amt}
+        for vid, amt, t in fees
     ]
-    print(data)
     return insert_records(data, "policy_enforcement", "fees")
 
 

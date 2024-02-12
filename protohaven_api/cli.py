@@ -411,6 +411,8 @@ class ProtohavenCLI:
         print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
 
     def append_schedule(self, argv):
+        """Adds a schedule (created with `run_scheduler`) to Airtable for
+        instructor confirmation."""
         parser = argparse.ArgumentParser(description=self.append_schedule.__doc__)
         parser.add_argument(
             "--path",
@@ -484,7 +486,7 @@ class ProtohavenCLI:
             for f in new_fees:
                 log.info(f" - {f[2].strftime('%Y-%m-%d')} {f[0]} ${f[1]}")
             if args.apply:
-                rep = airtable.create_fees(datetime.datetime.now(), new_fees)
+                rep = airtable.create_fees(new_fees)
                 log.debug(f"{rep.status_code}: {rep.content}")
                 log.info(f"Applied {len(new_fees)} fee(s) into Airtable")
             else:
@@ -505,7 +507,11 @@ class ProtohavenCLI:
             else:
                 log.warning("--apply not set; no suspension(s) will be added")
 
-        return enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
+        # Update accrual totals so they're visible at protohaven.org/violations
+        enforcer.update_accruals()
+
+        result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
+        print(yaml.dump(result, default_flow_style=False, default_style=""))
 
     def gen_maintenance_tasks(self, argv):
         """Check recurring tasks list in Airtable, add new tasks to asana

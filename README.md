@@ -39,6 +39,23 @@ pip install -e .
 python3 -m protohaven_api.cli project_requests
 ```
 
+## Server installation
+
+```
+sudo apt install python3.10-venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+
+# Having a separate socket config allows us to bind to privileged ports (i.e. 80) without root access
+sudo cp ./protohaven_api.service /lib/systemd/system/protohaven_api.service
+sudo cp ./protohaven_api.socket /lib/systemd/system/protohaven_api.socket
+sudo systemctl daemon-reload
+sudo systemctl start protohaven_api.socket
+sudo systemctl start protohaven_api.service
+```
+
 # Common Actions
 
 ## Maintenance tasks

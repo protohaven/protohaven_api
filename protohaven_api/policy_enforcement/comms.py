@@ -13,8 +13,6 @@ def enforcement_summary(violations, old_fees, new_fees, new_sus):
     """Generate a summary of violation and suspension state, if there is any"""
     # Make sure we're only looking at open/unresolved policy stuff
     violations = [v for v in violations if not v["fields"].get("Resolution")]
-    old_fees = [f for f in old_fees if not f["fields"].get("Paid")]
-    new_fees = [f for f in new_fees if not f["fields"].get("Paid")]
     new_sus = [f for f in new_sus if not f["fields"].get("Reinstated")]
     if (
         len(violations) == 0
@@ -35,11 +33,9 @@ def enforcement_summary(violations, old_fees, new_fees, new_sus):
             "notes": v["fields"].get("Notes", ""),
             "unpaid": 0,
         }
-    for f in old_fees + new_fees:
-        vid = f["fields"]["Violation"]
-        amt = f["fields"]["Amount"]
-        if vs.get(vid):
-            vs[vid]["unpaid"] += amt
+    for vid, amt, _ in old_fees + new_fees:
+        if len(vid) > 0 and vs.get(vid[0]):
+            vs[vid[0]]["unpaid"] += amt
         else:
             outstanding += amt
 
@@ -68,7 +64,7 @@ def admin_create_suspension(neon_id, end):
 
 def suspension_ended(firstname):
     """Message to member that their suspension is over"""
-    subject = f"{firstname}: your membership has been reinstated"
+    subject = f"{firstname}: your Protohaven membership has been reinstated"
     return subject, env.get_template("suspension_ended.jinja2").render(
         firstname=firstname
     )
@@ -76,7 +72,7 @@ def suspension_ended(firstname):
 
 def suspension_started(firstname, start, accrued, end=None):
     """Message to member that their membership is suspended"""
-    subject = f"{firstname}: your membership has been suspended"
+    subject = f"{firstname}: your Protohaven membership has been suspended"
     if accrued > 0:
         subject += " until fees are paid"
     elif end:
@@ -90,7 +86,12 @@ def violation_ongoing(
     firstname, start, sections, notes, accrued, fee
 ):  # pylint: disable=too-many-arguments
     """Message to member about ongoing violation accruing fees"""
-    subject = f"{firstname}: ongoing violation(s) have accrued ${accrued} in fees"
+    if accrued > 0:
+        subject = (
+            f"{firstname}: ongoing Protohaven violation has accrued ${accrued} in fees"
+        )
+    else:
+        subject = f"{firstname}: ongoing Protohaven violation"
     return subject, env.get_template("violation_ongoing.jinja2").render(
         firstname=firstname,
         start=start,
@@ -103,7 +104,7 @@ def violation_ongoing(
 
 def violation_started(firstname, start, sections, notes, fee):
     """Message to member that a new violation was issued"""
-    subject = f"{firstname}: new violation issued for {start}"
+    subject = f"{firstname}: new Protohaven violation issued for {start}"
     return subject, env.get_template("violation_started.jinja2").render(
         firstname=firstname, start=start, sections=sections, notes=notes, fee=fee
     )
