@@ -34,7 +34,7 @@ def test_gen_fees_new_violation():
 def test_gen_fees_ongoing_violation():
     """An ongoing violation accumulates fees"""
     got = enforcer.gen_fees([violation(1, dt(-2), None)], {1: dt(-1)}, now)
-    assert got == [(1, TESTFEE, now)]
+    assert got == [(1, TESTFEE, now.strftime("%Y-%m-%d"))]
 
 
 def test_gen_fees_ongoing_violation_caught_up():
