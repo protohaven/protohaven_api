@@ -1,6 +1,6 @@
 Hello {{firstname}},
 
-On {{start}}, you violated one or more of our shop policies incurring a daily fee until the violation is resolved. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
+On {{start}}, you violated one or more of our shop policies, and the violation is currently ongoing. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
 
 These are the policies that apply:
 
@@ -10,11 +10,15 @@ These are the policies that apply:
 
 Details on the violation: {{notes}}
 
-**At this time you have accrued ${{accrued}} in fees. The violation is ongoing and will accrue ${{fee}} per day until it is resoled**
+{% if accrued > 0 %}
+**At this time you have accrued ${{accrued}} in fees. The violation is ongoing and will accrue ${{fee}} per day until it is resolved**
+{% endif %}
 
-Please take immediate action to resolve the violation and pay any accrued fees. To pay fees, please ask the shop tech on duty. We will send a confirmation by the next business day to confirm the violation has been resolved.
+For a full list of active violations, see https://protohaven.org/violations.
 
-Any additional questions and appeals may be sent to hello@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
+Please take immediate action to resolve the violation. {% if accrued > 0 %}To any accrued fees, please ask the shop tech on duty. {% endif %}We will send a confirmation the next business day to confirm the violation has been resolved.
+
+Any additional questions and appeals may be sent to membership@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
 
 Thanks for your cooperation,
 Protohaven Automation

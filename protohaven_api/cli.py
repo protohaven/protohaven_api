@@ -410,6 +410,22 @@ class ProtohavenCLI:
         self.log.info(f"Final score: {final_score}")
         print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
 
+    def append_schedule(self, argv):
+        """Adds a schedule (created with `run_scheduler`) to Airtable for
+        instructor confirmation."""
+        parser = argparse.ArgumentParser(description=self.append_schedule.__doc__)
+        parser.add_argument(
+            "--path",
+            help="path to schedule file",
+            type=str,
+            required=True,
+        )
+        args = parser.parse_args(argv)
+        with open(args.path, "r", encoding="utf-8") as f:
+            sched = yaml.safe_load(f.read())
+        notifications = scheduler.push_schedule(sched)
+        print(yaml.dump(notifications, default_flow_style=False, default_style=""))
+
     def close_violation(self, argv):
         """Close out a violation so consequences cease"""
         parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
@@ -460,7 +476,7 @@ class ProtohavenCLI:
 
         violations = airtable.get_policy_violations()
         old_fees = [
-            (f["fields"]["Violation"], f["fields"]["Amount"], f["fields"]["Created"])
+            (f["fields"]["Violation"][0], f["fields"]["Amount"], f["fields"]["Created"])
             for f in airtable.get_policy_fees()
             if not f["fields"].get("Paid")
         ]
@@ -468,9 +484,9 @@ class ProtohavenCLI:
         if len(new_fees) > 0:
             log.info("Generated fees:")
             for f in new_fees:
-                log.info(f" - {f[2].strftime('%Y-%m-%d')} {f[0]} ${f[1]}")
+                log.info(f" - {f[2]} {f[0]} ${f[1]}")
             if args.apply:
-                rep = airtable.create_fees(datetime.datetime.now(), new_fees)
+                rep = airtable.create_fees(new_fees)
                 log.debug(f"{rep.status_code}: {rep.content}")
                 log.info(f"Applied {len(new_fees)} fee(s) into Airtable")
             else:
@@ -491,7 +507,11 @@ class ProtohavenCLI:
             else:
                 log.warning("--apply not set; no suspension(s) will be added")
 
-        return enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
+        # Update accrual totals so they're visible at protohaven.org/violations
+        enforcer.update_accruals()
+
+        result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
+        print(yaml.dump(result, default_flow_style=False, default_style=""))
 
     def gen_maintenance_tasks(self, argv):
         """Check recurring tasks list in Airtable, add new tasks to asana
@@ -507,11 +527,20 @@ class ProtohavenCLI:
         raise NotImplementedError("TODO implement")
 
     def cancel_classes(self, argv):
-        """fetch classes from neon and cancel the ones with low
-        attendance near enough to the deadline"""
+        """cancel passed classes by unpublishing and disabling registration"""
         parser = argparse.ArgumentParser(description=self.cancel_classes.__doc__)
-        parser.parse_args(argv)
-        raise NotImplementedError("TODO")
+        parser.add_argument(
+            "--id",
+            help="class IDs to cancel",
+            type=str,
+            nargs="+",
+        )
+        args = parser.parse_args(argv)
+        for i in args.id:
+            i = i.strip()
+            log.info(f"Cancelling #{i}")
+            neon.set_event_scheduled_state(i, scheduled=False)
+        log.info("Done")
 
     def mock_data(self, argv):
         """Fetch mock data from airtable, neon etc.

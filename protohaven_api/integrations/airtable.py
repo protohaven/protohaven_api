@@ -127,6 +127,13 @@ def get_all_class_templates():
     return get_all_records("class_automation", "classes")
 
 
+def append_classes_to_schedule(payload):
+    """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
+    rep = insert_records(payload, "class_automation", "schedule")
+    if rep.status_code != 200:
+        raise RuntimeError(rep.content)
+
+
 def log_email(neon_id, to, subject, status):
     """Logs the sending of an email in Airtable"""
     rep = insert_records(
@@ -155,6 +162,11 @@ def respond_class_automation_schedule(eid, pub):
     else:
         data = {"Confirmed": ""}
     return update_record(data, "class_automation", "schedule", eid)
+
+
+def apply_violation_accrual(vid, accrued):
+    """Sets the Accrued value of a Violation"""
+    return update_record({"Accrued": accrued}, "policy_enforcement", "violations", vid)
 
 
 def mark_schedule_supply_request(eid, missing):
@@ -296,13 +308,9 @@ def get_policy_fees():
     return [f for f in rows if f["fields"].get("Created")]
 
 
-def create_fees(created, violation_map):
+def create_fees(fees):
     """Create fees for each violation and fee amount in the map"""
-    data = [
-        {"Created": created.isoformat(), "Violation": [vid], "Amount": amt}
-        for vid, amt in violation_map
-    ]
-    print(data)
+    data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
     return insert_records(data, "policy_enforcement", "fees")
 
 

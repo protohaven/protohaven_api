@@ -2,6 +2,7 @@
 storage, equipment damage, and other violations"""
 
 import datetime
+import logging
 from collections import defaultdict
 
 import pytz
@@ -19,6 +20,8 @@ OPEN_VIOLATION_GRACE_PD_DAYS = 14
 
 tz = pytz.timezone("EST")
 
+log = logging.getLogger("policy_enforcement.enforcer")
+
 
 def gen_fees(violations=None, latest_fee=None, now=None):
     """Create a list of all additional fees due to open violations
@@ -31,7 +34,11 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     if latest_fee is None:
         latest_fee = {}
         for f in airtable.get_policy_fees():
-            d = dateparser.parse(f["fields"]["Created"]).astimezone(tz)
+            d = (
+                dateparser.parse(f["fields"]["Created"])
+                .astimezone(tz)
+                .replace(hour=0, minute=0, second=0)
+            )
             vid = f["fields"]["Violation"][0]
             if vid not in latest_fee or latest_fee[vid] < d:
                 latest_fee[vid] = d
@@ -49,9 +56,25 @@ def gen_fees(violations=None, latest_fee=None, now=None):
         if tr is not None:
             tr = dateparser.parse(tr).astimezone(tz)
         while t <= now and (tr is None or t <= tr):
-            fees.append((v["id"], fee, t))
+            fees.append((v["id"], fee, t.strftime("%Y-%m-%d")))
             t += datetime.timedelta(days=1)
     return fees
+
+
+def update_accruals(fees=None):
+    """Update accrual column for every violation that has a fee in the Fees table.
+    Note this doesn't update violations for which there are no Fees"""
+    totals = defaultdict(int)
+    if fees is None:
+        fees = airtable.get_policy_fees()
+    for f in fees:
+        if len(f["fields"]["Violation"]) > 0 and not f["fields"].get("Paid"):
+            totals[f["fields"]["Violation"][0]] += f["fields"]["Amount"]
+
+    for vid, accrued in totals.items():
+        log.debug(f"Update violation {vid}; accrued ${accrued}")
+        airtable.apply_violation_accrual(vid, accrued)
+    return totals
 
 
 def _tally_violations(violations, suspensions, now):
@@ -94,7 +117,7 @@ def _tally_violations(violations, suspensions, now):
             or onset < date_thresh
             or (grace_pd is not None and onset < grace_pd)
         ):
-            print("Skip violation:", grace_pd, onset, date_thresh)
+            log.debug(f"Skip violation: {grace_pd} {onset} {date_thresh}")
             continue
         susp = latest_suspension.get(v["fields"].get("Neon ID"))
         if susp:
@@ -139,7 +162,6 @@ def gen_suspensions(violations=None, suspensions=None, now=None):
     counts = _tally_violations(violations, suspensions, now)
     durations = next_suspension_duration(suspensions, now)
     result = []
-    print(counts)
     for nid, cc in counts.items():
         vs = [v["id"] for v in cc["violations"]]
         if (
@@ -156,6 +178,9 @@ def gen_suspensions(violations=None, suspensions=None, now=None):
     return result
 
 
+NEW_VIOLATION_THRESH_HOURS = 18
+
+
 def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
     """Notify members of new violations and update them on active violations"""
     fields = v["fields"]
@@ -163,31 +188,34 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
         return None  # Resolved violation, nothing to do here
     if not fields.get("Onset"):
         return None  # Incomplete record
-    onset = dateparser.parse(fields["Onset"]).astimezone(tz).strftime("%Y-%m-%d")
+    onset = dateparser.parse(fields["Onset"]).astimezone(tz)
+    onset_str = onset.strftime("%Y-%m-%d")
+    now = datetime.datetime.now().astimezone(tz)
 
-    if member and fields.get("Daily Fee", 0) != 0:
-        if old_accrued == 0:  # New violation, no fees accrued
-            return ecomms.violation_started(
-                member["firstname"],
-                onset,
-                sections,
-                fields["Notes"],
-                fields["Daily Fee"],
-            )
-        # Ongoing violation with accrued fees
-        return ecomms.violation_ongoing(
-            member["firstname"],
-            onset,
+    if old_accrued == 0 and onset > now - datetime.timedelta(
+        hours=NEW_VIOLATION_THRESH_HOURS
+    ):  # New violation, no fees accrued
+        return ecomms.violation_started(
+            member["firstName"],
+            onset_str,
             sections,
             fields["Notes"],
-            old_accrued + new_accrued,
             fields["Daily Fee"],
         )
-    if member and fields.get("Daily Fee", 0) == 0:
-        return ecomms.violation_started(
-            member["firstname"], onset, sections, fields["Notes"], 0
-        )
-    return None  # No member known, therefore no comms to send
+    # Ongoing violation with accrued fees
+    return ecomms.violation_ongoing(
+        member["firstName"],
+        onset_str,
+        sections,
+        fields["Notes"],
+        old_accrued + new_accrued,
+        fields["Daily Fee"],
+    )
+
+    ## else fields.get("Daily Fee", 0) == 0
+    # return ecomms.violation_started(
+    #    member["firstName"], onset_str, sections, fields["Notes"], 0
+    # )
 
 
 def gen_comms_for_suspension(sus, accrued, member):
@@ -197,10 +225,12 @@ def gen_comms_for_suspension(sus, accrued, member):
     end = None
     if fields.get("End Time"):
         end = dateparser.parse(fields["End Date"]).astimezone(tz).strftime("%Y-%m-%d")
-    return ecomms.suspension_started(member["firstname"], start, accrued, end)
+    return ecomms.suspension_started(member["firstName"], start, accrued, end)
 
 
-def gen_comms(violations, old_fees, new_fees, new_sus):
+def gen_comms(
+    violations, old_fees, new_fees, new_sus
+):  # pylint: disable=too-many-locals
     """Generate comms for inbound fees and suspensions"""
     result = []
     section_map = {
@@ -213,16 +243,32 @@ def gen_comms(violations, old_fees, new_fees, new_sus):
         new_accrued = sum(f[1] for f in new_fees if f[0] == v["id"])
         sections = [section_map[s] for s in v["fields"]["Relevant Sections"]]
         neon_id = v["fields"].get("Neon ID")
-        member = neon.fetch_account(neon_id) if neon_id else None
-        result.append(
-            gen_comms_for_violation(v, old_accrued, new_accrued, sections, member)
-        )
+        if neon_id is not None:
+            member = neon.fetch_account(neon_id)
+            member = member.get("individualAccount", member["companyAccount"])[
+                "primaryContact"
+            ]
+            c = gen_comms_for_violation(v, old_accrued, new_accrued, sections, member)
+            if c is not None:
+                result.append(
+                    {
+                        "target": member["email1"],
+                        "subject": c[0],
+                        "body": c[1],
+                        "id": f"violation#{v['id']}",
+                    }
+                )
 
     # For each new suspension, build an admin email mentioning the suspension steps
     # Also build an email to the suspended user notifying of suspension
     # i.e. no Suspended bool column checked
     for sus in new_sus:
-        member = neon.fetch_account(sus["fields"]["Neon ID"]) if neon_id else None
+        if not sus["fields"]["Neon ID"]:
+            raise RuntimeError("Suspension without Neon ID: " + str(sus))
+        member = neon.fetch_account(sus["fields"]["Neon ID"])
+        member = member.get("individualAccount", member["companyAccount"])[
+            "primaryContact"
+        ]
         violations = [violation_map[v] for v in sus["fields"]["Relevant Violations"]]
         sections = {section_map[s] for v in violations for s in v["Relevant Sections"]}
         accrued = sum(
@@ -231,18 +277,35 @@ def gen_comms(violations, old_fees, new_fees, new_sus):
         accrued += sum(
             f[1] for f in new_fees if f[0] in sus["fields"]["Relevant Violations"]
         )
-        result.append(
-            gen_comms_for_suspension(  # pylint: disable=too-many-function-args
-                sus, sections, accrued, member
-            )
+        (
+            subject,
+            body,
+        ) = gen_comms_for_suspension(  # pylint: disable=too-many-function-args
+            sus, sections, accrued, member
         )
         result.append(
-            ecomms.admin_create_suspension(
-                sus["fields"]["Neon ID"], sus["fields"]["End Date"]
-            )
+            {
+                "target": member["email1"],
+                "subject": subject,
+                "body": body,
+                "id": f"suspension{sus['fields']['Instance #']}",
+            }
         )
 
-    result = [r for r in result if r is not None]
+        subject, body = ecomms.admin_create_suspension(
+            sus["fields"]["Neon ID"], sus["fields"]["End Date"]
+        )
+        result.append(
+            {
+                "target": "membership@protohaven.org",
+                "subject": subject,
+                "body": body,
+                "id": f"suspension{sus['fields']['Instance #']}",
+            }
+        )
 
     # Also send a summary of violations/fees/suspensions to Discord #storage
-    result.append(ecomms.enforcement_summary(violations, old_fees, new_fees, new_sus))
+    fees = airtable.get_policy_fees()
+    subject, body = ecomms.enforcement_summary(violations, fees, new_sus)
+    result.append({"target": "#storage", "subject": subject, "body": body, "id": None})
+    return result

@@ -14,12 +14,17 @@
     <div class="content">
       <h1>{{fullname}} ({{email}}, id {{neon_id}})</h1>
       <div class="linktables">
+        <div class="linktable">
+          <h2>General</h2>
+          <ul>
+            <li><a href="/events">All upcoming events and registrants</a></li>
+          </ul>
+        </div>
         {% for role in roles %}
         <div class="linktable">
           <h2>{{role}} Links</h2>
           <ul>
             {% if role == 'Instructor' %}
-            <li><a href="/events">All upcoming events and registrants</a></li>
             <li><a href="/instructor/class">Manage your classes and accept new ones</a></li>
             {% elif role == 'Onboarding' %}
             <li><a href="https://protohaven.org/wiki/clearance_crew">Wiki Guide</a></li>

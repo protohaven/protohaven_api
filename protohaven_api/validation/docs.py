@@ -15,12 +15,15 @@ def probe(url, name, stats):
     url = url.strip()
     if url not in ("", "https://protohaven.org/wiki/tools//"):
         rep = requests.get(url, timeout=5.0)
-        if rep.status_code == 200:
+        if (
+            rep.status_code == 200
+            and "This topic does not exist yet".encode("utf8") not in rep.content
+        ):
             stats["ok"] += 1
         else:
             stats["error"].append(f"{name} ({url})")
     else:
-        stats["missing"].append(name)
+        stats["missing"].append(f"{name} ({url})")
 
 
 def write_stats(stats, title):
