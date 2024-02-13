@@ -45,10 +45,10 @@ class Connector:
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
         # include a sleep timer to prevent us from overrunning
-        if args[0].endswith("/attendees"):
+        if "/attendees" in args[0]:
             with self.neon_ratelimit:
                 rep = h.request(*args, **kwargs)
-                time.sleep(0.22)
+                time.sleep(0.25)
                 return rep
 
         return h.request(*args, **kwargs)

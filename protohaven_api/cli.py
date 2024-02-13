@@ -476,7 +476,7 @@ class ProtohavenCLI:
 
         violations = airtable.get_policy_violations()
         old_fees = [
-            (f["fields"]["Violation"], f["fields"]["Amount"], f["fields"]["Created"])
+            (f["fields"]["Violation"][0], f["fields"]["Amount"], f["fields"]["Created"])
             for f in airtable.get_policy_fees()
             if not f["fields"].get("Paid")
         ]
@@ -484,7 +484,7 @@ class ProtohavenCLI:
         if len(new_fees) > 0:
             log.info("Generated fees:")
             for f in new_fees:
-                log.info(f" - {f[2].strftime('%Y-%m-%d')} {f[0]} ${f[1]}")
+                log.info(f" - {f[2]} {f[0]} ${f[1]}")
             if args.apply:
                 rep = airtable.create_fees(new_fees)
                 log.debug(f"{rep.status_code}: {rep.content}")

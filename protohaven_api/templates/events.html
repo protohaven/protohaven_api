@@ -28,26 +28,27 @@
     </style>
   </head>
   <body>
-    <h2>Tours and Other Events</h2>
+    <h2>Upcoming Tours and Events</h2>
     <ul>
     {% for name, start in shop_events %}
     <li>{{start.strftime("%B %-d %H %p")}}: {{name}}</li>
     {% endfor %}
     </ul>
-    <h2>Reservations</h2>
+    <h2>Today's Reservations</h2>
     <ul>
     {% for r in reservations %}
     <li>{{r['resource']}}: {{r['start']}} - {{r['end']}} by {{r['name']}}</li>
     {% endfor %}
     </ul>
-    <h2>Classes</h2>
+    <h2>Classes (next 7 days)</h2>
     <p><strong>NOTE: Multi-day classes are only shown by their start date</strong></p>
 
     <table id="schedule">
       <thead>
         <tr>
           <th>Event</th>
-          <th>Date</th>
+          <th>Start</th>
+          <th>End</th>
           <th>Attendees</th>
           <th>Capacity</th>
           <th>Status</th>
@@ -57,7 +58,8 @@
         {% for event in events %}
         <tr id="{{event['id']}}">
           <td>{{event['name']}}</td>
-          <td>{{event['date']}}</td>
+          <td>{{event['start']}}</td>
+          <td>{{event['end']}}</td>
           <td class="attendees">Loading...</td>
           <td>{{event['capacity']}}</td>
           <td>{{ "Registration open" if event['registration'] else "Registration closed"}}</td>

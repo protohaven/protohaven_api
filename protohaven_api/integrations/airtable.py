@@ -310,10 +310,7 @@ def get_policy_fees():
 
 def create_fees(fees):
     """Create fees for each violation and fee amount in the map"""
-    data = [
-        {"Created": t.isoformat(), "Violation": [vid], "Amount": amt}
-        for vid, amt, t in fees
-    ]
+    data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
     return insert_records(data, "policy_enforcement", "fees")
 
 

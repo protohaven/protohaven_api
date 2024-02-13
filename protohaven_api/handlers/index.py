@@ -85,21 +85,36 @@ def events_dashboard_attendee_count():
 def events_dashboard():
     """Show relevant upcoming events - designed for a kiosk display"""
     events = []
-    now = datetime.datetime.now()
+    tz = pytz.timezone("EST")
+    now = datetime.datetime.now().astimezone(tz)
     # NOTE: does not currently support intensive date periods. Need to expand
     # dates to properly show this.
     try:
         for e in fetch_published_upcoming_events():
-            date = dateparser.parse(e["startDate"] + " " + e["startTime"])
-            if date < now:
+            if not e.get("startDate"):
+                continue
+            if e["id"] == 17631:
+                continue  # Don't list private instruction
+            start = dateparser.parse(
+                e["startDate"] + " " + (e.get("startTime") or "")
+            ).astimezone(tz)
+            end = dateparser.parse(
+                e["endDate"] + " " + (e.get("endTime") or "")
+            ).astimezone(tz)
+
+            # Only include events that haven't ended or are too far in the future
+            if end < now or start > now + datetime.timedelta(days=7):
                 continue
             events.append(
                 {
                     "id": e["id"],
                     "name": e["name"],
-                    "date": date,
+                    "date": start,
+                    "start": start.strftime("%a %b %d %I:%M%p"),
+                    "end": end.strftime("%a %b %d %I:%M%p"),
                     "capacity": e["capacity"],
-                    "registration": e["enableEventRegistrationForm"],
+                    "registration": e["enableEventRegistrationForm"]
+                    and start - datetime.timedelta(hours=24) > now,
                 }
             )
 
@@ -110,11 +125,12 @@ def events_dashboard():
     shop_events = []
     for e, dates in fetch_shop_events().items():
         for start, end in dates:
-            shop_events.append((e, dateparser.parse(start)))
+            start = dateparser.parse(start)
+            if start > now + datetime.timedelta(days=7):
+                continue
+            shop_events.append((e, start))
 
     reservations = []
-    tz = pytz.timezone("EST")
-    now = now.astimezone(tz)
     for r in get_reservations(
         now.replace(hour=0, minute=0, second=0),
         now.replace(hour=23, minute=59, second=59),
