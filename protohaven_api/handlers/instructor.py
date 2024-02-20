@@ -189,13 +189,15 @@ def instructors_status():
         ],
     )
     for inst in neon_instructors:
-        e = inst["Email 1"]
+        e = inst["Email 1"].lower()
         results[e]["neon_id"] = inst["Account ID"]
         if inst["Account Current Membership Status"] == "Active":
             results[e]["active_membership"] = "OK"
+        else:
+            results[e]["active_membership"] = inst["Account Current Membership Status"]
         if inst.get("Discord User"):
             results[e]["discord_user"] = "OK"
-        results[e]["fullname"] = f"{inst['First Name']} {inst['Last Name']}"
+        results[e]["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
 
     by_fullname = {e["fullname"]: k for k, e in results.items()}
     for name, cc in airtable.fetch_instructor_teachable_classes().items():
