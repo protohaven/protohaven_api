@@ -1,12 +1,13 @@
 """Handlers for instructor actions on classes"""
 import datetime
+from collections import defaultdict
 
 import pytz
 from dateutil import parser as dateparser
 from flask import Blueprint, redirect, render_template, request
 
 from protohaven_api.handlers.auth import user_email
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, neon, schedule
 from protohaven_api.rbac import Role, get_roles, require_login_role
 
 page = Blueprint("instructor", __name__, template_folder="templates")
@@ -162,3 +163,59 @@ def instructor_class_volunteer():
     eid = request.form.get("eid")
     v = request.form.get("volunteer") == "true"
     return airtable.mark_schedule_volunteer(eid, v).content
+
+
+@page.route("/instructor/readiness", methods=["GET"])
+def instructors_status():
+    """Get the onboarding status of all instructors"""
+
+    results = defaultdict(
+        lambda: {
+            "neon_id": None,
+            "fullname": "unknown",
+            "active_membership": "inactive",
+            "discord_user": "missing",
+            "capabilities_listed": "missing",
+            "in_calendar": "missing",
+        }
+    )
+
+    neon_instructors = neon.get_members_with_role(
+        Role.INSTRUCTOR,
+        [
+            "Account Current Membership Status",
+            "Email 1",
+            neon.CUSTOM_FIELD_DISCORD_USER,
+        ],
+    )
+    for inst in neon_instructors:
+        e = inst["Email 1"].lower()
+        results[e]["neon_id"] = inst["Account ID"]
+        if inst["Account Current Membership Status"] == "Active":
+            results[e]["active_membership"] = "OK"
+        else:
+            results[e]["active_membership"] = inst["Account Current Membership Status"]
+        if inst.get("Discord User"):
+            results[e]["discord_user"] = "OK"
+        results[e]["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
+
+    by_fullname = {e["fullname"]: k for k, e in results.items()}
+    for name, cc in airtable.fetch_instructor_teachable_classes().items():
+        e = by_fullname.get(name)
+        if e is not None:
+            results[e]["capabilities_listed"] = "OK" if (len(cc) > 0) else "missing"
+
+    now = datetime.datetime.now()
+    for name in schedule.fetch_instructor_schedules(
+        now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
+    ).keys():
+        e = by_fullname.get(name)
+        if e is not None:
+            results[e]["in_calendar"] = "OK"
+
+    render = []
+    for k, v in results.items():
+        v["email"] = k
+        render.append(v)
+    render.sort(key=lambda e: int(e["neon_id"]))
+    return render_template("instructor_readiness.html", results=render)

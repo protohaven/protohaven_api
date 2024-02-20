@@ -288,3 +288,50 @@ def instructor_class_cancelled_email(evt):
     )
     body += "\n\n'Till next time!\nProtohaven Staff"
     return subject, body
+
+
+def email_instructor_update_calendar(name, start, end):
+    """Sends a reminder to an instructor to update their availability calendar"""
+    firstname = name.split(" ")[0]
+    subject = f"{firstname}: please confirm your teaching availability!"
+    body = f"Hi {firstname},"
+    body += "\n\nThanks for your continued involvement at Protohaven!"
+    body += (
+        "\nWe will be scheduling classes very soon for the period of "
+        f"{start.strftime('%B %-d')} through {end.strftime('%B %-d')}."
+    )
+    body += (
+        "\n\nPlease take the following steps ASAP so we can schedule " "your classes:"
+    )
+    body += (
+        "\n\n1. Click the calendar link below to open it in a new tab. "
+        "It will open as read-only."
+    )
+    body += (
+        '\n2. Click the "+Google Calendar" link at the very bottom '
+        "right of the page to add it to your google calendar for editing."
+    )
+    body += (
+        "\n3. Create calendar events describing your availability. It's "
+        f"important to use just your full name ({name}) for the event name, "
+        "and to set the date and time appropriately via the input boxes."
+    )
+    body += (
+        "\n4. Before saving your events, confirm you're adding it to the "
+        '"Instructor Availability" calendar (the drop down is right below '
+        'the "Add notification" button).'
+    )
+    body += (
+        "\n\nNote that not all of your available times will be scheduled "
+        "- and you'll get a chance to confirm specific proposed classes "
+        "before they're made public."
+    )
+    body += "\n\nHere's the calendar link:"
+    body += "\nhttps://calendar.google.com/calendar/u/1?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20"  # pylint: disable=line-too-long
+    body += (
+        "\n\nIf you need any help or have any questions, please reach "
+        "out on the #instructors discord or to education@protohaven.org."
+    )
+    body += "\n\nThanks!"
+    body += "\n -Protohaven Automation"
+    return subject, body

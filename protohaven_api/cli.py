@@ -14,7 +14,10 @@ import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import scheduler
-from protohaven_api.class_automation.builder import ClassEmailBuilder
+from protohaven_api.class_automation.builder import (
+    ClassEmailBuilder,
+    gen_calendar_reminders,
+)
 from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
@@ -174,6 +177,36 @@ class ProtohavenCLI:
         getattr(self, args.command)(
             sys.argv[2:]
         )  # Ignore first two argvs - already parsed
+
+    def gen_instructor_calendar_reminder(self, argv):
+        """Reads the list of instructors from Airtable and generates
+        reminder comms to all instructors, plus the #instructors discord,
+        to update their calendars for availability"""
+        parser = argparse.ArgumentParser(
+            description=self.gen_instructor_calendar_reminder.__doc__
+        )
+        parser.add_argument(
+            "--start",
+            help="start date for calendar reminder window",
+            type=str,
+            required=True,
+        )
+        parser.add_argument(
+            "--end",
+            help="end date for calendar reminder window",
+            type=str,
+            required=True,
+        )
+        args = parser.parse_args(argv)
+        start = dateparser.parse(args.start)
+        end = dateparser.parse(args.end)
+        print(
+            yaml.dump(
+                gen_calendar_reminders(start, end),
+                default_flow_style=False,
+                default_style="",
+            )
+        )
 
     def gen_class_emails(self, argv):
         """Reads schedule of classes from Neon and Airtable and outputs
