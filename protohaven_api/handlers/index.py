@@ -110,8 +110,8 @@ def events_dashboard():
                     "id": e["id"],
                     "name": e["name"],
                     "date": start,
-                    "start": start.strftime("%a %b %d %I:%M%p"),
-                    "end": end.strftime("%a %b %d %I:%M%p"),
+                    "start": start.strftime("%a %b %d %-I:%M %p"),
+                    "end": end.strftime("%a %b %d %-I:%M %p"),
                     "capacity": e["capacity"],
                     "registration": e["enableEventRegistrationForm"]
                     and start - datetime.timedelta(hours=24) > now,
@@ -149,5 +149,9 @@ def events_dashboard():
         )
     print(reservations)
     return render_template(
-        "events.html", events=events, shop_events=shop_events, reservations=reservations
+        "events.html",
+        events=events,
+        shop_events=shop_events,
+        reservations=reservations,
+        now=datetime.datetime.now().astimezone(tz),
     )

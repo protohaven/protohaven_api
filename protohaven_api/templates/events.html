@@ -31,7 +31,7 @@
     <h2>Upcoming Tours and Events</h2>
     <ul>
     {% for name, start in shop_events %}
-    <li>{{start.strftime("%B %-d %H %p")}}: {{name}}</li>
+    <li>{{start.strftime("%B %-d %-I:%M %p")}}: {{name}}</li>
     {% endfor %}
     </ul>
     <h2>Today's Reservations</h2>
@@ -67,6 +67,10 @@
         {% endfor %}
       </tbody>
     </table>
+    <br/>
+    <div>
+      Updated {{now.strftime("%B %-d %-I:%M %p")}}.
+    </div>
   </body>
   <script>
     $("tr").each(function(i, tr) {
