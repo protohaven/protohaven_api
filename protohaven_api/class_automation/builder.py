@@ -31,6 +31,36 @@ def get_account_email(account_id):
     return content.get("email1") or content.get("email2") or content.get("email3")
 
 
+def gen_calendar_reminders(start, end):
+    """Builds a set of reminder emails for all instructors, plus #instructors notification
+    to update their calendars for availability of new classes"""
+    results = []
+    summary = defaultdict(lambda: {"action": set(), "targets": set()})
+
+    summary[""]["name"] = "Availability calendar reminder"
+    summary[""]["action"].add("SEND")
+
+    for name, email in get_instructor_email_map().items():
+        subject, body = tmpl.email_instructor_update_calendar(name, start, end)
+        results.append(
+            {
+                "id": "",
+                "target": email,
+                "subject": subject,
+                "body": body,
+            }
+        )
+        summary[""]["targets"].add(email)
+
+    subject, body = tmpl.automation_summary_msg(
+        {"id": "N/A", "name": "summary", "events": summary}
+    )
+    results.append(
+        {"id": "", "target": "#instructors", "subject": subject, "body": body}
+    )
+    return results
+
+
 class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     """Builds emails and other notifications for class updates"""
 
