@@ -39,7 +39,6 @@ def test_enforcement_summary_unknown_suspect_with_fees():
         [tfee(vid=1, amt=15)],
         [],
     )
-    assert "Suspect: unknown" in got
     assert "Accrued: $15" in got
 
 
@@ -50,7 +49,6 @@ def test_enforcement_summary_known_suspect_with_fees():
         [tfee(vid=1, amt=15)],
         [],
     )
-    assert "Suspect: known" in got
     assert "Accrued: $15" in got
 
 

@@ -12,7 +12,7 @@ env = Environment(
 def enforcement_summary(violations, fees, new_sus):
     """Generate a summary of violation and suspension state, if there is any"""
     # Make sure we're only looking at open/unresolved policy stuff
-    violations = [v for v in violations if not v["fields"].get("Resolution")]
+    violations = [v for v in violations if not v["fields"].get("Closure")]
     new_sus = [f for f in new_sus if not f["fields"].get("Reinstated")]
     fees = [f for f in fees if not f["fields"].get("Paid")]
     if len(violations) == 0 and len(fees) == 0 and len(new_sus) == 0:

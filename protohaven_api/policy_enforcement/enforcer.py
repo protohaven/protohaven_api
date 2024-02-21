@@ -52,9 +52,9 @@ def gen_fees(violations=None, latest_fee=None, now=None):
         t = latest_fee.get(
             v["id"], dateparser.parse(v["fields"]["Onset"])
         ) + datetime.timedelta(days=1)
-        tr = v["fields"].get("Resolution")
+        tr = v["fields"].get("Close date (from Closure)")
         if tr is not None:
-            tr = dateparser.parse(tr).astimezone(tz)
+            tr = dateparser.parse(tr[0]).astimezone(tz)
         while t <= now and (tr is None or t <= tr):
             fees.append((v["id"], fee, t.strftime("%Y-%m-%d")))
             t += datetime.timedelta(days=1)
@@ -108,10 +108,16 @@ def _tally_violations(violations, suspensions, now):
 
     for v in violations:
         nid = v["fields"].get("Neon ID")
-        onset = dateparser.parse(v["fields"]["Onset"])
+        onset = dateparser.parse(v["fields"]["Onset"]).astimezone(tz)
         resolution = None
-        if v["fields"].get("Resolution"):
-            resolution = dateparser.parse(v["fields"]["Resolution"])
+        if v["fields"].get("Closure"):
+            resolution = dateparser.parse(
+                v["fields"]["Close date (from Closure)"][0]
+            ).astimezone(tz)
+
+        assert date_thresh.tzinfo is not None
+        assert onset is None or onset.tzinfo is not None
+        assert grace_pd is None or grace_pd.tzinfo is not None
         if (
             nid is None
             or onset < date_thresh
@@ -184,7 +190,7 @@ NEW_VIOLATION_THRESH_HOURS = 18
 def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
     """Notify members of new violations and update them on active violations"""
     fields = v["fields"]
-    if fields.get("Resolution"):
+    if fields.get("Closure"):
         return None  # Resolved violation, nothing to do here
     if not fields.get("Onset"):
         return None  # Incomplete record
