@@ -29,9 +29,9 @@ def violation(instance, onset, resolution=None, fee=TESTFEE, neon_id=TESTMEMBER[
             "Notes": "test violation notes",
             "Onset": onset.isoformat() if onset else None,
             "Closure": [True] if resolution else None,
-            "Close date (from Closure)": [resolution.isoformat()]
-            if resolution
-            else None,
+            "Close date (from Closure)": (
+                [resolution.isoformat()] if resolution else None
+            ),
             "Daily Fee": fee,
         },
     }

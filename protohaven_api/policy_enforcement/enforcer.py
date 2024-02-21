@@ -52,9 +52,9 @@ def gen_fees(violations=None, latest_fee=None, now=None):
         t = latest_fee.get(
             v["id"], dateparser.parse(v["fields"]["Onset"])
         ) + datetime.timedelta(days=1)
-        tr = v["fields"].get("Close date (from Closure)", [None])[0]
+        tr = v["fields"].get("Close date (from Closure)")
         if tr is not None:
-            tr = dateparser.parse(tr).astimezone(tz)
+            tr = dateparser.parse(tr[0]).astimezone(tz)
         while t <= now and (tr is None or t <= tr):
             fees.append((v["id"], fee, t.strftime("%Y-%m-%d")))
             t += datetime.timedelta(days=1)
