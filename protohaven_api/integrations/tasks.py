@@ -109,7 +109,7 @@ def get_open_purchase_requests():
 def complete(gid):
     """Complete a task"""
     # https://developers.asana.com/reference/updatetask
-    return _tasks().update_task(gid, {"completed": True}, {})
+    return _tasks().update_task({"completed": True}, gid, {})
 
 
 def get_shop_tech_maintenance_section_map():

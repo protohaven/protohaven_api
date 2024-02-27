@@ -251,6 +251,8 @@ def gen_comms(
         neon_id = v["fields"].get("Neon ID")
         if neon_id is not None:
             member = neon.fetch_account(neon_id)
+            if member is None:
+                raise RuntimeError("No member found for neon ID " + str(neon_id))
             member = member.get("individualAccount", member["companyAccount"])[
                 "primaryContact"
             ]
