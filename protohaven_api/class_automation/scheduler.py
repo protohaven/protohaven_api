@@ -168,5 +168,6 @@ def push_schedule(sched):
             {"id": None, "subject": subject, "body": body, "target": email}
         )
 
-    # airtable.append_classes_to_schedule(sched)
+    for p in payload:
+        airtable.append_classes_to_schedule([p])
     return notifications

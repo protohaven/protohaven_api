@@ -81,6 +81,7 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
         for cls in instructor.caps
     ]
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
+
     x = pulp.LpVariable.dicts(
         "ClassAssignedToInstructorAtTime",
         possible_assignments,
@@ -106,15 +107,19 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
 
     # Classes do not overlap the same area at the same time
     class_areas = {c.airtable_id: c.area for c in classes}
+    times = set()
+    for i in instructors:
+        times.update(i.avail)
+
     for a in areas:
-        area_assigned_times = pulp.lpSum(
-            [x[cls, instructor.name, t]]
-            for instructor in instructors
-            for t in instructor.avail
-            for cls in instructor.caps
-            if class_areas[cls] == a
-        )
-        prob += area_assigned_times <= 1
+        for t in times:
+            area_assigned_times = pulp.lpSum(
+                [x[cls, instructor.name, t]]
+                for instructor in instructors
+                for cls in instructor.caps
+                if t in instructor.avail and class_areas[cls] == a
+            )
+            prob += area_assigned_times <= 1
 
     # Classes run at most their `freq` value
     for cls in classes:
@@ -127,6 +132,9 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
             ]
         )
         prob += class_assigned_count <= cls.freq
+
+        # Classes are scheduled
+        # prob += class_assigned_count != 0
 
     # Each class-time is assigned to at most 1 instructor
     time_map = defaultdict(set)
@@ -154,6 +162,9 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
             ]
         )
         prob += assigned_load <= instructor.load
+
+        # Extra: at least one class is assigned to each instructor
+        # prob += assigned_load != 0
 
         # For instructors with reasonable availability and capabilities,
         # they must have at least one class scheduled

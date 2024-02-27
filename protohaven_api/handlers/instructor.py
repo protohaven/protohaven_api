@@ -62,7 +62,7 @@ def instructor_class_attendees():
     event_id = request.args.get("id")
     if event_id is None:
         raise RuntimeError("Requires param id")
-    result = neon.fetch_attendees(event_id)
+    result = list(neon.fetch_attendees(event_id))
     for a in result:
         if a["accountId"]:
             acc = neon.fetch_account(a["accountId"])

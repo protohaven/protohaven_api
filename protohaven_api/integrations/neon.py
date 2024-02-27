@@ -261,6 +261,8 @@ def fetch_account(account_id):
     _, content = get_connector().neon_request(
         cfg("api_key1"), f"https://api.neoncrm.com/v2/accounts/{account_id}"
     )
+    if content == b"":
+        raise RuntimeError(f"No member found for account_id {account_id}")
     content = json.loads(content)
     if isinstance(content, list):
         raise RuntimeError(content)

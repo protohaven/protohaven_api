@@ -93,10 +93,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
         self.cached = False
         if Path(self.CACHE_FILE).exists():
-            self.log.info(f"Loading from cache {self.CACHE_FILE}")
+            self.log.debug(f"Loading from cache {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "rb") as f:
                 data = pickle.load(f)
-            self.log.info(f"Cache date {data['date']}")
+            self.log.debug(f"Cache date {data['date']}")
             if datetime.datetime.now() <= data["date"] + datetime.timedelta(
                 hours=self.CACHE_EXPIRY_HOURS
             ):
@@ -121,7 +121,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             if s["fields"].get("Neon ID") is not None
         }
         self.log.info(
-            f"Fetched {len(self.airtable_schedule)}) schedule items from Airtable"
+            f"Fetched {len(self.airtable_schedule)} schedule items from Airtable"
         )
         self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
         self.email_map = get_instructor_email_map()

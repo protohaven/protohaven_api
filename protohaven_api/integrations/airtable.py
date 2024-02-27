@@ -1,6 +1,7 @@
 """Airtable integration (classes, tool state etc)"""
 import datetime
 import json
+import logging
 from collections import defaultdict
 from functools import cache
 
@@ -9,6 +10,8 @@ from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["airtable"]
 AIRTABLE_URL = "https://api.airtable.com/v0"
+
+log = logging.getLogger("integrations.airtable")
 
 
 def get_record(base, tbl, rec):
@@ -129,6 +132,7 @@ def get_all_class_templates():
 
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
+    log.info(f"Append classes to schedule: {payload}")
     rep = insert_records(payload, "class_automation", "schedule")
     if rep.status_code != 200:
         raise RuntimeError(rep.content)

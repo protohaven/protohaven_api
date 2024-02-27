@@ -1,6 +1,6 @@
 {% if new_count > 0 %}Today we have {{new_count}} new tech_ready task{% if new_count != 1 %}s{% endif %}:
 {% for t in new_tasks %}
-- {{ t['name'] }}{% endfor %}{% endif %}
+- {{ t['name'] }}{% endfor %}{% else %}There are no new tasks for today - we're caught up on scheduling!{% endif %}
 {% if stale_count > 0 %}
 We have {{stale_count}} tech_ready {% if stale_count != 1 %}tasks that haven't{% else %}task that hasn't{% endif %} seen any updates in {{stale_thresh}} days or more. These are the most stale ones:
 {% for t in stale_tasks %}
