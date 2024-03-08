@@ -91,6 +91,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
         self.output = []  # [{target, subject, body}]
 
+        self.email_map = get_instructor_email_map()
+        self.log.info(f"Fetched {len(self.email_map)} instructor emails")
+
         self.cached = False
         if Path(self.CACHE_FILE).exists():
             self.log.debug(f"Loading from cache {self.CACHE_FILE}")
@@ -101,6 +104,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 hours=self.CACHE_EXPIRY_HOURS
             ):
                 self.events = data["events"]
+                self.airtable_schedule = data["schedule"]
                 self.cached = True
                 self.log.info("Cache is fresh; using it for event data")
                 return
@@ -124,8 +128,6 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             f"Fetched {len(self.airtable_schedule)} schedule items from Airtable"
         )
         self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
-        self.email_map = get_instructor_email_map()
-        self.log.info(f"Fetched {len(self.email_map)} instructor emails")
 
     def push_class(self, evt, action, reason):
         """Push a class onto the actionable list. It'll later be used in email templates"""
@@ -238,6 +240,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         """Sort events into various notification buckets"""
         neon_id = evt["id"]
         if neon_id in self.BLOCKLIST:
+            return
+        if str(neon_id) not in self.airtable_schedule:
+            self.log.info(f"IGNORE #{neon_id} {evt['name']} (not in Airtable)")
             return
 
         self.log.debug(f"sorting event {neon_id}")
@@ -402,6 +407,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                     {
                         "date": now,
                         "events": self.events,
+                        "schedule": self.airtable_schedule,
                     },
                     f,
                 )

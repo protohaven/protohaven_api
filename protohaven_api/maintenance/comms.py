@@ -35,12 +35,12 @@ CLOSINGS = [
     "Let's keep the gears turning and the ideas flowing!",
     "Until our next digital rendezvous, stay charged up!",
     "Dream it, plan it, do it!",
-    "Innovation knows no boundaries - keep pushing forward!"
-    "Every project is a step closer to greatness - keep going!"
-    "Always be innovating!"
-    "Stay curious, stay inspired, and keep making a difference!"
-    "Remember - every circuit starts with a single connection. Keep connecting!"
-    "Your passion fuels progress — keep the fire burning!"
+    "Innovation knows no boundaries - keep pushing forward!",
+    "Every project is a step closer to greatness - keep going!",
+    "Always be innovating!",
+    "Stay curious, stay inspired, and keep making a difference!",
+    "Remember - every circuit starts with a single connection. Keep connecting!",
+    "Your passion fuels progress — keep the fire burning!",
     "You're not just making things, you're making history — keep on crafting!",
 ]
 
