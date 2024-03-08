@@ -258,6 +258,12 @@ class ProtohavenCLI:
             type=str,
         )
         parser.add_argument(
+            "--confirm",
+            help="skip interactive confirmation; use for true automation",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        parser.add_argument(
             "--dryrun",
             help="just print them, don't send them",
             action=argparse.BooleanOptionalAction,
@@ -272,7 +278,7 @@ class ProtohavenCLI:
             self.log.info(f" - {e['target']}: {e['subject']}")
 
         confstr = f"send {len(data)} notifications"
-        if not args.dryrun:
+        if not args.dryrun and not args.confirm:
             confirm = input(f'Please type "{confstr}" to continue: ')
             if confirm != confstr:
                 self.log.error("Confirmation string does not match; exiting")
