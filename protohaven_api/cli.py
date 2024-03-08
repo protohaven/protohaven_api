@@ -550,8 +550,14 @@ class ProtohavenCLI:
         """Check recurring tasks list in Airtable, add new tasks to asana
         And notify techs about new and stale tasks that are tech_ready."""
         parser = argparse.ArgumentParser(description=self.gen_maintenance_tasks.__doc__)
-        parser.parse_args(argv)
-        report = manager.run_daily_maintenance()
+        parser.add_argument(
+            "--dryrun",
+            help="don't actually create new Asana tasks",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        args = parser.parse_args(argv)
+        report = manager.run_daily_maintenance(args.dryrun)
         print(yaml.dump([report], default_flow_style=False, default_style=""))
 
     def validate_member_clearances(self, argv):

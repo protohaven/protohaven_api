@@ -75,14 +75,17 @@ def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
     return result
 
 
-def run_daily_maintenance(num_to_generate=3):
+def run_daily_maintenance(dryrun=False, num_to_generate=3):
     """Generates a bounded number of new maintenance tasks per day,
     also looks up stale tasks and creates a summary message for Techs"""
     tt = get_maintenance_needed_tasks()
     log.info(f"Found {len(tt)} needed maintenance tasks")
     tt.sort(key=lambda t: t["next_schedule"])
     tt = tt[:num_to_generate]
-    apply_maintenance_tasks(tt)
+    if dryrun:
+        log.warning("Dry run mode - skipping application of tasks")
+    else:
+        apply_maintenance_tasks(tt)
     stale = get_stale_tech_ready_tasks(thresh=DEFAULT_STALE_DAYS)
     log.info(f"Found {len(stale)} stale tasks")
     subject, body = mcomms.daily_tasks_summary(tt, stale, DEFAULT_STALE_DAYS)
