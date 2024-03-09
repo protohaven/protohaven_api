@@ -7,6 +7,7 @@ from protohaven_api.integrations import comms, neon
 from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("onboarding", __name__, template_folder="templates")
+ONBOARDING_DISCOUNT_AMT = 30
 
 
 @page.route("/onboarding")
@@ -36,12 +37,12 @@ def onboarding_check_membership():
 @page.route("/onboarding/coupon")
 @require_login_role(Role.ONBOARDING)
 def onboarding_create_coupon():
-    """Create a $45 coupon for classes - promotion for new members"""
+    """Create a coupon for classes - promotion for new members"""
     email = request.args.get("email")
     m = neon.search_member(email.strip())
     code = f"NM-{m['Last Name'].upper()[:3]}{int(time.time())%1000}"
     print("Creating coupon code", code)
-    return neon.create_coupon_code(code, 45)
+    return neon.create_coupon_code(code, ONBOARDING_DISCOUNT_AMT)
 
 
 @page.route("/onboarding/discord_member_add")
