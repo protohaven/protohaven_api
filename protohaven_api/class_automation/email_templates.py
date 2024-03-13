@@ -90,62 +90,32 @@ def instructor_check_supplies_email(evt):
 
 
 def instructor_low_attendance_email(evt):
-    """Generate message to instructor warning that class may be cancelled"""
+    """Generate message to instructor warning mentioning low attendance and asking
+    for help improving"""
     firstname = evt["instructor_firstname"]
     classname = evt["name"]
     evt_date = evt["python_date"]
-    need = evt["need"]
+    signups = evt["signups"]
+    capacity = evt["capacity"]
 
     subject = (
-        f"{classname} on {evt_date.strftime('%B %-d')} - needs {need} students to run"
+        f"{classname} on {evt_date.strftime('%B %-d')} - help us find {capacity-signups} "
+        f"more student{'s' if capacity-signups != 1 else ''}!"
     )
     body = (
         f"Hi {firstname},"
         f"\n\nThanks for agreeing to teach {classname} on {evt_date.strftime('%B %-d')}."
-        f"\n\nThis is an automated email to tell you that the class needs {need} additional "
-        f"student{'s' if need != 1 else ''} or it will be automatically cancelled."
-        "\n\nIf you want to run this class anyways, please visit "
-        "https://api.protohaven.org/instructor/class ASAP and confirm "
-        "your willingness to volunteer your teaching time as the attendance is not "
-        "sufficient to recoup the cost of running the class."
-        "\n\nIf you run into any issues, please reach out on the #instructors Discord "
-        "channel or email education@protohaven.org to get it resolved."
-        "\n\nThanks for supporting Protohaven as an instructor!"
+        f"\n\nTo maximize your impact, we need your help to find {capacity-signups} "
+        f"additional student{'s' if capacity-signups else ''} to take the class."
+        "\n\nThere are a couple easy ways to do this:"
+        "\n\n - Post about your class on social media (Instagram, Facebook, etc.) "
+        "to raise awareness"
+        "\n - Share your excitement in teaching a class to friends, family, coworkers, and "
+        "anyone else you meet, and encourage them to sign up!"
+        "\n\nIf you have any additional ideas for getting the word out there, please post them "
+        "in the #instructors channel of our Discord."
+        "\n\nThanks for supporting Protohaven as an instructor. Happy teaching!"
         "\n -Protohaven Automation"
-    )
-    return subject, body
-
-
-def registrant_low_attendance_email(evt, a):
-    """Generate message to a registrant that the class may be cancelled"""
-    firstname = a["firstName"]
-    classname = evt["name"]
-    evt_date = evt["python_date"]
-    capacity = evt["capacity"]
-    signups = evt["signups"]
-    need = evt["need"]
-
-    # We're always in plural form - class threshold is 3 of 6 or 2 of 4.
-    days = (evt_date - datetime.datetime.now()).days
-    urgency = f"{days} days"
-    if days < 2:
-        urgency = f"{(evt_date - datetime.datetime.now()).seconds // 3600} hours"
-    subject = f"{classname} - we need {need} more student{'s' if need != 1 else ''}!"
-    body = (
-        f"Hi {firstname}!\n\nThanks for signing up for {classname} on "
-        f"{evt_date.strftime('%B %-d')}. As a nonprofit, we rely heavily on revenue from "
-        "our classes and membership to continue to provide an open makerspace that "
-        "everyone can use."
-        f"\n\nHowever, Protohaven requires a minimum attendance of classes for them to be "
-        f"run - currently, **your class needs {need} more student{'s' if need != 1 else ''}**"
-        " or else it will be cancelled. In the event of cancellation, **we will notify you "
-        "24 hours in advance** of the class with details on how to receive refund or class credit."
-        f"\n\nThere are {capacity-signups} seats total, and we need your help to fill them "
-        f"in the next {urgency}! Please reach out to friends, family, coworkers, and anyone"
-        " you think would be interested so we can make your class happen."
-        "\nIf you have any questions, please reach out to education@protohaven.org."
-        "\n\nThanks for your help, and hope to see you in the shop!"
-        "\nProtohaven Staff"
     )
     return subject, body
 
@@ -189,7 +159,8 @@ def instructor_class_confirmed_email(evt):
     subject = f"{classname} is on for {evt_date.strftime('%B %-d')}!"
     body = (
         f"Hi {firstname},"
-        f"\n\nGet excited! Your class {classname} has {signups} student(s) and will "
+        f"\n\nGet excited! Your class {classname} has {signups} "
+        f"student{'s' if signups != 1 else ''} and will "
         f"be running on {evt_date.strftime('%B %-d')}."
         "\n\nIf you have any questions, please reach out to education@protohaven.org."
         "\n\nHope to see you in the shop soon!\nProtohaven Staff"
@@ -202,14 +173,12 @@ def registrant_class_cancelled_email(evt, a):
     firstname = a["firstName"]
     classname = evt["name"]
     evt_date = evt["python_date"]
-    need = evt["need"]
 
     subject = f"Your class '{classname}' was cancelled"
     body = (
         f"Hi {firstname},"
         f"\n\nUnfortunately, we had to cancel your class {classname} (scheduled for "
-        f"{evt_date.strftime('%B %-d')}) as it did not reach the minimum attendance "
-        f"requirements to run (it was short by {need} student{'s' if need != 1 else ''})."
+        f"{evt_date.strftime('%B %-d')}). "
         "\n\nWe can either refund the full amount of the class, or offer class credit "
         "if you'd like to enroll in a different class."
         "\nPlease reach out to education@protohaven.org with your choice so we can "
@@ -219,6 +188,23 @@ def registrant_class_cancelled_email(evt, a):
         "event schedule at https://www.protohaven.org/classes."
         "\n\nHope to see you in the shop soon!\nProtohaven Staff"
     )
+    return subject, body
+
+
+def instructor_class_cancelled_email(evt):
+    """Generate message to instructor that their class was cancelled"""
+    firstname = evt["instructor_firstname"]
+    classname = evt["name"]
+    evt_date = evt["python_date"]
+
+    subject = f"Your class '{classname}' was cancelled"
+    body = (
+        f"Hi {firstname},"
+        f"\n\nUnfortunately, we had to cancel your class {classname} "
+        f"(scheduled for {evt_date.strftime('%B %-d')}) as nobody signed up to take it."
+        "\n\nIf you have any questions, please reach out to education@protohaven.org."
+    )
+    body += "\n\n'Till next time!\nProtohaven Staff"
     return subject, body
 
 
@@ -267,26 +253,6 @@ def instructor_log_reminder_email(evt):
         "\n\nIf you have any questions, please reach out to education@protohaven.org."
     )
     body += "\n\nThanks!\nProtohaven Automation"
-    return subject, body
-
-
-def instructor_class_cancelled_email(evt):
-    """Generate message to instructor that their class was cancelled"""
-    firstname = evt["instructor_firstname"]
-    classname = evt["name"]
-    evt_date = evt["python_date"]
-    need = evt["need"]
-
-    subject = f"Your class '{classname}' was cancelled"
-    body = (
-        f"Hi {firstname},"
-        f"\n\nUnfortunately, we had to cancel your class {classname} "
-        f"(scheduled for {evt_date.strftime('%B %-d')}) as it did not reach the minimum "
-        f"attendance requirements to run (it was short by {need} "
-        f"student{'s' if need != 1 else ''})."
-        "\n\nIf you have any questions, please reach out to education@protohaven.org."
-    )
-    body += "\n\n'Till next time!\nProtohaven Staff"
     return subject, body
 
 

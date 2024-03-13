@@ -76,10 +76,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     filter_ovr = []
     confirm_ovr = []  # @param {type:'raw'}
     pro_bono_classes = []  # @param {type:'raw'}
-    cancel_ovr = []  # @param {type:'raw'}
     ignore_email = []  # List of email destinations to ignore
     ignore_all_survey = False  # @param {type: 'boolean'}
-    ignore_all_cancelled = False  # @param {type: 'boolean'}
     notify_techs = True  # @param {type:"boolean"}
     notify_instructors = True  # @param {type:"boolean"}
     notify_registrants = True  # @param {type:"boolean"}
@@ -136,19 +134,17 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def handle_day_before(self, evt):
         """Handle day-before notifications for the event"""
-        if evt["capacity"] == 0:
-            self.log.info(f"Skipping for_techs (too full): {evt['name']}")
+        # Cancel empty classes - regardless of volunteer status.
+        # We don't have enough comms to be able to take latecomer techs within
+        # 24hrs.
+        if evt["occupancy"] == 0:
+            self.push_class(evt, "CANCEL", "not enough students and/or not pro bono")
             return
-        if evt["occupancy"] < 0.5 and not (
-            evt["occupancy"] > 0 and evt["volunteer_instructor"]
-        ):
-            if self.ignore_all_cancelled:
-                self.log.info(f"IGNORE {evt['name']} (ignore_all_cancelled=True)")
-            else:
-                self.push_class(
-                    evt, "CANCEL", "not enough students and/or not pro bono"
-                )
-            return
+
+        # Only add tech available classes if the class isn't yet full
+        if evt["occupancy"] < 0.9:
+            self.for_techs.append(evt)
+            self.log.info(f"Added to for_techs: {evt['name']}")
 
         self.push_class(
             evt,
@@ -156,22 +152,15 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             "pro bono" if evt["volunteer_instructor"] else "instructor paid",
         )
 
-        # Only add tech available classes if the class isn't yet full
-        if evt["occupancy"] < 1.0:
-            self.for_techs.append(evt)
-            self.log.info(f"Added to for_techs: {evt['name']}")
-
     def handle_3days_before(self, evt):
         """Handle 3-days-until notifications for event."""
-        # Only claim low occupancy shortly before the class if it's a
-        # paid class
-        if evt["signups"] < 2 and not evt["volunteer_instructor"]:
-            self.push_class(evt, "LOW_ATTENDANCE_3DAYS", "not enough registrants")
+        if evt["signups"] < 3:
+            self.push_class(evt, "LOW_ATTENDANCE_3DAYS", "few registrants")
 
     def handle_week_before(self, evt):
         """Handle week-before notifications for event"""
-        if evt["signups"] < 2 and not evt["volunteer_instructor"]:
-            self.push_class(evt, "LOW_ATTENDANCE_7DAYS", "not enough registrants")
+        if evt["signups"] < 3:
+            self.push_class(evt, "LOW_ATTENDANCE_7DAYS", "few registrants")
 
     def handle_10days_before(self, evt):
         """Handle "10 days before" notifications for event"""
@@ -266,8 +255,6 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
         if neon_id in self.confirm_ovr:
             self.push_class(evt, "CONFIRM", "override")
-        elif neon_id in self.cancel_ovr:
-            self.push_class(evt, "CANCEL", "override")
         elif now > evt["python_date_end"]:
             evt["already_notified"] = get_emails_notified_after(neon_id, date)
             self.handle_after(evt)
@@ -339,7 +326,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             )
             return
         target = f"Instructor ({evt['instructor_email']})"
-        if action in ("LOW_ATTENDANCE_3DAYS", "LOW_ATTENDANCE_7DAYS"):
+        if action == "LOW_ATTENDANCE_3DAYS":
+            pass  # Hold off on this for now
+        elif action in ("LOW_ATTENDANCE_7DAYS"):
             self._append(action, target, tmpl.instructor_low_attendance_email, evt)
         elif action == "SUPPLY_CHECK_NEEDED":
             self._append(action, target, tmpl.instructor_check_supplies_email, evt)
@@ -367,7 +356,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
         target = f"{a['firstName']} {a['lastName']} ({a['email']})"
         if action in ("LOW_ATTENDANCE_7DAYS", "LOW_ATTENDANCE_3DAYS"):
-            self._append(action, target, tmpl.registrant_low_attendance_email, evt, a)
+            pass  # Attendees are not worried by low attendance emails
         elif action == "CONFIRM":
             self._append(action, target, tmpl.registrant_class_confirmed_email, evt, a)
         elif action == "CANCEL":

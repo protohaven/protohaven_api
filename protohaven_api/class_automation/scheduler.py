@@ -6,7 +6,12 @@ from collections import defaultdict
 import pytz
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation.solver import Class, Instructor, solve
+from protohaven_api.class_automation.solver import (
+    Class,
+    Instructor,
+    date_range_overlaps,
+    solve,
+)
 from protohaven_api.integrations import airtable
 from protohaven_api.integrations.schedule import fetch_instructor_schedules
 
@@ -17,7 +22,9 @@ tz = pytz.timezone("EST")
 def fetch_formatted_schedule(time_min, time_max):
     """Fetch schedule info from google calendar and massage it a bit"""
 
-    sched = fetch_instructor_schedules(time_min, time_max)
+    sched = fetch_instructor_schedules(
+        time_min.replace(tzinfo=None), time_max.replace(tzinfo=None)
+    )
     log.info(f"Found {len(sched)} instructor schedule events from calendar")
     sched_formatted = defaultdict(list)
     for k, v in sched.items():
@@ -54,6 +61,11 @@ def generate_env(
     instructor_caps = airtable.fetch_instructor_teachable_classes()
     sched_formatted = fetch_formatted_schedule(start_date, end_date)
     max_loads = airtable.fetch_instructor_max_load()
+    cur_sched = [
+        c
+        for c in airtable.get_class_automation_schedule()
+        if c["fields"].get("Neon ID") is not None
+    ]
     instructors = []
     skipped = 0
     for k, v in sched_formatted.items():
@@ -80,6 +92,27 @@ def generate_env(
             "to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
         )
 
+    # Filter out any classes that have/will run too recently
+    last_run = defaultdict(
+        lambda: datetime.datetime(year=2001, month=1, day=1).astimezone(tz)
+    )
+    area_occupancy = defaultdict(list)
+    for c in cur_sched:
+        t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
+        last_run[c["fields"]["Class"][0]] = max(last_run[c["id"]], t)
+        for i in range(c["fields"]["Days (from Class)"][0]):
+            ao = [
+                t + datetime.timedelta(days=7 * i),
+                t
+                + datetime.timedelta(
+                    days=7 * i, hours=c["fields"]["Hours (from Class)"][0]
+                ),
+            ]
+            if date_range_overlaps(ao[0], ao[1], start_date, end_date):
+                area_occupancy[c["fields"]["Area (from Class)"][0]].append(ao)
+    log.info(f"Computed last runtime of {len(last_run)} different classes")
+    log.info(f"Computed occupancy of {len(area_occupancy)} different areas")
+
     # Load classes from airtable
     classes = []
     for c in airtable.get_all_class_templates():
@@ -88,8 +121,10 @@ def generate_env(
                 Class(
                     c["id"],
                     c["fields"]["Name"],
-                    c["fields"]["Frequency"],
+                    c["fields"]["Period"],
+                    c["fields"]["Hours"],
                     c["fields"]["Area"],
+                    last_run[c["id"]],
                     compute_score(c),
                 )
             )
@@ -114,6 +149,9 @@ def generate_env(
     return {
         "classes": [c.as_dict() for c in classes],
         "instructors": [i.as_dict() for i in instructors_filtered],
+        "area_occupancy": dict(
+            area_occupancy.items()
+        ),  # Convert defaultdict to dict for yaml serialization
     }
 
 
@@ -121,7 +159,7 @@ def solve_with_env(env):
     """Solves a scheduling problem given a specific env"""
     classes = [Class(**c) for c in env["classes"]]
     instructors = [Instructor(**i) for i in env["instructors"]]
-    return solve(classes, instructors)
+    return solve(classes, instructors, env["area_occupancy"])
 
 
 def format_class(cls):

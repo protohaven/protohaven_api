@@ -5,12 +5,14 @@ import json
 import pytz
 from dateutil import parser as dateparser
 from flask import Blueprint, render_template, request, session
+from flask_cors import cross_origin
 
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.neon import (
     fetch_attendees,
     fetch_published_upcoming_events,
+    search_member,
     soft_search,
 )
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -45,6 +47,42 @@ def index():
         clearances=clearances,
         roles=roles,
     )
+
+
+@page.route("/welcome", methods=["GET", "POST"])
+@cross_origin()
+def welcome_signin():
+    """Sign-in page at front desk"""
+    if request.method == "GET":
+        raise NotImplementedError
+
+    if request.method == "POST":
+        result = {
+            "notfound": False,
+            "status": False,
+            "waiver_signed": False,
+            "firstname": "member",
+        }
+        data = request.json
+        print(data)
+        if data.get("waiver", False):
+            result["waiver_signed"] = True
+
+        if data["person"] == "member":
+            m = search_member(data["email"])
+            print(m)
+            if not m:
+                result["notfound"] = True
+            else:
+                result["status"] = m.get("Account Current Membership Status", "Unknown")
+                result["firstname"] = m.get("First Name")
+            print("TODO sign in member")
+        elif data["person"] == "guest":
+            result["firstname"] = "Guest"
+            print("TODO sign in guest")
+        return result
+
+    return ""
 
 
 @page.route("/neon_lookup", methods=["GET", "POST"])
