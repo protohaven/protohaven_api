@@ -75,7 +75,7 @@ def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
     return result
 
 
-def run_daily_maintenance(dryrun=False, num_to_generate=3):
+def run_daily_maintenance(dryrun=False, num_to_generate=4):
     """Generates a bounded number of new maintenance tasks per day,
     also looks up stale tasks and creates a summary message for Techs"""
     tt = get_maintenance_needed_tasks()

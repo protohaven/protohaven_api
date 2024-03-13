@@ -427,8 +427,8 @@ class ProtohavenCLI:
             required=False,
         )
         args = parser.parse_args(argv)
-        start = dateparser.parse(args.start)
-        end = dateparser.parse(args.end)
+        start = dateparser.parse(args.start).astimezone(tz)
+        end = dateparser.parse(args.end).astimezone(tz)
         inst = {a.strip() for a in args.filter.split(",")} if args.filter else None
         env = scheduler.generate_env(start, end, inst)
         print(yaml.dump(env, default_flow_style=False, default_style=""))

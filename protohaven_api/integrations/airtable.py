@@ -121,7 +121,7 @@ def fetch_instructor_max_load():
             continue
         inst = row["fields"]["Instructor"].strip()
         if "Max Class Load" in row["fields"].keys():
-            result[inst] += row["fields"]["Max Class Load"]
+            result[inst] = row["fields"]["Max Class Load"]
     return result
 
 

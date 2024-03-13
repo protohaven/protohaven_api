@@ -2,6 +2,7 @@
 # https://stackoverflow.com/questions/42450533/bin-packing-python-query-with-variable-people-cost-and-sizes
 # https://gist.github.com/sameerkumar18/086cc6bdc277dc1cefb4374fa7b0327a
 
+import datetime
 import logging
 from collections import defaultdict
 
@@ -12,22 +13,25 @@ log = logging.getLogger("class_automation.solver")
 
 
 class Class:
-    """Represents a class template schedulable at a frequency, in an area, with score"""
+    """Represents a class template schedulable at a period, in an area, with score"""
 
     def __init__(
-        self, airtable_id, name, freq, area, score
+        self, airtable_id, name, period, hours, area, last_run, score
     ):  # pylint: disable=too-many-arguments
         self.airtable_id = airtable_id
         self.name = name
-        self.freq = freq
+        self.period = period
+        self.hours = hours
         self.area = area
+        self.last_run = last_run
         # Score is a normalized expected value based on revenue, likelihood to fill,
         # cost of materials etc.
         self.score = score
 
     def __repr__(self):
         return (
-            f"{self.name} ({self.airtable_id}, max {self.freq}/mo, "
+            f"{self.name} ({self.airtable_id}, last run {self.last_run} for {self.hours}, "
+            f"max every {self.period} months, "
             "{self.area}, score={self.score})"
         )
 
@@ -36,8 +40,10 @@ class Class:
         return {
             "airtable_id": self.airtable_id,
             "name": self.name,
-            "freq": self.freq,
+            "period": self.period,
+            "hours": self.hours,
             "area": self.area,
+            "last_run": self.last_run,
             "score": self.score,
         }
 
@@ -64,7 +70,28 @@ class Instructor:
         }
 
 
-def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
+def date_range_overlaps(a0, a1, b0, b1):
+    """Return True if [a0,a1] and [b0,b1] overlap"""
+    if b1 > a0 > b0:
+        return True
+    if b1 > a1 > b0:
+        return True
+    if a0 < b0 and a1 > b1:
+        return True
+    return False
+
+
+def has_area_conflict(area_occupancy, t_start, t_end):
+    """Return true if any of `area_occupancy` lie within `t_start` and `t_end`, false otherwise"""
+    for a_start, a_end in area_occupancy:
+        if date_range_overlaps(a_start, a_end, t_start, t_end):
+            return True
+    return False
+
+
+def solve(
+    classes, instructors, area_occupancy
+):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.airtable_id: cls for cls in classes}
     areas = {c.area for c in classes}
@@ -74,12 +101,22 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     # The dict values are either 0 (not assigned) or 1 (assigned)
     # Note the implicit constraint: no instructor is assigned a class they can't
     # teach, or a time they're unable to teach.
-    possible_assignments = [
-        (cls, instructor.name, t)
-        for instructor in instructors
-        for t in instructor.avail
-        for cls in instructor.caps
-    ]
+    possible_assignments = []
+    for instructor in instructors:
+        for t in instructor.avail:
+            for cls in instructor.caps:
+                # Skip if assignment is too recent
+                cbid = class_by_id[cls]
+                if t < cbid.last_run + datetime.timedelta(days=30 * cbid.period):
+                    continue
+                # Skip if area already occupied
+                if has_area_conflict(
+                    area_occupancy.get(cbid.area, []),
+                    t,
+                    t + datetime.timedelta(hours=cbid.hours),
+                ):
+                    continue
+                possible_assignments.append((cls, instructor.name, t))
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
 
     x = pulp.LpVariable.dicts(
@@ -94,13 +131,18 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     prob = pulp.LpProblem("Class_Packing_Problem", pulp_constants.LpMaximize)
 
     # Objective: maximize the total score of classes assigned
-    prob += pulp.lpSum(
-        [
-            class_by_id[cls].score * x[(cls, instructor.name, t)]
-            for instructor in instructors
-            for cls in instructor.caps
-            for t in instructor.avail
-        ]
+    prob += (
+        pulp.lpSum(
+            [
+                class_by_id[cls].score * x[(cls, instructor.name, t)]
+                for instructor in instructors
+                for cls in instructor.caps
+                for t in instructor.avail
+                if x.get((cls, instructor.name, t))
+                is not None  # some assignments filtered
+            ]
+        ),
+        "MaxScore",
     )
 
     # ==== Constraints ====
@@ -117,11 +159,13 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
                 [x[cls, instructor.name, t]]
                 for instructor in instructors
                 for cls in instructor.caps
-                if t in instructor.avail and class_areas[cls] == a
+                if t in instructor.avail
+                and class_areas[cls] == a
+                and x.get((cls, instructor.name, t)) is not None
             )
-            prob += area_assigned_times <= 1
+            prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
 
-    # Classes run at most their `freq` value
+    # Classes run at most once
     for cls in classes:
         class_assigned_count = pulp.lpSum(
             [
@@ -129,10 +173,13 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
                 for instructor in instructors
                 for t in instructor.avail
                 if cls.airtable_id in instructor.caps
+                and x.get((cls, instructor.name, t)) is not None
             ]
         )
-        prob += class_assigned_count <= cls.freq
-
+        print(type(class_assigned_count <= 1))
+        prob += (
+            class_assigned_count <= 1
+        ), f"NoDuplicatesRequirement_{cls.airtable_id}"
         # Classes are scheduled
         # prob += class_assigned_count != 0
 
@@ -150,7 +197,10 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
                     if cls in instructors_by_name[p].caps
                 ]
             )
-            prob += class_time_assigned_count <= 1
+            prob += (
+                class_time_assigned_count <= 1,
+                f"NoDupeInstructorRequirement_{cls.airtable_id}_{t}",
+            )
 
     # No instructor is filled beyond their desired class rate
     for instructor in instructors:
@@ -159,9 +209,13 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
                 x[(cls, instructor.name, t)]
                 for cls in instructor.caps
                 for t in instructor.avail
+                if x.get((cls, instructor.name, t)) is not None
             ]
         )
-        prob += assigned_load <= instructor.load
+        prob += (
+            assigned_load <= instructor.load,
+            f"NoOverloadRequirement_{instructor.name}",
+        )
 
         # Extra: at least one class is assigned to each instructor
         # prob += assigned_load != 0
@@ -169,7 +223,7 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
         # For instructors with reasonable availability and capabilities,
         # they must have at least one class scheduled
         if len(instructor.avail) >= 3 and len(instructor.caps) != 0:
-            prob += assigned_load >= 1.0
+            prob += assigned_load >= 1.0, f"MinLoadrequirement_{instructor.name}"
         else:
             log.warning(
                 f"Instructor {instructor.name} has only {len(instructor.avail)} available "
@@ -184,12 +238,15 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
         for instructor in instructors
         for cls in instructor.caps
         for t in instructor.avail
-        if x[(cls, instructor.name, t)].value() == 1
+        if x.get((cls, instructor.name, t)) is not None
+        and x[(cls, instructor.name, t)].value() == 1
     )
 
     for instructor in instructors:
         for cls in instructor.caps:
             for t in instructor.avail:
+                if x.get((cls, instructor.name, t)) is None:
+                    continue
                 if x[(cls, instructor.name, t)].value() == 1:
                     instructor_classes[instructor.name].append(
                         [cls, class_by_id[cls].name, t.isoformat()]
