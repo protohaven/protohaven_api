@@ -315,5 +315,8 @@ def gen_comms(
     # Also send a summary of violations/fees/suspensions to Discord #storage
     fees = airtable.get_policy_fees()
     subject, body = ecomms.enforcement_summary(violations, fees, new_sus)
-    result.append({"target": "#storage", "subject": subject, "body": body, "id": None})
+    if subject and body:
+        result.append(
+            {"target": "#storage", "subject": subject, "body": body, "id": None}
+        )
     return result

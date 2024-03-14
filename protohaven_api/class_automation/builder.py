@@ -205,20 +205,18 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         evt["need"] = (evt["capacity"] // 2) - evt["signups"]
 
         sched = self.airtable_schedule.get(str(evt["id"]))
+        evt["instructor_email"] = None
+        evt["instructor_firstname"] = None
         if sched is not None:
             sched = sched["fields"]
+            evt["instructor_email"] = sched["Email"]
+            evt["instructor_firstname"] = sched["Instructor"].split()[0]
         else:
             sched = {}
         evt["volunteer_instructor"] = sched.get("Volunteer") or (
             evt["id"] in self.pro_bono_classes
         )
         evt["supply_state"] = sched.get("Supply State")
-        evt["instructor_email"] = None
-        for inst_name, inst_email in self.email_map.items():
-            if inst_name.lower() in evt["name"].lower():
-                evt["instructor_email"] = inst_email.lower()
-                evt["instructor_firstname"] = inst_name.split()[0]
-                break
 
         evt["already_notified"] = []  # assigned during sort
         return evt
@@ -275,6 +273,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 f"IGNORE ({(date - now).days} day(s) out; too far): {evt['name']}"
             )
             return
+        evt["already_notified"] = [an.lower() for an in evt["already_notified"]]
 
     def _append(self, action, target, fn, evt, *args):
         """Append notification details onto the `output` list"""
@@ -316,7 +315,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             return
         if evt["instructor_email"] is None:
             self.log.error(
-                f"Could not build instructor notification for {evt['name']} - no email given"
+                f"Could not build instructor notification for #{evt['id']} "
+                f"{evt['name']} - no email given"
             )
             return
         if evt["instructor_email"].strip() in self.ignore_email:

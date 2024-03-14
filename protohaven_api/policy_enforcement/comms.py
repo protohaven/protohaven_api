@@ -16,7 +16,7 @@ def enforcement_summary(violations, fees, new_sus):
     new_sus = [f for f in new_sus if not f["fields"].get("Reinstated")]
     fees = [f for f in fees if not f["fields"].get("Paid")]
     if len(violations) == 0 and len(fees) == 0 and len(new_sus) == 0:
-        return None
+        return None, None
 
     # Condense violation and fee info into a list of updates
     vs = {}
