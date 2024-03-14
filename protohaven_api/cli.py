@@ -551,6 +551,7 @@ class ProtohavenCLI:
 
         result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
         print(yaml.dump(result, default_flow_style=False, default_style=""))
+        self.log.info(f"Generated {len(result)} notification(s)")
 
     def gen_maintenance_tasks(self, argv):
         """Check recurring tasks list in Airtable, add new tasks to asana
