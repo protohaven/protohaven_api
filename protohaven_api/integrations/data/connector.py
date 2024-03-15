@@ -77,6 +77,16 @@ class Connector:
         }
         return requests.request(*args, headers=headers, timeout=5.0, **kwargs)
 
+    def _google_form_submit_dev(self, url, params):
+        """Dev handler for submitting google forms"""
+        raise NotImplementedError("TODO")
+
+    def google_form_submit(self, url, params):
+        """Submit a google form with data"""
+        if self.dev:
+            return self._google_form_submit_dev(url, params)
+        return requests.get(url, params, timeout=5.0)
+
     def _discord_webhook_dev(self, webhook, content):
         """Dev handler for discord webhooks"""
         raise NotImplementedError("TODO")

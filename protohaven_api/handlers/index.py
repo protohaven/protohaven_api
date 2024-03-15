@@ -9,11 +9,13 @@ from flask_cors import cross_origin
 
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations.booked import get_reservations
+from protohaven_api.integrations.forms import submit_google_form
 from protohaven_api.integrations.neon import (
     fetch_attendees,
     fetch_published_upcoming_events,
     search_member,
     soft_search,
+    update_waiver_status,
 )
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
@@ -65,9 +67,6 @@ def welcome_signin():
         }
         data = request.json
         print(data)
-        if data.get("waiver", False):
-            result["waiver_signed"] = True
-
         if data["person"] == "member":
             m = search_member(data["email"])
             print(m)
@@ -76,10 +75,31 @@ def welcome_signin():
             else:
                 result["status"] = m.get("Account Current Membership Status", "Unknown")
                 result["firstname"] = m.get("First Name")
-            print("TODO sign in member")
+
+            result["waiver_signed"] = update_waiver_status(
+                m["Account ID"], m.get("Waiver Accepted"), data.get("waiver_ack", False)
+            )
         elif data["person"] == "guest":
+            result["waiver_signed"] = data.get("waiver_ack", False)
             result["firstname"] = "Guest"
-            print("TODO sign in guest")
+
+        if (
+            data["person"] == "member"
+            and result["notfound"] is False
+            and result["waiver_signed"]
+        ) or (data["person"] == "guest" and data["referrer"]):
+            # Note: setting `purpose` this way tricks the form into not requiring other fields
+            form_data = {
+                "email": data["email"],
+                "dependent_info": data["dependent_info"],
+                "waiver_ack": data["waiver_ack"],
+                "referrer": data["referrer"],
+                "purpose": "I'm a member, just signing in!",
+                "am_member": "Yes" if data["person"] == "member" else "No",
+            }
+            rep = submit_google_form("signin", form_data)
+            print(rep.request.url)
+            print("Google form submitted, response", rep)
         return result
 
     return ""
