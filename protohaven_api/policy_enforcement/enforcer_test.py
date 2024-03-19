@@ -1,14 +1,16 @@
 """Unit tests for policy enforcement methods"""
 
+from dateutil import parser as dateparser
+
 from protohaven_api.policy_enforcement import enforcer
 from protohaven_api.policy_enforcement.testing import *  # pylint: disable=unused-wildcard-import,wildcard-import
 
 
 def test_gen_fees_closed_violation_subday():
-    """If a violation was closed within 24 hours of when it was opened,
+    """If a violation was closed the day it was opened,
     don't add a fee"""
     got = enforcer.gen_fees(
-        [violation(1, dt(-2), dt(-2) + datetime.timedelta(hours=23))], {}, now
+        [violation(1, dt(-2), dt(-2).replace(hour=23, minute=59, second=59))], {}, now
     )
     assert not got
 
@@ -26,9 +28,22 @@ def test_gen_fees_closed_violation_no_action():
 
 
 def test_gen_fees_new_violation():
-    """A new open violation doesn't accumulate fees until 24hrs later"""
+    """A new open violation doesn't accumulate fees until a day later"""
     got = enforcer.gen_fees([violation(1, now, None)], {}, now)
     assert not got
+
+
+def test_gen_fees_applied_by_day():
+    """Application boundary for fees is the turnover of the day, not
+    actually 24 hours"""
+    t1 = dateparser.parse("2024-03-01 12:30pm")
+    t2 = dateparser.parse("2024-03-02 7:30am")
+    print(t1)
+    print(t2)
+    print(t2 - t1)
+    assert (t2 - t1).days == 0
+    got = enforcer.gen_fees([violation(1, t1, None)], {}, t2)
+    assert got == [(1, TESTFEE, Any())]
 
 
 def test_gen_fees_ongoing_violation():
