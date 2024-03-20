@@ -1,9 +1,9 @@
 <script type="ts">
+
   import '../app.scss';
 
 	import { Row, Card, Container } from '@sveltestrap/sveltestrap';
 
-  import TestComponent from '$lib/test_component.svelte';
   import Splash from '$lib/splash.svelte';
   import SigninOk from '$lib/signin_ok.svelte';
   import MembershipExpired from '$lib/membership_expired.svelte';

@@ -89,10 +89,11 @@ def welcome_signin():
             and result["waiver_signed"]
         ) or (data["person"] == "guest" and data["referrer"]):
             # Note: setting `purpose` this way tricks the form into not requiring other fields
+            assert result["waiver_signed"] is True
             form_data = {
                 "email": data["email"],
                 "dependent_info": data["dependent_info"],
-                "waiver_ack": data["waiver_ack"],
+                "waiver_ack": "I have read and understand this agreement and agree to be bound by its requirements.", # Must be this, otherwise 400 error
                 "referrer": data["referrer"],
                 "purpose": "I'm a member, just signing in!",
                 "am_member": "Yes" if data["person"] == "member" else "No",
