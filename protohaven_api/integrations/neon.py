@@ -1,12 +1,14 @@
-""" Neon CRM integration methods"""
+"# Acknowledge always overwrites the previous state" " Neon CRM integration methods" ""
 import datetime
 import json
 import logging
+import re
 import time
 import urllib
 from functools import cache
 
 from bs4 import BeautifulSoup
+from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -24,6 +26,9 @@ GROUP_ID_CLEARANCES = 1
 CUSTOM_FIELD_CLEARANCES = 75
 CUSTOM_FIELD_INTEREST = 148
 CUSTOM_FIELD_DISCORD_USER = 150
+CUSTOM_FIELD_WAIVER_ACCEPTED = 151
+WAIVER_FMT = "version {version} on {accepted}"
+WAIVER_REGEX = r"version (.+?) on (.*)"
 URL_BASE = "https://api.neoncrm.com/v2"
 
 
@@ -326,6 +331,7 @@ def search_member(email):
             "Membership Level",
             CUSTOM_FIELD_CLEARANCES,
             CUSTOM_FIELD_DISCORD_USER,
+            CUSTOM_FIELD_WAIVER_ACCEPTED,
         ],
         "pagination": {
             "currentPage": 0,
@@ -549,3 +555,73 @@ def soft_search(keyword):
     """Creates a coupon code for a specific absolute amount"""
     n = NeonOne(cfg("login_user"), cfg("login_pass"))
     return n.soft_search(keyword)
+
+
+def set_waiver_status(user_id, new_status):
+    """Overwrites existing waiver status information on an account"""
+    data = {
+        "accountCustomFields": [
+            {"id": CUSTOM_FIELD_WAIVER_ACCEPTED, "value": new_status}
+        ],
+    }
+    # Need to confirm whether the user is an individual or company account
+    m = fetch_account(user_id)
+    if m is None:
+        raise RuntimeError("Failed to resolve account type for waiver application")
+
+    if m.get("individualAccount"):
+        data = {"individualAccount": data}
+    elif m.get("companyAccount"):
+        data = {"companyAccount": data}
+    else:
+        raise RuntimeError("Unknown account type for " + str(user_id))
+
+    resp, content = get_connector().neon_request(
+        cfg("api_key2"),
+        f"{URL_BASE}/accounts/{user_id}",
+        "PATCH",
+        body=json.dumps(data),
+        headers={"content-type": "application/json"},
+    )
+    print("PATCH", resp.status, content)
+    return resp, content
+
+
+def update_waiver_status(  # pylint: disable=too-many-arguments
+    user_id,
+    waiver_status,
+    ack,
+    now=None,
+    current_version=cfg("waiver_published_date"),
+    expiration_days=cfg("waiver_expiration_days"),
+):
+    """Update the liability waiver status of a Neon account. Return True if
+    the account is bound by the waiver, False otherwise."""
+    if now is None:
+        now = datetime.datetime.now()
+
+    if ack:  # Always overwrite existing signature data since re-acknowledged
+        new_status = WAIVER_FMT.format(
+            version=current_version, accepted=now.strftime("%Y-%m-%d")
+        )
+        print("Calling", set_waiver_status)
+        set_waiver_status(user_id, new_status)
+        print("Called set_waiver_status")
+        return True
+
+    # Precondition: ack = false
+    # Check if signature on file, version is current, and not expired
+    last_version = None
+    last_signed = None
+    if waiver_status is not None:
+        match = re.match(WAIVER_REGEX, waiver_status)
+        if match is not None:
+            print(match)
+            last_version = match[1]
+            last_signed = dateparser.parse(match[2])
+    if last_version is None:
+        return False
+    if last_version != current_version:
+        return False
+    expiry = last_signed + datetime.timedelta(days=expiration_days)
+    return now < expiry

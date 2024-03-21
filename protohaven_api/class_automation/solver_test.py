@@ -11,15 +11,16 @@ def d(i):
 
 def test_solve():
     """Run an example set of classes and instructors through the solver"""
+    long_ago = d(-1000)
     classes = [
         Class(*v)
         for v in [
-            (1, "Embroidery", 1, "textiles", 0.7),
-            (2, "Sewing Basics", 2, "textiles", 0.6),
-            (3, "Basic Woodshop", 2, "wood", 0.5),
-            (4, "Millwork", 1, "wood", 0.7),
-            (5, "Basic Metals", 2, "metal", 0.8),
-            (6, "Metal Workshop", 1, "metal", 0.4),
+            (1, "Embroidery", 1, 3, "textiles", long_ago, 0.7),
+            (2, "Sewing Basics", 2, 3, "textiles", long_ago, 0.6),
+            (3, "Basic Woodshop", 2, 3, "wood", long_ago, 0.5),
+            (4, "Millwork", 1, 3, "wood", long_ago, 0.7),
+            (5, "Basic Metals", 2, 3, "metal", long_ago, 0.8),
+            (6, "Metal Workshop", 1, 3, "metal", long_ago, 0.4),
         ]
     ]
 
@@ -38,5 +39,7 @@ def test_solve():
         ]
     ]
 
-    solve(classes, people)
+    area_occupancy = {}
+
+    solve(classes, people, area_occupancy)
     # (schedule, load, score) = solve(classes, people)
