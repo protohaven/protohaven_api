@@ -93,7 +93,10 @@ def welcome_signin():
             form_data = {
                 "email": data["email"],
                 "dependent_info": data["dependent_info"],
-                "waiver_ack": "I have read and understand this agreement and agree to be bound by its requirements.", # Must be this, otherwise 400 error
+                "waiver_ack": (
+                    "I have read and understand this agreement and "
+                    "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
+                ),
                 "referrer": data["referrer"],
                 "purpose": "I'm a member, just signing in!",
                 "am_member": "Yes" if data["person"] == "member" else "No",

@@ -6,7 +6,7 @@ from protohaven_api.policy_enforcement.testing import *  # pylint: disable=unuse
 def test_enforcement_summary_nothing():
     """No data, no summary"""
     got = comms.enforcement_summary([], [], [])
-    assert not got
+    assert got == (None, None)
 
 
 def test_enforcement_summary_only_resolved():
@@ -16,7 +16,7 @@ def test_enforcement_summary_only_resolved():
         [tfee(paid=True), tfee(paid=True)],
         [suspension(dt(-1), dt(0), reinstated=True)],
     )
-    assert not got
+    assert got == (None, None)
 
 
 def test_enforcement_summary_ignores_complete_but_preserves_fees():
