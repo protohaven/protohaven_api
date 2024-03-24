@@ -71,6 +71,11 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
     # Bin by event (aka instructor) name
     output = defaultdict(list)
     for event in events:
+        if not event.get("summary"):
+            log.warning(
+                f"Ignoring calendar event missing a title on {event['start'].get('date')}"
+            )
+            continue
         name = event["summary"]
         start = parser.parse(
             event["start"].get("dateTime", event["start"].get("date"))

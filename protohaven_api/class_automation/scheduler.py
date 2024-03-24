@@ -3,6 +3,7 @@ import datetime
 import logging
 from collections import defaultdict
 
+import holidays
 import pytz
 from dateutil import parser as dateparser
 
@@ -28,7 +29,7 @@ def fetch_formatted_schedule(time_min, time_max):
     log.info(f"Found {len(sched)} instructor schedule events from calendar")
     sched_formatted = defaultdict(list)
     for k, v in sched.items():
-        k = k.strip()
+        k = k.strip().lower()
         sched_formatted[k] += v
     return sched_formatted
 
@@ -37,12 +38,16 @@ def slice_date_range(start_date, end_date):
     """Convert all time between two datetime values into a set of
     discrete datetimes marking the potential onset of a class"""
     day_class_hours = [10, 13, 14, 18]
+    evening_threshold = 17
+    evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
     class_duration = datetime.timedelta(hours=3)
     ret = []
     base_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
     for i in range((end_date - start_date).days + 1):
         for j in day_class_hours:
             candidate = base_date + datetime.timedelta(days=i, hours=j)
+            if candidate.weekday() in evening_only_days and j < evening_threshold:
+                continue  # Some days, we only allow classes to run in the evening
             candidate = candidate.replace(tzinfo=tz)
             if candidate >= start_date and candidate + class_duration <= end_date:
                 ret.append(candidate)
@@ -54,45 +59,26 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def generate_env(
-    start_date, end_date, instructor_filter=None
-):  # pylint: disable=too-many-locals
-    """Generates the environment to be passed to the solver"""
-    instructor_caps = airtable.fetch_instructor_teachable_classes()
-    sched_formatted = fetch_formatted_schedule(start_date, end_date)
-    max_loads = airtable.fetch_instructor_max_load()
-    cur_sched = [
-        c
-        for c in airtable.get_class_automation_schedule()
-        if c["fields"].get("Neon ID") is not None
-    ]
-    instructors = []
-    skipped = 0
-    for k, v in sched_formatted.items():
-        if len(instructor_caps[k]) == 0:
-            log.warning(
-                f"Instructor {k} has no capabilities listed in Airtable and will be skipped"
-            )
-            skipped += 1
-            continue
+def _build_instructor(k, v, caps, load, exclude_holidays=True):
+    """Create and return an Instructor object given a name and [(start,end)] style schedule"""
+    avail = []
+    for a, b in v:
+        a = dateparser.parse(a).replace(tzinfo=tz)
+        b = dateparser.parse(b).replace(tzinfo=tz)
+        avail += slice_date_range(a, b)
 
-        avail = []
-        for a, b in v:
-            a = dateparser.parse(a).replace(tzinfo=tz)
-            b = dateparser.parse(b).replace(tzinfo=tz)
-            avail += slice_date_range(a, b)
+    if exclude_holidays:
+        # Pylint seems to think `US()` doesn't exist. It may be dynamically loaded?
+        us_holidays = holidays.US()  # pylint: disable=no-member
+        avail = [a for a in avail if a not in us_holidays]
 
-        instructors.append(
-            Instructor(name=k, caps=instructor_caps[k], load=max_loads[k], avail=avail)
-        )
+    return Instructor(name=k, caps=caps, load=load, avail=avail)
 
-    if skipped > 0:
-        log.warning(
-            f"Direct the {skipped} instructor(s) missing capabilities "
-            "to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
-        )
 
-    # Filter out any classes that have/will run too recently
+def _gen_class_and_area_stats(cur_sched, start_date, end_date):
+    """Build a map of when each class in the current schedule was last run, plus
+    a list of time swhere areas are occupied, within the bounds of start_date and end_date
+    """
     last_run = defaultdict(
         lambda: datetime.datetime(year=2001, month=1, day=1).astimezone(tz)
     )
@@ -110,6 +96,62 @@ def generate_env(
             ]
             if date_range_overlaps(ao[0], ao[1], start_date, end_date):
                 area_occupancy[c["fields"]["Area (from Class)"][0]].append(ao)
+    for v in area_occupancy.values():
+        v.sort(key=lambda o: o[1])
+    return last_run, area_occupancy
+
+
+def generate_env(
+    start_date, end_date, instructor_filter=None, exclude_holidays=True
+):  # pylint: disable=too-many-locals
+    """Generates the environment to be passed to the solver"""
+
+    if instructor_filter is not None:
+        instructor_filter = [k.lower() for k in instructor_filter]
+        log.info(f"Filter: {instructor_filter}")
+    instructor_caps = airtable.fetch_instructor_teachable_classes()
+    sched_formatted = fetch_formatted_schedule(start_date, end_date)
+    max_loads = airtable.fetch_instructor_max_load()
+    cur_sched = [
+        c
+        for c in airtable.get_class_automation_schedule()
+        if c["fields"].get("Neon ID") is not None
+    ]
+    instructors = []
+    skipped = 0
+    if exclude_holidays:
+        log.info("Instructor availability that falls on US holidays will be ignored")
+    else:
+        log.warning(
+            "Instructor availability that falls on US holidays will NOT be ignored"
+        )
+
+    for k, v in sched_formatted.items():
+        k = k.lower()
+        if instructor_filter is not None and k not in instructor_filter:
+            log.info(f"Skipping instructor {k} (not in filter)")
+            continue
+        log.info(f"Handling {k}")
+        caps = instructor_caps.get(k, [])
+        if len(instructor_caps[k]) == 0:
+            log.warning(
+                f"Instructor {k} has no capabilities listed in Airtable "
+                f"and will be skipped (schedule: {v})"
+            )
+            skipped += 1
+            continue
+        instructors.append(_build_instructor(k, v, caps, max_loads[k]))
+
+    if skipped > 0:
+        log.warning(
+            f"Direct the {skipped} instructor(s) missing capabilities "
+            "to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
+        )
+
+    # Filter out any classes that have/will run too recently
+    last_run, area_occupancy = _gen_class_and_area_stats(
+        cur_sched, start_date, end_date
+    )
     log.info(f"Computed last runtime of {len(last_run)} different classes")
     log.info(f"Computed occupancy of {len(area_occupancy)} different areas")
 
@@ -132,23 +174,21 @@ def generate_env(
     log.info(
         f"Loaded {len(instructors)} instructors and {len(classes)} schedulable classes"
     )
-
-    if instructor_filter is not None:
-        instructors_filtered = [i for i in instructors if i.name in instructor_filter]
-        log.info(
-            f"Filtered to {len(instructors_filtered)} instructor(s): {instructors_filtered}"
+    unavailable = set(instructor_caps.keys()) - {i.name for i in instructors}
+    if len(unavailable) > 0:
+        log.warning(
+            f"{len(unavailable)} instructor(s) with caps are not "
+            f"present in the final list: {unavailable}"
         )
-    else:
-        instructors_filtered = instructors
 
     # Regardless of capabilities, the class must also be set as schedulable
     class_ids = {c.airtable_id for c in classes}
-    for i in instructors_filtered:
+    for i in instructors:
         i.caps = [c for c in i.caps if c in class_ids]
 
     return {
         "classes": [c.as_dict() for c in classes],
-        "instructors": [i.as_dict() for i in instructors_filtered],
+        "instructors": [i.as_dict() for i in instructors],
         "area_occupancy": dict(
             area_occupancy.items()
         ),  # Convert defaultdict to dict for yaml serialization
@@ -171,7 +211,7 @@ def format_class(cls):
 
 def push_schedule(sched):
     """Pushes the created schedule to airtable and generates notifications"""
-    email_map = airtable.get_instructor_email_map()
+    email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
     payload = []
     for inst, classes in sched.items():
         for record_id, _, date in classes:
@@ -190,7 +230,7 @@ def push_schedule(sched):
         formatted = [format_class(f) for f in classes]
         subject = "Confirm class schedule"
         email = email_map[inst]
-        body = f"Hello, {inst}!"
+        body = f"Hello, {inst.title()}!"
         body += "\nWe have a new set of potential classes for you to teach, and we are"
         body += " looking for your confirmation:\n\n"
         body += "\n".join(formatted)
