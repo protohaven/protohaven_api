@@ -13,6 +13,10 @@ from protohaven_api.rbac import Role, get_roles, require_login_role
 page = Blueprint("instructor", __name__, template_folder="templates")
 
 
+HIDE_UNCONFIRMED_DAYS_AHEAD = 10
+HIDE_CONFIRMED_DAYS_AFTER = 10
+
+
 def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     instructor,
     start_date,
@@ -80,6 +84,32 @@ def instructor_class_selector():
     return redirect("/instructor/class")
 
 
+def get_dashboard_schedule_sorted(email):
+    sched = []
+    tz = pytz.timezone("US/Eastern")
+    now = datetime.datetime.now().astimezone(tz)
+    age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
+    confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
+    for s in airtable.get_class_automation_schedule():
+        if s["fields"]["Email"].lower() != email:
+            continue
+
+        start_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(tz)
+        end_date = start_date + datetime.timedelta(
+            days=7 * (s["fields"]["Days (from Class)"][0] - 1)
+        )
+        confirmed = s["fields"].get("Confirmed", None) is not None
+        if confirmed and end_date <= age_out_thresh:
+            continue
+        elif not confirmed and start_date <= confirmation_thresh:
+            continue
+        else:
+            s["fields"]["_id"] = s["id"]
+            sched.append([s["id"], s["fields"]])
+    sched.sort(key=lambda s: s[1]["Start Time"])
+    return sched
+
+
 @page.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class():
@@ -92,19 +122,7 @@ def instructor_class():
     else:
         email = user_email()
     email = email.lower()
-    sched = []
-    tz = pytz.timezone("US/Eastern")
-    age_out_thresh = datetime.datetime.now().astimezone(tz) - datetime.timedelta(
-        days=10
-    )
-    for s in airtable.get_class_automation_schedule():
-        end_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(
-            tz
-        ) + datetime.timedelta(days=7 * (s["fields"]["Days (from Class)"][0] - 1))
-        if s["fields"]["Email"].lower() == email and end_date > age_out_thresh:
-            s["fields"]["_id"] = s["id"]
-            sched.append([s["id"], s["fields"]])
-    sched.sort(key=lambda s: s[1]["Start Time"])
+    sched = get_dashboard_schedule_sorted()
     for _, e in sched:
         date = dateparser.parse(e["Start Time"]).astimezone(tz)
 
@@ -130,11 +148,19 @@ def instructor_class():
         for _ in range(e["Days (from Class)"][0]):
             e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
             date += datetime.timedelta(days=7)
+
+    # Look up the name on file in the capabilities list - this is used to match
+    # on manually entered calendar availability
+    caps_name = {v: k for k, v in airtable.get_instructor_email_map().items()}.get(
+        email, "<NOT FOUND>"
+    )
+
     return render_template(
         "instructor_class.html",
         schedule=sched,
         now=datetime.datetime.now(),
         email=email,
+        name=caps_name,
     )
 
 

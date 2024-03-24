@@ -104,7 +104,7 @@ def fetch_instructor_teachable_classes():
     for row in get_all_records("class_automation", "capabilities"):
         if not row["fields"].get("Instructor"):
             continue
-        inst = row["fields"]["Instructor"].strip()
+        inst = row["fields"]["Instructor"].strip().lower()
         if "Class" in row["fields"].keys():
             instructor_caps[inst] += row["fields"]["Class"]
     return instructor_caps

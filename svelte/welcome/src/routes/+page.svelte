@@ -29,7 +29,7 @@
 	}
 
   async function do_post() {
-    return await fetch('http://localhost:5000/welcome', {
+    return await fetch('https://api.protohaven.org/welcome', {
       method: 'POST',
       body: JSON.stringify({email, person, waiver_ack, dependent_info, referrer}),
       headers: {

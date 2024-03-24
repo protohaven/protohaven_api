@@ -104,11 +104,12 @@ def solve(
     possible_assignments = []
     for instructor in instructors:
         for t in instructor.avail:
-            for cls in instructor.caps:
+            for airtable_id in instructor.caps:
                 # Skip if assignment is too recent
-                cbid = class_by_id[cls]
+                cbid = class_by_id[airtable_id]
                 if t < cbid.last_run + datetime.timedelta(days=30 * cbid.period):
                     continue
+
                 # Skip if area already occupied
                 if has_area_conflict(
                     area_occupancy.get(cbid.area, []),
@@ -116,15 +117,14 @@ def solve(
                     t + datetime.timedelta(hours=cbid.hours),
                 ):
                     continue
-                possible_assignments.append((cls, instructor.name, t))
+
+                possible_assignments.append((airtable_id, instructor.name, t))
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
 
     x = pulp.LpVariable.dicts(
         "ClassAssignedToInstructorAtTime",
         possible_assignments,
-        lowBound=0,
-        upBound=1,
-        cat=pulp_constants.LpInteger,
+        cat="Binary",
     )
 
     # Model formulation
@@ -134,11 +134,11 @@ def solve(
     prob += (
         pulp.lpSum(
             [
-                class_by_id[cls].score * x[(cls, instructor.name, t)]
+                class_by_id[airtable_id].score * x[(airtable_id, instructor.name, t)]
                 for instructor in instructors
-                for cls in instructor.caps
+                for airtable_id in instructor.caps
                 for t in instructor.avail
-                if x.get((cls, instructor.name, t))
+                if x.get((airtable_id, instructor.name, t))
                 is not None  # some assignments filtered
             ]
         ),
@@ -156,12 +156,12 @@ def solve(
     for a in areas:
         for t in times:
             area_assigned_times = pulp.lpSum(
-                [x[cls, instructor.name, t]]
+                [x[airtable_id, instructor.name, t]]
                 for instructor in instructors
-                for cls in instructor.caps
+                for airtable_id in instructor.caps
                 if t in instructor.avail
-                and class_areas[cls] == a
-                and x.get((cls, instructor.name, t)) is not None
+                and class_areas[airtable_id] == a
+                and x.get((airtable_id, instructor.name, t)) is not None
             )
             prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
 
@@ -173,10 +173,9 @@ def solve(
                 for instructor in instructors
                 for t in instructor.avail
                 if cls.airtable_id in instructor.caps
-                and x.get((cls, instructor.name, t)) is not None
+                and x.get((cls.airtable_id, instructor.name, t)) is not None
             ]
         )
-        print(type(class_assigned_count <= 1))
         prob += (
             class_assigned_count <= 1
         ), f"NoDuplicatesRequirement_{cls.airtable_id}"
@@ -194,7 +193,8 @@ def solve(
                 [
                     x[(cls.airtable_id, p, t)]
                     for p in names
-                    if cls in instructors_by_name[p].caps
+                    if cls.airtable_id in instructors_by_name[p].caps
+                    and x.get((cls.airtable_id, p, t)) is not None
                 ]
             )
             prob += (
@@ -206,10 +206,10 @@ def solve(
     for instructor in instructors:
         assigned_load = pulp.lpSum(
             [
-                x[(cls, instructor.name, t)]
-                for cls in instructor.caps
+                x[(airtable_id, instructor.name, t)]
+                for airtable_id in instructor.caps
                 for t in instructor.avail
-                if x.get((cls, instructor.name, t)) is not None
+                if x.get((airtable_id, instructor.name, t)) is not None
             ]
         )
         prob += (
@@ -227,28 +227,28 @@ def solve(
         else:
             log.warning(
                 f"Instructor {instructor.name} has only {len(instructor.avail)} available "
-                "times and {len(instructor.caps)} classes to teach - they may not be scheduled"
+                f"times and {len(instructor.caps)} classes to teach - they may not be scheduled"
             )
 
     # ==== Run the solver and compute stats ====
     prob.solve()
     instructor_classes = defaultdict(list)
     final_score = sum(
-        class_by_id[cls].score
+        class_by_id[airtable_id].score
         for instructor in instructors
-        for cls in instructor.caps
+        for airtable_id in instructor.caps
         for t in instructor.avail
-        if x.get((cls, instructor.name, t)) is not None
-        and x[(cls, instructor.name, t)].value() == 1
+        if x.get((airtable_id, instructor.name, t)) is not None
+        and x[(airtable_id, instructor.name, t)].value() == 1
     )
 
     for instructor in instructors:
-        for cls in instructor.caps:
+        for airtable_id in instructor.caps:
             for t in instructor.avail:
-                if x.get((cls, instructor.name, t)) is None:
+                if x.get((airtable_id, instructor.name, t)) is None:
                     continue
-                if x[(cls, instructor.name, t)].value() == 1:
+                if x[(airtable_id, instructor.name, t)].value() == 1:
                     instructor_classes[instructor.name].append(
-                        [cls, class_by_id[cls].name, t.isoformat()]
+                        [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
                     )
     return (dict(instructor_classes), final_score)
