@@ -16,6 +16,8 @@ page = Blueprint("instructor", __name__, template_folder="templates")
 HIDE_UNCONFIRMED_DAYS_AHEAD = 10
 HIDE_CONFIRMED_DAYS_AFTER = 10
 
+tz = pytz.timezone("US/Eastern")
+
 
 def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     instructor,
@@ -85,8 +87,10 @@ def instructor_class_selector():
 
 
 def get_dashboard_schedule_sorted(email):
+    """Fetches the instructor availability schedule for an individual instructor.
+    Excludes unconfirmed classes sooner than HIDE_UNCONFIRMED_DAYS_AHEAD
+    as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
     sched = []
-    tz = pytz.timezone("US/Eastern")
     now = datetime.datetime.now().astimezone(tz)
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
@@ -101,11 +105,12 @@ def get_dashboard_schedule_sorted(email):
         confirmed = s["fields"].get("Confirmed", None) is not None
         if confirmed and end_date <= age_out_thresh:
             continue
-        elif not confirmed and start_date <= confirmation_thresh:
+        if not confirmed and start_date <= confirmation_thresh:
             continue
-        else:
-            s["fields"]["_id"] = s["id"]
-            sched.append([s["id"], s["fields"]])
+
+        s["fields"]["_id"] = s["id"]
+        sched.append([s["id"], s["fields"]])
+
     sched.sort(key=lambda s: s[1]["Start Time"])
     return sched
 
@@ -122,7 +127,7 @@ def instructor_class():
     else:
         email = user_email()
     email = email.lower()
-    sched = get_dashboard_schedule_sorted()
+    sched = get_dashboard_schedule_sorted(email)
     for _, e in sched:
         date = dateparser.parse(e["Start Time"]).astimezone(tz)
 

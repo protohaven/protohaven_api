@@ -59,6 +59,48 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
+def _build_instructor(k, v, caps, load, exclude_holidays=True):
+    """Create and return an Instructor object given a name and [(start,end)] style schedule"""
+    avail = []
+    for a, b in v:
+        a = dateparser.parse(a).replace(tzinfo=tz)
+        b = dateparser.parse(b).replace(tzinfo=tz)
+        avail += slice_date_range(a, b)
+
+    if exclude_holidays:
+        # Pylint seems to think `US()` doesn't exist. It may be dynamically loaded?
+        us_holidays = holidays.US()  # pylint: disable=no-member
+        avail = [a for a in avail if a not in us_holidays]
+
+    return Instructor(name=k, caps=caps, load=load, avail=avail)
+
+
+def _gen_class_and_area_stats(cur_sched, start_date, end_date):
+    """Build a map of when each class in the current schedule was last run, plus
+    a list of time swhere areas are occupied, within the bounds of start_date and end_date
+    """
+    last_run = defaultdict(
+        lambda: datetime.datetime(year=2001, month=1, day=1).astimezone(tz)
+    )
+    area_occupancy = defaultdict(list)
+    for c in cur_sched:
+        t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
+        last_run[c["fields"]["Class"][0]] = max(last_run[c["id"]], t)
+        for i in range(c["fields"]["Days (from Class)"][0]):
+            ao = [
+                t + datetime.timedelta(days=7 * i),
+                t
+                + datetime.timedelta(
+                    days=7 * i, hours=c["fields"]["Hours (from Class)"][0]
+                ),
+            ]
+            if date_range_overlaps(ao[0], ao[1], start_date, end_date):
+                area_occupancy[c["fields"]["Area (from Class)"][0]].append(ao)
+    for v in area_occupancy.values():
+        v.sort(key=lambda o: o[1])
+    return last_run, area_occupancy
+
+
 def generate_env(
     start_date, end_date, instructor_filter=None, exclude_holidays=True
 ):  # pylint: disable=too-many-locals
@@ -80,37 +122,25 @@ def generate_env(
     if exclude_holidays:
         log.info("Instructor availability that falls on US holidays will be ignored")
     else:
-        log.warn(
+        log.warning(
             "Instructor availability that falls on US holidays will NOT be ignored"
         )
 
     for k, v in sched_formatted.items():
         k = k.lower()
-        log.info(f"Handling {k}")
-        if len(instructor_caps[k]) == 0:
-            log.warning(
-                f"Instructor {k} has no capabilities listed in Airtable and will be skipped (schedule: {v})"
-            )
-            skipped += 1
-            continue
-
         if instructor_filter is not None and k not in instructor_filter:
             log.info(f"Skipping instructor {k} (not in filter)")
             continue
-
-        avail = []
-        for a, b in v:
-            a = dateparser.parse(a).replace(tzinfo=tz)
-            b = dateparser.parse(b).replace(tzinfo=tz)
-            avail += slice_date_range(a, b)
-
-        if exclude_holidays:
-            us_holidays = holidays.US()
-            avail = [a for a in avail if a not in us_holidays]
-
-        instructors.append(
-            Instructor(name=k, caps=instructor_caps[k], load=max_loads[k], avail=avail)
-        )
+        log.info(f"Handling {k}")
+        caps = instructor_caps.get(k, [])
+        if len(instructor_caps[k]) == 0:
+            log.warning(
+                f"Instructor {k} has no capabilities listed in Airtable "
+                f"and will be skipped (schedule: {v})"
+            )
+            skipped += 1
+            continue
+        instructors.append(_build_instructor(k, v, caps, max_loads[k]))
 
     if skipped > 0:
         log.warning(
@@ -119,25 +149,9 @@ def generate_env(
         )
 
     # Filter out any classes that have/will run too recently
-    last_run = defaultdict(
-        lambda: datetime.datetime(year=2001, month=1, day=1).astimezone(tz)
+    last_run, area_occupancy = _gen_class_and_area_stats(
+        cur_sched, start_date, end_date
     )
-    area_occupancy = defaultdict(list)
-    for c in cur_sched:
-        t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
-        last_run[c["fields"]["Class"][0]] = max(last_run[c["id"]], t)
-        for i in range(c["fields"]["Days (from Class)"][0]):
-            ao = [
-                t + datetime.timedelta(days=7 * i),
-                t
-                + datetime.timedelta(
-                    days=7 * i, hours=c["fields"]["Hours (from Class)"][0]
-                ),
-            ]
-            if date_range_overlaps(ao[0], ao[1], start_date, end_date):
-                area_occupancy[c["fields"]["Area (from Class)"][0]].append(ao)
-    for v in area_occupancy.values():
-        v.sort(key=lambda o: o[1])
     log.info(f"Computed last runtime of {len(last_run)} different classes")
     log.info(f"Computed occupancy of {len(area_occupancy)} different areas")
 
@@ -163,7 +177,8 @@ def generate_env(
     unavailable = set(instructor_caps.keys()) - {i.name for i in instructors}
     if len(unavailable) > 0:
         log.warning(
-            f"{len(unavailable)} instructor(s) with caps are not present in the final list: {unavailable}"
+            f"{len(unavailable)} instructor(s) with caps are not "
+            f"present in the final list: {unavailable}"
         )
 
     # Regardless of capabilities, the class must also be set as schedulable
