@@ -2,11 +2,11 @@
 import datetime
 import json
 
-import pytz
 from dateutil import parser as dateparser
 from flask import Blueprint, render_template, request, session
 from flask_cors import cross_origin
 
+from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.forms import submit_google_form
@@ -147,7 +147,6 @@ def events_dashboard_attendee_count():
 def events_dashboard():
     """Show relevant upcoming events - designed for a kiosk display"""
     events = []
-    tz = pytz.timezone("EST")
     now = datetime.datetime.now().astimezone(tz)
     # NOTE: does not currently support intensive date periods. Need to expand
     # dates to properly show this.

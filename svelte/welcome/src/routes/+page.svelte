@@ -38,6 +38,16 @@
     });
   }
 
+
+  function restart_flow() {
+    email = null;
+    person = 'member';
+    waiver_ack = false;
+    referrer = '';
+    feedback = null;
+    state = 'splash';
+  }
+
   function on_signin_return(survey_response) {
     if (survey_response) {
       referrer = survey_response;
@@ -48,11 +58,7 @@
     if (person == 'guest') {
       do_post();
     }
-    email = null;
-    waiver_ack = false;
-    referrer = '';
-    feedback = null;
-    state = 'splash';
+    restart_flow();
   }
 
   async function submit() {
@@ -92,7 +98,7 @@
     {:else if state == 'waiver' }
       <Waiver name={name} on_submit={waiver_agreed} checking={checking}/>
     {:else if state == 'membership_expired' }
-      <MembershipExpired name={name} on_close={() => {state = 'splash'}}/>
+      <MembershipExpired name={name} on_close={restart_flow}/>
     {:else if state == 'signin_ok'}
       <SigninOk {name} guest={person == 'guest'} on_close={on_signin_return}/>
     {/if}

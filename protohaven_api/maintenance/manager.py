@@ -2,13 +2,12 @@
 import datetime
 import logging
 
-import pytz
 from dateutil import parser as dateparser
 
+from protohaven_api.config import tz
 from protohaven_api.integrations import airtable, tasks
 from protohaven_api.maintenance import comms as mcomms
 
-tz = pytz.timezone("EST")
 log = logging.getLogger("maintenance.manager")
 
 

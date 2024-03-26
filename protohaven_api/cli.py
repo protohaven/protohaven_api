@@ -9,7 +9,6 @@ import re
 import sys
 from collections import defaultdict
 
-import pytz
 import yaml
 from dateutil import parser as dateparser
 
@@ -18,7 +17,7 @@ from protohaven_api.class_automation.builder import (
     ClassEmailBuilder,
     gen_calendar_reminders,
 )
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tz
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
@@ -33,8 +32,6 @@ log = logging.getLogger("cli")
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
 log.info(f"Mode is {server_mode}\n")
 init_connector(dev=server_mode != "prod")
-
-tz = pytz.timezone("EST")
 
 
 def send_hours_submission_reminders(dry_run=True):

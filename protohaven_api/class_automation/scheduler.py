@@ -4,7 +4,6 @@ import logging
 from collections import defaultdict
 
 import holidays
-import pytz
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation.solver import (
@@ -13,11 +12,11 @@ from protohaven_api.class_automation.solver import (
     date_range_overlaps,
     solve,
 )
+from protohaven_api.config import tz
 from protohaven_api.integrations import airtable
 from protohaven_api.integrations.schedule import fetch_instructor_schedules
 
 log = logging.getLogger("class_automation.scheduler")
-tz = pytz.timezone("EST")
 
 
 def fetch_formatted_schedule(time_min, time_max):
@@ -205,7 +204,7 @@ def solve_with_env(env):
 def format_class(cls):
     """Convert a class into bulleted representation, for email summary"""
     _, name, date = cls
-    start = dateparser.parse(date).astimezone(pytz.timezone("EST"))
+    start = dateparser.parse(date).astimezone(tz)
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 

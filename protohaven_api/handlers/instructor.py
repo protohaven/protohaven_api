@@ -2,10 +2,10 @@
 import datetime
 from collections import defaultdict
 
-import pytz
 from dateutil import parser as dateparser
 from flask import Blueprint, redirect, render_template, request
 
+from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email
 from protohaven_api.integrations import airtable, neon, schedule
 from protohaven_api.rbac import Role, get_roles, require_login_role
@@ -15,8 +15,6 @@ page = Blueprint("instructor", __name__, template_folder="templates")
 
 HIDE_UNCONFIRMED_DAYS_AHEAD = 10
 HIDE_CONFIRMED_DAYS_AFTER = 10
-
-tz = pytz.timezone("US/Eastern")
 
 
 def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
