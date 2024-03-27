@@ -8,24 +8,13 @@ from pathlib import Path
 
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation import email_templates as tmpl
-from protohaven_api.integrations.airtable import (
-    get_class_automation_schedule,
-    get_emails_notified_after,
-    get_instructor_email_map,
-)
-from protohaven_api.integrations.neon import (
-    fetch_account,
-    fetch_attendees,
-    fetch_published_upcoming_events,
-)
+from protohaven_api.class_automation import comms
+from protohaven_api.integrations import airtable, neon
 
 
 def get_account_email(account_id):
     """Gets the matching email for a Neon account, by ID"""
-    content = fetch_account(account_id)
-    if isinstance(content, list):
-        raise RuntimeError(content)
+    content = neon.fetch_account(account_id)
     content = content.get("individualAccount", None) or content.get("companyAccount")
     content = content.get("primaryContact", {})
     return content.get("email1") or content.get("email2") or content.get("email3")
@@ -40,8 +29,8 @@ def gen_calendar_reminders(start, end):
     summary[""]["name"] = "Availability calendar reminder"
     summary[""]["action"].add("SEND")
 
-    for name, email in get_instructor_email_map().items():
-        subject, body = tmpl.email_instructor_update_calendar(name, start, end)
+    for name, email in airtable.get_instructor_email_map().items():
+        subject, body = comms.instructor_update_calendar(name, start, end)
         results.append(
             {
                 "id": "",
@@ -52,7 +41,7 @@ def gen_calendar_reminders(start, end):
         )
         summary[""]["targets"].add(email)
 
-    subject, body = tmpl.automation_summary_msg(
+    subject, body = comms.automation_summary(
         {"id": "N/A", "name": "summary", "events": summary}
     )
     results.append(
@@ -89,7 +78,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
         self.output = []  # [{target, subject, body}]
 
-        self.email_map = get_instructor_email_map()
+        self.email_map = airtable.get_instructor_email_map()
         self.log.info(f"Fetched {len(self.email_map)} instructor emails")
 
         self.cached = False
@@ -111,12 +100,12 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 f"Skipping cache; more than {self.CACHE_EXPIRY_HOURS} hour(s) old"
             )
 
-        self.events = list(fetch_published_upcoming_events())
+        self.events = list(neon.fetch_published_upcoming_events())
         self.log.info(f"Fetched {len(self.events)} events fron Neon")
         self.log.debug(" - ".join([e["name"] for e in self.events]))
         self.log.debug(f"example data:\n{self.events[0]}")
 
-        airtable_schedule = get_class_automation_schedule()
+        airtable_schedule = airtable.get_class_automation_schedule()
         self.airtable_schedule = {
             s["fields"]["Neon ID"]: s
             for s in airtable_schedule
@@ -183,7 +172,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         # Only operate on attendees that successfully registered
         evt["attendees"] = [
             a
-            for a in fetch_attendees(evt["id"])
+            for a in neon.fetch_attendees(evt["id"])
             if a["registrationStatus"] == "SUCCEEDED"
         ]
         if evt["capacity"] is None:
@@ -254,19 +243,27 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if neon_id in self.confirm_ovr:
             self.push_class(evt, "CONFIRM", "override")
         elif now > evt["python_date_end"]:
-            evt["already_notified"] = get_emails_notified_after(neon_id, date)
+            evt["already_notified"] = airtable.get_emails_notified_after(neon_id, date)
             self.handle_after(evt)
         elif now >= prior_day:
-            evt["already_notified"] = get_emails_notified_after(neon_id, prior_day)
+            evt["already_notified"] = airtable.get_emails_notified_after(
+                neon_id, prior_day
+            )
             self.handle_day_before(evt)
         elif now >= prior_3days:
-            evt["already_notified"] = get_emails_notified_after(neon_id, prior_3days)
+            evt["already_notified"] = airtable.get_emails_notified_after(
+                neon_id, prior_3days
+            )
             self.handle_3days_before(evt)
         elif now >= prior_week:
-            evt["already_notified"] = get_emails_notified_after(neon_id, prior_week)
+            evt["already_notified"] = airtable.get_emails_notified_after(
+                neon_id, prior_week
+            )
             self.handle_week_before(evt)
         elif now >= prior_10days:
-            evt["already_notified"] = get_emails_notified_after(neon_id, prior_10days)
+            evt["already_notified"] = airtable.get_emails_notified_after(
+                neon_id, prior_10days
+            )
             self.handle_10days_before(evt)
         else:
             self.log.info(
@@ -302,7 +299,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self._append(
                 "NOTIFY_TECHS",
                 "#techs",
-                tmpl.techs_openings_msg,
+                comms.techs_openings,
                 {"id": "multiple", "name": "multiple", "events": filtered},
             )
 
@@ -329,15 +326,15 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if action == "LOW_ATTENDANCE_3DAYS":
             pass  # Hold off on this for now
         elif action in ("LOW_ATTENDANCE_7DAYS"):
-            self._append(action, target, tmpl.instructor_low_attendance_email, evt)
+            self._append(action, target, comms.instructor_low_attendance, evt)
         elif action == "SUPPLY_CHECK_NEEDED":
-            self._append(action, target, tmpl.instructor_check_supplies_email, evt)
+            self._append(action, target, comms.instructor_check_supplies, evt)
         elif action == "CONFIRM":
-            self._append(action, target, tmpl.instructor_class_confirmed_email, evt)
+            self._append(action, target, comms.instructor_class_confirmed, evt)
         elif action == "CANCEL":
-            self._append(action, target, tmpl.instructor_class_cancelled_email, evt)
+            self._append(action, target, comms.instructor_class_cancelled, evt)
         elif action == "POST_RUN_SURVEY":
-            self._append(action, target, tmpl.instructor_log_reminder_email, evt)
+            self._append(action, target, comms.instructor_log_reminder, evt)
         else:
             raise RuntimeError("Unhandled instructor action:" + action)
 
@@ -358,13 +355,11 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if action in ("LOW_ATTENDANCE_7DAYS", "LOW_ATTENDANCE_3DAYS"):
             pass  # Attendees are not worried by low attendance emails
         elif action == "CONFIRM":
-            self._append(action, target, tmpl.registrant_class_confirmed_email, evt, a)
+            self._append(action, target, comms.registrant_class_confirmed, evt, a)
         elif action == "CANCEL":
-            self._append(action, target, tmpl.registrant_class_cancelled_email, evt, a)
+            self._append(action, target, comms.registrant_class_cancelled, evt, a)
         elif action == "POST_RUN_SURVEY":
-            self._append(
-                action, target, tmpl.registrant_post_class_survey_email, evt, a
-            )
+            self._append(action, target, comms.registrant_post_class_survey, evt, a)
 
     def build(self, now=None):  # pylint: disable=too-many-branches
         """Build all notifications and return them in a list"""
@@ -435,7 +430,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self._append(
                 "SUMMARY",
                 "#class-automation",
-                tmpl.automation_summary_msg,
+                comms.automation_summary,
                 {"id": "N/A", "name": "summary", "events": self.summary},
             )
 

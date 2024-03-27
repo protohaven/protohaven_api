@@ -262,7 +262,8 @@ def set_clearances(user_id, codes):
 
 
 def fetch_account(account_id):
-    """Fetches account information for a specific user in Neon"""
+    """Fetches account information for a specific user in Neon.
+    Raises RuntimeError if an error is returned from the server"""
     _, content = get_connector().neon_request(
         cfg("api_key1"), f"https://api.neoncrm.com/v2/accounts/{account_id}"
     )

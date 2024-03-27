@@ -163,16 +163,18 @@ def events_dashboard():
                 e["endDate"] + " " + (e.get("endTime") or "")
             ).astimezone(tz)
 
-            # Only include events that haven't ended or are too far in the future
-            if end < now or start > now + datetime.timedelta(days=7):
+            # Only include events that haven't ended
+            if end < now:
                 continue
             events.append(
                 {
                     "id": e["id"],
                     "name": e["name"],
                     "date": start,
-                    "start": start.strftime("%a %b %d %-I:%M %p"),
-                    "end": end.strftime("%a %b %d %-I:%M %p"),
+                    "start_date": start.strftime("%a %b %d"),
+                    "start_time": start.strftime("%-I:%M %p"),
+                    "end_date": end.strftime("%a %b %d"),
+                    "end_time": end.strftime("%-I:%M %p"),
                     "capacity": e["capacity"],
                     "registration": e["enableEventRegistrationForm"]
                     and start - datetime.timedelta(hours=24) > now,
@@ -187,9 +189,8 @@ def events_dashboard():
     for e, dates in fetch_shop_events().items():
         for start, end in dates:
             start = dateparser.parse(start)
-            if start > now + datetime.timedelta(days=7):
-                continue
             shop_events.append((e, start))
+    shop_events.sort(key=lambda v: v[1])
 
     reservations = []
     for r in get_reservations(
@@ -209,10 +210,12 @@ def events_dashboard():
             }
         )
     print(reservations)
+    now = tz.localize(datetime.datetime.now())
     return render_template(
         "events.html",
         events=events,
         shop_events=shop_events,
         reservations=reservations,
-        now=datetime.datetime.now().astimezone(tz),
+        now=now,
+        hide_events_after=now + datetime.timedelta(days=7),
     )

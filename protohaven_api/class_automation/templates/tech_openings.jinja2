@@ -1,0 +1,6 @@
+Hey @Techs - there's {{n}} class{% if n != 1%}es{% endif %} available for backfill in the next 24 hours:
+{% for evt in events %}
+ - {{evt.startDate}} {{evt.startTime}} - {{evt.name}} ({{evt.avail}} seat{% if evt.avail != 1 %}s{% endif %} available): https://protohaven.app.neoncrm.com/eventReg.jsp?event={{evt.id}}&
+{% endfor %}
+
+Reply to this message if you're interested in filling a slot. First come, first served!

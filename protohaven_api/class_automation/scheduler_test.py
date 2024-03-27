@@ -2,19 +2,23 @@
 
 import datetime
 
+import pytz
+
 from protohaven_api.class_automation import scheduler
+from protohaven_api.config import tz
 
 
 def t(hour, weekday=0):
     """Create a datetime object from hour and weekday"""
-    return datetime.datetime(
-        year=2024,
-        month=11,
-        day=4 + weekday,
-        hour=hour,
-        minute=0,
-        second=0,
-        tzinfo=scheduler.tz,
+    return tz.localize(
+        datetime.datetime(
+            year=2024,
+            month=11,
+            day=4 + weekday,
+            hour=hour,
+            minute=0,
+            second=0,
+        )
     )
 
 
@@ -36,16 +40,14 @@ def test_slice_date_range():
 
 def test_slice_date_range_tzinfo():
     """Confirm daylight savings is observed for US/Eastern, regardless of incoming time zone info"""
-    import pytz
-
-    tz = pytz.timezone("EST")  # Force incorrect DST on input dates
+    tz2 = pytz.timezone("EST")  # Force incorrect DST on input dates
     pre_dst = scheduler.slice_date_range(
-        datetime.datetime(year=2024, month=3, day=4, hour=00, tzinfo=tz),
-        datetime.datetime(year=2024, month=3, day=5, hour=23, tzinfo=tz),
+        datetime.datetime(year=2024, month=3, day=4, hour=00, tzinfo=tz2),
+        datetime.datetime(year=2024, month=3, day=5, hour=23, tzinfo=tz2),
     )[0]
     post_dst = scheduler.slice_date_range(
-        datetime.datetime(year=2024, month=3, day=12, hour=00, tzinfo=tz),
-        datetime.datetime(year=2024, month=3, day=14, hour=23, tzinfo=tz),
+        datetime.datetime(year=2024, month=3, day=12, hour=00, tzinfo=tz2),
+        datetime.datetime(year=2024, month=3, day=14, hour=23, tzinfo=tz2),
     )[1]
     assert [
         pre_dst.isoformat().rsplit("-")[-1],
