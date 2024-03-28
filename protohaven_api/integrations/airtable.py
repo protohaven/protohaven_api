@@ -5,6 +5,8 @@ import logging
 from collections import defaultdict
 from functools import cache
 
+from dateutil import parser as dateparser
+
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
@@ -78,12 +80,15 @@ def get_class_automation_schedule():
 
 
 def get_emails_notified_after(neon_id: str, after_date):
-    """Gets all logged emails that were sent after a specific date"""
-    emails = set()
+    """Gets all logged emails that were sent after a specific date,
+    including their date of ontification"""
+    emails = defaultdict(list)
     for row in get_all_records_after("class_automation", "email_log", after_date):
         if row["fields"].get("Neon ID", "") != str(neon_id):
             continue
-        emails.add(row["fields"]["To"].lower())
+        emails[row["fields"]["To"].lower()].append(
+            dateparser.parse(row["fields"]["Created"])
+        )
     return emails
 
 

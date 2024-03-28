@@ -78,8 +78,13 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.actionable_classes = []  # (evt, action)
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
         self.output = []  # [{target, subject, body}]
-
+        self.events = []
+        self.airtable_schedule = {}
         self.cached = False
+
+    def fetch_and_aggregate_data(self, now):
+        """Fetches and aggregates data from Neon and Airtable to use in notifying
+        instructors and attendees about class status"""
         if Path(self.CACHE_FILE).exists() and self.use_cache:
             self.log.debug(f"Loading from cache {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "rb") as f:
@@ -115,6 +120,36 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         )
         if len(self.airtable_schedule) > 0:
             self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
+
+        self.log.info("Sorting events...")
+        for evt in self.events:
+            try:
+                self._sort_event_for_notification(evt, now)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to sort event {evt['id']} - {evt['name']}"
+                ) from e
+
+        self.log.info(f"{len(self.for_techs)} classes available for techs")
+        for e in self.for_techs:
+            self.log.info(
+                f" - {e['id']} {e['name']} ({e['signups']} / {e['capacity']} seats filled)"
+            )
+        self.log.info(f"{len(self.actionable_classes)} Actionable classes")
+        for e, action in self.actionable_classes:
+            self.log.info(f" - {action} - {e['id']} {e['name']}")
+
+        if not self.cached and self.use_cache:
+            self.log.info(f"Sorting complete, caching result in {self.CACHE_FILE}")
+            with open(self.CACHE_FILE, "wb") as f:
+                pickle.dump(
+                    {
+                        "date": now,
+                        "events": self.events,
+                        "schedule": self.airtable_schedule,
+                    },
+                    f,
+                )
 
     def push_class(self, evt, action, reason):
         """Push a class onto the actionable list. It'll later be used in email templates"""
@@ -186,8 +221,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             a["email"] = email.lower()
             self.log.debug(f" - {a['firstName']} {a['lastName']} ({a['email']}) : {a}")
 
-        evt["unique"] = {a["attendeeId"] for a in evt["attendees"]}
-        evt["signups"] = len(evt["unique"])
+        evt["signups"] = len(
+            {a["attendeeId"] for a in evt["attendees"]}
+        )  # unique attendees
         evt["occupancy"] = (
             0 if evt["capacity"] == 0 else evt["signups"] / evt["capacity"]
         )
@@ -207,7 +243,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         )
         evt["supply_state"] = sched.get("Supply State")
 
-        evt["already_notified"] = []  # assigned during sort
+        notify_thresh = evt["python_date"] - datetime.timedelta(days=14)
+        evt["already_notified"] = airtable.get_emails_notified_after(
+            evt["id"], notify_thresh
+        )
         return evt
 
     def _sort_event_for_notification(
@@ -243,34 +282,20 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if neon_id in self.confirm_ovr:
             self.push_class(evt, "CONFIRM", "override")
         elif now > evt["python_date_end"]:
-            evt["already_notified"] = airtable.get_emails_notified_after(neon_id, date)
             self.handle_after(evt)
         elif now >= prior_day:
-            evt["already_notified"] = airtable.get_emails_notified_after(
-                neon_id, prior_day
-            )
             self.handle_day_before(evt)
         elif now >= prior_3days:
-            evt["already_notified"] = airtable.get_emails_notified_after(
-                neon_id, prior_3days
-            )
             self.handle_3days_before(evt)
         elif now >= prior_week:
-            evt["already_notified"] = airtable.get_emails_notified_after(
-                neon_id, prior_week
-            )
             self.handle_week_before(evt)
         elif now >= prior_10days:
-            evt["already_notified"] = airtable.get_emails_notified_after(
-                neon_id, prior_10days
-            )
             self.handle_10days_before(evt)
         else:
             self.log.info(
                 f"IGNORE ({(date - now).days} day(s) out; too far): {evt['name']}"
             )
             return
-        evt["already_notified"] = [an.lower() for an in evt["already_notified"]]
 
     def _append(self, action, target, fn, evt, *args):
         """Append notification details onto the `output` list"""
@@ -305,6 +330,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def _build_instructor_notification(self, evt, action):
         """Build notification for instructors about `evt`"""
+        if len(evt["already_notified"]) > 0:
+            raise RuntimeError(
+                "Need to adjust already_notified to check based on the time value!!!"
+            )
         if evt["instructor_email"] in evt["already_notified"]:
             self.log.debug(
                 f"Skipping email to instructor {evt['instructor_firstname']}; already notified"
@@ -324,7 +353,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             return
         target = f"Instructor ({evt['instructor_email']})"
         if action == "LOW_ATTENDANCE_3DAYS":
-            pass  # Hold off on this for now
+            self.log.debug(
+                "Holding off on 3-day low attendance notification (not implemented)"
+            )
         elif action in ("LOW_ATTENDANCE_7DAYS"):
             self._append(action, target, comms.instructor_low_attendance, evt)
         elif action == "SUPPLY_CHECK_NEEDED":
@@ -365,36 +396,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         """Build all notifications and return them in a list"""
         if now is None:
             now = datetime.datetime.now()
-
-        self.log.info("Sorting events...")
-        for evt in self.events:
-            try:
-                self._sort_event_for_notification(evt, now)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to sort event {evt['id']} - {evt['name']}"
-                ) from e
-
-        self.log.info(f"{len(self.for_techs)} classes available for techs")
-        for e in self.for_techs:
-            self.log.info(
-                f" - {e['id']} {e['name']} ({e['signups']} / {e['capacity']} seats filled)"
-            )
-        self.log.info(f"{len(self.actionable_classes)} Actionable classes")
-        for e, action in self.actionable_classes:
-            self.log.info(f" - {action} - {e['id']} {e['name']}")
-
-        if not self.cached and self.use_cache:
-            self.log.info(f"Sorting complete, caching result in {self.CACHE_FILE}")
-            with open(self.CACHE_FILE, "wb") as f:
-                pickle.dump(
-                    {
-                        "date": now,
-                        "events": self.events,
-                        "schedule": self.airtable_schedule,
-                    },
-                    f,
-                )
+        self.fetch_and_aggregate_data(now)
 
         events_missing_email = [
             (evt["id"], evt["name"], evt["python_date"])

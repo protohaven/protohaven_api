@@ -62,7 +62,6 @@ def _mock_builder(  # pylint: disable=too-many-arguments
     fetch_attendees_fn=lambda _id: [],
     emails_notified_after_fn=lambda _neon_id, _date: [],
     get_account_email_fn=lambda _id: None,
-    now=TEST_NOW,
 ):
     mocker.patch(
         "protohaven_api.integrations.airtable.get_class_automation_schedule",
@@ -85,14 +84,8 @@ def _mock_builder(  # pylint: disable=too-many-arguments
         side_effect=emails_notified_after_fn,
     )
 
-    # Discard message body for all built messages (tested elsewhere)
-    return [
-        {"id": r["id"], "target": r["target"], "subject": r["subject"]}
-        for r in builder.ClassEmailBuilder(use_cache=False).build(now)
-    ]
 
-
-def _mock_builder_singles(mocker, airtable_fields, neon_event, now=TEST_NOW):
+def _mock_builder_singles(mocker, airtable_fields, neon_event):
     """Mocks out neon and airtable to return a single event with a single attendee"""
     return _mock_builder(
         mocker,
@@ -108,42 +101,164 @@ def _mock_builder_singles(mocker, airtable_fields, neon_event, now=TEST_NOW):
             }
         ],
         get_account_email_fn=lambda _id: "test@attendee.com",
-        now=now,
     )
 
 
-def test_builder_empty(mocker):
+def test_builder_fetch_aggregate_empty(mocker):
     """Builder can handle an empty setup"""
-    got = _mock_builder(mocker, airtable_schedule=[], neon_events=[])
-    assert got == []
+    _mock_builder(mocker, airtable_schedule=[], neon_events=[])
+    eb = builder.ClassEmailBuilder(use_cache=False)
+    eb.fetch_and_aggregate_data(TEST_NOW)
+    assert eb.airtable_schedule == {}
+    assert eb.events == []
 
 
-TEST_AIRTABLE = {
-    "Neon ID": "1234",
-    "Instructor": "Test Instructor",
-    "Email": "inst@ructor.com",
-    "Volunteer": True,
-    "Supply State": "Supply Check Needed",
-}
-TEST_NEON = {
-    "id": 1234,
-    "name": "Test Event",
-    "startDate": "2024-02-20",
-    "startTime": "06:00pm",
-    "endDate": "2024-02-20",
-    "endTime": "09:00pm",
-    "capacity": 6,
-}
+def _airtable_schedule():
+    return {
+        "1234": {
+            "fields": {
+                "Neon ID": "1234",
+                "Instructor": "Test Instructor",
+                "Email": "inst@ructor.com",
+                "Volunteer": True,
+                "Supply State": "Supply Check Needed",
+            }
+        }
+    }
 
 
-def test_builder_post_run(mocker, caplog):
-    """Builder notifies the instructor to submi ta log, and the attendee to share feedback"""
+def _neon_events():
+    return [
+        {
+            "id": 1234,
+            "name": "Test Event",
+            "startDate": "2024-02-20",
+            "startTime": "06:00pm",
+            "endDate": "2024-02-20",
+            "endTime": "09:00pm",
+            "capacity": 6,
+            "python_date": parse_date("2024-02-20 18:00"),
+            "python_date_end": parse_date("2024-02-20 21:00"),
+            "attendees": [
+                {
+                    "registrationStatus": "SUCCEEDED",
+                    "accountId": 4567,
+                    "firstName": "Test",
+                    "lastName": "Attendee",
+                    "attendeeId": 4567,
+                    "email": "test@attendee.com",
+                }
+            ],
+            "signups": 1,
+            "occupancy": 0.16666666666666666,
+            "need": 2,
+            "instructor_email": "inst@ructor.com",
+            "instructor_firstname": "Test",
+            "volunteer_instructor": True,
+            "supply_state": "Supply Check Needed",
+            "already_notified": [],
+        }
+    ]
+
+
+def test_builder_fetch_aggregate_singletons(mocker, caplog):
+    """Builder correctly aggregates data from Airtable and Neon for a class with
+    a single attendee"""
     caplog.set_level(logging.INFO)
-    got = _mock_builder_singles(
+
+    _mock_builder_singles(
         mocker,
-        airtable_fields=TEST_AIRTABLE,
-        neon_event=TEST_NEON,
+        airtable_fields={
+            "Neon ID": "1234",
+            "Instructor": "Test Instructor",
+            "Email": "inst@ructor.com",
+            "Volunteer": True,
+            "Supply State": "Supply Check Needed",
+        },
+        neon_event={
+            "id": 1234,
+            "name": "Test Event",
+            "startDate": "2024-02-20",
+            "startTime": "06:00pm",
+            "endDate": "2024-02-20",
+            "endTime": "09:00pm",
+            "capacity": 6,
+        },
     )
+    eb = builder.ClassEmailBuilder(use_cache=False)
+    eb.fetch_and_aggregate_data(TEST_NOW)
+    assert eb.airtable_schedule == _airtable_schedule()
+    evt = _neon_events()[0]
+    assert eb.events == [evt]
+    assert eb.actionable_classes == [[evt, "POST_RUN_SURVEY"]]
+
+
+def test_builder_no_actionable_classes(mocker, caplog):
+    """Builder does not create an action if the class is too far out"""
+    caplog.set_level(logging.INFO)
+    _mock_builder_singles(
+        mocker,
+        airtable_fields={
+            "Neon ID": "1234",
+            "Instructor": "Test Instructor",
+            "Email": "inst@ructor.com",
+            "Volunteer": True,
+            "Supply State": "Supply Check Needed",
+        },
+        neon_event={
+            "id": 1234,
+            "name": "Test Event",
+            "startDate": "2024-03-20",  # Date in far future
+            "startTime": "06:00pm",
+            "endDate": "2024-03-20",
+            "endTime": "09:00pm",
+            "capacity": 6,
+        },
+    )
+    eb = builder.ClassEmailBuilder(use_cache=False)
+    eb.fetch_and_aggregate_data(TEST_NOW)
+    assert not eb.actionable_classes
+
+
+def _gen_actionable_class(action):
+    return (
+        {
+            "id": 1234,
+            "name": "Test Event",
+            "python_date": parse_date("2024-02-20"),
+            "instructor_email": "inst@ructor.com",
+            "already_notified": [],
+            "instructor_firstname": "Instructor",
+            "capacity": 6,
+            "signups": 2,
+            "need": 1,
+            "occupancy": 2 / 6,
+            "attendees": [
+                {
+                    "registrationStatus": "SUCCEEDED",
+                    "accountId": 4567,
+                    "firstName": "Test",
+                    "lastName": "Attendee",
+                    "attendeeId": 4567,
+                    "email": "test@attendee.com",
+                }
+            ],
+        },
+        action,
+    )
+
+
+def test_builder_post_run_survey(caplog):
+    """Builds instructor log reminder, attendee feedback email,
+    and summary when the class is over"""
+    caplog.set_level(logging.DEBUG)
+    eb = builder.ClassEmailBuilder()
+    eb.fetch_and_aggregate_data = lambda now: None
+    eb.actionable_classes = [_gen_actionable_class("POST_RUN_SURVEY")]
+    got = [
+        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        for d in eb.build(TEST_NOW)
+    ]
     assert got == [
         {
             "id": 1234,
@@ -163,13 +278,107 @@ def test_builder_post_run(mocker, caplog):
     ]
 
 
-def test_builder_far_future(mocker, caplog):
-    """Far future classes don't receive any notifications"""
-    caplog.set_level(logging.INFO)
-    got = _mock_builder_singles(
-        mocker,
-        airtable_fields=TEST_AIRTABLE,
-        neon_event=TEST_NEON,
-        now=parse_date("2024-01-01"),
-    )
-    assert got == []
+def test_builder_supply_check(caplog):
+    """Instructor is asked to check supplies"""
+    caplog.set_level(logging.DEBUG)
+    eb = builder.ClassEmailBuilder()
+    eb.fetch_and_aggregate_data = lambda now: None
+    eb.actionable_classes = [_gen_actionable_class("SUPPLY_CHECK_NEEDED")]
+    got = [
+        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        for d in eb.build(TEST_NOW)
+    ]
+    assert got == [
+        {
+            "id": 1234,
+            "target": "Instructor (inst@ructor.com)",
+            "subject": "Test Event on February 20 - please confirm class supplies",
+        },
+        {
+            "id": "N/A",
+            "target": "#class-automation",
+            "subject": "Automation notification summary",
+        },
+    ]
+
+
+def test_builder_low_attendance_7days(caplog):
+    """Instructor is notified when attendance is low"""
+    caplog.set_level(logging.DEBUG)
+    eb = builder.ClassEmailBuilder()
+    eb.fetch_and_aggregate_data = lambda now: None
+    eb.actionable_classes = [_gen_actionable_class("LOW_ATTENDANCE_7DAYS")]
+    got = [
+        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        for d in eb.build(TEST_NOW)
+    ]
+    assert got == [
+        {
+            "id": 1234,
+            "target": "Instructor (inst@ructor.com)",
+            "subject": "Test Event on February 20 - help us find 4 more students!",
+        },
+        {
+            "id": "N/A",
+            "target": "#class-automation",
+            "subject": "Automation notification summary",
+        },
+    ]
+
+
+def test_builder_confirm(caplog):
+    """Instructor and attendee are notified when class is confirmed to run"""
+    caplog.set_level(logging.DEBUG)
+    eb = builder.ClassEmailBuilder()
+    eb.fetch_and_aggregate_data = lambda now: None
+    eb.actionable_classes = [_gen_actionable_class("CONFIRM")]
+    got = [
+        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        for d in eb.build(TEST_NOW)
+    ]
+    assert got == [
+        {
+            "id": 1234,
+            "target": "Instructor (inst@ructor.com)",
+            "subject": "Test Event is on for February 20!",
+        },
+        {
+            "id": 1234,
+            "target": "Test Attendee (test@attendee.com)",
+            "subject": "Your class 'Test Event' is on for February 20!",
+        },
+        {
+            "id": "N/A",
+            "target": "#class-automation",
+            "subject": "Automation notification summary",
+        },
+    ]
+
+
+def test_builder_cancel(caplog):
+    """Instructor and attendee are notified when class is cancelled"""
+    caplog.set_level(logging.DEBUG)
+    eb = builder.ClassEmailBuilder()
+    eb.fetch_and_aggregate_data = lambda now: None
+    eb.actionable_classes = [_gen_actionable_class("CANCEL")]
+    got = [
+        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        for d in eb.build(TEST_NOW)
+    ]
+    assert got == [
+        {
+            "id": 1234,
+            "target": "Instructor (inst@ructor.com)",
+            "subject": "Your class 'Test Event' was cancelled",
+        },
+        {
+            "id": 1234,
+            "target": "Test Attendee (test@attendee.com)",
+            "subject": "Your class 'Test Event' was cancelled",
+        },
+        {
+            "id": "N/A",
+            "target": "#class-automation",
+            "subject": "Automation notification summary",
+        },
+    ]
