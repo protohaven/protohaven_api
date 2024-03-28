@@ -8,8 +8,8 @@ from pathlib import Path
 
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation import comms
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.class_automation import comms  # pylint: disable=import-error
+from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
 
 def get_account_email(account_id):
@@ -71,18 +71,16 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     notify_instructors = True  # @param {type:"boolean"}
     notify_registrants = True  # @param {type:"boolean"}
 
-    def __init__(self, log=logging.getLogger()):
+    def __init__(self, log=logging.getLogger(), use_cache=True):
+        self.use_cache = use_cache
         self.log = log
         self.for_techs = []  # [(url, name, capacity)]
         self.actionable_classes = []  # (evt, action)
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
         self.output = []  # [{target, subject, body}]
 
-        self.email_map = airtable.get_instructor_email_map()
-        self.log.info(f"Fetched {len(self.email_map)} instructor emails")
-
         self.cached = False
-        if Path(self.CACHE_FILE).exists():
+        if Path(self.CACHE_FILE).exists() and self.use_cache:
             self.log.debug(f"Loading from cache {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "rb") as f:
                 data = pickle.load(f)
@@ -101,9 +99,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             )
 
         self.events = list(neon.fetch_published_upcoming_events())
-        self.log.info(f"Fetched {len(self.events)} events fron Neon")
+        self.log.info(f"Fetched {len(self.events)} event(s) fron Neon")
         self.log.debug(" - ".join([e["name"] for e in self.events]))
-        self.log.debug(f"example data:\n{self.events[0]}")
+        if len(self.events) > 0:
+            self.log.debug(f"example data:\n{self.events[0]}")
 
         airtable_schedule = airtable.get_class_automation_schedule()
         self.airtable_schedule = {
@@ -112,9 +111,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             if s["fields"].get("Neon ID") is not None
         }
         self.log.info(
-            f"Fetched {len(self.airtable_schedule)} schedule items from Airtable"
+            f"Fetched {len(self.airtable_schedule)} schedule item(s) from Airtable"
         )
-        self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
+        if len(self.airtable_schedule) > 0:
+            self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
 
     def push_class(self, evt, action, reason):
         """Push a class onto the actionable list. It'll later be used in email templates"""
@@ -384,7 +384,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         for e, action in self.actionable_classes:
             self.log.info(f" - {action} - {e['id']} {e['name']}")
 
-        if not self.cached:
+        if not self.cached and self.use_cache:
             self.log.info(f"Sorting complete, caching result in {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "wb") as f:
                 pickle.dump(
