@@ -13,12 +13,11 @@ env = Environment(
 def techs_openings(events):
     """Generate message for techs about classes with open seats"""
     ee = []
-    for evt in events["events"]:
+    for evt, action in events["events"]:
         ee.append(
             {
                 "id": str(evt["id"]),
-                "startDate": evt["startDate"],
-                "startTime": evt["startTime"],
+                "start": evt["python_date"].strftime("%B %-d, %-I%p"),
                 "name": evt["name"],
                 "avail": evt["capacity"] - evt["signups"],
             }

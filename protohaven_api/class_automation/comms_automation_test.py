@@ -19,14 +19,16 @@ def test_techs_openings():
     subject, body = comms.techs_openings(
         {
             "events": [
-                {
-                    "id": 1234,
-                    "startDate": "2024-02-02",
-                    "startTime": "6:00 PM",
-                    "name": "Test Class",
-                    "capacity": 6,
-                    "signups": 2,
-                }
+                (
+                    {
+                        "id": 1234,
+                        "python_date": parse_date("2024-02-02 6:00PM"),
+                        "name": "Test Class",
+                        "capacity": 6,
+                        "signups": 2,
+                    },
+                    None,
+                ),
             ]
         }
     )

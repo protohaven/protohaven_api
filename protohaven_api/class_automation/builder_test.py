@@ -7,6 +7,7 @@ from protohaven_api.class_automation import builder  # pylint: disable=import-er
 from protohaven_api.class_automation.testdata import (  # pylint: disable=import-error
     assert_matches_testdata,
 )
+from protohaven_api.config import tz
 
 TEST_NOW = parse_date("2024-02-22")
 
@@ -60,7 +61,7 @@ def _mock_builder(  # pylint: disable=too-many-arguments
     airtable_schedule,
     neon_events,
     fetch_attendees_fn=lambda _id: [],
-    emails_notified_after_fn=lambda _neon_id, _date: [],
+    emails_notified_after_fn=lambda _neon_id, _date: {},
     get_account_email_fn=lambda _id: None,
 ):
     mocker.patch(
@@ -137,8 +138,8 @@ def _neon_events():
             "endDate": "2024-02-20",
             "endTime": "09:00pm",
             "capacity": 6,
-            "python_date": parse_date("2024-02-20 18:00"),
-            "python_date_end": parse_date("2024-02-20 21:00"),
+            "python_date": parse_date("2024-02-20 18:00").astimezone(tz),
+            "python_date_end": parse_date("2024-02-20 21:00").astimezone(tz),
             "attendees": [
                 {
                     "registrationStatus": "SUCCEEDED",
@@ -156,7 +157,7 @@ def _neon_events():
             "instructor_firstname": "Test",
             "volunteer_instructor": True,
             "supply_state": "Supply Check Needed",
-            "already_notified": [],
+            "notifications": {},
         }
     ]
 
@@ -190,7 +191,12 @@ def test_builder_fetch_aggregate_singletons(mocker, caplog):
     assert eb.airtable_schedule == _airtable_schedule()
     evt = _neon_events()[0]
     assert eb.events == [evt]
-    assert eb.actionable_classes == [[evt, "POST_RUN_SURVEY"]]
+
+    # Actionable class assignment happens when event is sorted
+    eb._sort_event_for_notification(
+        eb.events[0], parse_date("2024-02-21").astimezone(tz)
+    )
+    assert eb.actionable_classes == [[evt, builder.Action.POST_RUN_SURVEY]]
 
 
 def test_builder_no_actionable_classes(mocker, caplog):
@@ -217,6 +223,12 @@ def test_builder_no_actionable_classes(mocker, caplog):
     )
     eb = builder.ClassEmailBuilder(use_cache=False)
     eb.fetch_and_aggregate_data(TEST_NOW)
+    assert len(eb.events) > 0
+
+    # Actionable class assignment happens when event is sorted
+    eb._sort_event_for_notification(
+        eb.events[0], parse_date("2024-02-21").astimezone(tz)
+    )
     assert not eb.actionable_classes
 
 
@@ -227,7 +239,7 @@ def _gen_actionable_class(action):
             "name": "Test Event",
             "python_date": parse_date("2024-02-20"),
             "instructor_email": "inst@ructor.com",
-            "already_notified": [],
+            "notifications": {},
             "instructor_firstname": "Instructor",
             "capacity": 6,
             "signups": 2,
@@ -254,7 +266,7 @@ def test_builder_post_run_survey(caplog):
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.actionable_classes = [_gen_actionable_class("POST_RUN_SURVEY")]
+    eb.actionable_classes = [_gen_actionable_class(builder.Action.POST_RUN_SURVEY)]
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -283,7 +295,7 @@ def test_builder_supply_check(caplog):
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.actionable_classes = [_gen_actionable_class("SUPPLY_CHECK_NEEDED")]
+    eb.actionable_classes = [_gen_actionable_class(builder.Action.SUPPLY_CHECK_NEEDED)]
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -307,7 +319,7 @@ def test_builder_low_attendance_7days(caplog):
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.actionable_classes = [_gen_actionable_class("LOW_ATTENDANCE_7DAYS")]
+    eb.actionable_classes = [_gen_actionable_class(builder.Action.LOW_ATTENDANCE_7DAYS)]
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -331,7 +343,7 @@ def test_builder_confirm(caplog):
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.actionable_classes = [_gen_actionable_class("CONFIRM")]
+    eb.actionable_classes = [_gen_actionable_class(builder.Action.CONFIRM)]
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -360,7 +372,7 @@ def test_builder_cancel(caplog):
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.actionable_classes = [_gen_actionable_class("CANCEL")]
+    eb.actionable_classes = [_gen_actionable_class(builder.Action.CANCEL)]
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -382,3 +394,57 @@ def test_builder_cancel(caplog):
             "subject": "Automation notification summary",
         },
     ]
+
+
+def test_builder_techs(caplog):
+    caplog.set_level(logging.DEBUG)
+    eb = builder.ClassEmailBuilder()
+    eb.fetch_and_aggregate_data = lambda now: None
+    eb.for_techs = [_gen_actionable_class(builder.Action.FOR_TECHS)]
+    got = [
+        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        for d in eb.build(TEST_NOW)
+    ]
+    assert got == [
+        {
+            "id": "multiple",
+            "target": "#techs",
+            "subject": "New classes for tech backfill",
+        },
+        {
+            "id": "N/A",
+            "target": "#class-automation",
+            "subject": "Automation notification summary",
+        },
+    ]
+
+
+def test_builder_notified():
+    eb = builder.ClassEmailBuilder()
+    start = parse_date("2024-02-03")
+    assert (
+        eb.notified(
+            "test_target",
+            {
+                "python_date": start,
+                "notifications": {"test_target": [parse_date("2024-02-01")]},
+            },
+            2,
+        )
+        is True
+    )
+    assert (
+        eb.notified(
+            "test_target",
+            {
+                "python_date": start,
+                "notifications": {"test_target": [parse_date("2024-02-01")]},
+            },
+            1,
+        )
+        is False
+    )
+    assert (
+        eb.notified("test_target", {"python_date": start, "notifications": {}}, 2)
+        is False
+    )

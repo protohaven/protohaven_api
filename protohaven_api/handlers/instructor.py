@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 from flask import Blueprint, redirect, render_template, request
+from flask_cors import cross_origin
 
 from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email
@@ -59,8 +60,45 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
+def _get_instructor_readiness(inst, teachable_classes=None, instructor_schedules=None):
+    """Returns a list of actoin sinstructors need to take to be fully onboarded.
+    Note: `inst` is a neon result requiring Account Current Membership Status"""
+    result = {
+        "neon_id": None,
+        "fullname": "unknown",
+        "active_membership": "inactive",
+        "discord_user": "missing",
+        "capabilities_listed": "missing",
+        "in_calendar": "missing",
+    }
+    result["neon_id"] = inst["Account ID"]
+    if inst["Account Current Membership Status"] == "Active":
+        result["active_membership"] = "OK"
+    else:
+        result["active_membership"] = inst["Account Current Membership Status"]
+    if inst.get("Discord User"):
+        result["discord_user"] = "OK"
+    result["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
+
+    if not teachable_classes:
+        teachable_classes = airtable.fetch_instructor_teachable_classes()
+    print("Teachable classes:", teachable_classes)
+    if len(teachable_classes.get(result["fullname"].lower(), [])) > 0:
+        result["capabilities_listed"] = "OK"
+
+    now = datetime.datetime.now()
+    if not instructor_schedules:
+        instructor_schedules = schedule.fetch_instructor_schedules(
+            now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
+        )
+    if result["fullname"] in instructor_schedules.keys():
+        result["in_calendar"] = "OK"
+    return result
+
+
 @page.route("/instructor/class/attendees")
 @require_login_role(Role.INSTRUCTOR)
+@cross_origin()
 def instructor_class_attendees():
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
@@ -113,15 +151,35 @@ def get_dashboard_schedule_sorted(email):
     return sched
 
 
+# TODO @require_login_role(Role.INSTRUCTOR)
+@page.route("/instructor/about")
+@cross_origin()
+def instructor_about():
+    email = request.args.get("email")
+    if email is not None:
+        # TODO
+        # roles = get_roles()
+        # if roles is None or Role.ADMIN["name"] not in roles:
+        #    return "Not Authorized"
+        pass
+    else:
+        email = user_email()
+    return _get_instructor_readiness(neon.search_member(email.lower()))
+
+
+# TODO
+# @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class")
-@require_login_role(Role.INSTRUCTOR)
+@cross_origin()
 def instructor_class():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
-        roles = get_roles()
-        if roles is None or Role.ADMIN["name"] not in roles:
-            return "Not Authorized"
+        # TODO
+        # roles = get_roles()
+        # if roles is None or Role.ADMIN["name"] not in roles:
+        #    return "Not Authorized"
+        pass
     else:
         email = user_email()
     email = email.lower()
@@ -158,13 +216,12 @@ def instructor_class():
         email, "<NOT FOUND>"
     )
 
-    return render_template(
-        "instructor_class.html",
-        schedule=sched,
-        now=datetime.datetime.now(),
-        email=email,
-        name=caps_name,
-    )
+    return {
+        "schedule": sched,
+        "now": datetime.datetime.now(),
+        "email": email,
+        "name": caps_name,
+    }
 
 
 @page.route("/instructor/class/update", methods=["POST"])
@@ -217,30 +274,16 @@ def instructors_status():
             neon.CUSTOM_FIELD_DISCORD_USER,
         ],
     )
+    now = datetime.datetime.now()
+    teachable_classes = airtable.fetch_instructor_teachable_classes()
+    instructor_schedules = schedule.fetch_instructor_schedules(
+        now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
+    )
     for inst in neon_instructors:
         e = inst["Email 1"].lower()
-        results[e]["neon_id"] = inst["Account ID"]
-        if inst["Account Current Membership Status"] == "Active":
-            results[e]["active_membership"] = "OK"
-        else:
-            results[e]["active_membership"] = inst["Account Current Membership Status"]
-        if inst.get("Discord User"):
-            results[e]["discord_user"] = "OK"
-        results[e]["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
-
-    by_fullname = {e["fullname"]: k for k, e in results.items()}
-    for name, cc in airtable.fetch_instructor_teachable_classes().items():
-        e = by_fullname.get(name)
-        if e is not None:
-            results[e]["capabilities_listed"] = "OK" if (len(cc) > 0) else "missing"
-
-    now = datetime.datetime.now()
-    for name in schedule.fetch_instructor_schedules(
-        now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
-    ).keys():
-        e = by_fullname.get(name)
-        if e is not None:
-            results[e]["in_calendar"] = "OK"
+        results[e] = _get_instructor_readiness(
+            inst, teachable_classes, instructor_schedules
+        )
 
     render = []
     for k, v in results.items():
