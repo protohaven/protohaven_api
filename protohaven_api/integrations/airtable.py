@@ -71,7 +71,7 @@ def update_record(data, base, tbl, rec):
     response = get_connector().airtable_request(
         cfg[base]["token"], "PATCH", url, data=json.dumps(post_data)
     )
-    return response
+    return response, json.loads(response.content) if response.content else None
 
 
 def get_class_automation_schedule():
@@ -101,6 +101,13 @@ def get_instructor_email_map():
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
     return result
+
+
+def fetch_instructor_capabilities(name):
+    for row in get_all_records("class_automation", "capabilities"):
+        if row["fields"].get("Instructor").lower() == name.lower():
+            return row
+    return None
 
 
 def fetch_instructor_teachable_classes():

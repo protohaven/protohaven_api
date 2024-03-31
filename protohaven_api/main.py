@@ -2,6 +2,7 @@
 import os
 
 from flask import Flask  # pylint: disable=import-error
+from flask_cors import CORS
 
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import run as run_bot
@@ -15,6 +16,8 @@ from protohaven_api.handlers.tech_lead import page as tech_lead_pages
 from protohaven_api.integrations.data.connector import init as init_connector
 
 app = Flask(__name__)
+CORS(app)  # TODO remove after svelte dev
+
 application = app  # our hosting requires application in passenger_wsgi
 cfg = get_config()["general"]
 app.secret_key = cfg["session_secret"]

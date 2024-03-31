@@ -4,7 +4,6 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 from flask import Blueprint, redirect, render_template, request
-from flask_cors import cross_origin
 
 from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email
@@ -60,7 +59,7 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
-def _get_instructor_readiness(inst, teachable_classes=None, instructor_schedules=None):
+def _get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     """Returns a list of actoin sinstructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
@@ -70,6 +69,9 @@ def _get_instructor_readiness(inst, teachable_classes=None, instructor_schedules
         "discord_user": "missing",
         "capabilities_listed": "missing",
         "in_calendar": "missing",
+        "paperwork": "unknown",
+        "profile_img": None,
+        "bio": None,
     }
     result["neon_id"] = inst["Account ID"]
     if inst["Account Current Membership Status"] == "Active":
@@ -80,11 +82,33 @@ def _get_instructor_readiness(inst, teachable_classes=None, instructor_schedules
         result["discord_user"] = "OK"
     result["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
 
-    if not teachable_classes:
-        teachable_classes = airtable.fetch_instructor_teachable_classes()
-    print("Teachable classes:", teachable_classes)
-    if len(teachable_classes.get(result["fullname"].lower(), [])) > 0:
-        result["capabilities_listed"] = "OK"
+    if not caps:
+        caps = airtable.fetch_instructor_capabilities(result["fullname"])
+    if caps:
+        if len(caps["fields"].get("Class", [])) > 0:
+            result["capabilities_listed"] = "OK"
+
+        missing_info = [
+            x
+            for x in [
+                "W9" if not caps["fields"].get("W9 Form") else None,
+                "Direct Deposit"
+                if not caps["fields"].get("Direct Deposit Info")
+                else None,
+                "Profile Pic" if not caps["fields"].get("Profile Pic") else None,
+                "Bio" if not caps["fields"].get("Bio") else None,
+            ]
+            if x
+        ]
+
+        result["profile_img"] = caps["fields"].get("Profile Pic", [{"url": None}])[0][
+            "url"
+        ]
+        result["bio"] = caps["fields"].get("Bio")
+        if len(missing_info) > 0:
+            result["paperwork"] = f"Missing {', '.join(missing_info)}"
+        else:
+            result["paperwork"] = "OK"
 
     now = datetime.datetime.now()
     if not instructor_schedules:
@@ -96,9 +120,8 @@ def _get_instructor_readiness(inst, teachable_classes=None, instructor_schedules
     return result
 
 
+# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/attendees")
-@require_login_role(Role.INSTRUCTOR)
-@cross_origin()
 def instructor_class_attendees():
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
@@ -153,7 +176,6 @@ def get_dashboard_schedule_sorted(email):
 
 # TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/about")
-@cross_origin()
 def instructor_about():
     email = request.args.get("email")
     if email is not None:
@@ -167,10 +189,37 @@ def instructor_about():
     return _get_instructor_readiness(neon.search_member(email.lower()))
 
 
+def _annotate_schedule_class(e):
+    date = dateparser.parse(e["Start Time"]).astimezone(tz)
+
+    # If it's in neon, generate a log URL.
+    # Placeholder for attendee names/emails as that's loaded
+    # lazily on page load.
+    if e.get("Neon ID"):
+        e["prefill"] = prefill_form(
+            instructor=e["Instructor"],
+            start_date=date,
+            hours=e["Hours (from Class)"][0],
+            class_name=e["Name (from Class)"][0],
+            pass_emails=["$ATTENDEE_NAMES"],
+            clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
+            volunteer=e.get("Volunteer", False),
+            event_id=e["Neon ID"],
+        )
+
+    for date_field in ("Confirmed", "Instructor Log Date"):
+        if e.get(date_field):
+            e[date_field] = dateparser.parse(e[date_field])
+    e["Dates"] = []
+    for _ in range(e["Days (from Class)"][0]):
+        e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
+        date += datetime.timedelta(days=7)
+    return e
+
+
 # TODO
 # @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class")
-@cross_origin()
 def instructor_class():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
@@ -183,32 +232,10 @@ def instructor_class():
     else:
         email = user_email()
     email = email.lower()
-    sched = get_dashboard_schedule_sorted(email)
-    for _, e in sched:
-        date = dateparser.parse(e["Start Time"]).astimezone(tz)
-
-        # If it's in neon, generate a log URL.
-        # Placeholder for attendee names/emails as that's loaded
-        # lazily on page load.
-        if e.get("Neon ID"):
-            e["prefill"] = prefill_form(
-                instructor=e["Instructor"],
-                start_date=date,
-                hours=e["Hours (from Class)"][0],
-                class_name=e["Name (from Class)"][0],
-                pass_emails=["$ATTENDEE_NAMES"],
-                clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
-                volunteer=e.get("Volunteer", False),
-                event_id=e["Neon ID"],
-            )
-
-        for date_field in ("Confirmed", "Instructor Log Date"):
-            if e.get(date_field):
-                e[date_field] = dateparser.parse(e[date_field])
-        e["Dates"] = []
-        for _ in range(e["Days (from Class)"][0]):
-            e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
-            date += datetime.timedelta(days=7)
+    sched = [
+        (k, _annotate_schedule_class(e))
+        for k, e in get_dashboard_schedule_sorted(email)
+    ]
 
     # Look up the name on file in the capabilities list - this is used to match
     # on manually entered calendar availability
@@ -224,31 +251,38 @@ def instructor_class():
     }
 
 
+# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/update", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR)
 def instructor_class_update():
     """Confirm or unconfirm a class to run, by the instructor"""
-    eid = request.form.get("eid")
-    pub = request.form.get("pub") == "true"
-    return airtable.respond_class_automation_schedule(eid, pub).content
+    data = request.json
+    eid = data["eid"]
+    pub = data["pub"]
+    print("eid", eid, "pub", pub)
+    _, result = airtable.respond_class_automation_schedule(eid, pub)
+    return _annotate_schedule_class(result["fields"])
 
 
+# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/supply_req", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR)
 def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
-    eid = request.form.get("eid")
-    missing = request.form.get("missing") == "true"
-    return airtable.mark_schedule_supply_request(eid, missing).content
+    data = request.json
+    eid = data["eid"]
+    missing = data["missing"]
+    _, result = airtable.mark_schedule_supply_request(eid, missing)
+    return _annotate_schedule_class(result["fields"])
 
 
+# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/volunteer", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR)
 def instructor_class_volunteer():
     """Change the volunteer state of a class"""
-    eid = request.form.get("eid")
-    v = request.form.get("volunteer") == "true"
-    return airtable.mark_schedule_volunteer(eid, v).content
+    data = request.json
+    eid = data["eid"]
+    v = data["volunteer"]
+    _, result = airtable.mark_schedule_volunteer(eid, v)
+    return _annotate_schedule_class(result["fields"])
 
 
 @page.route("/instructor/readiness", methods=["GET"])
