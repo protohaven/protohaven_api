@@ -111,7 +111,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.output = []  # [{target, subject, body}]
         self.events = []
         self.airtable_schedule = {}
-        self.cached = False
+        self.cache_loaded = False
 
     def fetch_and_aggregate_data(self, now):
         """Fetches and aggregates data from Neon and Airtable to use in notifying
@@ -126,7 +126,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             ) + datetime.timedelta(hours=self.CACHE_EXPIRY_HOURS):
                 self.events = data["events"]
                 self.airtable_schedule = data["schedule"]
-                self.cached = True
+                self.cache_loaded = True
                 self.log.info("Cache is fresh; using it for event data")
                 return
 
@@ -156,13 +156,15 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         for evt in self.events:
             neon_id = evt["id"]
             if neon_id in self.BLOCKLIST:
-                return
+                self.log.debug(f"Ignore annotating blocklist event {neon_id}")
+                continue
             if str(neon_id) not in self.airtable_schedule:
                 self.log.info(f"IGNORE #{neon_id} {evt['name']} (not in Airtable)")
-                return
-            evt = self._annotate(evt)
+                continue
+            self._annotate(evt)  # Modified in-place
+            self.log.debug(f"Annotated {neon_id}")
 
-        if not self.cached and self.use_cache:
+        if not self.cache_loaded and self.use_cache:
             self.log.info(f"Sorting complete, caching result in {self.CACHE_FILE}")
             with open(self.CACHE_FILE, "wb") as f:
                 pickle.dump(

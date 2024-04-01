@@ -120,8 +120,8 @@ def _get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     return result
 
 
-# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/attendees")
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class_attendees():
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
@@ -174,16 +174,13 @@ def get_dashboard_schedule_sorted(email):
     return sched
 
 
-# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/about")
+@require_login_role(Role.INSTRUCTOR)
 def instructor_about():
     email = request.args.get("email")
     if email is not None:
-        # TODO
-        # roles = get_roles()
-        # if roles is None or Role.ADMIN["name"] not in roles:
-        #    return "Not Authorized"
-        pass
+        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
+            return "Access Denied for admin parameter `email`"
     else:
         email = user_email()
     return _get_instructor_readiness(neon.search_member(email.lower()))
@@ -217,18 +214,14 @@ def _annotate_schedule_class(e):
     return e
 
 
-# TODO
-# @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class")
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
-        # TODO
-        # roles = get_roles()
-        # if roles is None or Role.ADMIN["name"] not in roles:
-        #    return "Not Authorized"
-        pass
+        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
+            return "Access Denied for admin parameter `email`"
     else:
         email = user_email()
     email = email.lower()
@@ -251,8 +244,8 @@ def instructor_class():
     }
 
 
-# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/update", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class_update():
     """Confirm or unconfirm a class to run, by the instructor"""
     data = request.json
@@ -263,8 +256,8 @@ def instructor_class_update():
     return _annotate_schedule_class(result["fields"])
 
 
-# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/supply_req", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
     data = request.json
@@ -274,8 +267,8 @@ def instructor_class_supply_req():
     return _annotate_schedule_class(result["fields"])
 
 
-# TODO @require_login_role(Role.INSTRUCTOR)
 @page.route("/instructor/class/volunteer", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
 def instructor_class_volunteer():
     """Change the volunteer state of a class"""
     data = request.json

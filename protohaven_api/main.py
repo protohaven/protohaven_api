@@ -1,4 +1,5 @@
 """Collect various blueprints and start the flask server - also the discord bot"""
+import logging
 import os
 
 from flask import Flask  # pylint: disable=import-error
@@ -14,9 +15,20 @@ from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.shop_tech import page as shop_tech_pages
 from protohaven_api.handlers.tech_lead import page as tech_lead_pages
 from protohaven_api.integrations.data.connector import init as init_connector
+from protohaven_api.rbac import disable_rbac
 
+log = logging.getLogger("main")
 app = Flask(__name__)
-CORS(app)  # TODO remove after svelte dev
+if os.getenv("CORS", "false").lower() == "true":
+    log.warning("CORS enabled - this should be done in dev environments only")
+    CORS(app)
+
+if os.getenv("UNSAFE_NO_RBAC", "false").lower() == "true":
+    log.warning(
+        "DANGER DANGER DANGER\n\nRBAC HAS BEEN DISABLED; EVERYONE CAN ACCESS EVERYTHING\n\nDANGER DANGER DANGER"
+    )
+    disable_rbac()
+
 
 application = app  # our hosting requires application in passenger_wsgi
 cfg = get_config()["general"]
@@ -42,7 +54,7 @@ if run_discord_bot:
     t = threading.Thread(target=run_bot, daemon=True)
     t.start()
 else:
-    print("Skipping startup of discord bot")
+    log.warning("Skipping startup of discord bot")
 
 if __name__ == "__main__":
     app.run()
