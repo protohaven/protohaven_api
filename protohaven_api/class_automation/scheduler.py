@@ -98,7 +98,9 @@ def _gen_class_and_area_stats(cur_sched, start_date, end_date):
                 ),
             ]
             if date_range_overlaps(ao[0], ao[1], start_date, end_date):
-                area_occupancy[c["fields"]["Area (from Class)"][0]].append(ao)
+                area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
+                    ao
+                )
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
     return last_run, area_occupancy

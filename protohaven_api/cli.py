@@ -18,7 +18,7 @@ from protohaven_api.class_automation.builder import (
     gen_calendar_reminders,
 )
 from protohaven_api.config import get_config, tz
-from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
+from protohaven_api.integrations import airtable, booked, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
 from protohaven_api.integrations.data.connector import init as init_connector
@@ -583,6 +583,67 @@ class ProtohavenCLI:
             i = i.strip()
             log.info(f"Cancelling #{i}")
             neon.set_event_scheduled_state(i, scheduled=False)
+        log.info("Done")
+
+    def reserve_equipment_for_class(self, argv):
+        parser = argparse.ArgumentParser(description=self.cancel_classes.__doc__)
+        parser.add_argument(
+            "--cls",
+            help="class ID to reserve equipment for",
+            type=int,
+        )
+        parser.add_argument(
+            "--start",
+            help="time to reserve from",
+            type=str,
+        )
+        parser.add_argument(
+            "--end",
+            help="time to reserve until",
+            type=str,
+        )
+        parser.add_argument(
+            "--apply",
+            help=(
+                "Apply changes into Booked scheduler."
+                "If false, it will only be printed"
+            ),
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        args = parser.parse_args(argv)
+        start = dateparser.parse(args.start).astimezone(tz)
+        end = dateparser.parse(args.end).astimezone(tz)
+
+        # Resolve areas from class ID. We track the area name and not
+        # record ID since we're operating on a synced copy of the areas when
+        # we go to look up tools and equipment
+        areas = None
+        for cls in airtable.get_all_class_templates():
+            if cls["fields"]["ID"] == args.cls:
+                areas = set(cls["fields"]["Name (from Area)"])
+        if not areas:
+            raise Exception(f"No areas specified in in class template {args.cls}")
+        log.info(f"Resolved class {args.cls} to areas: {areas}")
+
+        # Convert areas to booked IDs using tool table
+        resources = list()
+        for row in airtable.get_all_records("tools_and_equipment", "tools"):
+            for a in row["fields"]["Name (from Shop Area)"]:
+                if a in areas and row["fields"].get("BookedResourceId"):
+                    resources.append(
+                        (row["fields"]["Tool Name"], row["fields"]["BookedResourceId"])
+                    )
+                    break
+        log.info(f"Mapped areas to {len(resources)} resources")
+
+        for name, resource_id in resources:
+            log.info(
+                f"Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
+            )
+            if args.apply:
+                log.info(str(booked.reserve_resource(resource_id, start, end)))
+
         log.info("Done")
 
     def mock_data(self, argv):

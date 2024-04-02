@@ -60,7 +60,7 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
 
 
 def _get_instructor_readiness(inst, caps=None, instructor_schedules=None):
-    """Returns a list of actoin sinstructors need to take to be fully onboarded.
+    """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
         "neon_id": None,
