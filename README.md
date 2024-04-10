@@ -59,9 +59,10 @@ sudo systemctl start protohaven_api.service
 ## Building svelte static pages
 
 ```
-cd svelte/welcome
+cd svelte
 npm run build
-cp -r ./build ../../protohaven_api/static/welcome
+rm -r ../protohaven_api/static/svelte
+cp -r ./build ../protohaven_api/static/svelte
 ```
 
 Welcome page can be accessed at http://localhost:5000/static/welcome/index.html

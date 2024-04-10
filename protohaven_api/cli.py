@@ -462,6 +462,10 @@ class ProtohavenCLI:
         notifications = scheduler.push_schedule(sched)
         print(yaml.dump(notifications, default_flow_style=False, default_style=""))
 
+    def post_classes_to_neon(self, argv):
+        """Post a list of classes to Neon"""
+        raise NotImplementedError()
+
     def close_violation(self, argv):
         """Close out a violation so consequences cease"""
         parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
@@ -488,10 +492,10 @@ class ProtohavenCLI:
             type=str,
         )
         args = parser.parse_args(argv)
-        result = airtable.close_violation(
+        result, content = airtable.close_violation(
             args.id, args.closer, datetime.datetime.now(), args.suspect, args.notes
         )
-        print(result.status_code, result.content)
+        print(result.status_code, content)
 
     def enforce_policies(self, argv):  # pylint: disable=too-many-locals
         """Follows suspension & violation logic for any ongoing violations.
@@ -585,21 +589,41 @@ class ProtohavenCLI:
             neon.set_event_scheduled_state(i, scheduled=False)
         log.info("Done")
 
+    def _resolve_equipment_from_class(self, args_cls):
+        results = defaultdict(
+            lambda: {"name": "", "areas": None, "resources": [], "intervals": []}
+        )
+        # Resolve areas from class ID. We track the area name and not
+        # record ID since we're operating on a synced copy of the areas when
+        # we go to look up tools and equipment
+        args_cls = [int(c) for c in args_cls.split(",")]
+        for cls in airtable.get_class_automation_schedule():
+            cid = cls["fields"]["ID"]
+            if cid not in args_cls:
+                continue
+            results[cid]["areas"] = set(cls["fields"]["Name (from Area) (from Class)"])
+            results[cid]["name"] = cls["fields"]["Name (from Class)"]
+            start = dateparser.parse(cls["fields"]["Start Time"]).astimezone(tz)
+            for d in range(cls["fields"]["Days (from Class)"][0]):
+                offs = start + datetime.timedelta(days=7 * d)
+                results[cid]["intervals"].append(
+                    [
+                        offs,
+                        offs
+                        + datetime.timedelta(
+                            hours=cls["fields"]["Hours (from Class)"][0]
+                        ),
+                    ]
+                )
+        return results
+
     def reserve_equipment_for_class(self, argv):
+        """Resolves class info to a list of equipment that should be reserved,
+        then reserves it by calling out to Booked"""
         parser = argparse.ArgumentParser(description=self.cancel_classes.__doc__)
         parser.add_argument(
             "--cls",
-            help="class ID to reserve equipment for",
-            type=int,
-        )
-        parser.add_argument(
-            "--start",
-            help="time to reserve from",
-            type=str,
-        )
-        parser.add_argument(
-            "--end",
-            help="time to reserve until",
+            help="Scheduled class IDs to reserve equipment for (comma separated)",
             type=str,
         )
         parser.add_argument(
@@ -612,37 +636,40 @@ class ProtohavenCLI:
             default=False,
         )
         args = parser.parse_args(argv)
-        start = dateparser.parse(args.start).astimezone(tz)
-        end = dateparser.parse(args.end).astimezone(tz)
 
-        # Resolve areas from class ID. We track the area name and not
-        # record ID since we're operating on a synced copy of the areas when
-        # we go to look up tools and equipment
-        areas = None
-        for cls in airtable.get_all_class_templates():
-            if cls["fields"]["ID"] == args.cls:
-                areas = set(cls["fields"]["Name (from Area)"])
-        if not areas:
-            raise Exception(f"No areas specified in in class template {args.cls}")
-        log.info(f"Resolved class {args.cls} to areas: {areas}")
+        results = self._resolve_equipment_from_class(args.cls)
+        log.info(f"Resolved {len(results)} classes to areas")
 
         # Convert areas to booked IDs using tool table
-        resources = list()
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
-            for a in row["fields"]["Name (from Shop Area)"]:
-                if a in areas and row["fields"].get("BookedResourceId"):
-                    resources.append(
-                        (row["fields"]["Tool Name"], row["fields"]["BookedResourceId"])
-                    )
-                    break
-        log.info(f"Mapped areas to {len(resources)} resources")
+            for cid in results:
+                for a in row["fields"]["Name (from Shop Area)"]:
+                    if a in results[cid]["areas"] and row["fields"].get(
+                        "BookedResourceId"
+                    ):
+                        results[cid]["resources"].append(
+                            (
+                                row["fields"]["Tool Name"],
+                                row["fields"]["BookedResourceId"],
+                            )
+                        )
+                        break
 
-        for name, resource_id in resources:
-            log.info(
-                f"Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
-            )
-            if args.apply:
-                log.info(str(booked.reserve_resource(resource_id, start, end)))
+        for cid in results:
+            log.info(f"Class {results[cid]['name']} (#{cid}):")
+            for name, resource_id in results[cid]["resources"]:
+                for start, end in results[cid]["intervals"]:
+                    log.info(
+                        f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
+                    )
+                    if args.apply:
+                        log.info(
+                            str(
+                                booked.reserve_resource(
+                                    resource_id, start, end, title=results[cid]["name"]
+                                )
+                            )
+                        )
 
         log.info("Done")
 

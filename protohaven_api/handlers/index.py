@@ -4,19 +4,12 @@ import json
 
 from dateutil import parser as dateparser
 from flask import Blueprint, render_template, request, session
-from flask_cors import cross_origin
 
 from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email, user_fullname
+from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.forms import submit_google_form
-from protohaven_api.integrations.neon import (
-    fetch_attendees,
-    fetch_published_upcoming_events,
-    search_member,
-    soft_search,
-    update_waiver_status,
-)
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
@@ -51,8 +44,13 @@ def index():
     )
 
 
+@page.route("/whoami")
+def whoami():
+    """Returns data about the logged in user"""
+    return {"fullname": user_fullname(), "email": user_email()}
+
+
 @page.route("/welcome", methods=["GET", "POST"])
-@cross_origin()
 def welcome_signin():
     """Sign-in page at front desk"""
     if request.method == "GET":
@@ -63,20 +61,40 @@ def welcome_signin():
             "notfound": False,
             "status": False,
             "waiver_signed": False,
+            "announcements": [],
             "firstname": "member",
         }
         data = request.json
         print(data)
         if data["person"] == "member":
-            m = search_member(data["email"])
+            m = neon.search_member(data["email"])
             print(m)
             if not m:
                 result["notfound"] = True
             else:
                 result["status"] = m.get("Account Current Membership Status", "Unknown")
                 result["firstname"] = m.get("First Name")
+                last_announcement_ack = m.get("Announcements Acknowledged", None)
+                if last_announcement_ack:
+                    last_announcement_ack = dateparser.parse(
+                        last_announcement_ack
+                    ).astimezone(tz)
+                else:
+                    last_announcement_ack = datetime.datetime.now().astimezone(
+                        tz
+                    ) - datetime.timedelta(30)
+                roles = [
+                    r
+                    for r in result.get("API server role", "").split("|")
+                    if r.strip() != ""
+                ]
+                if result["status"] == "Active":
+                    roles.append("Member")
+                result["announcements"] = airtable.get_announcements_after(
+                    last_announcement_ack, roles
+                )
 
-            result["waiver_signed"] = update_waiver_status(
+            result["waiver_signed"] = neon.update_waiver_status(
                 m["Account ID"], m.get("Waiver Accepted"), data.get("waiver_ack", False)
             )
         elif data["person"] == "guest":
@@ -109,6 +127,40 @@ def welcome_signin():
     return ""
 
 
+@page.route("/welcome/announcement_ack", methods=["POST"])
+def acknowledge_announcements():
+    """Set the acknowledgement date to `now` so prior announcements
+    are no longer displayed"""
+    data = request.json
+    m = neon.search_member(data["email"])
+    if not m:
+        raise KeyError("Member not found")
+    resp, _ = neon.update_announcement_status(m["Account ID"])
+    if resp.status != 200:
+        raise RuntimeError("Failed to update announcement acknowledgement")
+    return "OK"
+
+
+@page.route("/class_listing", methods=["GET"])
+def class_listing():
+    """Returns a list of classes that are upcoming"""
+    result = list(neon.fetch_published_upcoming_events(back_days=0))
+    sched = {
+        str(s["fields"]["Neon ID"]): s
+        for s in airtable.get_class_automation_schedule()
+        if s["fields"].get("Neon ID")
+    }
+    for c in result:
+        c["timestamp"] = dateparser.parse(
+            f"{c['startDate']} {c.get('startTime') or ''}"
+        ).astimezone(tz)
+        c["day"] = c["timestamp"].strftime("%A, %b %-d")
+        c["time"] = c["timestamp"].strftime("%-I:%M %p")
+        c["airtable_data"] = sched.get(str(c["id"]))
+    result.sort(key=lambda c: c["timestamp"])
+    return result
+
+
 @page.route("/neon_lookup", methods=["GET", "POST"])
 def neon_id_lookup():
     """Look up the ID of a user in Neon based on a search by name or email"""
@@ -120,7 +172,7 @@ def neon_id_lookup():
     search = request.values.get("search")
     if search is None:
         return result
-    rep = soft_search(search)
+    rep = neon.soft_search(search)
     if not rep.get("success"):
         raise RuntimeError(rep)
 
@@ -137,7 +189,7 @@ def events_dashboard_attendee_count():
     if event_id is None:
         raise RuntimeError("Requires param id")
     attendees = 0
-    for a in fetch_attendees(event_id):
+    for a in neon.fetch_attendees(event_id):
         if a["registrationStatus"] == "SUCCEEDED":
             attendees += 1
     return str(attendees)
@@ -151,7 +203,7 @@ def events_dashboard():
     # NOTE: does not currently support intensive date periods. Need to expand
     # dates to properly show this.
     try:
-        for e in fetch_published_upcoming_events():
+        for e in neon.fetch_published_upcoming_events():
             if not e.get("startDate"):
                 continue
             if e["id"] == 17631:

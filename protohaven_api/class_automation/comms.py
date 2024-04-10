@@ -4,6 +4,8 @@ from urllib.parse import quote
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from protohaven_api.config import tz
+
 env = Environment(
     loader=PackageLoader("protohaven_api.class_automation"),
     autoescape=select_autoescape(),
@@ -13,7 +15,7 @@ env = Environment(
 def techs_openings(events):
     """Generate message for techs about classes with open seats"""
     ee = []
-    for evt, action in events["events"]:
+    for evt, _ in events["events"]:
         ee.append(
             {
                 "id": str(evt["id"]),
@@ -87,7 +89,7 @@ def instructor_low_attendance(evt):
 def registrant_class_confirmed(evt, a, now=None):
     """Generate message to registrant that the class is confirmed to run"""
     if not now:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now().astimezone(tz)
     firstname = a["firstName"]
     classname = evt["name"]
     evt_date = evt["python_date"].strftime("%B %-d")

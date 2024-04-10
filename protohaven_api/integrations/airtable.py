@@ -7,7 +7,7 @@ from functools import cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tz
 from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["airtable"]
@@ -104,6 +104,7 @@ def get_instructor_email_map():
 
 
 def fetch_instructor_capabilities(name):
+    """Fetches capabilities for a specific instructor"""
     for row in get_all_records("class_automation", "capabilities"):
         if row["fields"].get("Instructor").lower() == name.lower():
             return row
@@ -173,10 +174,11 @@ def get_instructor_log_tool_codes():
 
 def respond_class_automation_schedule(eid, pub):
     """Confirm or unconfirm a row in the Schedule table of class automation"""
-    if pub:
-        data = {"Confirmed": datetime.datetime.now().isoformat()}
-    else:
-        data = {"Confirmed": ""}
+    t = datetime.datetime.now().isoformat()
+    data = {
+        "Confirmed": t if pub is True else "",
+        "Rejected": t if pub is False else "",
+    }
     return update_record(data, "class_automation", "schedule", eid)
 
 
@@ -240,6 +242,29 @@ def get_clearance_to_tool_map():
                 ctt.add(ct)
         clearance_to_tool[cc] = ctt
     return clearance_to_tool
+
+
+def get_shop_tech_time_off():
+    """Gets reported time off by techs"""
+    return get_all_records("neon_data", "shop_tech_time_off")
+
+
+def get_announcements_after(d, roles):
+    """Gets all announcements, excluding those before `d`"""
+    result = []
+    for row in get_all_records("neon_data", "sign_in_announcements"):
+        adate = dateparser.parse(
+            row["fields"].get("Published", "2024-01-01")
+        ).astimezone(tz)
+        print(row["fields"])
+        if adate <= d:
+            continue
+        for r in row["fields"]["Roles"]:
+            print(r, "in", roles, "?")
+            if r in roles:
+                result.append(row["fields"])
+                break
+    return result
 
 
 def get_policy_sections():

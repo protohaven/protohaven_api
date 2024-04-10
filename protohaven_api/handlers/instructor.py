@@ -3,12 +3,16 @@ import datetime
 from collections import defaultdict
 
 from dateutil import parser as dateparser
-from flask import Blueprint, redirect, render_template, request
+from flask import Blueprint, current_app, redirect, render_template, request
 
+from protohaven_api.class_automation.scheduler import (
+    generate_env as generate_scheduler_env,
+)
+from protohaven_api.class_automation.scheduler import solve_with_env
 from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email
 from protohaven_api.integrations import airtable, neon, schedule
-from protohaven_api.rbac import Role, get_roles, require_login_role
+from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("instructor", __name__, template_folder="templates")
 
@@ -154,7 +158,7 @@ def get_dashboard_schedule_sorted(email):
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
     for s in airtable.get_class_automation_schedule():
-        if s["fields"]["Email"].lower() != email:
+        if s["fields"]["Email"].lower() != email or s["fields"].get("Rejected"):
             continue
 
         start_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(tz)
@@ -177,6 +181,7 @@ def get_dashboard_schedule_sorted(email):
 @page.route("/instructor/about")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_about():
+    """Get readiness state of instructor"""
     email = request.args.get("email")
     if email is not None:
         if require_login_role(Role.ADMIN)(lambda: True)() is not True:
@@ -217,6 +222,19 @@ def _annotate_schedule_class(e):
 @page.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class():
+    """Return svelte compiled static page for instructor dashboard"""
+    return current_app.send_static_file("svelte/dashboard.html")
+
+
+@page.route("/instructor/_app/immutable/<typ>/<path>")
+def instructor_class_svelte_files(typ, path):
+    """Return svelte compiled static page for instructor dashboard"""
+    return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
+
+
+@page.route("/instructor/class_details")
+@require_login_role(Role.INSTRUCTOR)
+def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
@@ -318,3 +336,19 @@ def instructors_status():
         render.append(v)
     render.sort(key=lambda e: int(e["neon_id"]))
     return render_template("instructor_readiness.html", results=render)
+
+
+@page.route("/instructor/setup_scheduler_env", methods=["GET"])
+def setup_scheduler_env():
+    """Create a class scheduler environment to run"""
+    return generate_scheduler_env(
+        dateparser.parse(request.args.get("start")).astimezone(tz),
+        dateparser.parse(request.args.get("end")).astimezone(tz),
+        [request.args.get("inst")],
+    )
+
+
+@page.route("/instructor/run_scheduler", methods=["POST"])
+def run_scheduler():
+    """Run the class scheduler with a specific environment"""
+    return solve_with_env(request.json)
