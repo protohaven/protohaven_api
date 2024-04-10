@@ -570,8 +570,8 @@ def _patch_role(account, role, enabled):
         "accountCustomFields"
     ]
     for cf in acf:
-        if cf["id"] == str(CUSTOM_FIELD_API_SERVER_ROLE):
-            print("Editing API server role")
+        if str(cf["id"]) == str(CUSTOM_FIELD_API_SERVER_ROLE):
+            # print("Editing API server role - current value", cf['optionValues'])
             vals = {v["id"]: v["name"] for v in cf["optionValues"]}
             if enabled:
                 vals[role["id"]] = role["name"]
@@ -617,7 +617,9 @@ def patch_member_role(email, role, enabled):
     return resp, content
 
 
-def set_tech_custom_fields(user_id, shift, area_lead, interest, expertise):
+def set_tech_custom_fields(
+    user_id, shift=None, area_lead=None, interest=None, expertise=None
+):
     """Overwrites existing waiver status information on an account"""
     cf = []
     if shift:
