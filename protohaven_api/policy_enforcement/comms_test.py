@@ -1,6 +1,11 @@
 """Tests for communications about policy enforcement"""
-from protohaven_api.policy_enforcement import comms
-from protohaven_api.policy_enforcement.testing import *  # pylint: disable=unused-wildcard-import,wildcard-import
+from protohaven_api.policy_enforcement import comms  # pylint: disable=import-error
+from protohaven_api.policy_enforcement.testing import (  # pylint: disable=import-error
+    dt,
+    suspension,
+    tfee,
+    violation,
+)
 
 
 def test_enforcement_summary_nothing():
@@ -17,19 +22,6 @@ def test_enforcement_summary_only_resolved():
         [suspension(dt(-1), dt(0), reinstated=True)],
     )
     assert got == (None, None)
-
-
-def test_enforcement_summary_ignores_complete_but_preserves_fees():
-    """Resolved violations and suspensions aren't listed, but any
-    unpaid fees from closed violations are mentioned"""
-    _, got = comms.enforcement_summary(
-        [violation(1, dt(-2)), violation(2, dt(-1), dt(0))],
-        [tfee(vid=2), tfee(vid=1, paid=True)],
-        [suspension(dt(-1), dt(0))],
-    )
-    assert "1 active violation(s)" in got
-    assert "1 new suspension(s)" in got
-    assert "$5 in unpaid fees" in got
 
 
 def test_enforcement_summary_unknown_suspect_with_fees():

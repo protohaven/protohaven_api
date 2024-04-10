@@ -17,11 +17,16 @@ def resource_url(resource_id):
     return f"{BASE_URL}/Web/Services/Resources/{resource_id}"
 
 
+def _config_attribs():
+    return get_config()["booked"]["resource_custom_attribute"]
+
+
 def get_resource_map():
+    """Fetches a map from a resource tool code to its ID"""
     resp = get_connector().booked_request("GET", f"{BASE_URL}/Web/Services/Resources/")
     data = resp.json()
     result = {}
-    tool_code_id = get_config()["booked"]["resource_custom_attribute"]["tool_code"]
+    tool_code_id = _config_attribs()["tool_code"]
     for d in data["resources"]:
         for attr in d["customAttributes"]:
             if attr["id"] == tool_code_id and attr["value"]:
@@ -32,7 +37,10 @@ def get_resource_map():
 
 def get_resource(resource_id):
     """Get the current info about a tool or equipment"""
+    c = get_connector()
+    print(c)
     resp = get_connector().booked_request("GET", resource_url(resource_id))
+    print("RESP", resp)
     return resp.json()
 
 
@@ -89,8 +97,7 @@ def apply_resource_custom_fields(resource_id, **kwargs):
     assert str(data["resourceId"]) == str(resource_id)
 
     # Update the customAttributes field
-    field_ids = get_config()["booked"]["resource_custom_attribute"]
-    # print(data['customAttributes'])
+    field_ids = _config_attribs()
     attrs = {a["id"]: a["value"] for a in data["customAttributes"]}
     for k, v in kwargs.items():
         attrs[field_ids[k]] = v
@@ -102,24 +109,3 @@ def apply_resource_custom_fields(resource_id, **kwargs):
     print(data)
     resp = get_connector().booked_request("POST", resource_url(resource_id), json=data)
     return resp.json()
-
-
-if __name__ == "__main__":
-    import pytz
-    from dateutil.parser import parse as parse_date
-
-    from protohaven_api.integrations.data.connector import init as init_config
-
-    tz = pytz.timezone("US/Eastern")
-
-    init_config(dev=False)
-    OTHERMILL_ID = 4
-    name = res["name"]
-    print(res["name"], "STATUSID", res["statusId"])
-    input("Testing booked API - press enter to set the Othermill to unavailable")
-    print(set_resource_status(OTHERMILL_ID, name, STATUS_UNAVAILABLE))
-    print("STATUSID", get_resource(OTHERMILL_ID)["statusId"])
-    input("enter to set available")
-    print(set_resource_status(OTHERMILL_ID, name, STATUS_AVAILABLE))
-    print("STATUSID", get_resource(OTHERMILL_ID)["statusId"])
-    print("done")

@@ -25,7 +25,7 @@ if os.getenv("CORS", "false").lower() == "true":
 
 if os.getenv("UNSAFE_NO_RBAC", "false").lower() == "true":
     log.warning(
-        "DANGER DANGER DANGER\n\nRBAC HAS BEEN DISABLED; EVERYONE CAN ACCESS EVERYTHING\n\nDANGER DANGER DANGER"
+        "DANGER DANGER DANGER\n\nRBAC DISABLED; EVERYONE CAN DO EVERYTHING\n\nDANGER DANGER DANGER"
     )
     disable_rbac()
 

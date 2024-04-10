@@ -9,7 +9,7 @@ from protohaven_api.class_automation.testdata import (  # pylint: disable=import
 )
 from protohaven_api.config import tz
 
-TEST_NOW = parse_date("2024-02-22")
+TEST_NOW = parse_date("2024-02-22").astimezone(tz)
 
 
 def test_get_account_email_individual(mocker):
@@ -193,7 +193,7 @@ def test_builder_fetch_aggregate_singletons(mocker, caplog):
     assert eb.events == [evt]
 
     # Actionable class assignment happens when event is sorted
-    eb._sort_event_for_notification(
+    eb._sort_event_for_notification(  # pylint: disable=protected-access
         eb.events[0], parse_date("2024-02-21").astimezone(tz)
     )
     assert eb.actionable_classes == [[evt, builder.Action.POST_RUN_SURVEY]]
@@ -226,7 +226,7 @@ def test_builder_no_actionable_classes(mocker, caplog):
     assert len(eb.events) > 0
 
     # Actionable class assignment happens when event is sorted
-    eb._sort_event_for_notification(
+    eb._sort_event_for_notification(  # pylint: disable=protected-access
         eb.events[0], parse_date("2024-02-21").astimezone(tz)
     )
     assert not eb.actionable_classes
@@ -237,7 +237,7 @@ def _gen_actionable_class(action):
         {
             "id": 1234,
             "name": "Test Event",
-            "python_date": parse_date("2024-02-20"),
+            "python_date": parse_date("2024-02-20").astimezone(tz),
             "instructor_email": "inst@ructor.com",
             "notifications": {},
             "instructor_firstname": "Instructor",
@@ -397,6 +397,7 @@ def test_builder_cancel(caplog):
 
 
 def test_builder_techs(caplog):
+    """Tests generation of class comms to techs"""
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
@@ -420,6 +421,8 @@ def test_builder_techs(caplog):
 
 
 def test_builder_notified():
+    """Tests that `notified` correctly returns True when comms have already been recently
+    sent to a target"""
     eb = builder.ClassEmailBuilder()
     start = parse_date("2024-02-03")
     assert (
