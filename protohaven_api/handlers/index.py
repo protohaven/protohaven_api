@@ -3,7 +3,7 @@ import datetime
 import json
 
 from dateutil import parser as dateparser
-from flask import Blueprint, render_template, request, session
+from flask import Blueprint, current_app, render_template, request, session
 
 from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email, user_fullname
@@ -21,6 +21,7 @@ page = Blueprint("index", __name__, template_folder="templates")
 def index():
     """Show the main dashboard page"""
     neon_account = session.get("neon_account")
+    print(neon_account)
     clearances = []
     roles = []
     neon_account["custom_fields"] = {"Clearances": {"optionValues": []}}
@@ -50,11 +51,17 @@ def whoami():
     return {"fullname": user_fullname(), "email": user_email()}
 
 
+@page.route("/welcome/_app/immutable/<typ>/<path>")
+def welcome_svelte_files(typ, path):
+    """Return svelte compiled static pages for welcome page"""
+    return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
+
+
 @page.route("/welcome", methods=["GET", "POST"])
 def welcome_signin():
     """Sign-in page at front desk"""
     if request.method == "GET":
-        raise NotImplementedError
+        return current_app.send_static_file("svelte/index.html")
 
     if request.method == "POST":
         result = {
@@ -65,7 +72,6 @@ def welcome_signin():
             "firstname": "member",
         }
         data = request.json
-        print(data)
         if data["person"] == "member":
             m = neon.search_member(data["email"])
             print(m)
@@ -94,9 +100,11 @@ def welcome_signin():
                     last_announcement_ack, roles
                 )
 
-            result["waiver_signed"] = neon.update_waiver_status(
-                m["Account ID"], m.get("Waiver Accepted"), data.get("waiver_ack", False)
-            )
+                result["waiver_signed"] = neon.update_waiver_status(
+                    m["Account ID"],
+                    m.get("Waiver Accepted"),
+                    data.get("waiver_ack", False),
+                )
         elif data["person"] == "guest":
             result["waiver_signed"] = data.get("waiver_ack", False)
             result["firstname"] = "Guest"
@@ -105,7 +113,7 @@ def welcome_signin():
             data["person"] == "member"
             and result["notfound"] is False
             and result["waiver_signed"]
-        ) or (data["person"] == "guest" and data["referrer"]):
+        ) or (data["person"] == "guest" and data.get("referrer")):
             # Note: setting `purpose` this way tricks the form into not requiring other fields
             assert result["waiver_signed"] is True
             form_data = {
@@ -115,7 +123,7 @@ def welcome_signin():
                     "I have read and understand this agreement and "
                     "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
                 ),
-                "referrer": data["referrer"],
+                "referrer": data.get("referrer"),
                 "purpose": "I'm a member, just signing in!",
                 "am_member": "Yes" if data["person"] == "member" else "No",
             }

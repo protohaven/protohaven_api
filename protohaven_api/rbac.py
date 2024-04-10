@@ -7,12 +7,13 @@ from flask import redirect, request, session, url_for  # pylint: disable=import-
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_user_neon_oauth
 
-enabled = True
+enabled = True  # pylint: disable=invalid-name
 
 
-def disable_rbac():
-    global enabled
-    enabled = False
+def set_rbac(en):
+    """Changes global RBAC enabled state"""
+    global enabled  # pylint: disable=global-statement
+    enabled = en
 
 
 @dataclass
@@ -30,7 +31,6 @@ def require_login(fn):
     """Decorator that requires the user to be logged in"""
 
     def do_login_check(*args, **kwargs):
-        global enabled
         if enabled:
             if session.get("neon_id") is None:
                 session["redirect_to_login_url"] = request.url
@@ -73,7 +73,6 @@ def require_login_role(role):
 
     def fn_setup(fn):
         def do_role_check(*args, **kwargs):
-            global enabled
             if not enabled:
                 print("BYPASS for ", role)
                 return fn(*args, **kwargs)
