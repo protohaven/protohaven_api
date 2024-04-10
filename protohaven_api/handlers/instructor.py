@@ -1,9 +1,8 @@
 """Handlers for instructor actions on classes"""
 import datetime
-from collections import defaultdict
 
 from dateutil import parser as dateparser
-from flask import Blueprint, current_app, redirect, render_template, request
+from flask import Blueprint, current_app, redirect, request
 
 from protohaven_api.class_automation.scheduler import (
     generate_env as generate_scheduler_env,
@@ -63,7 +62,7 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
-def _get_instructor_readiness(inst, caps=None, instructor_schedules=None):
+def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
@@ -149,12 +148,13 @@ def instructor_class_selector():
     return redirect("/instructor/class")
 
 
-def get_dashboard_schedule_sorted(email):
+def get_dashboard_schedule_sorted(email, now=None):
     """Fetches the instructor availability schedule for an individual instructor.
     Excludes unconfirmed classes sooner than HIDE_UNCONFIRMED_DAYS_AHEAD
     as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
     sched = []
-    now = datetime.datetime.now().astimezone(tz)
+    if now is None:
+        now = datetime.datetime.now().astimezone(tz)
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
     for s in airtable.get_class_automation_schedule():
@@ -188,7 +188,7 @@ def instructor_about():
             return "Access Denied for admin parameter `email`"
     else:
         email = user_email()
-    return _get_instructor_readiness(neon.search_member(email.lower()))
+    return get_instructor_readiness(neon.search_member(email.lower()))
 
 
 def _annotate_schedule_class(e):
@@ -296,49 +296,8 @@ def instructor_class_volunteer():
     return _annotate_schedule_class(result["fields"])
 
 
-@page.route("/instructor/readiness", methods=["GET"])
-def instructors_status():
-    """Get the onboarding status of all instructors"""
-
-    results = defaultdict(
-        lambda: {
-            "neon_id": None,
-            "fullname": "unknown",
-            "active_membership": "inactive",
-            "discord_user": "missing",
-            "capabilities_listed": "missing",
-            "in_calendar": "missing",
-        }
-    )
-
-    neon_instructors = neon.get_members_with_role(
-        Role.INSTRUCTOR,
-        [
-            "Account Current Membership Status",
-            "Email 1",
-            neon.CUSTOM_FIELD_DISCORD_USER,
-        ],
-    )
-    now = datetime.datetime.now()
-    teachable_classes = airtable.fetch_instructor_teachable_classes()
-    instructor_schedules = schedule.fetch_instructor_schedules(
-        now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
-    )
-    for inst in neon_instructors:
-        e = inst["Email 1"].lower()
-        results[e] = _get_instructor_readiness(
-            inst, teachable_classes, instructor_schedules
-        )
-
-    render = []
-    for k, v in results.items():
-        v["email"] = k
-        render.append(v)
-    render.sort(key=lambda e: int(e["neon_id"]))
-    return render_template("instructor_readiness.html", results=render)
-
-
 @page.route("/instructor/setup_scheduler_env", methods=["GET"])
+@require_login_role(Role.INSTRUCTOR)
 def setup_scheduler_env():
     """Create a class scheduler environment to run"""
     return generate_scheduler_env(
@@ -349,6 +308,7 @@ def setup_scheduler_env():
 
 
 @page.route("/instructor/run_scheduler", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
     return solve_with_env(request.json)
