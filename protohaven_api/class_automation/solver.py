@@ -6,6 +6,7 @@ import datetime
 import logging
 from collections import defaultdict
 
+from dateutil import parser as dateparser
 from pulp import constants as pulp_constants
 from pulp import pulp
 
@@ -23,7 +24,9 @@ class Class:
         self.period = period
         self.hours = hours
         self.area = area
-        self.last_run = last_run
+        self.last_run = (
+            dateparser.parse(last_run) if isinstance(last_run, str) else last_run
+        )
         # Score is a normalized expected value based on revenue, likelihood to fill,
         # cost of materials etc.
         self.score = score
@@ -55,7 +58,9 @@ class Instructor:
         self.name = name
         self.caps = caps  # references Class.airtable_id
         self.load = load  # classes teachable per month
-        self.avail = avail
+        self.avail = (
+            [dateparser.parse(a) for a in avail] if isinstance(avail[0], str) else avail
+        )
 
     def __repr__(self):
         return f"{self.name} (caps={len(self.caps)}, times={len(self.avail)}, load={self.load})"
@@ -94,7 +99,7 @@ def solve(
 ):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.airtable_id: cls for cls in classes}
-    areas = {c.area for c in classes}
+    areas = {a for c in classes for a in c.area}
     instructors_by_name = {p.name: p for p in instructors}
 
     # Create a dictionary of the cartesian product of classes, instructors, and times.
@@ -111,11 +116,16 @@ def solve(
                     continue
 
                 # Skip if area already occupied
-                if has_area_conflict(
-                    area_occupancy.get(cbid.area, []),
-                    t,
-                    t + datetime.timedelta(hours=cbid.hours),
-                ):
+                conflict = False
+                for a in cbid.area:
+                    if has_area_conflict(
+                        area_occupancy.get(a, []),
+                        t,
+                        t + datetime.timedelta(hours=cbid.hours),
+                    ):
+                        conflict = True
+                    break
+                if conflict:
                     continue
 
                 possible_assignments.append((airtable_id, instructor.name, t))

@@ -5,9 +5,9 @@ import datetime
 import logging
 from collections import defaultdict
 
-import pytz
 from dateutil import parser as dateparser
 
+from protohaven_api.config import tz
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.policy_enforcement import comms as ecomms
 
@@ -18,7 +18,6 @@ SUSPENSION_DAYS_INITIAL = 30
 SUSPENSION_DAYS_INCREMENT = 60
 OPEN_VIOLATION_GRACE_PD_DAYS = 14
 
-tz = pytz.timezone("EST")
 
 log = logging.getLogger("policy_enforcement.enforcer")
 
@@ -34,7 +33,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     if latest_fee is None:
         latest_fee = {}
         for f in airtable.get_policy_fees():
-            d = dateparser.parse(f["fields"]["Created"]).replace(tzinfo=tz)
+            d = tz.localize(dateparser.parse(f["fields"]["Created"]))
             vid = f["fields"]["Violation"][0]
             if vid not in latest_fee or latest_fee[vid] < d:
                 latest_fee[vid] = d

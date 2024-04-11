@@ -5,7 +5,9 @@ import logging
 from collections import defaultdict
 from functools import cache
 
-from protohaven_api.config import get_config
+from dateutil import parser as dateparser
+
+from protohaven_api.config import get_config, tz
 from protohaven_api.integrations.data.connector import get as get_connector
 
 cfg = get_config()["airtable"]
@@ -69,7 +71,7 @@ def update_record(data, base, tbl, rec):
     response = get_connector().airtable_request(
         cfg[base]["token"], "PATCH", url, data=json.dumps(post_data)
     )
-    return response
+    return response, json.loads(response.content) if response.content else None
 
 
 def get_class_automation_schedule():
@@ -78,12 +80,15 @@ def get_class_automation_schedule():
 
 
 def get_emails_notified_after(neon_id: str, after_date):
-    """Gets all logged emails that were sent after a specific date"""
-    emails = set()
+    """Gets all logged emails that were sent after a specific date,
+    including their date of ontification"""
+    emails = defaultdict(list)
     for row in get_all_records_after("class_automation", "email_log", after_date):
         if row["fields"].get("Neon ID", "") != str(neon_id):
             continue
-        emails.add(row["fields"]["To"].lower())
+        emails[row["fields"]["To"].lower()].append(
+            dateparser.parse(row["fields"]["Created"])
+        )
     return emails
 
 
@@ -96,6 +101,14 @@ def get_instructor_email_map():
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
     return result
+
+
+def fetch_instructor_capabilities(name):
+    """Fetches capabilities for a specific instructor"""
+    for row in get_all_records("class_automation", "capabilities"):
+        if row["fields"].get("Instructor").lower() == name.lower():
+            return row
+    return None
 
 
 def fetch_instructor_teachable_classes():
@@ -161,10 +174,11 @@ def get_instructor_log_tool_codes():
 
 def respond_class_automation_schedule(eid, pub):
     """Confirm or unconfirm a row in the Schedule table of class automation"""
-    if pub:
-        data = {"Confirmed": datetime.datetime.now().isoformat()}
-    else:
-        data = {"Confirmed": ""}
+    t = datetime.datetime.now().isoformat()
+    data = {
+        "Confirmed": t if pub is True else "",
+        "Rejected": t if pub is False else "",
+    }
     return update_record(data, "class_automation", "schedule", eid)
 
 
@@ -228,6 +242,29 @@ def get_clearance_to_tool_map():
                 ctt.add(ct)
         clearance_to_tool[cc] = ctt
     return clearance_to_tool
+
+
+def get_shop_tech_time_off():
+    """Gets reported time off by techs"""
+    return get_all_records("neon_data", "shop_tech_time_off")
+
+
+def get_announcements_after(d, roles):
+    """Gets all announcements, excluding those before `d`"""
+    result = []
+    for row in get_all_records("neon_data", "sign_in_announcements"):
+        adate = dateparser.parse(
+            row["fields"].get("Published", "2024-01-01")
+        ).astimezone(tz)
+        print(row["fields"])
+        if adate <= d:
+            continue
+        for r in row["fields"]["Roles"]:
+            print(r, "in", roles, "?")
+            if r in roles:
+                result.append(row["fields"])
+                break
+    return result
 
 
 def get_policy_sections():

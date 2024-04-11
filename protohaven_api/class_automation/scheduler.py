@@ -4,7 +4,6 @@ import logging
 from collections import defaultdict
 
 import holidays
-import pytz
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation.solver import (
@@ -13,11 +12,11 @@ from protohaven_api.class_automation.solver import (
     date_range_overlaps,
     solve,
 )
+from protohaven_api.config import tz
 from protohaven_api.integrations import airtable
 from protohaven_api.integrations.schedule import fetch_instructor_schedules
 
 log = logging.getLogger("class_automation.scheduler")
-tz = pytz.timezone("EST")
 
 
 def fetch_formatted_schedule(time_min, time_max):
@@ -42,13 +41,15 @@ def slice_date_range(start_date, end_date):
     evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
     class_duration = datetime.timedelta(hours=3)
     ret = []
-    base_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    base_date = start_date.replace(
+        hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+    )
     for i in range((end_date - start_date).days + 1):
         for j in day_class_hours:
             candidate = base_date + datetime.timedelta(days=i, hours=j)
             if candidate.weekday() in evening_only_days and j < evening_threshold:
                 continue  # Some days, we only allow classes to run in the evening
-            candidate = candidate.replace(tzinfo=tz)
+            candidate = tz.localize(candidate)
             if candidate >= start_date and candidate + class_duration <= end_date:
                 ret.append(candidate)
     return ret
@@ -63,8 +64,10 @@ def _build_instructor(k, v, caps, load, exclude_holidays=True):
     """Create and return an Instructor object given a name and [(start,end)] style schedule"""
     avail = []
     for a, b in v:
-        a = dateparser.parse(a).replace(tzinfo=tz)
-        b = dateparser.parse(b).replace(tzinfo=tz)
+        a = dateparser.parse(a)
+        b = dateparser.parse(b)
+        assert a.tzinfo is not None
+        assert b.tzinfo is not None
         avail += slice_date_range(a, b)
 
     if exclude_holidays:
@@ -95,7 +98,9 @@ def _gen_class_and_area_stats(cur_sched, start_date, end_date):
                 ),
             ]
             if date_range_overlaps(ao[0], ao[1], start_date, end_date):
-                area_occupancy[c["fields"]["Area (from Class)"][0]].append(ao)
+                area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
+                    ao
+                )
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
     return last_run, area_occupancy
@@ -205,7 +210,7 @@ def solve_with_env(env):
 def format_class(cls):
     """Convert a class into bulleted representation, for email summary"""
     _, name, date = cls
-    start = dateparser.parse(date).astimezone(pytz.timezone("EST"))
+    start = dateparser.parse(date).astimezone(tz)
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 

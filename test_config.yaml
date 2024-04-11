@@ -1,4 +1,5 @@
 general:
+  session_secret: "TESTING"
 neon:
 discord_bot:
 comms:

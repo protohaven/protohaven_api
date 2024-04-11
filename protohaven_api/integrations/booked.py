@@ -1,4 +1,5 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
+from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
 # https://github.com/protohaven/systems-integration/blob/main/airtable-automations/UpdateBookedStatus.js
@@ -16,9 +17,30 @@ def resource_url(resource_id):
     return f"{BASE_URL}/Web/Services/Resources/{resource_id}"
 
 
+def _config_attribs():
+    return get_config()["booked"]["resource_custom_attribute"]
+
+
+def get_resource_map():
+    """Fetches a map from a resource tool code to its ID"""
+    resp = get_connector().booked_request("GET", f"{BASE_URL}/Web/Services/Resources/")
+    data = resp.json()
+    result = {}
+    tool_code_id = _config_attribs()["tool_code"]
+    for d in data["resources"]:
+        for attr in d["customAttributes"]:
+            if attr["id"] == tool_code_id and attr["value"]:
+                result[attr["value"]] = d["resourceId"]
+                break
+    return result
+
+
 def get_resource(resource_id):
     """Get the current info about a tool or equipment"""
+    c = get_connector()
+    print(c)
     resp = get_connector().booked_request("GET", resource_url(resource_id))
+    print("RESP", resp)
     return resp.json()
 
 
@@ -43,23 +65,47 @@ def get_reservations(start, end):
     return resp.json()
 
 
-def reserve_resource(resource_id, start_time, end_time):
+def reserve_resource(
+    resource_id,
+    start_time,
+    end_time,
+    title="System Reserved",
+    desc="api.protohaven.org reservation",
+):
     """Reserve a tool or equipment for a time"""
-    raise NotImplementedError("TODO")
+    url = f"{BASE_URL}/Web/Services/Reservations/"
+    resp = get_connector().booked_request(
+        "POST",
+        url,
+        json={
+            "description": desc,
+            "endDateTime": end_time.isoformat(),
+            "resourceId": resource_id,
+            "startDateTime": start_time.isoformat(),
+            "title": title,
+            "userId": 103,  # system@protohaven.org
+        },
+    )
+    return resp.json()
 
 
-if __name__ == "__main__":
-    from protohaven_api.integrations.data.connector import init as init_config
+def apply_resource_custom_fields(resource_id, **kwargs):
+    """Applies custom fields to an existing resource.
+    See https://www.bookedscheduler.com/help/api/api-resources/"""
 
-    init_config(dev=False)
-    OTHERMILL_ID = 4
-    res = get_resource(OTHERMILL_ID)
-    name = res["name"]
-    print(res["name"], "STATUSID", res["statusId"])
-    input("Testing booked API - press enter to set the Othermill to unavailable")
-    print(set_resource_status(OTHERMILL_ID, name, STATUS_UNAVAILABLE))
-    print("STATUSID", get_resource(OTHERMILL_ID)["statusId"])
-    input("enter to set available")
-    print(set_resource_status(OTHERMILL_ID, name, STATUS_AVAILABLE))
-    print("STATUSID", get_resource(OTHERMILL_ID)["statusId"])
-    print("done")
+    data = get_resource(resource_id)
+    assert str(data["resourceId"]) == str(resource_id)
+
+    # Update the customAttributes field
+    field_ids = _config_attribs()
+    attrs = {a["id"]: a["value"] for a in data["customAttributes"]}
+    for k, v in kwargs.items():
+        attrs[field_ids[k]] = v
+
+    # Reassign to base data and push it
+    data["customAttributes"] = [
+        {"attributeId": k, "attributeValue": v} for k, v in attrs.items()
+    ]
+    print(data)
+    resp = get_connector().booked_request("POST", resource_url(resource_id), json=data)
+    return resp.json()

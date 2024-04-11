@@ -44,7 +44,6 @@ CLOSINGS = [
     "You're not just making things, you're making history — keep on crafting!",
 ]
 
-MAX_NEW_TASKS = 3
 MAX_STALE_TASKS = 3
 
 
@@ -56,7 +55,7 @@ def daily_tasks_summary(new_tasks, stale_tasks, stale_thresh):
         closing=random.choice(CLOSINGS),
         new_count=len(new_tasks),
         stale_count=len(stale_tasks),
-        new_tasks=new_tasks[:MAX_NEW_TASKS],
+        new_tasks=new_tasks,
         stale_thresh=stale_thresh,
         stale_tasks=stale_tasks[:MAX_STALE_TASKS],
     )

@@ -40,15 +40,20 @@
     <li>{{r['resource']}}: {{r['start']}} - {{r['end']}} by {{r['name']}}</li>
     {% endfor %}
     </ul>
-    <h2>Classes (next 7 days)</h2>
+    <h2>Classes</h2>
+    <div>
+      As of {{now.strftime("%B %-d %-I:%M %p")}}.
+    </div>
     <p><strong>NOTE: Multi-day classes are only shown by their start date</strong></p>
 
     <table id="schedule">
       <thead>
         <tr>
           <th>Event</th>
-          <th>Start</th>
-          <th>End</th>
+          <th>Start Date</th>
+          <th>Start Time</th>
+          <th>End Date</th>
+	  <th>End Time</th>
           <th>Attendees</th>
           <th>Capacity</th>
           <th>Status</th>
@@ -58,19 +63,18 @@
         {% for event in events %}
         <tr id="{{event['id']}}">
           <td>{{event['name']}}</td>
-          <td>{{event['start']}}</td>
-          <td>{{event['end']}}</td>
+          <td style="text-align: right">{{event['start_date']}}</td>
+          <td style="text-align: right">{{event['start_time']}}</td>
+          <td style="text-align: right">{{event['end_date']}}</td>
+          <td style="text-align: right">{{event['end_time']}}</td>
           <td class="attendees">Loading...</td>
-          <td>{{event['capacity']}}</td>
+          <td>{{event['capacity'] or ""}}</td>
           <td>{{ "Registration open" if event['registration'] else "Registration closed"}}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     <br/>
-    <div>
-      Updated {{now.strftime("%B %-d %-I:%M %p")}}.
-    </div>
   </body>
   <script>
     $("tr").each(function(i, tr) {

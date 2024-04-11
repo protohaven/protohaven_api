@@ -1,22 +1,23 @@
 """Handlers for instructor actions on classes"""
 import datetime
-from collections import defaultdict
 
-import pytz
 from dateutil import parser as dateparser
-from flask import Blueprint, redirect, render_template, request
+from flask import Blueprint, current_app, redirect, request
 
+from protohaven_api.class_automation.scheduler import (
+    generate_env as generate_scheduler_env,
+)
+from protohaven_api.class_automation.scheduler import solve_with_env
+from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email
 from protohaven_api.integrations import airtable, neon, schedule
-from protohaven_api.rbac import Role, get_roles, require_login_role
+from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("instructor", __name__, template_folder="templates")
 
 
 HIDE_UNCONFIRMED_DAYS_AHEAD = 10
 HIDE_CONFIRMED_DAYS_AFTER = 10
-
-tz = pytz.timezone("US/Eastern")
 
 
 def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
@@ -61,6 +62,67 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
+def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
+    """Returns a list of actions instructors need to take to be fully onboarded.
+    Note: `inst` is a neon result requiring Account Current Membership Status"""
+    result = {
+        "neon_id": None,
+        "fullname": "unknown",
+        "active_membership": "inactive",
+        "discord_user": "missing",
+        "capabilities_listed": "missing",
+        "in_calendar": "missing",
+        "paperwork": "unknown",
+        "profile_img": None,
+        "bio": None,
+    }
+    result["neon_id"] = inst["Account ID"]
+    if inst["Account Current Membership Status"] == "Active":
+        result["active_membership"] = "OK"
+    else:
+        result["active_membership"] = inst["Account Current Membership Status"]
+    if inst.get("Discord User"):
+        result["discord_user"] = "OK"
+    result["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
+
+    if not caps:
+        caps = airtable.fetch_instructor_capabilities(result["fullname"])
+    if caps:
+        if len(caps["fields"].get("Class", [])) > 0:
+            result["capabilities_listed"] = "OK"
+
+        missing_info = [
+            x
+            for x in [
+                "W9" if not caps["fields"].get("W9 Form") else None,
+                "Direct Deposit"
+                if not caps["fields"].get("Direct Deposit Info")
+                else None,
+                "Profile Pic" if not caps["fields"].get("Profile Pic") else None,
+                "Bio" if not caps["fields"].get("Bio") else None,
+            ]
+            if x
+        ]
+
+        result["profile_img"] = caps["fields"].get("Profile Pic", [{"url": None}])[0][
+            "url"
+        ]
+        result["bio"] = caps["fields"].get("Bio")
+        if len(missing_info) > 0:
+            result["paperwork"] = f"Missing {', '.join(missing_info)}"
+        else:
+            result["paperwork"] = "OK"
+
+    now = datetime.datetime.now()
+    if not instructor_schedules:
+        instructor_schedules = schedule.fetch_instructor_schedules(
+            now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
+        )
+    if result["fullname"] in instructor_schedules.keys():
+        result["in_calendar"] = "OK"
+    return result
+
+
 @page.route("/instructor/class/attendees")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_attendees():
@@ -86,16 +148,17 @@ def instructor_class_selector():
     return redirect("/instructor/class")
 
 
-def get_dashboard_schedule_sorted(email):
+def get_dashboard_schedule_sorted(email, now=None):
     """Fetches the instructor availability schedule for an individual instructor.
     Excludes unconfirmed classes sooner than HIDE_UNCONFIRMED_DAYS_AHEAD
     as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
     sched = []
-    now = datetime.datetime.now().astimezone(tz)
+    if now is None:
+        now = datetime.datetime.now().astimezone(tz)
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
     for s in airtable.get_class_automation_schedule():
-        if s["fields"]["Email"].lower() != email:
+        if s["fields"]["Email"].lower() != email or s["fields"].get("Rejected"):
             continue
 
         start_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(tz)
@@ -115,44 +178,75 @@ def get_dashboard_schedule_sorted(email):
     return sched
 
 
+@page.route("/instructor/about")
+@require_login_role(Role.INSTRUCTOR)
+def instructor_about():
+    """Get readiness state of instructor"""
+    email = request.args.get("email")
+    if email is not None:
+        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
+            return "Access Denied for admin parameter `email`"
+    else:
+        email = user_email()
+    return get_instructor_readiness(neon.search_member(email.lower()))
+
+
+def _annotate_schedule_class(e):
+    date = dateparser.parse(e["Start Time"]).astimezone(tz)
+
+    # If it's in neon, generate a log URL.
+    # Placeholder for attendee names/emails as that's loaded
+    # lazily on page load.
+    if e.get("Neon ID"):
+        e["prefill"] = prefill_form(
+            instructor=e["Instructor"],
+            start_date=date,
+            hours=e["Hours (from Class)"][0],
+            class_name=e["Name (from Class)"][0],
+            pass_emails=["$ATTENDEE_NAMES"],
+            clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
+            volunteer=e.get("Volunteer", False),
+            event_id=e["Neon ID"],
+        )
+
+    for date_field in ("Confirmed", "Instructor Log Date"):
+        if e.get(date_field):
+            e[date_field] = dateparser.parse(e[date_field])
+    e["Dates"] = []
+    for _ in range(e["Days (from Class)"][0]):
+        e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
+        date += datetime.timedelta(days=7)
+    return e
+
+
 @page.route("/instructor/class")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class():
+    """Return svelte compiled static page for instructor dashboard"""
+    return current_app.send_static_file("svelte/dashboard.html")
+
+
+@page.route("/instructor/_app/immutable/<typ>/<path>")
+def instructor_class_svelte_files(typ, path):
+    """Return svelte compiled static page for instructor dashboard"""
+    return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
+
+
+@page.route("/instructor/class_details")
+@require_login_role(Role.INSTRUCTOR)
+def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
-        roles = get_roles()
-        if roles is None or Role.ADMIN["name"] not in roles:
-            return "Not Authorized"
+        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
+            return "Access Denied for admin parameter `email`"
     else:
         email = user_email()
     email = email.lower()
-    sched = get_dashboard_schedule_sorted(email)
-    for _, e in sched:
-        date = dateparser.parse(e["Start Time"]).astimezone(tz)
-
-        # If it's in neon, generate a log URL.
-        # Placeholder for attendee names/emails as that's loaded
-        # lazily on page load.
-        if e.get("Neon ID"):
-            e["prefill"] = prefill_form(
-                instructor=e["Instructor"],
-                start_date=date,
-                hours=e["Hours (from Class)"][0],
-                class_name=e["Name (from Class)"][0],
-                pass_emails=["$ATTENDEE_NAMES"],
-                clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
-                volunteer=e.get("Volunteer", False),
-                event_id=e["Neon ID"],
-            )
-
-        for date_field in ("Confirmed", "Instructor Log Date"):
-            if e.get(date_field):
-                e[date_field] = dateparser.parse(e[date_field])
-        e["Dates"] = []
-        for _ in range(e["Days (from Class)"][0]):
-            e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
-            date += datetime.timedelta(days=7)
+    sched = [
+        (k, _annotate_schedule_class(e))
+        for k, e in get_dashboard_schedule_sorted(email)
+    ]
 
     # Look up the name on file in the capabilities list - this is used to match
     # on manually entered calendar availability
@@ -160,93 +254,61 @@ def instructor_class():
         email, "<NOT FOUND>"
     )
 
-    return render_template(
-        "instructor_class.html",
-        schedule=sched,
-        now=datetime.datetime.now(),
-        email=email,
-        name=caps_name,
-    )
+    return {
+        "schedule": sched,
+        "now": datetime.datetime.now(),
+        "email": email,
+        "name": caps_name,
+    }
 
 
 @page.route("/instructor/class/update", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_update():
     """Confirm or unconfirm a class to run, by the instructor"""
-    eid = request.form.get("eid")
-    pub = request.form.get("pub") == "true"
-    return airtable.respond_class_automation_schedule(eid, pub).content
+    data = request.json
+    eid = data["eid"]
+    pub = data["pub"]
+    print("eid", eid, "pub", pub)
+    _, result = airtable.respond_class_automation_schedule(eid, pub)
+    return _annotate_schedule_class(result["fields"])
 
 
 @page.route("/instructor/class/supply_req", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
-    eid = request.form.get("eid")
-    missing = request.form.get("missing") == "true"
-    return airtable.mark_schedule_supply_request(eid, missing).content
+    data = request.json
+    eid = data["eid"]
+    missing = data["missing"]
+    _, result = airtable.mark_schedule_supply_request(eid, missing)
+    return _annotate_schedule_class(result["fields"])
 
 
 @page.route("/instructor/class/volunteer", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_volunteer():
     """Change the volunteer state of a class"""
-    eid = request.form.get("eid")
-    v = request.form.get("volunteer") == "true"
-    return airtable.mark_schedule_volunteer(eid, v).content
+    data = request.json
+    eid = data["eid"]
+    v = data["volunteer"]
+    _, result = airtable.mark_schedule_volunteer(eid, v)
+    return _annotate_schedule_class(result["fields"])
 
 
-@page.route("/instructor/readiness", methods=["GET"])
-def instructors_status():
-    """Get the onboarding status of all instructors"""
-
-    results = defaultdict(
-        lambda: {
-            "neon_id": None,
-            "fullname": "unknown",
-            "active_membership": "inactive",
-            "discord_user": "missing",
-            "capabilities_listed": "missing",
-            "in_calendar": "missing",
-        }
+@page.route("/instructor/setup_scheduler_env", methods=["GET"])
+@require_login_role(Role.INSTRUCTOR)
+def setup_scheduler_env():
+    """Create a class scheduler environment to run"""
+    return generate_scheduler_env(
+        dateparser.parse(request.args.get("start")).astimezone(tz),
+        dateparser.parse(request.args.get("end")).astimezone(tz),
+        [request.args.get("inst")],
     )
 
-    neon_instructors = neon.get_members_with_role(
-        Role.INSTRUCTOR,
-        [
-            "Account Current Membership Status",
-            "Email 1",
-            neon.CUSTOM_FIELD_DISCORD_USER,
-        ],
-    )
-    for inst in neon_instructors:
-        e = inst["Email 1"].lower()
-        results[e]["neon_id"] = inst["Account ID"]
-        if inst["Account Current Membership Status"] == "Active":
-            results[e]["active_membership"] = "OK"
-        else:
-            results[e]["active_membership"] = inst["Account Current Membership Status"]
-        if inst.get("Discord User"):
-            results[e]["discord_user"] = "OK"
-        results[e]["fullname"] = f"{inst['First Name']} {inst['Last Name']}".strip()
 
-    by_fullname = {e["fullname"]: k for k, e in results.items()}
-    for name, cc in airtable.fetch_instructor_teachable_classes().items():
-        e = by_fullname.get(name)
-        if e is not None:
-            results[e]["capabilities_listed"] = "OK" if (len(cc) > 0) else "missing"
-
-    now = datetime.datetime.now()
-    for name in schedule.fetch_instructor_schedules(
-        now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
-    ).keys():
-        e = by_fullname.get(name)
-        if e is not None:
-            results[e]["in_calendar"] = "OK"
-
-    render = []
-    for k, v in results.items():
-        v["email"] = k
-        render.append(v)
-    render.sort(key=lambda e: int(e["neon_id"]))
-    return render_template("instructor_readiness.html", results=render)
+@page.route("/instructor/run_scheduler", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
+def run_scheduler():
+    """Run the class scheduler with a specific environment"""
+    return solve_with_env(request.json)

@@ -2,13 +2,12 @@
 import datetime
 import logging
 
-import pytz
 from dateutil import parser as dateparser
 
+from protohaven_api.config import tz
 from protohaven_api.integrations import airtable, tasks
 from protohaven_api.maintenance import comms as mcomms
 
-tz = pytz.timezone("EST")
 log = logging.getLogger("maintenance.manager")
 
 
@@ -55,9 +54,9 @@ def apply_maintenance_tasks(tt, now=None):
             t["name"], t["detail"], t["id"], section_gid=t["section"]
         ):
             log.debug("Task already inserted")
-        rep = airtable.update_recurring_task_date(t["id"], now)
+        rep, content = airtable.update_recurring_task_date(t["id"], now)
         if rep.status_code != 200:
-            raise RuntimeError(rep.content)
+            raise RuntimeError(content)
 
 
 DEFAULT_STALE_DAYS = 14

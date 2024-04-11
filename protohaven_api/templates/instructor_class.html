@@ -99,6 +99,10 @@
         $(a).html("Error (likely no event in Neon)");
       });
     });
+    $.get("/instructor/readiness_single").done(function(data) {
+	console.log(data);
+    });
+
     $("button").click(function(e) {
           let eid = $(e.target).parentsUntil(".schedule_class").parent().attr("data-airtableid");
           let cls = e.target.className;

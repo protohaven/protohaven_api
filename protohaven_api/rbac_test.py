@@ -6,6 +6,7 @@ from protohaven_api import rbac
 
 def test_require_login_redirect(monkeypatch):
     """require_login() redirects when not logged in"""
+    rbac.set_rbac(True)
     monkeypatch.setattr("protohaven_api.rbac.session", {})
     monkeypatch.setattr("protohaven_api.rbac.request", MagicMock(url="Testurl"))
     monkeypatch.setattr("protohaven_api.rbac.redirect", lambda x: x)
@@ -18,6 +19,7 @@ def test_require_login_redirect(monkeypatch):
 
 def test_require_login_ok(monkeypatch):
     """require_login() executes function when logged in"""
+    rbac.set_rbac(True)
     monkeypatch.setattr("protohaven_api.rbac.session", {"neon_id": "foo"})
     fn = rbac.require_login(lambda: "called")
     result = fn()

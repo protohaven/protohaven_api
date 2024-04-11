@@ -23,10 +23,15 @@ def cfg(param):
 
 TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
+CUSTOM_FIELD_API_SERVER_ROLE = 85
 CUSTOM_FIELD_CLEARANCES = 75
 CUSTOM_FIELD_INTEREST = 148
+CUSTOM_FIELD_EXPERTISE = 155
 CUSTOM_FIELD_DISCORD_USER = 150
 CUSTOM_FIELD_WAIVER_ACCEPTED = 151
+CUSTOM_FIELD_SHOP_TECH_SHIFT = 152
+CUSTOM_FIELD_AREA_LEAD = 153
+CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED = 154
 WAIVER_FMT = "version {version} on {accepted}"
 WAIVER_REGEX = r"version (.+?) on (.*)"
 URL_BASE = "https://api.neoncrm.com/v2"
@@ -262,7 +267,8 @@ def set_clearances(user_id, codes):
 
 
 def fetch_account(account_id):
-    """Fetches account information for a specific user in Neon"""
+    """Fetches account information for a specific user in Neon.
+    Raises RuntimeError if an error is returned from the server"""
     _, content = get_connector().neon_request(
         cfg("api_key1"), f"https://api.neoncrm.com/v2/accounts/{account_id}"
     )
@@ -332,6 +338,8 @@ def search_member(email):
             CUSTOM_FIELD_CLEARANCES,
             CUSTOM_FIELD_DISCORD_USER,
             CUSTOM_FIELD_WAIVER_ACCEPTED,
+            CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED,
+            CUSTOM_FIELD_API_SERVER_ROLE,
         ],
         "pagination": {
             "currentPage": 0,
@@ -360,7 +368,7 @@ def get_members_with_role(role, extra_fields):
     data = {
         "searchFields": [
             {
-                "field": "85",
+                "field": str(CUSTOM_FIELD_API_SERVER_ROLE),
                 "operator": "CONTAIN",
                 "value": role["id"],
             }
@@ -557,6 +565,124 @@ def soft_search(keyword):
     return n.soft_search(keyword)
 
 
+def _patch_role(account, role, enabled):
+    acf = account.get("individualAccount", account.get("companyAccount"))[
+        "accountCustomFields"
+    ]
+    for cf in acf:
+        if str(cf["id"]) == str(CUSTOM_FIELD_API_SERVER_ROLE):
+            # print("Editing API server role - current value", cf['optionValues'])
+            vals = {v["id"]: v["name"] for v in cf["optionValues"]}
+            if enabled:
+                vals[role["id"]] = role["name"]
+            else:
+                del vals[role["id"]]
+            return [{"id": k, "name": v} for k, v in vals.items()]
+    return [role] if enabled else []
+
+
+def patch_member_role(email, role, enabled):
+    """Enables or disables a specific role for a user with the given `email`"""
+    mem = search_member(email)
+    if not mem:
+        raise KeyError()
+    user_id = mem["Account ID"]
+    print("patching account")
+    account = fetch_account(mem["Account ID"])
+    roles = _patch_role(account, role, enabled)
+    print(roles)
+    data = {
+        "accountCustomFields": [
+            {"id": CUSTOM_FIELD_API_SERVER_ROLE, "optionValues": roles}
+        ],
+    }
+    # Need to confirm whether the user is an individual or company account
+    m = fetch_account(user_id)
+    if m is None:
+        raise RuntimeError("Failed to resolve account type for waiver application")
+    if m.get("individualAccount"):
+        data = {"individualAccount": data}
+    elif m.get("companyAccount"):
+        data = {"companyAccount": data}
+    else:
+        raise RuntimeError("Unknown account type for " + str(user_id))
+    resp, content = get_connector().neon_request(
+        cfg("api_key2"),
+        f"{URL_BASE}/accounts/{user_id}",
+        "PATCH",
+        body=json.dumps(data),
+        headers={"content-type": "application/json"},
+    )
+    print("PATCH", resp.status, content)
+    return resp, content
+
+
+def set_tech_custom_fields(
+    user_id, shift=None, area_lead=None, interest=None, expertise=None
+):
+    """Overwrites existing waiver status information on an account"""
+    cf = []
+    if shift:
+        cf.append({"id": CUSTOM_FIELD_SHOP_TECH_SHIFT, "value": shift})
+    if area_lead:
+        cf.append({"id": CUSTOM_FIELD_AREA_LEAD, "value": area_lead})
+    if interest:
+        cf.append({"id": CUSTOM_FIELD_INTEREST, "value": interest})
+    if expertise:
+        cf.append({"id": CUSTOM_FIELD_EXPERTISE, "value": interest})
+    data = {"accountCustomFields": cf}
+    # Need to confirm whether the user is an individual or company account
+    m = fetch_account(user_id)
+    if m is None:
+        raise RuntimeError("Failed to resolve account type for waiver application")
+    if m.get("individualAccount"):
+        data = {"individualAccount": data}
+    elif m.get("companyAccount"):
+        data = {"companyAccount": data}
+    else:
+        raise RuntimeError("Unknown account type for " + str(user_id))
+    resp, content = get_connector().neon_request(
+        cfg("api_key2"),
+        f"{URL_BASE}/accounts/{user_id}",
+        "PATCH",
+        body=json.dumps(data),
+        headers={"content-type": "application/json"},
+    )
+    print("PATCH", resp.status, content)
+    return resp, content
+
+
+def _set_custom_singleton_fields(user_id, field_id_to_value_map):
+    data = {
+        "accountCustomFields": [
+            {"id": k, "value": v} for k, v in field_id_to_value_map.items()
+        ],
+    }
+    # Need to confirm whether the user is an individual or company account
+    m = fetch_account(user_id)
+    if m is None:
+        raise RuntimeError(
+            f"Failed to resolve account type for setting fields: {field_id_to_value_map}"
+        )
+
+    if m.get("individualAccount"):
+        data = {"individualAccount": data}
+    elif m.get("companyAccount"):
+        data = {"companyAccount": data}
+    else:
+        raise RuntimeError("Unknown account type for " + str(user_id))
+
+    resp, content = get_connector().neon_request(
+        cfg("api_key2"),
+        f"{URL_BASE}/accounts/{user_id}",
+        "PATCH",
+        body=json.dumps(data),
+        headers={"content-type": "application/json"},
+    )
+    print("PATCH", resp.status, content)
+    return resp, content
+
+
 def set_waiver_status(user_id, new_status):
     """Overwrites existing waiver status information on an account"""
     data = {
@@ -587,18 +713,33 @@ def set_waiver_status(user_id, new_status):
     return resp, content
 
 
+def update_announcement_status(user_id, now=None):
+    """Updates announcement acknowledgement"""
+    if now is None:
+        now = datetime.datetime.now()
+    return _set_custom_singleton_fields(
+        user_id, {CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED: now.strftime("%Y-%m-%d")}
+    )
+
+
 def update_waiver_status(  # pylint: disable=too-many-arguments
     user_id,
     waiver_status,
     ack,
     now=None,
-    current_version=cfg("waiver_published_date"),
-    expiration_days=cfg("waiver_expiration_days"),
+    current_version=None,
+    expiration_days=None,
 ):
     """Update the liability waiver status of a Neon account. Return True if
     the account is bound by the waiver, False otherwise."""
+
+    # Lazy load config entries to prevent parsing errors on init
     if now is None:
         now = datetime.datetime.now()
+    if current_version is None:
+        current_version = cfg("waiver_published_date")
+    if expiration_days is None:
+        expiration_days = cfg("waiver_expiration_days")
 
     if ack:  # Always overwrite existing signature data since re-acknowledged
         new_status = WAIVER_FMT.format(

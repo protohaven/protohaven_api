@@ -2,7 +2,10 @@
 from functools import cache
 from os import getenv
 
+import pytz
 import yaml
+
+tz = pytz.timezone("US/Eastern")
 
 
 @cache
