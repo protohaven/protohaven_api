@@ -65,6 +65,7 @@ cd svelte
 npm run build
 rm -r ../protohaven_api/static/svelte
 cp -r ./build ../protohaven_api/static/svelte
+cd ../ && git add ./static/svelte/*
 ```
 
 Various routes are set up in Flask to remap to static assets in ./protohaven_api/static/svelte.
@@ -81,11 +82,16 @@ git status
 Make a note of the branch name, again in case of rollback. If changes to `config.yaml` were made, move the old config to a separate name and `scp` the new one over into its place.
 
 ```
-git fetch origin <release_name>
+git fetch --all
 git checkout <release_name>
 sudo systemctl restart protohaven_api.service
 ```
 
+You can view the status of the restart with:
+
+```
+sudo systemctl status protohaven_api.service
+```
 
 # Common Actions
 
