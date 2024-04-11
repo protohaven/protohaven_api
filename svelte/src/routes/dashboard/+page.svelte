@@ -12,7 +12,7 @@ let email;
 let base_url = "http://localhost:5000";
 onMount(() => {
   if (window.location.href.indexOf("localhost") === -1) {
-  base_url = "http://api.protohaven.org";
+  base_url = "https://api.protohaven.org";
   }
 
   const urlParams = new URLSearchParams(window.location.search);

@@ -9,7 +9,7 @@
   let promise = Promise.resolve(null);
   onMount(() => {
     if (window.location.href.indexOf("localhost") === -1) {
-    base_url = "http://api.protohaven.org";
+    base_url = "https://api.protohaven.org";
     }
     promise = fetch(base_url + "/class_listing").then((rep) => rep.json()).then((data) => {
       console.log(data);

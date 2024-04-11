@@ -65,7 +65,7 @@ cd svelte
 npm run build
 rm -r ../protohaven_api/static/svelte
 cp -r ./build ../protohaven_api/static/svelte
-cd ../ && git add ./static/svelte/*
+cd ../ && git add ./protohaven_api/static/svelte/*
 ```
 
 Various routes are set up in Flask to remap to static assets in ./protohaven_api/static/svelte.
