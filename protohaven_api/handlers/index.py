@@ -57,6 +57,12 @@ def welcome_svelte_files(typ, path):
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
+@page.route("/logo_color.svg")
+def welcome_logo():
+    """Return svelte compiled static pages for welcome page"""
+    return current_app.send_static_file("svelte/logo_color.svg")
+
+
 @page.route("/welcome", methods=["GET", "POST"])
 def welcome_signin():
     """Sign-in page at front desk"""

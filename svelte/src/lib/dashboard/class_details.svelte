@@ -32,6 +32,10 @@ let show_proposed = true;
   {/each}
 
   <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
+
+  {#if classes.length == 0}
+    <em>No classes fond - contact education@protohaven.org or post to #instructors on Discord if you wish to schedule more.</em>
+  {/if}
 {:else}
   Loading...
 {/if}

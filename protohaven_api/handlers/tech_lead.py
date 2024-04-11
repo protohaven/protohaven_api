@@ -3,13 +3,26 @@ import datetime
 from collections import defaultdict
 
 from dateutil import parser as dateparser
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 
 from protohaven_api.config import tz
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("tech_lead", __name__, template_folder="templates")
+
+
+@page.route("/tech_lead")
+@require_login_role(Role.INSTRUCTOR)
+def tech_lead_class():
+    """Return svelte compiled static page for tech_lead dashboard"""
+    return current_app.send_static_file("svelte/tech_lead.html")
+
+
+@page.route("/_app/immutable/<typ>/<path>")
+def tech_lead_class_svelte_files(typ, path):
+    """Return svelte compiled static page for tech_lead dashboard"""
+    return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
 def _fetch_techs_list():

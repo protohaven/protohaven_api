@@ -56,6 +56,8 @@ sudo systemctl start protohaven_api.socket
 sudo systemctl start protohaven_api.service
 ```
 
+# Pushing updates
+
 ## Building svelte static pages
 
 ```
@@ -65,7 +67,25 @@ rm -r ../protohaven_api/static/svelte
 cp -r ./build ../protohaven_api/static/svelte
 ```
 
-Welcome page can be accessed at http://localhost:5000/static/welcome/index.html
+Various routes are set up in Flask to remap to static assets in ./protohaven_api/static/svelte.
+
+* Commit and push the static build changes to main.
+* Create a new release on Github so there's a known tag to refer to the release in case we need to roll back
+* SSH into the IONOS server (username and password in Bitwarden)
+
+```
+cd ~/protohaven_api
+git status
+```
+
+Make a note of the branch name, again in case of rollback. If changes to `config.yaml` were made, move the old config to a separate name and `scp` the new one over into its place.
+
+```
+git fetch origin <release_name>
+git checkout <release_name>
+sudo systemctl restart protohaven_api.service
+```
+
 
 # Common Actions
 

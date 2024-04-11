@@ -25,7 +25,7 @@ onMount(() => {
   }
 });
 
-let scheduler_open = true;
+let scheduler_open = false;
 </script>
 
 <Navbar color="primary-subtle">

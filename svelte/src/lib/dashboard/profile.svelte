@@ -68,7 +68,7 @@
   </CardBody>
   <CardFooter class="d-flex justify-content-end">
       <Button on:click={refresh}><Icon class="ml-auto" name="arrow-clockwise"/></Button>
-      <Button on:click={on_scheduler}>Schedule more classes</Button>
+      <!--<Button on:click={on_scheduler}>Schedule more classes</Button>-->
   </CardFooter>
 {:else}
 	Loading...
