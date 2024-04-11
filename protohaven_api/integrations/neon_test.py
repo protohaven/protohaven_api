@@ -16,6 +16,7 @@ def test_update_waiver_status_no_data(mocker):
     """When given no existing waiver data for the user, only return
     true if the user has just acknowledged the waiver"""
     m = mocker.patch.object(neon, "set_waiver_status")
+    mocker.patch.object(neon, "cfg")
     assert neon.update_waiver_status(TEST_USER, None, False) is False
     m.assert_not_called()  # No mutation
 
@@ -28,6 +29,7 @@ def test_update_waiver_status_checks_version(mocker):
     """update_waiver_status returns false if the most recent signed
     version of the waiver is not the current version hosted by the server"""
     m = mocker.patch.object(neon, "set_waiver_status")
+    mocker.patch.object(neon, "cfg", return_value=3)
     args = [TEST_USER, False]
     kwargs = {"now": NOW, "current_version": NOWSTR}
     assert (
@@ -89,6 +91,7 @@ def test_patch_member_role(mocker):
         },
     )
     mocker.patch.object(neon, "get_connector")
+    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
     neon.patch_member_role("a@b.com", Role.INSTRUCTOR, True)
@@ -122,6 +125,7 @@ def test_patch_member_role_rm(mocker):
         },
     )
     mocker.patch.object(neon, "get_connector")
+    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
     neon.patch_member_role("a@b.com", Role.INSTRUCTOR, False)
@@ -136,6 +140,7 @@ def test_set_tech_custom_fields(mocker):
         neon, "fetch_account", return_value={"individualAccount": {"AccountId": 12345}}
     )
     mocker.patch.object(neon, "get_connector")
+    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
 

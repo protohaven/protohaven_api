@@ -727,13 +727,19 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
     waiver_status,
     ack,
     now=None,
-    current_version=cfg("waiver_published_date"),
-    expiration_days=cfg("waiver_expiration_days"),
+    current_version=None,
+    expiration_days=None,
 ):
     """Update the liability waiver status of a Neon account. Return True if
     the account is bound by the waiver, False otherwise."""
+
+    # Lazy load config entries to prevent parsing errors on init
     if now is None:
         now = datetime.datetime.now()
+    if current_version is None:
+        current_version = cfg("waiver_published_date")
+    if expiration_days is None:
+        expiration_days = cfg("waiver_expiration_days")
 
     if ack:  # Always overwrite existing signature data since re-acknowledged
         new_status = WAIVER_FMT.format(

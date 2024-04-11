@@ -53,6 +53,9 @@ def gen_calendar_reminders(start, end):
 
 
 class Action(Enum):
+    """Actions describe what comms to send based on the state of an event
+    and the current time relative to the event"""
+
     SUPPLY_CHECK_NEEDED = (
         10,
         7,
@@ -66,6 +69,7 @@ class Action(Enum):
     POST_RUN_SURVEY = (0, -3, lambda evt: evt["occupancy"] > 0)
 
     def needed_for(self, evt, now):
+        """Checkif action is needed for `evt` at time `now`"""
         date = evt["python_date"]
         # Only applies within the specific time band
         if date - datetime.timedelta(
@@ -182,10 +186,12 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.actionable_classes.append([evt, action])
 
     def notified(self, target, evt, day_offset):
+        """Return true if the target was notified about the event within `day_offset` of event"""
         thresh = evt["python_date"] - datetime.timedelta(days=day_offset)
         prior_times = evt["notifications"].get(target, [])
         self.log.warning(
-            f"{evt.get('id')} (on {evt['python_date']}): Looking up {target} with day_offset={day_offset} in {prior_times}"
+            f"{evt.get('id')} (on {evt['python_date']}): Looking up {target} "
+            f"with day_offset={day_offset} in {prior_times}"
         )
         for t in prior_times:
             if t >= thresh:
@@ -270,7 +276,6 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self.log.info(f"IGNORE {evt['name']} (override)")
             return
 
-        date = evt["python_date"]
         if neon_id in self.confirm_ovr:
             self.push_class(evt, Action.CONFIRM, "override")
         else:
@@ -419,8 +424,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if self.notify_techs:
             self.log.info("Building techs notifications")
             for evt, action in self.actionable_classes:
-                if a == Action.FOR_TECHS:
-                    self._build_techs_notification(evt, action)
+                if action == Action.FOR_TECHS:
+                    self._build_techs_notifications(evt, action)
             # We need to append the built summary
             if len(self.for_techs) > 0:
                 self._append(
