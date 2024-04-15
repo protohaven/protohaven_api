@@ -7,7 +7,7 @@ from protohaven_api.class_automation import builder  # pylint: disable=import-er
 from protohaven_api.class_automation.testdata import (  # pylint: disable=import-error
     assert_matches_testdata,
 )
-from protohaven_api.config import tz
+from protohaven_api.config import tz  # pylint: disable=import-error
 
 TEST_NOW = parse_date("2024-02-22").astimezone(tz)
 
@@ -401,7 +401,7 @@ def test_builder_techs(caplog):
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.for_techs = [_gen_actionable_class(builder.Action.FOR_TECHS)]
+    eb.for_techs = [_gen_actionable_class(builder.Action.FOR_TECHS)[0]]
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -410,7 +410,7 @@ def test_builder_techs(caplog):
         {
             "id": "multiple",
             "target": "#techs",
-            "subject": "New classes for tech backfill",
+            "subject": "**New classes for tech backfill:**",
         },
         {
             "id": "N/A",
