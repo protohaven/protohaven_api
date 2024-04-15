@@ -187,6 +187,16 @@ def apply_violation_accrual(vid, accrued):
     return update_record({"Accrued": accrued}, "policy_enforcement", "violations", vid)
 
 
+def set_booked_resource_id(airtable_id, resource_id):
+    """Set the Booked resource ID for a given tool"""
+    return update_record(
+        {"BookedResourceId": resource_id},
+        "tools_and_equipment",
+        "tools",
+        airtable_id,
+    )
+
+
 def mark_schedule_supply_request(eid, missing):
     """Mark a Scheduled class as needing supplies or fully supplied"""
     return update_record(
