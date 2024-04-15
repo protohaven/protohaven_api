@@ -1,8 +1,9 @@
 <script type="ts">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Col, Card, CardHeader, CardTitle, CardSubtitle, CardText, Icon, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem } from '@sveltestrap/sveltestrap';
+import { Table, Button, Row, Col, Card, CardHeader, Alert, CardTitle, CardSubtitle, CardText, Icon, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem } from '@sveltestrap/sveltestrap';
 import ClassCard from './class_card.svelte';
+import FetchError from './fetch_error.svelte';
 
 export let base_url;
 let classes = [];
@@ -11,7 +12,15 @@ export let email;
 
 let promise;
 function refresh() {
-  promise = fetch(base_url + "/instructor/class_details?email=" + email).then((rep) => rep.json()).then((data) => data.schedule);
+  promise = fetch(base_url + "/instructor/class_details?email=" + email).then((rep)=>rep.text())
+  	.then((body) => {
+	  try {
+	  	return JSON.parse(body);
+	  } catch (e) {
+		throw Error(`Invalid reply from server: ${body}`);
+	  }
+	})
+	.then((data) => data.schedule);
 }
 onMount(refresh);
 
@@ -34,12 +43,14 @@ let show_proposed = true;
   <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
 
   {#if classes.length == 0}
-    <em>No classes fond - contact education@protohaven.org or post to #instructors on Discord if you wish to schedule more.</em>
+  <div>
+    <em>No classes found - contact education@protohaven.org or post to #instructors on Discord if you wish to schedule more.</em>
+  </div>
   {/if}
 {:else}
   Loading...
 {/if}
 {:catch error}
-	TODO error {error.message}
+  <FetchError {error}/>
 {/await}
 </div>

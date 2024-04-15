@@ -15,7 +15,7 @@ env = Environment(
 def techs_openings(events):
     """Generate message for techs about classes with open seats"""
     ee = []
-    for evt, _ in events["events"]:
+    for evt in events["events"]:
         ee.append(
             {
                 "id": str(evt["id"]),
@@ -24,10 +24,10 @@ def techs_openings(events):
                 "avail": evt["capacity"] - evt["signups"],
             }
         )
-    subject = "New classes for tech backfill"
+    subject = "**New classes for tech backfill:**"
     return subject, env.get_template("tech_openings.jinja2").render(
         events=ee,
-        n=len(events),
+        n=len(ee),
     )
 
 

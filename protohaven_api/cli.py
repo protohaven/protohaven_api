@@ -673,6 +673,122 @@ class ProtohavenCLI:
 
         log.info("Done")
 
+    def sync_reservable_tools(self, argv):  # pylint: disable=too-many-locals
+        """Sync metadata of tools in Airtable with their entries in Booked. Create new
+        resources in Booked if none exist, and back-propagate Booked IDs.
+        After the sync, resources that exist in Booked and not in Airtable will
+        raise an exception, but not acted upon.
+
+        Booked "Resource Groups" are also assessed during the sync; if they do not
+        exactly match the list of areas of all tools, an exception is thrown and
+        no changes are made.
+        2024-04-12: There is currently no programmatic way to create a resource
+        group - it can only be done via the web interface.
+
+        """
+        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
+        parser.add_argument(
+            "--apply",
+            help="If false, don't perform changes",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        parser.parse_args(argv)
+
+        # Some areas we don't care about in the reservation system; these are excluded
+        exclude_areas = {
+            "Class Supplies",
+            "Hand Tools",
+            "Maintenance",
+            "Staff Room",
+            "Back Yard",
+            "Fishbowl",
+            "Maker Market",
+            "Rack Storage",
+            "Restroom 1",
+            "Restroom 2",
+            "Kitchen",
+            "Gallery",
+            "Custodial Room",
+            "All",
+        }
+
+        area_colors = {}
+        for a in airtable.get_areas():
+            if not a["fields"].get("Name"):
+                continue
+            area_colors[a["fields"]["Name"]] = a["fields"].get("Color")
+
+        groups = {
+            k.replace("&amp;", "&"): v
+            for k, v in booked.get_resource_group_map().items()
+        }
+        in_airtable = set(area_colors.keys()) - exclude_areas
+        in_booked = set(groups.keys()) - exclude_areas
+
+        self.log.info(
+            f"Resolved {len(in_airtable)} airtable areas and {len(in_booked)} booked "
+            "resource groups, minus excluded areas"
+        )
+        if in_airtable != in_booked:
+            missing_from_booked = in_airtable - in_booked
+            extra_in_booked = in_booked - in_airtable
+            raise RuntimeError(
+                f"Mismatch in Airtable Areas vs Booked Resource Groups:"
+                f"\n- Present in Airtable but not Booked: {missing_from_booked}"
+                f"\n- Additional in Booked not in Airtable or default filter: {extra_in_booked}"
+            )
+
+        # print("Resource Group ID map:")
+        # for k,v in groups.items():
+        #    print(f"- {k} = {v}")
+
+        i = 0
+        for t in airtable.get_tools():
+            if not t["fields"].get("Reservable", False):
+                continue
+            d = {
+                "name": t["fields"].get("Tool Name"),
+                "resourceId": t["fields"].get("BookedResourceId"),
+                "reservable": t["fields"].get("Current Status", "").split()[0].lower()
+                in ("green", "yellow"),
+                "area": t["fields"].get("Name (from Shop Area)"),
+                "clearance_code": t["fields"].get(
+                    "Clearance Code (from Clearance Required)"
+                ),
+                "tool_code": t["fields"].get("Tool Code"),
+            }
+            if not d["name"]:
+                continue
+
+            if not d[
+                "resourceId"
+            ]:  # New tool! Create the record. We'll update it in a second step
+                print(f"TODO create new tool {d['name']}; skipping for now")
+                continue
+
+            r = booked.get_resource(d["resourceId"])
+            r["groupIds"] = [groups[a] for a in d.get("area", []) if a is not None]
+            r["name"] = d["name"]
+            r["statusId"] = (
+                booked.STATUS_AVAILABLE
+                if d["reservable"]
+                else booked.STATUS_UNAVAILABLE
+            )
+            r["typeId"] = booked.TYPE_TOOL
+            r["color"] = area_colors.get(d.get("area")) or ""
+            # "apply" also pushes the resource change to Booked
+            rep = booked.apply_resource_custom_fields(
+                r,
+                area=d["area"],
+                tool_code=d["tool_code"],
+                clearance_code=d["clearance_code"],
+            )
+            self.log.info(rep)
+            if i > 5:
+                return
+            i += 1
+
     def mock_data(self, argv):
         """Fetch mock data from airtable, neon etc.
         Write this to a file for running without touching production data"""

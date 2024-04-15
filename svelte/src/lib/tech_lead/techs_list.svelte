@@ -83,7 +83,7 @@ function refresh() {
 	  color = 'warning';
 	}
 	console.log("TODO factor in swaps");
-	calendar_view.push({title: `${d.getMonth()}/${d.getDate()} ${ap}`, color, people, id});
+	calendar_view.push({title: `${d.getMonth()+1}/${d.getDate()} ${ap}`, color, people, id});
       }
     }
     return data;

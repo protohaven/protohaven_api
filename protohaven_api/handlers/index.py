@@ -3,7 +3,7 @@ import datetime
 import json
 
 from dateutil import parser as dateparser
-from flask import Blueprint, current_app, render_template, request, session
+from flask import Blueprint, Response, current_app, render_template, request, session
 
 from protohaven_api.config import tz
 from protohaven_api.handlers.auth import user_email, user_fullname
@@ -21,7 +21,6 @@ page = Blueprint("index", __name__, template_folder="templates")
 def index():
     """Show the main dashboard page"""
     neon_account = session.get("neon_account")
-    print(neon_account)
     clearances = []
     roles = []
     neon_account["custom_fields"] = {"Clearances": {"optionValues": []}}
@@ -48,6 +47,8 @@ def index():
 @page.route("/whoami")
 def whoami():
     """Returns data about the logged in user"""
+    if not session.get("neon_account"):
+        return Response("You are not logged in", status=400)
     return {"fullname": user_fullname(), "email": user_email()}
 
 

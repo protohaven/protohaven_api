@@ -7,9 +7,6 @@
 
   let solve_promise = Promise.resolve([]);
 
-  console.log(email, base_url);
-
-
   let classes = {};
   let availability = [];
 
@@ -49,7 +46,11 @@
       }
     });
   }
-  reload();
+  $: {
+    if (open) {
+    	reload();
+    }
+  }
 
   function run_scheduler() {
     running = true;

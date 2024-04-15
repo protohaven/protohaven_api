@@ -7,6 +7,9 @@ from protohaven_api.integrations.data.connector import get as get_connector
 STATUS_UNAVAILABLE = 2
 STATUS_AVAILABLE = 1
 
+TYPE_TOOL = 8
+# TYPE_AREA =
+
 SCHEDULE_ID = 1  # We only have one schedule
 
 BASE_URL = "https://reserve.protohaven.org"
@@ -32,6 +35,18 @@ def get_resource_map():
             if attr["id"] == tool_code_id and attr["value"]:
                 result[attr["value"]] = d["resourceId"]
                 break
+    return result
+
+
+def get_resource_group_map():
+    """Gets the map of resource name to its Booked `resourceId`"""
+    resp = get_connector().booked_request(
+        "GET", f"{BASE_URL}/Web/Services/Resources/Groups"
+    )
+    data = resp.json()
+    result = {}
+    for d in data["groups"]:
+        result[d["name"]] = d["id"]
     return result
 
 
@@ -89,12 +104,16 @@ def reserve_resource(
     return resp.json()
 
 
-def apply_resource_custom_fields(resource_id, **kwargs):
-    """Applies custom fields to an existing resource.
+def apply_resource_custom_fields(resource, **kwargs):
+    """Applies custom fields to an existing resource. Pass
+    either the resource ID or a dict of the object data
     See https://www.bookedscheduler.com/help/api/api-resources/"""
 
-    data = get_resource(resource_id)
-    assert str(data["resourceId"]) == str(resource_id)
+    if isinstance(resource, dict):
+        data = resource
+    else:
+        data = get_resource(resource)
+        assert str(data["resourceId"]) == str(resource)
 
     # Update the customAttributes field
     field_ids = _config_attribs()
@@ -106,6 +125,29 @@ def apply_resource_custom_fields(resource_id, **kwargs):
     data["customAttributes"] = [
         {"attributeId": k, "attributeValue": v} for k, v in attrs.items()
     ]
-    print(data)
-    resp = get_connector().booked_request("POST", resource_url(resource_id), json=data)
+    resp = get_connector().booked_request(
+        "POST", resource_url(data["resourceId"]), json=data
+    )
+    return resp.json()
+
+
+def create_resource(name):
+    """Creates a named resource and returns the creation result"""
+    # Not sure how many of these fields are needed - there are more as well.
+    resp = get_connector().booked_request(
+        "POST",
+        f"{BASE_URL}/Web/Services/Resources/",
+        json={
+            "name": name,
+            "requiresApproval": False,
+            "allowMultiday": False,
+            "scheduleId": 1,
+            "statusId": "1",
+            "typeId": "8",
+            "autoReleaseMinutes": None,
+            "requiresCheckIn": False,
+            "maxConcurrentReservations": 1,
+            "extendIfMissedCheckout": False,
+        },
+    )
     return resp.json()

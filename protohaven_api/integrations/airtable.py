@@ -207,6 +207,11 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
+def get_areas():
+    """Get all areas in the Area table"""
+    return get_all_records("tools_and_equipment", "areas")
+
+
 def get_all_maintenance_tasks():
     """Get all recurring maintenance tasks in the tool DB"""
     return get_all_records("tools_and_equipment", "recurring_tasks")
