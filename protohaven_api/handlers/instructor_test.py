@@ -6,15 +6,15 @@ import json
 import pytest
 from dateutil import parser as dateparser
 
+from protohaven_api import rbac
 from protohaven_api.config import tz
 from protohaven_api.handlers import instructor
 from protohaven_api.main import app
-from protohaven_api.rbac import set_rbac
 
 
 @pytest.fixture()
 def client():
-    set_rbac(False)
+    rbac.set_rbac(False)
     return app.test_client()
 
 
@@ -150,11 +150,58 @@ def test_instructor_about_from_session(client, mocker):
     instructor.neon.search_member.assert_called_with("foo@bar.com")
 
 
-def test_instructor_about_from_param(client, mocker):
+def test_instructor_about_both_email_and_session(mocker, client):
+    """Being logged in as an instructor should not preclude them from using
+    the url param if it's their own email"""
+    rbac.set_rbac(True)
+    mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.INSTRUCTOR["name"]])
+
+    with client.session_transaction() as session:
+        session["neon_account"] = {
+            "individualAccount": {
+                "accountCustomFields": [],
+                "primaryContact": {
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "email1": "foo@bar.com",
+                },
+            }
+        }
     mocker.patch.object(instructor.neon, "search_member")
     mocker.patch.object(instructor, "get_instructor_readiness")
-    client.get("/instructor/about?email=a@b.com")
-    instructor.neon.search_member.assert_called_with("a@b.com")
+
+    rep = client.get("/instructor/about?email=a@b.com")
+    assert rep.status == "401 UNAUTHORIZED"
+
+    rep = client.get("/instructor/about?email=foo@bar.com")
+    assert rep.status == "200 OK"
+
+
+def test_class_details_both_email_and_session(mocker, client):
+    """Being logged in as an instructor should not preclude them from using
+    the url param if it's their own email"""
+    rbac.set_rbac(True)
+    mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.INSTRUCTOR["name"]])
+
+    with client.session_transaction() as session:
+        session["neon_account"] = {
+            "individualAccount": {
+                "accountCustomFields": [],
+                "primaryContact": {
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "email1": "foo@bar.com",
+                },
+            }
+        }
+    mocker.patch.object(instructor, "get_dashboard_schedule_sorted")
+    mocker.patch.object(instructor.airtable, "get_instructor_email_map")
+
+    rep = client.get("/instructor/class_details?email=a@b.com")
+    assert rep.status == "401 UNAUTHORIZED"
+
+    rep = client.get("/instructor/class_details?email=foo@bar.com")
+    assert rep.status == "200 OK"
 
 
 def test_get_instructor_readiness_all_bad(mocker):

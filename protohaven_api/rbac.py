@@ -2,7 +2,13 @@
 
 from dataclasses import dataclass
 
-from flask import redirect, request, session, url_for  # pylint: disable=import-error
+from flask import (  # pylint: disable=import-error
+    Response,
+    redirect,
+    request,
+    session,
+    url_for,
+)
 
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_user_neon_oauth
@@ -82,7 +88,7 @@ def require_login_role(role):
                 return redirect(url_for("auth." + login_user_neon_oauth.__name__))
             if role["name"] in roles:
                 return fn(*args, **kwargs)
-            return "Access Denied"
+            return Response("Access Denied", status=401)
 
         do_role_check.__name__ = fn.__name__
         return do_role_check
