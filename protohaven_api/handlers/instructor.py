@@ -184,7 +184,8 @@ def instructor_about():
     """Get readiness state of instructor"""
     email = request.args.get("email")
     if email is not None:
-        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
+        ue = user_email()
+        if ue != email and require_login_role(Role.ADMIN)(lambda: True)() is not True:
             return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
@@ -245,7 +246,8 @@ def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
-        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
+        ue = user_email()
+        if ue != email and require_login_role(Role.ADMIN)(lambda: True)() is not True:
             return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
