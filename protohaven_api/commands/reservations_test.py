@@ -56,6 +56,7 @@ def test_sync_reservable_tools_nodiffs(mocker):
         "statusId": r.booked.STATUS_UNAVAILABLE,
         "typeId": r.booked.TYPE_TOOL,
         "color": "#ffffff",
+        "allowMultiday": False,
     }
     r.booked.get_resource_id_to_name_map.return_value = {1: "Test Tool"}
 
@@ -89,6 +90,7 @@ def test_sync_reservable_tools_diff(mocker):
         "statusId": r.booked.STATUS_AVAILABLE,
         "typeId": "whatever",
         "color": "wrong",
+        "allowMultiday": False,
     }
     r.booked.get_resource_id_to_name_map.return_value = {1: "Test Tool"}
 
@@ -101,6 +103,7 @@ def test_sync_reservable_tools_diff(mocker):
             "statusId": r.booked.STATUS_UNAVAILABLE,
             "typeId": r.booked.TYPE_TOOL,
             "color": "#ffffff",
+            "allowMultiday": False,
         }
     )
 

@@ -6,6 +6,15 @@ from protohaven_api.integrations import airtable as a
 
 def test_set_booked_resource_id(mocker):
     mocker.patch.object(a, "get_connector")
+    mocker.patch.object(
+        a,
+        "cfg",
+        return_value={
+            "base_id": "test_base_id",
+            "token": "test_token",
+            "tools": "tools_id",
+        },
+    )
     a.get_connector().airtable_request.return_value = mocker.MagicMock(content="{}")
     a.set_booked_resource_id("airtable_id", "resource_id")
     fname, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
