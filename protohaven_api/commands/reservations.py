@@ -7,8 +7,8 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz
-from protohaven_api.integrations import airtable, booked
+from protohaven_api.config import tz  # pylint: disable=import-error
+from protohaven_api.integrations import airtable, booked  # pylint: disable=import-error
 
 log = logging.getLogger("cli.reservation")
 
@@ -263,6 +263,8 @@ class Commands:
                 ),
                 typeId=booked.TYPE_TOOL,
                 color=area_colors.get(d.get("area")) or "",
+                allowMultiday=d.get("area")
+                == "3D Printing",  # 3D printers allow reservations across days
             )
             if args.apply:
                 if changed:
