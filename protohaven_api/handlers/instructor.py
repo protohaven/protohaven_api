@@ -2,7 +2,7 @@
 import datetime
 
 from dateutil import parser as dateparser
-from flask import Blueprint, current_app, redirect, request
+from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.class_automation.scheduler import (
     generate_env as generate_scheduler_env,
@@ -76,7 +76,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
         "profile_img": None,
         "bio": None,
     }
-    result["neon_id"] = inst["Account ID"]
+    result["neon_id"] = inst.get("Account ID")
     if inst["Account Current Membership Status"] == "Active":
         result["active_membership"] = "OK"
     else:
@@ -184,11 +184,19 @@ def instructor_about():
     """Get readiness state of instructor"""
     email = request.args.get("email")
     if email is not None:
-        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
-            return "Access Denied for admin parameter `email`"
+        ue = user_email()
+        if ue != email and require_login_role(Role.ADMIN)(lambda: True)() is not True:
+            return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
-    return get_instructor_readiness(neon.search_member(email.lower()))
+        if not email:
+            return Response("You are not logged in.", status=401)
+    inst = neon.search_member(email.lower())
+    if not inst:
+        return Response(
+            f"Instructor data not found for email {email.lower()}", status=404
+        )
+    return get_instructor_readiness(inst)
 
 
 def _annotate_schedule_class(e):
@@ -238,8 +246,9 @@ def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
     email = request.args.get("email")
     if email is not None:
-        if require_login_role(Role.ADMIN)(lambda: True)() is not True:
-            return "Access Denied for admin parameter `email`"
+        ue = user_email()
+        if ue != email and require_login_role(Role.ADMIN)(lambda: True)() is not True:
+            return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
     email = email.lower()
@@ -269,7 +278,7 @@ def instructor_class_update():
     data = request.json
     eid = data["eid"]
     pub = data["pub"]
-    print("eid", eid, "pub", pub)
+    # print("eid", eid, "pub", pub)
     _, result = airtable.respond_class_automation_schedule(eid, pub)
     return _annotate_schedule_class(result["fields"])
 

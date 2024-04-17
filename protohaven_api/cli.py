@@ -17,8 +17,9 @@ from protohaven_api.class_automation.builder import (
     ClassEmailBuilder,
     gen_calendar_reminders,
 )
+from protohaven_api.commands import reservations
 from protohaven_api.config import get_config, tz
-from protohaven_api.integrations import airtable, booked, comms, neon, sheets, tasks
+from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
 from protohaven_api.integrations.data.connector import init as init_connector
@@ -150,11 +151,10 @@ def purchase_request_alerts():
     log.info("Done")
 
 
-class ProtohavenCLI:
+class ProtohavenCLI(reservations.Commands):
     """argparser-based CLI for protohaven operations"""
 
     def __init__(self):
-        self.log = logging.getLogger("cli")
         helptext = "\n".join(
             [
                 f"{a}: {getattr(self, a).__doc__}"
@@ -244,7 +244,7 @@ class ProtohavenCLI:
 
         result = builder.build()
         print(yaml.dump(result, default_flow_style=False, default_style=""))
-        self.log.info(f"Generated {len(result)} notification(s)")
+        log.info(f"Generated {len(result)} notification(s)")
 
     def send_comms(self, argv):
         """Reads a list of emails and sends them to their recipients"""
@@ -270,15 +270,15 @@ class ProtohavenCLI:
 
         with open(args.path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f.read())
-        self.log.info(f"Loaded {len(data)} notifications:")
+        log.info(f"Loaded {len(data)} notifications:")
         for e in data:
-            self.log.info(f" - {e['target']}: {e['subject']}")
+            log.info(f" - {e['target']}: {e['subject']}")
 
         confstr = f"send {len(data)} notifications"
         if not args.dryrun and not args.confirm:
             confirm = input(f'Please type "{confstr}" to continue: ')
             if confirm != confstr:
-                self.log.error("Confirmation string does not match; exiting")
+                log.error("Confirmation string does not match; exiting")
                 sys.exit(1)
 
         for e in data:
@@ -310,10 +310,8 @@ class ProtohavenCLI:
                 else:
                     send_email(e["subject"], e["body"], emails)
                     log_email(e["id"], ", ".join(emails), e["subject"], "Sent")
-                    self.log.info(
-                        f"Sent to {emails}: '{e['subject']}' (logged in Airtable)"
-                    )
-        self.log.info("Done")
+                    log.info(f"Sent to {emails}: '{e['subject']}' (logged in Airtable)")
+        log.info("Done")
 
     def validate_docs(self, argv):  # pylint: disable=too-many-statements
         """Go through list of tools in airtable, ensure all of them have
@@ -443,7 +441,7 @@ class ProtohavenCLI:
         with open(args.path, "r", encoding="utf-8") as f:
             env = yaml.safe_load(f.read())
         instructor_classes, final_score = scheduler.solve_with_env(env)
-        self.log.info(f"Final score: {final_score}")
+        log.info(f"Final score: {final_score}")
         print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
 
     def append_schedule(self, argv):
@@ -552,7 +550,7 @@ class ProtohavenCLI:
 
         result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
         print(yaml.dump(result, default_flow_style=False, default_style=""))
-        self.log.info(f"Generated {len(result)} notification(s)")
+        log.info(f"Generated {len(result)} notification(s)")
 
     def gen_maintenance_tasks(self, argv):
         """Check recurring tasks list in Airtable, add new tasks to asana
@@ -587,90 +585,6 @@ class ProtohavenCLI:
             i = i.strip()
             log.info(f"Cancelling #{i}")
             neon.set_event_scheduled_state(i, scheduled=False)
-        log.info("Done")
-
-    def _resolve_equipment_from_class(self, args_cls):
-        results = defaultdict(
-            lambda: {"name": "", "areas": None, "resources": [], "intervals": []}
-        )
-        # Resolve areas from class ID. We track the area name and not
-        # record ID since we're operating on a synced copy of the areas when
-        # we go to look up tools and equipment
-        args_cls = [int(c) for c in args_cls.split(",")]
-        for cls in airtable.get_class_automation_schedule():
-            cid = cls["fields"]["ID"]
-            if cid not in args_cls:
-                continue
-            results[cid]["areas"] = set(cls["fields"]["Name (from Area) (from Class)"])
-            results[cid]["name"] = cls["fields"]["Name (from Class)"]
-            start = dateparser.parse(cls["fields"]["Start Time"]).astimezone(tz)
-            for d in range(cls["fields"]["Days (from Class)"][0]):
-                offs = start + datetime.timedelta(days=7 * d)
-                results[cid]["intervals"].append(
-                    [
-                        offs,
-                        offs
-                        + datetime.timedelta(
-                            hours=cls["fields"]["Hours (from Class)"][0]
-                        ),
-                    ]
-                )
-        return results
-
-    def reserve_equipment_for_class(self, argv):
-        """Resolves class info to a list of equipment that should be reserved,
-        then reserves it by calling out to Booked"""
-        parser = argparse.ArgumentParser(description=self.cancel_classes.__doc__)
-        parser.add_argument(
-            "--cls",
-            help="Scheduled class IDs to reserve equipment for (comma separated)",
-            type=str,
-        )
-        parser.add_argument(
-            "--apply",
-            help=(
-                "Apply changes into Booked scheduler."
-                "If false, it will only be printed"
-            ),
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        )
-        args = parser.parse_args(argv)
-
-        results = self._resolve_equipment_from_class(args.cls)
-        log.info(f"Resolved {len(results)} classes to areas")
-
-        # Convert areas to booked IDs using tool table
-        for row in airtable.get_all_records("tools_and_equipment", "tools"):
-            for cid in results:
-                for a in row["fields"]["Name (from Shop Area)"]:
-                    if a in results[cid]["areas"] and row["fields"].get(
-                        "BookedResourceId"
-                    ):
-                        results[cid]["resources"].append(
-                            (
-                                row["fields"]["Tool Name"],
-                                row["fields"]["BookedResourceId"],
-                            )
-                        )
-                        break
-
-        for cid in results:
-            log.info(f"Class {results[cid]['name']} (#{cid}):")
-            for name, resource_id in results[cid]["resources"]:
-                for start, end in results[cid]["intervals"]:
-                    log.info(
-                        f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
-                    )
-                    if args.apply:
-                        log.info(
-                            str(
-                                booked.reserve_resource(
-                                    resource_id, start, end, title=results[cid]["name"]
-                                )
-                            )
-                        )
-
         log.info("Done")
 
     def mock_data(self, argv):

@@ -10,7 +10,7 @@ from pathlib import Path
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import comms  # pylint: disable=import-error
-from protohaven_api.config import tz
+from protohaven_api.config import tz  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
 
@@ -109,7 +109,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     def __init__(self, log=logging.getLogger(), use_cache=True):
         self.use_cache = use_cache
         self.log = log
-        self.for_techs = []  # [(url, name, capacity)]
+        self.for_techs = []
         self.actionable_classes = []  # (evt, action)
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
         self.output = []  # [{target, subject, body}]
@@ -384,7 +384,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 ) from e
 
         self.log.info(f"{len(self.for_techs)} classes available for techs")
-        for e, action in self.for_techs:
+        for e in self.for_techs:
             self.log.info(
                 f" - {e['id']} {e['name']} ({e['signups']} / {e['capacity']} seats filled)"
             )

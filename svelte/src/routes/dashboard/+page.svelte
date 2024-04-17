@@ -3,12 +3,13 @@
 import '../../app.scss';
 import { onMount } from 'svelte';
 
-import { Navbar, NavbarBrand } from '@sveltestrap/sveltestrap';
+import { Navbar, NavbarBrand, Spinner } from '@sveltestrap/sveltestrap';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
+import FetchError from '$lib/dashboard/fetch_error.svelte';
 
-let email;
+let promise;
 let base_url = "http://localhost:5000";
 onMount(() => {
   if (window.location.href.indexOf("localhost") === -1) {
@@ -16,12 +17,19 @@ onMount(() => {
   }
 
   const urlParams = new URLSearchParams(window.location.search);
-  email = urlParams.get("email");
+  let email = urlParams.get("email");
   if (!email) {
-	fetch(base_url + "/whoami").then((rep) => rep.json()).then((data) => {
-		console.log(data);
-		email = data.email;
-	});
+	promise = fetch(base_url + "/whoami").then((rep)=>rep.text())
+  	.then((body) => {
+	  try {
+	  	return JSON.parse(body);
+	  } catch (e) {
+		throw Error(`Invalid reply from server: ${body}`);
+	  }
+	})
+	.then((data) => data.email);
+  } else {
+    promise = Promise.resolve(email);
   }
 });
 
@@ -32,15 +40,18 @@ let scheduler_open = false;
   <NavbarBrand>Instructor Dashboard</NavbarBrand>
 </Navbar>
 <main>
-  {#if email}
+  {#await promise}
+    <Spinner/>
+    <h3>Resolving instructor data...</h3>
+  {:then email}
   <div>
     <Profile {base_url} {email} on_scheduler={()=> scheduler_open=true}/>
     <Scheduler {base_url} {email} bind:open={scheduler_open}/>
   </div>
   <ClassDetails {base_url} {email}/>
-  {:else}
-  	<h3>Resolving instructor data...</h3>
-  {/if}
+  {:catch error}
+    <FetchError {error}/>
+  {/await}
 </main>
 
 <style>

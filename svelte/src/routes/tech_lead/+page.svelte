@@ -1,14 +1,16 @@
 <script type="ts">
   import '../../app.scss';
-  import { Row, Card, Container, Navbar, NavbarBrand } from '@sveltestrap/sveltestrap';
+  import { Spinner, Row, Card, Container, Navbar, NavbarBrand } from '@sveltestrap/sveltestrap';
   import TechsList from '$lib/tech_lead/techs_list.svelte';
   import { onMount } from 'svelte';
 
-  let base_url = "http://localhost:5000";
+  let promise = new Promise();
   onMount(() => {
+    let base_url = "http://localhost:5000";
     if (window.location.href.indexOf("localhost") === -1) {
-    base_url = "https://api.protohaven.org";
+    let base_url = "https://api.protohaven.org";
     }
+    promise = Promise.resolve(base_url);
   });
 
 </script>
@@ -19,7 +21,11 @@
 </Navbar>
 
 <main>
+{#await promise}
+  <Spinner/>
+{:then base_url}
   <TechsList {base_url}/>
+{/await}
 </main>
 
 

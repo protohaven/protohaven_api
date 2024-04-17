@@ -4,7 +4,7 @@ from urllib.parse import quote
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from protohaven_api.config import tz
+from protohaven_api.config import tz  # pylint: disable=import-error
 
 env = Environment(
     loader=PackageLoader("protohaven_api.class_automation"),
@@ -15,7 +15,8 @@ env = Environment(
 def techs_openings(events):
     """Generate message for techs about classes with open seats"""
     ee = []
-    for evt, _ in events["events"]:
+    for evt in events["events"]:
+        print(evt)
         ee.append(
             {
                 "id": str(evt["id"]),
@@ -24,10 +25,10 @@ def techs_openings(events):
                 "avail": evt["capacity"] - evt["signups"],
             }
         )
-    subject = "New classes for tech backfill"
+    subject = "**New classes for tech backfill:**"
     return subject, env.get_template("tech_openings.jinja2").render(
         events=ee,
-        n=len(events),
+        n=len(ee),
     )
 
 
