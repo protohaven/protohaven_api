@@ -10,16 +10,20 @@ from dateutil import parser as dateparser
 from protohaven_api.config import get_config, tz
 from protohaven_api.integrations.data.connector import get as get_connector
 
-cfg = get_config()["airtable"]
 AIRTABLE_URL = "https://api.airtable.com/v0"
 
 log = logging.getLogger("integrations.airtable")
 
 
+def cfg(base):
+    """Get config for airtable stuff"""
+    return get_config()["airtable"][base]
+
+
 def get_record(base, tbl, rec):
     """Grabs a record from a named table (from config.yaml)"""
-    url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
-    response = get_connector().airtable_request(cfg[base]["token"], "GET", url)
+    url = f"{AIRTABLE_URL}/{cfg(base)['base_id']}/{cfg(base)[tbl]}/{rec}"
+    response = get_connector().airtable_request(cfg(base)["token"], "GET", url)
     if response.status_code != 200:
         raise RuntimeError("Airtable fetch", response.status_code, response.content)
     return json.loads(response.content)
@@ -30,10 +34,10 @@ def get_all_records(base, tbl, suffix=None):
     records = []
     offs = ""
     while offs is not None:
-        url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}?offset={offs}"
+        url = f"{AIRTABLE_URL}/{cfg(base)['base_id']}/{cfg(base)[tbl]}?offset={offs}"
         if suffix is not None:
             url += "&" + suffix
-        response = get_connector().airtable_request(cfg[base]["token"], "GET", url)
+        response = get_connector().airtable_request(cfg(base)["token"], "GET", url)
         if response.status_code != 200:
             raise RuntimeError("Airtable fetch", response.status_code, response.content)
         data = json.loads(response.content)
@@ -56,20 +60,20 @@ def get_all_records_after(base, tbl, after_date):
 
 def insert_records(data, base, tbl):
     """Inserts one or more records into a named table"""
-    url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}"
+    url = f"{AIRTABLE_URL}/{cfg(base)['base_id']}/{cfg(base)[tbl]}"
     post_data = {"records": [{"fields": d} for d in data]}
     response = get_connector().airtable_request(
-        cfg[base]["token"], "POST", url, data=json.dumps(post_data)
+        cfg(base)["token"], "POST", url, data=json.dumps(post_data)
     )
     return response
 
 
 def update_record(data, base, tbl, rec):
     """Updates/patches a record in a named table"""
-    url = f"{AIRTABLE_URL}/{cfg[base]['base_id']}/{cfg[base][tbl]}/{rec}"
+    url = f"{AIRTABLE_URL}/{cfg(base)['base_id']}/{cfg(base)[tbl]}/{rec}"
     post_data = {"fields": data}
     response = get_connector().airtable_request(
-        cfg[base]["token"], "PATCH", url, data=json.dumps(post_data)
+        cfg(base)["token"], "PATCH", url, data=json.dumps(post_data)
     )
     return response, json.loads(response.content) if response.content else None
 
