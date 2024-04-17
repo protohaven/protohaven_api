@@ -152,3 +152,30 @@ def test_set_tech_custom_fields(mocker):
             "accountCustomFields": [{"id": 148, "value": "doing things"}]
         }
     }
+
+
+def test_set_clearances_some_non_matching(mocker):
+    """Ensure that if some clearances don't fully resolve into codes, the remaining
+    clearances are still applied"""
+    mocker.patch.object(
+        neon, "fetch_clearance_codes", return_value=[{"code": "T1", "id": "test_id"}]
+    )
+    mocker.patch.object(
+        neon,
+        "fetch_account",
+        return_value={"individualAccount": {"id": TEST_USER}},
+    )
+    mocker.patch.object(neon, "get_connector")
+    mocker.patch.object(neon, "cfg")
+    nrq = neon.get_connector().neon_request
+    nrq.return_value = mocker.MagicMock(), None
+
+    neon.set_clearances(TEST_USER, ["T1", "T2"])
+    _, args, kwargs = nrq.mock_calls[0]
+    assert kwargs["body"] == json.dumps(
+        {
+            "individualAccount": {
+                "accountCustomFields": [{"id": 75, "optionValues": [{"id": "test_id"}]}]
+            }
+        }
+    )

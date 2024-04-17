@@ -235,7 +235,7 @@ def set_discord_user(user_id, discord_user: str):
 def set_clearances(user_id, codes):
     """Sets all clearances for a specific user - company or individual"""
     code_to_id = {c["code"]: c["id"] for c in fetch_clearance_codes()}
-    ids = [code_to_id[c] for c in codes]
+    ids = [code_to_id[c] for c in codes if c in code_to_id.keys()]
 
     # Need to confirm whether the user is an individual or company account
     m = fetch_account(user_id)
