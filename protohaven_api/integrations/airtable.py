@@ -1,5 +1,4 @@
 """Airtable integration (classes, tool state etc)"""
-import datetime
 import json
 import logging
 from collections import defaultdict
@@ -7,7 +6,7 @@ from functools import cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tz
+from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 
 AIRTABLE_URL = "https://api.airtable.com/v0"
@@ -96,12 +95,14 @@ def get_emails_notified_after(neon_id: str, after_date):
     return emails
 
 
-def get_instructor_email_map():
+def get_instructor_email_map(require_teachable_classes=False):
     """Get a mapping of the instructor's full name to
     their email address, from the Capabilities automation table"""
     result = {}
     for row in get_all_records("class_automation", "capabilities"):
         if row["fields"].get("Email") is None:
+            continue
+        if require_teachable_classes and len(row["fields"].get("Class", [])) == 0:
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
     return result
@@ -178,7 +179,7 @@ def get_instructor_log_tool_codes():
 
 def respond_class_automation_schedule(eid, pub):
     """Confirm or unconfirm a row in the Schedule table of class automation"""
-    t = datetime.datetime.now().isoformat()
+    t = tznow().isoformat()
     data = {
         "Confirmed": t if pub is True else "",
         "Rejected": t if pub is False else "",

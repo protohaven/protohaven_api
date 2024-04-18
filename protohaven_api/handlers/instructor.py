@@ -8,7 +8,7 @@ from protohaven_api.class_automation.scheduler import (
     generate_env as generate_scheduler_env,
 )
 from protohaven_api.class_automation.scheduler import solve_with_env
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email
 from protohaven_api.integrations import airtable, neon, schedule
 from protohaven_api.rbac import Role, require_login_role
@@ -113,7 +113,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
         else:
             result["paperwork"] = "OK"
 
-    now = datetime.datetime.now()
+    now = tznow()
     if not instructor_schedules:
         instructor_schedules = schedule.fetch_instructor_schedules(
             now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
@@ -154,7 +154,7 @@ def get_dashboard_schedule_sorted(email, now=None):
     as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
     sched = []
     if now is None:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
     for s in airtable.get_class_automation_schedule():
@@ -265,7 +265,7 @@ def instructor_class_details():
 
     return {
         "schedule": sched,
-        "now": datetime.datetime.now(),
+        "now": tznow(),
         "email": email,
         "name": caps_name,
     }

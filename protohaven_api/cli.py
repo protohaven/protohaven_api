@@ -18,7 +18,7 @@ from protohaven_api.class_automation.builder import (
     gen_calendar_reminders,
 )
 from protohaven_api.commands import reservations
-from protohaven_api.config import get_config, tz
+from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
 from protohaven_api.integrations.comms import send_discord_message, send_email
@@ -37,7 +37,7 @@ init_connector(dev=server_mode != "prod")
 
 def send_hours_submission_reminders(dry_run=True):
     """Sends reminders to instructors to submit their hours"""
-    now = datetime.datetime.now()
+    now = tznow()
     earliest = now - datetime.timedelta(days=14)
     classes = neon.fetch_events(after=earliest, before=now + datetime.timedelta(days=1))
     # Would be more efficient to binary search for date
@@ -99,7 +99,7 @@ def purchase_request_alerts():
     content = "**Open Purchase Requests Report:**"
     sections = defaultdict(list)
     counts = defaultdict(int)
-    now = datetime.datetime.now().astimezone(tz)
+    now = tznow()
     thresholds = {
         "low_pri": 7,
         "high_pri": 2,
@@ -347,7 +347,7 @@ class ProtohavenCLI(reservations.Commands):
                     "Failed to extract deadline from request by " + req["name"]
                 )
             deadline = dateparser.parse(deadline[1])
-            if deadline < datetime.datetime.now():
+            if deadline < tznow():
                 log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"
                 )
@@ -394,7 +394,7 @@ class ProtohavenCLI(reservations.Commands):
             args.suspect,
             args.sections.split(","),
             None,
-            datetime.datetime.now(),
+            tznow(),
             args.fee,
             args.notes,
         )
@@ -491,7 +491,7 @@ class ProtohavenCLI(reservations.Commands):
         )
         args = parser.parse_args(argv)
         result, content = airtable.close_violation(
-            args.id, args.closer, datetime.datetime.now(), args.suspect, args.notes
+            args.id, args.closer, tznow(), args.suspect, args.notes
         )
         print(result.status_code, content)
 
@@ -537,7 +537,7 @@ class ProtohavenCLI(reservations.Commands):
                 log.info(f" - {s}")
             if args.apply:
                 for neon_id, duration, violation_ids in new_sus:
-                    start = datetime.datetime.now().astimezone(tz)
+                    start = tznow()
                     end = start + datetime.timedelta(duration)
                     rep = airtable.create_suspension(neon_id, violation_ids, start, end)
                     log.debug(f"{rep.status_code}: {rep.content}")

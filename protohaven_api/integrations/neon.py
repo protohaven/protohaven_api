@@ -10,7 +10,7 @@ from functools import cache
 from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 
 log = logging.getLogger("integrations.neon")
@@ -42,9 +42,9 @@ def fetch_published_upcoming_events(back_days=7):
     Note that querying is done based on the end date so multi-week intensives
     can still appear even if they started earlier than `back_days`."""
     q_params = {
-        "endDateAfter": (
-            datetime.datetime.now() - datetime.timedelta(days=back_days)
-        ).strftime("%Y-%m-%d"),
+        "endDateAfter": (tznow() - datetime.timedelta(days=back_days)).strftime(
+            "%Y-%m-%d"
+        ),
         "publishedEvent": True,
         "archived": False,
         "pagination": {
@@ -716,7 +716,7 @@ def set_waiver_status(user_id, new_status):
 def update_announcement_status(user_id, now=None):
     """Updates announcement acknowledgement"""
     if now is None:
-        now = datetime.datetime.now()
+        now = tznow()
     return _set_custom_singleton_fields(
         user_id, {CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED: now.strftime("%Y-%m-%d")}
     )
@@ -735,7 +735,7 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
 
     # Lazy load config entries to prevent parsing errors on init
     if now is None:
-        now = datetime.datetime.now()
+        now = tznow()
     if current_version is None:
         current_version = cfg("waiver_published_date")
     if expiration_days is None:

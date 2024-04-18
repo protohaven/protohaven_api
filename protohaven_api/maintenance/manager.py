@@ -4,7 +4,7 @@ import logging
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, tasks
 from protohaven_api.maintenance import comms as mcomms
 
@@ -15,7 +15,7 @@ def get_maintenance_needed_tasks(now=None):
     """Fetches a list of recurring tasks from Airtable that are due to be scheduled
     into asana for action"""
     if not now:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
     needed = []
     section_map = tasks.get_shop_tech_maintenance_section_map()
 
@@ -47,7 +47,7 @@ def get_maintenance_needed_tasks(now=None):
 def apply_maintenance_tasks(tt, now=None):
     """Applies tasks with data generated from `get_maintenance_needed_tasks`"""
     if not now:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
     for t in tt:
         log.info(f"Applying {t['id']} {t['name']} section {t['section']}")
         if not tasks.add_maintenance_task_if_not_exists(
@@ -65,7 +65,7 @@ DEFAULT_STALE_DAYS = 14
 def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
     """Get tasks in Asana that haven't been acted upon within a certain threshold"""
     if now is None:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
     thresh = now - datetime.timedelta(days=thresh)
     result = []
     for t in tasks.get_tech_ready_tasks(thresh):
