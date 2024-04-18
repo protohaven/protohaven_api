@@ -5,7 +5,7 @@ from collections import defaultdict
 from dateutil import parser as dateparser
 from flask import Blueprint, current_app, request
 
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.rbac import Role, require_login_role
 
@@ -105,9 +105,7 @@ def tech_lead_all_status():
     """Fetches shift info, tech info, all the info!"""
     techs = _fetch_techs_list()
 
-    now = datetime.datetime.now().replace(
-        hour=0, minute=0, second=0
-    ) - datetime.timedelta(days=1)
+    now = tznow().replace(hour=0, minute=0, second=0) - datetime.timedelta(days=1)
     time_off = [
         t
         for t in airtable.get_shop_tech_time_off()

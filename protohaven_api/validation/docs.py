@@ -1,6 +1,5 @@
 """Validate tool documentation to ensure we have what we need for
 every tool we offer."""
-import datetime
 import logging
 
 import requests
@@ -74,7 +73,7 @@ def validate():
         # rep = requests.head(tutorial_url, timeout=5.0)
         # tutorial_exists = rep.status_code == 200
 
-    subject = "Tool documentation report, " + datetime.datetime.now().isoformat()
+    subject = "Tool documentation report"
     body = f"\nChecked {len(tools)} tools"
 
     body += write_stats(stats["tooldoc"], "Tool Tutorials")

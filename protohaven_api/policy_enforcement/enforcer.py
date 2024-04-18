@@ -7,7 +7,7 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.policy_enforcement import comms as ecomms
 
@@ -38,7 +38,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
             if vid not in latest_fee or latest_fee[vid] < d:
                 latest_fee[vid] = d
     if now is None:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
 
     # Discard time information; compare dates only
     now = now.replace(hour=0, minute=0, second=0)
@@ -164,7 +164,7 @@ def gen_suspensions(violations=None, suspensions=None, now=None):
     if suspensions is None:
         suspensions = airtable.get_policy_suspensions()
     if now is None:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
 
     counts = _tally_violations(violations, suspensions, now)
     durations = next_suspension_duration(suspensions, now)
@@ -197,7 +197,7 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
         return None  # Incomplete record
     onset = dateparser.parse(fields["Onset"]).astimezone(tz)
     onset_str = onset.strftime("%Y-%m-%d")
-    now = datetime.datetime.now().astimezone(tz)
+    now = tznow()
 
     if old_accrued == 0 and onset > now - datetime.timedelta(
         hours=NEW_VIOLATION_THRESH_HOURS

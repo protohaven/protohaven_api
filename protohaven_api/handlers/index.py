@@ -5,7 +5,7 @@ import json
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, render_template, request, session
 
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.booked import get_reservations
@@ -93,9 +93,7 @@ def welcome_signin():
                         last_announcement_ack
                     ).astimezone(tz)
                 else:
-                    last_announcement_ack = datetime.datetime.now().astimezone(
-                        tz
-                    ) - datetime.timedelta(30)
+                    last_announcement_ack = tznow() - datetime.timedelta(30)
                 roles = [
                     r
                     for r in result.get("API server role", "").split("|")
@@ -214,7 +212,7 @@ def events_dashboard_attendee_count():
 def events_dashboard():
     """Show relevant upcoming events - designed for a kiosk display"""
     events = []
-    now = datetime.datetime.now().astimezone(tz)
+    now = tznow()
     # NOTE: does not currently support intensive date periods. Need to expand
     # dates to properly show this.
     try:
@@ -277,7 +275,7 @@ def events_dashboard():
             }
         )
     print(reservations)
-    now = tz.localize(datetime.datetime.now())
+    now = tznow()
     return render_template(
         "events.html",
         events=events,

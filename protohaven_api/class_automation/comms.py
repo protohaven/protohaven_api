@@ -1,10 +1,9 @@
 """Message template functions for notifying instructors, techs, and event registrants"""
-import datetime
 from urllib.parse import quote
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from protohaven_api.config import tz  # pylint: disable=import-error
+from protohaven_api.config import tznow  # pylint: disable=import-error
 
 env = Environment(
     loader=PackageLoader("protohaven_api.class_automation"),
@@ -90,7 +89,7 @@ def instructor_low_attendance(evt):
 def registrant_class_confirmed(evt, a, now=None):
     """Generate message to registrant that the class is confirmed to run"""
     if not now:
-        now = datetime.datetime.now().astimezone(tz)
+        now = tznow()
     firstname = a["firstName"]
     classname = evt["name"]
     evt_date = evt["python_date"].strftime("%B %-d")

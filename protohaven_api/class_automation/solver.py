@@ -14,16 +14,19 @@ log = logging.getLogger("class_automation.solver")
 
 
 class Class:
-    """Represents a class template schedulable at a period, in an area, with score"""
+    """Represents a class template schedulable at a period, in one or more areas, with score"""
 
     def __init__(
-        self, airtable_id, name, period, hours, area, last_run, score
+        self, airtable_id, name, period, hours, areas, last_run, score
     ):  # pylint: disable=too-many-arguments
         self.airtable_id = airtable_id
         self.name = name
-        self.period = period
+        self.period = period  # months
         self.hours = hours
-        self.area = area
+
+        assert isinstance(areas, list)
+        self.areas = areas
+
         self.last_run = (
             dateparser.parse(last_run) if isinstance(last_run, str) else last_run
         )
@@ -35,7 +38,7 @@ class Class:
         return (
             f"{self.name} ({self.airtable_id}, last run {self.last_run} for {self.hours}, "
             f"max every {self.period} months, "
-            "{self.area}, score={self.score})"
+            "{self.areas}, score={self.score})"
         )
 
     def as_dict(self):
@@ -45,7 +48,7 @@ class Class:
             "name": self.name,
             "period": self.period,
             "hours": self.hours,
-            "area": self.area,
+            "areas": self.areas,
             "last_run": self.last_run,
             "score": self.score,
         }
@@ -58,6 +61,8 @@ class Instructor:
         self.name = name
         self.caps = caps  # references Class.airtable_id
         self.load = load  # classes teachable per month
+
+        # Optionally parse str to python datetime
         self.avail = (
             [dateparser.parse(a) for a in avail] if isinstance(avail[0], str) else avail
         )
@@ -77,11 +82,11 @@ class Instructor:
 
 def date_range_overlaps(a0, a1, b0, b1):
     """Return True if [a0,a1] and [b0,b1] overlap"""
-    if b1 > a0 > b0:
+    if b0 <= a0 < b1:
         return True
-    if b1 > a1 > b0:
+    if b0 < a1 <= b1:
         return True
-    if a0 < b0 and a1 > b1:
+    if a0 <= b0 and a1 >= b1:
         return True
     return False
 
@@ -99,8 +104,7 @@ def solve(
 ):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.airtable_id: cls for cls in classes}
-    areas = {a for c in classes for a in c.area}
-    instructors_by_name = {p.name: p for p in instructors}
+    areas = {a for c in classes for a in c.areas}
 
     # Create a dictionary of the cartesian product of classes, instructors, and times.
     # The dict values are either 0 (not assigned) or 1 (assigned)
@@ -117,7 +121,7 @@ def solve(
 
                 # Skip if area already occupied
                 conflict = False
-                for a in cbid.area:
+                for a in cbid.areas:
                     if has_area_conflict(
                         area_occupancy.get(a, []),
                         t,
@@ -158,7 +162,7 @@ def solve(
     # ==== Constraints ====
 
     # Classes do not overlap the same area at the same time
-    class_areas = {c.airtable_id: c.area for c in classes}
+    class_areas = {c.airtable_id: c.areas for c in classes}
     times = set()
     for i in instructors:
         times.update(i.avail)
@@ -166,12 +170,14 @@ def solve(
     for a in areas:
         for t in times:
             area_assigned_times = pulp.lpSum(
-                [x[airtable_id, instructor.name, t]]
-                for instructor in instructors
-                for airtable_id in instructor.caps
-                if t in instructor.avail
-                and class_areas[airtable_id] == a
-                and x.get((airtable_id, instructor.name, t)) is not None
+                [
+                    [x[airtable_id, instructor.name, t]]
+                    for instructor in instructors
+                    for airtable_id in instructor.caps
+                    if t in instructor.avail
+                    and a in class_areas[airtable_id]
+                    and x.get((airtable_id, instructor.name, t)) is not None
+                ]
             )
             prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
 
@@ -189,28 +195,30 @@ def solve(
         prob += (
             class_assigned_count <= 1
         ), f"NoDuplicatesRequirement_{cls.airtable_id}"
-        # Classes are scheduled
+        # Force classes to be scheduled:
         # prob += class_assigned_count != 0
 
     # Each class-time is assigned to at most 1 instructor
-    time_map = defaultdict(set)
-    for p in instructors:
-        for t in p.avail:
-            time_map[t].add(p.name)
-    for cls in classes:
-        for t, names in time_map.items():
-            class_time_assigned_count = pulp.lpSum(
-                [
-                    x[(cls.airtable_id, p, t)]
-                    for p in names
-                    if cls.airtable_id in instructors_by_name[p].caps
-                    and x.get((cls.airtable_id, p, t)) is not None
-                ]
-            )
-            prob += (
-                class_time_assigned_count <= 1,
-                f"NoDupeInstructorRequirement_{cls.airtable_id}_{t}",
-            )
+    # instructors_by_name = {p.name: p for p in instructors}
+    # No longer needed due to "classes run at most once" constraint
+    # time_map = defaultdict(set)
+    # for p in instructors:
+    #     for t in p.avail:
+    #         time_map[t].add(p.name)
+    # for cls in classes:
+    #     for t, names in time_map.items():
+    #         class_time_assigned_count = pulp.lpSum(
+    #             [
+    #                 x[(cls.airtable_id, p, t)]
+    #                 for p in names
+    #                 if cls.airtable_id in instructors_by_name[p].caps
+    #                 and x.get((cls.airtable_id, p, t)) is not None
+    #             ]
+    #         )
+    #         prob += (
+    #             class_time_assigned_count <= 1,
+    #             f"NoDupeInstructorRequirement_{cls.airtable_id}_{t}",
+    #         )
 
     # No instructor is filled beyond their desired class rate
     for instructor in instructors:
@@ -232,6 +240,7 @@ def solve(
 
         # For instructors with reasonable availability and capabilities,
         # they must have at least one class scheduled
+        # Unsure if this is still needed after other constraints.
         if len(instructor.avail) >= 3 and len(instructor.caps) != 0:
             prob += assigned_load >= 1.0, f"MinLoadrequirement_{instructor.name}"
         else:

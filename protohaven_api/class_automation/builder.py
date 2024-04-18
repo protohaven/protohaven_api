@@ -10,7 +10,7 @@ from pathlib import Path
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import comms  # pylint: disable=import-error
-from protohaven_api.config import tz  # pylint: disable=import-error
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
 
@@ -31,7 +31,9 @@ def gen_calendar_reminders(start, end):
     summary[""]["name"] = "Availability calendar reminder"
     summary[""]["action"].add("SEND")
 
-    for name, email in airtable.get_instructor_email_map().items():
+    for name, email in airtable.get_instructor_email_map(
+        require_teachable_classes=True
+    ).items():
         subject, body = comms.instructor_update_calendar(name, start, end)
         results.append(
             {
@@ -47,7 +49,7 @@ def gen_calendar_reminders(start, end):
         {"id": "N/A", "name": "summary", "events": summary}
     )
     results.append(
-        {"id": "", "target": "#instructors", "subject": subject, "body": body}
+        {"id": "", "target": "#class-automation", "subject": subject, "body": body}
     )
     return results
 
@@ -125,9 +127,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             with open(self.CACHE_FILE, "rb") as f:
                 data = pickle.load(f)
             self.log.debug(f"Cache date {data['date']}")
-            if datetime.datetime.now().astimezone(tz) <= data["date"].astimezone(
-                tz
-            ) + datetime.timedelta(hours=self.CACHE_EXPIRY_HOURS):
+            if tznow() <= data["date"].astimezone(tz) + datetime.timedelta(
+                hours=self.CACHE_EXPIRY_HOURS
+            ):
                 self.events = data["events"]
                 self.airtable_schedule = data["schedule"]
                 self.cache_loaded = True
@@ -371,7 +373,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     def build(self, now=None):  # pylint: disable=too-many-branches
         """Build all notifications and return them in a list"""
         if now is None:
-            now = datetime.datetime.now().astimezone(tz)
+            now = tznow()
         self.fetch_and_aggregate_data(now)
 
         self.log.info("Sorting events...")
