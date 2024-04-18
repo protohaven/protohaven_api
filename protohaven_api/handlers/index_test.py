@@ -149,6 +149,7 @@ def test_welcome_signin_ok_with_announcements(client, mocker):
         "Account ID": 12345,
         "Account Current Membership Status": "Active",
         "First Name": "First",
+        "API server role": "Shop Tech",
     }
     index.airtable.get_announcements_after.return_value = [
         {"Title": "Test Announcement"}
@@ -164,6 +165,8 @@ def test_welcome_signin_ok_with_announcements(client, mocker):
         },
     )
     rep = json.loads(response.data.decode("utf8"))
+    _, args, _ = index.airtable.get_announcements_after.mock_calls[0]
+    assert args[1] == ["Shop Tech", "Member"]
     assert rep["status"] == "Active"
     assert rep["announcements"] == [{"Title": "Test Announcement"}]
     index.submit_google_form.assert_called_with(
