@@ -10,7 +10,7 @@ from functools import cache
 from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tznow
+from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 
 log = logging.getLogger("integrations.neon")
@@ -759,7 +759,7 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
         if match is not None:
             print(match)
             last_version = match[1]
-            last_signed = dateparser.parse(match[2])
+            last_signed = dateparser.parse(match[2]).astimezone(tz)
     if last_version is None:
         return False
     if last_version != current_version:

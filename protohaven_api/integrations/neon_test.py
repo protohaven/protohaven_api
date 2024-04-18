@@ -3,11 +3,12 @@
 import datetime
 import json
 
+from protohaven_api.config import tznow
 from protohaven_api.integrations import neon
 from protohaven_api.rbac import Role
 
 TEST_USER = 1234
-NOW = datetime.datetime.now()
+NOW = tznow()
 NOWSTR = NOW.strftime("%Y-%m-%d")
 OLDSTR = (NOW - datetime.timedelta(days=90)).strftime("%Y-%m-%d")
 
