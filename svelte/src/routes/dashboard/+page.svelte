@@ -9,7 +9,7 @@ import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
 import FetchError from '$lib/dashboard/fetch_error.svelte';
 
-let promise;
+let promise = new Promise((resolve,reject)=>{});
 let base_url = "http://localhost:5000";
 onMount(() => {
   if (window.location.href.indexOf("localhost") === -1) {
@@ -17,23 +17,24 @@ onMount(() => {
   }
 
   const urlParams = new URLSearchParams(window.location.search);
-  let email = urlParams.get("email");
-  if (!email) {
+  let e= urlParams.get("email");
+  if (!e) {
 	promise = fetch(base_url + "/whoami").then((rep)=>rep.text())
   	.then((body) => {
 	  try {
 	  	return JSON.parse(body);
-	  } catch (e) {
+	  } catch (err) {
 		throw Error(`Invalid reply from server: ${body}`);
 	  }
 	})
 	.then((data) => data.email);
   } else {
-    promise = Promise.resolve(email);
+    promise = Promise.resolve(e);
   }
 });
 
 let scheduler_open = false;
+let fullname = "";
 </script>
 
 <Navbar color="primary-subtle">
@@ -45,10 +46,10 @@ let scheduler_open = false;
     <h3>Resolving instructor data...</h3>
   {:then email}
   <div>
-    <Profile {base_url} {email} on_scheduler={()=> scheduler_open=true}/>
-    <Scheduler {base_url} {email} bind:open={scheduler_open}/>
+    <Profile {base_url} {email} on_scheduler={(fname)=> {scheduler_open=true; fullname=fname;}}/>
+    <Scheduler {base_url} {email} inst={fullname} bind:open={scheduler_open}/>
   </div>
-  <ClassDetails {base_url} {email}/>
+  <ClassDetails {base_url} {email} {scheduler_open}/>
   {:catch error}
     <FetchError {error}/>
   {/await}

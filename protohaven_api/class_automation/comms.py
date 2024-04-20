@@ -15,7 +15,6 @@ def techs_openings(events):
     """Generate message for techs about classes with open seats"""
     ee = []
     for evt in events["events"]:
-        print(evt)
         ee.append(
             {
                 "id": str(evt["id"]),

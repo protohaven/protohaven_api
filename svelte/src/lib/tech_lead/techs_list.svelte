@@ -76,13 +76,14 @@ function refresh() {
 	    }
 	  }
 	}
-	let color = 'info';
-	if (people.length == 0) {
-	  color = 'danger';
-	} else if (people.length < 2) {
+	let color = 'danger';
+	if (people.length >= 3) {
+	  color = 'success';
+	} else if (people.length == 2) {
+	  color = 'info';
+	} else if (people.length == 1) {
 	  color = 'warning';
 	}
-	console.log("TODO factor in swaps");
 	calendar_view.push({title: `${d.getMonth()+1}/${d.getDate()} ${ap}`, color, people, id});
       }
     }
@@ -103,7 +104,6 @@ function update_tech(t) {
       method: "POST",
       body: JSON.stringify(t),
     }).then((rep) => {
-      console.log("Done; TODO show toast");
       let msg = `${t['name']} updated`;
       toast_msg = {'color': 'success', msg, 'title': 'Edit Success'};
     });
@@ -190,7 +190,8 @@ function clearance_click(id) {
   <div class="my-3">
     <p>
     Legend:
-    <Badge color='info'>2+ Techs</Badge>
+    <Badge color='success'>3+ Techs</Badge>
+    <Badge color='info'>2 Techs</Badge>
     <Badge color='warning'>1 Tech</Badge>
     <Badge color='danger'>0 Techs</Badge>
     </p>

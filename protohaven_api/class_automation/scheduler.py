@@ -215,20 +215,26 @@ def format_class(cls):
 
 
 def push_schedule(sched):
-    """Pushes the created schedule to airtable and generates notifications"""
-    email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
+    """Pushes the created schedule to airtable"""
     payload = []
+    email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
     for inst, classes in sched.items():
         for record_id, _, date in classes:
             payload.append(
                 {
                     "Instructor": inst,
-                    "Email": email_map[inst],
+                    "Email": email_map[inst.lower()],
                     "Start Time": date,
                     "Class": [record_id],
                 }
             )
+    for p in payload:
+        airtable.append_classes_to_schedule([p])
 
+
+def gen_schedule_push_notifications(sched):
+    """Generate notifications for scheduling automation when done out of band of instructor"""
+    email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
     notifications = []
     for inst, classes in sched.items():
         classes.sort(key=lambda c: c[2])
@@ -251,6 +257,4 @@ def push_schedule(sched):
             {"id": None, "subject": subject, "body": body, "target": email}
         )
 
-    for p in payload:
-        airtable.append_classes_to_schedule([p])
     return notifications

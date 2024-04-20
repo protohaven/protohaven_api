@@ -198,6 +198,22 @@ def solve(
         # Force classes to be scheduled:
         # prob += class_assigned_count != 0
 
+    # Instructors teach at most 1 class at any given time
+    for p in instructors:
+        for t in p.avail:
+            booking_count = pulp.lpSum(
+                [
+                    x[(cls.airtable_id, p.name, t)]
+                    for cls in classes
+                    if cls.airtable_id in p.caps
+                    and x.get((cls.airtable_id, p.name, t)) is not None
+                ]
+            )
+            prob += (
+                booking_count <= 1,
+                f"NoDoubleBookedInstructorRequirement_{p.name}_{t}",
+            )
+
     # Each class-time is assigned to at most 1 instructor
     # instructors_by_name = {p.name: p for p in instructors}
     # No longer needed due to "classes run at most once" constraint

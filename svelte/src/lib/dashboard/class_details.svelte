@@ -9,6 +9,7 @@ export let base_url;
 let classes = [];
 let readiness = {};
 export let email;
+export let scheduler_open; // Watched to trigger refresh
 
 let promise;
 function refresh() {
@@ -22,9 +23,12 @@ function refresh() {
 	})
 	.then((data) => data.schedule);
 }
-onMount(refresh);
 
-let show_proposed = true;
+$: {
+  if (!scheduler_open) {
+    refresh();
+  }
+}
 
 </script>
 
@@ -40,13 +44,15 @@ let show_proposed = true;
     {/if}
   {/each}
 
-  <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
 
   {#if classes.length == 0}
-  <div>
-    <em>No classes found - contact education@protohaven.org or post to #instructors on Discord if you wish to schedule more.</em>
-  </div>
+  <Alert class="my-3" color="warning">
+    <em>No classes found - please sechedule more using the Scheduler button on the left.</em>
+  </Alert>
   {/if}
+
+  <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
+
 {:else}
   Loading...
 {/if}
