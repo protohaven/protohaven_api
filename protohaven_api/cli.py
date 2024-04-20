@@ -485,8 +485,8 @@ class ProtohavenCLI(reservations.Commands):
         args = parser.parse_args(argv)
         with open(args.path, "r", encoding="utf-8") as f:
             sched = yaml.safe_load(f.read())
-        scheduler.push_schedule(sched)
         notifications = scheduler.gen_schedule_push_notifications(sched)
+        scheduler.push_schedule(sched)
         print(yaml.dump(notifications, default_flow_style=False, default_style=""))
 
     def post_classes_to_neon(self, argv):
