@@ -296,7 +296,8 @@ def test_builder_supply_check(caplog):
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.SUPPLY_CHECK_NEEDED)]
 
-    raise Exception(TEST_NOW)
+    raise RuntimeError(TEST_NOW)
+    """
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
@@ -312,7 +313,7 @@ def test_builder_supply_check(caplog):
             "target": "#class-automation",
             "subject": "Automation notification summary",
         },
-    ]
+    ]"""
 
 
 def test_builder_low_attendance_7days(caplog):
