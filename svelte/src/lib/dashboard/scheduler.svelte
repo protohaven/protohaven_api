@@ -1,7 +1,7 @@
 <script type="ts">
   import { Row, Col, Navbar, NavLink, NavItem, NavbarBrand, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
-  export let base_url;
+  import {get, post} from '$lib/api.ts';
   export let email;
   export let open;
   export let inst;
@@ -27,8 +27,8 @@
   let env_promise;
   function reload() {
     console.log("Reloading scheduler env");
-    env_promise = fetch(base_url + "/instructor/setup_scheduler_env?" + new URLSearchParams({
-      start, end, inst: inst.toLowerCase()})).then((rep) => rep.json()).then((data) => {
+    env_promise = get("/instructor/setup_scheduler_env?" + new URLSearchParams({
+      start, end, inst: inst.toLowerCase()})).then((data) => {
       env = data;
 
       // Format availability and class info for display
@@ -66,14 +66,7 @@
     }
     console.log(body.instructors[0].caps);
 
-    solve_promise = fetch(base_url + "/instructor/run_scheduler", {
-      headers: {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-      },
-      method: "POST",
-      body: JSON.stringify(body),
-    }).then((rep) => rep.json()).then((data) => {
+    solve_promise = post("/instructor/run_scheduler", body).then((data) => {
       output = data[inst.toLowerCase()];
       for (let cls of output) {
       	console.log(cls);
@@ -92,22 +85,9 @@
 		body.push([cls[0], cls[1], cls[2]]);
 	}
     }
-    save_promise = fetch(base_url + "/instructor/push_classes", {
-      headers: {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-      },
-      method: "POST",
-      body: JSON.stringify(body),
-    }).then(async (rep) => {
-    	let result = await rep.text();
-	console.log(result);
-    	if (rep.status !== 200) {
-	    throw Error(`${rep.status}: ${result}`);
-	} else {
-	    open = false;
-	}
-    });
+    let data = {};
+    data[inst] = body;
+    save_promise = post("/instructor/push_classes", data).then((rep) => open = false);
     running = false;
   }
 </script>
@@ -118,20 +98,35 @@
     <Navbar expand="md" container="md" ><h5>Instructions</h5></Navbar>
 
     <p>Use this scheduling prompt to add more classes to your class list!</p>
-    <p>The scheduler automatically takes account of other instructors' classes, when they're run, and the areas they run in so scheduling conflicts are avoided.</p>
 
     <ol>
-    	<li>Select the window of time where you want to schedule your classes.</li>
-	<li>Make sure your availability is listed on the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Calendar</a></li>
-	<li>Uncheck any classes you don't want the scheduler to add.</li>
+    	<li>Select the window of time where you want to schedule your classes, or use the default.</li>
+	<li>Make sure your availability is listed on the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Availability Calendar</a>.</li>
+	<li>Under Classes, uncheck any classes you don't want the scheduler to add.</li>
 	<li>Click on "Run Scheduler" to generate a schedule.</li>
 	<li>If you like the generated schedule, click "Save proposed classes" to add them to your class list. Otherwise, edit your settings and re-run the scheduler</li>
+	<li>Confirm your availability on each class in the list, then wait for the class scheduler to publish the confirmed classes to our schedule in Neon.</li>
     </ol>
 
-    <p>Confirm your availability on each class in the list, then wait for the class scheduler to publish the confirmed classes to our schedule in Neon. You will receive an email when your classes schedule.</p>
+    <p>You will receive an email when your classes schedule. Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> if you have any issues.</p>
 
+    <Navbar expand="md" container="md" ><h5>Behavior</h5></Navbar>
 
-    <p><em>Email <a>instructors@protohaven.org</a> if you have any issues.</em></p>
+    <p>No classes are scheduled:</p>
+
+    <ul>
+      <li>on US holidays</li>
+      <li>before 5pm on a weekday</li>
+      <li>concurrently in the same area (e.g. never two textiles classes)</li>
+      <li>when an instructor is already teaching a class</li>
+      <li>to an instructor that cannot teach them.</li>
+      <li>at a time the instructor has not listed as available</li>
+      <li>too soon after the previous run of the class (usually, a month)</li>
+    </ul>
+
+    <p>The scheduler will propose classes that overlap with other unpublished classes. When the automation runs to publish classes, it will publish whichever class was confirmed earliest.</p>
+
+    <p><em>Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> or reach out on the #instructors channel if you suspect any of these rules are not being observed.</p>
 
     <Navbar expand="md" container="md" ><h5>Window</h5></Navbar>
     <p>This is the start and end date between which classes will be generated. It defaults to 14-40 days away from the current date.</p>

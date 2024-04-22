@@ -88,7 +88,11 @@ def require_login_role(role):
                 return redirect(url_for("auth." + login_user_neon_oauth.__name__))
             if role["name"] in roles:
                 return fn(*args, **kwargs)
-            return Response("Access Denied", status=401)
+            return Response(
+                "Access Denied - if you think this is an error, try going to "
+                "https://api.protohaven.org/logout and then log in again.",
+                status=401,
+            )
 
         do_role_check.__name__ = fn.__name__
         return do_role_check

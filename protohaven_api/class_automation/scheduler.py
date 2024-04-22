@@ -107,7 +107,11 @@ def _gen_class_and_area_stats(cur_sched, start_date, end_date):
 
 
 def generate_env(
-    start_date, end_date, instructor_filter=None, exclude_holidays=True
+    start_date,
+    end_date,
+    instructor_filter=None,
+    exclude_holidays=True,
+    include_proposed=True,
 ):  # pylint: disable=too-many-locals
     """Generates the environment to be passed to the solver"""
 
@@ -120,8 +124,10 @@ def generate_env(
     cur_sched = [
         c
         for c in airtable.get_class_automation_schedule()
-        if c["fields"].get("Neon ID") is not None
+        if c["fields"].get("Rejected") is None
     ]
+    if not include_proposed:
+        cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
     instructors = []
     skipped = 0
     if exclude_holidays:
@@ -145,7 +151,11 @@ def generate_env(
             )
             skipped += 1
             continue
-        instructors.append(_build_instructor(k, v, caps, max_loads[k]))
+        instructors.append(
+            _build_instructor(
+                k, v, caps, max_loads[k], exclude_holidays=exclude_holidays
+            )
+        )
 
     if skipped > 0:
         log.warning(
@@ -180,7 +190,7 @@ def generate_env(
         f"Loaded {len(instructors)} instructors and {len(classes)} schedulable classes"
     )
     unavailable = set(instructor_caps.keys()) - {i.name for i in instructors}
-    if len(unavailable) > 0:
+    if len(unavailable) > 0 and instructor_filter is None:
         log.warning(
             f"{len(unavailable)} instructor(s) with caps are not "
             f"present in the final list: {unavailable}"

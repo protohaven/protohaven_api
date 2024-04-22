@@ -1,6 +1,7 @@
 <script type="ts">
   import '../app.scss';
   import { onMount } from 'svelte';
+  import {get, post} from '$lib/api.ts';
   import { Row, Card, Container } from '@sveltestrap/sveltestrap';
   import Splash from '$lib/splash.svelte';
   import SigninOk from '$lib/signin_ok.svelte';
@@ -17,13 +18,6 @@
   let referrer = "";
   let announcements = [];
 
-  let base_url = "http://localhost:5000";
-  onMount(() => {
-    if (window.location.href.indexOf("localhost") === -1) {
-      base_url = "https://api.protohaven.org";
-    }
-  });
-
   async function on_splash_submit(p) {
     person = p;
     return await submit();
@@ -35,7 +29,7 @@
   }
 
   async function do_post() {
-    return await fetch(base_url + '/welcome', {
+    return await request('/welcome', {
       method: 'POST',
       body: JSON.stringify({email, person, waiver_ack, dependent_info, referrer}),
       headers: {
@@ -65,13 +59,7 @@
       do_post();
     }
     if (person !== 'guest' && announcements) { // Acknowledge announcements
-      fetch(base_url + '/welcome/announcement_ack', {
-	method: 'POST',
-	body: JSON.stringify({email}),
-	headers: {
-	  'Content-type': 'application/json',
-	},
-      });
+      post('/welcome/announcement_ack', {email});
     }
 
     restart_flow();

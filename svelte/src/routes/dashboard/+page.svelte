@@ -2,6 +2,7 @@
 
 import '../../app.scss';
 import { onMount } from 'svelte';
+import {get, post} from '$lib/api.ts';
 
 import { Navbar, NavbarBrand, Spinner } from '@sveltestrap/sveltestrap';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
@@ -10,24 +11,12 @@ import Scheduler from '$lib/dashboard/scheduler.svelte';
 import FetchError from '$lib/dashboard/fetch_error.svelte';
 
 let promise = new Promise((resolve,reject)=>{});
-let base_url = "http://localhost:5000";
 onMount(() => {
-  if (window.location.href.indexOf("localhost") === -1) {
-  base_url = "https://api.protohaven.org";
-  }
 
   const urlParams = new URLSearchParams(window.location.search);
   let e= urlParams.get("email");
   if (!e) {
-	promise = fetch(base_url + "/whoami").then((rep)=>rep.text())
-  	.then((body) => {
-	  try {
-	  	return JSON.parse(body);
-	  } catch (err) {
-		throw Error(`Invalid reply from server: ${body}`);
-	  }
-	})
-	.then((data) => data.email);
+	promise = get("/whoami").then((data) => data.email);
   } else {
     promise = Promise.resolve(e);
   }
@@ -46,10 +35,10 @@ let fullname = "";
     <h3>Resolving instructor data...</h3>
   {:then email}
   <div>
-    <Profile {base_url} {email} on_scheduler={(fname)=> {scheduler_open=true; fullname=fname;}}/>
-    <Scheduler {base_url} {email} inst={fullname} bind:open={scheduler_open}/>
+    <Profile {email} on_scheduler={(fname)=> {scheduler_open=true; fullname=fname;}}/>
+    <Scheduler {email} inst={fullname} bind:open={scheduler_open}/>
   </div>
-  <ClassDetails {base_url} {email} {scheduler_open}/>
+  <ClassDetails {email} {scheduler_open}/>
   {:catch error}
     <FetchError {error}/>
   {/await}

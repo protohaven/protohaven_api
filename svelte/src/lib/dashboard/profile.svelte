@@ -1,23 +1,16 @@
 <script type="ts">
   import { Button, Icon, Image, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardBody, CardFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
+import {get, post} from '$lib/api.ts';
   import FetchError from './fetch_error.svelte';
 
-  export let base_url;
   export let email;
   export let on_scheduler;
 
   let profile = null;
   let promise;
   function refresh() {
-	promise = fetch(base_url + "/instructor/about?email=" + email).then((rep) => rep.text())
-  	.then((body) => {
-	  try {
-	  	return JSON.parse(body);
-	  } catch (e) {
-		throw Error(`Invalid reply from server: ${body}`);
-	  }
-	});
+	promise = get("/instructor/about?email=" + email);
   }
   onMount(refresh);
 

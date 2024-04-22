@@ -340,13 +340,17 @@ def push_classes():
     so fine to ignore for now."""
 
     data = request.json
-    email = user_email()
-    fullname = user_fullname()
-    if not email or not fullname:
+    if len(data) != 1:
         return Response(
-            "Missing session data (are you running sveltekit in dev? try running from static)",
-            status=401,
+            "push_classes requires exactly one instructor class set", status=400
         )
 
-    push_schedule({fullname: data})
-    return "OK"
+    fullname = list(data.keys())[0]
+    ufn = user_fullname()
+    if ufn != fullname and require_login_role(Role.ADMIN)(lambda: True)() is not True:
+        return Response(
+            f"Access Denied for pushing classes for instructor '{fullname}'", status=401
+        )
+
+    push_schedule(data)
+    return {"success": True}

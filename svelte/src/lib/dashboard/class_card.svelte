@@ -1,9 +1,9 @@
 <script type="ts">
 import { onMount } from 'svelte';
 import { Button, Row, Col, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardFooter, CardBody, Input, Spinner, FormGroup, Dropdown, DropdownMenu, DropdownItem, DropdownToggle, Navbar, NavbarBrand, Nav, NavItem, Alert } from '@sveltestrap/sveltestrap';
+import {get, post} from '$lib/api.ts';
 
 export let eid;
-export let base_url;
 
 export let c_init;
 let meta_promise = Promise.resolve(c_init);
@@ -14,7 +14,7 @@ let attendees = [];
 function fetch_attendees(data) {
   if (data['Neon ID']) {
     console.log("Fetching attendees for", data['Neon ID']);
-    return fetch(base_url + "/instructor/class/attendees?id=" + data['Neon ID']).then((rep) => rep.json()).then((data) => {
+    return get("/instructor/class/attendees?id=" + data['Neon ID']).then((data) => {
       attendees = data;
       return data;
     });
@@ -26,26 +26,15 @@ let promise = meta_promise.then(fetch_attendees);
 
 function refresh(neon_id) {
   if (neon_id) {
-    promise = fetch(base_url + "/instructor/class/attendees?id=" + neon_id).then((rep) => rep.json());
+    promise = get("/instructor/class/attendees?id=" + neon_id);
   }
   return promise;
 }
 //onMount(refresh);
 
-function post_json(url, data) {
-  meta_promise = fetch(base_url + url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data),
-  }).then((rep) => rep.json());
-  promise = meta_promise.then(fetch_attendees);
-}
-
 function confirm(pub) {
-  return post_json("/instructor/class/update", {eid, pub});
+  meta_promise = post("/instructor/class/update", {eid, pub})
+  promise = meta_promise.then(fetch_attendees);
 }
 
 function submit_log(url) {
@@ -58,11 +47,13 @@ function submit_log(url) {
 }
 
 function supply(ok) {
-  return post_json("/instructor/class/supply_req", {eid, missing: !ok});
+  meta_promise = post("/instructor/class/supply_req", {eid, missing: !ok})
+  promise = meta_promise.then(fetch_attendees);
 }
 
 function volunteer(v) {
-  return post_json("/instructor/class/volunteer", {eid, volunteer: v});
+  meta_promise = post("/instructor/class/volunteer", {eid, volunteer: v})
+  promise = meta_promise.then(fetch_attendees);
 }
 </script>
 
