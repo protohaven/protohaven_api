@@ -138,3 +138,11 @@ When classes are cancelled, run the following command to remove them from the ev
 ```
 PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id=<id2>
 ```
+
+# QA check
+
+After deployment, verify that:
+
+* https://api.protohaven.org/onboarding loads and can check membership
+* https://api.protohaven.org/tech_lead loads
+* https://api.protohaven.org/instructor/class loads, can run scheduler, and can confirm/unconfirm a class

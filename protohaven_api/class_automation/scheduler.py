@@ -230,11 +230,14 @@ def push_schedule(sched):
     email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
     for inst, classes in sched.items():
         for record_id, _, date in classes:
+            date = dateparser.parse(date)
+            if date.tzinfo is None:
+                date = date.astimezone(tz)
             payload.append(
                 {
                     "Instructor": inst,
                     "Email": email_map[inst.lower()],
-                    "Start Time": date,
+                    "Start Time": date.isoformat(),
                     "Class": [record_id],
                 }
             )
