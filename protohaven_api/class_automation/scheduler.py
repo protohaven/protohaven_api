@@ -232,7 +232,7 @@ def push_schedule(sched):
         for record_id, _, date in classes:
             date = dateparser.parse(date)
             if date.tzinfo is None:
-                date = date.astimezone(tz)
+                date = tz.localize(date)
             payload.append(
                 {
                     "Instructor": inst,
