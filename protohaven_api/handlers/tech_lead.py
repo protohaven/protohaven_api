@@ -13,7 +13,7 @@ page = Blueprint("tech_lead", __name__, template_folder="templates")
 
 
 @page.route("/tech_lead")
-@require_login_role(Role.INSTRUCTOR)
+@require_login_role(Role.SHOP_TECH_LEAD)
 def tech_lead_class():
     """Return svelte compiled static page for tech_lead dashboard"""
     return current_app.send_static_file("svelte/tech_lead.html")
