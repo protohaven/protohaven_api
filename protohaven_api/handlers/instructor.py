@@ -1,5 +1,6 @@
 """Handlers for instructor actions on classes"""
 import datetime
+import logging
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
@@ -7,11 +8,13 @@ from flask import Blueprint, Response, current_app, redirect, request
 from protohaven_api.class_automation.scheduler import (
     generate_env as generate_scheduler_env,
 )
-from protohaven_api.class_automation.scheduler import solve_with_env
+from protohaven_api.class_automation.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
-from protohaven_api.handlers.auth import user_email
+from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon, schedule
 from protohaven_api.rbac import Role, require_login_role
+
+log = logging.getLogger("handlers.instructor")
 
 page = Blueprint("instructor", __name__, template_folder="templates")
 
@@ -114,12 +117,17 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
             result["paperwork"] = "OK"
 
     now = tznow()
-    if not instructor_schedules:
-        instructor_schedules = schedule.fetch_instructor_schedules(
-            now - datetime.timedelta(days=90), now + datetime.timedelta(days=90)
-        )
-    if result["fullname"] in instructor_schedules.keys():
-        result["in_calendar"] = "OK"
+    try:
+        if not instructor_schedules:
+            instructor_schedules = schedule.fetch_instructor_schedules(
+                (now - datetime.timedelta(days=90)).replace(tzinfo=None),
+                (now + datetime.timedelta(days=90)).replace(tzinfo=None),
+            )
+        if result["fullname"] in instructor_schedules.keys():
+            result["in_calendar"] = "OK"
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        log.warning(f"Calendar fetch error: {e}")
+        result["in_calendar"] = "HTTP Error"
     return result
 
 
@@ -321,3 +329,28 @@ def setup_scheduler_env():
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
     return solve_with_env(request.json)
+
+
+@page.route("/instructor/push_classes", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
+def push_classes():
+    """Push specific classes to airtable.
+    2024-04-18: Note that this allows the instructor to push *any* classes at any time,
+    which isn't super great. But the odds of misuse are pretty low presently
+    so fine to ignore for now."""
+
+    data = request.json
+    if len(data) != 1:
+        return Response(
+            "push_classes requires exactly one instructor class set", status=400
+        )
+
+    fullname = list(data.keys())[0]
+    ufn = user_fullname()
+    if ufn != fullname and require_login_role(Role.ADMIN)(lambda: True)() is not True:
+        return Response(
+            f"Access Denied for pushing classes for instructor '{fullname}'", status=401
+        )
+
+    push_schedule(data)
+    return {"success": True}

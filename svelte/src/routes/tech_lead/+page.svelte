@@ -4,7 +4,7 @@
   import TechsList from '$lib/tech_lead/techs_list.svelte';
   import { onMount } from 'svelte';
 
-  let promise = new Promise();
+  let promise = new Promise((resolve, reject) => {});
   onMount(() => {
     let base_url = "http://localhost:5000";
     if (window.location.href.indexOf("localhost") === -1) {

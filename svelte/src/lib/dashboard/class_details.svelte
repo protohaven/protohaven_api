@@ -3,28 +3,24 @@
 import {onMount} from 'svelte';
 import { Table, Button, Row, Col, Card, CardHeader, Alert, CardTitle, CardSubtitle, CardText, Icon, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem } from '@sveltestrap/sveltestrap';
 import ClassCard from './class_card.svelte';
+import {get, post} from '$lib/api.ts';
 import FetchError from './fetch_error.svelte';
 
-export let base_url;
 let classes = [];
 let readiness = {};
 export let email;
+export let scheduler_open; // Watched to trigger refresh
 
 let promise;
 function refresh() {
-  promise = fetch(base_url + "/instructor/class_details?email=" + email).then((rep)=>rep.text())
-  	.then((body) => {
-	  try {
-	  	return JSON.parse(body);
-	  } catch (e) {
-		throw Error(`Invalid reply from server: ${body}`);
-	  }
-	})
-	.then((data) => data.schedule);
+  promise = get("/instructor/class_details?email=" + email).then((data) => data.schedule);
 }
-onMount(refresh);
 
-let show_proposed = true;
+$: {
+  if (!scheduler_open) {
+    refresh();
+  }
+}
 
 </script>
 
@@ -36,17 +32,19 @@ let show_proposed = true;
 {#if classes }
   {#each classes as c}
     {#if !c['Rejected']}
-    <ClassCard {base_url} eid={c[0]} c_init={c[1]}/>
+    <ClassCard eid={c[0]} c_init={c[1]}/>
     {/if}
   {/each}
 
-  <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
 
   {#if classes.length == 0}
-  <div>
-    <em>No classes found - contact education@protohaven.org or post to #instructors on Discord if you wish to schedule more.</em>
-  </div>
+  <Alert class="my-3" color="warning">
+    <em>No classes found - please schedule more using the Scheduler button on the left.</em>
+  </Alert>
   {/if}
+
+  <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
+
 {:else}
   Loading...
 {/if}

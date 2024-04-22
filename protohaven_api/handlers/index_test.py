@@ -124,6 +124,7 @@ def test_welcome_signin_membership_expired(client, mocker):
         "Account ID": 12345,
         "Account Current Membership Status": "Inactive",
         "First Name": "First",
+        "API server role": None,  # This can happen
     }
     index.airtable.get_announcements_after.return_value = None
     index.neon.update_waiver_status.return_value = True

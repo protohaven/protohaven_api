@@ -96,7 +96,9 @@ def welcome_signin():
                     last_announcement_ack = tznow() - datetime.timedelta(30)
                 roles = [
                     r
-                    for r in m.get("API server role", "").split("|")
+                    for r in (m.get("API server role", "") or "").split(
+                        "|"
+                    )  # Can be None
                     if r.strip() != ""
                 ]
                 if result["status"] == "Active":

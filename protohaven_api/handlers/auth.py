@@ -9,16 +9,24 @@ page = Blueprint("auth", __name__, template_folder="templates")
 
 def user_email():
     """Get the logged in user's email"""
-    acct = session.get("neon_account")["individualAccount"]
-    return acct["primaryContact"]["email1"]
+    try:
+        acct = session.get("neon_account")["individualAccount"]
+        return acct["primaryContact"]["email1"]
+    except TypeError:
+        return None
 
 
 def user_fullname():
     """Get the logged in user's full name"""
-    acct = session.get("neon_account")["individualAccount"]
-    return (
-        acct["primaryContact"]["firstName"] + " " + acct["primaryContact"]["lastName"]
-    )
+    try:
+        acct = session.get("neon_account")["individualAccount"]
+        return (
+            acct["primaryContact"]["firstName"]
+            + " "
+            + acct["primaryContact"]["lastName"]
+        )
+    except TypeError:
+        return None
 
 
 @page.route("/login")

@@ -2,9 +2,9 @@
 
 import {onMount} from 'svelte';
 import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import {get, post} from '$lib/api.ts';
 import EditCell from './editable_td.svelte';
 
-export let base_url;
 
 let promise = new Promise((resolve) => {});
 
@@ -17,7 +17,7 @@ let calendar_view = [];
 let toast_msg = null;
 let enrolling = false;
 function refresh() {
-  promise = fetch(base_url + "/tech_lead/all_status").then((rep) => rep.json()).then((data) => {
+  promise = get("/tech_lead/all_status").then((data) => {
     shift_map = {};
     area_map = {};
     for (let t of data.techs) {
@@ -76,14 +76,24 @@ function refresh() {
 	    }
 	  }
 	}
-	let color = 'info';
-	if (people.length == 0) {
-	  color = 'danger';
-	} else if (people.length < 2) {
+	let color = 'danger';
+	if (people.length >= 3) {
+	  color = 'success';
+	} else if (people.length == 2) {
+	  color = 'info';
+	} else if (people.length == 1) {
 	  color = 'warning';
 	}
-	console.log("TODO factor in swaps");
-	calendar_view.push({title: `${d.getMonth()+1}/${d.getDate()} ${ap}`, color, people, id});
+	let wkd = [
+		    'Sun',
+		    'Mon',
+		    'Tue',
+		    'Wed',
+		    'Thu',
+		    'Fri',
+		    'Sat'
+		  ][d.getDay()];
+	calendar_view.push({title: `${wkd} ${d.getMonth()+1}/${d.getDate()} ${ap}`, color, people, id});
       }
     }
     return data;
@@ -95,15 +105,7 @@ let show_proposed = true;
 
 function update_tech(t) {
   console.log("Update tech", t);
-  fetch(base_url + "/tech_lead/update", {
-      headers: {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-      },
-      method: "POST",
-      body: JSON.stringify(t),
-    }).then((rep) => {
-      console.log("Done; TODO show toast");
+  post("/tech_lead/update", t).then((rep) => {
       let msg = `${t['name']} updated`;
       toast_msg = {'color': 'success', msg, 'title': 'Edit Success'};
     });
@@ -111,14 +113,7 @@ function update_tech(t) {
 
 function set_enrollment(enroll) {
   enrolling = true;
-  fetch(base_url + "/tech_lead/enroll", {
-      headers: {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-      },
-      method: "POST",
-      body: JSON.stringify({email: new_tech_email, enroll}),
-    }).then((data) => {
+  post("/tech_lead/enroll", {email: new_tech_email, enroll}).then((data) => {
       console.log(data);
       let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
       toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
@@ -190,7 +185,8 @@ function clearance_click(id) {
   <div class="my-3">
     <p>
     Legend:
-    <Badge color='info'>2+ Techs</Badge>
+    <Badge color='success'>3+ Techs</Badge>
+    <Badge color='info'>2 Techs</Badge>
     <Badge color='warning'>1 Tech</Badge>
     <Badge color='danger'>0 Techs</Badge>
     </p>

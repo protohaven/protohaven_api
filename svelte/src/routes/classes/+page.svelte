@@ -1,6 +1,7 @@
 <script type="ts">
 
   import '../../app.scss';
+  import {get, post} from '$lib/api.ts';
   import { Row, Col, Card, Container, Spinner } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
   import ClassCard from '$lib/classes/class_card.svelte';
@@ -11,7 +12,7 @@
     if (window.location.href.indexOf("localhost") === -1) {
     base_url = "https://api.protohaven.org";
     }
-    promise = fetch(base_url + "/class_listing").then((rep) => rep.json()).then((data) => {
+    promise = get("/class_listing").then((data) => {
       console.log(data);
       let date_bounded = [];
       let day = null;

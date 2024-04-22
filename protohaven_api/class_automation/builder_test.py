@@ -296,6 +296,7 @@ def test_builder_supply_check(caplog):
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.SUPPLY_CHECK_NEEDED)]
+
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)

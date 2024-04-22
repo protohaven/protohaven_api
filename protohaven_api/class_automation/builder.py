@@ -67,7 +67,7 @@ class Action(Enum):
     LOW_ATTENDANCE_3DAYS = (3, 1, lambda evt: evt["signups"] < 3)
     CONFIRM = (1, 0, lambda evt: evt["occupancy"] > 0)
     CANCEL = (1, 0, lambda evt: evt["occupancy"] == 0)
-    FOR_TECHS = (1, 0, lambda evt: evt["occupancy"] < 0.9)
+    FOR_TECHS = (1, 0, lambda evt: 0.1 < evt["occupancy"] < 0.9)
     POST_RUN_SURVEY = (0, -3, lambda evt: evt["occupancy"] > 0)
 
     def needed_for(self, evt, now):
@@ -291,9 +291,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.summary[evt["id"]]["action"].add(str(action))
         self.summary[evt["id"]]["targets"].add(target)
         subject, body = fn(evt, *args)
-        self.output.append(
-            {"id": evt["id"], "target": target, "subject": subject, "body": body}
-        )
+        result = {"id": evt["id"], "target": target, "subject": subject, "body": body}
+        if action == Action.CANCEL:
+            result["side_effect"] = {"cancel": evt["id"]}
+        self.output.append(result)
 
     def _build_techs_notifications(self, evt, action):
         """Build all notifications to techs; requires self.for_techs prepopulated"""

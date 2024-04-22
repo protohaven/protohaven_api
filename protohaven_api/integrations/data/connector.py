@@ -15,6 +15,8 @@ from square.client import Client as SquareClient
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
 
+DEFAULT_TIMEOUT = 5.0
+
 
 class Connector:
     """Provides dev and production access to dependencies.
@@ -75,7 +77,9 @@ class Connector:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        return requests.request(*args, headers=headers, timeout=5.0, **kwargs)
+        return requests.request(
+            *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+        )
 
     def _google_form_submit_dev(self, url, params):
         """Dev handler for submitting google forms"""
@@ -85,7 +89,7 @@ class Connector:
         """Submit a google form with data"""
         if self.dev:
             return self._google_form_submit_dev(url, params)
-        return requests.get(url, params, timeout=5.0)
+        return requests.get(url, params, timeout=DEFAULT_TIMEOUT)
 
     def _discord_webhook_dev(self, webhook, content):
         """Dev handler for discord webhooks"""
@@ -95,7 +99,9 @@ class Connector:
         """Send content to a Discord webhook"""
         if self.dev:
             return self._discord_webhook_dev(webhook, content)
-        return requests.post(webhook, json={"content": content}, timeout=5.0)
+        return requests.post(
+            webhook, json={"content": content}, timeout=DEFAULT_TIMEOUT
+        )
 
     def _email_dev(self, subject, body, recipients):
         """Dev handler for email sending"""
@@ -156,7 +162,9 @@ class Connector:
             "X-Booked-ApiId": self.cfg["booked"]["id"],
             "X-Booked-ApiKey": self.cfg["booked"]["key"],
         }
-        return requests.request(*args, headers=headers, timeout=5.0, **kwargs)
+        return requests.request(
+            *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+        )
 
     def square_client(self):
         """Create and return Square API client"""

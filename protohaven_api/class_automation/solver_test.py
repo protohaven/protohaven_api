@@ -124,6 +124,23 @@ def test_solve_no_concurrent_overlap():
     assert score == 0.8
 
 
+def test_solve_no_double_booking():
+    """An instructor should only be scheduled one class at a given time.
+    Higher score classes should be preferred"""
+    got, score = s.solve(
+        classes=[
+            s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7),
+            s.Class(2, "Lasers", 1, 3, ["lasers"], OLD, 0.8),
+        ],
+        instructors=[
+            s.Instructor("A", [1, 2], 6, [d(0)]),
+        ],
+        area_occupancy={},
+    )
+    assert got == {"A": [[2, "Lasers", "2025-01-01T00:00:00"]]}
+    assert score == 0.8
+
+
 def test_solve_at_most_once():
     """Classes run at most once per run of the solver"""
     got, score = s.solve(

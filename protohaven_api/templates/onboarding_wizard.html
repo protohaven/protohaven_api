@@ -15,6 +15,9 @@
       <input type="text" id="email"/>
       </div>
 
+      <button id="check_membership">Check membership</button>
+      <img id="check_spinner" style="display:none" src="/static/img/spinner.gif"></img>
+
       <p>The fields below will be auto-populated when you click "Check membership", if they're available in Neon</p>
       <div>
       <label for="neon_id">Neon ID:</label>
@@ -28,10 +31,6 @@
       <label for="discord_user">Discord User:</label>
       <input type="text" id="discord_user"></input>
       </div>
-      <h2>Membership checker</h2>
-      <button id="check_membership">Check membership</button>
-      <img id="check_spinner" style="display:none" src="/static/img/spinner.gif"></img>
-      <br/>
       <div id="check_output"></div>
       <h2>Coupon creator</h2>
       <button id="create_coupon">Create coupon</button>
@@ -45,7 +44,7 @@
       <p>
       Or they can go to <a href="https://protohaven.org/discord">protohaven.org/discord</a> in a web browser.
       </p>
-      <h2>Discord role, name, and Neon association (not yet working)</h2>
+      <h2>Discord role, name, and Neon association</h2>
       <p>This automation does the following:</p>
       <ul>
         <li>Grants the Members role to the member's discord user so they can see all the member channels</li>
@@ -56,10 +55,16 @@
       <button id="discord_member_submit">Run Discord Setup</button>
       <img id="discord_spinner" style="display:none" src="/static/img/spinner.gif"></img>
       <div id="discord_output"></div>
-      <div style="height:200px; width:100%"></div>
 
+      <h2>Private Instruction</h2>
 
+      <p>When done with private instruction, be sure they submit payment via <a target="_blank" href="https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=17631">Event Registration</a></p>
+
+      <p>To log their clearance and get paid for your instruction, <a href="https://docs.google.com/forms/d/1iYDI2E0SKsCK-kNm6HtjiIzKm_5VXkgIXfK-0fjKVbI/edit" target="_blank">submit your log</a>.</p>
     </div>
+
+
+    <div style="height:200px; width:100%"></div>
     <script
         src="https://code.jquery.com/jquery-3.7.1.min.js"
         integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
