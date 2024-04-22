@@ -52,9 +52,6 @@ def test_welcome_signin_get(client):
     assert "Welcome! Please sign in" in client.get("/welcome").data.decode("utf8")
 
 
-# TODO test verify signin with API server role = None
-
-
 def test_welcome_signin_guest_no_referrer(client, mocker):
     """Guest data with no referrer is omitted from form submission"""
     mocker.patch.object(index, "submit_google_form")
@@ -127,6 +124,7 @@ def test_welcome_signin_membership_expired(client, mocker):
         "Account ID": 12345,
         "Account Current Membership Status": "Inactive",
         "First Name": "First",
+        "API server role": None,  # This can happen
     }
     index.airtable.get_announcements_after.return_value = None
     index.neon.update_waiver_status.return_value = True

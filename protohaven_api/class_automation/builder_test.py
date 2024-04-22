@@ -11,6 +11,7 @@ from protohaven_api.config import tz  # pylint: disable=import-error
 
 TEST_NOW = parse_date("2024-02-22").astimezone(tz)
 
+
 def test_get_account_email_individual(mocker):
     """Test email extraction from individual account"""
     mocker.patch(
@@ -296,7 +297,6 @@ def test_builder_supply_check(caplog):
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.SUPPLY_CHECK_NEEDED)]
 
-    print(TEST_NOW)
     got = [
         {k: v for k, v in d.items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
