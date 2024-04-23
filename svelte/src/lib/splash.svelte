@@ -32,7 +32,7 @@
   let interval = null;
   function updateTimer() {
     count = count - 1;
-    console.log(count);
+    // console.log(count);
   }
   function extendTimer() {
     if (interval === null) {

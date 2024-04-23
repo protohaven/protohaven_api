@@ -2,6 +2,8 @@
 configured state of the server"""
 import asyncio
 import json
+import logging
+import random
 import smtplib
 import time
 from email.mime.text import MIMEText
@@ -15,7 +17,11 @@ from square.client import Client as SquareClient
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
 
+log = logging.getLogger("integrations.data.connector")
+
 DEFAULT_TIMEOUT = 5.0
+NUM_READ_ATTEMPTS = 3
+RETRY_MAX_DELAY_MS = 3000
 
 
 class Connector:
@@ -77,9 +83,18 @@ class Connector:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        return requests.request(
-            *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
-        )
+        for i in range(NUM_READ_ATTEMPTS):
+            try:
+                return requests.request(
+                    *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+                )
+            except requests.exceptions.ReadTimeout as rt:
+                if args[0] != "GET" or i == NUM_READ_ATTEMPTS - 1:
+                    raise rt
+                log.warning(
+                    f"ReadTimeout on airtable request {args} {kwargs}, retry #{i+1}"
+                )
+                time.sleep(int(random.random() * RETRY_MAX_DELAY_MS))
 
     def _google_form_submit_dev(self, url, params):
         """Dev handler for submitting google forms"""

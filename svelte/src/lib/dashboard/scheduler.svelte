@@ -108,7 +108,7 @@
 	<li>Confirm your availability on each class in the list, then wait for the class scheduler to publish the confirmed classes to our schedule in Neon.</li>
     </ol>
 
-    <p>You will receive an email when your classes schedule. Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> if you have any issues.</p>
+    <p>You will receive an email when your new classes are published. Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> if you have any issues.</p>
 
     <Navbar expand="md" container="md" ><h5>Behavior</h5></Navbar>
 

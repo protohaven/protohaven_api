@@ -29,13 +29,7 @@
   }
 
   async function do_post() {
-    return await request('/welcome', {
-      method: 'POST',
-      body: JSON.stringify({email, person, waiver_ack, dependent_info, referrer}),
-      headers: {
-        'Content-type': 'application/json',
-      },
-    });
+    return await post('/welcome', {email, person, waiver_ack, dependent_info, referrer});
   }
 
 
@@ -67,29 +61,24 @@
 
   async function submit() {
     checking = true;
-    let res = await do_post();
+    let result = await do_post();
     checking = false;
-    if (res.ok) {
-      let result = await res.json();
-      console.log(result);
-      if (result.notfound) {
-	feedback = "Member not found; please try again";
-	return;
-      }
-      name = result.firstname;
-      announcements = result.announcements;
+    console.log(result);
+    if (result.notfound) {
+      feedback = "Member not found; please try again";
+      return;
+    }
+    name = result.firstname;
+    announcements = result.announcements;
 
-      if (!result.waiver_signed) {
-	state = 'waiver';
-      }
-      else if (person == 'guest' || result.status == 'Active') {
-	state = 'signin_ok';
-      }
-      else {
-	state = 'membership_expired';
-      }
-    } else {
-      alert("TODO handle error" + e.toString());
+    if (!result.waiver_signed) {
+      state = 'waiver';
+    }
+    else if (person == 'guest' || result.status == 'Active') {
+      state = 'signin_ok';
+    }
+    else {
+      state = 'membership_expired';
     }
   }
 </script>
