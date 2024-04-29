@@ -17,6 +17,7 @@
 	let feedback=null;
   let referrer = "";
   let announcements = [];
+  let violations = [];
 
   async function on_splash_submit(p) {
     person = p;
@@ -40,6 +41,8 @@
     referrer = '';
     feedback = null;
     state = 'splash';
+    announcements = [];
+    violations = [];
   }
 
   function on_signin_return(survey_response) {
@@ -70,6 +73,7 @@
     }
     name = result.firstname;
     announcements = result.announcements;
+    violations = result.violations;
 
     if (!result.waiver_signed) {
       state = 'waiver';
@@ -95,7 +99,7 @@
     {:else if state == 'membership_expired' }
       <MembershipExpired name={name} on_close={restart_flow}/>
     {:else if state == 'signin_ok'}
-      <SigninOk {name} guest={person == 'guest'} {announcements} on_close={on_signin_return}/>
+      <SigninOk {name} guest={person == 'guest'} {announcements} {violations} on_close={on_signin_return}/>
     {/if}
 	</Row>
   <Row class="mt-2 justify-content-center text-center">

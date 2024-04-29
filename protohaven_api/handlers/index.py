@@ -74,6 +74,7 @@ def welcome_signin():
         result = {
             "notfound": False,
             "status": False,
+            "violations": [],
             "waiver_signed": False,
             "announcements": [],
             "firstname": "member",
@@ -81,7 +82,6 @@ def welcome_signin():
         data = request.json
         if data["person"] == "member":
             m = neon.search_member(data["email"])
-            print(m)
             if not m:
                 result["notfound"] = True
             else:
@@ -106,6 +106,13 @@ def welcome_signin():
                 result["announcements"] = airtable.get_announcements_after(
                     last_announcement_ack, roles
                 )
+
+                for pv in airtable.get_policy_violations():
+                    if str(pv["fields"].get("Neon ID")) != str(m["Account ID"]) or pv[
+                        "fields"
+                    ].get("Closure"):
+                        continue
+                    result["violations"].append(pv)
 
                 result["waiver_signed"] = neon.update_waiver_status(
                     m["Account ID"],

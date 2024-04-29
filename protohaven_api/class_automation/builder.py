@@ -159,7 +159,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self.log.debug(f"example data:\n{list(self.airtable_schedule.items())[0]}")
 
         # Annotate
-        for evt in self.events:
+        for i, evt in enumerate(self.events):
+            if i % 5 == 0:
+                self.log.info(f"Annotated {i}/{len(self.events)} events")
             neon_id = evt["id"]
             if neon_id in self.BLOCKLIST:
                 self.log.debug(f"Ignore annotating blocklist event {neon_id}")

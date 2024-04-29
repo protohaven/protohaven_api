@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { Button, Row, Col, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardFooter, CardBody, Input, Spinner, FormGroup, Dropdown, DropdownMenu, DropdownItem, DropdownToggle, Navbar, NavbarBrand, Nav, NavItem, Alert } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
+import FetchError from './fetch_error.svelte';
 
 export let eid;
 
@@ -10,6 +11,18 @@ let meta_promise = Promise.resolve(c_init);
 
 
 let attendees = [];
+let neon_state = null;
+
+function fetch_neon_state(data) {
+  if (data['Neon ID']) {
+    console.log("Fetching state for", data['Neon ID']);
+    return get("/instructor/class/neon_state?id=" + data['Neon ID']).then((data) => {
+      neon_state = data;
+      return data;
+    });
+  }
+  return null;
+}
 
 function fetch_attendees(data) {
   if (data['Neon ID']) {
@@ -22,6 +35,7 @@ function fetch_attendees(data) {
   return [];
 }
 let promise = meta_promise.then(fetch_attendees);
+let state_promise = meta_promise.then(fetch_neon_state);
 
 
 function refresh(neon_id) {
@@ -35,6 +49,7 @@ function refresh(neon_id) {
 function confirm(pub) {
   meta_promise = post("/instructor/class/update", {eid, pub})
   promise = meta_promise.then(fetch_attendees);
+  state_promise = meta_promise.then(fetch_neon_state);
 }
 
 function submit_log(url) {
@@ -49,11 +64,19 @@ function submit_log(url) {
 function supply(ok) {
   meta_promise = post("/instructor/class/supply_req", {eid, missing: !ok})
   promise = meta_promise.then(fetch_attendees);
+  state_promise = meta_promise.then(fetch_neon_state);
 }
 
 function volunteer(v) {
   meta_promise = post("/instructor/class/volunteer", {eid, volunteer: v})
   promise = meta_promise.then(fetch_attendees);
+  state_promise = meta_promise.then(fetch_neon_state);
+}
+
+function cancel(neon_id) {
+  meta_promise = post("/instructor/class/cancel", {neon_id});
+  promise = meta_promise.then(fetch_attendees);
+  state_promise = meta_promise.then(fetch_neon_state);
 }
 </script>
 
@@ -72,6 +95,17 @@ function volunteer(v) {
   </CardTitle>
 </CardHeader>
 <CardBody>
+
+  {#await state_promise}
+    <Spinner/>
+  {:then p}
+    {#if p && (!p.publishEvent || p.archived)}
+      <Alert color='warning'>This class has been canceled.</Alert>
+    {/if}
+  {:catch error}
+    Error: {error.message}
+  {/await}
+
   {#if c['Rejected']}
     <Alert color="warning" class="mx-3">This card will disappear upon refreshing the page.</Alert>
   {/if}
@@ -143,7 +177,6 @@ function volunteer(v) {
       {/if}
 
 
-
       {#if !c['Neon ID']}
 	{#if c['Confirmed']}
 	<DropdownItem on:click={() => confirm(null)}>Unconfirm</DropdownItem>
@@ -152,9 +185,14 @@ function volunteer(v) {
 	{/if}
 	<DropdownItem divider />
         <DropdownItem on:click={() => confirm(false)}>Mark unavailable (hides permanently)</DropdownItem>
+      {:else}
+	<DropdownItem divider />
+	<DropdownItem on:click={() => cancel(c['Neon ID'])}>Cancel class (requires no attendees)</DropdownItem>
       {/if}
     </DropdownMenu>
   </Dropdown>
 </CardFooter>
 </Card>
+{:catch error}
+  <FetchError {error}/>
 {/await}

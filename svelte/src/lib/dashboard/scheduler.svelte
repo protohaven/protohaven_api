@@ -1,5 +1,5 @@
 <script type="ts">
-  import { Row, Col, Navbar, NavLink, NavItem, NavbarBrand, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
+  import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
   import {get, post} from '$lib/api.ts';
   export let email;
@@ -30,6 +30,10 @@
     env_promise = get("/instructor/setup_scheduler_env?" + new URLSearchParams({
       start, end, inst: inst.toLowerCase()})).then((data) => {
       env = data;
+
+      if (data.instructors.length === 0) {
+        throw Error(`No instructor data found for interval ${start} to ${end}`);
+      }
 
       // Format availability and class info for display
       let avail = data.instructors[0].avail;
@@ -95,24 +99,9 @@
 <Modal size="lg" isOpen={open}>
   <ModalHeader>Class Scheduler</ModalHeader>
   <ModalBody>
-    <Navbar expand="md" container="md" ><h5>Instructions</h5></Navbar>
-
     <p>Use this scheduling prompt to add more classes to your class list!</p>
 
-    <ol>
-    	<li>Select the window of time where you want to schedule your classes, or use the default.</li>
-	<li>Make sure your availability is listed on the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Availability Calendar</a>.</li>
-	<li>Under Classes, uncheck any classes you don't want the scheduler to add.</li>
-	<li>Click on "Run Scheduler" to generate a schedule.</li>
-	<li>If you like the generated schedule, click "Save proposed classes" to add them to your class list. Otherwise, edit your settings and re-run the scheduler</li>
-	<li>Confirm your availability on each class in the list, then wait for the class scheduler to publish the confirmed classes to our schedule in Neon.</li>
-    </ol>
-
-    <p>You will receive an email when your new classes are published. Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> if you have any issues.</p>
-
-    <Navbar expand="md" container="md" ><h5>Behavior</h5></Navbar>
-
-    <p>No classes are scheduled:</p>
+    <p>The scheduler will automatically avoid scheduling classes...</p>
 
     <ul>
       <li>on US holidays</li>
@@ -124,26 +113,25 @@
       <li>too soon after the previous run of the class (usually, a month)</li>
     </ul>
 
-    <p>The scheduler will propose classes that overlap with other unpublished classes. When the automation runs to publish classes, it will publish whichever class was confirmed earliest.</p>
+    <p>The scheduler may propose classes that overlap with other unpublished classes. When the automation runs to publish classes, it will publish whichever class was confirmed earliest.</p>
 
     <p><em>Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> or reach out on the #instructors channel if you suspect any of these rules are not being observed.</p>
 
-    <Navbar expand="md" container="md" ><h5>Window</h5></Navbar>
-    <p>This is the start and end date between which classes will be generated. It defaults to 14-40 days away from the current date.</p>
+    <h5>1. Pick Scheduling Window</h5>
+    <p>This is the start and end date between which classes will schedule. It defaults to 14-40 days away from the current date. <strong>Select the window of time where you want to schedule your classes, or use the default.</strong></p>
     <Row cols={2}>
     <Col>
     From
-    <Input type="date" placeholder="From Date" value={start} on:change={reload}/>
+    <Input type="date" placeholder="From Date" bind:value={start} on:change={reload}/>
     </Col>
     <Col>
     Until
-    <Input type="date" placeholder="Until Date" value={end} on:change={reload}/>
+    <Input type="date" placeholder="Until Date" bind:value={end} on:change={reload}/>
     </Col>
     </Row>
 
-    <Navbar expand="md" container="md" ><h5>Availability</h5></Navbar>
-    <p>Classes will be generated at the following times, based on your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>.</p>
-    <p><em>Note: Classes will not be scheduled on weekdays before 5pm, or on US holidays.</em></p>
+    <h5>2. Check Availability</h5>
+    <p>The scheduler will pick from the following times, based on your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. <strong>If you need to change times from what's listed here, first edit the calendar, then refresh this page.</strong> </p>
     <div class="my-3">
     {#await env_promise}
       <Spinner/>
@@ -158,10 +146,8 @@
     {/await}
     </div>
 
-    <Navbar expand="md" container="md" ><h5>Classes</h5></Navbar>
-      <p>This list includes all the classes you are registered to teach. Deselect any classes you do not wish to be generated.</p>
-      <p><em>Note: classes may not be added to your schedule if your intended date range and availability would cause the class to be scheduled too soon after the previous run of the class.</em></p>
-
+    <h5>3. Select Classes to Include</h5>
+    <p><strong>Deselect any classes you do not wish to schedule.</strong></p>
     <div class="my-3">
     {#await env_promise}
       <Spinner/>
@@ -174,9 +160,9 @@
     {/await}
     </div>
 
-    <Navbar expand="md" container="md" >
-    <h5>Output</h5>
-    </Navbar>
+    <h5>4. Generate New Proposed Classes</h5>
+
+    <Button on:click={run_scheduler} disabled={running}>Run Scheduler</Button>
 
     <div class="my-3">
     {#await solve_promise}
@@ -185,6 +171,10 @@
       {#each p as c}
 	<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
       {/each}
+
+      {#if output}
+    	<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>
+      {/if}
     {:catch error}
       <Alert color="danger">{error.message}</Alert>
     {/await}
@@ -197,7 +187,6 @@
     {/await}
   </ModalBody>
   <ModalFooter>
-    <Button on:click={run_scheduler} disabled={running}>Run Scheduler</Button>
     <Button on:click={save_schedule} disabled={running || !output}>Save proposed classes</Button>
     <Button on:click={() => open = false}>Close</Button>
   </ModalFooter>

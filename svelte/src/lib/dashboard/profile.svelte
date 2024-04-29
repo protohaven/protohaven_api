@@ -63,7 +63,7 @@ import {get, post} from '$lib/api.ts';
       </ListGroup>
     {#if !onboarded(p) }
     <Alert color="warning" class="m-3">
-      <strong>Your status is incomplete. Click <a href="https://protohaven.org/wiki/instructors#onboarding" target="_blank">HERE</a> for required instructor setup steps.</strong>
+      <strong>Your status is incomplete. Click <a href="https://protohaven.org/wiki/instructors#profile_status_on_dashboard" target="_blank">HERE</a> for required instructor setup steps.</strong>
     </Alert>
     {/if}
   </CardBody>

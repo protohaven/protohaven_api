@@ -4,9 +4,10 @@
 import datetime
 
 import pytz
+from dateutil.parser import parse as parse_date
 
 from protohaven_api.class_automation import scheduler as s
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 
 
 def t(hour, weekday=0):
@@ -63,6 +64,25 @@ def test_generate_schedule_data():
     # assert slice_date_range(holiday, holiday.replace(hour=22)) == [] # Holidays are excluded
 
 
+def test_build_instructor():
+    assert s.build_instructor(
+        "testname", [("2024-04-01 6pm EST", "2024-04-01 9pm EST")], None, None, []
+    ).avail == [parse_date("2024-04-01 6pm EST")]
+
+
+def test_build_instructor_respects_occupancy():
+    assert (
+        s.build_instructor(
+            "testname",
+            [("2024-04-01 6pm EST", "2024-04-01 9pm EST")],
+            None,
+            None,
+            [[parse_date("2024-04-01 7pm EST"), parse_date("2024-04-01 10pm EST")]],
+        ).avail
+        == []
+    )
+
+
 def test_push_schedule(mocker):
     mocker.patch.object(s.airtable, "append_classes_to_schedule")
     mocker.patch.object(
@@ -70,8 +90,11 @@ def test_push_schedule(mocker):
         "get_instructor_email_map",
         return_value={"test instructor": "a@b.com"},
     )
+    now = tznow()
+    mocker.patch.object(s, "tznow", return_value=now)
     s.push_schedule(
-        {"Test Instructor": [["record0", "Class Name", "5/17/2024, 6:00:00 PM"]]}
+        {"Test Instructor": [["record0", "Class Name", "5/17/2024, 6:00:00 PM"]]},
+        autoconfirm=True,
     )
     s.airtable.append_classes_to_schedule.assert_called_with(
         [
@@ -80,6 +103,7 @@ def test_push_schedule(mocker):
                 "Email": "a@b.com",
                 "Start Time": "2024-05-17T18:00:00-04:00",
                 "Class": ["record0"],
+                "Confirmed": now.isoformat(),
             }
         ]
     )

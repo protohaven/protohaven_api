@@ -64,7 +64,9 @@ class Instructor:
 
         # Optionally parse str to python datetime
         self.avail = (
-            [dateparser.parse(a) for a in avail] if isinstance(avail[0], str) else avail
+            [dateparser.parse(a) for a in avail]
+            if len(avail) > 0 and isinstance(avail[0], str)
+            else avail
         )
 
     def __repr__(self):
