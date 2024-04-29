@@ -12,7 +12,7 @@ from protohaven_api.class_automation.solver import (
     date_range_overlaps,
     solve,
 )
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable
 from protohaven_api.integrations.schedule import fetch_instructor_schedules
 
@@ -60,7 +60,7 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def _build_instructor(k, v, caps, load, exclude_holidays=True):
+def build_instructor(k, v, caps, load, occupancy, exclude_holidays=True):
     """Create and return an Instructor object given a name and [(start,end)] style schedule"""
     avail = []
     for a, b in v:
@@ -68,7 +68,16 @@ def _build_instructor(k, v, caps, load, exclude_holidays=True):
         b = dateparser.parse(b)
         assert a.tzinfo is not None
         assert b.tzinfo is not None
-        avail += slice_date_range(a, b)
+        for dr in slice_date_range(a, b):
+            has_overlap = False
+            dr1 = dr + datetime.timedelta(hours=3)
+            for occ in occupancy:
+                print(dr, dr1, "vs", occ[0], occ[1])
+                if date_range_overlaps(dr, dr1, occ[0], occ[1]):
+                    has_overlap = True
+                    break
+            if not has_overlap:
+                avail.append(dr)
 
     if exclude_holidays:
         # Pylint seems to think `US()` doesn't exist. It may be dynamically loaded?
@@ -86,6 +95,7 @@ def _gen_class_and_area_stats(cur_sched, start_date, end_date):
         lambda: datetime.datetime(year=2001, month=1, day=1).astimezone(tz)
     )
     area_occupancy = defaultdict(list)
+    instructor_occupancy = defaultdict(list)
     for c in cur_sched:
         t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
         last_run[c["fields"]["Class"][0]] = max(last_run[c["id"]], t)
@@ -101,9 +111,10 @@ def _gen_class_and_area_stats(cur_sched, start_date, end_date):
                 area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
                     ao
                 )
+                instructor_occupancy[c["fields"]["Instructor"].lower()].append(ao)
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
-    return last_run, area_occupancy
+    return last_run, area_occupancy, instructor_occupancy
 
 
 def generate_env(
@@ -128,6 +139,16 @@ def generate_env(
     ]
     if not include_proposed:
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
+
+    # Filter out any classes that have/will run too recently
+    last_run, area_occupancy, instructor_occupancy = _gen_class_and_area_stats(
+        cur_sched, start_date, end_date
+    )
+    log.info(f"Computed last runtime of {len(last_run)} different classes")
+    log.info(
+        f"Computed occupancy of {len(area_occupancy)} different areas, {len(instructor_occupancy)} instructors"
+    )
+
     instructors = []
     skipped = 0
     if exclude_holidays:
@@ -152,8 +173,13 @@ def generate_env(
             skipped += 1
             continue
         instructors.append(
-            _build_instructor(
-                k, v, caps, max_loads[k], exclude_holidays=exclude_holidays
+            build_instructor(
+                k,
+                v,
+                caps,
+                max_loads[k],
+                instructor_occupancy[k],
+                exclude_holidays=exclude_holidays,
             )
         )
 
@@ -162,13 +188,6 @@ def generate_env(
             f"Direct the {skipped} instructor(s) missing capabilities "
             "to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
         )
-
-    # Filter out any classes that have/will run too recently
-    last_run, area_occupancy = _gen_class_and_area_stats(
-        cur_sched, start_date, end_date
-    )
-    log.info(f"Computed last runtime of {len(last_run)} different classes")
-    log.info(f"Computed occupancy of {len(area_occupancy)} different areas")
 
     # Load classes from airtable
     classes = []
@@ -224,9 +243,10 @@ def format_class(cls):
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
-def push_schedule(sched):
+def push_schedule(sched, autoconfirm=False):
     """Pushes the created schedule to airtable"""
     payload = []
+    now = tznow().isoformat()
     email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
     for inst, classes in sched.items():
         for record_id, _, date in classes:
@@ -239,6 +259,7 @@ def push_schedule(sched):
                     "Email": email_map[inst.lower()],
                     "Start Time": date.isoformat(),
                     "Class": [record_id],
+                    "Confirmed": now if autoconfirm else None,
                 }
             )
     for p in payload:

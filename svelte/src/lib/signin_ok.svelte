@@ -1,11 +1,12 @@
 <script type="ts">
-  import { Input, Button, Row, Col, Card, CardHeader, CardTitle, CardBody } from '@sveltestrap/sveltestrap';
+  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody } from '@sveltestrap/sveltestrap';
 
   export let on_close;
   export let name;
   export let guest = false;
   export let radioGroup;
   export let announcements;
+  export let violations;
 
   let count = 15;
   function updateTimer() {
@@ -23,9 +24,9 @@
 
 <Card>
   <Row class="text-center my-3">
-  {#if !guest }
+  {#if !guest}
   <h2>Welcome, {name}!</h2>
-  <p>You're all set!</p>
+  {#if announcements.length == 0 && violations.length == 0 }<p>You're all set!</p>{/if}
   {:else}
   <h2>Welcome guest!</h2>
   <p>You're all set! But if you have a moment, we'd appreciate your feedback...</p>
@@ -42,6 +43,26 @@
       {/each}
       </Col>
     </Row>
+  {/if}
+
+  {#if violations.length > 0}
+    <Alert color="warning">
+    <h4 class="my-2 text-center">You have one or more active policy violations:</h4>
+    {#each violations as v}
+    <Card class="m-2">
+      <CardHeader><CardTitle>{v.fields.Calculation}</CardTitle></CardHeader>
+      <CardBody>
+      	<p>Violations: <strong>{v.fields['Section (from Relevant Sections)']}</strong></p>
+        <p>Notes: {v.fields.Notes}</p>
+	{#if v.fields.Evidence}
+	{#each v.fields.Evidence as e}
+	  <Image thumbnail style="height: 150px !important;" src={e.thumbnails.large.url}/>
+	{/each}
+	{/if}
+      </CardBody>
+    </Card>
+    {/each}
+    <h4 class="text-center">Please see a shop tech or staff to resolve them.</h4></Alert>
   {/if}
 
   {#if announcements.length > 0 }

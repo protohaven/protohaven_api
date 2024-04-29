@@ -13,11 +13,7 @@ import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import scheduler
-from protohaven_api.class_automation.builder import (
-    ClassEmailBuilder,
-    gen_calendar_reminders,
-)
-from protohaven_api.commands import reservations
+from protohaven_api.commands import classes, reservations
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
@@ -33,61 +29,6 @@ log = logging.getLogger("cli")
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
 log.info(f"Mode is {server_mode}\n")
 init_connector(dev=server_mode != "prod")
-
-
-def send_hours_submission_reminders(dry_run=True):
-    """Sends reminders to instructors to submit their hours"""
-    now = tznow()
-    earliest = now - datetime.timedelta(days=14)
-    classes = neon.fetch_events(after=earliest, before=now + datetime.timedelta(days=1))
-    # Would be more efficient to binary search for date
-    # or store submissions better in general
-    subs = {
-        s["Class Name (Please type out full name of class)"]
-        for s in sheets.get_instructor_submissions(900)
-        if s["Timestamp"] > earliest
-    }
-
-    log.info(f"Loaded {len(subs)} submissions after {earliest}")
-
-    to_remind = defaultdict(list)
-    for c in classes:
-        if c["name"] in subs:
-            log.info(f"Class {c['name']} already submitted, skipping")
-            continue
-
-        m = re.match(r".*w\/ (\w+) (\w+)", c["name"])
-        if m is None:
-            log.info(f"Skipping unparseable event: {c['name']}")
-            continue
-
-        # Could lookup and cache this, later
-        inst = neon.search_member_by_name(m[1], m[2])
-        if inst is None:
-            log.info(f"Couldn't find Neon info for {m[1]} {m[2]}")
-            continue
-        email = inst["Email 1"]
-        to_remind[email].append(c["name"])
-
-    for email, names in to_remind.items():
-        body = "Greetings!"
-        body += "\n\nWe haven't yet seen your submission for the following course(s):\n"
-        for n in names:
-            body += "\n - " + n
-        body += "\n\nPlease submit your hours and any clearances earned by visiting"
-        body += " the following link ASAP: https://api.protohaven.org/instructor_hours"
-        body += "\n\nThanks for being a great instructor!"
-        body += "\nSincerely, the Protohaven Automation System"
-
-        subject = "Please submit your hours!"
-        if dry_run:
-            log.info("\n\nDRY RUN - NOT SENDING:")
-            log.info(f"To: {email}")
-            log.info(f"Subject: {subject}")
-            log.info(body)
-        else:
-            raise RuntimeError("TEST THIS FIRST")
-            # comms.send_email(subject, body, [email])
 
 
 completion_re = re.compile("Deadline for Project Completion:\n(.*?)\n", re.MULTILINE)
@@ -151,7 +92,7 @@ def purchase_request_alerts():
     log.info("Done")
 
 
-class ProtohavenCLI(reservations.Commands):
+class ProtohavenCLI(reservations.Commands, classes.Commands):
     """argparser-based CLI for protohaven operations"""
 
     def __init__(self):
@@ -174,114 +115,6 @@ class ProtohavenCLI(reservations.Commands):
         getattr(self, args.command)(
             sys.argv[2:]
         )  # Ignore first two argvs - already parsed
-
-    def gen_instructor_calendar_reminder(self, argv):
-        """Reads the list of instructors from Airtable and generates
-        reminder comms to all instructors, plus the #instructors discord,
-        to update their calendars for availability"""
-        parser = argparse.ArgumentParser(
-            description=self.gen_instructor_calendar_reminder.__doc__
-        )
-        parser.add_argument(
-            "--start",
-            help="start date for calendar reminder window",
-            type=str,
-            required=True,
-        )
-        parser.add_argument(
-            "--end",
-            help="end date for calendar reminder window",
-            type=str,
-            required=True,
-        )
-        args = parser.parse_args(argv)
-        start = dateparser.parse(args.start)
-        end = dateparser.parse(args.end)
-        print(
-            yaml.dump(
-                gen_calendar_reminders(start, end),
-                default_flow_style=False,
-                default_style="",
-            )
-        )
-
-    def gen_class_emails(self, argv):
-        """Reads schedule of classes from Neon and Airtable and outputs
-        a list of emails to send to instructors, techs, and students.
-        This does not actually send the emails; for that, see send_comms."""
-        parser = argparse.ArgumentParser(description=self.gen_class_emails.__doc__)
-        parser.add_argument(
-            "--confirm",
-            help="class IDs to auto-confirm when generating emails",
-            type=int,
-            nargs="+",
-        )
-        parser.add_argument(
-            "--cancel",
-            help="class IDs to auto-cancel when generating emails",
-            type=int,
-            nargs="+",
-        )
-        parser.add_argument(
-            "--ignore",
-            help="class IDs to ignore when generating emails",
-            type=int,
-            nargs="+",
-        )
-        parser.add_argument(
-            "--filter",
-            help="class IDs to restrict processing to when generating emails",
-            type=int,
-            nargs="+",
-        )
-        args = parser.parse_args(argv)
-        builder = ClassEmailBuilder(logging.getLogger("cli.email_builder"))
-        builder.ignore_ovr = args.ignore or []
-        builder.cancel_ovr = args.cancel or []
-        builder.confirm_ovr = args.confirm or []
-        builder.filter_ovr = args.filter or []
-        # Add the rest here as needed
-
-        result = builder.build()
-        print(yaml.dump(result, default_flow_style=False, default_style=""))
-        log.info(f"Generated {len(result)} notification(s)")
-
-    def _handle_comms_event(self, e, dryrun=True):
-        """Handle a single entry in a comms YAML file"""
-        for k, v in e.get("side_effect", {}).items():
-            if k.lower().strip() == "cancel":
-                log.info(f"Cancelling #{v}")
-                if not dryrun:
-                    neon.set_event_scheduled_state(str(v), scheduled=False)
-
-        if e["target"].startswith("#"):
-            content = f"{e['subject']}\n\n{e['body']}"
-            if dryrun:
-                log.info(f"DRY RUN to discord {e['target']}")
-                log.info(content)
-            else:
-                send_discord_message(content, e["target"].split("#")[1])
-                log.info(f"Sent to discord {e['target']}: {e['subject']}")
-        else:
-            email_validate_pattern = r"\S+@\S+\.\S+"
-            emails = re.findall(
-                email_validate_pattern,
-                e["target"].replace(";", " ").replace(",", " ").lower(),
-            )
-            emails = [
-                e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
-                for e in emails
-            ]
-
-            if dryrun:
-                log.info(f"\nDRY RUN to {', '.join(emails)}")
-                log.info(f"Subject: {e['subject']}")
-                log.info(e["body"])
-            else:
-                send_email(e["subject"], e["body"], emails)
-                log.info(f"Sent to {emails}: '{e['subject']}'")
-                log_email(e["id"], ", ".join(emails), e["subject"], "Sent")
-                log.info("Logged to airtable")
 
     def send_comms(self, argv):
         """Reads a list of emails and sends them to their recipients"""
@@ -374,7 +207,7 @@ class ProtohavenCLI(reservations.Commands):
                 raise RuntimeError(
                     "Failed to extract deadline from request by " + req["name"]
                 )
-            deadline = dateparser.parse(deadline[1])
+            deadline = dateparser.parse(deadline[1]).astimezone(tz)
             if deadline < tznow():
                 log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"
@@ -427,71 +260,6 @@ class ProtohavenCLI(reservations.Commands):
             args.notes,
         )
         print(result)
-
-    def build_scheduler_env(self, argv):
-        """Construct an environment for assigning classes at times to instructors"""
-        parser = argparse.ArgumentParser(description=self.build_scheduler_env.__doc__)
-        parser.add_argument(
-            "--start",
-            help="Start date (yyyy-mm-dd)",
-            type=str,
-            required=True,
-        )
-        parser.add_argument(
-            "--end",
-            help="End date (yyyy-mm-dd)",
-            type=str,
-            required=True,
-        )
-        parser.add_argument(
-            "--filter",
-            help="CSV of subset instructors to filter scheduling to",
-            type=str,
-            required=False,
-        )
-        args = parser.parse_args(argv)
-        start = dateparser.parse(args.start).astimezone(tz)
-        end = dateparser.parse(args.end).astimezone(tz)
-        inst = {a.strip() for a in args.filter.split(",")} if args.filter else None
-        env = scheduler.generate_env(start, end, inst)
-        print(yaml.dump(env, default_flow_style=False, default_style=""))
-
-    def run_scheduler(self, argv):
-        """Run the class scheduler on a provided env"""
-        parser = argparse.ArgumentParser(description=self.run_scheduler.__doc__)
-        parser.add_argument(
-            "--path",
-            help="path to env file",
-            type=str,
-            required=True,
-        )
-        args = parser.parse_args(argv)
-        with open(args.path, "r", encoding="utf-8") as f:
-            env = yaml.safe_load(f.read())
-        instructor_classes, final_score = scheduler.solve_with_env(env)
-        log.info(f"Final score: {final_score}")
-        print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
-
-    def append_schedule(self, argv):
-        """Adds a schedule (created with `run_scheduler`) to Airtable for
-        instructor confirmation."""
-        parser = argparse.ArgumentParser(description=self.append_schedule.__doc__)
-        parser.add_argument(
-            "--path",
-            help="path to schedule file",
-            type=str,
-            required=True,
-        )
-        args = parser.parse_args(argv)
-        with open(args.path, "r", encoding="utf-8") as f:
-            sched = yaml.safe_load(f.read())
-        notifications = scheduler.gen_schedule_push_notifications(sched)
-        scheduler.push_schedule(sched)
-        print(yaml.dump(notifications, default_flow_style=False, default_style=""))
-
-    def post_classes_to_neon(self, argv):
-        """Post a list of classes to Neon"""
-        raise NotImplementedError()
 
     def close_violation(self, argv):
         """Close out a violation so consequences cease"""
@@ -599,22 +367,6 @@ class ProtohavenCLI(reservations.Commands):
         """Match clearances in spreadsheet with clearances in Neon.
         Remove this when clearance information is primarily stored in Neon."""
         raise NotImplementedError("TODO implement")
-
-    def cancel_classes(self, argv):
-        """cancel passed classes by unpublishing and disabling registration"""
-        parser = argparse.ArgumentParser(description=self.cancel_classes.__doc__)
-        parser.add_argument(
-            "--id",
-            help="class IDs to cancel",
-            type=str,
-            nargs="+",
-        )
-        args = parser.parse_args(argv)
-        for i in args.id:
-            i = i.strip()
-            log.info(f"Cancelling #{i}")
-            neon.set_event_scheduled_state(i, scheduled=False)
-        log.info("Done")
 
     def mock_data(self, argv):
         """Fetch mock data from airtable, neon etc.

@@ -110,6 +110,7 @@ def test_welcome_signin_notfound(client, mocker):
         "firstname": "member",
         "notfound": True,
         "status": False,
+        "violations": [],
         "waiver_signed": False,
     }
     index.submit_google_form.assert_not_called()
@@ -139,6 +140,38 @@ def test_welcome_signin_membership_expired(client, mocker):
     )
     assert json.loads(response.data.decode("utf8"))["status"] == "Inactive"
     index.submit_google_form.assert_called()  # Form submission even if membership is expired
+
+
+def test_welcome_signin_ok_with_violations(client, mocker):
+    """Test that form submission triggers and announcements are returned when OK member logs in"""
+    mocker.patch.object(index, "submit_google_form")
+    mocker.patch.object(index, "neon")
+    mocker.patch.object(index, "airtable")
+    index.neon.search_member.return_value = {
+        "Account ID": 12345,
+        "Account Current Membership Status": "Active",
+        "First Name": "First",
+    }
+    index.airtable.get_policy_violations.return_value = [
+        {"fields": {"Neon ID": "Someone else"}},
+        {"fields": {"Neon ID": "12345", "Closure": "2024-04-01 00:00"}},
+        {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}},
+    ]
+    index.airtable.get_announcements_after.return_value = []
+    index.neon.update_waiver_status.return_value = True
+    response = client.post(
+        "/welcome",
+        json={
+            "person": "member",
+            "waiver_ack": True,
+            "email": "foo@bar.com",
+            "dependent_info": "DEP_INFO",
+        },
+    )
+    rep = json.loads(response.data.decode("utf8"))
+    assert rep["violations"] == [
+        {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}}
+    ]
 
 
 def test_welcome_signin_ok_with_announcements(client, mocker):

@@ -531,6 +531,243 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             )
         return code
 
+    def get_ticket_groups(self, event_id, content=None):
+        if content is None:
+            r = self.s.get(
+                "https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id=17646"
+            )
+            soup = BeautifulSoup(r.content.decode("utf8"))
+        else:
+            soup = BeautifulSoup(content.decode("utf8"))
+        ticketgroups = soup.find_all("td", class_="ticket-group")
+        results = {}
+        for tg in ticketgroups:
+            groupname = tg.find("font").text
+            m = re.search("ticketGroupId=(\d+)\&", str(tg))
+            # print(f"Group {groupname}: ID {m[1]}")
+            results[groupname] = m[1]
+        return results
+
+    def create_ticket_group_req_(self, event_id, group_name, group_desc):
+        # We must appear to be coming from the package grup creation page
+        referer = f"https://protohaven.app.neoncrm.com/np/admin/event/newPackageGroup.do?eventId={event_id}"
+        rg = self.s.get(referer)
+        assert rg.status_code == 200
+
+        # Must set referer so the server knows which event this POST is for
+        self.s.headers.update(dict(Referer=rg.url))
+        drt_i = self.drt.get()
+        data = {
+            "z2DuplicateRequestToken": drt_i,
+            "ticketPackageGroup.groupName": group_name,
+            "ticketPackageGroup.description": group_desc,
+            "ticketPackageGroup.startDate": "",
+            "ticketPackageGroup.endDate": "",
+        }
+        r = self.s.post(
+            "https://protohaven.app.neoncrm.com/np/admin/event/savePackageGroup.do",
+            allow_redirects=True,
+            data=data,
+        )
+        if r.status_code != 200:
+            raise Exception(f"{r.status_code}: {r.content}")
+        return r
+
+    def assign_condition_to_group(self, event_id, group_id, cond):
+        # Load report setup page
+        referer = f"https://protohaven.app.neoncrm.com/np/admin/v2report/validFieldsList.do?reportId=22&searchCriteriaId=&EventTicketPackageGroupId={group_id}&eventId={event_id}"
+        ag = self.s.get(referer)
+        content = ag.content.decode("utf8")
+
+        if "All Accounts Report" not in content:
+            raise Exception("Bad GET report setup page:", content)
+
+        # Submit report / condition
+        # Must set referer so the server knows which event this POST is for
+        self.s.headers.update(dict(Referer=ag.url))
+        # print("Referer set:", referer)
+        drt_i = self.drt.get()
+        data = {
+            "z2DuplicateRequestToken": drt_i,
+            "saveandsearchFlag": "search",
+            "actionFrom": "validColumn",
+            "savedSearchCriteria": json.dumps(cond),
+            "savedSearchFurtherCriteria": [],
+            "searchFurtherFlag": 0,
+            "searchFurtherType": 0,
+            "searchType": 0,
+            "savedSearchColumn": [
+                "65",
+                "377",
+                "19",
+                "117",
+                "26",
+                "27",
+                "28",
+                "9",
+                "429",
+                "439",
+                "443",
+                "437",
+            ],  # What's this??
+            "savedColumnToDefault": "",
+            "comeFrom": None,
+        }
+        # print("Submit report/condition, data")
+        # print(data)
+        r = self.s.post(
+            "https://protohaven.app.neoncrm.com/np/admin/report/reportFilterEdit.do",
+            allow_redirects=False,
+            data=data,
+        )
+        # print("Request:\n", r.request.body)
+        if r.status_code != 302:
+            raise Exception(
+                "Report filter edit failed; expected code 302 FOUND, got "
+                + str(r.status_code)
+            )
+        # print(r.status_code, "\n", r.content.decode("utf8"))
+
+        # Do initial report execution
+        self.s.headers.update(dict(Referer=r.url))
+        # print("Referer set for report execution:", r.url)
+        r = self.s.get(
+            "https://protohaven.app.neoncrm.com/np/admin/report/searchCriteriaSearch.do?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null"
+        )
+        content = r.content.decode("utf8")
+        if "Return to Event Detail Page" not in content:
+            raise Exception("Bad GET report setup page:", content)
+
+        # Set the search details
+        self.s.headers.update(dict(Referer=r.url))
+        # print("Referer set for condition saving:", r.url)
+        r = self.s.get(
+            f"https://protohaven.app.neoncrm.com/np/admin/systemsetting/eventTicketGroupConditionSave.do?ticketGroupId={group_id}",
+            allow_redirects=False,
+        )
+        if r.status_code != 302:
+            # print(r.content.decode("utf8"))
+            raise Exception(f"{r.status_code}: {r.content}")
+        return True
+
+    def assign_price_to_group(self, event_id, group_id, price_name, amt, capacity):
+        referer = f"https://protohaven.app.neoncrm.com/np/admin/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
+        ag = self.s.get(referer)
+        content = ag.content.decode("utf8")
+        if "Event Price" not in content:
+            raise Exception("BAD get group price creation page")
+
+        # Submit report / condition
+        # Must set referer so the server knows which event this POST is for
+        # print("Setting referer:", ag.url)
+        self.s.headers.update(dict(Referer=ag.url))
+        drt_i = self.drt.get()
+        data = {
+            "z2DuplicateRequestToken": drt_i,
+            "ticketPackage.sessionId": "",
+            "ticketPackage.name": price_name,
+            "ticketPackage.fee": str(amt),
+            "ticketPackage.ticketPackageGroupid": ""
+            if group_id == "default"
+            else str(group_id),
+            "ticketPackage.capacity": str(capacity),
+            "ticketPackage.advantageAmount": str(amt),
+            "ticketPackage.advantageDescription": "",
+            "ticketPackage.description": "",
+            "ticketPackage.webRegister": "on",
+            "save": " Submit ",
+        }
+        r = self.s.post(
+            "https://protohaven.app.neoncrm.com/np/admin/event/savePackage.do",
+            allow_redirects=False,
+            data=data,
+        )
+        if r.status_code != 302:
+            raise Exception(
+                "Price creation failed; expected code 302 FOUND, got "
+                + str(r.status_code)
+            )
+        return True
+
+    def upsert_ticket_group(self, event_id, group_name, group_desc):
+        if group_name.lower() == "default":
+            return "default"
+        groups = self.get_ticket_groups(event_id)
+        if group_name not in groups.keys():
+            print("Group does not yet exist; creating")
+            r = self.create_ticket_group_req_(event_id, group_name, group_desc)
+            groups = self.get_ticket_groups(event_id, r.content)
+        assert group_name in groups.keys()
+        group_id = groups[group_name]
+        return group_id
+
+    def delete_all_prices_and_groups(self, event_id):
+        assert event_id != "" and event_id is not None
+
+        r = self.s.get(
+            f"https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id={event_id}"
+        )
+        content = r.content.decode("utf8")
+        deletable_packages = list(
+            set(re.findall(r"deletePackage\.do\?eventId=\d+\&id=(\d+)", content))
+        )
+        deletable_packages.sort()
+        print(deletable_packages)
+        groups = set(re.findall(r"ticketGroupId=(\d+)", content))
+        print(groups)
+
+        for pkg_id in deletable_packages:
+            print("Delete pricing", pkg_id)
+            self.s.get(
+                f"https://protohaven.app.neoncrm.com/np/admin/event/deletePackage.do?eventId={event_id}&id={pkg_id}"
+            )
+
+        for group_id in groups:
+            print("Delete group", group_id)
+            self.s.get(
+                f"https://protohaven.app.neoncrm.com/np/admin/event/deletePackageGroup.do?ticketGroupId={group_id}&eventId={event_id}"
+            )
+
+        # Re-run first price deletion as it's probably a default price that must exist if there are conditional pricing applied
+        if len(deletable_packages) > 0:
+            print("Re-delete pricing", deletable_packages[0])
+            self.s.get(
+                f"https://protohaven.app.neoncrm.com/np/admin/event/deletePackage.do?eventId={event_id}&id={deletable_packages[0]}"
+            )
+
+    def set_thumbnail(self, event_id, thumbnail_path):
+        r = self.s.get(
+            f"https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id={event_id}"
+        )
+        content = r.content.decode("utf8")
+        if "Upload Thumbnail" not in content:
+            print(content)
+            raise Exception("BAD get event page")
+
+        referer = f"https://protohaven.app.neoncrm.com/np/admin/event/uploadPhoto.do?eventId={event_id}&staffUpload=true"
+        ag = self.s.get(referer)
+        content = ag.content.decode("utf8")
+        if "Event Photo" not in content:
+            raise Exception("BAD get event photo upload page")
+
+        self.s.headers.update(dict(Referer=ag.url))
+        drt_i = self.drt.get()
+        multipart_form_data = {
+            "z2DuplicateRequestToken": (None, 1),  # str(drt_i)
+            "eventImageForm": (thumbnail_path, open(thumbnail_path, "rb")),
+        }
+        rep = self.s.post(
+            "https://protohaven.app.neoncrm.com/np/admin/event/photoSave.do",
+            files=multipart_form_data,
+            allow_redirects=False,
+        )
+        print(rep.request.headers)
+        print(rep.request.body)
+        print("=========Response:========")
+        print(rep.status_code)
+        print(rep.content.decode("utf8"))
+        return rep
+
 
 def set_event_scheduled_state(neon_id, scheduled=True):
     """Publishes or unpublishes an event in Neon"""
@@ -549,6 +786,85 @@ def set_event_scheduled_state(neon_id, scheduled=True):
     )
     if resp.status != 200:
         raise RuntimeError(f"Error {resp.status}: {content}")
+    content = json.loads(content)
+    return content["id"]
+
+
+def create_event(
+    name,
+    desc,
+    start,
+    end,
+    price,
+    max_attendees=6,
+    dry_run=True,
+    archived=False,
+):
+    event = {
+        "name": name,
+        "summary": name,
+        "maximumAttendees": max_attendees,
+        "category": {"id": "15"},  # "Project-Based Workshop"
+        "publishEvent": True,
+        "enableEventRegistrationForm": True,
+        "archived": archived,
+        "enableWaitListing": False,
+        "createAccountsforAttendees": True,
+        "eventDescription": desc,
+        "eventDates": {
+            "startDate": start.strftime("%Y-%m-%d"),
+            "endDate": end.strftime("%Y-%m-%d"),
+            "startTime": start.strftime("%-I:%M %p"),
+            "endTime": end.strftime("%-I:%M %p"),
+            "registrationOpenDate": datetime.datetime.now().isoformat(),
+            "registrationCloseDate": (start - datetime.timedelta(hours=24)).isoformat(),
+            "timeZone": {"id": "1"},
+        },
+        # "financialSettings": {
+        #  "feeType": "SingleFee",
+        #  "admissionFee": {
+        #    "fee": price,
+        #  },
+        # },
+        "financialSettings": {
+            "feeType": "MT_OA",
+            "admissionFee": None,
+            "ticketsPerRegistration": None,
+            "fund": None,
+            "taxDeductiblePortion": None,
+        },
+        "location": {
+            "name": "Protohaven",
+            "address": "214 N Trenton Ave.",
+            "city": "Pittsburgh",
+            "stateProvince": {
+                "name": "Pennsylvania",
+            },
+            "zipCode": "15221",
+        },
+    }
+
+    if dry_run:
+        log.warn(
+            f"DRY RUN {event['eventDates']['startDate']} {event['eventDates']['startTime']} {event['name']} (archived={event['archived']})"
+        )
+        return
+
+    assert dry_run == True
+    resp, content = get_connector().neon_request(
+        cfg("api_key2"),
+        f"{URL_BASE}/accounts/{user_id}",
+        "POST",
+        body=json.dumps(event),
+        headers={"content-type": "application/json"},
+    )
+    account_request = json.loads(content)
+    log.debug(account_request)
+
+    _, content = get_connector().neon_request(
+        cfg("api_key1"),
+        f"https://api.neoncrm.com/v2/events/{account_request['id']}" "GET",
+    )
     content = json.loads(content)
     return content["id"]
 
@@ -766,3 +1082,121 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
         return False
     expiry = last_signed + datetime.timedelta(days=expiration_days)
     return now < expiry
+
+
+def income_condition(income_name, income_value):
+    return [
+        [
+            {
+                "name": "account_custom_view.field78",
+                "displayName": "Income Based Rates",
+                "groupId": "220",
+                "savedGroup": "1",
+                "operator": "1",
+                "operatorName": "Equal",
+                "optionName": income_name,
+                "optionValue": str(income_value),
+            }
+        ]
+    ]
+
+
+def membership_condition(mem_names, mem_values):
+    stvals = [f"'{v}'" for v in mem_values]
+    stvals = f"({','.join(stvals)})"
+    return [
+        [
+            {
+                "name": "membership_listing.membershipId",
+                "displayName": "Membership+Level",
+                "groupId": "55",
+                "savedGroup": "1",
+                "operator": "9",
+                "operatorName": "In Range Of",
+                "optionName": " or ".join(mem_names),
+                "optionValue": stvals,
+            }
+        ]
+    ]
+
+
+pricing = [
+    dict(
+        name="default",
+        desc="",
+        price_ratio=1.0,
+        qty_ratio=1.0,
+        price_name="Single Registration",
+    ),
+    dict(
+        name="ELI - Price",
+        desc="70% Off",
+        cond=income_condition("Extremely Low Income - 70%", 43),
+        price_ratio=0.3,
+        qty_ratio=0.25,
+        price_name="AMP Rate",
+    ),
+    dict(
+        name="VLI - Price",
+        desc="50% Off",
+        cond=income_condition("Very Low Income - 50%", 42),
+        price_ratio=0.5,
+        qty_ratio=0.25,
+        price_name="AMP Rate",
+    ),
+    dict(
+        name="LI - Price",
+        desc="20% Off",
+        cond=income_condition("Low Income - 20%", 41),
+        price_ratio=0.8,
+        qty_ratio=0.5,
+        price_name="AMP Rate",
+    ),
+    dict(
+        name="Member Discount",
+        desc="20% Off",
+        cond=membership_condition(
+            [
+                "General+Membership",
+                "Primary+Family+Membership",
+                "Additional+Family+Membership",
+            ],
+            [1, 27, 26],
+        ),
+        price_ratio=0.8,
+        qty_ratio=1.0,
+        price_name="Member Rate",
+    ),
+    dict(
+        name="Instructor Discount",
+        desc="50% Off",
+        cond=membership_condition(["Instructor"], [9]),
+        price_ratio=0.5,
+        qty_ratio=1.0,
+        price_name="Instructor Rate",
+    ),
+]
+
+
+def assign_pricing(event_id, price, seats, clear_existing=False, n=None):
+    if n is None:
+        n = NeonOne(cfg("login_user"), cfg("login_pass"))
+
+    if clear_existing:
+        n.delete_all_prices_and_groups(event_id)
+
+    for p in pricing:
+        print("Assign pricing:", p["name"])
+        group_id = n.upsert_ticket_group(
+            event_id, group_name=p["name"], group_desc=p["desc"]
+        )
+        # print("Upsert", p['name'], "id", group_id)
+        if p.get("cond", None) is not None:
+            n.assign_condition_to_group(event_id, group_id, p["cond"])
+        n.assign_price_to_group(
+            event_id,
+            group_id,
+            p["price_name"],
+            round(price * p["price_ratio"]),
+            round(seats * p["qty_ratio"]),
+        )

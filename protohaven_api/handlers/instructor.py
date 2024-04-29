@@ -137,7 +137,7 @@ def instructor_class_attendees():
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
     if event_id is None:
-        raise RuntimeError("Requires param id")
+        return Response("Requires URL parameter 'id'", status=400)
     result = list(neon.fetch_attendees(event_id))
     for a in result:
         if a["accountId"]:
@@ -352,5 +352,35 @@ def push_classes():
             f"Access Denied for pushing classes for instructor '{fullname}'", status=401
         )
 
-    push_schedule(data)
+    # We automatically confirm classes pushed via instructor dashboard since the instructor
+    # is the one pushing the class.
+    push_schedule(data, autoconfirm=True)
+    return {"success": True}
+
+
+@page.route("/instructor/class/neon_state", methods=["GET"])
+@require_login_role(Role.INSTRUCTOR)
+def class_neon_state():
+    """Fetch the current state of the class in Neon"""
+    event_id = request.args.get("id")
+    if event_id is None:
+        return Response("Requires URL parameter 'id'", status=400)
+    return neon.fetch_event(event_id)
+
+
+@page.route("/instructor/class/cancel", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
+def cancel_class():
+    """Cancel a class - fails if anyone is registered for it"""
+    data = request.json
+    cid = data["neon_id"]
+    num_attendees = len(list(neon.fetch_attendees(cid)))
+    if num_attendees > 0:
+        return Response(
+            f"Unable to cancel class with {num_attendees} attendee(s). Contact education@protohaven.org or reach out to #instructors on discord to cancel this class",
+            status=409,
+        )
+
+    log.warning(f"Cancelling class {cid}")
+    neon.set_event_scheduled_state(cid, scheduled=False)
     return {"success": True}

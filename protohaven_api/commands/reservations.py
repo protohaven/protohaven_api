@@ -7,31 +7,11 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
+from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import tz  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, booked  # pylint: disable=import-error
 
 log = logging.getLogger("cli.reservation")
-
-
-def command(*parser_args):
-    """Returns a configured decorator that provides help info based on the function comment
-    and parses all args given to the function"""
-
-    def decorate(func):
-        """Sets up help doc and parses all args"""
-
-        @functools.wraps(func)
-        def wrapper(*args):
-            parser = argparse.ArgumentParser(description=func.__doc__)
-            for cmd, pkwarg in parser_args:
-                print(cmd, pkwarg)
-                parser.add_argument(cmd, **pkwarg)
-            parsed_args = parser.parse_args(args[1])  # argv
-            return func(args[0], parsed_args)
-
-        return wrapper
-
-    return decorate
 
 
 class Commands:
@@ -66,23 +46,19 @@ class Commands:
         return results
 
     @command(
-        (
+        arg(
             "--cls",
-            {
-                "help": "Scheduled class IDs to reserve equipment for (comma separated)",
-                "type": str,
-            },
+            help="Scheduled (Airtable) class IDs to reserve equipment for (comma separated)",
+            type=str,
         ),
-        (
+        arg(
             "--apply",
-            {
-                "help": (
-                    "Apply changes into Booked scheduler."
-                    "If false, it will only be printed"
-                ),
-                "action": argparse.BooleanOptionalAction,
-                "default": False,
-            },
+            help=(
+                "Apply changes into Booked scheduler."
+                "If false, it will only be printed"
+            ),
+            action=argparse.BooleanOptionalAction,
+            default=False,
         ),
     )
     def reserve_equipment_for_class(self, args):
@@ -139,13 +115,11 @@ class Commands:
         return r, True in changed_attrs.values() or changed
 
     @command(
-        (
+        arg(
             "--apply",
-            {
-                "help": "If false, don't perform changes",
-                "action": argparse.BooleanOptionalAction,
-                "default": False,
-            },
+            help="If false, don't perform changes",
+            action=argparse.BooleanOptionalAction,
+            default=False,
         )
     )
     def sync_reservable_tools(self, args):  # pylint: disable=too-many-locals

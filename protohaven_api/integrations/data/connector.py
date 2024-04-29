@@ -21,7 +21,7 @@ log = logging.getLogger("integrations.data.connector")
 
 DEFAULT_TIMEOUT = 5.0
 NUM_READ_ATTEMPTS = 3
-RETRY_MAX_DELAY_MS = 3000
+RETRY_MAX_DELAY_SEC = 3.0
 
 
 class Connector:
@@ -94,7 +94,7 @@ class Connector:
                 log.warning(
                     f"ReadTimeout on airtable request {args} {kwargs}, retry #{i+1}"
                 )
-                time.sleep(int(random.random() * RETRY_MAX_DELAY_MS))
+                time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
 
     def _google_form_submit_dev(self, url, params):
         """Dev handler for submitting google forms"""
