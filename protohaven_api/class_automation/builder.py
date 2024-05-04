@@ -54,6 +54,39 @@ def gen_calendar_reminders(start, end):
     return results
 
 
+def gen_scheduling_reminders(start, end):
+    """Builds a set of reminder emails for all instructors, plus #instructors notification
+    to schedule additional classes"""
+    results = []
+    summary = defaultdict(lambda: {"action": set(), "targets": set()})
+
+    summary[""]["name"] = "Scheduling reminder"
+    summary[""]["action"].add("SEND")
+
+    for name, email in airtable.get_instructor_email_map(
+        require_teachable_classes=True
+    ).items():
+        subject, body = comms.instructor_schedule_classes(name, start, end)
+        results.append(
+            {
+                "id": "",
+                "target": email,
+                "subject": subject,
+                "body": body,
+            }
+        )
+        summary[""]["targets"].add(email)
+
+    subject, body = comms.automation_summary(
+        {"id": "N/A", "name": "summary", "events": summary}
+    )
+    results.append(
+        {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+    )
+    return results
+
+
+
 class Action(Enum):
     """Actions describe what comms to send based on the state of an event
     and the current time relative to the event"""

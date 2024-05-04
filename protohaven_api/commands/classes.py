@@ -9,10 +9,7 @@ import markdown
 import yaml
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation.builder import (
-    ClassEmailBuilder,
-    gen_calendar_reminders,
-)
+from protohaven_api.class_automation import builder
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
@@ -41,15 +38,15 @@ class Commands:
             required=True,
         ),
     )
-    def gen_instructor_calendar_reminder(self, args):
+    def gen_instructor_schedule_reminder(self, args):
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
-        to update their calendars for availability"""
+        to propose additional class scheduling times"""
         start = dateparser.parse(args.start)
         end = dateparser.parse(args.end)
         print(
             yaml.dump(
-                gen_calendar_reminders(start, end),
+                builder.gen_scheduling_reminders(start, end),
                 default_flow_style=False,
                 default_style="",
             )
@@ -85,14 +82,14 @@ class Commands:
         """Reads schedule of classes from Neon and Airtable and outputs
         a list of emails to send to instructors, techs, and students.
         This does not actually send the emails; for that, see send_comms."""
-        builder = ClassEmailBuilder(logging.getLogger("cli.email_builder"))
-        builder.ignore_ovr = args.ignore or []
-        builder.cancel_ovr = args.cancel or []
-        builder.confirm_ovr = args.confirm or []
-        builder.filter_ovr = args.filter or []
+        b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"))
+        b.ignore_ovr = args.ignore or []
+        b.cancel_ovr = args.cancel or []
+        b.confirm_ovr = args.confirm or []
+        b.filter_ovr = args.filter or []
         # Add the rest here as needed
 
-        result = builder.build()
+        result = b.build()
         print(yaml.dump(result, default_flow_style=False, default_style=""))
         log.info(f"Generated {len(result)} notification(s)")
 
@@ -314,8 +311,9 @@ class Commands:
         num = 0
         skip_unconfirmed = []
         skip_too_soon = []
-        log.info("Scheduling:")
         now = tznow()
+
+        to_schedule = []
         for event in airtable.get_class_automation_schedule():
             cid = event["fields"]["ID"]
             start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
@@ -333,16 +331,31 @@ class Commands:
 
             if not event["fields"].get("Confirmed"):
                 skip_unconfirmed.append(
-                    f"{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
+                    f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
                 )
                 continue
             if start < now + datetime.timedelta(days=args.min_future_days):
                 skip_too_soon.append(
-                    f"{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
+                    f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
                 )
                 continue
 
-            log.info(f"{start} {cid} {event['fields']['Name (from Class)']}")
+            
+            event['start'] = start
+            event['cid'] = cid
+            to_schedule.append(event)
+
+        log.info("Skipping unconfirmed:")
+        for s in skip_unconfirmed:
+            log.info(s)
+        log.info(f"Skipping too-soon ({args.min_future_days}d or sooner):")
+        for s in skip_too_soon:
+            log.info(s)
+
+        to_schedule.sort(key=lambda e: e['start'])
+        log.info(f"Scheduling {len(to_schedule)} events:")
+        for event in to_schedule:
+            log.info(f"{event['start']} {event['cid']} {event['fields']['Instructor']}: {event['fields']['Name (from Class)'][0]}")
             if args.apply:
                 num += 1
                 raise Exception("TODO")
@@ -363,19 +376,10 @@ class Commands:
                 )
                 log.debug("Neon ID updated in Airtable")
                 event_ids.append((result_id, event))
-                schedule_ids.append(cid)
+                schedule_ids.append(event['cid'])
                 scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
-
-        log.info(f"Total events scheduled: {num}")
 
         if num > 0:
             log.info("Reserving equipment for scheduled classes")
             args.cls = ",".join(schedule_ids)
             self.reserve_equipment_for_class(args)
-
-        log.info("Skipping unconfirmed:")
-        for s in skip_unconfirmed:
-            log.info(s)
-        log.info(f"Skipping too-soon ({args.min_future_days}d or sooner):")
-        for s in skip_too_soon:
-            log.info(s)

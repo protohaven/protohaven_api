@@ -72,7 +72,6 @@ def build_instructor(k, v, caps, load, occupancy, exclude_holidays=True):
             has_overlap = False
             dr1 = dr + datetime.timedelta(hours=3)
             for occ in occupancy:
-                print(dr, dr1, "vs", occ[0], occ[1])
                 if date_range_overlaps(dr, dr1, occ[0], occ[1]):
                     has_overlap = True
                     break
@@ -87,7 +86,7 @@ def build_instructor(k, v, caps, load, occupancy, exclude_holidays=True):
     return Instructor(name=k, caps=caps, load=load, avail=avail)
 
 
-def _gen_class_and_area_stats(cur_sched, start_date, end_date):
+def gen_class_and_area_stats(cur_sched, start_date, end_date):
     """Build a map of when each class in the current schedule was last run, plus
     a list of time swhere areas are occupied, within the bounds of start_date and end_date
     """
@@ -98,7 +97,8 @@ def _gen_class_and_area_stats(cur_sched, start_date, end_date):
     instructor_occupancy = defaultdict(list)
     for c in cur_sched:
         t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
-        last_run[c["fields"]["Class"][0]] = max(last_run[c["id"]], t)
+        rec = c["fields"]["Class"][0]
+        last_run[rec] = max(last_run[rec], t)
         for i in range(c["fields"]["Days (from Class)"][0]):
             ao = [
                 t + datetime.timedelta(days=7 * i),
@@ -141,7 +141,7 @@ def generate_env(
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
 
     # Filter out any classes that have/will run too recently
-    last_run, area_occupancy, instructor_occupancy = _gen_class_and_area_stats(
+    last_run, area_occupancy, instructor_occupancy = gen_class_and_area_stats(
         cur_sched, start_date, end_date
     )
     log.info(f"Computed last runtime of {len(last_run)} different classes")

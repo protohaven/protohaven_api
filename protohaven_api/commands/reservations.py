@@ -45,6 +45,67 @@ class Commands:
                 )
         return results
 
+
+    @command(
+        arg(
+            "--cls",
+            help="Template class ID to reserve equipment for",
+            type=str,
+        ),
+        arg(
+            "--from",
+            help=(
+                "Start period of reservation"
+            ),
+            type=str,
+        ),
+        arg(
+            "--until",
+            help=(
+                "End period of reservation"
+            ),
+            type=str,
+        ),
+    )
+    def reserve_equipment_from_template(self, args):
+        """Resolves template info to a list of equipment that should be reserved,
+        then reserves it"""
+        # TODO tmpl = [t for t in airtable.get_all_class_templates()]
+        log.info(f"Resolved {len(results)} classes to areas")
+
+        # Convert areas to booked IDs using tool table
+        for row in airtable.get_all_records("tools_and_equipment", "tools"):
+            for cid in results:
+                for a in row["fields"]["Name (from Shop Area)"]:
+                    if a in results[cid]["areas"] and row["fields"].get(
+                        "BookedResourceId"
+                    ):
+                        results[cid]["resources"].append(
+                            (
+                                row["fields"]["Tool Name"],
+                                row["fields"]["BookedResourceId"],
+                            )
+                        )
+                        break
+
+        for cid in results:
+            log.info(f"Class {results[cid]['name']} (#{cid}):")
+            for name, resource_id in results[cid]["resources"]:
+                for start, end in results[cid]["intervals"]:
+                    log.info(
+                        f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
+                    )
+                    if args.apply:
+                        log.info(
+                            str(
+                                booked.reserve_resource(
+                                    resource_id, start, end, title=results[cid]["name"]
+                                )
+                            )
+                        )
+
+        log.info("Done")
+
     @command(
         arg(
             "--cls",
