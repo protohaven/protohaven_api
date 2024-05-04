@@ -45,7 +45,6 @@ class Commands:
                 )
         return results
 
-
     @command(
         arg(
             "--cls",
@@ -54,16 +53,12 @@ class Commands:
         ),
         arg(
             "--from",
-            help=(
-                "Start period of reservation"
-            ),
+            help=("Start period of reservation"),
             type=str,
         ),
         arg(
             "--until",
-            help=(
-                "End period of reservation"
-            ),
+            help=("End period of reservation"),
             type=str,
         ),
     )
@@ -125,6 +120,10 @@ class Commands:
     def reserve_equipment_for_class(self, args):
         """Resolves class info to a list of equipment that should be reserved,
         then reserves it by calling out to Booked"""
+        return self.reserve_equipment_for_class_internal(args)
+
+    def reserve_equipment_for_class_internal(self, args):
+        """Internal version of the same method, for use by post_classes_to_neon command in commands/classes.py"""
         results = self._resolve_equipment_from_class(args.cls)
         log.info(f"Resolved {len(results)} classes to areas")
 

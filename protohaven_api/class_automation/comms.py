@@ -52,6 +52,7 @@ def instructor_update_calendar(name, start, end):
         end=end.strftime("%B %-d"),
     )
 
+
 def instructor_schedule_classes(name, start, end):
     """Generate message to instructor reminding them to propose classes"""
     firstname = name.split(" ")[0]

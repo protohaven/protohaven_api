@@ -86,6 +86,61 @@ def gen_scheduling_reminders(start, end):
     return results
 
 
+def gen_class_scheduled_alerts(scheduled_by_instructor):
+    results = []
+
+    def format_class(cls, inst=False):
+        start = dateparser.parse(cls["fields"]["Start Time"])
+        start = start.astimezone(tz)
+        # print(cls)
+        result = f"- {start.strftime('%b %d %Y, %-I%P')}: {cls['fields']['Name (from Class)'][0]}"
+        if inst:
+            result += f" ({cls['fields']['Instructor']})"
+        return result
+
+    details = {"action": ["SCHEDULE"], "targets": []}
+    channel_class_list = []
+    for inst, classes in scheduled_by_instructor.items():
+        formatted = [format_class(c) for c in classes]
+        formatted.sort()
+        email = classes[0]["fields"]["Email"]
+        subject = f"You are now registered to teach {len(classes)} Protohaven class{'es' if len(classes) != 1 else ''}!"
+        body = f"Hello, {inst}!"
+        body += (
+            "\nWe have published the following classes for you to teach to members:\n\n"
+        )
+        body += "\n".join(formatted)
+        body += "\n\nThese were classes that you confirmed by visiting https://api.protohaven.org/instructor/class_selector."
+        body += "\n\nPLEASE REACH OUT ASAP on the #instructors Discord if you are unable to teach any of these classes so we can take action."
+        body += "\n\nThank you, and see you in the shop!"
+
+        results.append({"id": "", "target": email, "subject": subject, "body": body})
+        details["targets"].append(email)
+        channel_class_list += classes
+
+    if len(results) > 0:
+        channel_class_list.sort(
+            key=lambda c: dateparser.parse(c["fields"]["Start Time"])
+        )
+        results.append(
+            {
+                "id": "",
+                "target": "#instructors",
+                "subject": f"Scheduled {len(channel_class_list)} new classes",
+                "body": "\n".join(
+                    [format_class(c, inst=True) for c in channel_class_list]
+                ),
+            }
+        )
+        details["targets"].append("#instructors")
+
+        details["name"] = f"{len(channel_class_list)} new classes"
+        subject, body = comms.automation_summary({"events": {"": details}})
+        results.append(
+            {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+        )
+    return results
+
 
 class Action(Enum):
     """Actions describe what comms to send based on the state of an event
