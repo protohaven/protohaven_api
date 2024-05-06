@@ -328,7 +328,15 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    return solve_with_env(request.json)
+    result, score = solve_with_env(request.json)
+    if len(result) == 0:
+        return Response(
+            "No valid schedule possible from the given inputs. "
+            "This may be due to classes having run too recently, "
+            "a too-small scheduling window, or too few available times.",
+            status=400,
+        )
+    return result
 
 
 @page.route("/instructor/push_classes", methods=["POST"])

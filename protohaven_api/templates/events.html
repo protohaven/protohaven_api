@@ -50,6 +50,7 @@
       <thead>
         <tr>
           <th>Event</th>
+	  <th>Instructor</th>
           <th>Start Date</th>
           <th>Start Time</th>
           <th>End Date</th>
@@ -63,6 +64,7 @@
         {% for event in events %}
         <tr id="{{event['id']}}">
           <td>{{event['name']}}</td>
+	  <td>{{event['instructor']}}</td>
           <td style="text-align: right">{{event['start_date']}}</td>
           <td style="text-align: right">{{event['start_time']}}</td>
           <td style="text-align: right">{{event['end_date']}}</td>

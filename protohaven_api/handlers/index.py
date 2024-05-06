@@ -1,9 +1,11 @@
 """handlers for main landing page"""
 import datetime
 import json
+import logging
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, render_template, request, session
+from flask_sock import Sock
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
@@ -14,6 +16,10 @@ from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
+sock = Sock(current_app)
+
+
+log = logging.getLogger("handlers.index")
 
 
 @page.route("/")
@@ -62,6 +68,13 @@ def welcome_svelte_files(typ, path):
 def welcome_logo():
     """Return svelte compiled static pages for welcome page"""
     return current_app.send_static_file("svelte/logo_color.svg")
+
+
+@sock.route("/welcome/ws")
+def welcome_sock(ws):
+    while True:
+        data = json.loads(ws.recv())
+        ws.send(json.dumps(data))
 
 
 @page.route("/welcome", methods=["GET", "POST"])
@@ -222,6 +235,17 @@ def events_dashboard():
     """Show relevant upcoming events - designed for a kiosk display"""
     events = []
     now = tznow()
+
+    try:
+        instructors_map = {
+            str(s["fields"]["Neon ID"]): s["fields"]["Instructor"]
+            for s in airtable.get_class_automation_schedule()
+            if s["fields"].get("Neon ID")
+        }
+    except Exception:
+        log.error("Failed to fetch instructor map, proceeding anyways")
+        instructors_map = {}
+
     # NOTE: does not currently support intensive date periods. Need to expand
     # dates to properly show this.
     try:
@@ -245,6 +269,7 @@ def events_dashboard():
                     "id": e["id"],
                     "name": e["name"],
                     "date": start,
+                    "instructor": instructors_map.get(str(e["id"]), ""),
                     "start_date": start.strftime("%a %b %d"),
                     "start_time": start.strftime("%-I:%M %p"),
                     "end_date": end.strftime("%a %b %d"),
@@ -257,7 +282,7 @@ def events_dashboard():
 
         events.sort(key=lambda e: e["date"])
     except json.decoder.JSONDecodeError:
-        print("Neon error, proceeding anyways")
+        log.error("Neon fetch error, proceeding anyways")
 
     shop_events = []
     for e, dates in fetch_shop_events().items():

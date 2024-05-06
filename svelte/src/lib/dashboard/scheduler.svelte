@@ -176,7 +176,7 @@
     	<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>
       {/if}
     {:catch error}
-      <Alert color="danger">{error.message}</Alert>
+      <Alert color="danger">{error.message.replace("Invalid reply from server: ", "")}</Alert>
     {/await}
     </div>
 

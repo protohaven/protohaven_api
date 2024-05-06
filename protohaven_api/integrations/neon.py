@@ -536,9 +536,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             r = self.s.get(
                 "https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id=17646"
             )
-            soup = BeautifulSoup(r.content.decode("utf8"))
+            soup = BeautifulSoup(r.content.decode("utf8"), features="html.parser")
         else:
-            soup = BeautifulSoup(content.decode("utf8"))
+            soup = BeautifulSoup(content.decode("utf8"), features="html.parser")
         ticketgroups = soup.find_all("td", class_="ticket-group")
         results = {}
         for tg in ticketgroups:
@@ -850,23 +850,16 @@ def create_event(
         )
         return
 
-    assert dry_run == True
     resp, content = get_connector().neon_request(
-        cfg("api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
+        cfg("api_key3"),
+        f"{URL_BASE}/events",
         "POST",
         body=json.dumps(event),
         headers={"content-type": "application/json"},
     )
-    account_request = json.loads(content)
-    log.debug(account_request)
-
-    _, content = get_connector().neon_request(
-        cfg("api_key1"),
-        f"https://api.neoncrm.com/v2/events/{account_request['id']}" "GET",
-    )
-    content = json.loads(content)
-    return content["id"]
+    evt_request = json.loads(content)
+    log.debug(evt_request)
+    return evt_request["id"]
 
 
 def create_coupon_code(code, amt):

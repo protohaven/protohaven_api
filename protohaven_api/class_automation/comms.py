@@ -53,6 +53,18 @@ def instructor_update_calendar(name, start, end):
     )
 
 
+def instructor_schedule_classes(name, start, end):
+    """Generate message to instructor reminding them to propose classes"""
+    firstname = name.split(" ")[0]
+    subject = f"{firstname}: it's only 3 clicks - please schedule your classes!"
+    return subject, env.get_template("instructor_schedule_classes.jinja2").render(
+        name=name,
+        firstname=firstname,
+        start=start.strftime("%B %-d"),
+        end=end.strftime("%B %-d"),
+    )
+
+
 def instructor_check_supplies(evt):
     """Generate message to instructors asking them to check supplies for an event"""
     firstname = evt["instructor_firstname"]
