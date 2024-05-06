@@ -288,4 +288,5 @@ def solve(
                     instructor_classes[instructor.name].append(
                         [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
                     )
+    log.info(f"Scheduler result: {instructor_classes}, final score {final_score}")
     return (dict(instructor_classes), final_score)

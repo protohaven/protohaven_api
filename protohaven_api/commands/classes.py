@@ -11,6 +11,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import builder
 from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.reservations import reservation_dict
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
@@ -348,12 +349,14 @@ class Commands:
 
         scheduled_by_instructor = defaultdict(list)
         to_schedule.sort(key=lambda e: e["start"])
+        to_reserve = {}
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
                 f"{event['start']} {event['cid']} {event['fields']['Instructor']}: {event['fields']['Name (from Class)'][0]}"
             )
             scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
+
             if args.apply:
                 num += 1
                 result_id = self._schedule_event(
@@ -372,12 +375,18 @@ class Commands:
                     event["id"],
                 )
                 log.debug("Neon ID updated in Airtable")
-                schedule_ids.append(event["cid"])
+                to_reserve[cid] = reservation_dict(
+                    cls["fields"]["Name (from Area) (from Class)"],
+                    cls["fields"]["Name (from Class)"],
+                    cls["fields"]["Start Time"],
+                    cls["fields"]["Days (from Class)"][0],
+                    cls["fields"]["Hours (from Class)"][0],
+                )
 
         if num > 0:
             log.info("Reserving equipment for scheduled classes")
-            args.cls = ",".join([str(s) for s in schedule_ids])
-            self.reserve_equipment_for_class_internal(args)
+            log.info(f"Resolved {len(results)} classes to areas")
+            self.reserve_equipment_for_class_internal(to_reserve, args.apply)
 
         print(
             yaml.dump(

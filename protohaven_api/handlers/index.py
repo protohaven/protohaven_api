@@ -5,6 +5,7 @@ import logging
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, render_template, request, session
+from flask_sock import Sock
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
@@ -15,9 +16,11 @@ from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
+sock = Sock(current_app)
 
 
 log = logging.getLogger("handlers.index")
+
 
 @page.route("/")
 @require_login
@@ -65,6 +68,13 @@ def welcome_svelte_files(typ, path):
 def welcome_logo():
     """Return svelte compiled static pages for welcome page"""
     return current_app.send_static_file("svelte/logo_color.svg")
+
+
+@sock.route("/welcome/ws")
+def welcome_sock(ws):
+    while True:
+        data = json.loads(ws.recv())
+        ws.send(json.dumps(data))
 
 
 @page.route("/welcome", methods=["GET", "POST"])
@@ -227,7 +237,11 @@ def events_dashboard():
     now = tznow()
 
     try:
-        instructors_map = {str(s['fields']['Neon ID']): s['fields']['Instructor'] for s in airtable.get_class_automation_schedule() if s['fields'].get('Neon ID')}
+        instructors_map = {
+            str(s["fields"]["Neon ID"]): s["fields"]["Instructor"]
+            for s in airtable.get_class_automation_schedule()
+            if s["fields"].get("Neon ID")
+        }
     except Exception:
         log.error("Failed to fetch instructor map, proceeding anyways")
         instructors_map = {}

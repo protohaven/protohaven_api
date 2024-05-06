@@ -66,14 +66,18 @@ def get_resource(resource_id):
     return resp.json()
 
 
-def set_resource_status(resource_id, resource_name, status):
+def set_resource_status(resource_id, status):
     """Enable or disable a specific tool by ID"""
+    # We must get the name of the resource in order to set its status, unfortunately.
+    data = get_resource(resource_id)
+    assert data.get("name", None) is not None
+
     resp = get_connector().booked_request(
         "POST",
         resource_url(resource_id),
         json={
             "statusId": status,
-            "name": resource_name,
+            "name": data["name"],
             "scheduleId": SCHEDULE_ID,
         },
     )

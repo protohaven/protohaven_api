@@ -12,6 +12,7 @@ from protohaven_api.handlers.auth import page as auth_pages
 from protohaven_api.handlers.index import page as index_pages
 from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
+from protohaven_api.handlers.reservations import page as reservations_pages
 from protohaven_api.handlers.shop_tech import page as shop_tech_pages
 from protohaven_api.handlers.tech_lead import page as tech_lead_pages
 from protohaven_api.integrations.data.connector import init as init_connector
@@ -42,6 +43,7 @@ for p in (
     onboarding_pages,
     shop_tech_pages,
     tech_lead_pages,
+    reservations_pages,
 ):
     app.register_blueprint(p)
 

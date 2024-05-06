@@ -14,36 +14,22 @@ from protohaven_api.integrations import airtable, booked  # pylint: disable=impo
 log = logging.getLogger("cli.reservation")
 
 
+def reservation_dict(areas, name, start, days, hours):
+    start = dateparser.parse(start).astimezone(tz)
+    intervals = []
+    for d in range(days):
+        offs = start + datetime.timedelta(days=7 * d)
+        intervals.append(
+            [
+                offs,
+                offs + datetime.timedelta(hours=hours),
+            ]
+        )
+    return {"areas": set(areas), "name": name, "intervals": intervals, "resources": []}
+
+
 class Commands:
     """Commands for reserving equipment and configuring the Booked reservation system"""
-
-    def _resolve_equipment_from_class(self, args_cls):
-        results = defaultdict(
-            lambda: {"name": "", "areas": None, "resources": [], "intervals": []}
-        )
-        # Resolve areas from class ID. We track the area name and not
-        # record ID since we're operating on a synced copy of the areas when
-        # we go to look up tools and equipment
-        args_cls = [int(c) for c in args_cls.split(",")]
-        for cls in airtable.get_class_automation_schedule():
-            cid = cls["fields"]["ID"]
-            if cid not in args_cls:
-                continue
-            results[cid]["areas"] = set(cls["fields"]["Name (from Area) (from Class)"])
-            results[cid]["name"] = cls["fields"]["Name (from Class)"]
-            start = dateparser.parse(cls["fields"]["Start Time"]).astimezone(tz)
-            for d in range(cls["fields"]["Days (from Class)"][0]):
-                offs = start + datetime.timedelta(days=7 * d)
-                results[cid]["intervals"].append(
-                    [
-                        offs,
-                        offs
-                        + datetime.timedelta(
-                            hours=cls["fields"]["Hours (from Class)"][0]
-                        ),
-                    ]
-                )
-        return results
 
     @command(
         arg(
@@ -52,53 +38,37 @@ class Commands:
             type=str,
         ),
         arg(
-            "--from",
+            "--start",
             help=("Start period of reservation"),
             type=str,
         ),
         arg(
-            "--until",
-            help=("End period of reservation"),
-            type=str,
+            "--apply",
+            help=(
+                "Apply changes into Booked scheduler."
+                "If false, it will only be printed"
+            ),
+            action=argparse.BooleanOptionalAction,
+            default=False,
         ),
     )
     def reserve_equipment_from_template(self, args):
         """Resolves template info to a list of equipment that should be reserved,
         then reserves it"""
-        # TODO tmpl = [t for t in airtable.get_all_class_templates()]
-        log.info(f"Resolved {len(results)} classes to areas")
-
-        # Convert areas to booked IDs using tool table
-        for row in airtable.get_all_records("tools_and_equipment", "tools"):
-            for cid in results:
-                for a in row["fields"]["Name (from Shop Area)"]:
-                    if a in results[cid]["areas"] and row["fields"].get(
-                        "BookedResourceId"
-                    ):
-                        results[cid]["resources"].append(
-                            (
-                                row["fields"]["Tool Name"],
-                                row["fields"]["BookedResourceId"],
-                            )
-                        )
-                        break
-
-        for cid in results:
-            log.info(f"Class {results[cid]['name']} (#{cid}):")
-            for name, resource_id in results[cid]["resources"]:
-                for start, end in results[cid]["intervals"]:
-                    log.info(
-                        f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
-                    )
-                    if args.apply:
-                        log.info(
-                            str(
-                                booked.reserve_resource(
-                                    resource_id, start, end, title=results[cid]["name"]
-                                )
-                            )
-                        )
-
+        cls = [
+            t
+            for t in airtable.get_all_class_templates()
+            if str(t["fields"]["ID"]) == args.cls
+        ][0]
+        results = {}
+        results[cls["fields"]["ID"]] = reservation_dict(
+            cls["fields"]["Name (from Area)"],
+            cls["fields"]["Name"],
+            args.start,
+            cls["fields"]["Days"],
+            cls["fields"]["Hours"],
+        )
+        self.reserve_equipment_for_class_internal(results, args.apply)
         log.info("Done")
 
     @command(
@@ -120,13 +90,27 @@ class Commands:
     def reserve_equipment_for_class(self, args):
         """Resolves class info to a list of equipment that should be reserved,
         then reserves it by calling out to Booked"""
-        return self.reserve_equipment_for_class_internal(args)
-
-    def reserve_equipment_for_class_internal(self, args):
-        """Internal version of the same method, for use by post_classes_to_neon command in commands/classes.py"""
-        results = self._resolve_equipment_from_class(args.cls)
+        # Resolve areas from class ID. We track the area name and not
+        # record ID since we're operating on a synced copy of the areas when
+        # we go to look up tools and equipment
+        args_cls = [int(c) for c in args_cls.split(",")]
+        for cls in airtable.get_class_automation_schedule():
+            cid = cls["fields"]["ID"]
+            if cid not in args_cls:
+                continue
+            results[cid] = reservation_dict(
+                cls["fields"]["Name (from Area) (from Class)"],
+                cls["fields"]["Name (from Class)"],
+                cls["fields"]["Start Time"],
+                cls["fields"]["Days (from Class)"][0],
+                cls["fields"]["Hours (from Class)"][0],
+            )
         log.info(f"Resolved {len(results)} classes to areas")
+        self.reserve_equipment_for_class_internal(results, apply)
+        log.info("Done")
 
+    def reserve_equipment_for_class_internal(self, results, apply):
+        """Internal version of the same method, for use by post_classes_to_neon command in commands/classes.py"""
         # Convert areas to booked IDs using tool table
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
             for cid in results:
@@ -149,7 +133,7 @@ class Commands:
                     log.info(
                         f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
                     )
-                    if args.apply:
+                    if apply:
                         log.info(
                             str(
                                 booked.reserve_resource(
@@ -157,8 +141,6 @@ class Commands:
                                 )
                             )
                         )
-
-        log.info("Done")
 
     def _stage_booked_record_update(self, r, custom_attributes, **kwargs):
         r, changed_attrs = booked.stage_custom_attributes(r, **custom_attributes)
@@ -173,6 +155,18 @@ class Commands:
                 r[k] = v
                 changed = True
         return r, True in changed_attrs.values() or changed
+
+    @command(
+        arg(
+            "--id",
+            help="Tool ID",
+            type=int,
+        )
+    )
+    def get_booked_resource(self, args):
+        """Gets the raw data of a tool/resource in Booked scheduler"""
+        t = booked.get_resource(args.id)
+        print(t)
 
     @command(
         arg(
@@ -195,6 +189,9 @@ class Commands:
         group - it can only be done via the web interface.
 
         """
+        if not args.apply:
+            log.warning("==== --apply NOT SET, NO CHANGES WILL BE MADE ====")
+
         # Some areas we don't care about in the reservation system; these are excluded
         exclude_areas = {
             "Class Supplies",
