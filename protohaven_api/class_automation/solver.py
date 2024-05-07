@@ -14,31 +14,33 @@ log = logging.getLogger("class_automation.solver")
 
 
 class Class:
-    """Represents a class template schedulable at a period, in one or more areas, with score"""
+    """Represents a class template schedulable, in one or more areas, with score"""
 
     def __init__(
-        self, airtable_id, name, period, hours, areas, last_run, score
+        self, airtable_id, name, hours, areas, exclusions, score
     ):  # pylint: disable=too-many-arguments
         self.airtable_id = airtable_id
         self.name = name
-        self.period = period  # months
         self.hours = hours
 
         assert isinstance(areas, list)
         self.areas = areas
 
-        self.last_run = (
-            dateparser.parse(last_run) if isinstance(last_run, str) else last_run
-        )
+        if len(exclusions) > 0 and isinstance(exclusions[0][0], str):
+            self.exclusions = [
+                [dateparser.parse(e[0]), dateparser.parse(e[1])] for e in exclusions
+            ]
+        else:
+            self.exclusions = exclusions
         # Score is a normalized expected value based on revenue, likelihood to fill,
         # cost of materials etc.
         self.score = score
 
     def __repr__(self):
         return (
-            f"{self.name} ({self.airtable_id}, last run {self.last_run} for {self.hours}, "
-            f"max every {self.period} months, "
-            "{self.areas}, score={self.score})"
+            f"{self.name} ({self.airtable_id}, exclusions {self.exclusions}, "
+            f"{self.hours}h, "
+            f"{self.areas}, score={self.score})"
         )
 
     def as_dict(self):
@@ -46,10 +48,9 @@ class Class:
         return {
             "airtable_id": self.airtable_id,
             "name": self.name,
-            "period": self.period,
             "hours": self.hours,
             "areas": self.areas,
-            "last_run": self.last_run,
+            "exclusions": self.exclusions,
             "score": self.score,
         }
 
@@ -101,6 +102,13 @@ def has_area_conflict(area_occupancy, t_start, t_end):
     return False
 
 
+def date_within_ranges(d, exclusions):
+    for e1, e2 in exclusions:
+        if e1 <= d <= e2:
+            return True
+    return False
+
+
 def solve(
     classes, instructors, area_occupancy
 ):  # pylint: disable=too-many-locals,too-many-branches
@@ -116,9 +124,9 @@ def solve(
     for instructor in instructors:
         for t in instructor.avail:
             for airtable_id in instructor.caps:
-                # Skip if assignment is too recent
+                # Skip this particular time if it's in an exclusion region
                 cbid = class_by_id[airtable_id]
-                if t < cbid.last_run + datetime.timedelta(days=30 * cbid.period):
+                if date_within_ranges(t, cbid.exclusions):
                     continue
 
                 # Skip if area already occupied

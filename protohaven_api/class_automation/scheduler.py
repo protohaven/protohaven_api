@@ -90,15 +90,20 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
     """Build a map of when each class in the current schedule was last run, plus
     a list of time swhere areas are occupied, within the bounds of start_date and end_date
     """
-    last_run = defaultdict(
-        lambda: datetime.datetime(year=2001, month=1, day=1).astimezone(tz)
-    )
+    exclusions = defaultdict(list)
     area_occupancy = defaultdict(list)
     instructor_occupancy = defaultdict(list)
     for c in cur_sched:
         t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
+        pd = c["fields"]["Period (from Class)"][0]
         rec = c["fields"]["Class"][0]
-        last_run[rec] = max(last_run[rec], t)
+
+        exclusion_window = [
+            t - datetime.timedelta(pd * 30),
+            t + datetime.timedelta(pd * 30),
+        ]
+        if exclusion_window[0] <= end_date or exclusion_window[1] >= start_date:
+            exclusions[rec].append(exclusion_window)
         for i in range(c["fields"]["Days (from Class)"][0]):
             ao = [
                 t + datetime.timedelta(days=7 * i),
@@ -114,7 +119,7 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
                 instructor_occupancy[c["fields"]["Instructor"].lower()].append(ao)
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
-    return last_run, area_occupancy, instructor_occupancy
+    return exclusions, area_occupancy, instructor_occupancy
 
 
 def generate_env(
@@ -141,10 +146,10 @@ def generate_env(
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
 
     # Filter out any classes that have/will run too recently
-    last_run, area_occupancy, instructor_occupancy = gen_class_and_area_stats(
+    exclusions, area_occupancy, instructor_occupancy = gen_class_and_area_stats(
         cur_sched, start_date, end_date
     )
-    log.info(f"Computed last runtime of {len(last_run)} different classes")
+    log.info(f"Computed exclusion times of {len(exclusions)} different classes")
     log.info(
         f"Computed occupancy of {len(area_occupancy)} different areas, {len(instructor_occupancy)} instructors"
     )
@@ -197,10 +202,9 @@ def generate_env(
                 Class(
                     c["id"],
                     c["fields"]["Name"],
-                    c["fields"]["Period"],
                     c["fields"]["Hours"],
                     c["fields"]["Area"],
-                    last_run[c["id"]],
+                    exclusions[c["id"]],
                     compute_score(c),
                 )
             )
