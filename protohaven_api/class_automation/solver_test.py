@@ -11,9 +11,6 @@ def d(i, h=0):
     )
 
 
-OLD = d(-31)
-
-
 def test_has_area_conflict():
     """Verify behavior of date math in has_area_conflict"""
     # Perfect overlap
@@ -37,7 +34,7 @@ def test_has_area_conflict():
 def test_solve_simple():
     """An instructor can schedule a class at a time"""
     got, score = s.solve(
-        classes=[s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7)],
+        classes=[s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7)],
         instructors=[s.Instructor("A", [1], 6, [d(0)])],
         area_occupancy={},
     )
@@ -50,12 +47,12 @@ def test_solve_complex():
     classes = [
         s.Class(*v)
         for v in [
-            (1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7),
-            (2, "Sewing Basics", 2, 3, ["textiles"], OLD, 0.6),
-            (3, "Basic Woodshop", 2, 3, ["wood"], OLD, 0.5),
-            (4, "Millwork", 1, 3, ["wood"], OLD, 0.7),
-            (5, "Basic Metals", 2, 3, ["metal"], OLD, 0.8),
-            (6, "Metal Workshop", 1, 3, ["metal"], OLD, 0.4),
+            (1, "Embroidery", 1, ["textiles"], [], 0.7),
+            (2, "Sewing Basics", 2, ["textiles"], [], 0.6),
+            (3, "Basic Woodshop", 2, ["wood"], [], 0.5),
+            (4, "Millwork", 1, ["wood"], [], 0.7),
+            (5, "Basic Metals", 2, ["metal"], [], 0.8),
+            (6, "Metal Workshop", 1, ["metal"], [], 0.4),
         ]
     ]
 
@@ -85,7 +82,7 @@ def test_solve_no_area_overlap():
     not offering the class instead of scheduling it in an occupied area"""
     pd = (d(1), d(1, 3))
     got, score = s.solve(
-        classes=[s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7)],
+        classes=[s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7)],
         instructors=[s.Instructor("A", [1], 6, [pd[0]])],
         area_occupancy={"textiles": [pd]},
     )
@@ -93,12 +90,13 @@ def test_solve_no_area_overlap():
     assert score == 0
 
 
-def test_solve_too_recent():
+def test_solve_exclusion():
     """When an instructor attempts to schedule a class, the solver prefers not
-    offering the class instead of running it too soon after a prior run"""
+    offering the class instead of running it in an exclusion region"""
     pd = (d(1), d(1, 3))
+    c = s.Class(1, "Embroidery", 1, ["textiles"], [[d(0), d(2)]], 0.7)
     got, score = s.solve(
-        classes=[s.Class(1, "Embroidery", 1, 3, ["textiles"], d(-15), 0.7)],
+        classes=[c],
         instructors=[s.Instructor("A", [1], 6, [pd[0]])],
         area_occupancy={},
     )
@@ -111,8 +109,8 @@ def test_solve_no_concurrent_overlap():
     when scheduled concurrently. Higher score classes win."""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7),
-            s.Class(2, "Embroidery but cooler", 1, 3, ["textiles"], OLD, 0.8),
+            s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
+            s.Class(2, "Embroidery but cooler", 1, ["textiles"], [], 0.8),
         ],
         instructors=[
             s.Instructor("A", [1], 6, [d(0)]),
@@ -129,8 +127,8 @@ def test_solve_no_double_booking():
     Higher score classes should be preferred"""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7),
-            s.Class(2, "Lasers", 1, 3, ["lasers"], OLD, 0.8),
+            s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
+            s.Class(2, "Lasers", 1, ["lasers"], [], 0.8),
         ],
         instructors=[
             s.Instructor("A", [1, 2], 6, [d(0)]),
@@ -145,7 +143,7 @@ def test_solve_at_most_once():
     """Classes run at most once per run of the solver"""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7),
+            s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
         ],
         instructors=[
             s.Instructor("A", [1], 6, [d(0)]),
@@ -160,8 +158,8 @@ def test_solve_at_most_once():
 def test_solve_instructor_load():
     """Instructors are not filled past their capacity to teach"""
     classes = [
-        s.Class(1, "Embroidery", 1, 3, ["textiles"], OLD, 0.7),
-        s.Class(2, "More embroidery", 1, 3, ["textiles"], OLD, 0.7),
+        s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
+        s.Class(2, "More embroidery", 1, ["textiles"], [], 0.7),
     ]
     instructors = [
         s.Instructor("A", [1, 2], 1, [d(0), d(1)]),

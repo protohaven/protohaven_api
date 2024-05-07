@@ -101,6 +101,8 @@
   <ModalBody>
     <p>Use this scheduling prompt to add more classes to your class list!</p>
 
+    <p><strong>A video tutorial is available <a href="https://www.youtube.com/watch?v=wKtX1DR0Xmw&feature=youtu.be" target="_blank">HERE</a></strong></p>
+
     <p>The scheduler will automatically avoid scheduling classes...</p>
 
     <ul>
