@@ -11,13 +11,12 @@ from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.booked import get_reservations
+from protohaven_api.integrations.comms import send_membership_automation_message
 from protohaven_api.integrations.forms import submit_google_form
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
-sock = Sock(current_app)
-
 
 log = logging.getLogger("handlers.index")
 
@@ -70,96 +69,111 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-@sock.route("/welcome/ws")
 def welcome_sock(ws):
-    while True:
-        data = json.loads(ws.recv())
-        ws.send(json.dumps(data))
+    data = json.loads(ws.receive())
+    result = {
+        "notfound": False,
+        "status": False,
+        "violations": [],
+        "waiver_signed": False,
+        "announcements": [],
+        "firstname": "member",
+    }
+
+    def _send(msg, pct):
+        ws.send(json.dumps({"msg": msg, "pct": pct}))
+
+    if data["person"] == "member":
+        _send("Searching member database...", 30)
+        m = neon.search_member(data["email"])
+        if not m:
+            result["notfound"] = True
+        else:
+            result["status"] = m.get("Account Current Membership Status", "Unknown")
+            result["firstname"] = m.get("First Name")
+            last_announcement_ack = m.get("Announcements Acknowledged", None)
+            if last_announcement_ack:
+                last_announcement_ack = dateparser.parse(
+                    last_announcement_ack
+                ).astimezone(tz)
+            else:
+                last_announcement_ack = tznow() - datetime.timedelta(30)
+            roles = [
+                r
+                for r in (m.get("API server role", "") or "").split("|")  # Can be None
+                if r.strip() != ""
+            ]
+            if result["status"] == "Active":
+                roles.append("Member")
+            _send("Fetching announcements...", 50)
+            result["announcements"] = airtable.get_announcements_after(
+                last_announcement_ack, roles
+            )
+
+            _send("Checking storage...", 70)
+            for pv in airtable.get_policy_violations():
+                if str(pv["fields"].get("Neon ID")) != str(m["Account ID"]) or pv[
+                    "fields"
+                ].get("Closure"):
+                    continue
+                result["violations"].append(pv)
+
+            _send("Checking waiver...", 90)
+            result["waiver_signed"] = neon.update_waiver_status(
+                m["Account ID"],
+                m.get("Waiver Accepted"),
+                data.get("waiver_ack", False),
+            )
+
+            if result["status"] != "Active":
+                send_membership_automation_message(
+                    f"{result['firstname']} ({data['email']}) just signed in at the front desk but has a non-Active membership status in Neon: status is {result['status']}"
+                )
+            elif len(result["violations"]) > 0:
+                send_membership_automation_message(
+                    f"{result['firstname']} ({data['email']}) just signed in at the front desk with violations: {result['violations']}"
+                )
+    elif data["person"] == "guest":
+        result["waiver_signed"] = data.get("waiver_ack", False)
+        result["firstname"] = "Guest"
+
+    if (
+        data["person"] == "member"
+        and result["notfound"] is False
+        and result["waiver_signed"]
+    ) or (data["person"] == "guest" and data.get("referrer")):
+        # Note: setting `purpose` this way tricks the form into not requiring other fields
+        assert result["waiver_signed"] is True
+        form_data = {
+            "email": data["email"],
+            "dependent_info": data["dependent_info"],
+            "waiver_ack": (
+                "I have read and understand this agreement and "
+                "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
+            ),
+            "referrer": data.get("referrer"),
+            "purpose": "I'm a member, just signing in!",
+            "am_member": "Yes" if data["person"] == "member" else "No",
+        }
+        _send("Logging sign-in...", 95)
+        rep = submit_google_form("signin", form_data)
+        print(rep.request.url)
+        print("Google form submitted, response", rep)
+
+    ws.send(json.dumps(result))
+    return result
 
 
-@page.route("/welcome", methods=["GET", "POST"])
+def setup_sock_routes(app):
+    sock = Sock(app)
+    print("Sock is", sock)
+    sock.route("/welcome/ws")(welcome_sock)
+
+
+@page.route("/welcome", methods=["GET"])
 def welcome_signin():
     """Sign-in page at front desk"""
-    if request.method == "GET":
-        return current_app.send_static_file("svelte/index.html")
-
-    if request.method == "POST":
-        result = {
-            "notfound": False,
-            "status": False,
-            "violations": [],
-            "waiver_signed": False,
-            "announcements": [],
-            "firstname": "member",
-        }
-        data = request.json
-        if data["person"] == "member":
-            m = neon.search_member(data["email"])
-            if not m:
-                result["notfound"] = True
-            else:
-                result["status"] = m.get("Account Current Membership Status", "Unknown")
-                result["firstname"] = m.get("First Name")
-                last_announcement_ack = m.get("Announcements Acknowledged", None)
-                if last_announcement_ack:
-                    last_announcement_ack = dateparser.parse(
-                        last_announcement_ack
-                    ).astimezone(tz)
-                else:
-                    last_announcement_ack = tznow() - datetime.timedelta(30)
-                roles = [
-                    r
-                    for r in (m.get("API server role", "") or "").split(
-                        "|"
-                    )  # Can be None
-                    if r.strip() != ""
-                ]
-                if result["status"] == "Active":
-                    roles.append("Member")
-                result["announcements"] = airtable.get_announcements_after(
-                    last_announcement_ack, roles
-                )
-
-                for pv in airtable.get_policy_violations():
-                    if str(pv["fields"].get("Neon ID")) != str(m["Account ID"]) or pv[
-                        "fields"
-                    ].get("Closure"):
-                        continue
-                    result["violations"].append(pv)
-
-                result["waiver_signed"] = neon.update_waiver_status(
-                    m["Account ID"],
-                    m.get("Waiver Accepted"),
-                    data.get("waiver_ack", False),
-                )
-        elif data["person"] == "guest":
-            result["waiver_signed"] = data.get("waiver_ack", False)
-            result["firstname"] = "Guest"
-
-        if (
-            data["person"] == "member"
-            and result["notfound"] is False
-            and result["waiver_signed"]
-        ) or (data["person"] == "guest" and data.get("referrer")):
-            # Note: setting `purpose` this way tricks the form into not requiring other fields
-            assert result["waiver_signed"] is True
-            form_data = {
-                "email": data["email"],
-                "dependent_info": data["dependent_info"],
-                "waiver_ack": (
-                    "I have read and understand this agreement and "
-                    "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
-                ),
-                "referrer": data.get("referrer"),
-                "purpose": "I'm a member, just signing in!",
-                "am_member": "Yes" if data["person"] == "member" else "No",
-            }
-            rep = submit_google_form("signin", form_data)
-            print(rep.request.url)
-            print("Google form submitted, response", rep)
-        return result
-
-    return ""
+    return current_app.send_static_file("svelte/index.html")
 
 
 @page.route("/welcome/announcement_ack", methods=["POST"])

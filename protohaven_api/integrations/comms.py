@@ -35,6 +35,11 @@ def send_board_message(content):
     return send_discord_message(content, "board-private")
 
 
+def send_membership_automation_message(content):
+    """Sends message to membership automation channel"""
+    return send_discord_message(content, "membership-automation")
+
+
 def set_discord_nickname(name, nick):
     """Sets the nickname of a discord user"""
     return get_connector().discord_bot_setnick(name, nick)

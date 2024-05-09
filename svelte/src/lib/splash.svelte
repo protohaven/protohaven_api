@@ -1,24 +1,24 @@
 <script type="ts">
-  import { Button, Row, Col, Card, Input, Spinner, FormGroup } from '@sveltestrap/sveltestrap';
+  import { Button, Row, Col, Card, Input, Progress, FormGroup } from '@sveltestrap/sveltestrap';
   import { onMount, onDestroy } from 'svelte';
   export let on_member;
   export let on_guest;
   export let feedback;
   export let email;
-  export let checking;
+  export let progress;
   export let dependent_info;
   let has_dependents = false;
 
   async function reset() {
     email = "";
-    checking = false;
+    progress = null;
     dependent_info = "";
     has_dependents = false;
   }
   reset();
 
 
-  $: submit_enabled = (email != "" && !checking && !(has_dependents && dependent_info == ""));
+  $: submit_enabled = (email != "" && !progress && !(has_dependents && dependent_info == ""));
 
   // Shortcut for members
   function check_enter_key_submit(e) {
@@ -63,14 +63,11 @@
   <Row class="mx-5">
     <Col>
     <FormGroup>
-      <Input type="email" disabled={checking} placeholder="Your email address here" bind:value={email} invalid={feedback !== null} {feedback} on:keydown={check_enter_key_submit} />
+      <Input type="email" disabled={progress} placeholder="Your email address here" bind:value={email} invalid={feedback !== null} {feedback} on:keydown={check_enter_key_submit} />
     </FormGroup>
     </Col>
-
-    {#if checking}
-      <Col sm={{size: 'auto'}}>
-        <Spinner type="border" color="primary" />
-      </Col>
+    {#if progress}
+    <Progress color="info" value={progress.pct}>{progress.msg}</Progress>
     {/if}
   </Row>
 
@@ -78,7 +75,7 @@
     <Col sm={{ size: 'auto'}}>
       <Input bind:checked={has_dependents} type="checkbox" label="I am signing in one or more children under age 18" tabindex=-1 />
       {#if has_dependents}
-      <Input type="email" disabled={checking} placeholder="Enter child name(s) here" bind:value={dependent_info} />
+      <Input type="email" disabled={progress} placeholder="Enter child name(s) here" bind:value={dependent_info} />
       {/if}
     </Col>
   </Row>
