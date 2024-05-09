@@ -9,15 +9,20 @@
 	import Waiver from '$lib/waiver.svelte';
   let state='splash';
   let name='member';
-	let email=null;
-	let person='member';
-	let checking=false;
-	let waiver_ack=false;
+  let email=null;
+  let person='member';
+  let checking=false;
+  let progress=null;
+  let waiver_ack=false;
   let dependent_info="";
 	let feedback=null;
   let referrer = "";
   let announcements = [];
   let violations = [];
+
+  onMount(() => {
+  });
+
 
   async function on_splash_submit(p) {
     person = p;
@@ -29,8 +34,23 @@
     return await submit();
   }
 
-  async function do_post() {
-    return await post('/welcome', {email, person, waiver_ack, dependent_info, referrer});
+  function do_post() {
+    return new Promise((resolve, reject) => {
+      const socket = new WebSocket("ws://localhost:5000/welcome/ws");
+      socket.addEventListener("open", (event) => {
+        socket.send(JSON.stringify({email, person, waiver_ack, dependent_info, referrer}));
+      });
+      socket.addEventListener("message", (event) => {
+        let data = JSON.parse(event.data);
+	console.log(data);
+	if (data.pct !== undefined) {
+	  progress = data;
+	} else {
+	  progress = null;
+	  resolve(data);
+	}
+      });
+    });
   }
 
 
@@ -93,7 +113,7 @@
 	</Row>
 	<Row>
     {#if state == 'splash'}
-      <Splash bind:email={email} bind:dependent_info={dependent_info} {feedback} {checking} on_member={()=>on_splash_submit('member')} on_guest={()=>on_splash_submit('guest')}/>
+      <Splash bind:email={email} bind:dependent_info={dependent_info} {feedback} {progress} on_member={()=>on_splash_submit('member')} on_guest={()=>on_splash_submit('guest')}/>
     {:else if state == 'waiver' }
       <Waiver name={name} on_submit={waiver_agreed} checking={checking}/>
     {:else if state == 'membership_expired' }

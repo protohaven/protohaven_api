@@ -62,6 +62,16 @@ def get_project_requests():
     )
 
 
+def get_shop_tech_applicants():
+    """Get applications for shop tech position that aren't completed"""
+    return _tasks().get_tasks_for_project(
+        cfg["shop_tech_applicants"],
+        {
+            "opt_fields": ",".join(["completed", "name"]),
+        },
+    )
+
+
 def get_open_purchase_requests():
     """Get purchase requests made by techs & instructors"""
 

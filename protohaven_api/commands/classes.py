@@ -252,6 +252,12 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
+        arg(
+            "--ovr",
+            help="Schedule items with this ID will always be acted upon (repeatable)",
+            type=str,
+            nargs="+",
+        ),
     )
     def post_classes_to_neon(self, args):
         """Post a list of classes to Neon"""
@@ -313,28 +319,31 @@ class Commands:
         for event in airtable.get_class_automation_schedule():
             cid = event["fields"]["ID"]
             start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
-            if start < now:
-                log.debug(
-                    f"Skipping event {cid} from the past {event['fields']['Name (from Class)']}"
-                )
-                continue
-            # Quietly ignore already-scheduled events
-            if event["fields"].get("Neon ID", "") != "":
-                log.debug(
-                    f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: {event['fields']['Name (from Class)']}"
-                )
-                continue
+            if str(cid) in args.ovr:
+                log.warning(f"Adding override class with ID {cid}")
+            else:
+                if start < now:
+                    log.debug(
+                        f"Skipping event {cid} from the past {event['fields']['Name (from Class)']}"
+                    )
+                    continue
+                # Quietly ignore already-scheduled events
+                if event["fields"].get("Neon ID", "") != "":
+                    log.debug(
+                        f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: {event['fields']['Name (from Class)']}"
+                    )
+                    continue
 
-            if not event["fields"].get("Confirmed"):
-                skip_unconfirmed.append(
-                    f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
-                )
-                continue
-            if start < now + datetime.timedelta(days=args.min_future_days):
-                skip_too_soon.append(
-                    f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
-                )
-                continue
+                if not event["fields"].get("Confirmed"):
+                    skip_unconfirmed.append(
+                        f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
+                    )
+                    continue
+                if start < now + datetime.timedelta(days=args.min_future_days):
+                    skip_too_soon.append(
+                        f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
+                    )
+                    continue
 
             event["start"] = start
             event["cid"] = cid
@@ -365,27 +374,26 @@ class Commands:
                     not args.apply,
                     args.archived,
                 )
-                log.debug("Neon event created")
+                log.info(f"- Neon event {result_id} created")
                 self._apply_pricing(result_id, event)
-                log.debug("Pricing applied")
+                log.info("- Pricing applied")
                 airtable.update_record(
                     {"Neon ID": str(result_id)},
                     "class_automation",
                     "schedule",
                     event["id"],
                 )
-                log.debug("Neon ID updated in Airtable")
-                to_reserve[cid] = reservation_dict(
-                    cls["fields"]["Name (from Area) (from Class)"],
-                    cls["fields"]["Name (from Class)"],
-                    cls["fields"]["Start Time"],
-                    cls["fields"]["Days (from Class)"][0],
-                    cls["fields"]["Hours (from Class)"][0],
+                log.info("- Neon ID updated in Airtable")
+                to_reserve[event["cid"]] = reservation_dict(
+                    event["fields"]["Name (from Area) (from Class)"],
+                    event["fields"]["Name (from Class)"],
+                    event["fields"]["Start Time"],
+                    event["fields"]["Days (from Class)"][0],
+                    event["fields"]["Hours (from Class)"][0],
                 )
 
         if num > 0:
             log.info("Reserving equipment for scheduled classes")
-            log.info(f"Resolved {len(results)} classes to areas")
             self.reserve_equipment_for_class_internal(to_reserve, args.apply)
 
         print(

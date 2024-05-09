@@ -5,7 +5,6 @@ import datetime
 import json
 import logging
 import os
-import re
 import sys
 from collections import defaultdict
 
@@ -13,7 +12,7 @@ import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import scheduler
-from protohaven_api.commands import classes, reservations
+from protohaven_api.commands import classes, forwarding, reservations
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
@@ -29,10 +28,6 @@ log = logging.getLogger("cli")
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
 log.info(f"Mode is {server_mode}\n")
 init_connector(dev=server_mode != "prod")
-
-
-completion_re = re.compile("Deadline for Project Completion:\n(.*?)\n", re.MULTILINE)
-description_re = re.compile("Project Description:\n(.*?)Materials Budget", re.MULTILINE)
 
 
 def purchase_request_alerts():
@@ -92,7 +87,7 @@ def purchase_request_alerts():
     log.info("Done")
 
 
-class ProtohavenCLI(reservations.Commands, classes.Commands):
+class ProtohavenCLI(reservations.Commands, classes.Commands, forwarding.Commands):
     """argparser-based CLI for protohaven operations"""
 
     def __init__(self):
@@ -181,48 +176,6 @@ class ProtohavenCLI(reservations.Commands, classes.Commands):
         parser.parse_args(argv)
         result = validate_docs()
         print(yaml.dump([result], default_flow_style=False, default_style=""))
-
-    def project_requests(self, argv):
-        """Send alerts when new project requests fall into Asana"""
-        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
-        parser.add_argument(
-            "--notify",
-            help="when true, send requests to Discord and complete their task in Asana",
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        )
-        args = parser.parse_args(argv)
-        if not args.notify:
-            log.info(
-                "\n***   --notify is not set, so projects will not be "
-                + "checked off or posted to Discord   ***\n"
-            )
-        num = 0
-        for req in tasks.get_project_requests():
-            if req["completed"]:
-                continue
-            req["notes"] = req["notes"].replace("\\n", "\n")
-            deadline = completion_re.search(req["notes"])
-            if deadline is None:
-                raise RuntimeError(
-                    "Failed to extract deadline from request by " + req["name"]
-                )
-            deadline = dateparser.parse(deadline[1]).astimezone(tz)
-            if deadline < tznow():
-                log.info(
-                    f"Skipping expired project request by {req['name']} (expired {deadline})"
-                )
-                continue
-
-            content = "**New Project Request:**\n"
-            content += req["notes"]
-            if args.notify:
-                comms.send_help_wanted(content)
-                tasks.complete(req["gid"])
-                log.info("Sent to discord & marked complete:")
-            num += 1
-            log.info(content)
-        log.info(f"Done - handled {num} project request(s)")
 
     def new_violation(self, argv):
         """Create a new Violation in Airtable"""

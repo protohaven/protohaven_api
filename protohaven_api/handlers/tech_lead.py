@@ -109,7 +109,8 @@ def tech_lead_all_status():
     time_off = [
         t
         for t in airtable.get_shop_tech_time_off()
-        if dateparser.parse(t["fields"]["Date"]).astimezone(tz) >= now
+        if t["fields"].get("Date")
+        and dateparser.parse(t["fields"]["Date"]).astimezone(tz) >= now
     ]
     time_off.sort(key=lambda t: dateparser.parse(t["fields"]["Date"]))
 

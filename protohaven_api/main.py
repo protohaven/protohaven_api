@@ -10,6 +10,7 @@ from protohaven_api.discord_bot import run as run_bot
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
 from protohaven_api.handlers.index import page as index_pages
+from protohaven_api.handlers.index import setup_sock_routes
 from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.reservations import page as reservations_pages
@@ -46,6 +47,8 @@ for p in (
     reservations_pages,
 ):
     app.register_blueprint(p)
+
+setup_sock_routes(app)
 
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
 run_discord_bot = os.getenv("DISCORD_BOT", "false").lower() == "true"
