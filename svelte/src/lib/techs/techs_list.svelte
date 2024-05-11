@@ -16,10 +16,15 @@ let coverage_missing = [];
 let calendar_view = [];
 let toast_msg = null;
 let enrolling = false;
+let tech_lead = false;
+
 function refresh() {
-  promise = get("/tech_lead/all_status").then((data) => {
+  promise = get("/techs/all_status").then((data) => {
     shift_map = {};
     area_map = {};
+
+    tech_lead = data.tech_lead;
+
     for (let t of data.techs) {
       if (!t['shift']) {
 	continue;
@@ -105,7 +110,7 @@ let show_proposed = true;
 
 function update_tech(t) {
   console.log("Update tech", t);
-  post("/tech_lead/update", t).then((rep) => {
+  post("/techs/update", t).then((rep) => {
       let msg = `${t['name']} updated`;
       toast_msg = {'color': 'success', msg, 'title': 'Edit Success'};
     });
@@ -113,7 +118,7 @@ function update_tech(t) {
 
 function set_enrollment(enroll) {
   enrolling = true;
-  post("/tech_lead/enroll", {email: new_tech_email, enroll}).then((data) => {
+  post("/techs/enroll", {email: new_tech_email, enroll}).then((data) => {
       console.log(data);
       let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
       toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
@@ -255,6 +260,7 @@ function clearance_click(id) {
     <CardTitle>Shop Techs</CardTitle>
   </CardHeader>
   <CardBody>
+  {#if tech_lead }
   <div class="d-flex">
     {#if enrolling}
       <Spinner/>
@@ -263,6 +269,7 @@ function clearance_click(id) {
     <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling}>Enroll</Button>
     <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling}>Disenroll</Button>
   </div>
+  {/if}
   <Toast class="me-1" style="position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
     <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
     <ToastBody>{toast_msg.msg}</ToastBody>
@@ -282,19 +289,21 @@ function clearance_click(id) {
     {#each p.techs as t}
       <tr>
 	<td>{t.name} ({t.email})</td>
-	<EditCell on_change={() => update_tech(t)} bind:value={t.shift}/>
-	<EditCell on_change={() => update_tech(t)} bind:value={t.area_lead}/>
-	<EditCell on_change={() => update_tech(t)} bind:value={t.interest}/>
-	<EditCell on_change={() => update_tech(t)} bind:value={t.expertise}/>
+	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
+	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
+	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
+	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>
 	<td><Button outline on:click={() => clearance_click(t.email)}>{t.clearances.length}</Button></td>
       </tr>
       <Modal body header="Clearances" isOpen={modal_open == t.email} toggle={() => clearance_click(t.email)}>
 	{#each t.clearances as c}
 	  <div>{c}</div>
 	{/each}
+	{#if tech_lead }
 	<div class="my-3">
 	  <a href="https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform" target="_blank">Submit additional clearances</a>
 	</div>
+	{/if}
       </Modal>
     {/each}
   </Table>

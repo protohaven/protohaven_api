@@ -72,6 +72,16 @@ def get_shop_tech_applicants():
     )
 
 
+def get_phone_messages():
+    """Get all uncompleted phone messages"""
+    return _tasks().get_tasks_for_project(
+        cfg["phone_messages"],
+        {
+            "opt_fields": ",".join(["completed", "name", "notes", "created_at"]),
+        },
+    )
+
+
 def get_open_purchase_requests():
     """Get purchase requests made by techs & instructors"""
 
