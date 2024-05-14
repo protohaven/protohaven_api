@@ -166,7 +166,7 @@ class Commands:
     def get_booked_resource(self, args):
         """Gets the raw data of a tool/resource in Booked scheduler"""
         t = booked.get_resource(args.id)
-        print(t)
+        return t
 
     @command(
         arg(

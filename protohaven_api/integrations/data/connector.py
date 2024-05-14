@@ -95,6 +95,7 @@ class Connector:
                     f"ReadTimeout on airtable request {args} {kwargs}, retry #{i+1}"
                 )
                 time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
+        return None
 
     def _google_form_submit_dev(self, url, params):
         """Dev handler for submitting google forms"""

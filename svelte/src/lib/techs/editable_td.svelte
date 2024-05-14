@@ -2,6 +2,7 @@
   import { Icon, Input, Button } from '@sveltestrap/sveltestrap';
 
   export let value;
+  export let enabled;
   let new_value;
   let editing = false;
   export let on_change;
@@ -35,7 +36,9 @@
 <td>
   <div class="d-flex justify-content-between">
   <div class="mx-3">{value || ''}</div>
+  {#if enabled}
   <Button class="ml-1" outline on:click={edit_start}><Icon name="pencil-square"/></Button>
+  {/if}
   </div>
 </td>
 {/if}

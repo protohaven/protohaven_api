@@ -110,8 +110,24 @@ def test_push_schedule(mocker):
 
 
 def test_gen_class_and_area_stats_last_run():
-    got, _, _ = s.gen_class_and_area_stats([
-        {'fields': {"Start Time": "2024-04-01", "Class": ["r1"], "Days (from Class)": [0]}},
-        {'fields': {"Start Time": "2024-03-01", "Class": ["r1"], "Days (from Class)": [0]}},
-    ], None, None)
-    assert got['r1'] == parse_date("2024-04-01").astimezone(tz)
+    got, _, _ = s.gen_class_and_area_stats(
+        [
+            {
+                "fields": {
+                    "Start Time": "2024-04-01",
+                    "Class": ["r1"],
+                    "Days (from Class)": [0],
+                }
+            },
+            {
+                "fields": {
+                    "Start Time": "2024-03-01",
+                    "Class": ["r1"],
+                    "Days (from Class)": [0],
+                }
+            },
+        ],
+        None,
+        None,
+    )
+    assert got["r1"] == parse_date("2024-04-01").astimezone(tz)

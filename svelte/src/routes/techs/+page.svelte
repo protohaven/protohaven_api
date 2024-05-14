@@ -1,7 +1,7 @@
 <script type="ts">
   import '../../app.scss';
   import { Spinner, Row, Card, Container, Navbar, NavbarBrand } from '@sveltestrap/sveltestrap';
-  import TechsList from '$lib/tech_lead/techs_list.svelte';
+  import TechsList from '$lib/techs/techs_list.svelte';
   import { onMount } from 'svelte';
 
   let promise = new Promise((resolve, reject) => {});
@@ -17,7 +17,7 @@
 
 
 <Navbar color="secondary-subtle">
-  <NavbarBrand>Tech Lead Dashboard</NavbarBrand>
+  <NavbarBrand>Techs Dashboard</NavbarBrand>
 </Navbar>
 
 <main>

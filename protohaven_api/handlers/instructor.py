@@ -317,11 +317,18 @@ def instructor_class_volunteer():
 @require_login_role(Role.INSTRUCTOR)
 def setup_scheduler_env():
     """Create a class scheduler environment to run"""
-    return generate_scheduler_env(
-        dateparser.parse(request.args.get("start")).astimezone(tz),
-        dateparser.parse(request.args.get("end")).astimezone(tz),
-        [request.args.get("inst")],
-    )
+    try:
+        return generate_scheduler_env(
+            dateparser.parse(request.args.get("start")).astimezone(tz),
+            dateparser.parse(request.args.get("end")).astimezone(tz),
+            [request.args.get("inst")],
+        )
+    except dateparser._parser.ParserError as e:
+        return Response(
+            "Please select valid dates, with the start date before the end date", status=400)
+    except RuntimeError as e:
+        return Response(
+            "Runtime error: " + str(e), status=400)
 
 
 @page.route("/instructor/run_scheduler", methods=["POST"])

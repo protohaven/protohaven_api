@@ -92,3 +92,36 @@ class Commands:
             "body": body,
         }
         print(yaml.dump([result], default_flow_style=False, default_style=""))
+
+    @command(
+        arg(
+            "--apply",
+            help="when true, Asana tasks are completed when comms are generated",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+    )
+    def phone_messages(self, args):
+        """Send reminders to check shop tech applicants"""
+        num = 0
+        results = []
+        for req in tasks.get_phone_messages():
+            if req["completed"]:
+                continue
+            d = dateparser.parse(req["created_at"]).strftime("%B %-d")
+            results.append(
+                {
+                    "id": "",
+                    "target": "hello@protohaven.org",
+                    "subject": f"New phone message: {req['name'].split(',')[0]} ({d})",
+                    "body": req["notes"]
+                    + "\nDetails at https://app.asana.com/0/1203963688927297/1205117134611637",
+                }
+            )
+            if args.apply:
+                tasks.complete(req["gid"])
+                log.info(f"marked complete: {req['gid']}")
+            num += 1
+        log.info(f"Found {num} open phone messages")
+
+        print(yaml.dump(results, default_flow_style=False, default_style=""))

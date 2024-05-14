@@ -221,14 +221,12 @@ class Commands:
         if days > 1:
             end += datetime.timedelta(days=days)
         name = event["fields"]["Name (from Class)"][0]
-        price = event["fields"]["Price (from Class)"]
         capacity = event["fields"]["Capacity (from Class)"][0]
         return neon.create_event(
             name,
             desc,
             start,
             end,
-            price,
             max_attendees=capacity,
             dry_run=dry_run,
         )
@@ -257,6 +255,7 @@ class Commands:
             help="Schedule items with this ID will always be acted upon (repeatable)",
             type=str,
             nargs="+",
+            default=[],
         ),
     )
     def post_classes_to_neon(self, args):
@@ -319,8 +318,11 @@ class Commands:
         for event in airtable.get_class_automation_schedule():
             cid = event["fields"]["ID"]
             start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
-            if str(cid) in args.ovr:
-                log.warning(f"Adding override class with ID {cid}")
+            if len(args.ovr) > 0:
+                if str(cid) in args.ovr:
+                    log.warning(f"Adding override class with ID {cid}")
+                else:
+                    continue # Skip if not in override list
             else:
                 if start < now:
                     log.debug(

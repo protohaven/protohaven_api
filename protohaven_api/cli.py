@@ -12,7 +12,7 @@ import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import scheduler
-from protohaven_api.commands import classes, forwarding, reservations
+from protohaven_api.commands import classes, forwarding, reservations, finances
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
 from protohaven_api.integrations.airtable import log_email
@@ -87,7 +87,7 @@ def purchase_request_alerts():
     log.info("Done")
 
 
-class ProtohavenCLI(reservations.Commands, classes.Commands, forwarding.Commands):
+class ProtohavenCLI(reservations.Commands, classes.Commands, forwarding.Commands, finances.Commands):
     """argparser-based CLI for protohaven operations"""
 
     def __init__(self):
