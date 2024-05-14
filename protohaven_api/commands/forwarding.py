@@ -108,12 +108,12 @@ class Commands:
         for req in tasks.get_phone_messages():
             if req["completed"]:
                 continue
-            d = dateparser.parse(req["created_at"])
+            d = dateparser.parse(req["created_at"]).strftime("%B %-d")
             results.append(
                 {
                     "id": "",
                     "target": "hello@protohaven.org",
-                    "subject": f"New phone message: {req['name'].split(',')[0]} ({d.strftime('%B %-d')})",
+                    "subject": f"New phone message: {req['name'].split(',')[0]} ({d})",
                     "body": req["notes"]
                     + "\nDetails at https://app.asana.com/0/1203963688927297/1205117134611637",
                 }

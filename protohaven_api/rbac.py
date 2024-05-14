@@ -21,6 +21,8 @@ def set_rbac(en):
     global enabled  # pylint: disable=global-statement
     enabled = en
 
+def is_enabled():
+    return enabled
 
 @dataclass
 class Role:

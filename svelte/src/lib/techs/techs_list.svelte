@@ -11,6 +11,7 @@ let promise = new Promise((resolve) => {});
 let new_tech_email = "";
 let shift_map = {};
 let area_map = {};
+let last_day_map = {}; // Map by name of tech
 let coverage_ok = [];
 let coverage_missing = [];
 let calendar_view = [];
@@ -26,19 +27,21 @@ function refresh() {
     tech_lead = data.tech_lead;
 
     for (let t of data.techs) {
-      if (!t['shift']) {
-	continue;
+      if (t['shift']) {
+	      for (let s of t['shift'].split(',')) {
+		s = s.trim();
+		if (!s) {
+		  continue;
+		}
+		if (!shift_map[s]) {
+		  shift_map[s] = [t['name']]
+		} else {
+		  shift_map[s].push(t['name']);
+		}
+	      }
       }
-      for (let s of t['shift'].split(',')) {
-	s = s.trim();
-	if (!s) {
-	  continue;
-	}
-	if (!shift_map[s]) {
-	  shift_map[s] = [t['name']]
-	} else {
-	  shift_map[s].push(t['name']);
-	}
+      if (t['last_day']) {
+	last_day_map[t['name']] = new Date(t['last_day']);
       }
       let a = (t['area_lead'] || '').trim();
       if (a) {
@@ -65,28 +68,33 @@ function refresh() {
     end.setDate(end.getDate() + 16);
     let i = 0;
     for (let d = new Date(now.valueOf()); d < end; d.setDate(d.getDate() + 1)) {
+      let day_view = [];
       for (let ap of ['AM', 'PM']) {
 	let weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
 	let s = `${weekday} ${ap}`;
 	let people = shift_map[s];
 	let id = `Badge${i}`;
 	i++;
+
 	let cov_shift_date = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0" + d.getDate()).slice(-2)}`;
 	for (let cov of data.time_off) {
 	  if (cov.fields.Date == cov_shift_date && cov.fields.Shift == ap) {
 	    console.log("Coverage match, ", cov);
 	    people = people.filter(e => e !== cov.fields['Rendered Shop Tech']);
 	    if (cov.fields['Rendered Covered By']) {
-	      people.push(`${cov.fields['Rendered Covered By']} (covering ${cov.fields['Rendered Shop Tech']})`);
+	      people.push(`${cov.fields['Rendered Covered By']}`);
 	    }
 	  }
 	}
+	// Remove anyone listed after their last day
+	people = new Set(people.filter(e => (last_day_map[e]) ? last_day_map[e] > d : true));
+
 	let color = 'danger';
-	if (people.length >= 3) {
+	if (people.size >= 3) {
 	  color = 'success';
-	} else if (people.length == 2) {
+	} else if (people.size == 2) {
 	  color = 'info';
-	} else if (people.length == 1) {
+	} else if (people.size == 1) {
 	  color = 'warning';
 	}
 	let wkd = [
@@ -98,8 +106,9 @@ function refresh() {
 		    'Fri',
 		    'Sat'
 		  ][d.getDay()];
-	calendar_view.push({title: `${wkd} ${d.getMonth()+1}/${d.getDate()} ${ap}`, color, people, id});
+	day_view.push({title: `${wkd} ${d.getMonth()+1}/${d.getDate()} ${ap}`, color, people, id});
       }
+      calendar_view.push(day_view);
     }
     return data;
   });
@@ -197,14 +206,20 @@ function clearance_click(id) {
     </p>
     <p>Hover over a day for details on shift coverage:</p>
   <div>
-  {#each calendar_view as cv}
-    <Badge id={cv.id} class="p-2 m-2" color={cv.color}>{cv.title}</Badge>
-    <Tooltip target={cv.id} placement="top">
-      {#each cv.people as ppl}
-	<div>{ppl}</div>
-      {/each}
-    </Tooltip>
-  {/each}
+  <Row>
+    {#each calendar_view as cv}
+    <Col class="my-4">
+	    {#each cv as v}
+	    <Badge id={v.id} class="p-2 mx-2" color={v.color}>{v.title}</Badge>
+	    <Tooltip target={v.id} placement="top">
+	      {#each v.people as ppl}
+		<div>{ppl}</div>
+	      {/each}
+	    </Tooltip>
+	    {/each}
+    </Col>
+    {/each}
+  </Row>
   </div>
   </CardBody>
 </Card>
@@ -279,6 +294,7 @@ function clearance_click(id) {
     <thead>
       <th class="mx-3">Tech</th>
       <th class="mx-3" style="width:190px;">Shift</th>
+      <th class="mx-3" style="width:220px;">Last Day</th>
       <th class="mx-3" style="min-width:190px">Area Lead</th>
       <th class="mx-3">Interest</th>
       <th class="mx-3">Expertise</th>
@@ -290,6 +306,7 @@ function clearance_click(id) {
       <tr>
 	<td>{t.name} ({t.email})</td>
 	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
+	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
 	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
 	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
 	<EditCell enabled={tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>

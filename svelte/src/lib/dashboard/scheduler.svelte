@@ -32,7 +32,7 @@
       env = data;
 
       if (data.instructors.length === 0) {
-        throw Error(`No instructor data found for interval ${start} to ${end}`);
+        throw Error(`No instructor data found for interval ${start} to ${end}.\n\nThe scheduler currently picks only times >2wks from now where you are fully available from 6-9pm weeknights, or weekends from 10am-1pm, 1pm-4pm, 2pm-5pm, or 6pm-9pm.\n\nPlease check the calendar to ensure you have availability in that range.`);
       }
 
       // Format availability and class info for display
@@ -134,53 +134,47 @@
 
     <h5>2. Check Availability</h5>
     <p>The scheduler will pick from the following times, based on your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. <strong>If you need to change times from what's listed here, first edit the calendar, then refresh this page.</strong> </p>
-    <div class="my-3">
     {#await env_promise}
       <Spinner/>
     {:then p}
-      <ListGroup>
-      {#each availability as a}
-	<ListGroupItem>{a}</ListGroupItem>
-      {/each}
-      </ListGroup>
+	      <div class="my-3">
+	      <ListGroup>
+	      {#each availability as a}
+		<ListGroupItem>{a}</ListGroupItem>
+	      {/each}
+	      </ListGroup>
+	      </div>
+
+	      <h5>3. Select Classes to Include</h5>
+	      <p><strong>Deselect any classes you do not wish to schedule.</strong></p>
+	      <div class="my-3">
+	      {#each Object.values(classes) as cls}
+		<Input type="checkbox" label={cls.name} bind:checked={cls.checked}/>
+	      {/each}
+	      </div>
+
+	    <h5>4. Generate New Proposed Classes</h5>
+	    <Button on:click={run_scheduler} disabled={running}>Run Scheduler</Button>
+
+	    <div class="my-3">
+	    {#await solve_promise}
+	      <Spinner/>
+	    {:then p}
+	      {#each p as c}
+		<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
+	      {/each}
+
+	      {#if output}
+		<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>
+	      {/if}
+	    {:catch error}
+	      <Alert color="danger">{error.message.replace("Invalid reply from server: ", "")}</Alert>
+	    {/await}
+	    </div>
+
     {:catch error}
       <Alert color="danger">{error.message}</Alert>
     {/await}
-    </div>
-
-    <h5>3. Select Classes to Include</h5>
-    <p><strong>Deselect any classes you do not wish to schedule.</strong></p>
-    <div class="my-3">
-    {#await env_promise}
-      <Spinner/>
-    {:then p}
-      {#each Object.values(classes) as cls}
-	<Input type="checkbox" label={cls.name} bind:checked={cls.checked}/>
-      {/each}
-    {:catch error}
-      <Alert color="danger">{error.message}</Alert>
-    {/await}
-    </div>
-
-    <h5>4. Generate New Proposed Classes</h5>
-
-    <Button on:click={run_scheduler} disabled={running}>Run Scheduler</Button>
-
-    <div class="my-3">
-    {#await solve_promise}
-      <Spinner/>
-    {:then p}
-      {#each p as c}
-	<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
-      {/each}
-
-      {#if output}
-    	<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>
-      {/if}
-    {:catch error}
-      <Alert color="danger">{error.message.replace("Invalid reply from server: ", "")}</Alert>
-    {/await}
-    </div>
 
     {#await save_promise}
     	<Spinner/>

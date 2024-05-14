@@ -30,6 +30,41 @@ def get_subscriptions():
         return result.body
     raise RuntimeError(result.errors)
 
+def get_subscription_plan_map():
+    """Get available subscription options, mapped by ID to type"""
+    result = client().catalog.list_catalog()
+    if result.is_success():
+        return {
+                v['id']: v['subscription_plan_variation_data']['name']
+            for v in result.body['objects'] if v['type'] == 'SUBSCRIPTION_PLAN_VARIATION' and not v['is_deleted']
+            }
+    raise RuntimeError(result.errors)
+
+
+def get_customer_name_map():
+    """Get full list of customers, mapping ID to name"""
+
+    data = {}
+    result = client().customers.list_customers()
+    while result:
+        if not result.is_success():
+            raise RuntimeError(result.errors)
+        for v in result.body['customers']:
+            given = v.get('given_name', '')
+            family = v.get('family_name', '')
+            nick = v.get('nickname')
+            email = v.get('email_address')
+            fmt = f"{given} {family}"
+            if nick:
+                fmt += f"({nick})"
+            if email: 
+                fmt += f" {email}"
+            data[v['id']] = fmt
+        if result.body.get('cursor'):
+            result = client().customers.list_customers(cursor=result.body['cursor'])
+        else:
+            return data
+    return data
 
 def get_purchases():
     """Get all purchases - usually snacks and consumables from the front store"""
@@ -50,7 +85,7 @@ def get_purchases():
         return result.body
     raise RuntimeError(result.errors)
 
-
+26
 def get_inventory():
     """Get all inventory"""
     result = (

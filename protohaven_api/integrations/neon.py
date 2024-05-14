@@ -1,4 +1,4 @@
-"# Acknowledge always overwrites the previous state" " Neon CRM integration methods" ""
+""" Neon CRM integration methods """  # pylint: disable=too-many-lines
 import datetime
 import json
 import logging
@@ -30,11 +30,13 @@ CUSTOM_FIELD_EXPERTISE = 155
 CUSTOM_FIELD_DISCORD_USER = 150
 CUSTOM_FIELD_WAIVER_ACCEPTED = 151
 CUSTOM_FIELD_SHOP_TECH_SHIFT = 152
+CUSTOM_FIELD_SHOP_TECH_LAST_DAY = 158
 CUSTOM_FIELD_AREA_LEAD = 153
 CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED = 154
 WAIVER_FMT = "version {version} on {accepted}"
 WAIVER_REGEX = r"version (.+?) on (.*)"
 URL_BASE = "https://api.neoncrm.com/v2"
+ADMIN_URL = "https://protohaven.app.neoncrm.com/np/admin"
 
 
 def fetch_published_upcoming_events(back_days=7):
@@ -200,7 +202,7 @@ def set_clearance_codes(codes):
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PUT", resp.status, content)
+    log.debug(f"PUT {resp.status} {content}")
 
 
 def set_custom_field(user_id, data):
@@ -217,7 +219,7 @@ def set_custom_field(user_id, data):
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PATCH", resp.status, content)
+    log.debug(f"PATCH {resp.status} {content}")
 
 
 def set_interest(user_id, interest: str):
@@ -262,7 +264,7 @@ def set_clearances(user_id, codes):
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PATCH", resp.status, content)
+    log.debug(f"PATCH {resp.status} {content}")
     return resp, content
 
 
@@ -394,7 +396,6 @@ def get_members_with_role(role, extra_fields):
         if content.get("searchResults") is None or content.get("pagination") is None:
             raise RuntimeError(f"Search for {role} failed: {content}")
 
-        # print(f"======= Page {cur} of {total} (size {len(content['searchResults'])}) =======")
         total = content["pagination"]["totalPages"]
         cur += 1
         data["pagination"]["currentPage"] = cur
@@ -428,7 +429,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
     def _do_login(self, user, passwd):
         csrf = self._get_csrf()
-        print("CSRF:", csrf)
+        log.debug(f"CSRF: {csrf}")
 
         # Submit login info to initial login page
         r = self.s.post(
@@ -480,7 +481,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
     ):
         # We must appear to be coming from the specific discount settings page (Event or Membership)
         referer = (
-            "https://protohaven.app.neoncrm.com/np/admin/systemsetting/"
+            f"{ADMIN_URL}/systemsetting/"
             + f"newCouponCodeDiscount.do?sellingItemType={typ}&discountType=1"
         )
         rg = self.s.get(referer)
@@ -509,20 +510,12 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             data["currentDiscount.absoluteDiscountAmount"] = amt
 
         r = self.s.post(
-            "https://protohaven.app.neoncrm.com/np/admin/systemsetting/couponCodeDiscountSave.do",
+            f"{ADMIN_URL}/systemsetting/couponCodeDiscountSave.do",
             allow_redirects=False,
             data=data,
         )
 
-        # print(r)
-        # print("Request")
-        # print(r.request.url)
-        # print(r.request.body)
-        # print(r.request.headers)
-
-        print("Response")
-        print(r.status_code)
-        print(r.headers)
+        log.debug(f"Response {r.status_code} {r.headers}")
 
         if not "discountList.do" in r.headers.get("Location", ""):
             raise RuntimeError(
@@ -532,10 +525,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         return code
 
     def get_ticket_groups(self, event_id, content=None):
+        """Gets ticket groups for an event"""
         if content is None:
-            r = self.s.get(
-                "https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id=17646"
-            )
+            r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
             soup = BeautifulSoup(r.content.decode("utf8"), features="html.parser")
         else:
             soup = BeautifulSoup(content.decode("utf8"), features="html.parser")
@@ -543,19 +535,19 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         results = {}
         for tg in ticketgroups:
             groupname = tg.find("font").text
-            m = re.search("ticketGroupId=(\d+)\&", str(tg))
-            # print(f"Group {groupname}: ID {m[1]}")
+            m = re.search(r"ticketGroupId=(\d+)\&", str(tg))
             results[groupname] = m[1]
         return results
 
     def create_ticket_group_req_(self, event_id, group_name, group_desc):
+        """Create a ticket group for an event"""
         # We must appear to be coming from the package grup creation page
-        referer = f"https://protohaven.app.neoncrm.com/np/admin/event/newPackageGroup.do?eventId={event_id}"
+        referer = f"{ADMIN_URL}/event/newPackageGroup.do?eventId={event_id}"
         rg = self.s.get(referer)
         assert rg.status_code == 200
 
         # Must set referer so the server knows which event this POST is for
-        self.s.headers.update(dict(Referer=rg.url))
+        self.s.headers.update({"Referer": rg.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -565,27 +557,30 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "ticketPackageGroup.endDate": "",
         }
         r = self.s.post(
-            "https://protohaven.app.neoncrm.com/np/admin/event/savePackageGroup.do",
+            f"{ADMIN_URL}/event/savePackageGroup.do",
             allow_redirects=True,
             data=data,
         )
         if r.status_code != 200:
-            raise Exception(f"{r.status_code}: {r.content}")
+            raise RuntimeError(f"{r.status_code}: {r.content}")
         return r
 
     def assign_condition_to_group(self, event_id, group_id, cond):
+        """Assign a membership / income condition to a ticket group"""
         # Load report setup page
-        referer = f"https://protohaven.app.neoncrm.com/np/admin/v2report/validFieldsList.do?reportId=22&searchCriteriaId=&EventTicketPackageGroupId={group_id}&eventId={event_id}"
+        referer = f"{ADMIN_URL}/v2report/validFieldsList.do"
+        referer += "?reportId=22"
+        referer += "&searchCriteriaId="
+        referer += f"&EventTicketPackageGroupId={group_id}&eventId={event_id}"
         ag = self.s.get(referer)
         content = ag.content.decode("utf8")
 
         if "All Accounts Report" not in content:
-            raise Exception("Bad GET report setup page:", content)
+            raise RuntimeError("Bad GET report setup page:", content)
 
         # Submit report / condition
         # Must set referer so the server knows which event this POST is for
-        self.s.headers.update(dict(Referer=ag.url))
-        # print("Referer set:", referer)
+        self.s.headers.update({"Referer": ag.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -613,54 +608,50 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "savedColumnToDefault": "",
             "comeFrom": None,
         }
-        # print("Submit report/condition, data")
-        # print(data)
         r = self.s.post(
-            "https://protohaven.app.neoncrm.com/np/admin/report/reportFilterEdit.do",
+            f"{ADMIN_URL}/report/reportFilterEdit.do",
             allow_redirects=False,
             data=data,
         )
-        # print("Request:\n", r.request.body)
         if r.status_code != 302:
-            raise Exception(
+            raise RuntimeError(
                 "Report filter edit failed; expected code 302 FOUND, got "
                 + str(r.status_code)
             )
-        # print(r.status_code, "\n", r.content.decode("utf8"))
 
         # Do initial report execution
-        self.s.headers.update(dict(Referer=r.url))
-        # print("Referer set for report execution:", r.url)
+        self.s.headers.update({"Referer": r.url})
         r = self.s.get(
-            "https://protohaven.app.neoncrm.com/np/admin/report/searchCriteriaSearch.do?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null"
+            f"{ADMIN_URL}/report/searchCriteriaSearch.do"
+            "?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null"
         )
         content = r.content.decode("utf8")
         if "Return to Event Detail Page" not in content:
-            raise Exception("Bad GET report setup page:", content)
+            raise RuntimeError("Bad GET report setup page:", content)
 
         # Set the search details
-        self.s.headers.update(dict(Referer=r.url))
-        # print("Referer set for condition saving:", r.url)
+        self.s.headers.update({"Referer": r.url})
         r = self.s.get(
-            f"https://protohaven.app.neoncrm.com/np/admin/systemsetting/eventTicketGroupConditionSave.do?ticketGroupId={group_id}",
+            f"{ADMIN_URL}/systemsetting/eventTicketGroupConditionSave.do?ticketGroupId={group_id}",
             allow_redirects=False,
         )
         if r.status_code != 302:
-            # print(r.content.decode("utf8"))
-            raise Exception(f"{r.status_code}: {r.content}")
+            raise RuntimeError(f"{r.status_code}: {r.content}")
         return True
 
-    def assign_price_to_group(self, event_id, group_id, price_name, amt, capacity):
-        referer = f"https://protohaven.app.neoncrm.com/np/admin/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
+    def assign_price_to_group(
+        self, event_id, group_id, price_name, amt, capacity
+    ):  # pylint: disable=too-many-arguments
+        """Assigns a specific price to a Neon ticket group"""
+        referer = f"{ADMIN_URL}/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
         ag = self.s.get(referer)
         content = ag.content.decode("utf8")
         if "Event Price" not in content:
-            raise Exception("BAD get group price creation page")
+            raise RuntimeError("BAD get group price creation page")
 
         # Submit report / condition
         # Must set referer so the server knows which event this POST is for
-        # print("Setting referer:", ag.url)
-        self.s.headers.update(dict(Referer=ag.url))
+        self.s.headers.update({"Referer": ag.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -678,94 +669,98 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "save": " Submit ",
         }
         r = self.s.post(
-            "https://protohaven.app.neoncrm.com/np/admin/event/savePackage.do",
+            f"{ADMIN_URL}/event/savePackage.do",
             allow_redirects=False,
             data=data,
         )
         if r.status_code != 302:
-            raise Exception(
+            raise RuntimeError(
                 "Price creation failed; expected code 302 FOUND, got "
                 + str(r.status_code)
             )
         return True
 
     def upsert_ticket_group(self, event_id, group_name, group_desc):
+        """Adds the ticket group to an event, if not already exists"""
         if group_name.lower() == "default":
             return "default"
         groups = self.get_ticket_groups(event_id)
-        if group_name not in groups.keys():
-            print("Group does not yet exist; creating")
+        if group_name not in groups:
+            log.debug("Group does not yet exist; creating")
             r = self.create_ticket_group_req_(event_id, group_name, group_desc)
             groups = self.get_ticket_groups(event_id, r.content)
-        assert group_name in groups.keys()
+        assert group_name in groups
         group_id = groups[group_name]
         return group_id
 
     def delete_all_prices_and_groups(self, event_id):
+        """Deletes prices and groups belonging to a neon event"""
         assert event_id != "" and event_id is not None
 
-        r = self.s.get(
-            f"https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id={event_id}"
-        )
+        r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
         content = r.content.decode("utf8")
         deletable_packages = list(
             set(re.findall(r"deletePackage\.do\?eventId=\d+\&id=(\d+)", content))
         )
         deletable_packages.sort()
-        print(deletable_packages)
+        log.debug(deletable_packages)
         groups = set(re.findall(r"ticketGroupId=(\d+)", content))
-        print(groups)
+        log.debug(groups)
 
         for pkg_id in deletable_packages:
-            print("Delete pricing", pkg_id)
+            log.debug("Delete pricing", pkg_id)
             self.s.get(
-                f"https://protohaven.app.neoncrm.com/np/admin/event/deletePackage.do?eventId={event_id}&id={pkg_id}"
+                f"{ADMIN_URL}/event/deletePackage.do?eventId={event_id}&id={pkg_id}"
             )
 
         for group_id in groups:
-            print("Delete group", group_id)
+            log.debug("Delete group", group_id)
             self.s.get(
-                f"https://protohaven.app.neoncrm.com/np/admin/event/deletePackageGroup.do?ticketGroupId={group_id}&eventId={event_id}"
+                f"{ADMIN_URL}/event/deletePackageGroup.do"
+                f"?ticketGroupId={group_id}&eventId={event_id}"
             )
 
         # Re-run first price deletion as it's probably a default price that must exist if there are conditional pricing applied
         if len(deletable_packages) > 0:
-            print("Re-delete pricing", deletable_packages[0])
+            log.debug("Re-delete pricing", deletable_packages[0])
             self.s.get(
-                f"https://protohaven.app.neoncrm.com/np/admin/event/deletePackage.do?eventId={event_id}&id={deletable_packages[0]}"
+                f"{ADMIN_URL}/event/deletePackage.do"
+                f"?eventId={event_id}&id={deletable_packages[0]}"
             )
 
     def set_thumbnail(self, event_id, thumbnail_path):
-        r = self.s.get(
-            f"https://protohaven.app.neoncrm.com/np/admin/event/eventDetails.do?id={event_id}"
-        )
+        """Sets the thumbnail image for a neon event"""
+        r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
         content = r.content.decode("utf8")
         if "Upload Thumbnail" not in content:
-            print(content)
-            raise Exception("BAD get event page")
+            log.debug(content)
+            raise RuntimeError("BAD get event page")
 
-        referer = f"https://protohaven.app.neoncrm.com/np/admin/event/uploadPhoto.do?eventId={event_id}&staffUpload=true"
+        referer = (
+            f"{ADMIN_URL}/event/uploadPhoto.do?eventId={event_id}&staffUpload=true"
+        )
         ag = self.s.get(referer)
         content = ag.content.decode("utf8")
         if "Event Photo" not in content:
-            raise Exception("BAD get event photo upload page")
+            raise RuntimeError("BAD get event photo upload page")
 
-        self.s.headers.update(dict(Referer=ag.url))
+        self.s.headers.update({"Referer": ag.url})
         drt_i = self.drt.get()
-        multipart_form_data = {
-            "z2DuplicateRequestToken": (None, 1),  # str(drt_i)
-            "eventImageForm": (thumbnail_path, open(thumbnail_path, "rb")),
-        }
-        rep = self.s.post(
-            "https://protohaven.app.neoncrm.com/np/admin/event/photoSave.do",
-            files=multipart_form_data,
-            allow_redirects=False,
-        )
-        print(rep.request.headers)
-        print(rep.request.body)
-        print("=========Response:========")
-        print(rep.status_code)
-        print(rep.content.decode("utf8"))
+        with open(thumbnail_path, "rb") as fh:
+            multipart_form_data = {
+                "z2DuplicateRequestToken": (None, drt_i),
+                "eventImageForm": (thumbnail_path, fh),
+            }
+            rep = self.s.post(
+                f"{ADMIN_URL}/event/photoSave.do",
+                files=multipart_form_data,
+                allow_redirects=False,
+            )
+        log.debug(rep.request.headers)
+        log.debug(rep.request.body)
+        log.debug("=========Response:========")
+        log.debug(rep.status_code)
+        log.debug(rep.content.decode("utf8"))
         return rep
 
 
@@ -790,16 +785,15 @@ def set_event_scheduled_state(neon_id, scheduled=True):
     return content["id"]
 
 
-def create_event(
+def create_event(  # pylint: disable=too-many-arguments
     name,
     desc,
     start,
     end,
-    price,
     max_attendees=6,
     dry_run=True,
-    archived=False,
 ):
+    """Creates a new event in Neon CRM"""
     event = {
         "name": name,
         "summary": name,
@@ -807,7 +801,7 @@ def create_event(
         "category": {"id": "15"},  # "Project-Based Workshop"
         "publishEvent": True,
         "enableEventRegistrationForm": True,
-        "archived": archived,
+        "archived": False,
         "enableWaitListing": False,
         "createAccountsforAttendees": True,
         "eventDescription": desc,
@@ -845,12 +839,12 @@ def create_event(
     }
 
     if dry_run:
-        log.warn(
-            f"DRY RUN {event['eventDates']['startDate']} {event['eventDates']['startTime']} {event['name']} (archived={event['archived']})"
+        log.warning(
+            f"DRY RUN {event['eventDates']['startDate']} {event['eventDates']['startTime']} {event['name']}"
         )
-        return
+        return None
 
-    resp, content = get_connector().neon_request(
+    _, content = get_connector().neon_request(
         cfg("api_key3"),
         f"{URL_BASE}/events",
         "POST",
@@ -880,7 +874,6 @@ def _patch_role(account, role, enabled):
     ]
     for cf in acf:
         if str(cf["id"]) == str(CUSTOM_FIELD_API_SERVER_ROLE):
-            # print("Editing API server role - current value", cf['optionValues'])
             vals = {v["id"]: v["name"] for v in cf["optionValues"]}
             if enabled:
                 vals[role["id"]] = role["name"]
@@ -896,10 +889,10 @@ def patch_member_role(email, role, enabled):
     if not mem:
         raise KeyError()
     user_id = mem["Account ID"]
-    print("patching account")
+    log.debug("patching account")
     account = fetch_account(mem["Account ID"])
     roles = _patch_role(account, role, enabled)
-    print(roles)
+    log.debug(str(roles))
     data = {
         "accountCustomFields": [
             {"id": CUSTOM_FIELD_API_SERVER_ROLE, "optionValues": roles}
@@ -922,22 +915,24 @@ def patch_member_role(email, role, enabled):
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PATCH", resp.status, content)
+    log.debug(f"PATCH {resp.status} {content}")
     return resp, content
 
 
 def set_tech_custom_fields(
-    user_id, shift=None, area_lead=None, interest=None, expertise=None
+    user_id, shift=None, last_day=None, area_lead=None, interest=None, expertise=None
 ):
     """Overwrites existing waiver status information on an account"""
     cf = []
-    if shift:
+    if shift is not None:
         cf.append({"id": CUSTOM_FIELD_SHOP_TECH_SHIFT, "value": shift})
-    if area_lead:
+    if last_day is not None:
+        cf.append({"id": CUSTOM_FIELD_SHOP_TECH_LAST_DAY, "value": last_day})
+    if area_lead is not None:
         cf.append({"id": CUSTOM_FIELD_AREA_LEAD, "value": area_lead})
-    if interest:
+    if interest is not None:
         cf.append({"id": CUSTOM_FIELD_INTEREST, "value": interest})
-    if expertise:
+    if expertise is not None:
         cf.append({"id": CUSTOM_FIELD_EXPERTISE, "value": interest})
     data = {"accountCustomFields": cf}
     # Need to confirm whether the user is an individual or company account
@@ -957,7 +952,7 @@ def set_tech_custom_fields(
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PATCH", resp.status, content)
+    log.debug(f"PATCH {resp.status} {content}")
     return resp, content
 
 
@@ -988,7 +983,7 @@ def _set_custom_singleton_fields(user_id, field_id_to_value_map):
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PATCH", resp.status, content)
+    log.debug(f"PATCH {resp.status} {content}")
     return resp, content
 
 
@@ -1018,7 +1013,7 @@ def set_waiver_status(user_id, new_status):
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    print("PATCH", resp.status, content)
+    log.debug(f"PATCH {resp.status} {content}")
     return resp, content
 
 
@@ -1054,9 +1049,9 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
         new_status = WAIVER_FMT.format(
             version=current_version, accepted=now.strftime("%Y-%m-%d")
         )
-        print("Calling", set_waiver_status)
+        log.debug("Calling", set_waiver_status)
         set_waiver_status(user_id, new_status)
-        print("Called set_waiver_status")
+        log.debug("Called set_waiver_status")
         return True
 
     # Precondition: ack = false
@@ -1066,7 +1061,7 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
     if waiver_status is not None:
         match = re.match(WAIVER_REGEX, waiver_status)
         if match is not None:
-            print(match)
+            log.debug(str(match))
             last_version = match[1]
             last_signed = dateparser.parse(match[2]).astimezone(tz)
     if last_version is None:
@@ -1078,6 +1073,7 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
 
 
 def income_condition(income_name, income_value):
+    """Generates an "income condition" for making specific pricing of tickets available"""
     return [
         [
             {
@@ -1095,6 +1091,7 @@ def income_condition(income_name, income_value):
 
 
 def membership_condition(mem_names, mem_values):
+    """Generates a "membership condition" for making specific ticket prices available"""
     stvals = [f"'{v}'" for v in mem_values]
     stvals = f"({','.join(stvals)})"
     return [
@@ -1114,41 +1111,41 @@ def membership_condition(mem_names, mem_values):
 
 
 pricing = [
-    dict(
-        name="default",
-        desc="",
-        price_ratio=1.0,
-        qty_ratio=1.0,
-        price_name="Single Registration",
-    ),
-    dict(
-        name="ELI - Price",
-        desc="70% Off",
-        cond=income_condition("Extremely Low Income - 70%", 43),
-        price_ratio=0.3,
-        qty_ratio=0.25,
-        price_name="AMP Rate",
-    ),
-    dict(
-        name="VLI - Price",
-        desc="50% Off",
-        cond=income_condition("Very Low Income - 50%", 42),
-        price_ratio=0.5,
-        qty_ratio=0.25,
-        price_name="AMP Rate",
-    ),
-    dict(
-        name="LI - Price",
-        desc="20% Off",
-        cond=income_condition("Low Income - 20%", 41),
-        price_ratio=0.8,
-        qty_ratio=0.5,
-        price_name="AMP Rate",
-    ),
-    dict(
-        name="Member Discount",
-        desc="20% Off",
-        cond=membership_condition(
+    {
+        "name": "default",
+        "desc": "",
+        "price_ratio": 1.0,
+        "qty_ratio": 1.0,
+        "price_name": "Single Registration",
+    },
+    {
+        "name": "ELI - Price",
+        "desc": "70% Of",
+        "cond": income_condition("Extremely Low Income - 70%", 43),
+        "price_ratio": 0.3,
+        "qty_ratio": 0.25,
+        "price_name": "AMP Rate",
+    },
+    {
+        "name": "VLI - Price",
+        "desc": "50% Of",
+        "cond": income_condition("Very Low Income - 50%", 42),
+        "price_ratio": 0.5,
+        "qty_ratio": 0.25,
+        "price_name": "AMP Rate",
+    },
+    {
+        "name": "LI - Price",
+        "desc": "20% Of",
+        "cond": income_condition("Low Income - 20%", 41),
+        "price_ratio": 0.8,
+        "qty_ratio": 0.5,
+        "price_name": "AMP Rate",
+    },
+    {
+        "name": "Member Discount",
+        "desc": "20% Of",
+        "cond": membership_condition(
             [
                 "General+Membership",
                 "Primary+Family+Membership",
@@ -1156,22 +1153,23 @@ pricing = [
             ],
             [1, 27, 26],
         ),
-        price_ratio=0.8,
-        qty_ratio=1.0,
-        price_name="Member Rate",
-    ),
-    dict(
-        name="Instructor Discount",
-        desc="50% Off",
-        cond=membership_condition(["Instructor"], [9]),
-        price_ratio=0.5,
-        qty_ratio=1.0,
-        price_name="Instructor Rate",
-    ),
+        "price_ratio": 0.8,
+        "qty_ratio": 1.0,
+        "price_name": "Member Rate",
+    },
+    {
+        "name": "Instructor Discount",
+        "desc": "50% Of",
+        "cond": membership_condition(["Instructor"], [9]),
+        "price_ratio": 0.5,
+        "qty_ratio": 1.0,
+        "price_name": "Instructor Rate",
+    },
 ]
 
 
 def assign_pricing(event_id, price, seats, clear_existing=False, n=None):
+    """Assigns ticket pricing and quantities for a preexisting Neon event"""
     if n is None:
         n = NeonOne(cfg("login_user"), cfg("login_pass"))
 
@@ -1179,11 +1177,10 @@ def assign_pricing(event_id, price, seats, clear_existing=False, n=None):
         n.delete_all_prices_and_groups(event_id)
 
     for p in pricing:
-        print("Assign pricing:", p["name"])
+        log.debug(f"Assign pricing: {p['name']}")
         group_id = n.upsert_ticket_group(
             event_id, group_name=p["name"], group_desc=p["desc"]
         )
-        # print("Upsert", p['name'], "id", group_id)
         if p.get("cond", None) is not None:
             n.assign_condition_to_group(event_id, group_id, p["cond"])
         n.assign_price_to_group(

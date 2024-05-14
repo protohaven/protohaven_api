@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, redirect, request
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
-from protohaven_api.rbac import Role, get_roles, require_login_role
+from protohaven_api.rbac import Role, is_enabled as is_rbac_enabled, get_roles, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
 
@@ -41,6 +41,7 @@ def _fetch_techs_list():
             neon.CUSTOM_FIELD_EXPERTISE,
             neon.CUSTOM_FIELD_AREA_LEAD,
             neon.CUSTOM_FIELD_SHOP_TECH_SHIFT,
+            neon.CUSTOM_FIELD_SHOP_TECH_LAST_DAY,
         ],
     ):
         clr = []
@@ -50,6 +51,7 @@ def _fetch_techs_list():
         expertise = t.get("Expertise", "")
         area_lead = t.get("Area Lead", "")
         shift = t.get("Shop Tech Shift", "")
+        last_day = t.get("Shop Tech Last Day", "")
         print(t)
         techs.append(
             {
@@ -60,6 +62,7 @@ def _fetch_techs_list():
                 "expertise": expertise,
                 "area_lead": area_lead,
                 "shift": shift,
+                "last_day": last_day,
                 "clearances": clr,
             }
         )
@@ -121,7 +124,7 @@ def techs_all_status():
 
     tool_states, areas = _fetch_tool_states_and_areas(now)
     roles = get_roles()
-    tech_lead = roles is not None and Role.SHOP_TECH_LEAD in roles
+    tech_lead = not is_rbac_enabled() or (roles is not None and Role.SHOP_TECH_LEAD in roles)
     return {
         "tech_lead": tech_lead,
         "techs": techs,
@@ -140,7 +143,7 @@ def tech_update():
     body = {
         k: v
         for k, v in data.items()
-        if k in ("shift", "area_lead", "interest", "expertise")
+        if k in ("shift", "area_lead", "interest", "expertise", "last_day")
     }
     rep, content = neon.set_tech_custom_fields(nid, **body)
     assert rep.status == 200

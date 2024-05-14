@@ -15,7 +15,7 @@ from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.reservations import page as reservations_pages
 from protohaven_api.handlers.shop_tech import page as shop_tech_pages
-from protohaven_api.handlers.tech_lead import page as tech_lead_pages
+from protohaven_api.handlers.techs import page as techs_pages 
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.rbac import set_rbac
 
@@ -43,7 +43,7 @@ for p in (
     instructor_pages,
     onboarding_pages,
     shop_tech_pages,
-    tech_lead_pages,
+    techs_pages,
     reservations_pages,
 ):
     app.register_blueprint(p)
