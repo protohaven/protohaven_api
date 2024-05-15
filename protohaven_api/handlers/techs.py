@@ -124,7 +124,8 @@ def techs_all_status():
 
     tool_states, areas = _fetch_tool_states_and_areas(now)
     roles = get_roles()
-    tech_lead = not is_rbac_enabled() or (roles is not None and Role.SHOP_TECH_LEAD in roles)
+    print(roles)
+    tech_lead = (not is_rbac_enabled()) or (roles is not None and Role.SHOP_TECH_LEAD['name'] in roles)
     return {
         "tech_lead": tech_lead,
         "techs": techs,

@@ -84,7 +84,7 @@ def welcome_sock(ws):
         ws.send(json.dumps({"msg": msg, "pct": pct}))
 
     if data["person"] == "member":
-        _send("Searching member database...", 30)
+        _send("Searching member database...", 40)
         m = neon.search_member(data["email"])
         if not m:
             result["notfound"] = True
@@ -105,7 +105,7 @@ def welcome_sock(ws):
             ]
             if result["status"] == "Active":
                 roles.append("Member")
-            _send("Fetching announcements...", 50)
+            _send("Fetching announcements...", 55)
             result["announcements"] = airtable.get_announcements_after(
                 last_announcement_ack, roles
             )
@@ -157,8 +157,7 @@ def welcome_sock(ws):
         }
         _send("Logging sign-in...", 95)
         rep = submit_google_form("signin", form_data)
-        print(rep.request.url)
-        print("Google form submitted, response", rep)
+        log.info("Google form submitted, response", rep)
 
     ws.send(json.dumps(result))
     return result
