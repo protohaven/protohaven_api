@@ -1,7 +1,7 @@
 <script type="ts">
   import '../app.scss';
   import { onMount } from 'svelte';
-  import {get, post} from '$lib/api.ts';
+  import {get, post, open_ws} from '$lib/api.ts';
   import { Row, Card, Container } from '@sveltestrap/sveltestrap';
   import Splash from '$lib/splash.svelte';
   import SigninOk from '$lib/signin_ok.svelte';
@@ -36,7 +36,7 @@
 
   function do_post() {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket("ws://localhost:5000/welcome/ws");
+      const socket = open_ws("/welcome/ws")
       socket.addEventListener("open", (event) => {
         socket.send(JSON.stringify({email, person, waiver_ack, dependent_info, referrer}));
       });
