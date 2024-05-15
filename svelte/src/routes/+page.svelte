@@ -34,22 +34,28 @@
     return await submit();
   }
 
-  function do_post() {
+  function do_post(silent=false) {
+    // We capture the data at the time of invocation to prevent data from getting cleared asynchronously
+    let capture = JSON.stringify({email, person, waiver_ack, dependent_info, referrer});
     return new Promise((resolve, reject) => {
       const socket = open_ws("/welcome/ws")
       socket.addEventListener("open", (event) => {
-        socket.send(JSON.stringify({email, person, waiver_ack, dependent_info, referrer}));
+        socket.send(capture);
       });
-      socket.addEventListener("message", (event) => {
-        let data = JSON.parse(event.data);
-	console.log(data);
-	if (data.pct !== undefined) {
-	  progress = data;
-	} else {
-	  progress = null;
-	  resolve(data);
+      if (silent) {
+      	resolve(null);
+      } else {
+	      socket.addEventListener("message", (event) => {
+		let data = JSON.parse(event.data);
+		console.log(data);
+		if (data.pct !== undefined) {
+		  progress = data;
+		} else {
+		  progress = null;
+		  resolve(data);
+		}
+	      });
 	}
-      });
     });
   }
 
@@ -73,7 +79,7 @@
     }
     // We fire the guest registration off into the void and move on
     if (person == 'guest') {
-      do_post();
+      do_post(false); // Silently
     }
     if (person !== 'guest' && announcements) { // Acknowledge announcements
       post('/welcome/announcement_ack', {email});
