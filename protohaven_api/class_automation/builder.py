@@ -334,6 +334,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             sched = sched["fields"]
             evt["instructor_email"] = sched["Email"]
             evt["instructor_firstname"] = sched["Instructor"].split()[0]
+            evt["supply_cost"] = sched["Supply Cost (from Class)"][0]
         else:
             sched = {}
         evt["volunteer_instructor"] = sched.get("Volunteer") or (

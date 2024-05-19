@@ -61,8 +61,9 @@ class Commands:
         #     body += f"\n{len(untaxed)} subscriptions active but do not have 7% sales tax:\n"
         #     body += "\n".join(untaxed)
 
+        result = []
         if body != []:
-            result = [{"id": None, "subject": "Square Validation", "body": body, "target": "#finance-committee"}]
+            result = [{"id": None, "subject": "Square Validation", "body": body, "target": "#finance-automation"}]
 
         print(yaml.dump(result, default_flow_style=False, default_style=""))
         log.info("Done")

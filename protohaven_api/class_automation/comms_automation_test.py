@@ -27,6 +27,14 @@ def test_techs_openings():
                     "name": "Test Class",
                     "capacity": 6,
                     "signups": 2,
+                    "supply_cost": 5,
+                },
+                {
+                    "id": 5678,
+                    "python_date": parse_date("2024-02-03 6:00PM"),
+                    "name": "Test Class No Supply",
+                    "capacity": 6,
+                    "signups": 2,
                 },
             ]
         }

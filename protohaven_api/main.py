@@ -20,6 +20,7 @@ from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.rbac import set_rbac
 
 log = logging.getLogger("main")
+logging.basicConfig(level=logging.DEBUG) # TODO better
 app = Flask(__name__)
 if os.getenv("CORS", "false").lower() == "true":
     log.warning("CORS enabled - this should be done in dev environments only")

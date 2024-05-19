@@ -52,7 +52,6 @@ def _fetch_techs_list():
         area_lead = t.get("Area Lead", "")
         shift = t.get("Shop Tech Shift", "")
         last_day = t.get("Shop Tech Last Day", "")
-        print(t)
         techs.append(
             {
                 "id": t["Account ID"],
@@ -90,7 +89,6 @@ def _fetch_tool_states_and_areas(now):
         ):
             areas.add(area[0].strip())
         status = t["fields"].get("Current Status", "Unknown")
-        print(t["fields"])
         modified = t["fields"].get("Status last modified")
         if modified:
             modified = (now - dateparser.parse(modified)).days
@@ -104,16 +102,64 @@ def _fetch_tool_states_and_areas(now):
         )
     for k, vv in tool_states.items():
         vv.sort(key=lambda k: k["modified"], reverse=True)
-    tool_states = {k: v[:10] for k, v in tool_states.items()}  # Truncate for display
     return tool_states, areas
 
 
-@page.route("/techs/all_status")
-def techs_all_status():
-    """Fetches shift info, tech info, all the info!"""
-    techs = _fetch_techs_list()
+@page.route("/techs/tool_state")
+def techs_tool_state():
+    """Fetches info on current state of tools"""
+    tool_states, _ = _fetch_tool_states_and_areas(tznow())
+    return tool_states
 
-    now = tznow().replace(hour=0, minute=0, second=0) - datetime.timedelta(days=1)
+def _get_shift_map():
+    techs = _fetch_techs_list()
+    shift_map = defaultdict(list)
+    for t in techs:
+        if not t.get('shift'):
+            continue
+        for s in t.get('shift').split(','):
+            s = s.strip()
+            shift_map[s].append(t['name'])
+    return dict(shift_map)
+
+@page.route("/techs/shifts")
+def techs_shifts():
+    """Fetches shift information for all techs"""
+    return _get_shift_map()
+
+@page.route("/techs/area_leads")
+def techs_area_leads():
+    """Fetches the mapping of areas to area leads"""
+    _, areas = _fetch_tool_states_and_areas(tznow())
+    techs = _fetch_techs_list()
+    area_map = {a: [] for a in areas}
+    for t in techs:
+        if not t.get('area_lead'):
+            continue
+        for a in t.get('area_lead').split(','):
+            a = a.strip()
+            if a not in area_map:
+                log.warning(f"Tech {t['name']} is area lead of invalid area {a}")
+            else:
+                area_map[a].append(t['name'])
+    return area_map
+
+def _calendar_badge_color(num_people):
+    if num_people >= 3:
+        return 'success'
+    elif num_people == 2:
+        return 'info'
+    elif num_people == 1:
+        return 'warning'
+    return 'danger'
+
+FORECAST_LEN = 16
+@page.route("/techs/forecast")
+def techs_forecast():
+    last_day_map = {t['name']:dateparser.parse(t['last_day']).astimezone(tz) for t in _fetch_techs_list() if t.get('last_day') is not None}
+    shift_map = _get_shift_map()
+
+    now = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
     time_off = [
         t
         for t in airtable.get_shop_tech_time_off()
@@ -122,16 +168,43 @@ def techs_all_status():
     ]
     time_off.sort(key=lambda t: dateparser.parse(t["fields"]["Date"]))
 
-    tool_states, areas = _fetch_tool_states_and_areas(now)
+    coverage_missing = []
+    coverage_ok = []
+    for cov in time_off:
+        if cov['fields'].get('Covered By', None) is not None:
+            coverage_ok.append(cov)
+        else:
+            coverage_missing.append(cov)
+
+    calendar_view = []
+    for i in range(FORECAST_LEN):
+        day_view = []
+        d = now + datetime.timedelta(days=i)
+        for ap in ['AM', 'PM']:
+            s = f"{d.strftime('%A')} {ap}"
+            people = shift_map[s]
+            id = f"Badge{i}"
+            for cov in time_off:
+                if cov['fields']['Date'] == d.strftime("%Y-%m-%d") and cov['fields']['Shift'] == ap:
+                    print("Coverage match", cov)
+                    people = [p for p in people if p != cov['fields']['Rendered Shop Tech']]
+                    if cov['fields'].get('Rendered Covered By'):
+                        people.append(cov['fields']['Rendered Covered By'])
+            people = [p for p in people if last_day_map.get(p, d) >= d] # Remove after last day
+
+            day_view.append({'title': f"{d.strftime('%a %m/%d')} {ap}", 'color': _calendar_badge_color(len(people)), 'people': people, 'id': id})
+        calendar_view.append(day_view)
+    return {'calendar_view': calendar_view, 'coverage_missing': coverage_missing, 'coverage_ok': coverage_ok}
+
+@page.route("/techs/list")
+def techs_list():
+    """Fetches tech info and lead status of observer"""
+    techs = _fetch_techs_list()
     roles = get_roles()
-    print(roles)
     tech_lead = (not is_rbac_enabled()) or (roles is not None and Role.SHOP_TECH_LEAD['name'] in roles)
     return {
         "tech_lead": tech_lead,
         "techs": techs,
-        "time_off": time_off,
-        "tool_states": tool_states,
-        "areas": list(areas),
     }
 
 

@@ -166,9 +166,9 @@ def generate_env(
     for k, v in sched_formatted.items():
         k = k.lower()
         if instructor_filter is not None and k not in instructor_filter:
-            log.info(f"Skipping instructor {k} (not in filter)")
+            log.debug(f"Skipping instructor {k} (not in filter)")
             continue
-        log.info(f"Handling {k}")
+        log.debug(f"Handling {k}")
         caps = instructor_caps.get(k, [])
         if len(instructor_caps[k]) == 0:
             log.warning(
@@ -221,11 +221,15 @@ def generate_env(
 
     # Regardless of capabilities, the class must also be set as schedulable
     class_ids = {c.airtable_id for c in classes}
+    all_caps = set()
     for i in instructors:
         i.caps = [c for c in i.caps if c in class_ids]
+        log.info(f"Adding caps {i.caps}")
+        all_caps = all_caps.union(i.caps)
 
+    log.info(f"All capabilities: {all_caps}")
     return {
-        "classes": [c.as_dict() for c in classes],
+        "classes": [c.as_dict() for c in classes if c.airtable_id in all_caps],
         "instructors": [i.as_dict() for i in instructors],
         "area_occupancy": dict(
             area_occupancy.items()
