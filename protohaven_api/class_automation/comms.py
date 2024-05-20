@@ -21,6 +21,7 @@ def techs_openings(events):
                 "start": evt["python_date"].strftime("%B %-d, %-I%p"),
                 "name": evt["name"],
                 "avail": evt["capacity"] - evt["signups"],
+                "supply_cost": evt.get("supply_cost", 0),
             }
         )
     subject = "**New classes for tech backfill:**"

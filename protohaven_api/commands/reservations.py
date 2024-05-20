@@ -1,9 +1,7 @@
 """Commands related to reserving equipment and the Booked reservation system"""
 import argparse
 import datetime
-import functools
 import logging
-from collections import defaultdict
 
 from dateutil import parser as dateparser
 
@@ -15,6 +13,7 @@ log = logging.getLogger("cli.reservation")
 
 
 def reservation_dict(areas, name, start, days, hours):
+    """Convert params into a 'reservation dict' used to reserve resources at particular intervals"""
     start = dateparser.parse(start).astimezone(tz)
     intervals = []
     for d in range(days):
@@ -93,7 +92,8 @@ class Commands:
         # Resolve areas from class ID. We track the area name and not
         # record ID since we're operating on a synced copy of the areas when
         # we go to look up tools and equipment
-        args_cls = [int(c) for c in args_cls.split(",")]
+        args_cls = [int(c) for c in args.cls.split(",")]
+        results = {}
         for cls in airtable.get_class_automation_schedule():
             cid = cls["fields"]["ID"]
             if cid not in args_cls:
@@ -106,11 +106,12 @@ class Commands:
                 cls["fields"]["Hours (from Class)"][0],
             )
         log.info(f"Resolved {len(results)} classes to areas")
-        self.reserve_equipment_for_class_internal(results, apply)
+        self.reserve_equipment_for_class_internal(results, args.apply)
         log.info("Done")
 
     def reserve_equipment_for_class_internal(self, results, apply):
-        """Internal version of the same method, for use by post_classes_to_neon command in commands/classes.py"""
+        """Internal version of the same method, for use by post_classes_to_neon
+        command in commands/classes.py"""
         # Convert areas to booked IDs using tool table
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
             for cid in results:

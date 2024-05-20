@@ -9,14 +9,16 @@ import sys
 from collections import defaultdict
 
 import yaml
-from dateutil import parser as dateparser
 
-from protohaven_api.class_automation import scheduler
-from protohaven_api.commands import classes, forwarding, reservations, finances
-from protohaven_api.config import get_config, tz, tznow
-from protohaven_api.integrations import airtable, comms, neon, sheets, tasks
-from protohaven_api.integrations.airtable import log_email
-from protohaven_api.integrations.comms import send_discord_message, send_email
+from protohaven_api.commands import (
+    classes,
+    development,
+    finances,
+    forwarding,
+    reservations,
+)
+from protohaven_api.config import get_config, tznow
+from protohaven_api.integrations import airtable, comms, neon, tasks
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.maintenance import manager
 from protohaven_api.policy_enforcement import enforcer
@@ -87,7 +89,13 @@ def purchase_request_alerts():
     log.info("Done")
 
 
-class ProtohavenCLI(reservations.Commands, classes.Commands, forwarding.Commands, finances.Commands):
+class ProtohavenCLI(
+    reservations.Commands,
+    classes.Commands,
+    forwarding.Commands,
+    finances.Commands,
+    development.Commands,
+):
     """argparser-based CLI for protohaven operations"""
 
     def __init__(self):
@@ -320,47 +328,6 @@ class ProtohavenCLI(reservations.Commands, classes.Commands, forwarding.Commands
         """Match clearances in spreadsheet with clearances in Neon.
         Remove this when clearance information is primarily stored in Neon."""
         raise NotImplementedError("TODO implement")
-
-    def mock_data(self, argv):
-        """Fetch mock data from airtable, neon etc.
-        Write this to a file for running without touching production data"""
-        parser = argparse.ArgumentParser(description=self.validate_docs.__doc__)
-        parser.parse_args(argv)
-
-        sys.stderr.write("Fetching events from neon...\n")
-        events = neon.fetch_events()
-        # Could also fetch attendees here if needed
-        sys.stderr.write("Fetching clearance codes from neon...\n")
-        clearance_codes = neon.fetch_clearance_codes()
-
-        sys.stderr.write("Fetching accounts from neon...\n")
-        accounts = []
-        for acct_id in [1797, 1727, 1438, 1355]:
-            accounts.append(neon.fetch_account(acct_id))
-
-        sys.stderr.write("Fetching airtable data...\n")
-        cfg = get_config()
-        tables = defaultdict(dict)
-        for k, v in cfg["airtable"].items():
-            for k2 in v.keys():
-                if k2 in ("base_id", "token"):
-                    continue
-                sys.stderr.write(f"{k} {k2}...\n")
-                tables[k][k2] = airtable.get_all_records(k, k2)
-
-        sys.stderr.write("Done. Results:\n")
-        log.info(
-            json.dumps(
-                {
-                    "neon": {
-                        "events": events,
-                        "accounts": accounts,
-                        "clearance_codes": clearance_codes,
-                    },
-                    "airtable": tables,
-                }
-            )
-        )
 
 
 ProtohavenCLI()

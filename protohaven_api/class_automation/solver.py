@@ -60,7 +60,7 @@ class Instructor:
 
     def __init__(self, name, caps, load, avail):
         self.name = name
-        self.caps = caps  # references Class.airtable_id
+        self.caps = list(set(caps))  # references Class.airtable_id; discard duplicates
         self.load = load  # classes teachable per month
 
         # Optionally parse str to python datetime
@@ -103,6 +103,7 @@ def has_area_conflict(area_occupancy, t_start, t_end):
 
 
 def date_within_ranges(d, exclusions):
+    """Returns true if `d` is within any of the tuples in the list of `exclusions`"""
     for e1, e2 in exclusions:
         if e1 <= d <= e2:
             return True
@@ -121,12 +122,15 @@ def solve(
     # Note the implicit constraint: no instructor is assigned a class they can't
     # teach, or a time they're unable to teach.
     possible_assignments = []
+    skip_counters = defaultdict(int)
+    assignment_counters = defaultdict(int)
     for instructor in instructors:
         for t in instructor.avail:
             for airtable_id in instructor.caps:
                 # Skip this particular time if it's in an exclusion region
                 cbid = class_by_id[airtable_id]
                 if date_within_ranges(t, cbid.exclusions):
+                    skip_counters["Too soon before/after same class"] += 1
                     continue
 
                 # Skip if area already occupied
@@ -140,10 +144,15 @@ def solve(
                         conflict = True
                     break
                 if conflict:
+                    skip_counters["Area already occupied by other class"] += 1
                     continue
 
                 possible_assignments.append((airtable_id, instructor.name, t))
+                assignment_counters[f"{instructor.name} {airtable_id}"] += 1
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
+    for k, v in assignment_counters.items():
+        log.info(f"  {k}: {v} possible assignments")
+    log.info(f"Skipped {dict(skip_counters)}")
 
     x = pulp.LpVariable.dicts(
         "ClassAssignedToInstructorAtTime",
@@ -162,21 +171,18 @@ def solve(
                 for instructor in instructors
                 for airtable_id in instructor.caps
                 for t in instructor.avail
-                if x.get((airtable_id, instructor.name, t))
-                is not None  # some assignments filtered
+                if x.get((airtable_id, instructor.name, t)) is not None
             ]
         ),
         "MaxScore",
     )
 
     # ==== Constraints ====
-
     # Classes do not overlap the same area at the same time
     class_areas = {c.airtable_id: c.areas for c in classes}
     times = set()
     for i in instructors:
         times.update(i.avail)
-
     for a in areas:
         for t in times:
             area_assigned_times = pulp.lpSum(
@@ -205,8 +211,6 @@ def solve(
         prob += (
             class_assigned_count <= 1
         ), f"NoDuplicatesRequirement_{cls.airtable_id}"
-        # Force classes to be scheduled:
-        # prob += class_assigned_count != 0
 
     # Instructors teach at most 1 class at any given time
     for p in instructors:
@@ -222,57 +226,6 @@ def solve(
             prob += (
                 booking_count <= 1,
                 f"NoDoubleBookedInstructorRequirement_{p.name}_{t}",
-            )
-
-    # Each class-time is assigned to at most 1 instructor
-    # instructors_by_name = {p.name: p for p in instructors}
-    # No longer needed due to "classes run at most once" constraint
-    # time_map = defaultdict(set)
-    # for p in instructors:
-    #     for t in p.avail:
-    #         time_map[t].add(p.name)
-    # for cls in classes:
-    #     for t, names in time_map.items():
-    #         class_time_assigned_count = pulp.lpSum(
-    #             [
-    #                 x[(cls.airtable_id, p, t)]
-    #                 for p in names
-    #                 if cls.airtable_id in instructors_by_name[p].caps
-    #                 and x.get((cls.airtable_id, p, t)) is not None
-    #             ]
-    #         )
-    #         prob += (
-    #             class_time_assigned_count <= 1,
-    #             f"NoDupeInstructorRequirement_{cls.airtable_id}_{t}",
-    #         )
-
-    # No instructor is filled beyond their desired class rate
-    for instructor in instructors:
-        assigned_load = pulp.lpSum(
-            [
-                x[(airtable_id, instructor.name, t)]
-                for airtable_id in instructor.caps
-                for t in instructor.avail
-                if x.get((airtable_id, instructor.name, t)) is not None
-            ]
-        )
-        prob += (
-            assigned_load <= instructor.load,
-            f"NoOverloadRequirement_{instructor.name}",
-        )
-
-        # Extra: at least one class is assigned to each instructor
-        # prob += assigned_load != 0
-
-        # For instructors with reasonable availability and capabilities,
-        # they must have at least one class scheduled
-        # Unsure if this is still needed after other constraints.
-        if len(instructor.avail) >= 3 and len(instructor.caps) != 0:
-            prob += assigned_load >= 1.0, f"MinLoadrequirement_{instructor.name}"
-        else:
-            log.warning(
-                f"Instructor {instructor.name} has only {len(instructor.avail)} available "
-                f"times and {len(instructor.caps)} classes to teach - they may not be scheduled"
             )
 
     # ==== Run the solver and compute stats ====

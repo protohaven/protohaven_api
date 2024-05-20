@@ -33,7 +33,7 @@ import {get, post} from '$lib/api.ts';
   }
 </script>
 
-<Card style="width: 20vw;">
+<Card>
 {#await promise}
 	<CardHeader>
 		<CardTitle>Loading profile...</CardTitle>

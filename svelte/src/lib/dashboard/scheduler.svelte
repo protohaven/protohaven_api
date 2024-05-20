@@ -99,28 +99,10 @@
 <Modal size="lg" isOpen={open}>
   <ModalHeader>Class Scheduler</ModalHeader>
   <ModalBody>
-    <p>Use this scheduling prompt to add more classes to your class list!</p>
-
-    <p><strong>A video tutorial is available <a href="https://www.youtube.com/watch?v=wKtX1DR0Xmw&feature=youtu.be" target="_blank">HERE</a></strong></p>
-
-    <p>The scheduler will automatically avoid scheduling classes...</p>
-
-    <ul>
-      <li>on US holidays</li>
-      <li>before 5pm on a weekday</li>
-      <li>concurrently in the same area (e.g. never two textiles classes)</li>
-      <li>when an instructor is already teaching a class</li>
-      <li>to an instructor that cannot teach them.</li>
-      <li>at a time the instructor has not listed as available</li>
-      <li>too soon after the previous run of the class (usually, a month)</li>
-    </ul>
-
-    <p>The scheduler may propose classes that overlap with other unpublished classes. When the automation runs to publish classes, it will publish whichever class was confirmed earliest.</p>
-
-    <p><em>Email <a href="mailto:instructors@protohaven.org">instructors@protohaven.org</a> or reach out on the #instructors channel if you suspect any of these rules are not being observed.</p>
+    <strong>See <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">the Instructor wiki page</a> for details and a video tutorial on how to use this scheduler.</strong>
 
     <h5>1. Pick Scheduling Window</h5>
-    <p>This is the start and end date between which classes will schedule. It defaults to 14-40 days away from the current date. <strong>Select the window of time where you want to schedule your classes, or use the default.</strong></p>
+    <p>Select the window of time where you want to schedule your classes, or use the default.</p>
     <Row cols={2}>
     <Col>
     From
@@ -133,7 +115,7 @@
     </Row>
 
     <h5>2. Check Availability</h5>
-    <p>The scheduler will pick from the following times, based on your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. <strong>If you need to change times from what's listed here, first edit the calendar, then refresh this page.</strong> </p>
+    <p>Edit your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. if you wish to change any of the generated schedule times here.</p>
     {#await env_promise}
       <Spinner/>
     {:then p}
@@ -146,7 +128,7 @@
 	      </div>
 
 	      <h5>3. Select Classes to Include</h5>
-	      <p><strong>Deselect any classes you do not wish to schedule.</strong></p>
+	      <p>Deselect any classes you do not wish to schedule.</p>
 	      <div class="my-3">
 	      {#each Object.values(classes) as cls}
 		<Input type="checkbox" label={cls.name} bind:checked={cls.checked}/>

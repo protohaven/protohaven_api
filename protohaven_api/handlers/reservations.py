@@ -1,9 +1,7 @@
 """Handlers for equipment reservation"""
-import datetime
 import logging
 
-from dateutil import parser as dateparser
-from flask import Blueprint, Response, current_app, redirect, request
+from flask import Blueprint, request
 
 from protohaven_api.integrations import booked
 from protohaven_api.rbac import Role, require_login_role

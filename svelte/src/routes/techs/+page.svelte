@@ -2,6 +2,10 @@
   import '../../app.scss';
   import { Spinner, Row, Card, Container, Navbar, NavbarBrand } from '@sveltestrap/sveltestrap';
   import TechsList from '$lib/techs/techs_list.svelte';
+  import ToolState from '$lib/techs/tool_state.svelte';
+  import Shifts from '$lib/techs/shifts.svelte';
+  import AreaLeads from '$lib/techs/area_leads.svelte';
+  import Forecast from '$lib/techs/forecast.svelte';
   import { onMount } from 'svelte';
 
   let promise = new Promise((resolve, reject) => {});
@@ -20,13 +24,15 @@
   <NavbarBrand>Techs Dashboard</NavbarBrand>
 </Navbar>
 
-<main>
 {#await promise}
   <Spinner/>
 {:then base_url}
+  <ToolState/>
+  <Shifts/>
+  <Forecast/>
+  <AreaLeads/>
   <TechsList {base_url}/>
 {/await}
-</main>
 
 
 <style>

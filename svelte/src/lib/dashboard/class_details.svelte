@@ -24,8 +24,6 @@ $: {
 
 </script>
 
-<div style="width: 40vw; margin-left: 20px;">
-
 {#await promise}
 <Spinner/>
 {:then classes}
@@ -51,4 +49,3 @@ $: {
 {:catch error}
   <FetchError {error}/>
 {/await}
-</div>

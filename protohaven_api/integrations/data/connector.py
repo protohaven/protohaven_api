@@ -3,6 +3,7 @@ configured state of the server"""
 import asyncio
 import json
 import logging
+import pickle
 import random
 import smtplib
 import time
@@ -24,6 +25,9 @@ NUM_READ_ATTEMPTS = 3
 RETRY_MAX_DELAY_SEC = 3.0
 
 
+AIRTABLE_URL = "https://api.airtable.com/v0"
+
+
 class Connector:
     """Provides dev and production access to dependencies.
     In the case of dev, mock data and sandboxes are used to
@@ -35,13 +39,21 @@ class Connector:
         self.neon_ratelimit = Lock()
         self.data = None
         if dev:
-            with open("mock_data.json", "r", encoding="utf-8") as f:
-                self.data = json.loads(f.read())
+            with open("mock_data.pkl", "rb") as f:
+                self.data = pickle.load(f)
             print("Mock data loaded")
 
     def _neon_request_dev(self, *args, **kwargs):
         """Dev handler for neon requests"""
-        raise NotImplementedError("TODO")
+        if args[0].startswith("https://api.neoncrm.com/v2/events"):
+            return {
+                "events": self.data["neon"]["events"],
+                "pagination": {"totalPages": 1},
+            }
+
+        raise NotImplementedError(
+            f"Mock data handler for Neon request with args\n{args}\nkwargs\n{kwargs}"
+        )
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request, passing through to httplib2"""
@@ -55,15 +67,22 @@ class Connector:
         # include a sleep timer to prevent us from overrunning
         if "/attendees" in args[0]:
             with self.neon_ratelimit:
-                rep = h.request(*args, **kwargs)
+                resp, content = h.request(*args, **kwargs)
                 time.sleep(0.25)
-                return rep
+        else:
+            resp, content = h.request(*args, **kwargs)
 
-        return h.request(*args, **kwargs)
+        if resp.status != 200:
+            raise RuntimeError(
+                f"neon_request(args={args}, kwargs={kwargs}) returned {resp.status}: {content}"
+            )
+        return json.loads(content)
 
     def _neon_session_dev(self):
         """Dev handler for neon session creation"""
-        raise NotImplementedError("TODO")
+        raise NotImplementedError(
+            "Neon session creation not implemented for dev environment"
+        )
 
     def neon_session(self):
         """Create a new session using the requests lib, or dev alternative"""
@@ -73,20 +92,29 @@ class Connector:
 
     def _airtable_request_dev(self, *args, **kwargs):
         """Dev handler for airtable web requests"""
-        raise NotImplementedError("TODO")
+        raise NotImplementedError(
+            f"Mock data handler for Airtable request with args\n{args}\nkwargs\n{kwargs}"
+        )
 
-    def airtable_request(self, token, *args, **kwargs):
+    def airtable_request(self, mode, base, tbl, rec=None, suffix=None, data=None):
         """Make an airtable request using the requests module"""
         if self.dev:
             return self._airtable_request_dev(*args, **kwargs)
+
+        cfg = self.cfg["airtable"][base]
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {cfg['token']}",
             "Content-Type": "application/json",
         }
+        url = f"{AIRTABLE_URL}/{cfg['base_id']}/{cfg[tbl]}"
+        if rec:
+            url += f"/{rec}"
+        if suffix:
+            url += suffix
         for i in range(NUM_READ_ATTEMPTS):
             try:
                 return requests.request(
-                    *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+                    mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
                 )
             except requests.exceptions.ReadTimeout as rt:
                 if args[0] != "GET" or i == NUM_READ_ATTEMPTS - 1:
@@ -99,7 +127,7 @@ class Connector:
 
     def _google_form_submit_dev(self, url, params):
         """Dev handler for submitting google forms"""
-        raise NotImplementedError("TODO")
+        log.info(f"Suppressing google form submission: {url}, params {params}")
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
@@ -109,7 +137,9 @@ class Connector:
 
     def _discord_webhook_dev(self, webhook, content):
         """Dev handler for discord webhooks"""
-        raise NotImplementedError("TODO")
+        log.info(
+            f"Suppressing Discord webhook submission: {webhook}, content {content}"
+        )
 
     def discord_webhook(self, webhook, content):
         """Send content to a Discord webhook"""
@@ -121,7 +151,9 @@ class Connector:
 
     def _email_dev(self, subject, body, recipients):
         """Dev handler for email sending"""
-        raise NotImplementedError("TODO")
+        log.info(
+            f"Suppressing email sending to {recipients}:\nSubject: {subject}\n{body}"
+        )
 
     def email(self, subject, body, recipients):
         """Send an email via GMail SMTP"""

@@ -1,7 +1,7 @@
 """Handlers for onboarding steps for new members"""
 import time
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, Response, render_template, request
 
 from protohaven_api.integrations import comms, neon
 from protohaven_api.rbac import Role, require_login_role
@@ -23,7 +23,9 @@ def onboarding_check_membership():
     """Lookup the new member and ensure their membership is active in Neon"""
     email = request.args.get("email")
     m = neon.search_member(email.strip())
-    print(m)
+    if len(m) == 0:
+        return Response(f"Member with email {email} not found", status=404)
+    m = m[1]
     return {
         "neon_id": m["Account ID"],
         "first": m["First Name"],
@@ -40,6 +42,9 @@ def onboarding_create_coupon():
     """Create a coupon for classes - promotion for new members"""
     email = request.args.get("email")
     m = neon.search_member(email.strip())
+    if len(m) == 0:
+        return Response(f"Member with email {email} not found", status=404)
+    m = m[1]
     code = f"NM-{m['Last Name'].upper()[:3]}{int(time.time())%1000}"
     print("Creating coupon code", code)
     return neon.create_coupon_code(code, ONBOARDING_DISCOUNT_AMT)
