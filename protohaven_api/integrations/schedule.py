@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from dateutil import parser
 from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
@@ -33,23 +33,9 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
     time_min = time_min.isoformat() + "Z"  # 'Z' indicates UTC time
     time_max = time_max.isoformat() + "Z"  # 'Z' indicates UTC time
 
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open("token.json", "w", encoding="utf-8") as token:
-            token.write(creds.to_json())
-
+    creds = service_account.Credentials.from_service_account_file(
+        "credentials.json", scopes=cfg["scopes"]
+    )
     service = build("calendar", "v3", credentials=creds)
     # Call the Calendar API
     log.info(f"querying calendar {calendar_id}: {time_min} to {time_max}")

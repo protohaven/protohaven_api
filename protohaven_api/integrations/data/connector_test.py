@@ -1,9 +1,11 @@
+"""Tests for data connector"""
 import pytest
 
 from protohaven_api.integrations.data import connector as con
 
 
 def test_airtable_read_retry(mocker):
+    """ReadTimeout triggers a retry on get requests to Airtable"""
     mocker.patch.object(con.time, "sleep")
     mocker.patch.object(
         con.requests,
@@ -16,6 +18,7 @@ def test_airtable_read_retry(mocker):
 
 
 def test_airtable_read_max_retries(mocker):
+    """Too many retries eventually causes a failure"""
     mocker.patch.object(con.time, "sleep")
     mocker.patch.object(
         con.requests,

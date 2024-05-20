@@ -24,7 +24,6 @@
   <NavbarBrand>Techs Dashboard</NavbarBrand>
 </Navbar>
 
-<main>
 {#await promise}
   <Spinner/>
 {:then base_url}
@@ -34,7 +33,6 @@
   <AreaLeads/>
   <TechsList {base_url}/>
 {/await}
-</main>
 
 
 <style>

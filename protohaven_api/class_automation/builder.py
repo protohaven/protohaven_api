@@ -87,6 +87,7 @@ def gen_scheduling_reminders(start, end):
 
 
 def gen_class_scheduled_alerts(scheduled_by_instructor):
+    """Generate alerts about classes getting scheduled"""
     results = []
 
     def format_class(cls, inst=False):
@@ -104,14 +105,23 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         formatted = [format_class(c) for c in classes]
         formatted.sort()
         email = classes[0]["fields"]["Email"]
-        subject = f"You are now registered to teach {len(classes)} Protohaven class{'es' if len(classes) != 1 else ''}!"
+        subject = (
+            f"You are now registered to teach {len(classes)} Protohaven "
+            f"class{'es' if len(classes) != 1 else ''}!"
+        )
         body = f"Hello, {inst}!"
         body += (
             "\nWe have published the following classes for you to teach to members:\n\n"
         )
         body += "\n".join(formatted)
-        body += "\n\nThese were classes that you confirmed by visiting https://api.protohaven.org/instructor/class_selector."
-        body += "\n\nPLEASE REACH OUT ASAP on the #instructors Discord if you are unable to teach any of these classes so we can take action."
+        body += (
+            "\n\nThese were classes that you confirmed by visiting "
+            "https://api.protohaven.org/instructor/class_selector."
+        )
+        body += (
+            "\n\nPLEASE REACH OUT ASAP on the #instructors Discord if "
+            "you are unable to teach any of these classes so we can take action."
+        )
         body += "\n\nThank you, and see you in the shop!"
 
         results.append({"id": "", "target": email, "subject": subject, "body": body})

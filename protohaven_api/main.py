@@ -15,12 +15,14 @@ from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.reservations import page as reservations_pages
 from protohaven_api.handlers.shop_tech import page as shop_tech_pages
-from protohaven_api.handlers.techs import page as techs_pages 
+from protohaven_api.handlers.techs import page as techs_pages
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.rbac import set_rbac
 
+LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
+logging.basicConfig(level=LOGLEVEL)
 log = logging.getLogger("main")
-logging.basicConfig(level=logging.DEBUG) # TODO better
+
 app = Flask(__name__)
 if os.getenv("CORS", "false").lower() == "true":
     log.warning("CORS enabled - this should be done in dev environments only")

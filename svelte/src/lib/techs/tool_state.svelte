@@ -8,6 +8,17 @@ let promise = new Promise((resolve) => {});
 function refresh() {
   promise = get("/techs/tool_state");
 }
+function get_color(status) {
+  if (status.startsWith('Blue')) {
+    return 'info';
+  } else if (status.startsWith('Yellow')) {
+    return 'warning';
+  } else if (status.startsWith('Red')) {
+    return 'danger';
+  }
+  return 'light';
+}
+
 onMount(refresh);
 </script>
 
@@ -21,10 +32,9 @@ onMount(refresh);
   {#each Object.keys(p) as color}
     {#if !color.startsWith('Green') && !color.startsWith('Grey')}
     <Row>
-      <CardHeader><CardTitle>{color.split(' ')[0]}</CardTitle></CardHeader>
       <CardBody>
       {#each p[color] as tool}
-	<Badge color="light">{tool.name} ({tool.modified} days)</Badge>
+	<Badge class="mx-2" color={get_color(color)}>{tool.name} ({tool.modified} days)</Badge>
       {/each}
       </CardBody>
     </Row>

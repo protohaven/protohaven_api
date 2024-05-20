@@ -76,7 +76,7 @@ def test_update_waiver_status_checks_expiration(mocker):
 
 def test_patch_member_role(mocker):
     """Member role patch adds to existing roles"""
-    mocker.patch.object(neon, "search_member", return_value={"Account ID": 1324})
+    mocker.patch.object(neon, "search_member", return_value=[{"Account ID": 1324}])
     mocker.patch.object(
         neon,
         "fetch_account",
@@ -84,7 +84,7 @@ def test_patch_member_role(mocker):
             "individualAccount": {
                 "accountCustomFields": [
                     {
-                        "id": neon.CUSTOM_FIELD_API_SERVER_ROLE,
+                        "id": neon.CustomField.API_SERVER_ROLE,
                         "optionValues": [{"name": "TEST", "id": "1234"}],
                     }
                 ]
@@ -107,7 +107,7 @@ def test_patch_member_role(mocker):
 
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
-    mocker.patch.object(neon, "search_member", return_value={"Account ID": 1324})
+    mocker.patch.object(neon, "search_member", return_value=[{"Account ID": 1324}])
     mocker.patch.object(
         neon,
         "fetch_account",
@@ -115,7 +115,7 @@ def test_patch_member_role_rm(mocker):
             "individualAccount": {
                 "accountCustomFields": [
                     {
-                        "id": neon.CUSTOM_FIELD_API_SERVER_ROLE,
+                        "id": neon.CustomField.API_SERVER_ROLE,
                         "optionValues": [
                             {"name": "TEST", "id": "1234"},
                             {"name": "Instructor", "id": "75"},
@@ -178,5 +178,23 @@ def test_set_clearances_some_non_matching(mocker):
             "individualAccount": {
                 "accountCustomFields": [{"id": 75, "optionValues": [{"id": "test_id"}]}]
             }
+        }
+    )
+
+
+def test_set_event_scheduled_state(mocker):
+    mocker.patch.object(neon, "get_connector")
+    mocker.patch.object(neon, "cfg")
+    nrq = neon.get_connector().neon_request
+    nrq.return_value = {"id": "12345"}
+
+    neon.set_event_scheduled_state(12345, scheduled=False)
+    _, args, kwargs = nrq.mock_calls[0]
+    assert kwargs["body"] == json.dumps(
+        {
+            "publishEvent": False,
+            "enableEventRegistrationForm": False,
+            "archived": True,
+            "enableWaitListing": False,
         }
     )

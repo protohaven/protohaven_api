@@ -70,6 +70,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
         "neon_id": None,
+        "email": "OK",
         "fullname": "unknown",
         "active_membership": "inactive",
         "discord_user": "missing",
@@ -79,6 +80,11 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
         "profile_img": None,
         "bio": None,
     }
+
+    if len(inst) > 1:
+        result["email"] = f"{len(inst)} duplicate accounts in Neon"
+    inst = inst[0]
+
     result["neon_id"] = inst.get("Account ID")
     if inst["Account Current Membership Status"] == "Active":
         result["active_membership"] = "OK"
@@ -200,7 +206,7 @@ def instructor_about():
         if not email:
             return Response("You are not logged in.", status=401)
     inst = neon.search_member(email.lower())
-    if not inst:
+    if len(inst) == 0:
         return Response(
             f"Instructor data not found for email {email.lower()}", status=404
         )
@@ -323,19 +329,20 @@ def setup_scheduler_env():
             dateparser.parse(request.args.get("end")).astimezone(tz),
             [request.args.get("inst")],
         )
-    except dateparser._parser.ParserError as e:
+    except dateparser.ParserError:
         return Response(
-            "Please select valid dates, with the start date before the end date", status=400)
+            "Please select valid dates, with the start date before the end date",
+            status=400,
+        )
     except RuntimeError as e:
-        return Response(
-            "Runtime error: " + str(e), status=400)
+        return Response("Runtime error: " + str(e), status=400)
 
 
 @page.route("/instructor/run_scheduler", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, score = solve_with_env(request.json)
+    result, _ = solve_with_env(request.json)
     if len(result) == 0:
         return Response(
             "No valid schedule possible from the given inputs. "
@@ -392,7 +399,8 @@ def cancel_class():
     num_attendees = len(list(neon.fetch_attendees(cid)))
     if num_attendees > 0:
         return Response(
-            f"Unable to cancel class with {num_attendees} attendee(s). Contact education@protohaven.org or reach out to #instructors on discord to cancel this class",
+            f"Unable to cancel class with {num_attendees} attendee(s). Contact "
+            "education@protohaven.org or reach out to #instructors on discord to cancel this class",
             status=409,
         )
 

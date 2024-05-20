@@ -103,6 +103,7 @@ def has_area_conflict(area_occupancy, t_start, t_end):
 
 
 def date_within_ranges(d, exclusions):
+    """Returns true if `d` is within any of the tuples in the list of `exclusions`"""
     for e1, e2 in exclusions:
         if e1 <= d <= e2:
             return True
@@ -129,7 +130,7 @@ def solve(
                 # Skip this particular time if it's in an exclusion region
                 cbid = class_by_id[airtable_id]
                 if date_within_ranges(t, cbid.exclusions):
-                    skip_counters['Too soon before/after same class'] += 1
+                    skip_counters["Too soon before/after same class"] += 1
                     continue
 
                 # Skip if area already occupied
@@ -143,13 +144,13 @@ def solve(
                         conflict = True
                     break
                 if conflict:
-                    skip_counters['Area already occupied by other class'] += 1
+                    skip_counters["Area already occupied by other class"] += 1
                     continue
 
                 possible_assignments.append((airtable_id, instructor.name, t))
                 assignment_counters[f"{instructor.name} {airtable_id}"] += 1
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
-    for k,v in assignment_counters.items():
+    for k, v in assignment_counters.items():
         log.info(f"  {k}: {v} possible assignments")
     log.info(f"Skipped {dict(skip_counters)}")
 
@@ -194,7 +195,7 @@ def solve(
                     and x.get((airtable_id, instructor.name, t)) is not None
                 ]
             )
-            # prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
+            prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
 
     # Classes run at most once
     for cls in classes:
@@ -226,37 +227,6 @@ def solve(
                 booking_count <= 1,
                 f"NoDoubleBookedInstructorRequirement_{p.name}_{t}",
             )
-
-    # No instructor is filled beyond their desired class rate
-    """
-    for instructor in instructors:
-        assigned_load = pulp.lpSum(
-            [
-                x[(airtable_id, instructor.name, t)]
-                for airtable_id in instructor.caps
-                for t in instructor.avail
-                if x.get((airtable_id, instructor.name, t)) is not None
-            ]
-        )
-        prob += (
-            assigned_load <= instructor.load,
-            f"NoOverloadRequirement_{instructor.name}",
-        )
-
-        # Extra: at least one class is assigned to each instructor
-        # prob += assigned_load != 0
-
-        # For instructors with reasonable availability and capabilities,
-        # they must have at least one class scheduled
-        # Unsure if this is still needed after other constraints.
-        if len(instructor.avail) >= 3 and len(instructor.caps) != 0:
-            prob += assigned_load >= 1.0, f"MinLoadrequirement_{instructor.name}"
-        else:
-            log.warning(
-                f"Instructor {instructor.name} has only {len(instructor.avail)} available "
-                f"times and {len(instructor.caps)} classes to teach - they may not be scheduled"
-            )
-    """
 
     # ==== Run the solver and compute stats ====
     prob.solve()

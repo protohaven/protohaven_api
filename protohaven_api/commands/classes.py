@@ -9,7 +9,7 @@ import markdown
 import yaml
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation import builder
+from protohaven_api.class_automation import builder, scheduler
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.commands.reservations import reservation_dict
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
@@ -214,7 +214,18 @@ class Commands:
         log.debug(f"{event_id} {evt['fields']['Name (from Class)']} {price} {qty}")
         neon.assign_pricing(event_id, price, qty, clear_existing=True)
 
-    def _schedule_event(self, event, desc, dry_run=True, archived=False):
+    @classmethod
+    def neon_category_from_event_name(self, name):
+        if name == "All Member Meeting":
+            return neon.Category.MEMBER_EVENT
+        m = re.search(r"\w+? (\d+):", name)
+        if m is None:
+            return neon.Category.SOMETHING_ELSE_AMAZING
+        if int(m[1]) >= 110:
+            return neon.Category.PROJECT_BASED_WORKSHOP
+        return neon.Category.SKILLS_AND_SAFETY_WORKSHOP
+
+    def _schedule_event(self, event, desc, dry_run=True):
         start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
         end = start + datetime.timedelta(hours=event["fields"]["Hours (from Class)"][0])
         days = event["fields"]["Days (from Class)"][0]
@@ -227,6 +238,7 @@ class Commands:
             desc,
             start,
             end,
+            category=self.neon_category_from_event_name(name),
             max_attendees=capacity,
             dry_run=dry_run,
         )
@@ -237,12 +249,6 @@ class Commands:
             help="Don't schedule classes closer than this many days",
             type=int,
             default=20,
-        ),
-        arg(
-            "--archived",
-            help="Publish as archived",
-            action=argparse.BooleanOptionalAction,
-            default=False,
         ),
         arg(
             "--apply",
@@ -258,7 +264,9 @@ class Commands:
             default=[],
         ),
     )
-    def post_classes_to_neon(self, args):
+    def post_classes_to_neon(
+        self, args
+    ):  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         """Post a list of classes to Neon"""
         boilerplate = airtable.get_all_records("class_automation", "boilerplate")
         rules_and_expectations = [
@@ -308,7 +316,6 @@ class Commands:
             result += markdown.markdown(cancellation_policy)
             return result
 
-        schedule_ids = []
         num = 0
         skip_unconfirmed = []
         skip_too_soon = []
@@ -322,7 +329,7 @@ class Commands:
                 if str(cid) in args.ovr:
                     log.warning(f"Adding override class with ID {cid}")
                 else:
-                    continue # Skip if not in override list
+                    continue  # Skip if not in override list
             else:
                 if start < now:
                     log.debug(
@@ -332,18 +339,21 @@ class Commands:
                 # Quietly ignore already-scheduled events
                 if event["fields"].get("Neon ID", "") != "":
                     log.debug(
-                        f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: {event['fields']['Name (from Class)']}"
+                        f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: "
+                        f"{event['fields']['Name (from Class)']}"
                     )
                     continue
 
                 if not event["fields"].get("Confirmed"):
                     skip_unconfirmed.append(
-                        f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
+                        f"\t{start} {event['fields']['Name (from Class)'][0]} "
+                        f"with {event['fields']['Instructor']}"
                     )
                     continue
                 if start < now + datetime.timedelta(days=args.min_future_days):
                     skip_too_soon.append(
-                        f"\t{start} {event['fields']['Name (from Class)'][0]} with {event['fields']['Instructor']}"
+                        f"\t{start} {event['fields']['Name (from Class)'][0]} "
+                        f"with {event['fields']['Instructor']}"
                     )
                     continue
 
@@ -364,7 +374,8 @@ class Commands:
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
-                f"{event['start']} {event['cid']} {event['fields']['Instructor']}: {event['fields']['Name (from Class)'][0]}"
+                f"{event['start']} {event['cid']} {event['fields']['Instructor']}: "
+                f"{event['fields']['Name (from Class)'][0]}"
             )
             scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
 
@@ -374,7 +385,6 @@ class Commands:
                     event,
                     format_class_description(event),
                     not args.apply,
-                    args.archived,
                 )
                 log.info(f"- Neon event {result_id} created")
                 self._apply_pricing(result_id, event)
@@ -396,7 +406,9 @@ class Commands:
 
         if num > 0:
             log.info("Reserving equipment for scheduled classes")
-            self.reserve_equipment_for_class_internal(to_reserve, args.apply)
+            self.reserve_equipment_for_class_internal(  # pylint: disable=no-member
+                to_reserve, args.apply
+            )
 
         print(
             yaml.dump(

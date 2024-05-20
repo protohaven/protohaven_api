@@ -70,6 +70,7 @@ def welcome_logo():
 
 
 def welcome_sock(ws):
+    """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
     result = {
         "notfound": False,
@@ -85,10 +86,29 @@ def welcome_sock(ws):
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        m = neon.search_member(data["email"])
-        if not m:
+        mm = neon.search_member(data["email"])
+        if len(mm) > 1:
+            # Warn to membership automation channel that we have an account to deduplicate
+            urls = [
+                f"  https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+                for m in mm
+            ]
+            send_membership_automation_message(
+                f"Sign-in with {data['email']} returned multiple accounts in Neon with same email:\n"
+                + "\n".join(urls)
+                + "\nAdmin: please deduplicate"
+            )
+        if len(mm) == 0:
             result["notfound"] = True
         else:
+            # Preferably select the Neon account with active membership.
+            # Note that the last `m` remains in context regardless of if we break.
+            for m in mm:
+                if (
+                    m.get("Account Current Membership Status") or ""
+                ).upper() == "ACTIVE":
+                    break
+
             result["status"] = m.get("Account Current Membership Status", "Unknown")
             result["firstname"] = m.get("First Name")
             last_announcement_ack = m.get("Announcements Acknowledged", None)
@@ -127,11 +147,13 @@ def welcome_sock(ws):
 
             if result["status"] != "Active":
                 send_membership_automation_message(
-                    f"{result['firstname']} ({data['email']}) just signed in at the front desk but has a non-Active membership status in Neon: status is {result['status']}"
+                    f"{result['firstname']} ({data['email']}) just signed in at the front desk "
+                    f"but has a non-Active membership status in Neon: status is {result['status']}"
                 )
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
-                    f"{result['firstname']} ({data['email']}) just signed in at the front desk with violations: {result['violations']}"
+                    f"{result['firstname']} ({data['email']}) just signed in at the front desk "
+                    f"with violations: {result['violations']}"
                 )
     elif data["person"] == "guest":
         result["waiver_signed"] = data.get("waiver_ack", False)
@@ -157,13 +179,14 @@ def welcome_sock(ws):
         }
         _send("Logging sign-in...", 95)
         rep = submit_google_form("signin", form_data)
-        log.info("Google form submitted, response", rep)
+        log.info(f"Google form submitted, response {rep}")
 
     ws.send(json.dumps(result))
     return result
 
 
 def setup_sock_routes(app):
+    """Set up all websocket routes; called by main.py"""
     sock = Sock(app)
     print("Sock is", sock)
     sock.route("/welcome/ws")(welcome_sock)
@@ -181,11 +204,9 @@ def acknowledge_announcements():
     are no longer displayed"""
     data = request.json
     m = neon.search_member(data["email"])
-    if not m:
+    if len(m) == 0:
         raise KeyError("Member not found")
-    resp, _ = neon.update_announcement_status(m["Account ID"])
-    if resp.status != 200:
-        raise RuntimeError("Failed to update announcement acknowledgement")
+    neon.update_announcement_status(m[0]["Account ID"])
     return "OK"
 
 
@@ -255,7 +276,7 @@ def events_dashboard():
             for s in airtable.get_class_automation_schedule()
             if s["fields"].get("Neon ID")
         }
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         log.error("Failed to fetch instructor map, proceeding anyways")
         instructors_map = {}
 

@@ -11,7 +11,6 @@ from flask import (  # pylint: disable=import-error
 )
 
 from protohaven_api.config import get_config
-from protohaven_api.handlers.auth import login_user_neon_oauth
 
 enabled = True  # pylint: disable=invalid-name
 
@@ -21,8 +20,11 @@ def set_rbac(en):
     global enabled  # pylint: disable=global-statement
     enabled = en
 
+
 def is_enabled():
+    """Return whether RBAC is currently enabled"""
     return enabled
+
 
 @dataclass
 class Role:
@@ -42,7 +44,7 @@ def require_login(fn):
         if enabled:
             if session.get("neon_id") is None:
                 session["redirect_to_login_url"] = request.url
-                return redirect(url_for("auth." + login_user_neon_oauth.__name__))
+                return redirect(url_for("auth.login_user_neon_oauth"))
         return fn(*args, **kwargs)
 
     do_login_check.__name__ = fn.__name__
@@ -86,7 +88,7 @@ def require_login_role(role):
             roles = get_roles()
             if roles is None:
                 session["redirect_to_login_url"] = request.url
-                return redirect(url_for("auth." + login_user_neon_oauth.__name__))
+                return redirect(url_for("auth.login_user_neon_oauth"))
             if role["name"] in roles:
                 return fn(*args, **kwargs)
             return Response(

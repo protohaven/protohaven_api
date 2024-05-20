@@ -1,3 +1,4 @@
+"""Basic decorator for argparse commands that wraps functions so they can be executed in cli."""
 import argparse
 import functools
 
@@ -23,5 +24,6 @@ def command(*parser_args):
 
 
 def arg(*args, **kwargs):
+    """Allows specifying of arguments in a parser.Argument call, but instead via decorato"""
     assert len(args) == 1
     return args[0], kwargs

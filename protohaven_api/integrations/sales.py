@@ -30,15 +30,42 @@ def get_subscriptions():
         return result.body
     raise RuntimeError(result.errors)
 
+
+def get_invoice(invoice_id):
+    result = client().invoices.get_invoice(invoice_id)
+    if result.is_success():
+        return result.body["invoice"]
+    raise RuntimeError(result.errors)
+
+
+def subscription_tax_pct(sub, price):
+    if sub.get("tax_percentage"):
+        return float(sub["tax_percentage"])
+    # Not having a tax_percentage field doesn't guarantee it has no tax.
+    # We have to inspect the latest invoice and work backwards from the charge.
+    if len(sub["invoice_ids"]) == 0:
+        return 0.0  # Not charged, not taxed
+
+    inv = get_invoice(sub["invoice_ids"][0])  # 0 is most recent
+    amt = inv["payment_requests"][0]["computed_amount_money"]["amount"]
+    return 100 * ((amt / price) - 1.0)
+
+
 def get_subscription_plan_map():
     """Get available subscription options, mapped by ID to type"""
-    result = client().catalog.list_catalog()
-    if result.is_success():
-        return {
-                v['id']: v['subscription_plan_variation_data']['name']
-            for v in result.body['objects'] if v['type'] == 'SUBSCRIPTION_PLAN_VARIATION' and not v['is_deleted']
-            }
-    raise RuntimeError(result.errors)
+    data = client().catalog.list_catalog()
+    if not data.is_success():
+        raise RuntimeError(data.errors)
+
+    result = {}
+    for v in data.body["objects"]:
+        if v["type"] == "SUBSCRIPTION_PLAN_VARIATION" and not v["is_deleted"]:
+            name = v["subscription_plan_variation_data"]["name"]
+            price = v["subscription_plan_variation_data"]["phases"][0]["pricing"][
+                "price"
+            ]["amount"]
+            result[v["id"]] = (name, price)
+    return result
 
 
 def get_customer_name_map():
@@ -49,22 +76,23 @@ def get_customer_name_map():
     while result:
         if not result.is_success():
             raise RuntimeError(result.errors)
-        for v in result.body['customers']:
-            given = v.get('given_name', '')
-            family = v.get('family_name', '')
-            nick = v.get('nickname')
-            email = v.get('email_address')
+        for v in result.body["customers"]:
+            given = v.get("given_name", "")
+            family = v.get("family_name", "")
+            nick = v.get("nickname")
+            email = v.get("email_address")
             fmt = f"{given} {family}"
             if nick:
                 fmt += f"({nick})"
-            if email: 
+            if email:
                 fmt += f" {email}"
-            data[v['id']] = fmt
-        if result.body.get('cursor'):
-            result = client().customers.list_customers(cursor=result.body['cursor'])
+            data[v["id"]] = fmt
+        if result.body.get("cursor"):
+            result = client().customers.list_customers(cursor=result.body["cursor"])
         else:
             return data
     return data
+
 
 def get_purchases():
     """Get all purchases - usually snacks and consumables from the front store"""
@@ -85,7 +113,7 @@ def get_purchases():
         return result.body
     raise RuntimeError(result.errors)
 
-26
+
 def get_inventory():
     """Get all inventory"""
     result = (

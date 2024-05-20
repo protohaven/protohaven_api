@@ -94,7 +94,7 @@ def test_welcome_signin_notfound(client, mocker):
     """Ensure form does not get called if member not found"""
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
-    index.neon.search_member.return_value = None
+    index.neon.search_member.return_value = []
     response = client.post(
         "/welcome",
         json={
@@ -121,12 +121,14 @@ def test_welcome_signin_membership_expired(client, mocker):
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
     mocker.patch.object(index, "airtable")
-    index.neon.search_member.return_value = {
-        "Account ID": 12345,
-        "Account Current Membership Status": "Inactive",
-        "First Name": "First",
-        "API server role": None,  # This can happen
-    }
+    index.neon.search_member.return_value = [
+        {
+            "Account ID": 12345,
+            "Account Current Membership Status": "Inactive",
+            "First Name": "First",
+            "API server role": None,  # This can happen
+        }
+    ]
     index.airtable.get_announcements_after.return_value = None
     index.neon.update_waiver_status.return_value = True
     response = client.post(
@@ -147,11 +149,13 @@ def test_welcome_signin_ok_with_violations(client, mocker):
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
     mocker.patch.object(index, "airtable")
-    index.neon.search_member.return_value = {
-        "Account ID": 12345,
-        "Account Current Membership Status": "Active",
-        "First Name": "First",
-    }
+    index.neon.search_member.return_value = [
+        {
+            "Account ID": 12345,
+            "Account Current Membership Status": "Active",
+            "First Name": "First",
+        }
+    ]
     index.airtable.get_policy_violations.return_value = [
         {"fields": {"Neon ID": "Someone else"}},
         {"fields": {"Neon ID": "12345", "Closure": "2024-04-01 00:00"}},
@@ -179,12 +183,14 @@ def test_welcome_signin_ok_with_announcements(client, mocker):
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
     mocker.patch.object(index, "airtable")
-    index.neon.search_member.return_value = {
-        "Account ID": 12345,
-        "Account Current Membership Status": "Active",
-        "First Name": "First",
-        "API server role": "Shop Tech",
-    }
+    index.neon.search_member.return_value = [
+        {
+            "Account ID": 12345,
+            "Account Current Membership Status": "Active",
+            "First Name": "First",
+            "API server role": "Shop Tech",
+        }
+    ]
     index.airtable.get_announcements_after.return_value = [
         {"Title": "Test Announcement"}
     ]

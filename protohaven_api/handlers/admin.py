@@ -18,10 +18,10 @@ def user_clearances():
     results = {}
     for e in emails:
         m = neon.search_member(e)
-        if m is None:
+        if len(m) == 0:
             results[e] = "NotFound"
             continue
-        neon_id = m["Account ID"]
+        neon_id = m[0]["Account ID"]
 
         codes = set(neon.get_user_clearances(neon_id))
         if request.method == "GET":

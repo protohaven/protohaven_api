@@ -22,15 +22,16 @@ onMount(refresh);
 {:then p}
     <Table class="my-3">
       <thead>
-	{#each ['', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as d}
-	  <th class="mx-3">{d}</th>
+      	<th></th>
+	{#each ['AM', 'PM'] as ap}
+	  <th class="mx-3 text-center">{ap}</th>
 	{/each}
       </thead>
       <tbody>
-	{#each ['AM', 'PM'] as ap}
+	{#each ['', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as d}
 	<tr>
-	  <td><strong>{ap}</strong></td>
-	{#each ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as d}
+	  <td class="text-end align-middle"><strong>{d}</strong></td>
+	{#each ['AM', 'PM'] as ap}
 	  <td>
 	  {#each p[d + ' ' + ap] || [] as sm}
 	    <Card class="my-2 p-2">{sm}</Card>

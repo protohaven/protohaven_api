@@ -4,7 +4,7 @@ import '../../app.scss';
 import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
-import { Navbar, NavbarBrand, Spinner } from '@sveltestrap/sveltestrap';
+import { Container, Row, Col, Navbar, NavbarBrand, Spinner } from '@sveltestrap/sveltestrap';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
@@ -34,11 +34,17 @@ let fullname = "";
     <Spinner/>
     <h3>Resolving instructor data...</h3>
   {:then email}
-  <div>
+  <Scheduler {email} inst={fullname} bind:open={scheduler_open}/>
+  <Container>
+  <Row>
+  <Col>
     <Profile {email} on_scheduler={(fname)=> {scheduler_open=true; fullname=fname;}}/>
-    <Scheduler {email} inst={fullname} bind:open={scheduler_open}/>
-  </div>
-  <ClassDetails {email} {scheduler_open}/>
+  </Col>
+  <Col>
+    <ClassDetails {email} {scheduler_open}/>
+  </Col>
+  </Row>
+  </Container>
   {:catch error}
     <FetchError {error}/>
   {/await}

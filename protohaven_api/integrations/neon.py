@@ -12,6 +12,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
+from protohaven_api.rbac import Role
 
 log = logging.getLogger("integrations.neon")
 
@@ -23,16 +24,30 @@ def cfg(param):
 
 TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
-CUSTOM_FIELD_API_SERVER_ROLE = 85
-CUSTOM_FIELD_CLEARANCES = 75
-CUSTOM_FIELD_INTEREST = 148
-CUSTOM_FIELD_EXPERTISE = 155
-CUSTOM_FIELD_DISCORD_USER = 150
-CUSTOM_FIELD_WAIVER_ACCEPTED = 151
-CUSTOM_FIELD_SHOP_TECH_SHIFT = 152
-CUSTOM_FIELD_SHOP_TECH_LAST_DAY = 158
-CUSTOM_FIELD_AREA_LEAD = 153
-CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED = 154
+
+
+class CustomField:
+    API_SERVER_ROLE = 85
+    CLEARANCES = 75
+    INTEREST = 148
+    EXPERTISE = 155
+    DISCORD_USER = 150
+    WAIVER_ACCEPTED = 151
+    SHOP_TECH_SHIFT = 152
+    SHOP_TECH_LAST_DAY = 158
+    AREA_LEAD = 153
+    ANNOUNCEMENTS_ACKNOWLEDGED = 154
+
+
+class Category:
+    VOLUNTEER_DAY = "32"
+    MEMBER_EVENT = "33"
+    PROJECT_BASED_WORKSHOP = "15"
+    SHOP_TECH = "34"
+    SKILLS_AND_SAFETY_WORKSHOP = "16"
+    SOMETHING_ELSE_AMAZING = "27"
+
+
 WAIVER_FMT = "version {version} on {accepted}"
 WAIVER_REGEX = r"version (.+?) on (.*)"
 URL_BASE = "https://api.neoncrm.com/v2"
@@ -58,12 +73,11 @@ def fetch_published_upcoming_events(back_days=7):
     while current_page < total_pages:
         q_params["pagination"]["currentPage"] = current_page
         encoded_params = urllib.parse.urlencode(q_params)
-        _, content = get_connector().neon_request(
+        content = get_connector().neon_request(
             cfg("api_key1"),
             "https://api.neoncrm.com/v2/events?" + encoded_params,
             "GET",
         )
-        content = json.loads(content)
         total_pages = content["pagination"]["totalPages"]
         for cls in content["events"]:
             yield cls
@@ -78,10 +92,9 @@ def fetch_events(after=None, before=None, published=True):
     if before is not None:
         q_params["startDateBefore"] = before.strftime("%Y-%m-%d")
     encoded_params = urllib.parse.urlencode(q_params)
-    _, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key1"), "https://api.neoncrm.com/v2/events?" + encoded_params, "GET"
     )
-    content = json.loads(content)
     if isinstance(content, list):
         raise RuntimeError(content)
     return content["events"]
@@ -89,23 +102,17 @@ def fetch_events(after=None, before=None, published=True):
 
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}"
     )
-    if resp.status != 200:
-        raise RuntimeError(f"fetch_event({event_id}) {resp.status}: {content}")
-    return json.loads(content)
 
 
 def fetch_registrations(event_id):
     """Fetch registrations for a specific Neon event"""
-    resp, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key1"),
         f"https://api.neoncrm.com/v2/events/{event_id}/eventRegistrations",
     )
-    if resp.status != 200:
-        raise RuntimeError(f"fetch_registrations({event_id}) {resp.status}: {content}")
-    content = json.loads(content)
     if isinstance(content, list):
         raise RuntimeError(content)
     if content["pagination"]["totalPages"] > 1:
@@ -115,12 +122,9 @@ def fetch_registrations(event_id):
 
 def fetch_tickets(event_id):
     """Fetch ticket information for a specific Neon event"""
-    resp, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}/tickets"
     )
-    if resp.status != 200:
-        raise RuntimeError(f"fetch_tickets({event_id}) {resp.status}: {content}")
-    content = json.loads(content)
     if isinstance(content, list):
         return content
     raise RuntimeError(content)
@@ -133,14 +137,11 @@ def fetch_attendees(event_id):
     while current_page < total_pages:
         url = f"https://api.neoncrm.com/v2/events/{event_id}/attendees?currentPage={current_page}"
         log.debug(url)
-        resp, content = get_connector().neon_request(
+        content = get_connector().neon_request(
             cfg("api_key1"),
             url,
             "GET",
         )
-        if resp.status != 200:
-            raise RuntimeError(f"fetch_attendees({event_id}) {resp.status}: {content}")
-        content = json.loads(content)
         if isinstance(content, list):
             raise RuntimeError(content)
         if content["pagination"]["totalResults"] == 0:
@@ -155,11 +156,10 @@ def fetch_attendees(event_id):
 @cache
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
-    resp, content = get_connector().neon_request(
-        cfg("api_key1"), f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}", "GET"
+    content = get_connector().neon_request(
+        cfg("api_key1"), f"{URL_BASE}/customFields/{CustomField.CLEARANCES}", "GET"
     )
-    assert resp.status == 200
-    return json.loads(content)["optionValues"]
+    return content["optionValues"]
 
 
 def get_user_clearances(account_id):
@@ -188,21 +188,20 @@ def set_clearance_codes(codes):
     """
     data = {
         "groupId": GROUP_ID_CLEARANCES,
-        "id": CUSTOM_FIELD_CLEARANCES,
+        "id": CustomField.CLEARANCES,
         "displayType": "Checkbox",
         "name": "Clearances",
         "dataType": "Integer",
         "component": "Account",
         "optionValues": codes,
     }
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key1"),
-        f"{URL_BASE}/customFields/{CUSTOM_FIELD_CLEARANCES}",
+        f"{URL_BASE}/customFields/{CustomField.CLEARANCES}",
         "PUT",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PUT {resp.status} {content}")
 
 
 def set_custom_field(user_id, data):
@@ -212,25 +211,24 @@ def set_custom_field(user_id, data):
             "accountCustomFields": [data],
         }
     }
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PATCH {resp.status} {content}")
 
 
 def set_interest(user_id, interest: str):
     """Assign interest to user custom field"""
-    return set_custom_field(user_id, {"id": CUSTOM_FIELD_INTEREST, "value": interest})
+    return set_custom_field(user_id, {"id": CustomField.INTEREST, "value": interest})
 
 
 def set_discord_user(user_id, discord_user: str):
     """Sets the discord user used by this user"""
     return set_custom_field(
-        user_id, {"id": CUSTOM_FIELD_DISCORD_USER, "value": discord_user}
+        user_id, {"id": CustomField.DISCORD_USER, "value": discord_user}
     )
 
 
@@ -246,7 +244,7 @@ def set_clearances(user_id, codes):
 
     data = {
         "accountCustomFields": [
-            {"id": CUSTOM_FIELD_CLEARANCES, "optionValues": [{"id": i} for i in ids]}
+            {"id": CustomField.CLEARANCES, "optionValues": [{"id": i} for i in ids]}
         ],
     }
 
@@ -257,26 +255,21 @@ def set_clearances(user_id, codes):
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
 
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PATCH {resp.status} {content}")
-    return resp, content
 
 
 def fetch_account(account_id):
     """Fetches account information for a specific user in Neon.
     Raises RuntimeError if an error is returned from the server"""
-    _, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key1"), f"https://api.neoncrm.com/v2/accounts/{account_id}"
     )
-    if content == b"":
-        raise RuntimeError(f"No member found for account_id {account_id}")
-    content = json.loads(content)
     if isinstance(content, list):
         raise RuntimeError(content)
     return content
@@ -306,23 +299,21 @@ def search_member_by_name(firstname, lastname):
             "pageSize": 1,
         },
     }
-    resp, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    if resp.status != 200:
-        raise RuntimeError(f"Error {resp.status}: {content}")
-    content = json.loads(content)
     if content.get("searchResults") is None:
         raise RuntimeError(f"Search for {firstname} {lastname} failed: {content}")
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
 
 def search_member(email):
-    """Lookup a user by their email"""
+    """Lookup a user by their email; note that emails aren't unique so we may
+    return multiple results."""
     data = {
         "searchFields": [
             {
@@ -337,30 +328,28 @@ def search_member(email):
             "Last Name",
             "Account Current Membership Status",
             "Membership Level",
-            CUSTOM_FIELD_CLEARANCES,
-            CUSTOM_FIELD_DISCORD_USER,
-            CUSTOM_FIELD_WAIVER_ACCEPTED,
-            CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED,
-            CUSTOM_FIELD_API_SERVER_ROLE,
+            CustomField.CLEARANCES,
+            CustomField.DISCORD_USER,
+            CustomField.WAIVER_ACCEPTED,
+            CustomField.ANNOUNCEMENTS_ACKNOWLEDGED,
+            CustomField.API_SERVER_ROLE,
         ],
         "pagination": {
             "currentPage": 0,
-            "pageSize": 1,
+            "pageSize": 100,
         },
     }
-    resp, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    if resp.status != 200:
-        raise RuntimeError(f"Error {resp.status}: {content}")
-    content = json.loads(content)
+    print(content)
     if content.get("searchResults") is None:
         raise RuntimeError(f"Search for {email} failed: {content}")
-    return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
+    return content["searchResults"]
 
 
 def get_members_with_role(role, extra_fields):
@@ -370,7 +359,7 @@ def get_members_with_role(role, extra_fields):
     data = {
         "searchFields": [
             {
-                "field": str(CUSTOM_FIELD_API_SERVER_ROLE),
+                "field": str(CustomField.API_SERVER_ROLE),
                 "operator": "CONTAIN",
                 "value": role["id"],
             }
@@ -383,16 +372,13 @@ def get_members_with_role(role, extra_fields):
     }
     total = 1
     while cur < total:
-        resp, content = get_connector().neon_request(
+        content = get_connector().neon_request(
             cfg("api_key2"),
             f"{URL_BASE}/accounts/search",
             "POST",
             body=json.dumps(data),
             headers={"content-type": "application/json"},
         )
-        if resp.status != 200:
-            raise RuntimeError(f"Error {resp.status}: {content}")
-        content = json.loads(content)
         if content.get("searchResults") is None or content.get("pagination") is None:
             raise RuntimeError(f"Search for {role} failed: {content}")
 
@@ -402,6 +388,46 @@ def get_members_with_role(role, extra_fields):
 
         for r in content["searchResults"]:
             yield r
+
+
+def fetch_techs_list():
+    """Fetches a list of current shop techs, ordered by number of clearances"""
+    techs = []
+    for t in get_members_with_role(
+        Role.SHOP_TECH,
+        [
+            "Email 1",
+            CustomField.CLEARANCES,
+            CustomField.INTEREST,
+            CustomField.EXPERTISE,
+            CustomField.AREA_LEAD,
+            CustomField.SHOP_TECH_SHIFT,
+            CustomField.SHOP_TECH_LAST_DAY,
+        ],
+    ):
+        clr = []
+        if t.get("Clearances") is not None:
+            clr = t["Clearances"].split("|")
+        interest = t.get("Interest", "")
+        expertise = t.get("Expertise", "")
+        area_lead = t.get("Area Lead", "")
+        shift = t.get("Shop Tech Shift", "")
+        last_day = t.get("Shop Tech Last Day", "")
+        techs.append(
+            {
+                "id": t["Account ID"],
+                "name": f"{t['First Name']} {t['Last Name']}",
+                "email": t["Email 1"],
+                "interest": interest,
+                "expertise": expertise,
+                "area_lead": area_lead,
+                "shift": shift,
+                "last_day": last_day,
+                "clearances": clr,
+            }
+        )
+    techs.sort(key=lambda t: len(t["clearances"]))
+    return techs
 
 
 class DuplicateRequestToken:  # pylint: disable=too-few-public-methods
@@ -708,21 +734,22 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         log.debug(groups)
 
         for pkg_id in deletable_packages:
-            log.debug("Delete pricing", pkg_id)
+            log.debug(f"Delete pricing {pkg_id}")
             self.s.get(
                 f"{ADMIN_URL}/event/deletePackage.do?eventId={event_id}&id={pkg_id}"
             )
 
         for group_id in groups:
-            log.debug("Delete group", group_id)
+            log.debug(f"Delete group {group_id}")
             self.s.get(
                 f"{ADMIN_URL}/event/deletePackageGroup.do"
                 f"?ticketGroupId={group_id}&eventId={event_id}"
             )
 
-        # Re-run first price deletion as it's probably a default price that must exist if there are conditional pricing applied
+        # Re-run first price deletion as it's probably a default price
+        # that must exist if there are conditional pricing applied
         if len(deletable_packages) > 0:
-            log.debug("Re-delete pricing", deletable_packages[0])
+            log.debug(f"Re-delete pricing {deletable_packages[0]}")
             self.s.get(
                 f"{ADMIN_URL}/event/deletePackage.do"
                 f"?eventId={event_id}&id={deletable_packages[0]}"
@@ -772,16 +799,13 @@ def set_event_scheduled_state(neon_id, scheduled=True):
         "archived": not scheduled,
         "enableWaitListing": scheduled,
     }
-    resp, content = get_connector().neon_request(
+    content = get_connector().neon_request(
         cfg("api_key3"),
         f"{URL_BASE}/events/{neon_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    if resp.status != 200:
-        raise RuntimeError(f"Error {resp.status}: {content}")
-    content = json.loads(content)
     return content["id"]
 
 
@@ -790,6 +814,7 @@ def create_event(  # pylint: disable=too-many-arguments
     desc,
     start,
     end,
+    category=Category.PROJECT_BASED_WORKSHOP,
     max_attendees=6,
     dry_run=True,
 ):
@@ -798,7 +823,7 @@ def create_event(  # pylint: disable=too-many-arguments
         "name": name,
         "summary": name,
         "maximumAttendees": max_attendees,
-        "category": {"id": "15"},  # "Project-Based Workshop"
+        "category": {"id": category},
         "publishEvent": True,
         "enableEventRegistrationForm": True,
         "archived": False,
@@ -840,19 +865,18 @@ def create_event(  # pylint: disable=too-many-arguments
 
     if dry_run:
         log.warning(
-            f"DRY RUN {event['eventDates']['startDate']} {event['eventDates']['startTime']} {event['name']}"
+            f"DRY RUN {event['eventDates']['startDate']} "
+            f"{event['eventDates']['startTime']} {event['name']}"
         )
         return None
 
-    _, content = get_connector().neon_request(
+    evt_request = get_connector().neon_request(
         cfg("api_key3"),
         f"{URL_BASE}/events",
         "POST",
         body=json.dumps(event),
         headers={"content-type": "application/json"},
     )
-    evt_request = json.loads(content)
-    log.debug(evt_request)
     return evt_request["id"]
 
 
@@ -873,7 +897,7 @@ def _patch_role(account, role, enabled):
         "accountCustomFields"
     ]
     for cf in acf:
-        if str(cf["id"]) == str(CUSTOM_FIELD_API_SERVER_ROLE):
+        if str(cf["id"]) == str(CustomField.API_SERVER_ROLE):
             vals = {v["id"]: v["name"] for v in cf["optionValues"]}
             if enabled:
                 vals[role["id"]] = role["name"]
@@ -886,16 +910,16 @@ def _patch_role(account, role, enabled):
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
     mem = search_member(email)
-    if not mem:
+    if len(mem) == 0:
         raise KeyError()
-    user_id = mem["Account ID"]
+    user_id = mem[0]["Account ID"]
     log.debug("patching account")
-    account = fetch_account(mem["Account ID"])
+    account = fetch_account(mem[0]["Account ID"])
     roles = _patch_role(account, role, enabled)
     log.debug(str(roles))
     data = {
         "accountCustomFields": [
-            {"id": CUSTOM_FIELD_API_SERVER_ROLE, "optionValues": roles}
+            {"id": CustomField.API_SERVER_ROLE, "optionValues": roles}
         ],
     }
     # Need to confirm whether the user is an individual or company account
@@ -908,32 +932,30 @@ def patch_member_role(email, role, enabled):
         data = {"companyAccount": data}
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PATCH {resp.status} {content}")
-    return resp, content
 
 
-def set_tech_custom_fields(
+def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     user_id, shift=None, last_day=None, area_lead=None, interest=None, expertise=None
 ):
     """Overwrites existing waiver status information on an account"""
     cf = []
     if shift is not None:
-        cf.append({"id": CUSTOM_FIELD_SHOP_TECH_SHIFT, "value": shift})
+        cf.append({"id": CustomField.SHOP_TECH_SHIFT, "value": shift})
     if last_day is not None:
-        cf.append({"id": CUSTOM_FIELD_SHOP_TECH_LAST_DAY, "value": last_day})
+        cf.append({"id": CustomField.SHOP_TECH_LAST_DAY, "value": last_day})
     if area_lead is not None:
-        cf.append({"id": CUSTOM_FIELD_AREA_LEAD, "value": area_lead})
+        cf.append({"id": CustomField.AREA_LEAD, "value": area_lead})
     if interest is not None:
-        cf.append({"id": CUSTOM_FIELD_INTEREST, "value": interest})
+        cf.append({"id": CustomField.INTEREST, "value": interest})
     if expertise is not None:
-        cf.append({"id": CUSTOM_FIELD_EXPERTISE, "value": interest})
+        cf.append({"id": CustomField.EXPERTISE, "value": interest})
     data = {"accountCustomFields": cf}
     # Need to confirm whether the user is an individual or company account
     m = fetch_account(user_id)
@@ -945,15 +967,13 @@ def set_tech_custom_fields(
         data = {"companyAccount": data}
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PATCH {resp.status} {content}")
-    return resp, content
 
 
 def _set_custom_singleton_fields(user_id, field_id_to_value_map):
@@ -976,22 +996,20 @@ def _set_custom_singleton_fields(user_id, field_id_to_value_map):
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
 
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PATCH {resp.status} {content}")
-    return resp, content
 
 
 def set_waiver_status(user_id, new_status):
     """Overwrites existing waiver status information on an account"""
     data = {
         "accountCustomFields": [
-            {"id": CUSTOM_FIELD_WAIVER_ACCEPTED, "value": new_status}
+            {"id": CustomField.WAIVER_ACCEPTED, "value": new_status}
         ],
     }
     # Need to confirm whether the user is an individual or company account
@@ -1006,15 +1024,13 @@ def set_waiver_status(user_id, new_status):
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
 
-    resp, content = get_connector().neon_request(
+    return get_connector().neon_request(
         cfg("api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
         headers={"content-type": "application/json"},
     )
-    log.debug(f"PATCH {resp.status} {content}")
-    return resp, content
 
 
 def update_announcement_status(user_id, now=None):
@@ -1022,7 +1038,7 @@ def update_announcement_status(user_id, now=None):
     if now is None:
         now = tznow()
     return _set_custom_singleton_fields(
-        user_id, {CUSTOM_FIELD_ANNOUNCEMENTS_ACKNOWLEDGED: now.strftime("%Y-%m-%d")}
+        user_id, {CustomField.ANNOUNCEMENTS_ACKNOWLEDGED: now.strftime("%Y-%m-%d")}
     )
 
 
@@ -1049,7 +1065,7 @@ def update_waiver_status(  # pylint: disable=too-many-arguments
         new_status = WAIVER_FMT.format(
             version=current_version, accepted=now.strftime("%Y-%m-%d")
         )
-        log.debug("Calling", set_waiver_status)
+        log.debug(f"Calling {set_waiver_status}")
         set_waiver_status(user_id, new_status)
         log.debug("Called set_waiver_status")
         return True

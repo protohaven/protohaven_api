@@ -60,7 +60,7 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def build_instructor(k, v, caps, load, occupancy, exclude_holidays=True):
+def build_instructor(k, v, caps, load, occupancy):
     """Create and return an Instructor object given a name and [(start,end)] style schedule"""
     avail = []
     for a, b in v:
@@ -78,10 +78,9 @@ def build_instructor(k, v, caps, load, occupancy, exclude_holidays=True):
             if not has_overlap:
                 avail.append(dr)
 
-    if exclude_holidays:
-        # Pylint seems to think `US()` doesn't exist. It may be dynamically loaded?
-        us_holidays = holidays.US()  # pylint: disable=no-member
-        avail = [a for a in avail if a not in us_holidays]
+    # Pylint seems to think `US()` doesn't exist. It may be dynamically loaded?
+    us_holidays = holidays.US()  # pylint: disable=no-member
+    avail = [a for a in avail if a not in us_holidays]
 
     return Instructor(name=k, caps=caps, load=load, avail=avail)
 
@@ -126,7 +125,6 @@ def generate_env(
     start_date,
     end_date,
     instructor_filter=None,
-    exclude_holidays=True,
     include_proposed=True,
 ):  # pylint: disable=too-many-locals
     """Generates the environment to be passed to the solver"""
@@ -151,18 +149,12 @@ def generate_env(
     )
     log.info(f"Computed exclusion times of {len(exclusions)} different classes")
     log.info(
-        f"Computed occupancy of {len(area_occupancy)} different areas, {len(instructor_occupancy)} instructors"
+        f"Computed occupancy of {len(area_occupancy)} different areas, "
+        f"{len(instructor_occupancy)} instructors"
     )
 
     instructors = []
     skipped = 0
-    if exclude_holidays:
-        log.info("Instructor availability that falls on US holidays will be ignored")
-    else:
-        log.warning(
-            "Instructor availability that falls on US holidays will NOT be ignored"
-        )
-
     for k, v in sched_formatted.items():
         k = k.lower()
         if instructor_filter is not None and k not in instructor_filter:
@@ -184,7 +176,6 @@ def generate_env(
                 caps,
                 max_loads[k],
                 instructor_occupancy[k],
-                exclude_holidays=exclude_holidays,
             )
         )
 

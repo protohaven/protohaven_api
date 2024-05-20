@@ -1,7 +1,7 @@
 <script type="ts">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
 import EditCell from './editable_td.svelte';
 
@@ -72,28 +72,22 @@ function clearance_click(id) {
     <ToastBody>{toast_msg.msg}</ToastBody>
   </Toast>
 
-  <Table class="my-3" bordered striped>
-    <thead>
-      <th class="mx-3">Tech</th>
-      <th class="mx-3" style="width:190px;">Shift</th>
-      <th class="mx-3" style="width:220px;">Last Day</th>
-      <th class="mx-3" style="min-width:190px">Area Lead</th>
-      <th class="mx-3">Interest</th>
-      <th class="mx-3">Expertise</th>
-      <th id="th-clr" class="mx-3">#Clr</th>
-      <Tooltip target="th-clr" placement="top">Number of clearances - click a number for a full list</Tooltip>
-    </thead>
-    <tbody>
     {#each p.techs as t}
-      <tr>
-	<td>{t.name} ({t.email})</td>
-	<EditCell enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
-	<EditCell enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
-	<EditCell enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
-	<EditCell enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
-	<EditCell enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>
-	<td><Button outline on:click={() => clearance_click(t.email)}>{t.clearances.length}</Button></td>
-      </tr>
+      <Card class="my-2">
+	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
+	<CardBody>
+	<Container>
+	<Row cols={{ xxl: 6, xl: 6, l: 6, md: 2, sm: 1, xs: 1}}>
+	<EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
+	<EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
+	<EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
+	<EditCell title="Interest" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
+	<EditCell title="Expertise" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>
+	<Col><Button outline on:click={() => clearance_click(t.email)}>{t.clearances.length} Clearance(s)</Button></Col>
+	</Row>
+	</Container>
+	</CardBody>
+      </Card>
       <Modal body header="Clearances" isOpen={modal_open == t.email} toggle={() => clearance_click(t.email)}>
 	{#each t.clearances as c}
 	  <div>{c}</div>
@@ -105,7 +99,6 @@ function clearance_click(id) {
 	{/if}
       </Modal>
     {/each}
-  </Table>
   </CardBody>
 </Card>
 {:catch error}
