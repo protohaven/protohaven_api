@@ -1,29 +1,16 @@
 """Commands related to developing on the API"""
-import argparse
-import datetime
 import logging
 import pickle
-import re
 from collections import defaultdict
 
-import markdown
-import yaml
-from dateutil import parser as dateparser
-
-from protohaven_api.class_automation import builder, scheduler
 from protohaven_api.commands.decorator import arg, command
-from protohaven_api.commands.reservations import reservation_dict
-from protohaven_api.config import get_config, tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
-    comms,
-    neon,
-)
+from protohaven_api.config import get_config  # pylint: disable=import-error
+from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
 log = logging.getLogger("cli.dev")
 
 
-class Commands:
+class Commands:  # pylint: disable=too-few-public-methods
     """Commands for development"""
 
     @command(

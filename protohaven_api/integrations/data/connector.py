@@ -96,10 +96,12 @@ class Connector:
             f"Mock data handler for Airtable request with args\n{args}\nkwargs\n{kwargs}"
         )
 
-    def airtable_request(self, mode, base, tbl, rec=None, suffix=None, data=None):
+    def airtable_request(
+        self, mode, base, tbl, rec=None, suffix=None, data=None
+    ):  # pylint: disable=too-many-arguments
         """Make an airtable request using the requests module"""
         if self.dev:
-            return self._airtable_request_dev(*args, **kwargs)
+            return self._airtable_request_dev(mode, base, tbl, rec, suffix, data)
 
         cfg = self.cfg["airtable"][base]
         headers = {
@@ -117,10 +119,11 @@ class Connector:
                     mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
                 )
             except requests.exceptions.ReadTimeout as rt:
-                if args[0] != "GET" or i == NUM_READ_ATTEMPTS - 1:
+                if mode != "GET" or i == NUM_READ_ATTEMPTS - 1:
                     raise rt
                 log.warning(
-                    f"ReadTimeout on airtable request {args} {kwargs}, retry #{i+1}"
+                    f"ReadTimeout on airtable request {mode} {base} {tbl} "
+                    f"{rec} {suffix}, retry #{i+1}"
                 )
                 time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
         return None

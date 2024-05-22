@@ -1,13 +1,19 @@
 """Commands related to financial information and alerting"""
 import datetime
 import logging
+import argparse
+from collections import defaultdict
+import sys
+import re
+import pickle
 
 import yaml
 from dateutil import parser as dateparser
 
-from protohaven_api.commands.decorator import command
+from protohaven_api.rbac import Role
+from protohaven_api.commands.decorator import command, arg
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import sales  # pylint: disable=import-error
+from protohaven_api.integrations import sales, neon  # pylint: disable=import-error
 
 log = logging.getLogger("cli.finances")
 
@@ -16,7 +22,7 @@ class Commands:
     """Commands for managing classes in Airtable and Neon"""
 
     @command()
-    def transaction_alerts(self, _):
+    def transaction_alerts(self, _):  # pylint: disable=too-many-locals
         """Send alerts about recent/unresolved transaction issues"""
         log.info("Fetching customer mapping")
         cust_map = sales.get_customer_name_map()
@@ -86,7 +92,170 @@ class Commands:
             ]
 
         print(yaml.dump(result, default_flow_style=False, default_style=""))
-        log.info(f"Done")
+        log.info("Done")
+
+    def _validate_role_membership(self, details, role):
+        log.info(f"Validate role membership: {role['name']} {details}")
+        results = []
+        roles = details.get('roles', [])
+        if role['name'] not in roles:
+            results.append(f"Needs role {role['name']}, has {roles}")
+        return results
+
+    def _validate_addl_family_membership(self, details, family_sz, addl_sz):
+        log.info(f"Validate additional family membership: {details}, family size {family_sz} addls {addl_sz}")
+        results = []
+        if family_sz < 2:
+            results.append(f"Missing required 2+ members in household #{details['hid']}")
+        elif family_sz == addl_sz:
+            results.append(f"Missing full-price member in household #{details['hid']}")
+        return results
+
+    def _validate_employer_membership(self, details, company_sz):
+        log.info(f"Validate employer membership: {details}, size {company_sz}")
+        results = []
+        if company_sz < 2:
+            results.append(f"Missing required 2+ members in company #{details['cid']}")
+        return results
+
+    def _validate_amp_membership(self, details):
+        log.info(f"Validate AMP membership: {details}")
+        results = []
+        if not details.get('amp'):
+            results.append(f"Income based rate field not set for AMP membership")
+        if not details.get('income_proof'):
+            results.append(f"Proof of income not provided for AMP membership")
+        if details.get('amp'):
+            term_type = re.search(r"(ELI|VLI|LI)", details['term'])
+            ibr = details['amp']['optionValues'][0]['name']
+            if term_type is not None:
+                ibr_match = {'LI': 'Low Income', 'VLI': 'Very Low Income', 'ELI': 'Extremely Low Income'}.get(term_type[1])
+                if ibr_match not in ibr:
+                    results.append(f"Mismatch between Income based rate ({ibr}) and membership type {term_type[1]}")
+        return results
+
+
+    def _suggest_membership(self, details, num_household, num_addl_household, num_company):
+        """Look at role bits, AMP information, and company association to see whether
+            the 'best' membership fit is applied.
+
+           Zero-cost memberships matching the highest role are prioritized, followed by
+           Company, family, amp, and finally general memberships.
+        """
+        if details.get('roles'):
+            if Role.STAFF['name'] in details['roles']:
+                return ['Staff']
+            if Role.BOARD_MEMBER['name'] in details['roles']:
+                return ['Board Member']
+            if Role.SHOP_TECH_LEAD['name'] in details['roles']:
+                return ['Shop Tech Lead']
+            if Role.SHOP_TECH['name'] in details['roles']:
+                return ['Shop Tech']
+            if Role.INSTRUCTOR['name'] in details['roles'] or Role.ONBOARDING['name'] in details['roles']:
+                return ['Instructor']
+        if num_company > 0:
+            return ['Non-Profit Membership', 'Company Membership']
+        if num_household > 1 and (num_household-num-addl_household) > 0:
+            return ['Additional Family Membership']
+        if details.get('amp'):
+            return details['amp']['optionValues'][0]['name']
+        return ['General']
+
+
+
+    @command(
+        arg("--cache",
+            help="Don't load pcl cache",
+            default=False,
+            action=argparse.BooleanOptionalAction,
+            ),
+    )
+    def validate_memberships(self, args):
+        """Loops through all accounts and verifies that memberships are correctly set"""
+        results = []
+
+        household_member_count = defaultdict(int)
+        household_num_addl_members = defaultdict(int)
+        company_member_count = defaultdict(int)
+        member_data = {}
+
+        if args.cache:
+            with open("tmp.pkl", "rb") as f:
+                member_data, household_member_count, household_num_addl_members, company_member_count = pickle.load(f)
+                log.info("LOAD")
+        else:
+            # We search for NOT a bogus email to get all members, then collect
+            # data before analysis in order to count paying household & company members
+            log.info("Collecting member details")
+            n = 0
+            for mem in neon.search_member("noreply@protohaven.org", operator="NOT_EQUAL"):
+                if n % 5 == 0:
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
+                if mem['Account Current Membership Status'].lower() != 'active':
+                    continue
+                aid = mem['Account ID']
+                hid = mem['Household ID']
+                level = mem['Membership Level']
+                acct = neon.fetch_account(mem['Account ID'])
+                details = {'aid': aid, 'hid': hid, 'name': f"{mem['First Name']} {mem['Last Name']}", 'cid': mem['Company ID'], 'level': level, 'term': mem['Membership Term']}
+                for acf in acct is not None and (acct.get('individualAccount') or {}).get('accountCustomFields', []):
+                    if acf['name'] == 'Income Based Rate':
+                        details['amp'] = acf
+                    elif acf['name'] == 'Proof of Income':
+                        details['income_proof'] = acf
+                    elif acf.get('company'):
+                        details['company'] = acf 
+                    elif acf['name'] == 'API server role':
+                        details['roles'] = [ov['name'] for ov in acf['optionValues']]
+                member_data[aid] = details
+                household_member_count[hid] += 1
+                if "Additional" in level:
+                    household_num_addl_members[hid] += 1
+                company_member_count[mem['Company ID']] += 1
+                n += 1
+            sys.stdout.write("\n")
+            with open("tmp.pkl", "wb") as f:
+                pickle.dump((member_data, dict(household_member_count), dict(household_num_addl_members), dict(company_member_count)), f)
+                log.info("DUMP")
+
+        log.info(f"Loaded details of {len(member_data)} active members, {len(household_member_count)} households, {len(company_member_count)} companies")
+    
+        log.info("Validating member details")
+        for aid, details in member_data.items():
+            level = details['level'].strip()
+            result = []
+
+            suggested = self._suggest_membership(details, 
+                                                 household_member_count.get(details['hid'], 0), 
+                                                 household_num_addl_members.get(details['hid'], 0), 
+                                                 company_member_count.get(details['cid'], 0))
+            #if level not in suggested:
+            #     result.append(f"has level {level}, suggest {suggested}")
+
+            if level in ('General Membership', 'Weekend Membership', 'Weeknight Membership', 'Founding Member', 'Primary Family Membership', 'Youth Program'):
+                continue # Ignore
+            elif 'AMP' in level:
+                result += self._validate_amp_membership(details)
+            elif level == 'Shop Tech':
+                result += self._validate_role_membership(details, Role.SHOP_TECH)
+            elif level == 'Instructor':
+                result += self._validate_role_membership(details, Role.INSTRUCTOR)
+            elif level in 'Board Member':
+                result += self._validate_role_membership(details, Role.BOARD_MEMBER)
+            elif level == 'Staff':
+                result += self._validate_role_membership(details, Role.STAFF)
+            elif level == 'Additional Family Membership':
+                result += self._validate_addl_family_membership(details, household_member_count.get(details['hid'], 0), household_num_addl_members.get(details['hid'], 0))
+            elif level in ('Corporate Membership', 'Company Membership', 'Non-Profit Membership'):
+                result += self._validate_employer_membership(details, company_member_count.get(details['cid'], 0))
+            else:
+                result += [f"Unhandled membership: '{level}'"]
+
+            results += [f"{details['name']}: {r} - https://protohaven.app.neoncrm.com/admin/accounts/{details['aid']}" for r in result]
+
+        for r in results:
+            print(r)
 
     @command()
     def neon_failed_membership_txns(self, args):

@@ -5,6 +5,7 @@ import logging
 import re
 import time
 import urllib
+from dataclasses import dataclass
 from functools import cache
 
 from bs4 import BeautifulSoup
@@ -26,7 +27,10 @@ TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
 
 
+@dataclass
 class CustomField:
+    """Account Custom Fields from Neon"""
+
     API_SERVER_ROLE = 85
     CLEARANCES = 75
     INTEREST = 148
@@ -39,7 +43,10 @@ class CustomField:
     ANNOUNCEMENTS_ACKNOWLEDGED = 154
 
 
+@dataclass
 class Category:
+    """Event categories from Neon"""
+
     VOLUNTEER_DAY = "32"
     MEMBER_EVENT = "33"
     PROJECT_BASED_WORKSHOP = "15"
@@ -310,52 +317,63 @@ def search_member_by_name(firstname, lastname):
         raise RuntimeError(f"Search for {firstname} {lastname} failed: {content}")
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
+def _paginated_account_search(data):
+  cur = 0
+  data["pagination"] = {
+      "currentPage": cur,
+      "pageSize": 50,
+  }
+  total = 1
+  while cur < total:
+      content = get_connector().neon_request(
+          cfg("api_key2"),
+          f"{URL_BASE}/accounts/search",
+          "POST",
+          body=json.dumps(data),
+          headers={"content-type": "application/json"},
+      )
+      if content.get("searchResults") is None or content.get("pagination") is None:
+          raise RuntimeError(f"Search failed: {content}")
 
-def search_member(email):
+      total = content["pagination"]["totalPages"]
+      cur += 1
+      data["pagination"]["currentPage"] = cur
+      for r in content["searchResults"]:
+          yield r
+
+
+def search_member(email, operator="EQUAL"):
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
     data = {
         "searchFields": [
             {
                 "field": "Email",
-                "operator": "EQUAL",
+                "operator": operator,
                 "value": email,
             }
         ],
         "outputFields": [
             "Account ID",
+            "Household ID",
+            "Company ID",
             "First Name",
             "Last Name",
             "Account Current Membership Status",
             "Membership Level",
+            "Membership Term",
             CustomField.CLEARANCES,
             CustomField.DISCORD_USER,
             CustomField.WAIVER_ACCEPTED,
             CustomField.ANNOUNCEMENTS_ACKNOWLEDGED,
             CustomField.API_SERVER_ROLE,
         ],
-        "pagination": {
-            "currentPage": 0,
-            "pageSize": 100,
-        },
     }
-    content = get_connector().neon_request(
-        cfg("api_key2"),
-        f"{URL_BASE}/accounts/search",
-        "POST",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
-    print(content)
-    if content.get("searchResults") is None:
-        raise RuntimeError(f"Search for {email} failed: {content}")
-    return content["searchResults"]
+    return _paginated_account_search(data)
 
 
 def get_members_with_role(role, extra_fields):
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
-    # Do we need to search email 2 and 3 as well?
-    cur = 0
     data = {
         "searchFields": [
             {
@@ -365,30 +383,8 @@ def get_members_with_role(role, extra_fields):
             }
         ],
         "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
-        "pagination": {
-            "currentPage": cur,
-            "pageSize": 50,
-        },
     }
-    total = 1
-    while cur < total:
-        content = get_connector().neon_request(
-            cfg("api_key2"),
-            f"{URL_BASE}/accounts/search",
-            "POST",
-            body=json.dumps(data),
-            headers={"content-type": "application/json"},
-        )
-        if content.get("searchResults") is None or content.get("pagination") is None:
-            raise RuntimeError(f"Search for {role} failed: {content}")
-
-        total = content["pagination"]["totalPages"]
-        cur += 1
-        data["pagination"]["currentPage"] = cur
-
-        for r in content["searchResults"]:
-            yield r
-
+    return _paginated_account_search(data)
 
 def fetch_techs_list():
     """Fetches a list of current shop techs, ordered by number of clearances"""

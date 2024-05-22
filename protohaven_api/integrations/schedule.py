@@ -3,14 +3,11 @@
 Requires access to be granted: https://calendar.google.com/calendar/u/0/embed?src=c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com&ctz=America/New_York          #pylint: disable=line-too-long
 """
 import logging
-import os.path
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from dateutil import parser
-from google.auth.transport.requests import Request
 from google.oauth2 import service_account
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from protohaven_api.config import get_config

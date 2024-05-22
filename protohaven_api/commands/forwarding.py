@@ -2,6 +2,7 @@
 import argparse
 import logging
 import re
+from datetime import datetime
 
 import yaml
 from dateutil import parser as dateparser
@@ -137,6 +138,8 @@ class Commands:
 
     @command(arg("--now", help="Override current time", type=str, default=None))
     def tech_sign_ins(self, args):
+        """Craft a notification to indicate whether the scheduled techs have signed in
+        for their shift"""
         now = tznow() if not args.now else dateparser.parse(args.now).astimezone(tz)
         shift = self._cur_shift(now)
         start = now.replace(hour=8)

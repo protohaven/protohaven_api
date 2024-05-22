@@ -19,7 +19,7 @@ def test_set_booked_resource_id(mocker):
     a.set_booked_resource_id("airtable_id", "resource_id")
     fname, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
     assert kwargs["data"] == json.dumps({"fields": {"BookedResourceId": "resource_id"}})
-    assert "airtable_id" in args[2]
+    assert "airtable_id" == kwargs['rec']
 
 
 def test_get_all_records(mocker):
@@ -49,9 +49,10 @@ def test_get_all_records(mocker):
         "fizz",
         "buzz",
     ]
-    _, args, _ = a.get_connector().airtable_request.mock_calls[0]
-    assert args[0] == "test_token"
-    assert args[2].endswith("test_tbl_id?offset=&a=test_suffix")
+    _, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
+    print(kwargs)
+    assert kwargs['suffix'] == "?offset=&a=test_suffix"
 
-    _, args, _ = a.get_connector().airtable_request.mock_calls[1]
-    assert args[2].endswith("test_tbl_id?offset=1&a=test_suffix")
+    _, args, kwargs = a.get_connector().airtable_request.mock_calls[1]
+    print(kwargs)
+    assert kwargs['suffix'] == "?offset=1&a=test_suffix"

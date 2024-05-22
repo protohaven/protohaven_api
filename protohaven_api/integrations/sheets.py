@@ -1,11 +1,8 @@
 """Read from google spreadsheets"""
 import logging
-import os.path
 
 from dateutil import parser as dateparser
-from google.auth.transport.requests import Request
 from google.oauth2 import service_account
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from protohaven_api.config import get_config, tz
@@ -47,9 +44,7 @@ def get_sign_ins_between(start, end):
     """Returns sign-in events between start and end dates. Not very efficient."""
     log.info(cfg["welcome_waiver_form"])
     headers = get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A1:D")[0]
-    for row in get_sheet_range(
-        cfg["welcome_waiver_form"], f"Form Responses 1!A12200:D"
-    ):
+    for row in get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A12200:D"):
         data = dict(zip(headers, row))
         t = dateparser.parse(data["Timestamp"]).astimezone(tz)
         if start <= t <= end:

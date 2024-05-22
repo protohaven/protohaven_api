@@ -32,6 +32,7 @@ def get_subscriptions():
 
 
 def get_invoice(invoice_id):
+    """Fetch the details of a specific invoice by its id"""
     result = client().invoices.get_invoice(invoice_id)
     if result.is_success():
         return result.body["invoice"]
@@ -39,6 +40,9 @@ def get_invoice(invoice_id):
 
 
 def subscription_tax_pct(sub, price):
+    """Compute the tax percentage for a given subscription. Note that only
+    some subscriptions have the `tax_percentage` field, others must be computed
+    from linked invoices"""
     if sub.get("tax_percentage"):
         return float(sub["tax_percentage"])
     # Not having a tax_percentage field doesn't guarantee it has no tax.

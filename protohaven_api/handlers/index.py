@@ -69,7 +69,7 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-def welcome_sock(ws):
+def welcome_sock(ws):  # pylint: disable=too-many-branches
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
     result = {
@@ -94,7 +94,8 @@ def welcome_sock(ws):
                 for m in mm
             ]
             send_membership_automation_message(
-                f"Sign-in with {data['email']} returned multiple accounts in Neon with same email:\n"
+                f"Sign-in with {data['email']} returned multiple accounts "
+                + "in Neon with same email:\n"
                 + "\n".join(urls)
                 + "\nAdmin: please deduplicate"
             )
@@ -103,6 +104,7 @@ def welcome_sock(ws):
         else:
             # Preferably select the Neon account with active membership.
             # Note that the last `m` remains in context regardless of if we break.
+            m = mm[0]  # appease pylint
             for m in mm:
                 if (
                     m.get("Account Current Membership Status") or ""

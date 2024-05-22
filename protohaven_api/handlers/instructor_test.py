@@ -209,19 +209,24 @@ def test_get_instructor_readiness_all_bad(mocker):
     mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = None
     instructor.schedule.fetch_instructor_schedules.return_value = {}
-    result = instructor.get_instructor_readiness(
+    result = instructor.get_instructor_readiness([
         {
             "Account ID": 12345,
             "Account Current Membership Status": "Inactive",
             "First Name": "First",
             "Last Name": "Last",
-        }
-    )
+        },
+        { "Account ID": 12346,
+         "First Name": "Duplicate",
+         "Last Name": "Person",
+         }
+        ])
     assert result == {
         "neon_id": 12345,
         "fullname": "First Last",
         "active_membership": "Inactive",
         "discord_user": "missing",
+        "email": "2 duplicate accounts in Neon",
         "capabilities_listed": "missing",
         "in_calendar": "missing",
         "paperwork": "unknown",
@@ -246,19 +251,20 @@ def test_get_instructor_readiness_all_ok(mocker):
         "First Last": [1, 2, 3]
     }
     result = instructor.get_instructor_readiness(
-        {
+            [{
             "Account ID": 12345,
             "Account Current Membership Status": "Active",
             "Discord User": "discord_user",
             "First Name": "First",
             "Last Name": "Last",
-        }
+        }]
     )
     assert result == {
         "neon_id": 12345,
         "fullname": "First Last",
         "active_membership": "OK",
         "discord_user": "OK",
+        "email": "OK",
         "capabilities_listed": "OK",
         "in_calendar": "OK",
         "paperwork": "OK",

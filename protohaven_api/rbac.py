@@ -31,6 +31,8 @@ class Role:
     """Every Neon user has zero or more roles that can be checked for access"""
 
     INSTRUCTOR = {"name": "Instructor", "id": "75"}
+    BOARD_MEMBER = {"name": "Board Member", "id": "244"}
+    STAFF = {"name": "Staff", "id": "245"}
     SHOP_TECH = {"name": "Shop Tech", "id": "238"}
     SHOP_TECH_LEAD = {"name": "Shop Tech Lead", "id": "241"}
     ONBOARDING = {"name": "Onboarding", "id": "240"}
