@@ -86,7 +86,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        mm = neon.search_member(data["email"])
+        mm = list(neon.search_member(data["email"]))
         if len(mm) > 1:
             # Warn to membership automation channel that we have an account to deduplicate
             urls = [
@@ -205,7 +205,7 @@ def acknowledge_announcements():
     """Set the acknowledgement date to `now` so prior announcements
     are no longer displayed"""
     data = request.json
-    m = neon.search_member(data["email"])
+    m = list(neon.search_member(data["email"]))
     if len(m) == 0:
         raise KeyError("Member not found")
     neon.update_announcement_status(m[0]["Account ID"])

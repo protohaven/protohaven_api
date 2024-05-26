@@ -137,6 +137,26 @@ def fetch_tickets(event_id):
     raise RuntimeError(content)
 
 
+def fetch_memberships(account_id):
+    """Fetch membership history of an account in Neon"""
+    current_page = 0
+    total_pages = 1
+    while current_page < total_pages:
+        url = f"https://api.neoncrm.com/v2/accounts/{account_id}/memberships?currentPage={current_page}"
+        content = get_connector().neon_request(
+            cfg("api_key2"),
+            url,
+            "GET",
+        )
+        if isinstance(content, list):
+            raise RuntimeError(content)
+        if content["pagination"]["totalResults"] == 0:
+            return  # basically an empty yield
+        total_pages = content["pagination"]["totalPages"]
+        for a in content["memberships"]:
+            yield a
+        current_page += 1
+
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
     current_page = 0
