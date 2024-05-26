@@ -215,7 +215,8 @@ class Commands:
         neon.assign_pricing(event_id, price, qty, clear_existing=True)
 
     @classmethod
-    def neon_category_from_event_name(self, name):
+    def neon_category_from_event_name(cls, name):
+        """Parses the event name and returns a category matching what kind of event it is"""
         if name == "All Member Meeting":
             return neon.Category.MEMBER_EVENT
         m = re.search(r"\w+? (\d+):", name)

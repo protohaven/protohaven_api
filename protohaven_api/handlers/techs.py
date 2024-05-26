@@ -218,9 +218,7 @@ def tech_update():
         for k, v in data.items()
         if k in ("shift", "area_lead", "interest", "expertise", "last_day")
     }
-    rep, content = neon.set_tech_custom_fields(nid, **body)
-    assert rep.status == 200
-    return content
+    return neon.set_tech_custom_fields(nid, **body)
 
 
 @page.route("/techs/enroll", methods=["POST"])
@@ -228,6 +226,5 @@ def tech_update():
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
-    resp, _ = neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
-    assert resp.status == 200
+    neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
     return "ok"

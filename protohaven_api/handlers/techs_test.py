@@ -16,12 +16,11 @@ def client():
 
 
 def test_techs_all_status(client, mocker):
-    mocker.patch.object(tl, "_fetch_techs_list", return_value=[])
-    mocker.patch.object(tl, "_fetch_tool_states_and_areas", return_value=([], []))
+    mocker.patch.object(tl.neon, "fetch_techs_list", return_value=[])
     mocker.patch.object(tl.airtable, "get_shop_tech_time_off", return_value=[])
-    response = client.get("/techs/all_status")
+    response = client.get("/techs/list")
     rep = json.loads(response.data.decode("utf8"))
-    assert rep == {"areas": [], "techs": [], "time_off": [], "tool_states": []}
+    assert rep == {"tech_lead": True, "techs": []}
 
 
 def test_tech_update(client, mocker):

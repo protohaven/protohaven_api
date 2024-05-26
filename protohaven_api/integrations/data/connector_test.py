@@ -13,7 +13,7 @@ def test_airtable_read_retry(mocker):
         side_effect=[con.requests.exceptions.ReadTimeout("Whoopsie"), True],
     )
     c = con.Connector(dev=False)
-    assert c.airtable_request("token", "GET", "URL") is True
+    assert c.airtable_request("GET", "tools_and_equipment", "tools") is True
     con.time.sleep.assert_called()
 
 
@@ -31,4 +31,4 @@ def test_airtable_read_max_retries(mocker):
     )
     c = con.Connector(dev=False)
     with pytest.raises(con.requests.exceptions.ReadTimeout):
-        c.airtable_request("token", "GET", "URL")
+        c.airtable_request("GET", "tools_and_equipment", "tools")

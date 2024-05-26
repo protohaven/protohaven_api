@@ -69,7 +69,7 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-def welcome_sock(ws):
+def welcome_sock(ws):  # pylint: disable=too-many-branches
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
     result = {
@@ -86,7 +86,7 @@ def welcome_sock(ws):
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        mm = neon.search_member(data["email"])
+        mm = list(neon.search_member(data["email"]))
         if len(mm) > 1:
             # Warn to membership automation channel that we have an account to deduplicate
             urls = [
@@ -94,7 +94,8 @@ def welcome_sock(ws):
                 for m in mm
             ]
             send_membership_automation_message(
-                f"Sign-in with {data['email']} returned multiple accounts in Neon with same email:\n"
+                f"Sign-in with {data['email']} returned multiple accounts "
+                + "in Neon with same email:\n"
                 + "\n".join(urls)
                 + "\nAdmin: please deduplicate"
             )
@@ -103,6 +104,7 @@ def welcome_sock(ws):
         else:
             # Preferably select the Neon account with active membership.
             # Note that the last `m` remains in context regardless of if we break.
+            m = mm[0]  # appease pylint
             for m in mm:
                 if (
                     m.get("Account Current Membership Status") or ""
@@ -203,7 +205,7 @@ def acknowledge_announcements():
     """Set the acknowledgement date to `now` so prior announcements
     are no longer displayed"""
     data = request.json
-    m = neon.search_member(data["email"])
+    m = list(neon.search_member(data["email"]))
     if len(m) == 0:
         raise KeyError("Member not found")
     neon.update_announcement_status(m[0]["Account ID"])

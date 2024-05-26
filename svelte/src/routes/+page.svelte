@@ -128,9 +128,6 @@
       <SigninOk {name} guest={person == 'guest'} {announcements} {violations} on_close={on_signin_return}/>
     {/if}
 	</Row>
-  <Row class="mt-2 justify-content-center text-center">
-    <em>Something not working? Click <a href="https://docs.google.com/forms/d/e/1FAIpQLSfen4NHmAivUPKuvMIqT8UeRqD9meoxq31ZHNG17upDWiTGkQ/viewform" target="_blank">HERE</a></em>
-  </Row>
 </main>
 
 

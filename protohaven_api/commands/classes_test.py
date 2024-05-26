@@ -5,6 +5,7 @@ from protohaven_api.integrations import neon
 
 
 def test_category_from_event_name():
+    """Test a few cases to make sure categories are correctly applied"""
     assert (
         C.neon_category_from_event_name("Digital 113: 2D Vector Creation")
         == neon.Category.PROJECT_BASED_WORKSHOP

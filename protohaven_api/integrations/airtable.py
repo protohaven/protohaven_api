@@ -35,7 +35,7 @@ def get_all_records(base, tbl, suffix=None):
         s = f"?offset={offs}"
         if suffix is not None:
             s += "&" + suffix
-        response = get_connector().airtable_request("GET", base, tbl, s)
+        response = get_connector().airtable_request("GET", base, tbl, suffix=s)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Airtable fetch {base} {tbl} {s}",
@@ -73,7 +73,7 @@ def update_record(data, base, tbl, rec):
     """Updates/patches a record in a named table"""
     post_data = {"fields": data}
     response = get_connector().airtable_request(
-        "PATCH", base, tbl, rec, data=json.dumps(post_data)
+        "PATCH", base, tbl, rec=rec, data=json.dumps(post_data)
     )
     return response, json.loads(response.content) if response.content else None
 
