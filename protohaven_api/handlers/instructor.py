@@ -205,7 +205,7 @@ def instructor_about():
         email = user_email()
         if not email:
             return Response("You are not logged in.", status=401)
-    inst = neon.search_member(email.lower())
+    inst = list(neon.search_member(email.lower()))
     if len(inst) == 0:
         return Response(
             f"Instructor data not found for email {email.lower()}", status=404

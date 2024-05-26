@@ -16,10 +16,6 @@ cfg = get_config()["calendar"]
 
 log = logging.getLogger("integrations.schedule")
 
-# If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
-
-
 def fetch_calendar(calendar_id, time_min=None, time_max=None):
     """Fetches calendar data - default to next 30 days"""
 

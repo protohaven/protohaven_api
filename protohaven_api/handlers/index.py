@@ -321,11 +321,15 @@ def events_dashboard():
         log.error("Neon fetch error, proceeding anyways")
 
     shop_events = []
-    for e, dates in fetch_shop_events().items():
-        for start, end in dates:
-            start = dateparser.parse(start)
-            shop_events.append((e, start))
-    shop_events.sort(key=lambda v: v[1])
+    try: 
+        for e, dates in fetch_shop_events().items():
+            for start, end in dates:
+                start = dateparser.parse(start)
+                shop_events.append((e, start))
+        shop_events.sort(key=lambda v: v[1])
+    except Exception as e:
+        log.error(e)
+        shop_events = [(f"Error fetching shop events: {e}", now)]
 
     reservations = []
     for r in get_reservations(
