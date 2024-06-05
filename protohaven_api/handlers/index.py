@@ -150,12 +150,15 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
             if result["status"] != "Active":
                 send_membership_automation_message(
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
-                    f"but has a non-Active membership status in Neon: status is {result['status']}"
+                    "but has a non-Active membership status in Neon: "
+                    f"status is {result['status']}\n"
+                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
                 )
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
-                    f"with violations: {result['violations']}"
+                    f"with violations: {result['violations']}\n"
+                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
                 )
     elif data["person"] == "guest":
         result["waiver_signed"] = data.get("waiver_ack", False)
@@ -321,13 +324,13 @@ def events_dashboard():
         log.error("Neon fetch error, proceeding anyways")
 
     shop_events = []
-    try: 
+    try:
         for e, dates in fetch_shop_events().items():
             for start, end in dates:
                 start = dateparser.parse(start)
                 shop_events.append((e, start))
         shop_events.sort(key=lambda v: v[1])
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         log.error(e)
         shop_events = [(f"Error fetching shop events: {e}", now)]
 

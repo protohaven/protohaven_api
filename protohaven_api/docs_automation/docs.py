@@ -25,15 +25,15 @@ def probe(url, name, stats):
         stats["missing"].append(f"{name} ({url})")
 
 
-def write_stats(stats, title):
+def write_stats(stats, title, max_per_segment=10):
     """Write a summary of missing or errored pages"""
     b = f"\n\n=== {title} ==="
     b += f"\n{stats['ok']} links resolved OK"
-    b += f"\nMissing links for {len(stats['missing'])} tools"
-    for m in stats["missing"]:
+    b += f"\nMissing links for {len(stats['missing'])} tools; first {max_per_segment}:"
+    for m in stats["missing"][:max_per_segment]:
         b += f"\n - {m}"
-    b += f"\nFailed to resolve {len(stats['error'])} links for tools"
-    for m in stats["error"]:
+    b += f"\nFailed to resolve {len(stats['error'])} links for tools; first {max_per_segment}:"
+    for m in stats["error"][:max_per_segment]:
         b += f"\n - {m}"
     return b
 
@@ -81,7 +81,7 @@ def validate():
     body += write_stats(stats["clearance"], "Clearance Docs")
     return {
         "id": "doc_validation",
-        "target": "scott@protohaven.org",
+        "target": "#docs-automation",
         "subject": subject,
         "body": body,
     }

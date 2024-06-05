@@ -1,6 +1,6 @@
 There's {{n}} class{% if n != 1%}es{% endif %} available for backfill in the next 24 hours:
 {% for evt in events %}
- - {{evt.start}} - {{evt.name}} ({{evt.avail}} seat{% if evt.avail != 1 %}s{% endif %} available{% if evt.supply_cost %}, ${{evt.supply_cost}} cost{% endif %}): https://protohaven.app.neoncrm.com/eventReg.jsp?event={{evt.id}}&
+ - {{evt.start}} - {{evt.name}} ({{evt.avail}} seat{% if evt.avail != 1 %}s{% endif %} available, ${{evt.supply_cost}} cost): https://protohaven.app.neoncrm.com/eventReg.jsp?event={{evt.id}}&
 {% endfor %}
 You can pay at the front desk via Square (select "Walk-In (3 Hr Class / add price)", set to the cost listed above, charge as normal)
 

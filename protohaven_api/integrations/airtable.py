@@ -267,13 +267,13 @@ def get_clearance_to_tool_map():
 
 def get_shop_tech_time_off():
     """Gets reported time off by techs"""
-    return get_all_records("neon_data", "shop_tech_time_off")
+    return get_all_records("people", "shop_tech_time_off")
 
 
 def get_announcements_after(d, roles):
     """Gets all announcements, excluding those before `d`"""
     result = []
-    for row in get_all_records("neon_data", "sign_in_announcements"):
+    for row in get_all_records("people", "sign_in_announcements"):
         adate = dateparser.parse(
             row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)

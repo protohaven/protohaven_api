@@ -1,6 +1,6 @@
 <script type="ts">
 import { onMount } from 'svelte';
-import { Button, Row, Col, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardFooter, CardBody, Input, Spinner, FormGroup, Dropdown, DropdownMenu, DropdownItem, DropdownToggle, Navbar, NavbarBrand, Nav, NavItem, Alert } from '@sveltestrap/sveltestrap';
+import { Button, Row, Tooltip, Col, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardFooter, CardBody, Input, Spinner, FormGroup, Dropdown, DropdownMenu, DropdownItem, DropdownToggle, Navbar, NavbarBrand, Nav, NavItem, Alert } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
 import FetchError from './fetch_error.svelte';
 
@@ -85,14 +85,19 @@ function cancel(neon_id) {
 {:then c}
 <Card class="my-3" size={'lg'}>
 <CardHeader style={(c['Neon ID']) ? "background-color: rgb(230, 225, 249)" : ""}>
-  <CardTitle>
+  <CardTitle id={eid}>
     {#if c['Neon ID']}
       <i class="bi bi-calendar-check"></i>
     {:else}
-      <i class="bi bi-question-circle"></i> PROPOSED:
+      <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank"><i class="bi bi-question-circle"></i></a> PROPOSED:
     {/if}
     {c['Name (from Class)'][0]}
   </CardTitle>
+  {#if !c['Neon ID']}
+  <Tooltip target={eid} placement="right">
+  	Proposed classes are not guaranteed to run; they aren't yet available for people to register in Neon. Click the ? icon for more details.
+  </Tooltip>
+  {/if}
 </CardHeader>
 <CardBody>
 

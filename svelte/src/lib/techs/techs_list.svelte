@@ -76,9 +76,10 @@ function clearance_click(id) {
       <Card class="my-2">
 	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
 	<CardBody>
-	<Container>
-	<Row cols={{ xxl: 6, xl: 6, l: 6, md: 2, sm: 1, xs: 1}}>
+	<Container style="max-width: none;">
+	<Row cols={{ xxl: 4, xl: 4, l: 4, md: 2, sm: 1, xs: 1}}>
 	<EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
+	<EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.first_day}/>
 	<EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
 	<EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
 	<EditCell title="Interest" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>

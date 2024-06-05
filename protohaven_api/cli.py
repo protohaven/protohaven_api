@@ -17,11 +17,12 @@ from protohaven_api.commands import (
     reservations,
 )
 from protohaven_api.config import tznow
-from protohaven_api.integrations import airtable, comms, tasks
+from protohaven_api.docs_automation.docs import validate as validate_docs
+from protohaven_api.integrations import airtable, comms, neon, tasks
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.maintenance import manager
 from protohaven_api.policy_enforcement import enforcer
-from protohaven_api.validation.docs import validate as validate_docs
+from protohaven_api.rbac import Role
 
 LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
 logging.basicConfig(level=LOGLEVEL)
@@ -327,6 +328,22 @@ class ProtohavenCLI(
         """Match clearances in spreadsheet with clearances in Neon.
         Remove this when clearance information is primarily stored in Neon."""
         raise NotImplementedError("TODO implement")
+
+    def sync_team_page(self, argv):
+        """Get profile pictures of board, shop techs, and staff and sync them
+        to the protohaven site"""
+        parser = argparse.ArgumentParser(description=self.gen_maintenance_tasks.__doc__)
+        parser.add_argument(
+            "--apply",
+            help="if false, don't actually sync",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        )
+        # print(neon.fetch_output_fields())
+        parser.parse_args(argv)
+        for m in neon.get_members_with_role(Role.SHOP_TECH, ["Photo URL"]):
+            print(m)
+        raise NotImplementedError("Sync not yet implemented")
 
 
 ProtohavenCLI()
