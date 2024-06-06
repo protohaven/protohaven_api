@@ -110,11 +110,6 @@ class Commands:
             results.append(
                 f"Missing required non-additional paid member in household #{details['hid']}"
             )
-        elif (
-            details["household_paying_member_count"]
-            == details["household_num_addl_members"]
-        ):
-            results.append(f"Missing full-price member in household #{details['hid']}")
         return results
 
     def _validate_employer_membership(self, details):
@@ -148,7 +143,7 @@ class Commands:
                     )
         return results
 
-    def _suggest_membership(
+    def _suggest_membership(  # pylint: disable=too-many-return-statements
         self, details, num_household, num_addl_household, num_company
     ):
         """Look at role bits, AMP information, and company association to see whether
@@ -320,7 +315,7 @@ class Commands:
             details["company_member_count"] = company_member_count.get(
                 details["cid"], 0
             )
-            result = self.validate_membership_singleton(aid, details)
+            result = self.validate_membership_singleton(details)
             results += [
                 f"{details['name']}: {r} - "
                 f"https://protohaven.app.neoncrm.com/admin/accounts/{details['aid']}"
@@ -328,7 +323,9 @@ class Commands:
             ]
         return results
 
-    def validate_membership_singleton(self, details):
+    def validate_membership_singleton(
+        self, details
+    ):  # pylint: disable=too-many-branches
         """Validate membership of a single member"""
         level = details["level"].strip()
         result = []
@@ -347,9 +344,9 @@ class Commands:
                     or details["zero_cost_ok_until"] < tznow()
                 ):
                     result.append(f"Abnormal zero-cost membership {am['level']}")
-            if am["end_date"] is None:
+            if am.get("end_date") is None:
                 result.append(
-                    f"Membership {am['level']} with no end date (infinite duration)"
+                    f"Membership {am.get('level')} with no end date (infinite duration)"
                 )
 
         if level in (

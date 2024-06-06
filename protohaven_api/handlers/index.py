@@ -69,7 +69,7 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-def welcome_sock(ws):  # pylint: disable=too-many-branches
+def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
     result = {
@@ -86,7 +86,12 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        mm = list(neon.search_member(data["email"]))
+        # Only select individuals as members, not companies
+        mm = [
+            m
+            for m in neon.search_member(data["email"])
+            if m.get("Account ID") != m.get("Company ID")
+        ]
         if len(mm) > 1:
             # Warn to membership automation channel that we have an account to deduplicate
             urls = [
@@ -99,6 +104,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
                 + "\n".join(urls)
                 + "\nAdmin: please deduplicate"
             )
+            log.info("Notified of multiple accounts")
         if len(mm) == 0:
             result["notfound"] = True
         else:
@@ -154,12 +160,14 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
                     f"status is {result['status']}\n"
                     f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
                 )
+                log.info("Notified of non-active member sign in")
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
                     f"with violations: {result['violations']}\n"
                     f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
                 )
+                log.info("Notified of sign-in with violations")
     elif data["person"] == "guest":
         result["waiver_signed"] = data.get("waiver_ack", False)
         result["firstname"] = "Guest"

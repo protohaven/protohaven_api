@@ -66,18 +66,22 @@ def test_generate_schedule_data():
 
 def test_build_instructor():
     assert s.build_instructor(
-        "testname", [("2024-04-01 6pm EST", "2024-04-01 9pm EST")], None, None, []
-    ).avail == [parse_date("2024-04-01 6pm EST")]
+        "testname", [("2024-04-01T18:00:00-04:00", "2024-04-01T21:00:00-04:00")], [], []
+    ).avail == [parse_date("2024-04-01T18:00:00-04:00")]
 
 
 def test_build_instructor_respects_occupancy():
     assert (
         s.build_instructor(
             "testname",
-            [("2024-04-01 6pm EST", "2024-04-01 9pm EST")],
-            None,
-            None,
-            [[parse_date("2024-04-01 7pm EST"), parse_date("2024-04-01 10pm EST")]],
+            [("2024-04-01T18:00:00-05:00", "2024-04-01T21:00:00-05:00")],
+            [],
+            [
+                [
+                    parse_date("2024-04-01T19:00:00-04:00"),
+                    parse_date("2024-04-01T22:00:00-04:00"),
+                ]
+            ],
         ).avail
         == []
     )
@@ -109,7 +113,9 @@ def test_push_schedule(mocker):
     )
 
 
-def test_gen_class_and_area_stats_last_run():
+def test_gen_class_and_area_stats_exclusions():
+    """Verify that exclusions account for the time before and after a run of a class
+    that should be avoided when schedling new classes"""
     got, _, _ = s.gen_class_and_area_stats(
         [
             {
@@ -117,6 +123,7 @@ def test_gen_class_and_area_stats_last_run():
                     "Start Time": "2024-04-01",
                     "Class": ["r1"],
                     "Days (from Class)": [0],
+                    "Period (from Class)": [1],
                 }
             },
             {
@@ -124,10 +131,13 @@ def test_gen_class_and_area_stats_last_run():
                     "Start Time": "2024-03-01",
                     "Class": ["r1"],
                     "Days (from Class)": [0],
+                    "Period (from Class)": [1],
                 }
             },
         ],
-        None,
-        None,
+        parse_date("2024-02-01T00:00:00-04:00"),
+        parse_date("2024-05-01T00:00:00-05:00"),
     )
-    assert got["r1"] == parse_date("2024-04-01").astimezone(tz)
+    assert [
+        (d1.strftime("%Y-%m-%d"), d2.strftime("%Y-%m-%d")) for d1, d2 in got["r1"]
+    ] == [("2024-03-02", "2024-05-01"), ("2024-01-31", "2024-03-31")]

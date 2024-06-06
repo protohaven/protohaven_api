@@ -1,7 +1,7 @@
 """Test behavior of linear solver for class scheduling"""
 import datetime
 
-from protohaven_api.class_automation import solver as s
+from protohaven_api.class_automation import solver as s  # pylint: disable=import-error
 
 
 def d(i, h=0):
@@ -35,7 +35,7 @@ def test_solve_simple():
     """An instructor can schedule a class at a time"""
     got, score = s.solve(
         classes=[s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7)],
-        instructors=[s.Instructor("A", [1], 6, [d(0)])],
+        instructors=[s.Instructor("A", [1], [d(0)])],
         area_occupancy={},
     )
     assert got == {"A": [[1, "Embroidery", "2025-01-01T00:00:00"]]}
@@ -59,22 +59,21 @@ def test_solve_complex():
     people = [
         s.Instructor(*v)
         for v in [
-            ("A", [1, 2], 6, [d(i) for i in [1, 7, 14, 21, 29]]),
+            ("A", [1, 2], [d(i) for i in [1, 7, 14, 21, 29]]),
             (
                 "B",
                 [3, 1, 4],
-                4,
                 [d(i) for i in [1, 4, 5, 8, 11, 14, 22, 25, 29]],
             ),
-            ("C", [5, 6, 1], 2, [d(i) for i in [5, 7, 2, 1]]),
-            ("D", [4, 2], 1, [d(i) for i in range(30)]),
+            ("C", [5, 6, 1], [d(i) for i in [5, 7, 2, 1]]),
+            ("D", [4, 2], [d(i) for i in range(30)]),
         ]
     ]
 
     area_occupancy = {}
 
     s.solve(classes, people, area_occupancy)
-    # (schedule, load, score) = solve(classes, people)
+    # (schedule, score) = solve(classes, people)
 
 
 def test_solve_no_area_overlap():
@@ -83,7 +82,7 @@ def test_solve_no_area_overlap():
     pd = (d(1), d(1, 3))
     got, score = s.solve(
         classes=[s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7)],
-        instructors=[s.Instructor("A", [1], 6, [pd[0]])],
+        instructors=[s.Instructor("A", [1], [pd[0]])],
         area_occupancy={"textiles": [pd]},
     )
     assert not got
@@ -97,7 +96,7 @@ def test_solve_exclusion():
     c = s.Class(1, "Embroidery", 1, ["textiles"], [[d(0), d(2)]], 0.7)
     got, score = s.solve(
         classes=[c],
-        instructors=[s.Instructor("A", [1], 6, [pd[0]])],
+        instructors=[s.Instructor("A", [1], [pd[0]])],
         area_occupancy={},
     )
     assert not got
@@ -113,8 +112,8 @@ def test_solve_no_concurrent_overlap():
             s.Class(2, "Embroidery but cooler", 1, ["textiles"], [], 0.8),
         ],
         instructors=[
-            s.Instructor("A", [1], 6, [d(0)]),
-            s.Instructor("B", [2], 6, [d(0)]),
+            s.Instructor("A", [1], [d(0)]),
+            s.Instructor("B", [2], [d(0)]),
         ],
         area_occupancy={},
     )
@@ -131,7 +130,7 @@ def test_solve_no_double_booking():
             s.Class(2, "Lasers", 1, ["lasers"], [], 0.8),
         ],
         instructors=[
-            s.Instructor("A", [1, 2], 6, [d(0)]),
+            s.Instructor("A", [1, 2], [d(0)]),
         ],
         area_occupancy={},
     )
@@ -146,28 +145,10 @@ def test_solve_at_most_once():
             s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
         ],
         instructors=[
-            s.Instructor("A", [1], 6, [d(0)]),
-            s.Instructor("B", [1], 6, [d(1)]),
+            s.Instructor("A", [1], [d(0)]),
+            s.Instructor("B", [1], [d(1)]),
         ],
         area_occupancy={},
     )
     assert got == {"A": [[1, "Embroidery", "2025-01-01T00:00:00"]]}
     assert score == 0.7
-
-
-def test_solve_instructor_load():
-    """Instructors are not filled past their capacity to teach"""
-    classes = [
-        s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
-        s.Class(2, "More embroidery", 1, ["textiles"], [], 0.7),
-    ]
-    instructors = [
-        s.Instructor("A", [1, 2], 1, [d(0), d(1)]),
-    ]
-    got, score = s.solve(classes, instructors, area_occupancy={})
-    assert got == {"A": [[1, "Embroidery", "2025-01-01T00:00:00"]]}
-    assert score == 0.7
-
-    instructors[0].load = 2  # increasing load allows scheduling more classes
-    got, score = s.solve(classes, instructors, area_occupancy={})
-    assert score == 1.4

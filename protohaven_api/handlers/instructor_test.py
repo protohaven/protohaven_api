@@ -167,7 +167,7 @@ def test_instructor_about_both_email_and_session(mocker, client):
                 },
             }
         }
-    mocker.patch.object(instructor.neon, "search_member")
+    mocker.patch.object(instructor.neon, "search_member", return_value=["test"])
     mocker.patch.object(instructor, "get_instructor_readiness")
 
     rep = client.get("/instructor/about?email=a@b.com")
@@ -209,18 +209,21 @@ def test_get_instructor_readiness_all_bad(mocker):
     mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = None
     instructor.schedule.fetch_instructor_schedules.return_value = {}
-    result = instructor.get_instructor_readiness([
-        {
-            "Account ID": 12345,
-            "Account Current Membership Status": "Inactive",
-            "First Name": "First",
-            "Last Name": "Last",
-        },
-        { "Account ID": 12346,
-         "First Name": "Duplicate",
-         "Last Name": "Person",
-         }
-        ])
+    result = instructor.get_instructor_readiness(
+        [
+            {
+                "Account ID": 12345,
+                "Account Current Membership Status": "Inactive",
+                "First Name": "First",
+                "Last Name": "Last",
+            },
+            {
+                "Account ID": 12346,
+                "First Name": "Duplicate",
+                "Last Name": "Person",
+            },
+        ]
+    )
     assert result == {
         "neon_id": 12345,
         "fullname": "First Last",
@@ -251,13 +254,15 @@ def test_get_instructor_readiness_all_ok(mocker):
         "First Last": [1, 2, 3]
     }
     result = instructor.get_instructor_readiness(
-            [{
-            "Account ID": 12345,
-            "Account Current Membership Status": "Active",
-            "Discord User": "discord_user",
-            "First Name": "First",
-            "Last Name": "Last",
-        }]
+        [
+            {
+                "Account ID": 12345,
+                "Account Current Membership Status": "Active",
+                "Discord User": "discord_user",
+                "First Name": "First",
+                "Last Name": "Last",
+            }
+        ]
     )
     assert result == {
         "neon_id": 12345,

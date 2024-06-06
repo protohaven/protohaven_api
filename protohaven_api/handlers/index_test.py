@@ -52,29 +52,31 @@ def test_welcome_signin_get(client):
     assert "Welcome! Please sign in" in client.get("/welcome").data.decode("utf8")
 
 
-def test_welcome_signin_guest_no_referrer(client, mocker):
+def test_welcome_signin_guest_no_referrer(mocker):
     """Guest data with no referrer is omitted from form submission"""
     mocker.patch.object(index, "submit_google_form")
-    response = client.post("/welcome", json={"person": "guest", "waiver_ack": True})
-    rep = json.loads(response.data.decode("utf8"))
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps({"person": "guest", "waiver_ack": True})
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
     assert rep["waiver_signed"] == True
     index.submit_google_form.assert_not_called()
 
 
-def test_welcome_signin_guest_referrer(client, mocker):
+def test_welcome_signin_guest_referrer(mocker):
     """Guest sign in with referrer data is submitted"""
     mocker.patch.object(index, "submit_google_form")
-    response = client.post(
-        "/welcome",
-        json={
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
             "person": "guest",
             "waiver_ack": True,
             "referrer": "TEST",
             "email": "foo@bar.com",
             "dependent_info": "DEP_INFO",
-        },
+        }
     )
-    json.loads(response.data.decode("utf8"))
+    index.welcome_sock(ws)
     index.submit_google_form.assert_called_once_with(
         "signin",
         {
@@ -90,22 +92,24 @@ def test_welcome_signin_guest_referrer(client, mocker):
     )
 
 
-def test_welcome_signin_notfound(client, mocker):
+def test_welcome_signin_notfound(mocker):
     """Ensure form does not get called if member not found"""
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
     index.neon.search_member.return_value = []
-    response = client.post(
-        "/welcome",
-        json={
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
             "person": "member",
             "waiver_ack": True,
             "referrer": "TEST",
             "email": "foo@bar.com",
             "dependent_info": "DEP_INFO",
-        },
+        }
     )
-    assert json.loads(response.data.decode("utf8")) == {
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
+    assert rep == {
         "announcements": [],
         "firstname": "member",
         "notfound": True,
@@ -116,11 +120,12 @@ def test_welcome_signin_notfound(client, mocker):
     index.submit_google_form.assert_not_called()
 
 
-def test_welcome_signin_membership_expired(client, mocker):
+def test_welcome_signin_membership_expired(mocker):
     """Ensure form submits and proper status returns on expired membership"""
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
     mocker.patch.object(index, "airtable")
+    mocker.patch.object(index, "send_membership_automation_message")
     index.neon.search_member.return_value = [
         {
             "Account ID": 12345,
@@ -131,24 +136,30 @@ def test_welcome_signin_membership_expired(client, mocker):
     ]
     index.airtable.get_announcements_after.return_value = None
     index.neon.update_waiver_status.return_value = True
-    response = client.post(
-        "/welcome",
-        json={
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
             "person": "member",
             "waiver_ack": True,
             "email": "foo@bar.com",
             "dependent_info": "DEP_INFO",
         },
     )
-    assert json.loads(response.data.decode("utf8"))["status"] == "Inactive"
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
+    assert rep["status"] == "Inactive"
     index.submit_google_form.assert_called()  # Form submission even if membership is expired
+    index.send_membership_automation_message.assert_called_with(
+        "First (foo@bar.com) just signed in at the front desk but has a non-Active membership status in Neon: status is Inactive\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345"
+    )
 
 
-def test_welcome_signin_ok_with_violations(client, mocker):
+def test_welcome_signin_ok_with_violations(mocker):
     """Test that form submission triggers and announcements are returned when OK member logs in"""
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
     mocker.patch.object(index, "airtable")
+    mocker.patch.object(index, "send_membership_automation_message")
     index.neon.search_member.return_value = [
         {
             "Account ID": 12345,
@@ -163,22 +174,62 @@ def test_welcome_signin_ok_with_violations(client, mocker):
     ]
     index.airtable.get_announcements_after.return_value = []
     index.neon.update_waiver_status.return_value = True
-    response = client.post(
-        "/welcome",
-        json={
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
             "person": "member",
             "waiver_ack": True,
             "email": "foo@bar.com",
             "dependent_info": "DEP_INFO",
         },
     )
-    rep = json.loads(response.data.decode("utf8"))
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
     assert rep["violations"] == [
         {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}}
     ]
+    index.send_membership_automation_message.assert_called_with(
+        "First (foo@bar.com) just signed in at the front desk with violations: [{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345"
+    )
 
 
-def test_welcome_signin_ok_with_announcements(client, mocker):
+def test_welcome_signin_ok_with_duplicates(mocker):
+    """Test that form submission triggers and a discord notification is sent if there's duplicate accounts"""
+    mocker.patch.object(index, "submit_google_form")
+    mocker.patch.object(index, "neon")
+    mocker.patch.object(index, "airtable")
+    mocker.patch.object(index, "send_membership_automation_message")
+    index.neon.search_member.return_value = [
+        {
+            "Account ID": 12346,  # Extra membership, makes things ambiguous
+        },
+        {
+            "Account ID": 12345,
+            "Account Current Membership Status": "Active",
+            "First Name": "First",
+            "API server role": "Shop Tech",
+        },
+    ]
+    index.airtable.get_announcements_after.return_value = []
+    index.neon.update_waiver_status.return_value = True
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
+            "person": "member",
+            "waiver_ack": True,
+            "email": "foo@bar.com",
+            "dependent_info": "DEP_INFO",
+        },
+    )
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
+    assert rep["status"] == "Active"
+    index.send_membership_automation_message.mock_calls[0].args[0].startswith(
+        "Sign-in with foo@bar.com returned multiple accounts in Neon with same email"
+    )
+
+
+def test_welcome_signin_ok_with_announcements(mocker):
     """Test that form submission triggers and announcements are returned when OK member logs in"""
     mocker.patch.object(index, "submit_google_form")
     mocker.patch.object(index, "neon")
@@ -195,16 +246,17 @@ def test_welcome_signin_ok_with_announcements(client, mocker):
         {"Title": "Test Announcement"}
     ]
     index.neon.update_waiver_status.return_value = True
-    response = client.post(
-        "/welcome",
-        json={
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
             "person": "member",
             "waiver_ack": True,
             "email": "foo@bar.com",
             "dependent_info": "DEP_INFO",
         },
     )
-    rep = json.loads(response.data.decode("utf8"))
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
     _, args, _ = index.airtable.get_announcements_after.mock_calls[0]
     assert args[1] == ["Shop Tech", "Member"]
     assert rep["status"] == "Active"
@@ -222,3 +274,39 @@ def test_welcome_signin_ok_with_announcements(client, mocker):
             "am_member": "Yes",
         },
     )
+
+
+def test_welcome_signin_ok_with_company_id(mocker):
+    """Test that form submission triggers and a discord notification is sent if there's duplicate accounts"""
+    mocker.patch.object(index, "submit_google_form")
+    mocker.patch.object(index, "neon")
+    mocker.patch.object(index, "airtable")
+    mocker.patch.object(index, "send_membership_automation_message")
+    index.neon.search_member.return_value = [
+        {
+            "Account ID": 12346,
+            "Company ID": 12346,  # Matches account ID, so ignored
+        },
+        {
+            "Account ID": 12345,
+            "Company ID": 12346,
+            "Account Current Membership Status": "Active",
+            "First Name": "First",
+            "API server role": "Shop Tech",
+        },
+    ]
+    index.airtable.get_announcements_after.return_value = []
+    index.neon.update_waiver_status.return_value = True
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
+            "person": "member",
+            "waiver_ack": True,
+            "email": "foo@bar.com",
+            "dependent_info": "DEP_INFO",
+        },
+    )
+    index.welcome_sock(ws)
+    rep = json.loads(ws.send.mock_calls[-1].args[0])
+    assert rep["status"] == "Active"
+    index.send_membership_automation_message.assert_not_called()

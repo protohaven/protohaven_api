@@ -129,21 +129,6 @@ def fetch_instructor_teachable_classes():
     return instructor_caps
 
 
-DEFAULT_LOAD = 5
-
-
-def fetch_instructor_max_load():
-    """Fetch max teachable classes per month per instructor"""
-    result = defaultdict(lambda: DEFAULT_LOAD)
-    for row in get_all_records("class_automation", "capabilities"):
-        if not row["fields"].get("Instructor"):
-            continue
-        inst = row["fields"]["Instructor"].strip()
-        if "Max Class Load" in row["fields"].keys():
-            result[inst] = row["fields"]["Max Class Load"]
-    return result
-
-
 def get_all_class_templates():
     """Get all class templates"""
     return get_all_records("class_automation", "classes")
@@ -277,11 +262,9 @@ def get_announcements_after(d, roles):
         adate = dateparser.parse(
             row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)
-        print(row["fields"])
         if adate <= d:
             continue
         for r in row["fields"]["Roles"]:
-            print(r, "in", roles, "?")
             if r in roles:
                 result.append(row["fields"])
                 break

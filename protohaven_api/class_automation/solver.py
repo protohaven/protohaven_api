@@ -58,10 +58,9 @@ class Class:
 class Instructor:
     """Represents an instructor able to teach classes at particular times"""
 
-    def __init__(self, name, caps, load, avail):
+    def __init__(self, name, caps, avail):
         self.name = name
         self.caps = list(set(caps))  # references Class.airtable_id; discard duplicates
-        self.load = load  # classes teachable per month
 
         # Optionally parse str to python datetime
         self.avail = (
@@ -71,14 +70,13 @@ class Instructor:
         )
 
     def __repr__(self):
-        return f"{self.name} (caps={len(self.caps)}, times={len(self.avail)}, load={self.load})"
+        return f"{self.name} (caps={len(self.caps)}, times={len(self.avail)}"
 
     def as_dict(self):
         """Return instructor as a dict"""
         return {
             "name": self.name,
             "caps": self.caps,
-            "load": self.load,
             "avail": self.avail,
         }
 
