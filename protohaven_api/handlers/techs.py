@@ -128,13 +128,63 @@ def _calendar_badge_color(num_people):
 FORECAST_LEN = 16
 
 
+def _create_calendar_view(
+    now, shift_map, shift_term_map, time_off
+):  # pylint: disable=too-many-locals
+    calendar_view = []
+    for i in range(FORECAST_LEN):
+        day_view = []
+        d = now + datetime.timedelta(days=i)
+        for ap in ["AM", "PM"]:
+            s = f"{d.strftime('%A')} {ap}"
+            people = shift_map[s]
+            for cov in time_off:
+                if (
+                    cov["fields"]["Date"] == d.strftime("%Y-%m-%d")
+                    and cov["fields"]["Shift"] == ap
+                ):
+                    people = [
+                        p for p in people if p != cov["fields"]["Rendered Shop Tech"]
+                    ]
+                    if cov["fields"].get("Rendered Covered By"):
+                        people.append(cov["fields"]["Rendered Covered By"])
+
+            final_people = []
+            for p in people:  # remove if outside of the tech's tenure
+                first_day, last_day = shift_term_map.get(p, (None, None))
+                if (first_day is None or first_day <= d) and (
+                    last_day is None or last_day >= d
+                ):
+                    final_people.append(p)
+            day_view.append(
+                {
+                    "title": f"{d.strftime('%a %m/%d')} {ap}",
+                    "color": _calendar_badge_color(len(people)),
+                    "people": final_people,
+                    "id": f"Badge{i}{ap}",
+                }
+            )
+        calendar_view.append(day_view)
+    return calendar_view
+
+
 @page.route("/techs/forecast")
 def techs_forecast():
     """Provide `FORECAST_LEN` advance days' notice of the level of staffing of tech shifts"""
-    last_day_map = {
-        t["name"]: dateparser.parse(t["last_day"]).astimezone(tz)
+    shift_term_map = {
+        t["name"]: (
+            dateparser.parse(t["first_day"])
+            .astimezone(tz)
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+            if t.get("first_day") is not None
+            else None,
+            dateparser.parse(t["last_day"])
+            .astimezone(tz)
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+            if t.get("last_day") is not None
+            else None,
+        )
         for t in neon.fetch_techs_list()
-        if t.get("last_day") is not None
     }
     shift_map = _get_shift_map()
 
@@ -155,37 +205,7 @@ def techs_forecast():
         else:
             coverage_missing.append(cov)
 
-    calendar_view = []
-    for i in range(FORECAST_LEN):
-        day_view = []
-        d = now + datetime.timedelta(days=i)
-        for ap in ["AM", "PM"]:
-            s = f"{d.strftime('%A')} {ap}"
-            people = shift_map[s]
-            for cov in time_off:
-                if (
-                    cov["fields"]["Date"] == d.strftime("%Y-%m-%d")
-                    and cov["fields"]["Shift"] == ap
-                ):
-                    print("Coverage match", cov)
-                    people = [
-                        p for p in people if p != cov["fields"]["Rendered Shop Tech"]
-                    ]
-                    if cov["fields"].get("Rendered Covered By"):
-                        people.append(cov["fields"]["Rendered Covered By"])
-            people = [
-                p for p in people if last_day_map.get(p, d) >= d
-            ]  # Remove after last day
-
-            day_view.append(
-                {
-                    "title": f"{d.strftime('%a %m/%d')} {ap}",
-                    "color": _calendar_badge_color(len(people)),
-                    "people": people,
-                    "id": f"Badge{i}",
-                }
-            )
-        calendar_view.append(day_view)
+    calendar_view = _create_calendar_view(now, shift_map, shift_term_map, time_off)
     return {
         "calendar_view": calendar_view,
         "coverage_missing": coverage_missing,
@@ -216,7 +236,7 @@ def tech_update():
     body = {
         k: v
         for k, v in data.items()
-        if k in ("shift", "area_lead", "interest", "expertise", "last_day")
+        if k in ("shift", "area_lead", "interest", "expertise", "first_day", "last_day")
     }
     return neon.set_tech_custom_fields(nid, **body)
 
@@ -226,5 +246,4 @@ def tech_update():
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
-    neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
-    return "ok"
+    return neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])

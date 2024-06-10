@@ -48,3 +48,8 @@ def set_discord_nickname(name, nick):
 def set_discord_role(name, role):
     """Adds a role for a discord user, e.g. Members"""
     return get_connector().discord_bot_setrole(name, role)
+
+
+def get_all_members_and_roles():
+    """Gets all members and roles on Discord"""
+    return get_connector().discord_bot_get_all_members_and_roles()

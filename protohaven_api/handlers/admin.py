@@ -1,11 +1,15 @@
 """Administrative pages and endpoints"""
 
+import logging
+
 from flask import Blueprint, render_template, request
 
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.rbac import Role, require_login_role
 
 page = Blueprint("admin", __name__, template_folder="templates")
+
+log = logging.getLogger("handlers.admin")
 
 
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
@@ -72,3 +76,9 @@ def set_discord_nick():
     if result is False:
         return f"Member '{name}' not found"
     return f"Member '{name}' now nicknamed '{nick}'"
+
+
+@page.route("/admin/discord/all_members_and_roles")
+def sync_discord_roles():
+    """Endpoint to expose discord bot fetch request for members and roles"""
+    return comms.get_all_members_and_roles()

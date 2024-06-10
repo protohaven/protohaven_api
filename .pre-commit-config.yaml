@@ -30,5 +30,5 @@ repos:
           "-sn", # Don't display the score
           # integrations/tasks.py false positives
           "--generated-members=client.tasks,client.projects",
-          "--disable=logging-fstring-interpolation",
+          "--disable=logging-fstring-interpolation,import-error",
         ]

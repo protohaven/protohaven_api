@@ -60,7 +60,7 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def build_instructor(k, v, caps, load, occupancy):
+def build_instructor(k, v, caps, occupancy):
     """Create and return an Instructor object given a name and [(start,end)] style schedule"""
     avail = []
     for a, b in v:
@@ -82,7 +82,7 @@ def build_instructor(k, v, caps, load, occupancy):
     us_holidays = holidays.US()  # pylint: disable=no-member
     avail = [a for a in avail if a not in us_holidays]
 
-    return Instructor(name=k, caps=caps, load=load, avail=avail)
+    return Instructor(name=k, caps=caps, avail=avail)
 
 
 def gen_class_and_area_stats(cur_sched, start_date, end_date):
@@ -134,7 +134,6 @@ def generate_env(
         log.info(f"Filter: {instructor_filter}")
     instructor_caps = airtable.fetch_instructor_teachable_classes()
     sched_formatted = fetch_formatted_schedule(start_date, end_date)
-    max_loads = airtable.fetch_instructor_max_load()
     cur_sched = [
         c
         for c in airtable.get_class_automation_schedule()
@@ -174,7 +173,6 @@ def generate_env(
                 k,
                 v,
                 caps,
-                max_loads[k],
                 instructor_occupancy[k],
             )
         )

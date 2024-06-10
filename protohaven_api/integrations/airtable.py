@@ -1,4 +1,5 @@
 """Airtable integration (classes, tool state etc)"""
+import datetime
 import json
 import logging
 from collections import defaultdict
@@ -129,21 +130,6 @@ def fetch_instructor_teachable_classes():
     return instructor_caps
 
 
-DEFAULT_LOAD = 5
-
-
-def fetch_instructor_max_load():
-    """Fetch max teachable classes per month per instructor"""
-    result = defaultdict(lambda: DEFAULT_LOAD)
-    for row in get_all_records("class_automation", "capabilities"):
-        if not row["fields"].get("Instructor"):
-            continue
-        inst = row["fields"]["Instructor"].strip()
-        if "Max Class Load" in row["fields"].keys():
-            result[inst] = row["fields"]["Max Class Load"]
-    return result
-
-
 def get_all_class_templates():
     """Get all class templates"""
     return get_all_records("class_automation", "classes")
@@ -253,7 +239,7 @@ def get_clearance_to_tool_map():
     for c in airtable_clearances:
         cc = c["fields"].get("Clearance Code")
         if cc is None:
-            print(f"Skipping (missing clearance code): '{c['fields'].get('Name')}'")
+            log.debug(f"Skipping (missing clearance code): '{c['fields'].get('Name')}'")
             continue
         ctt = set()
         for tool_id in c["fields"].get("Tool Records", []):
@@ -267,21 +253,38 @@ def get_clearance_to_tool_map():
 
 def get_shop_tech_time_off():
     """Gets reported time off by techs"""
-    return get_all_records("neon_data", "shop_tech_time_off")
+    return get_all_records("people", "shop_tech_time_off")
 
 
-def get_announcements_after(d, roles):
+@cache
+def _get_announcements_cached_impl(i):  # pylint: disable=unused-argument
+    return list(get_all_records("people", "sign_in_announcements"))
+
+
+def get_announcements_after(d, roles, clearances):
     """Gets all announcements, excluding those before `d`"""
     result = []
-    for row in get_all_records("neon_data", "sign_in_announcements"):
+    cache_id = int(
+        datetime.datetime.now().timestamp() % 3600
+    )  # hourly arg change busts the cache
+    for row in _get_announcements_cached_impl(cache_id):
         adate = dateparser.parse(
             row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)
-        print(row["fields"])
         if adate <= d:
             continue
+
+        tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
+        if len(tools) > 0:
+            cleared_for_tool = False
+            for c in clearances:
+                if c in tools:
+                    cleared_for_tool = True
+                    break
+            if not cleared_for_tool:
+                continue
+
         for r in row["fields"]["Roles"]:
-            print(r, "in", roles, "?")
             if r in roles:
                 result.append(row["fields"])
                 break

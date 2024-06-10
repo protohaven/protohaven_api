@@ -14,7 +14,6 @@ from protohaven_api.handlers.index import setup_sock_routes
 from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.reservations import page as reservations_pages
-from protohaven_api.handlers.shop_tech import page as shop_tech_pages
 from protohaven_api.handlers.techs import page as techs_pages
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.rbac import set_rbac
@@ -45,7 +44,6 @@ for p in (
     admin_pages,
     instructor_pages,
     onboarding_pages,
-    shop_tech_pages,
     techs_pages,
     reservations_pages,
 ):
@@ -61,6 +59,7 @@ if run_discord_bot:
 
     t = threading.Thread(target=run_bot, daemon=True)
     t.start()
+
 else:
     log.warning("Skipping startup of discord bot")
 

@@ -123,6 +123,7 @@ def _airtable_schedule():
                 "Email": "inst@ructor.com",
                 "Volunteer": True,
                 "Supply State": "Supply Check Needed",
+                "Supply Cost (from Class)": [5],
             }
         }
     }
@@ -157,6 +158,7 @@ def _neon_events():
             "instructor_firstname": "Test",
             "volunteer_instructor": True,
             "supply_state": "Supply Check Needed",
+            "supply_cost": 5,
             "notifications": {},
         }
     ]
@@ -175,6 +177,7 @@ def test_builder_fetch_aggregate_singletons(mocker, caplog):
             "Email": "inst@ructor.com",
             "Volunteer": True,
             "Supply State": "Supply Check Needed",
+            "Supply Cost (from Class)": [5],
         },
         neon_event={
             "id": 1234,
@@ -210,6 +213,7 @@ def test_builder_no_actionable_classes(mocker, caplog):
             "Email": "inst@ructor.com",
             "Volunteer": True,
             "Supply State": "Supply Check Needed",
+            "Supply Cost (from Class)": [5],
         },
         neon_event={
             "id": 1234,

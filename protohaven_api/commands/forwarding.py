@@ -10,6 +10,7 @@ from dateutil import parser as dateparser
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
+    airtable,
     neon,
     sheets,
     tasks,
@@ -86,17 +87,70 @@ class Commands:
             num += 1
         log.info(f"Found {num} open applications")
 
-        body = "The following applicants are waiting for a decision:\n"
-        body += "\n".join(open_applicants)
-        body += "\nDetails at https://app.asana.com/0/1203664351777333"
+        if num > 0:
+            body = "The following applicants are waiting for a decision:\n"
+            body += "\n".join(open_applicants)
+            body += "\nDetails at https://app.asana.com/0/1203664351777333"
 
-        result = {
-            "id": "",
-            "target": "#tech-leads",
-            "subject": "**Open shop tech applications:**",
-            "body": body,
-        }
-        print(yaml.dump([result], default_flow_style=False, default_style=""))
+            result = {
+                "id": "",
+                "target": "#tech-leads",
+                "subject": "**Open shop tech applications:**",
+                "body": body,
+            }
+            print(yaml.dump([result], default_flow_style=False, default_style=""))
+
+    @command()
+    def instructor_applications(self, _):
+        """Send reminders to check for instructor applications"""
+        num = 0
+        open_applicants = []
+        for req in tasks.get_instructor_applicants():
+            if req["completed"]:
+                continue
+            open_applicants.append("- " + req["name"].split(",")[0])
+            num += 1
+        log.info(f"Found {num} open instructor applications")
+
+        if num > 0:
+            log.info("Generating summary email")
+            body = "The following applicants are waiting for a decision:\n"
+            body += "\n".join(open_applicants)
+            body += "\nDetails at https://app.asana.com/0/1202211433878591"
+
+            result = {
+                "id": "",
+                "target": "#education-leads",
+                "subject": "**Open instructor applications:**",
+                "body": body,
+            }
+            print(yaml.dump([result], default_flow_style=False, default_style=""))
+
+    @command()
+    def class_proposals(self, _):
+        """Send reminders to take action on proposed classes"""
+        num = 0
+        unapproved_classes = []
+        for r in airtable.get_all_class_templates():
+            if r["fields"].get("Approved") is not None:
+                continue
+            unapproved_classes.append("- " + r["fields"]["Name"])
+            num += 1
+        log.info(f"Found {num} proposed classes awaiting approval.")
+
+        if num > 0:
+            body = "The following classes are proposed, but not yet approved for scheduling:\n"
+            body += "\n".join(unapproved_classes)
+            body += "\nDetails at https://airtable.com/applultHGJxHNg69H/tblBHGwrU8cwVwbHI/ "
+            body += "(requires Airtable credentials)"
+
+            result = {
+                "id": "",
+                "target": "#education-leads",
+                "subject": "**Proposed classes awaiting approval:**",
+                "body": body,
+            }
+            print(yaml.dump([result], default_flow_style=False, default_style=""))
 
     @command(
         arg(

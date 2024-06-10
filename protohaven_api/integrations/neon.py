@@ -39,8 +39,10 @@ class CustomField:
     WAIVER_ACCEPTED = 151
     SHOP_TECH_SHIFT = 152
     SHOP_TECH_LAST_DAY = 158
+    SHOP_TECH_FIRST_DAY = 160
     AREA_LEAD = 153
     ANNOUNCEMENTS_ACKNOWLEDGED = 154
+    ZERO_COST_OK_UNTIL = 159
 
 
 @dataclass
@@ -82,7 +84,7 @@ def fetch_published_upcoming_events(back_days=7):
         encoded_params = urllib.parse.urlencode(q_params)
         content = get_connector().neon_request(
             cfg("api_key1"),
-            "https://api.neoncrm.com/v2/events?" + encoded_params,
+            f"{URL_BASE}/events?" + encoded_params,
             "GET",
         )
         total_pages = content["pagination"]["totalPages"]
@@ -100,7 +102,7 @@ def fetch_events(after=None, before=None, published=True):
         q_params["startDateBefore"] = before.strftime("%Y-%m-%d")
     encoded_params = urllib.parse.urlencode(q_params)
     content = get_connector().neon_request(
-        cfg("api_key1"), "https://api.neoncrm.com/v2/events?" + encoded_params, "GET"
+        cfg("api_key1"), f"{URL_BASE}/events?" + encoded_params, "GET"
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -110,7 +112,7 @@ def fetch_events(after=None, before=None, published=True):
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
     return get_connector().neon_request(
-        cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}"
+        cfg("api_key1"), f"{URL_BASE}/events/{event_id}"
     )
 
 
@@ -118,7 +120,7 @@ def fetch_registrations(event_id):
     """Fetch registrations for a specific Neon event"""
     content = get_connector().neon_request(
         cfg("api_key1"),
-        f"https://api.neoncrm.com/v2/events/{event_id}/eventRegistrations",
+        f"{URL_BASE}/events/{event_id}/eventRegistrations",
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -130,7 +132,7 @@ def fetch_registrations(event_id):
 def fetch_tickets(event_id):
     """Fetch ticket information for a specific Neon event"""
     content = get_connector().neon_request(
-        cfg("api_key1"), f"https://api.neoncrm.com/v2/events/{event_id}/tickets"
+        cfg("api_key1"), f"{URL_BASE}/events/{event_id}/tickets"
     )
     if isinstance(content, list):
         return content
@@ -142,7 +144,7 @@ def fetch_memberships(account_id):
     current_page = 0
     total_pages = 1
     while current_page < total_pages:
-        url = f"https://api.neoncrm.com/v2/accounts/{account_id}/memberships?currentPage={current_page}"
+        url = f"{URL_BASE}/accounts/{account_id}/memberships?currentPage={current_page}"
         content = get_connector().neon_request(
             cfg("api_key2"),
             url,
@@ -157,12 +159,13 @@ def fetch_memberships(account_id):
             yield a
         current_page += 1
 
+
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
     current_page = 0
     total_pages = 1
     while current_page < total_pages:
-        url = f"https://api.neoncrm.com/v2/events/{event_id}/attendees?currentPage={current_page}"
+        url = f"{URL_BASE}/events/{event_id}/attendees?currentPage={current_page}"
         log.debug(url)
         content = get_connector().neon_request(
             cfg("api_key1"),
@@ -291,11 +294,21 @@ def set_clearances(user_id, codes):
     )
 
 
+def fetch_output_fields():
+    """Fetches possible output fields for member search"""
+    content = get_connector().neon_request(
+        cfg("api_key2"), f"{URL_BASE}/accounts/search/outputFields"
+    )
+    if isinstance(content, list):
+        raise RuntimeError(content)
+    return content
+
+
 def fetch_account(account_id):
     """Fetches account information for a specific user in Neon.
     Raises RuntimeError if an error is returned from the server"""
     content = get_connector().neon_request(
-        cfg("api_key1"), f"https://api.neoncrm.com/v2/accounts/{account_id}"
+        cfg("api_key1"), f"{URL_BASE}/accounts/{account_id}"
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -337,29 +350,45 @@ def search_member_by_name(firstname, lastname):
         raise RuntimeError(f"Search for {firstname} {lastname} failed: {content}")
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
-def _paginated_account_search(data):
-  cur = 0
-  data["pagination"] = {
-      "currentPage": cur,
-      "pageSize": 50,
-  }
-  total = 1
-  while cur < total:
-      content = get_connector().neon_request(
-          cfg("api_key2"),
-          f"{URL_BASE}/accounts/search",
-          "POST",
-          body=json.dumps(data),
-          headers={"content-type": "application/json"},
-      )
-      if content.get("searchResults") is None or content.get("pagination") is None:
-          raise RuntimeError(f"Search failed: {content}")
 
-      total = content["pagination"]["totalPages"]
-      cur += 1
-      data["pagination"]["currentPage"] = cur
-      for r in content["searchResults"]:
-          yield r
+def _paginated_account_search(data):
+    cur = 0
+    data["pagination"] = {
+        "currentPage": cur,
+        "pageSize": 50,
+    }
+    total = 1
+    while cur < total:
+        content = get_connector().neon_request(
+            cfg("api_key2"),
+            f"{URL_BASE}/accounts/search",
+            "POST",
+            body=json.dumps(data),
+            headers={"content-type": "application/json"},
+        )
+        if content.get("searchResults") is None or content.get("pagination") is None:
+            raise RuntimeError(f"Search failed: {content}")
+
+        total = content["pagination"]["totalPages"]
+        cur += 1
+        data["pagination"]["currentPage"] = cur
+        for r in content["searchResults"]:
+            yield r
+
+
+def get_active_members(extra_fields):
+    """Lookup all accounts with active memberships"""
+    data = {
+        "searchFields": [
+            {
+                "field": "Account Current Membership Status",
+                "operator": "EQUAL",
+                "value": "Active",
+            }
+        ],
+        "outputFields": ["Account ID", *extra_fields],
+    }
+    return _paginated_account_search(data)
 
 
 def search_member(email, operator="EQUAL"):
@@ -406,6 +435,7 @@ def get_members_with_role(role, extra_fields):
     }
     return _paginated_account_search(data)
 
+
 def fetch_techs_list():
     """Fetches a list of current shop techs, ordered by number of clearances"""
     techs = []
@@ -418,6 +448,7 @@ def fetch_techs_list():
             CustomField.EXPERTISE,
             CustomField.AREA_LEAD,
             CustomField.SHOP_TECH_SHIFT,
+            CustomField.SHOP_TECH_FIRST_DAY,
             CustomField.SHOP_TECH_LAST_DAY,
         ],
     ):
@@ -428,6 +459,7 @@ def fetch_techs_list():
         expertise = t.get("Expertise", "")
         area_lead = t.get("Area Lead", "")
         shift = t.get("Shop Tech Shift", "")
+        first_day = t.get("Shop Tech First Day", "")
         last_day = t.get("Shop Tech Last Day", "")
         techs.append(
             {
@@ -438,6 +470,7 @@ def fetch_techs_list():
                 "expertise": expertise,
                 "area_lead": area_lead,
                 "shift": shift,
+                "first_day": first_day,
                 "last_day": last_day,
                 "clearances": clr,
             }
@@ -917,7 +950,7 @@ def _patch_role(account, role, enabled):
             vals = {v["id"]: v["name"] for v in cf["optionValues"]}
             if enabled:
                 vals[role["id"]] = role["name"]
-            else:
+            elif role["id"] in vals:
                 del vals[role["id"]]
             return [{"id": k, "name": v} for k, v in vals.items()]
     return [role] if enabled else []
@@ -925,7 +958,7 @@ def _patch_role(account, role, enabled):
 
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = search_member(email)
+    mem = list(search_member(email))
     if len(mem) == 0:
         raise KeyError()
     user_id = mem[0]["Account ID"]
@@ -958,12 +991,20 @@ def patch_member_role(email, role, enabled):
 
 
 def set_tech_custom_fields(  # pylint: disable=too-many-arguments
-    user_id, shift=None, last_day=None, area_lead=None, interest=None, expertise=None
+    user_id,
+    shift=None,
+    first_day=None,
+    last_day=None,
+    area_lead=None,
+    interest=None,
+    expertise=None,
 ):
     """Overwrites existing waiver status information on an account"""
     cf = []
     if shift is not None:
         cf.append({"id": CustomField.SHOP_TECH_SHIFT, "value": shift})
+    if first_day is not None:
+        cf.append({"id": CustomField.SHOP_TECH_FIRST_DAY, "value": first_day})
     if last_day is not None:
         cf.append({"id": CustomField.SHOP_TECH_LAST_DAY, "value": last_day})
     if area_lead is not None:
@@ -971,7 +1012,7 @@ def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     if interest is not None:
         cf.append({"id": CustomField.INTEREST, "value": interest})
     if expertise is not None:
-        cf.append({"id": CustomField.EXPERTISE, "value": interest})
+        cf.append({"id": CustomField.EXPERTISE, "value": expertise})
     data = {"accountCustomFields": cf}
     # Need to confirm whether the user is an individual or company account
     m = fetch_account(user_id)

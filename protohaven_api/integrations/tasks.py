@@ -62,6 +62,16 @@ def get_project_requests():
     )
 
 
+def get_instructor_applicants():
+    """Get applications for instructor position that aren't completed"""
+    return _tasks().get_tasks_for_project(
+        cfg["instructor_applicants"],
+        {
+            "opt_fields": ",".join(["completed", "name"]),
+        },
+    )
+
+
 def get_shop_tech_applicants():
     """Get applications for shop tech position that aren't completed"""
     return _tasks().get_tasks_for_project(

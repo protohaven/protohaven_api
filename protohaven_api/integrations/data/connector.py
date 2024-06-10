@@ -201,6 +201,19 @@ class Connector:
         ).result()
         return result
 
+    def _discord_bot_get_all_members_and_roles_dev(self):
+        raise NotImplementedError("TODO")
+
+    def discord_bot_get_all_members_and_roles(self):
+        """Fetch all members and roles on Discord"""
+        if self.dev:
+            return self._discord_bot_get_all_members_and_roles_dev()
+        client = get_discord_bot()
+        result = asyncio.run_coroutine_threadsafe(
+            client.get_all_members_and_roles(), client.loop
+        ).result()
+        return result
+
     def _booked_request_dev(self, *args, **kwargs):
         """Dev handler for reservation system requests"""
         raise NotImplementedError("TODO")

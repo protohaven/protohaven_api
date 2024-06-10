@@ -69,7 +69,7 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-def welcome_sock(ws):  # pylint: disable=too-many-branches
+def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
     result = {
@@ -86,7 +86,12 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        mm = list(neon.search_member(data["email"]))
+        # Only select individuals as members, not companies
+        mm = [
+            m
+            for m in neon.search_member(data["email"])
+            if m.get("Account ID") != m.get("Company ID")
+        ]
         if len(mm) > 1:
             # Warn to membership automation channel that we have an account to deduplicate
             urls = [
@@ -99,6 +104,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
                 + "\n".join(urls)
                 + "\nAdmin: please deduplicate"
             )
+            log.info("Notified of multiple accounts")
         if len(mm) == 0:
             result["notfound"] = True
         else:
@@ -120,6 +126,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
                 ).astimezone(tz)
             else:
                 last_announcement_ack = tznow() - datetime.timedelta(30)
+
             roles = [
                 r
                 for r in (m.get("API server role", "") or "").split("|")  # Can be None
@@ -128,8 +135,9 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
             if result["status"] == "Active":
                 roles.append("Member")
             _send("Fetching announcements...", 55)
+            clearances = [] if not m.get("Clearances") else m["Clearances"].split("|")
             result["announcements"] = airtable.get_announcements_after(
-                last_announcement_ack, roles
+                last_announcement_ack, roles, set(clearances)
             )
 
             _send("Checking storage...", 70)
@@ -150,13 +158,18 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
             if result["status"] != "Active":
                 send_membership_automation_message(
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
-                    f"but has a non-Active membership status in Neon: status is {result['status']}"
+                    "but has a non-Active membership status in Neon: "
+                    f"status is {result['status']}\n"
+                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
                 )
+                log.info("Notified of non-active member sign in")
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
-                    f"with violations: {result['violations']}"
+                    f"with violations: {result['violations']}\n"
+                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
                 )
+                log.info("Notified of sign-in with violations")
     elif data["person"] == "guest":
         result["waiver_signed"] = data.get("waiver_ack", False)
         result["firstname"] = "Guest"
@@ -190,7 +203,6 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches
 def setup_sock_routes(app):
     """Set up all websocket routes; called by main.py"""
     sock = Sock(app)
-    print("Sock is", sock)
     sock.route("/welcome/ws")(welcome_sock)
 
 
@@ -321,13 +333,13 @@ def events_dashboard():
         log.error("Neon fetch error, proceeding anyways")
 
     shop_events = []
-    try: 
+    try:
         for e, dates in fetch_shop_events().items():
             for start, end in dates:
                 start = dateparser.parse(start)
                 shop_events.append((e, start))
         shop_events.sort(key=lambda v: v[1])
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         log.error(e)
         shop_events = [(f"Error fetching shop events: {e}", now)]
 
