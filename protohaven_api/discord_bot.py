@@ -1,7 +1,11 @@
 """A bot for monitoring the Protohaven server and performing automated activities"""
+import logging
+
 import discord
 
 from protohaven_api.config import get_config
+
+log = logging.getLogger("discord_bot")
 
 
 class PHClient(discord.Client):
@@ -34,46 +38,62 @@ class PHClient(discord.Client):
 
     async def on_ready(self):
         """Runs when the bot is connected and ready to go"""
-        print(f"We have logged in as {self.user}")
+        log.info(f"We have logged in as {self.user}")
         # role = guild.get_role(role_id)
         for r in self.guild.roles:
             self.role_map[r.name] = r
-        print("Roles:", self.role_map)
+        log.info(f"Roles: {self.role_map}")
+
+    async def on_member_join(self, member):
+        """Runs when a new member joins the server"""
+        # channel = get(member.guild.channels, id=768670193379049483)
+        # await channel.send(f'{member} welcome')
+        pass
 
     async def set_nickname(self, name, nickname):
         """Set the nickname of a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
-            print("set_nickname: failed to find", name)
+            log.info(f"set_nickname: failed to find {name}")
             return False
         try:
             await mem.edit(nick=nickname)
             return True
         except discord.HTTPException as e:
-            print(str(e))
+            log.error(str(e))
             return str(e)
 
     async def grant_role(self, name, role_name):
         """Grants a role (e.g. "Members") to a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
-            print("Member", name, "not found")
+            log.info("Member {name} not found")
             return False
 
-        print("Adding role", role_name, "to", name)
+        log.info(f"Adding role {role_name} to {name}")
         try:
             await mem.add_roles(self.role_map[role_name])
             return True
         except discord.HTTPException as e:
-            print(str(e))
+            log.error(str(e))
             return str(e)
+
+    async def get_all_members_and_roles(self):
+        """Retrieves all data on members and roles for the server"""
+        return {
+            "members": [
+                (m.name, m.display_name, [(r.name, r.id) for r in m.roles])
+                for m in self.guild.members
+            ],
+            "role_map": self.role_map,
+        }
 
     async def on_message(self, msg):
         """Runs on every message"""
         if msg.author == client.user:
             return
         if isinstance(msg.channel, discord.DMChannel):
-            print(msg)
+            log.info(f"Received DM: {msg}")
         # print(msg)
         # mem = self.guild.get_member(msg.author.id)
         # if mem is None:
@@ -91,7 +111,7 @@ def run():
     """Run the bot"""
     global client  # pylint: disable=global-statement
 
-    print("Initializing discord bot")
+    log.info("Initializing discord bot")
     intents = discord.Intents.default()
     intents.message_content = True
     intents.dm_messages = True

@@ -1,4 +1,5 @@
 """Airtable integration (classes, tool state etc)"""
+import datetime
 import json
 import logging
 from collections import defaultdict
@@ -238,7 +239,7 @@ def get_clearance_to_tool_map():
     for c in airtable_clearances:
         cc = c["fields"].get("Clearance Code")
         if cc is None:
-            print(f"Skipping (missing clearance code): '{c['fields'].get('Name')}'")
+            log.debug(f"Skipping (missing clearance code): '{c['fields'].get('Name')}'")
             continue
         ctt = set()
         for tool_id in c["fields"].get("Tool Records", []):
@@ -255,15 +256,34 @@ def get_shop_tech_time_off():
     return get_all_records("people", "shop_tech_time_off")
 
 
-def get_announcements_after(d, roles):
+@cache
+def _get_announcements_cached_impl(i):  # pylint: disable=unused-argument
+    return list(get_all_records("people", "sign_in_announcements"))
+
+
+def get_announcements_after(d, roles, clearances):
     """Gets all announcements, excluding those before `d`"""
     result = []
-    for row in get_all_records("people", "sign_in_announcements"):
+    cache_id = int(
+        datetime.datetime.now().timestamp() % 3600
+    )  # hourly arg change busts the cache
+    for row in _get_announcements_cached_impl(cache_id):
         adate = dateparser.parse(
             row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)
         if adate <= d:
             continue
+
+        tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
+        if len(tools) > 0:
+            cleared_for_tool = False
+            for c in clearances:
+                if c in tools:
+                    cleared_for_tool = True
+                    break
+            if not cleared_for_tool:
+                continue
+
         for r in row["fields"]["Roles"]:
             if r in roles:
                 result.append(row["fields"])

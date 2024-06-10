@@ -376,6 +376,21 @@ def _paginated_account_search(data):
             yield r
 
 
+def get_active_members(extra_fields):
+    """Lookup all accounts with active memberships"""
+    data = {
+        "searchFields": [
+            {
+                "field": "Account Current Membership Status",
+                "operator": "EQUAL",
+                "value": "Active",
+            }
+        ],
+        "outputFields": ["Account ID", *extra_fields],
+    }
+    return _paginated_account_search(data)
+
+
 def search_member(email, operator="EQUAL"):
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""

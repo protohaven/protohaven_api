@@ -59,6 +59,7 @@ if run_discord_bot:
 
     t = threading.Thread(target=run_bot, daemon=True)
     t.start()
+
 else:
     log.warning("Skipping startup of discord bot")
 

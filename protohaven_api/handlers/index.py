@@ -126,6 +126,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 ).astimezone(tz)
             else:
                 last_announcement_ack = tznow() - datetime.timedelta(30)
+
             roles = [
                 r
                 for r in (m.get("API server role", "") or "").split("|")  # Can be None
@@ -134,8 +135,9 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
             if result["status"] == "Active":
                 roles.append("Member")
             _send("Fetching announcements...", 55)
+            clearances = [] if not m.get("Clearances") else m["Clearances"].split("|")
             result["announcements"] = airtable.get_announcements_after(
-                last_announcement_ack, roles
+                last_announcement_ack, roles, set(clearances)
             )
 
             _send("Checking storage...", 70)
@@ -201,7 +203,6 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
 def setup_sock_routes(app):
     """Set up all websocket routes; called by main.py"""
     sock = Sock(app)
-    print("Sock is", sock)
     sock.route("/welcome/ws")(welcome_sock)
 
 
