@@ -180,15 +180,33 @@ class Commands:
             help="write intermediate data to a cache file",
             type=str,
         ),
-        arg("--use_cache", help="run off pickle cache file", type=str),
+        arg("--read_cache", help="run off pickle cache file", type=str),
     )
     def validate_memberships(self, args):
         """Loops through all accounts and verifies that memberships are correctly set"""
-        for r in self.validate_memberships_internal(args.write_cache, args.use_cache):
-            print(r)
+        problems = self.validate_memberships_internal(args.write_cache, args.read_cache)
+        body = ""
+        if len(problems) > 0:
+            body += (
+                f"{len(problems)} membership validation problem(s) found:\n- "
+            )
+            body += "\n- ".join(problems)
+            body += "\n Please remedy by following the instructions at "
+            body += "https://protohaven.org/wiki/software/membership_validation"
+
+            result = [
+                {
+                    "id": None,
+                    "subject": "Membership Validation",
+                    "body": body,
+                    "target": "#membership-automation",
+                }
+            ]
+            print(yaml.dump(result, default_flow_style=False, default_style=""))
+        log.info(f"Done ({len(problems)} validation problems found)")
 
     def validate_memberships_internal(
-        self, write_cache=None, use_cache=None
+        self, write_cache=None, read_cache=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
         results = []
@@ -198,8 +216,8 @@ class Commands:
         company_member_count = defaultdict(int)
         member_data = {}
 
-        if use_cache:
-            with open(use_cache, "rb") as f:
+        if read_cache:
+            with open(read_cache, "rb") as f:
                 (
                     member_data,
                     household_paying_member_count,
