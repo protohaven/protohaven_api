@@ -43,15 +43,17 @@ class Commands:
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
-        start = dateparser.parse(args.start)
-        end = dateparser.parse(args.end)
+        start = dateparser.parse(args.start).astimezone(tz)
+        end = dateparser.parse(args.end).astimezone(tz)
+        result = builder.gen_scheduling_reminders(start, end)
         print(
             yaml.dump(
-                builder.gen_scheduling_reminders(start, end),
+                result,
                 default_flow_style=False,
                 default_style="",
             )
         )
+        log.info(f"Generated {len(result)} notification(s)")
 
     @command(
         arg(

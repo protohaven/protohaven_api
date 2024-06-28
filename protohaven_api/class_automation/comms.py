@@ -42,22 +42,10 @@ def automation_summary(summary):
     return "Automation notification summary", ("\n".join(content))
 
 
-def instructor_update_calendar(name, start, end):
-    """Generate message to instructor for confirming their availability"""
-    firstname = name.split(" ")[0]
-    subject = f"{firstname}: please confirm your teaching availability!"
-    return subject, env.get_template("instructor_update_calendar.jinja2").render(
-        name=name,
-        firstname=firstname,
-        start=start.strftime("%B %-d"),
-        end=end.strftime("%B %-d"),
-    )
-
-
 def instructor_schedule_classes(name, start, end):
     """Generate message to instructor reminding them to propose classes"""
     firstname = name.split(" ")[0]
-    subject = f"{firstname}: it's only 3 clicks - please schedule your classes!"
+    subject = f"{firstname}: please schedule your classes!"
     return subject, env.get_template("instructor_schedule_classes.jinja2").render(
         name=name,
         firstname=firstname,

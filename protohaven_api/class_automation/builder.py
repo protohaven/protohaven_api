@@ -3,6 +3,7 @@
 import datetime
 import logging
 import pickle
+import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
@@ -14,44 +15,14 @@ from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
 
+log = logging.getLogger("class_automation.builder")
+
 def get_account_email(account_id):
     """Gets the matching email for a Neon account, by ID"""
     content = neon.fetch_account(account_id)
     content = content.get("individualAccount", None) or content.get("companyAccount")
     content = content.get("primaryContact", {})
     return content.get("email1") or content.get("email2") or content.get("email3")
-
-
-def gen_calendar_reminders(start, end):
-    """Builds a set of reminder emails for all instructors, plus #instructors notification
-    to update their calendars for availability of new classes"""
-    results = []
-    summary = defaultdict(lambda: {"action": set(), "targets": set()})
-
-    summary[""]["name"] = "Availability calendar reminder"
-    summary[""]["action"].add("SEND")
-
-    for name, email in airtable.get_instructor_email_map(
-        require_teachable_classes=True
-    ).items():
-        subject, body = comms.instructor_update_calendar(name, start, end)
-        results.append(
-            {
-                "id": "",
-                "target": email,
-                "subject": subject,
-                "body": body,
-            }
-        )
-        summary[""]["targets"].add(email)
-
-    subject, body = comms.automation_summary(
-        {"id": "N/A", "name": "summary", "events": summary}
-    )
-    results.append(
-        {"id": "", "target": "#class-automation", "subject": subject, "body": body}
-    )
-    return results
 
 
 def gen_scheduling_reminders(start, end):
@@ -63,9 +34,19 @@ def gen_scheduling_reminders(start, end):
     summary[""]["name"] = "Scheduling reminder"
     summary[""]["action"].add("SEND")
 
+    already_scheduled = defaultdict(bool)
+    for cls in airtable.get_class_automation_schedule():
+        d = dateparser.parse(cls["fields"]["Start Time"])
+        if start <= d <= end:
+           already_scheduled[cls["fields"]["Email"].lower()] = True
+    log.info(f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}")
+
     for name, email in airtable.get_instructor_email_map(
         require_teachable_classes=True
     ).items():
+        if already_scheduled[email.lower()]:
+            continue # Don't nag folks that already have their classes set up
+
         subject, body = comms.instructor_schedule_classes(name, start, end)
         results.append(
             {
