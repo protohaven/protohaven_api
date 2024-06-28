@@ -60,13 +60,13 @@ def test_automation_summary():
     assert_matches_testdata(body, "test_automation_summary.txt")
 
 
-def test_instructor_update_calendar():
-    """Test instructor calendar reminder template rendering"""
-    subject, body = comms.instructor_update_calendar(
+def test_instructor_update_schedule():
+    """Test instructor schedule reminder template rendering"""
+    subject, body = comms.instructor_schedule_classes(
         "Test Name", parse_date("2024-02-20"), parse_date("2024-03-30")
     )
-    assert subject == "Test: please confirm your teaching availability!"
-    assert_matches_testdata(body, "test_instructor_update_calendar.txt")
+    assert subject == "Test: please schedule your classes!"
+    assert_matches_testdata(body, "test_instructor_schedule_classes.txt")
 
 
 def test_instructor_check_supplies():

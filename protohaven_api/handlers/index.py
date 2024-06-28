@@ -102,7 +102,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 f"Sign-in with {data['email']} returned multiple accounts "
                 + "in Neon with same email:\n"
                 + "\n".join(urls)
-                + "\nAdmin: please deduplicate"
+                + "\nAdmin: please deduplicate (see https://protohaven.org/wiki/software/membership_validation)"
             )
             log.info("Notified of multiple accounts")
         if len(mm) == 0:
@@ -160,14 +160,16 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
                     "but has a non-Active membership status in Neon: "
                     f"status is {result['status']}\n"
-                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}\n"
+                    "https://protohaven.org/wiki/software/membership_validation"
                 )
                 log.info("Notified of non-active member sign in")
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
                     f"{result['firstname']} ({data['email']}) just signed in at the front desk "
                     f"with violations: {result['violations']}\n"
-                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}\n"
+                    "https://protohaven.org/wiki/software/membership_validation"
                 )
                 log.info("Notified of sign-in with violations")
     elif data["person"] == "guest":
