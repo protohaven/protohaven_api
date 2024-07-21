@@ -3,12 +3,12 @@ configured state of the server"""
 import asyncio
 import json
 import logging
-import pickle
 import random
 import smtplib
 import time
 from email.mime.text import MIMEText
 from threading import Lock
+from dataclasses import dataclass
 
 import asana
 import httplib2
@@ -17,6 +17,9 @@ from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
+from protohaven_api.integrations.data import dev_airtable
+from protohaven_api.integrations.data import dev_neon
+from protohaven_api.integrations.data.loader import mock_data
 
 log = logging.getLogger("integrations.data.connector")
 
@@ -28,6 +31,7 @@ RETRY_MAX_DELAY_SEC = 3.0
 AIRTABLE_URL = "https://api.airtable.com/v0"
 
 
+
 class Connector:
     """Provides dev and production access to dependencies.
     In the case of dev, mock data and sandboxes are used to
@@ -37,28 +41,11 @@ class Connector:
         self.dev = dev
         self.cfg = get_config()
         self.neon_ratelimit = Lock()
-        self.data = None
-        if dev:
-            with open("mock_data.pkl", "rb") as f:
-                self.data = pickle.load(f)
-            print("Mock data loaded")
-
-    def _neon_request_dev(self, *args, **kwargs):
-        """Dev handler for neon requests"""
-        if args[0].startswith("https://api.neoncrm.com/v2/events"):
-            return {
-                "events": self.data["neon"]["events"],
-                "pagination": {"totalPages": 1},
-            }
-
-        raise NotImplementedError(
-            f"Mock data handler for Neon request with args\n{args}\nkwargs\n{kwargs}"
-        )
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request, passing through to httplib2"""
         if self.dev:
-            return self._neon_request_dev(*args, **kwargs)
+            return dev_neon.handle(*args, **kwargs)
         h = httplib2.Http(".cache")
         h.add_credentials(self.cfg["neon"]["domain"], api_key)
 
@@ -90,18 +77,13 @@ class Connector:
             return self._neon_session_dev()
         return requests.Session()
 
-    def _airtable_request_dev(self, *args, **kwargs):
-        """Dev handler for airtable web requests"""
-        raise NotImplementedError(
-            f"Mock data handler for Airtable request with args\n{args}\nkwargs\n{kwargs}"
-        )
 
     def airtable_request(
         self, mode, base, tbl, rec=None, suffix=None, data=None
     ):  # pylint: disable=too-many-arguments
         """Make an airtable request using the requests module"""
         if self.dev:
-            return self._airtable_request_dev(mode, base, tbl, rec, suffix, data)
+            return dev_airtable.handle(mode, base, tbl, rec, suffix, data)
 
         cfg = self.cfg["airtable"][base]
         headers = {
