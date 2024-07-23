@@ -3,6 +3,7 @@ from dataclasses import dataclass
 URL_BASE = "https://api.neoncrm.com/v2"
 ADMIN_URL = "https://protohaven.app.neoncrm.com/np/admin"
 
+
 @dataclass
 class CustomField:
     """Account Custom Fields from Neon"""
@@ -20,12 +21,13 @@ class CustomField:
     ANNOUNCEMENTS_ACKNOWLEDGED = 154
     ZERO_COST_OK_UNTIL = 159
 
-
     @classmethod
     def fromId(cls, v):
         for k in dir(cls):
             if int(v) == getattr(cls, k):
-                return " ".join([w.capitalize() for w in k.split("_")]) # Neon uses capital case names for custom fields
+                return " ".join(
+                    [w.capitalize() for w in k.split("_")]
+                )  # Neon uses capital case names for custom fields
         raise NotFoundError(f"No CustomField ID {v}")
 
 
