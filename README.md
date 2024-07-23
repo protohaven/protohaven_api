@@ -16,16 +16,21 @@ those modules to be loaded or else it raises module import errors.
 
 ## Running server locally
 
-**There is currently no staging instance for integrations - actions taken on a local server will affect production.**
-
 ```
 # Set up the environment
 source venv/bin/activate
 pip install -e .
 
-# Run the server
-python3 -m protohaven_api.main
+# Run the server (in dev mode)
+# Be sure to download the mock_data.pkl file and place it in the root of the repository dir
+# mock_data.pkl is found at https://drive.google.com/file/d/1_Fd0BoAkPqNjPmHUsWW27YXN7XFqZI20/view
+LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=dev flask --app protohaven_api.main run
+
+# In prod mode:
+LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=prod flask --app protohaven_api.main run
 ```
+
+In either mode, the server is available at http://localhost:5000. 
 
 ## Running the CLI
 

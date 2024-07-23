@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 
 from dateutil import parser as dateparser
-from flask import Blueprint, current_app, redirect, request
+from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
@@ -13,6 +13,8 @@ from protohaven_api.rbac import is_enabled as is_rbac_enabled
 from protohaven_api.rbac import require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
+
+DEFAULT_FORECAST_LEN = 16
 
 log = logging.getLogger("handlers.techs")
 
@@ -55,15 +57,22 @@ def _fetch_tool_states_and_areas(now):
         ):
             areas.add(area[0].strip())
         status = t["fields"].get("Current Status", "Unknown")
+        msg = t["fields"].get("Status Message", "Unknown")
         modified = t["fields"].get("Status last modified")
         if modified:
             modified = (now - dateparser.parse(modified)).days
         else:
             modified = 0
+        date = t["fields"].get("Status last modified", "")
+        if date != "":
+            date = dateparser.parse(date).strftime("%Y-%m-%d")
         tool_states[status].append(
             {
-                "modified": modified,
                 "name": t["fields"]["Tool Name"],
+                "code": t["fields"]["Tool Code"],
+                "modified": modified,
+                "message": msg,
+                "date": date,
             }
         )
     for _, vv in tool_states.items():
@@ -125,19 +134,16 @@ def _calendar_badge_color(num_people):
     return "danger"
 
 
-FORECAST_LEN = 16
-
-
 def _create_calendar_view(
-    now, shift_map, shift_term_map, time_off
+    start_date, shift_map, shift_term_map, time_off, forecast_len
 ):  # pylint: disable=too-many-locals
     calendar_view = []
-    for i in range(FORECAST_LEN):
+    for i in range(forecast_len):
         day_view = []
-        d = now + datetime.timedelta(days=i)
+        d = start_date + datetime.timedelta(days=i)
         for ap in ["AM", "PM"]:
             s = f"{d.strftime('%A')} {ap}"
-            people = shift_map[s]
+            people = shift_map.get(s, [])
             for cov in time_off:
                 if (
                     cov["fields"]["Date"] == d.strftime("%Y-%m-%d")
@@ -170,7 +176,17 @@ def _create_calendar_view(
 
 @page.route("/techs/forecast")
 def techs_forecast():
-    """Provide `FORECAST_LEN` advance days' notice of the level of staffing of tech shifts"""
+    """Provide advance notice of the level of staffing of tech shifts"""
+    date = request.args.get("date")
+    if date is None:
+        date = tznow()
+    else:
+        date = dateparser.parse(date).astimezone(tz)
+    date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+    forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
+    if forecast_len <= 0:
+        return Response("Nonzero days required for forecast", status=400)
+
     shift_term_map = {
         t["name"]: (
             dateparser.parse(t["first_day"])
@@ -188,12 +204,11 @@ def techs_forecast():
     }
     shift_map = _get_shift_map()
 
-    now = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
     time_off = [
         t
         for t in airtable.get_shop_tech_time_off()
         if t["fields"].get("Date")
-        and dateparser.parse(t["fields"]["Date"]).astimezone(tz) >= now
+        and dateparser.parse(t["fields"]["Date"]).astimezone(tz) >= date
     ]
     time_off.sort(key=lambda t: dateparser.parse(t["fields"]["Date"]))
 
@@ -205,7 +220,9 @@ def techs_forecast():
         else:
             coverage_missing.append(cov)
 
-    calendar_view = _create_calendar_view(now, shift_map, shift_term_map, time_off)
+    calendar_view = _create_calendar_view(
+        date, shift_map, shift_term_map, time_off, forecast_len
+    )
     return {
         "calendar_view": calendar_view,
         "coverage_missing": coverage_missing,
