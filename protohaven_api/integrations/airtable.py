@@ -6,6 +6,7 @@ from collections import defaultdict
 from functools import cache
 
 from dateutil import parser as dateparser
+from datetime import timedelta
 
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -75,6 +76,14 @@ def update_record(data, base, tbl, rec):
     post_data = {"fields": data}
     response = get_connector().airtable_request(
         "PATCH", base, tbl, rec=rec, data=json.dumps(post_data)
+    )
+    return response, json.loads(response.content) if response.content else None
+
+
+def delete_record(base, tbl, rec):
+    """Deletes a record in a named table"""
+    response = get_connector().airtable_request(
+        "DELETE", base, tbl, rec=rec
     )
     return response, json.loads(response.content) if response.content else None
 
@@ -382,3 +391,82 @@ def create_fees(fees):
 def pay_fee(fee_id):
     """Mark fee as paid"""
     raise NotImplementedError()
+
+
+def _day_trunc(d):
+    return d.replace(hour=0, minute=0, second=0, microsecond=0)
+
+def get_instructor_availability(email, t0, t1):
+    for row in get_all_records("class_automation", "instructor_availability"):
+        if row['fields']['Email (from Instructor)'].lower() != email.lower():
+            continue
+        start0, end0 = dateparser.parse(row['fields']['Start']), dateparser.parse(row['fields']['End'])
+        interval = row['fields']['Interval']
+        if interval < 0: 
+            log.warning(f"ignoring availability with negative interval: {row}")
+            continue
+
+        interval_end = row['fields'].get('Interval End')
+        if interval_end is not None:
+            interval_end = dateparser.parse(interval_end)
+
+        i = (_day_trunc(t0) - _day_trunc(start0)).days // interval if interval > 0 else 0
+        start = start0
+        print(f"Calculated i={i} from {t0} - {t1} filter on {start0} <> {end0} interval {interval} ending {interval_end}")
+        while i >= 0 and start <= t1:
+            offs = timedelta(days=i*interval)
+            start = start0 + offs
+            end = end0 + offs
+            if interval_end is not None and start > interval_end:
+                break
+            if start > t1 or end < t0:
+                break
+            yield max(start, t0), min(end, t1)
+            i += 1
+            if interval == 0: # Only one go-round if we have no repeat interval
+                break
+
+def add_availability(inst_id, start, end, interval, interval_end):
+    return insert_records(
+            [{"Instructor": inst_id, 
+              "Start": start.isoformat(),
+              "End": end.isoformat(),
+              "Interval": interval,
+              "Interval End": interval_end.isoformat()
+            }],
+        "class_automation",
+        "availability",
+    )["records"][0]
+
+def trim_availability(rec, cut_start=None, cut_end=None):
+    if cut_start is None: # No start means delete
+        delete_record("class_automation", "availability", rec) 
+        return (None, None)
+    r = get_record("class_automation", "availability", rec)
+
+    # We'll always be truncating the record beginning at cut_start
+    r2 = update_record({"Interval End": cut_start}, "class_automation", "availability", rec)
+
+    # If we don't have an end, we're done.
+    if cut_end is None:
+        return (r2, None)
+    
+    # Otherwise we're slicing the record in two and leaving a gap; add a new one as suffix
+    start0, end0 = dateparser.parse(r['fields']['Start']), dateparser.parse(r['fields']['End'])
+    interval = r['fields']['Interval']
+    i = (_day_trunc(cut_end) - _day_trunc(start0)).days // interval if interval > 0 else 0
+    offs = timedelta(days=i*interval)
+    assert offs >= 0
+    r3 = add_availability(
+            r['fields']['Instructor'],
+            start0 + offs,
+            end0 + offs,
+            interval,
+            dateparser.parse(r['fields']['Interval End']))
+
+    return (r2, r3)
+
+
+    
+
+

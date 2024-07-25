@@ -21,7 +21,7 @@ def user_clearances():
         raise RuntimeError("require param emails")
     results = {}
     for e in emails:
-        m = neon.search_member(e)
+        m = list(neon.search_member(e))
         if len(m) == 0:
             results[e] = "NotFound"
             continue
@@ -50,9 +50,7 @@ def user_clearances():
         elif request.method == "DELETE":
             codes -= set(delta)
         print(e, codes)
-        rep, content = neon.set_clearances(neon_id, codes)
-        if rep.status != 200:
-            raise RuntimeError(content)
+        content = neon.set_clearances(neon_id, codes)
         results[e] = "OK"
     return results
 

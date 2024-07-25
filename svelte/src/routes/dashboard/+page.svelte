@@ -5,6 +5,7 @@ import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
 import { Container, Row, Col, Navbar, NavbarBrand, Spinner } from '@sveltestrap/sveltestrap';
+import Calendar from '$lib/dashboard/calendar.svelte';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
@@ -29,6 +30,7 @@ let fullname = "";
 <Navbar color="primary-subtle">
   <NavbarBrand>Instructor Dashboard</NavbarBrand>
 </Navbar>
+<Calendar {email}></Calendar>
 <main>
   {#await promise}
     <Spinner/>

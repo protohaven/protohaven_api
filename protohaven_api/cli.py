@@ -15,13 +15,13 @@ from protohaven_api.commands import (
     finances,
     forwarding,
     reservations,
+    violations,
 )
 from protohaven_api.config import tznow
 from protohaven_api.docs_automation.docs import validate as validate_docs
 from protohaven_api.integrations import airtable, comms, neon, tasks
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.maintenance import manager
-from protohaven_api.policy_enforcement import enforcer
 from protohaven_api.rbac import Role
 
 LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
@@ -95,6 +95,7 @@ class ProtohavenCLI(
     forwarding.Commands,
     finances.Commands,
     development.Commands,
+    violations.Commands,
 ):
     """argparser-based CLI for protohaven operations"""
 
@@ -184,131 +185,6 @@ class ProtohavenCLI(
         parser.parse_args(argv)
         result = validate_docs()
         print(yaml.dump([result], default_flow_style=False, default_style=""))
-
-    def new_violation(self, argv):
-        """Create a new Violation in Airtable"""
-        parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
-        parser.add_argument(
-            "--reporter",
-            help="who's reporting the violation",
-            type=str,
-            required=True,
-        )
-        parser.add_argument(
-            "--suspect",
-            help="who's suspected of causing the violation",
-            type=str,
-            default=None,
-        )
-        parser.add_argument(
-            "--sections",
-            help="comma-separated list of section IDs relevant to violation. See help for list",
-            type=str,
-            required=True,
-        )
-        parser.add_argument(
-            "--fee", help="fee per day while violation is open", type=float, default=0.0
-        )
-        parser.add_argument("--notes", help="additional context", type=str, default="")
-        args = parser.parse_args(argv)
-        result = airtable.open_violation(
-            args.reporter,
-            args.suspect,
-            args.sections.split(","),
-            None,
-            tznow(),
-            args.fee,
-            args.notes,
-        )
-        print(result)
-
-    def close_violation(self, argv):
-        """Close out a violation so consequences cease"""
-        parser = argparse.ArgumentParser(description=self.new_violation.__doc__)
-        parser.add_argument(
-            "--id",
-            help="instance number for the violation",
-            type=int,
-            required=True,
-        )
-        parser.add_argument(
-            "--closer",
-            help="who's closing the violation",
-            type=str,
-            required=True,
-        )
-        parser.add_argument(
-            "--suspect",
-            help="suspect (if known)",
-            type=str,
-        )
-        parser.add_argument(
-            "--notes",
-            help="any additionald details",
-            type=str,
-        )
-        args = parser.parse_args(argv)
-        result, content = airtable.close_violation(
-            args.id, args.closer, tznow(), args.suspect, args.notes
-        )
-        print(result.status_code, content)
-
-    def enforce_policies(self, argv):  # pylint: disable=too-many-locals
-        """Follows suspension & violation logic for any ongoing violations.
-        For any violation tagged with a user, generate comms.
-        For any action needed to suspend users, generate comms.
-        Also generate a summary of changes for sending to Discord."""
-        parser = argparse.ArgumentParser(description=self.enforce_policies.__doc__)
-        parser.add_argument(
-            "--apply",
-            help=(
-                "Apply fees and suspension actions in Airtable. "
-                "If false, they will only be printed"
-            ),
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        )
-        args = parser.parse_args(argv)
-
-        violations = airtable.get_policy_violations()
-        old_fees = [
-            (f["fields"]["Violation"][0], f["fields"]["Amount"], f["fields"]["Created"])
-            for f in airtable.get_policy_fees()
-            if not f["fields"].get("Paid")
-        ]
-        new_fees = enforcer.gen_fees(violations)
-        if len(new_fees) > 0:
-            log.info("Generated fees:")
-            for f in new_fees:
-                log.info(f" - {f[2]} {f[0]} ${f[1]}")
-            if args.apply:
-                rep = airtable.create_fees(new_fees)
-                log.debug(f"{rep.status_code}: {rep.content}")
-                log.info(f"Applied {len(new_fees)} fee(s) into Airtable")
-            else:
-                log.warning("--apply not set; no fee(s) will be added")
-
-        new_sus = enforcer.gen_suspensions()
-        if len(new_sus) > 0:
-            log.info("Generated suspensions:")
-            for s in new_sus:
-                log.info(f" - {s}")
-            if args.apply:
-                for neon_id, duration, violation_ids in new_sus:
-                    start = tznow()
-                    end = start + datetime.timedelta(duration)
-                    rep = airtable.create_suspension(neon_id, violation_ids, start, end)
-                    log.debug(f"{rep.status_code}: {rep.content}")
-                log.info(f"Applied {len(new_sus)} suspension(s) into Airtable")
-            else:
-                log.warning("--apply not set; no suspension(s) will be added")
-
-        # Update accrual totals so they're visible at protohaven.org/violations
-        enforcer.update_accruals()
-
-        result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
-        print(yaml.dump(result, default_flow_style=False, default_style=""))
-        log.info(f"Generated {len(result)} notification(s)")
 
     def gen_maintenance_tasks(self, argv):
         """Check recurring tasks list in Airtable, add new tasks to asana

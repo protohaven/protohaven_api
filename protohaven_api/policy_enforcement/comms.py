@@ -48,6 +48,12 @@ def enforcement_summary(violations, fees, new_sus):
             else "fees paid",
         }
 
+    print(vs)
+    print(ss)
+    print(outstanding)
+    if len(vs) == 0 and len(ss) == 0 and outstanding == 0:
+        return None, None
+
     subject = "Violations and Actions Summary"
     return subject, env.get_template("enforcement_summary.jinja2").render(
         vs=vs.values(), outstanding=outstanding, ss=ss.values()
