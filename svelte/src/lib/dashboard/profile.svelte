@@ -69,7 +69,7 @@ import {get, post} from '$lib/api.ts';
   </CardBody>
   <CardFooter class="d-flex justify-content-end">
       <Button class="mx-2" on:click={refresh}><Icon class="ml-auto" name="arrow-clockwise"/></Button>
-      <Button class="mx-2" on:click={()=>on_scheduler(p.fullname)}>Scheduler</Button>
+      <Button class="mx-2" on:click={()=>on_scheduler(p.fullname, p.airtable_id)}>Scheduler</Button>
   </CardFooter>
 {:else}
 	Loading...

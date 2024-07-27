@@ -67,7 +67,7 @@ class PHClient(discord.Client):
         """Grants a role (e.g. "Members") to a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
-            log.info("Member {name} not found")
+            log.info("Discord user {name} not found")
             return False
 
         log.info(f"Adding role {role_name} to {name}")

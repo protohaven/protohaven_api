@@ -1,10 +1,12 @@
 <script type="ts">
   import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
-  import {get, post} from '$lib/api.ts';
+  import Calendar from '$lib/dashboard/calendar.svelte';
+  import {get, post, isodate} from '$lib/api.ts';
   export let email;
   export let open;
   export let inst;
+  export let inst_id;
 
   let solve_promise = Promise.resolve([]);
   let save_promise = Promise.resolve(null);
@@ -14,10 +16,10 @@
 
   let start = new Date();
   start.setDate(start.getDate() + 14);
-  start = start.toJSON().slice(0, 10);
+  start = isodate(start);
   let end = new Date();
   end.setDate(end.getDate() + 40);
-  end = end.toJSON().slice(0,10);
+  end = isodate(end); 
   let running = false;
   let env = null;
   let output = null;
@@ -102,7 +104,7 @@
     <strong>See <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">the Instructor wiki page</a> for details and a video tutorial on how to use this scheduler.</strong>
 
     <h5>1. Pick Scheduling Window</h5>
-    <p>Select the window of time where you want to schedule your classes, or use the default.</p>
+    <p>Select the window of time where you want to schedule your classes, and build your availability.</p>
     <Row cols={2}>
     <Col>
     From
@@ -113,6 +115,9 @@
     <Input type="date" placeholder="Until Date" bind:value={end} on:change={reload}/>
     </Col>
     </Row>
+
+    
+    <Calendar {inst} {inst_id} {start} {end}></Calendar>
 
     <h5>2. Check Availability</h5>
     <p>Edit your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. if you wish to change any of the generated schedule times here.</p>

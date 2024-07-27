@@ -19,9 +19,8 @@ from protohaven_api.integrations.schedule import fetch_instructor_schedules
 log = logging.getLogger("class_automation.scheduler")
 
 
-def fetch_formatted_schedule(time_min, time_max):
-    """Fetch schedule info from google calendar and massage it a bit"""
-
+def fetch_formatted_schedule_gcal(_, time_min, time_max):
+    """DEPRECATED: Fetch schedule info from google calendar and massage it a bit"""
     sched = fetch_instructor_schedules(
         time_min.replace(tzinfo=None), time_max.replace(tzinfo=None)
     )
@@ -31,6 +30,15 @@ def fetch_formatted_schedule(time_min, time_max):
         k = k.strip().lower()
         sched_formatted[k] += v
     return sched_formatted
+
+
+def fetch_formatted_schedule(inst_filter, time_min, time_max):
+    result = {}
+    for inst in inst_filter:
+        rows = airtable.get_instructor_availability(inst)
+        # Have to drop the record IDs
+        result[inst] = [[a[1].isoformat(), a[2].isoformat()] for a in airtable.expand_instructor_availability(rows, time_min, time_max)]
+    return result
 
 
 def slice_date_range(start_date, end_date):
@@ -133,7 +141,7 @@ def generate_env(
         instructor_filter = [k.lower() for k in instructor_filter]
         log.info(f"Filter: {instructor_filter}")
     instructor_caps = airtable.fetch_instructor_teachable_classes()
-    sched_formatted = fetch_formatted_schedule(start_date, end_date)
+    sched_formatted = fetch_formatted_schedule(instructor_filter, start_date, end_date)
     cur_sched = [
         c
         for c in airtable.get_class_automation_schedule()

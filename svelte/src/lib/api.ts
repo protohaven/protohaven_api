@@ -13,9 +13,9 @@ function base_url() {
   return  "http://localhost:5000";
 }
 
-export function post(url, data) {
+function json_req(url, data, method) {
   return fetch(base_url() + url, {
-    method: 'POST',
+    method,
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
@@ -31,6 +31,22 @@ export function post(url, data) {
     });
 }
 
+export function post(url, data) {
+  return json_req(url, data, 'POST');
+}
+
+export function patch(url, data) {
+  return json_req(url, data, 'PATCH');
+}
+
+export function put(url, data) {
+  return json_req(url, data, 'PUT');
+}
+
+export function del(url, data) {
+  return json_req(url, data, 'DELETE');
+}
+
 export function get(url) {
   return fetch(base_url() + url).then((rep)=>rep.text())
     .then((body) => {
@@ -44,4 +60,18 @@ export function get(url) {
 
 export function open_ws(url) {
 	return new WebSocket(base_ws() + url);
+}
+
+export function isodate(d) {
+	return new Date(d).toJSON().slice(0,10);
+}
+
+export function localtime(d) {
+	return new Date(d).toLocaleTimeString("en-US", {timeStyle: 'short'});
+}
+
+export function as_datetimelocal(d) {
+	d = new Date(d);
+	d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+	return d.toISOString().slice(0,16);
 }

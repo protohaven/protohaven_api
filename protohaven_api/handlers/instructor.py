@@ -71,6 +71,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     result = {
         "neon_id": None,
         "email": "OK",
+        "airtable_id": None,
         "fullname": "unknown",
         "active_membership": "inactive",
         "discord_user": "missing",
@@ -97,6 +98,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:
+        result["airtable_id"] = caps['id']
         if len(caps["fields"].get("Class", [])) > 0:
             result["capabilities_listed"] = "OK"
 
@@ -407,3 +409,43 @@ def cancel_class():
     log.warning(f"Cancelling class {cid}")
     neon.set_event_scheduled_state(cid, scheduled=False)
     return {"success": True}
+
+def _safe_date(v):
+    if v is None:
+        return v
+    return dateparser.parse(v).astimezone(tz)
+
+@page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
+def inst_availability():
+    if request.method == "GET":
+        inst = request.values.get("inst").lower()
+        log.warning(f"inst_availability for {inst}")
+        t0 = _safe_date(request.values.get("t0"))
+        t1 = _safe_date(request.values.get("t1"))
+        if not t0 or not t1:
+            return Response("Both t0 and t1 required in request to /instructor/calendar/availability", status=400)
+        avail = list(airtable.get_instructor_availability(inst))
+        expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
+        return {"records": {r['id']: r['fields'] for r in avail}, "availability": expanded}
+    elif request.method == "PUT":
+        rec = request.json.get("rec")
+        t0 = _safe_date(request.json.get("t0"))
+        t1 = _safe_date(request.json.get("t1"))
+        inst_id = request.json.get("inst_id")
+        if not t0 or not t1:
+            return Response("t0, t1, inst_id required in json PUT to /instructor/calendar/availability", status=400)
+        interval = request.json.get("interval")
+        interval_end = _safe_date(request.json.get("interval_end"))
+        if rec is not None:
+            result = airtable.update_availability(rec, inst_id, t0, t1, interval, interval_end)
+        else:
+            result = airtable.add_availability(inst_id, t0, t1, interval, interval_end)
+        log.info(f"PUT result {result}")
+        return result
+    elif request.method == "DELETE":
+        rec = request.json.get("rec")
+        return airtable.delete_availability(rec)
+    else:
+        return Response(f"Unsupported method {request.method}", status=400)
+
+    

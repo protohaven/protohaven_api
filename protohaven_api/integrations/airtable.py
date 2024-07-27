@@ -396,12 +396,17 @@ def pay_fee(fee_id):
 def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
 
-def get_instructor_availability(email, t0, t1):
-    for row in get_all_records("class_automation", "instructor_availability"):
-        if row['fields']['Email (from Instructor)'].lower() != email.lower():
-            continue
+def get_instructor_availability(inst):
+    for row in get_all_records("class_automation", "availability"):
+        if row['fields']['Instructor (from Instructor)'][0].lower() == inst.lower():
+            yield row
+
+MAX_EXPANSION = 100
+
+def expand_instructor_availability(rows, t0, t1):
+    for row in rows:
         start0, end0 = dateparser.parse(row['fields']['Start']), dateparser.parse(row['fields']['End'])
-        interval = row['fields']['Interval']
+        interval = row['fields'].get('Interval', 0)
         if interval < 0: 
             log.warning(f"ignoring availability with negative interval: {row}")
             continue
@@ -409,11 +414,12 @@ def get_instructor_availability(email, t0, t1):
         interval_end = row['fields'].get('Interval End')
         if interval_end is not None:
             interval_end = dateparser.parse(interval_end)
-
-        i = (_day_trunc(t0) - _day_trunc(start0)).days // interval if interval > 0 else 0
+        print(f"t0={t0} vs start0={start0} calc i")
+        i = max(0, (_day_trunc(t0) - _day_trunc(start0)).days // interval) if interval > 0 else 0
         start = start0
-        print(f"Calculated i={i} from {t0} - {t1} filter on {start0} <> {end0} interval {interval} ending {interval_end}")
-        while i >= 0 and start <= t1:
+        print(f"Calculated i={i} from t0/t1 {t0} - {t1} filter on {start0} <> {end0} interval {interval} ending {interval_end}")
+        n = 0
+        while start <= t1 and n < MAX_EXPANSION:
             offs = timedelta(days=i*interval)
             start = start0 + offs
             end = end0 + offs
@@ -421,22 +427,44 @@ def get_instructor_availability(email, t0, t1):
                 break
             if start > t1 or end < t0:
                 break
-            yield max(start, t0), min(end, t1)
+            yield row['id'], max(start, t0), min(end, t1)
             i += 1
+            n += 1
             if interval == 0: # Only one go-round if we have no repeat interval
                 break
 
 def add_availability(inst_id, start, end, interval, interval_end):
-    return insert_records(
-            [{"Instructor": inst_id, 
+    rep = insert_records(
+            [{"Instructor": [inst_id], 
+              "Start": start.isoformat(),
+              "End": end.isoformat(),
+              "Interval": interval,
+              "Interval End": interval_end.isoformat() if interval_end is not None else None,
+            }],
+        "class_automation",
+        "availability",
+    )
+    log.info(f"add_availability rep {rep}")
+    return json.loads(rep.content)["records"][0]
+
+
+def update_availability(rec, inst_id, start, end, interval, interval_end):
+    _, content = update_record(
+            {"Instructor": [inst_id], 
               "Start": start.isoformat(),
               "End": end.isoformat(),
               "Interval": interval,
               "Interval End": interval_end.isoformat()
-            }],
+            },
         "class_automation",
         "availability",
-    )["records"][0]
+        rec,
+    )
+    return content
+
+def delete_availability(rec):
+    _, content = delete_record("class_automation", "availability", rec) 
+    return content
 
 def trim_availability(rec, cut_start=None, cut_end=None):
     if cut_start is None: # No start means delete
@@ -456,7 +484,7 @@ def trim_availability(rec, cut_start=None, cut_end=None):
     interval = r['fields']['Interval']
     i = (_day_trunc(cut_end) - _day_trunc(start0)).days // interval if interval > 0 else 0
     offs = timedelta(days=i*interval)
-    assert offs >= 0
+    assert offs.days >= 0
     r3 = add_availability(
             r['fields']['Instructor'],
             start0 + offs,
@@ -465,8 +493,5 @@ def trim_availability(rec, cut_start=None, cut_end=None):
             dateparser.parse(r['fields']['Interval End']))
 
     return (r2, r3)
-
-
-    
 
 
