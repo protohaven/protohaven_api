@@ -10,6 +10,12 @@ from protohaven_api.class_automation import scheduler as s
 from protohaven_api.config import tz, tznow
 
 
+def d(i, h=0):
+    """Returns a date based on an integer, for testing"""
+    return datetime.datetime(year=2025, month=1, day=1) + datetime.timedelta(
+        days=i, hours=h
+    )
+
 def t(hour, weekday=0):
     """Create a datetime object from hour and weekday"""
     return tz.localize(
@@ -141,3 +147,11 @@ def test_gen_class_and_area_stats_exclusions():
     assert [
         (d1.strftime("%Y-%m-%d"), d2.strftime("%Y-%m-%d")) for d1, d2 in got["r1"]
     ] == [("2024-03-02", "2024-05-01"), ("2024-01-31", "2024-03-31")]
+
+def test_filter_same_classday():
+    got = s.filter_same_classday("inst",
+                                 [(d(i*7, 16).isoformat(), None) for i in range(4)],
+                                 [{'fields': {'Start Time': d(7, 12).isoformat(), 'Days (from Class)': [2], 'Instructor': 'inst'}},
+                                  {'fields': {'Start Time': d(0, 12).isoformat(), 'Days (from Class)': [1], 'Instructor': 'ignored'}},
+                                  ])
+    assert got == [(d(i, 16).isoformat(), None) for i in (0, 21)]

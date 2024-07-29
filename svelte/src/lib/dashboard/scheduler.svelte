@@ -1,5 +1,5 @@
 <script type="ts">
-  import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
+  import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, Accordion, AccordionItem, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
   import Calendar from '$lib/dashboard/calendar.svelte';
   import {get, post, isodate} from '$lib/api.ts';
@@ -23,6 +23,7 @@
   let running = false;
   let env = null;
   let output = null;
+  let run_details = null;
 
   // console.log(start, end);
 
@@ -73,7 +74,9 @@
     console.log(body.instructors[0].caps);
 
     solve_promise = post("/instructor/run_scheduler", body).then((data) => {
-      output = data[inst.toLowerCase()];
+      console.log(data);
+      output = data.result[inst.toLowerCase()];
+      run_details = data.skip_counters[inst.toLowerCase()];
       for (let cls of output) {
       	console.log(cls);
 	cls[2] = (new Date(cls[2])).toLocaleString();
@@ -150,6 +153,21 @@
 	      {#each p as c}
 		<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
 	      {/each}
+
+	      {#if run_details}
+	      <Accordion class="my-3" stayOpen>
+	      	<AccordionItem header="Some dates were excluded from scheduling particular classes - click for details">
+	        {#each Object.keys(run_details) as d}
+		  <strong>{d}:</strong>
+	      	<ul>
+		  {#each run_details[d] as skip_info}
+		     <li>{isodate(skip_info[0])} (confict with {skip_info[2]} on {isodate(skip_info[1])})</li>
+		  {/each}
+		</ul>
+		{/each}
+		</AccordionItem>
+	      </Accordion>
+	      {/if}
 
 	      {#if output}
 		<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>

@@ -344,15 +344,12 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, _ = solve_with_env(request.json)
-    if len(result) == 0:
-        return Response(
-            "No valid schedule possible from the given inputs. "
-            "This may be due to classes having run too recently, "
-            "a too-small scheduling window, or too few available times.",
-            status=400,
-        )
-    return result
+    result, score, skip_counters = solve_with_env(request.json)
+    for inst, kv in skip_counters.items():
+        for k, vv in kv.items():
+            print(vv)
+            skip_counters[inst][k] = [(t.isoformat(), skip_t.isoformat(), cname) for t, skip_t, cname in vv]
+    return {'result': result, 'score': score, 'skip_counters': skip_counters}
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -426,7 +423,8 @@ def inst_availability():
             return Response("Both t0 and t1 required in request to /instructor/calendar/availability", status=400)
         avail = list(airtable.get_instructor_availability(inst))
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
-        return {"records": {r['id']: r['fields'] for r in avail}, "availability": expanded}
+        schedule = [s for s in airtable.get_class_automation_schedule() if dateparser.parse(s['fields']['Start Time']) >= t0]
+        return {"records": {r['id']: r['fields'] for r in avail}, "availability": expanded, "schedule": schedule}
     elif request.method == "PUT":
         rec = request.json.get("rec")
         t0 = _safe_date(request.json.get("t0"))

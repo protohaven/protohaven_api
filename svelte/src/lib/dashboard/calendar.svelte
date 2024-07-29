@@ -29,6 +29,25 @@ function reload() {
         lookup[dstr] = [...(lookup[dstr] || []), evt];
       }
 
+      let sched_days = {}
+      let idx = 0;
+      for (let sch of data.schedule) {
+        for (let i = 0; i < sch['fields']['Days (from Class)'][0]; i++) {
+	  let d = new Date(sch['fields']['Start Time']);
+	  d.setDate(d.getDate() + 7*i);
+	  let sched = {
+	  	idx,
+	  	inst: sch['fields']['Instructor'], 
+		name: sch['fields']['Name (from Class)'],
+	  };
+	  console.log(sched);
+	  sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
+	  sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched]; 
+	  idx += 1
+	}
+      }
+      console.log(sched_days);
+
       let s = new Date(start);
       let d = new Date(start);
       d.setDate(d.getDate() - d.getDay() - 1); // Set to start of the week
@@ -40,9 +59,14 @@ function reload() {
 	let dstr = isodate(d);
 	darr.push({'date': dstr, 'filler': true, 'events': []});
       }
+
       for (; d <= e; d.setDate(d.getDate() + 1)) {
 	let dstr = isodate(d);
-	darr.push({'date': dstr, 'events': lookup[dstr] || []});
+	darr.push({
+	  'date': dstr, 
+	  'events': lookup[dstr] || [], 
+	  'schedule': sched_days[dstr] || []
+	});
 	if (darr.length >= 7) {
 	  weeks.push(darr);
 	  darr = [];
@@ -71,7 +95,6 @@ function start_edit(e, d) {
 	  avail_id = d;
 	  avail_start = as_datetimelocal(r['Start']);
 	  avail_end = as_datetimelocal(r['End']);
-	  console.log(JSON.stringify(r['Interval']));
 	  avail_interval = r['Interval'];
 	  avail_interval_end = null;
 	  if (r['Interval End']) {
@@ -137,6 +160,10 @@ function delete_avail() {
 			{#if d.events.length > 0}
 			{#each d.events as e}
 			  <Button style="display:block" color={(avail_id === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {console.log('se', e[0]); start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
+			{/each}
+			{#each d.schedule as s}
+			  <Tooltip target={"sched"+s.idx}>Scheduled: {s.name} with {s.inst}</Tooltip>
+			  <Badge id={"sched"+s.idx} color={(s.inst === inst) ? "primary" : "light"}>{s.display}</Badge>
 			{/each}
 			{:else}
 			{d.date.substr(5)}

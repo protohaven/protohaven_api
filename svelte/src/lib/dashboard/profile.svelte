@@ -48,7 +48,7 @@ import {get, post} from '$lib/api.ts';
   </CardHeader>
   <CardBody>
     {#if p.profile_img}
-    <Image fluid alt="instructor profile pic" src={p.profile_img} class="px-5 py-3"/>
+    <Image fluid alt="instructor profile pic" src={p.profile_img} class="px-5 py-3" style="max-height: 20vh; max-width: 20vw"/>
     {/if}
     {#if p.bio}
     <CardText>{p.bio}</CardText>

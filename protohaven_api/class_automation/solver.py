@@ -28,7 +28,7 @@ class Class:
 
         if len(exclusions) > 0 and isinstance(exclusions[0][0], str):
             self.exclusions = [
-                [dateparser.parse(e[0]), dateparser.parse(e[1])] for e in exclusions
+                [dateparser.parse(e[0]), dateparser.parse(e[1]), dateparser.parse(e[2])] for e in exclusions
             ]
         else:
             self.exclusions = exclusions
@@ -93,18 +93,18 @@ def date_range_overlaps(a0, a1, b0, b1):
 
 
 def has_area_conflict(area_occupancy, t_start, t_end):
-    """Return true if any of `area_occupancy` lie within `t_start` and `t_end`, false otherwise"""
-    for a_start, a_end in area_occupancy:
+    """Return name of class if any of `area_occupancy` lie within `t_start` and `t_end`, false otherwise"""
+    for a_start, a_end, name in area_occupancy:
         if date_range_overlaps(a_start, a_end, t_start, t_end):
-            return True
+            return name
     return False
 
 
-def date_within_ranges(d, exclusions):
-    """Returns true if `d` is within any of the tuples in the list of `exclusions`"""
-    for e1, e2 in exclusions:
+def date_within_exclusions(d, exclusions):
+    """Returns the matching exclusion date if `d` is within any of the tuples in the list of `exclusions`"""
+    for e1, e2, esched in exclusions:
         if e1 <= d <= e2:
-            return True
+            return esched
     return False
 
 
@@ -120,29 +120,30 @@ def solve(
     # Note the implicit constraint: no instructor is assigned a class they can't
     # teach, or a time they're unable to teach.
     possible_assignments = []
-    skip_counters = defaultdict(int)
+    skip_counters = defaultdict(lambda: defaultdict(list))
     assignment_counters = defaultdict(int)
     for instructor in instructors:
         for t in instructor.avail:
             for airtable_id in instructor.caps:
                 # Skip this particular time if it's in an exclusion region
                 cbid = class_by_id[airtable_id]
-                if date_within_ranges(t, cbid.exclusions):
-                    skip_counters["Too soon before/after same class"] += 1
+                excluding_class_date = date_within_exclusions(t, cbid.exclusions)
+                if excluding_class_date:
+                    skip_counters[instructor.name.lower()]["Too soon before/after same class"].append((t, excluding_class_date, cbid.name))
                     continue
 
                 # Skip if area already occupied
                 conflict = False
                 for a in cbid.areas:
-                    if has_area_conflict(
+                    conflict = has_area_conflict(
                         area_occupancy.get(a, []),
                         t,
                         t + datetime.timedelta(hours=cbid.hours),
-                    ):
-                        conflict = True
-                    break
+                    )
+                    if conflict:
+                        break
                 if conflict:
-                    skip_counters["Area already occupied by other class"] += 1
+                    skip_counters[instructor.name.lower()]["Area already occupied by other class"].append((t, t, conflict))
                     continue
 
                 possible_assignments.append((airtable_id, instructor.name, t))
@@ -248,4 +249,4 @@ def solve(
                         [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
                     )
     log.info(f"Scheduler result: {instructor_classes}, final score {final_score}")
-    return (dict(instructor_classes), final_score)
+    return (dict(instructor_classes), final_score, skip_counters)
