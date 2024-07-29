@@ -225,6 +225,7 @@ def test_get_instructor_readiness_all_bad(mocker):
         ]
     )
     assert result == {
+        "airtable_id": None,
         "neon_id": 12345,
         "fullname": "First Last",
         "active_membership": "Inactive",
@@ -242,13 +243,14 @@ def test_get_instructor_readiness_all_ok(mocker):
     mocker.patch.object(instructor, "airtable")
     mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = {
+        "id": "inst_id",
         "fields": {
             "Class": [1, 2, 3],
             "W9 Form": "<file>",
             "Direct Deposit Info": "<file>",
             "Profile Pic": [{"url": "<url>"}],
             "Bio": "test bio",
-        }
+        },
     }
     instructor.schedule.fetch_instructor_schedules.return_value = {
         "First Last": [1, 2, 3]
@@ -265,6 +267,7 @@ def test_get_instructor_readiness_all_ok(mocker):
         ]
     )
     assert result == {
+        "airtable_id": "inst_id",
         "neon_id": 12345,
         "fullname": "First Last",
         "active_membership": "OK",

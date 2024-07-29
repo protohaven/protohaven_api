@@ -27,9 +27,8 @@ class Class:
         self.areas = areas
 
         if len(exclusions) > 0 and isinstance(exclusions[0][0], str):
-            self.exclusions = [
-                [dateparser.parse(e[0]), dateparser.parse(e[1]), dateparser.parse(e[2])] for e in exclusions
-            ]
+            # Convert from string to Date if required
+            self.exclusions = [[dateparser.parse(e) for e in ee] for ee in exclusions]
         else:
             self.exclusions = exclusions
         # Score is a normalized expected value based on revenue, likelihood to fill,
@@ -129,7 +128,9 @@ def solve(
                 cbid = class_by_id[airtable_id]
                 excluding_class_date = date_within_exclusions(t, cbid.exclusions)
                 if excluding_class_date:
-                    skip_counters[instructor.name.lower()]["Too soon before/after same class"].append((t, excluding_class_date, cbid.name))
+                    skip_counters[instructor.name.lower()][
+                        "Too soon before/after same class"
+                    ].append((t, excluding_class_date, cbid.name))
                     continue
 
                 # Skip if area already occupied
@@ -143,7 +144,9 @@ def solve(
                     if conflict:
                         break
                 if conflict:
-                    skip_counters[instructor.name.lower()]["Area already occupied by other class"].append((t, t, conflict))
+                    skip_counters[instructor.name.lower()][
+                        "Area already occupied by other class"
+                    ].append((t, t, conflict))
                     continue
 
                 possible_assignments.append((airtable_id, instructor.name, t))
@@ -249,4 +252,8 @@ def solve(
                         [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
                     )
     log.info(f"Scheduler result: {instructor_classes}, final score {final_score}")
-    return (dict(instructor_classes), final_score, skip_counters)
+    return (
+        dict(instructor_classes),
+        final_score,
+        {k: dict(v) for k, v in skip_counters.items()},
+    )

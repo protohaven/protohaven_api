@@ -14,30 +14,20 @@ from protohaven_api.class_automation.solver import (
 )
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable
-from protohaven_api.integrations.schedule import fetch_instructor_schedules
 
 log = logging.getLogger("class_automation.scheduler")
 
 
-def fetch_formatted_schedule_gcal(_, time_min, time_max):
-    """DEPRECATED: Fetch schedule info from google calendar and massage it a bit"""
-    sched = fetch_instructor_schedules(
-        time_min.replace(tzinfo=None), time_max.replace(tzinfo=None)
-    )
-    log.info(f"Found {len(sched)} instructor schedule events from calendar")
-    sched_formatted = defaultdict(list)
-    for k, v in sched.items():
-        k = k.strip().lower()
-        sched_formatted[k] += v
-    return sched_formatted
-
-
-def fetch_formatted_schedule(inst_filter, time_min, time_max):
+def fetch_formatted_availability(inst_filter, time_min, time_max):
+    """Given a list of instructor names and a time interval, return tuples of times bounding their availability"""
     result = {}
     for inst in inst_filter:
         rows = airtable.get_instructor_availability(inst)
         # Have to drop the record IDs
-        result[inst] = [[a[1].isoformat(), a[2].isoformat()] for a in airtable.expand_instructor_availability(rows, time_min, time_max)]
+        result[inst] = [
+            [a[1].isoformat(), a[2].isoformat()]
+            for a in airtable.expand_instructor_availability(rows, time_min, time_max)
+        ]
     return result
 
 
@@ -108,7 +98,7 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
         exclusion_window = [
             t - datetime.timedelta(pd * 30),
             t + datetime.timedelta(pd * 30),
-            t # Main date is included for reference
+            t,  # Main date is included for reference
         ]
         if exclusion_window[0] <= end_date or exclusion_window[1] >= start_date:
             exclusions[rec].append(exclusion_window)
@@ -122,7 +112,10 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
             ]
             if date_range_overlaps(ao[0], ao[1], start_date, end_date):
                 area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
-                    ao + [c["fields"]["Name (from Class)"]]
+                    ao
+                    + [
+                        c["fields"]["Name (from Class)"]
+                    ]  # Include class name for later reference
                 )
                 instructor_occupancy[c["fields"]["Instructor"].lower()].append(ao)
     for v in area_occupancy.values():
@@ -131,13 +124,24 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
 
 
 def filter_same_classday(inst, avail, cur_sched):
-    teaching_days = set([
-            (dateparser.parse(c['fields']['Start Time']).astimezone(tz) + datetime.timedelta(days=7*d)).date()
+    """Ensure an instructor is teaching a max of one class per day"""
+    teaching_days = set(
+        [
+            (
+                dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
+                + datetime.timedelta(days=7 * d)
+            ).date()
             for c in cur_sched
-            for d in range(c['fields']['Days (from Class)'][0])
-            if c['fields']['Instructor'].lower() == inst.lower()
-    ])
-    return [a for a in avail if dateparser.parse(a[0]).astimezone(tz).date() not in teaching_days]
+            for d in range(c["fields"]["Days (from Class)"][0])
+            if c["fields"]["Instructor"].lower() == inst.lower()
+        ]
+    )
+    return [
+        a
+        for a in avail
+        if dateparser.parse(a[0]).astimezone(tz).date() not in teaching_days
+    ]
+
 
 def generate_env(
     start_date,
@@ -151,7 +155,9 @@ def generate_env(
         instructor_filter = [k.lower() for k in instructor_filter]
         log.info(f"Filter: {instructor_filter}")
     instructor_caps = airtable.fetch_instructor_teachable_classes()
-    sched_formatted = fetch_formatted_schedule(instructor_filter, start_date, end_date)
+    sched_formatted = fetch_formatted_availability(
+        instructor_filter, start_date, end_date
+    )
     cur_sched = [
         c
         for c in airtable.get_class_automation_schedule()
@@ -159,7 +165,6 @@ def generate_env(
     ]
     if not include_proposed:
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
-
 
     # Filter out any classes that have/will run too recently
     exclusions, area_occupancy, instructor_occupancy = gen_class_and_area_stats(
@@ -179,11 +184,8 @@ def generate_env(
             log.debug(f"Skipping instructor {k} (not in filter)")
             continue
 
-        print("Before_filter", v)
         v = filter_same_classday(k, v, cur_sched)
-        print("AfteR_filter", v)
 
-        log.debug(f"Handling {k}")
         caps = instructor_caps.get(k, [])
         if len(instructor_caps[k]) == 0:
             log.warning(

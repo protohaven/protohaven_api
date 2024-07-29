@@ -1,9 +1,9 @@
 # pylint: skip-file
+import datetime
 import json
 
 import pytest
 from dateutil import parser as dateparser
-import datetime
 
 from protohaven_api.config import tz
 from protohaven_api.integrations import airtable as a
@@ -134,94 +134,133 @@ def test_get_announcements_after(desc, data, want, mocker):
 
 
 def _arec(email, start, end, interval, interval_end=None):
-    return {"fields": {
-        "Instructor": 123,
-        'Email (from Instructor)': email, 
-        'Start': start.isoformat(), 
-        'End': end.isoformat(), 
-        'Interval': interval, 
-        "Interval End": interval_end.isoformat() if interval_end else None
-    }}
+    return {
+        "id": 123,
+        "fields": {
+            "Instructor": [123],
+            "Email (from Instructor)": email,
+            "Start": start.isoformat(),
+            "End": end.isoformat(),
+            "Interval": interval,
+            "Interval End": interval_end.isoformat() if interval_end else None,
+        },
+    }
 
-@pytest.mark.parametrize("desc,records,email,t0,t1,want", [
-        (   "Mismatch instructor email",
-            [_arec("a", d(0, 18), d(0, 21), 0)], 
-            "b", d(0), d(1), 
+
+@pytest.mark.parametrize(
+    "desc,records,t0,t1,want",
+    [
+        (
+            "Email match, simple inclusion",
+            [_arec("a", d(0, 18), d(0, 21), 0)],
+            d(-2),
+            d(2),
+            [(123, d(0, 18), d(0, 21))],
+        ),
+        (
+            "Daily repeat returns on next day availability",
+            [_arec("a", d(0, 18), d(0, 21), 1)],
+            d(1),
+            d(2),
+            [(123, d(1, 18), d(1, 21))],
+        ),
+        (
+            "No returns if before repeating event",
+            [_arec("a", d(0, 18), d(0, 21), 1)],
+            d(-2),
+            d(-1),
             [],
         ),
-        ( "Email match, simple inclusion",
-            [_arec("a", d(0, 18), d(0, 21), 0)], 
-            "a", d(-2), d(2), 
-            [(d(0, 18), d(0, 21))],
+        (
+            "Availability is clamped by t0 and t1",
+            [_arec("a", d(0, 18), d(0, 21), 0)],
+            d(0, 19),
+            d(0, 20),
+            [(123, d(0, 19), d(0, 20))],
         ),
-        ( "Daily repeat returns on next day availability",
-            [_arec("a", d(0, 18), d(0, 21), 1)], 
-            "a", d(1), d(2), 
-            [(d(1, 18), d(1, 21))],
-        ),
-        ( "No returns if before repeating event",
-            [_arec("a", d(0, 18), d(0, 21), 1)], 
-            "a", d(-2), d(-1), 
+        (
+            "2d repetition skips over search window",
+            [_arec("a", d(0, 18), d(0, 21), 2)],
+            d(1),
+            d(2),
             [],
         ),
-        ( "Availability is clamped by t0 and t1",
-            [_arec("a", d(0, 18), d(0, 21), 0)], 
-            "a", d(0, 19), d(0, 20), 
-            [(d(0, 19), d(0, 20))],
+        (
+            "Long repetition test",
+            [_arec("a", d(0, 18), d(0, 21), 1)],
+            d(365),
+            d(366),
+            [(123, d(365, 18), d(365, 21))],
         ),
-        (   "2d repetition skips over search window",
-            [_arec("a", d(0, 18), d(0, 21), 2)], 
-            "a", d(1), d(2), 
-            [],
-        ),
-        (   "Long repetition test",
-            [_arec("a", d(0, 18), d(0, 21), 1)], 
-            "a", d(365), d(366), 
-            [(d(365, 18), d(365, 21))],
-        ),
-        (   "Multiple returns",
-            [_arec("a", d(0, 18), d(0, 21), 1)], 
-            "a", d(1), d(3), 
-            [(d(1, 18), d(1, 21)), (d(2, 18), d(2, 21))],
+        (
+            "Multiple returns",
+            [_arec("a", d(0, 18), d(0, 21), 1)],
+            d(1),
+            d(3),
+            [(123, d(1, 18), d(1, 21)), (123, d(2, 18), d(2, 21))],
         ),
         (
             "Search after interval end returns nothing",
             [_arec("a", d(0, 18), d(0, 21), 1, d(5))],
-             "a", d(6), d(7),
+            d(6),
+            d(7),
             [],
         ),
-
-    ])
-def test_get_instructor_availability(mocker, desc, records, email, t0, t1, want):
-    mocker.patch.object(a, "get_all_records", return_value=records)
-    got = list(a.get_instructor_availability(email, t0, t1))
+    ],
+)
+def test_expand_instructor_availability(mocker, desc, records, t0, t1, want):
+    got = list(a.expand_instructor_availability(records, t0, t1))
     assert got == want
 
 
-@pytest.mark.parametrize("desc,rec,cut_start,cut_end,want", [
-        (   "Delete",
-            _arec("a", d(0, 18), d(0, 21), 1), 
-            None, None, 
+@pytest.mark.parametrize(
+    "desc,rec,cut_start,cut_end,want",
+    [
+        (
+            "Delete",
+            _arec("a", d(0, 18), d(0, 21), 1),
+            None,
+            None,
             (None, None),
         ),
-        (   "Truncate",
-            _arec("a", d(0, 18), d(0, 21), 1), 
-            d(3), None, 
+        (
+            "Truncate",
+            _arec("a", d(0, 18), d(0, 21), 1),
+            d(3),
+            None,
             ({"Interval End": d(3)}, None),
         ),
-        (   "Slice",
+        (
+            "Slice",
             _arec("a", d(0, 18), d(0, 21), 1, d(5)),
-            d(2), d(4),
-            ({"Interval End": d(2)}, _arec("a", d(4, 18), d(4, 21), 1, d(5)))
+            d(2),
+            d(4),
+            ({"Interval End": d(2)}, _arec("a", d(4, 18), d(4, 21), 1, d(5))),
         ),
-    ])
+    ],
+)
 def test_trim_availability(mocker, desc, rec, cut_start, cut_end, want):
     mocker.patch.object(a, "get_record", return_value=rec)
-    mocker.patch.object(a, "update_record", side_effect = lambda data, _0, _1, _2: data)
-    mocker.patch.object(a, "delete_record", side_effect = lambda _0, _1, _2: None)
-    mocker.patch.object(a, "insert_records", side_effect = lambda data, _0, _1: {"records": [{
-        "fields": {**data[0], "Email (from Instructor)": 'a'}, # Indirect field requires override for testing
-        }]})
+    mocker.patch.object(a, "update_record", side_effect=lambda data, _0, _1, _2: data)
+    mocker.patch.object(a, "delete_record", side_effect=lambda _0, _1, _2: None)
+    mocker.patch.object(
+        a,
+        "insert_records",
+        side_effect=lambda data, _0, _1: mocker.MagicMock(
+            content=json.dumps(
+                {
+                    "records": [
+                        {
+                            "fields": {
+                                **data[0],
+                                "Email (from Instructor)": "a",
+                            },  # Indirect field requires override for testing
+                            "id": 123,
+                        }
+                    ]
+                }
+            )
+        ),
+    )
     got = a.trim_availability("rec_id", cut_start, cut_end)
     assert got == want
-

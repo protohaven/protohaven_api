@@ -3,10 +3,10 @@ import datetime
 import json
 import logging
 from collections import defaultdict
+from datetime import timedelta
 from functools import cache
 
 from dateutil import parser as dateparser
-from datetime import timedelta
 
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -82,9 +82,7 @@ def update_record(data, base, tbl, rec):
 
 def delete_record(base, tbl, rec):
     """Deletes a record in a named table"""
-    response = get_connector().airtable_request(
-        "DELETE", base, tbl, rec=rec
-    )
+    response = get_connector().airtable_request("DELETE", base, tbl, rec=rec)
     return response, json.loads(response.content) if response.content else None
 
 
@@ -396,102 +394,127 @@ def pay_fee(fee_id):
 def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
 
+
 def get_instructor_availability(inst):
     for row in get_all_records("class_automation", "availability"):
-        if row['fields']['Instructor (from Instructor)'][0].lower() == inst.lower():
+        if row["fields"]["Instructor (from Instructor)"][0].lower() == inst.lower():
             yield row
+
 
 MAX_EXPANSION = 100
 
+
 def expand_instructor_availability(rows, t0, t1):
+    """Given the `Availability` Airtable as `rows` and interval `t0` to `t1`, return all events within the interval
+    as (airtable_id, start_time, end_time) tuples
+    """
     for row in rows:
-        start0, end0 = dateparser.parse(row['fields']['Start']), dateparser.parse(row['fields']['End'])
-        interval = row['fields'].get('Interval', 0)
-        if interval < 0: 
+        start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
+            row["fields"]["End"]
+        )
+        interval = row["fields"].get("Interval", 0)
+        if interval < 0:
             log.warning(f"ignoring availability with negative interval: {row}")
             continue
 
-        interval_end = row['fields'].get('Interval End')
+        interval_end = row["fields"].get("Interval End")
         if interval_end is not None:
             interval_end = dateparser.parse(interval_end)
-        print(f"t0={t0} vs start0={start0} calc i")
-        i = max(0, (_day_trunc(t0) - _day_trunc(start0)).days // interval) if interval > 0 else 0
+        i = (
+            max(0, (_day_trunc(t0) - _day_trunc(start0)).days // interval)
+            if interval > 0
+            else 0
+        )
         start = start0
-        print(f"Calculated i={i} from t0/t1 {t0} - {t1} filter on {start0} <> {end0} interval {interval} ending {interval_end}")
         n = 0
         while start <= t1 and n < MAX_EXPANSION:
-            offs = timedelta(days=i*interval)
+            offs = timedelta(days=i * interval)
             start = start0 + offs
             end = end0 + offs
             if interval_end is not None and start > interval_end:
                 break
             if start > t1 or end < t0:
                 break
-            yield row['id'], max(start, t0), min(end, t1)
+            yield row["id"], max(start, t0), min(end, t1)
             i += 1
             n += 1
-            if interval == 0: # Only one go-round if we have no repeat interval
+            if interval == 0:  # Only one go-round if we have no repeat interval
                 break
+
 
 def add_availability(inst_id, start, end, interval, interval_end):
     rep = insert_records(
-            [{"Instructor": [inst_id], 
-              "Start": start.isoformat(),
-              "End": end.isoformat(),
-              "Interval": interval,
-              "Interval End": interval_end.isoformat() if interval_end is not None else None,
-            }],
+        [
+            {
+                "Instructor": [inst_id],
+                "Start": start.isoformat(),
+                "End": end.isoformat(),
+                "Interval": interval,
+                "Interval End": interval_end.isoformat()
+                if interval_end is not None
+                else None,
+            }
+        ],
         "class_automation",
         "availability",
     )
-    log.info(f"add_availability rep {rep}")
     return json.loads(rep.content)["records"][0]
 
 
 def update_availability(rec, inst_id, start, end, interval, interval_end):
     _, content = update_record(
-            {"Instructor": [inst_id], 
-              "Start": start.isoformat(),
-              "End": end.isoformat(),
-              "Interval": interval,
-              "Interval End": interval_end.isoformat()
-            },
+        {
+            "Instructor": [inst_id],
+            "Start": start.isoformat(),
+            "End": end.isoformat(),
+            "Interval": interval,
+            "Interval End": interval_end.isoformat(),
+        },
         "class_automation",
         "availability",
         rec,
     )
     return content
 
+
 def delete_availability(rec):
-    _, content = delete_record("class_automation", "availability", rec) 
+    _, content = delete_record("class_automation", "availability", rec)
     return content
 
+
 def trim_availability(rec, cut_start=None, cut_end=None):
-    if cut_start is None: # No start means delete
-        delete_record("class_automation", "availability", rec) 
+    if cut_start is None:  # No start means delete
+        delete_record("class_automation", "availability", rec)
         return (None, None)
     r = get_record("class_automation", "availability", rec)
 
     # We'll always be truncating the record beginning at cut_start
-    r2 = update_record({"Interval End": cut_start}, "class_automation", "availability", rec)
+    r2 = update_record(
+        {"Interval End": cut_start}, "class_automation", "availability", rec
+    )
 
     # If we don't have an end, we're done.
     if cut_end is None:
         return (r2, None)
-    
+
     # Otherwise we're slicing the record in two and leaving a gap; add a new one as suffix
-    start0, end0 = dateparser.parse(r['fields']['Start']), dateparser.parse(r['fields']['End'])
-    interval = r['fields']['Interval']
-    i = (_day_trunc(cut_end) - _day_trunc(start0)).days // interval if interval > 0 else 0
-    offs = timedelta(days=i*interval)
+    start0, end0 = dateparser.parse(r["fields"]["Start"]), dateparser.parse(
+        r["fields"]["End"]
+    )
+    interval = r["fields"]["Interval"]
+    i = (
+        (_day_trunc(cut_end) - _day_trunc(start0)).days // interval
+        if interval > 0
+        else 0
+    )
+    offs = timedelta(days=i * interval)
     assert offs.days >= 0
     r3 = add_availability(
-            r['fields']['Instructor'],
-            start0 + offs,
-            end0 + offs,
-            interval,
-            dateparser.parse(r['fields']['Interval End']))
+        r["fields"]["Instructor"][0],
+        start0 + offs,
+        end0 + offs,
+        interval,
+        dateparser.parse(r["fields"]["Interval End"]),
+    )
 
     return (r2, r3)
-
-

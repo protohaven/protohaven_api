@@ -16,6 +16,7 @@ cfg = get_config()["calendar"]
 
 log = logging.getLogger("integrations.schedule")
 
+
 def fetch_calendar(calendar_id, time_min=None, time_max=None):
     """Fetches calendar data - default to next 30 days"""
 
@@ -65,11 +66,6 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
         output[name].append([start, end])
 
     return output
-
-
-def fetch_instructor_schedules(time_min, time_max):
-    """Fetches instructor-provided availability from the google calendar"""
-    return fetch_calendar(cfg["instructor_schedules"], time_min, time_max)
 
 
 def fetch_shop_events():
