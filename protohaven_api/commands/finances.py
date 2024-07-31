@@ -187,9 +187,7 @@ class Commands:
         problems = self.validate_memberships_internal(args.write_cache, args.read_cache)
         body = ""
         if len(problems) > 0:
-            body += (
-                f"{len(problems)} membership validation problem(s) found:\n- "
-            )
+            body += f"{len(problems)} membership validation problem(s) found:\n- "
             body += "\n- ".join(problems)
             body += "\n Please remedy by following the instructions at "
             body += "https://protohaven.org/wiki/software/membership_validation"

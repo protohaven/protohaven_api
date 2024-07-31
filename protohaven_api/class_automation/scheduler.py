@@ -19,7 +19,8 @@ log = logging.getLogger("class_automation.scheduler")
 
 
 def fetch_formatted_availability(inst_filter, time_min, time_max):
-    """Given a list of instructor names and a time interval, return tuples of times bounding their availability"""
+    """Given a list of instructor names and a time interval,
+    return tuples of times bounding their availability"""
     result = {}
     for inst in inst_filter:
         rows = airtable.get_instructor_availability(inst)
@@ -125,17 +126,15 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
 
 def filter_same_classday(inst, avail, cur_sched):
     """Ensure an instructor is teaching a max of one class per day"""
-    teaching_days = set(
-        [
-            (
-                dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
-                + datetime.timedelta(days=7 * d)
-            ).date()
-            for c in cur_sched
-            for d in range(c["fields"]["Days (from Class)"][0])
-            if c["fields"]["Instructor"].lower() == inst.lower()
-        ]
-    )
+    teaching_days = {
+        (
+            dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
+            + datetime.timedelta(days=7 * d)
+        ).date()
+        for c in cur_sched
+        for d in range(c["fields"]["Days (from Class)"][0])
+        if c["fields"]["Instructor"].lower() == inst.lower()
+    }
     return [
         a
         for a in avail

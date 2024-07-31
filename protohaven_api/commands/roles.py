@@ -1,25 +1,17 @@
 """Commands related operations on Dicsord"""
 import argparse
+import json
 import logging
-import re
-from datetime import datetime
-
-import yaml
-from dateutil import parser as dateparser
+from collections import defaultdict
 
 from protohaven_api.commands.decorator import arg, command
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
-    neon,
-    sheets,
-    tasks,
-)
+from protohaven_api.integrations import neon  # pylint: disable=import-error
+from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.roles")
 
 
-class Commands:
+class Commands:  # pylint: disable=too-few-public-methods
     """Commands for managing roles of members"""
 
     @command(
@@ -30,7 +22,7 @@ class Commands:
             default=False,
         ),
     )
-    def sync_discord_roles():
+    def sync_discord_roles(self, args):
         """Syncs the roles in discord with the state of membership and custom fields in Neon
         WARNING: WORK IN PROGRESS
         """
@@ -58,6 +50,10 @@ class Commands:
         log.info(f"Fetched {len(role_intent)} users' roles in Neon")
         log.info(f"Also {len(active_members)} active members with discord associations")
         print("Role intents:", role_intent)
+
+        if args.apply:
+            raise NotImplementedError("TODO APPLY")
+
         return json.dumps(
             {"role_intent": role_intent, "active_members": active_members}
         )

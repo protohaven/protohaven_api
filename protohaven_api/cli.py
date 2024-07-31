@@ -19,7 +19,7 @@ from protohaven_api.commands import (
 )
 from protohaven_api.config import tznow
 from protohaven_api.docs_automation.docs import validate as validate_docs
-from protohaven_api.integrations import airtable, comms, neon, tasks
+from protohaven_api.integrations import comms, neon, tasks
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.maintenance import manager
 from protohaven_api.rbac import Role

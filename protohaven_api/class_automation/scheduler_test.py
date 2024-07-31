@@ -186,8 +186,7 @@ def test_fetch_formatted_availability(mocker):
                     "Instructor (from Instructor)": "foo",
                     "Start": d(0, 16).isoformat(),
                     "End": d(0, 19).isoformat(),
-                    "Interval": 1,
-                    "Interval End": None,
+                    "Recurrence": "RRULE:FREQ=DAILY",
                 },
             }
         ],

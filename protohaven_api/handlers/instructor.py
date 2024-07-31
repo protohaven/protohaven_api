@@ -76,7 +76,6 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
         "active_membership": "inactive",
         "discord_user": "missing",
         "capabilities_listed": "missing",
-        "in_calendar": "missing",
         "paperwork": "unknown",
         "profile_img": None,
         "bio": None,
@@ -98,7 +97,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:
-        result["airtable_id"] = caps['id']
+        result["airtable_id"] = caps["id"]
         if len(caps["fields"].get("Class", [])) > 0:
             result["capabilities_listed"] = "OK"
 
@@ -124,18 +123,6 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
         else:
             result["paperwork"] = "OK"
 
-    now = tznow()
-    try:
-        if not instructor_schedules:
-            instructor_schedules = schedule.fetch_instructor_schedules(
-                (now - datetime.timedelta(days=90)).replace(tzinfo=None),
-                (now + datetime.timedelta(days=90)).replace(tzinfo=None),
-            )
-        if result["fullname"] in instructor_schedules.keys():
-            result["in_calendar"] = "OK"
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        log.warning(f"Calendar fetch error: {e}")
-        result["in_calendar"] = "HTTP Error"
     return result
 
 
@@ -348,8 +335,10 @@ def run_scheduler():
     for inst, kv in skip_counters.items():
         for k, vv in kv.items():
             print(vv)
-            skip_counters[inst][k] = [(t.isoformat(), skip_t.isoformat(), cname) for t, skip_t, cname in vv]
-    return {'result': result, 'score': score, 'skip_counters': skip_counters}
+            skip_counters[inst][k] = [
+                (t.isoformat(), skip_t.isoformat(), cname) for t, skip_t, cname in vv
+            ]
+    return {"result": result, "score": score, "skip_counters": skip_counters}
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -407,43 +396,64 @@ def cancel_class():
     neon.set_event_scheduled_state(cid, scheduled=False)
     return {"success": True}
 
+
 def _safe_date(v):
     if v is None:
         return v
     return dateparser.parse(v).astimezone(tz)
 
+
 @page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
 def inst_availability():
+    """Different methods for CRUD actions on Availability records in airtable, used to
+    describe an instructor's availability"""
     if request.method == "GET":
         inst = request.values.get("inst").lower()
         log.warning(f"inst_availability for {inst}")
         t0 = _safe_date(request.values.get("t0"))
         t1 = _safe_date(request.values.get("t1"))
         if not t0 or not t1:
-            return Response("Both t0 and t1 required in request to /instructor/calendar/availability", status=400)
+            return Response(
+                "Both t0 and t1 required in request to /instructor/calendar/availability",
+                status=400,
+            )
         avail = list(airtable.get_instructor_availability(inst))
+        print(avail)
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
-        schedule = [s for s in airtable.get_class_automation_schedule() if dateparser.parse(s['fields']['Start Time']) >= t0]
-        return {"records": {r['id']: r['fields'] for r in avail}, "availability": expanded, "schedule": schedule}
-    elif request.method == "PUT":
+        sched = [
+            s
+            for s in airtable.get_class_automation_schedule()
+            if dateparser.parse(s["fields"]["Start Time"]) >= t0
+        ]
+        return {
+            "records": {r["id"]: r["fields"] for r in avail},
+            "availability": expanded,
+            "schedule": sched,
+        }
+
+    if request.method == "PUT":
         rec = request.json.get("rec")
         t0 = _safe_date(request.json.get("t0"))
         t1 = _safe_date(request.json.get("t1"))
         inst_id = request.json.get("inst_id")
         if not t0 or not t1:
-            return Response("t0, t1, inst_id required in json PUT to /instructor/calendar/availability", status=400)
+            return Response(
+                "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
+                status=400,
+            )
         interval = request.json.get("interval")
         interval_end = _safe_date(request.json.get("interval_end"))
         if rec is not None:
-            result = airtable.update_availability(rec, inst_id, t0, t1, interval, interval_end)
+            result = airtable.update_availability(
+                rec, inst_id, t0, t1, interval, interval_end
+            )
         else:
             result = airtable.add_availability(inst_id, t0, t1, interval, interval_end)
         log.info(f"PUT result {result}")
         return result
-    elif request.method == "DELETE":
+
+    if request.method == "DELETE":
         rec = request.json.get("rec")
         return airtable.delete_availability(rec)
-    else:
-        return Response(f"Unsupported method {request.method}", status=400)
 
-    
+    return Response(f"Unsupported method {request.method}", status=400)

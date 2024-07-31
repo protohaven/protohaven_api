@@ -49,8 +49,7 @@ def user_clearances():
             codes.update(delta)
         elif request.method == "DELETE":
             codes -= set(delta)
-        print(e, codes)
-        content = neon.set_clearances(neon_id, codes)
+        neon.set_clearances(neon_id, codes)
         results[e] = "OK"
     return results
 
@@ -70,7 +69,6 @@ def set_discord_nick():
     if name == "" or nick == "":
         return "Bad argument: want ?name=foo&nick=bar"
     result = comms.set_discord_nickname(name, nick)
-    print(result)
     if result is False:
         return f"Member '{name}' not found"
     return f"Member '{name}' now nicknamed '{nick}'"

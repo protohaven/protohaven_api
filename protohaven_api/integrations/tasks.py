@@ -53,11 +53,20 @@ def get_tech_ready_tasks(modified_before):
 
 def get_project_requests():
     """Get project requests submitted by members & nonmembers"""
-    # https://developers.asana.com/reference/gettasksforproject
     return _tasks().get_tasks_for_project(
         cfg["project_requests"],
         {
             "opt_fields": ",".join(["completed", "notes", "name"]),
+        },
+    )
+
+
+def get_private_instruction_requests():
+    """Get instruction requests submitted by members"""
+    return _tasks().get_tasks_for_project(
+        cfg["private_instruction_requests"],
+        {
+            "opt_fields": ",".join(["completed", "notes", "name", "created_at"]),
         },
     )
 

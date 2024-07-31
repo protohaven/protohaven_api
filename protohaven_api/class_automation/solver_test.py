@@ -1,9 +1,15 @@
 """Test behavior of linear solver for class scheduling"""
 import datetime
+from collections import namedtuple
 
 import pytest
 
 from protohaven_api.class_automation import solver as s  # pylint: disable=import-error
+
+
+def idfn(tc):
+    """Extract description from named tuple for parameterization"""
+    return tc.desc
 
 
 def d(i, h=0):
@@ -13,35 +19,43 @@ def d(i, h=0):
     )
 
 
+Tc = namedtuple("TC", "desc,area_occupancy,t_start,t_end,want")
+
+
 @pytest.mark.parametrize(
-    "desc,area_occupancy,t_start,t_end,want",
+    "tc",
     [
-        ("Perfect overlap", [(d(0, 0), d(0, 3), "a")], d(0, 0), d(0, 3), "a"),
-        ("Slightly before", [(d(0, 1), d(0, 4), "a")], d(0, 0), d(0, 3), "a"),
-        ("Slightly after", [(d(0, 0), d(0, 3), "a")], d(0, 1), d(0, 4), "a"),
-        ("Enclosed", [(d(0, 0), d(0, 3), "a")], d(0, 1), d(0, 2), "a"),
-        ("Enclosing", [(d(0, 1), d(0, 2), "a")], d(0, 0), d(0, 3), "a"),
-        ("Directly before", [(d(0, 3), d(0, 6), "a")], d(0, 0), d(0, 3), False),
-        ("Directly after", [(d(0, 0), d(0, 3), "a")], d(0, 3), d(0, 6), False),
-        ("Different day", [(d(1, 0), d(1, 3), "a")], d(0, 0), d(0, 3), False),
+        Tc("Perfect overlap", [(d(0, 0), d(0, 3), "a")], d(0, 0), d(0, 3), "a"),
+        Tc("Slightly before", [(d(0, 1), d(0, 4), "a")], d(0, 0), d(0, 3), "a"),
+        Tc("Slightly after", [(d(0, 0), d(0, 3), "a")], d(0, 1), d(0, 4), "a"),
+        Tc("Enclosed", [(d(0, 0), d(0, 3), "a")], d(0, 1), d(0, 2), "a"),
+        Tc("Enclosing", [(d(0, 1), d(0, 2), "a")], d(0, 0), d(0, 3), "a"),
+        Tc("Directly before", [(d(0, 3), d(0, 6), "a")], d(0, 0), d(0, 3), False),
+        Tc("Directly after", [(d(0, 0), d(0, 3), "a")], d(0, 3), d(0, 6), False),
+        Tc("Different day", [(d(1, 0), d(1, 3), "a")], d(0, 0), d(0, 3), False),
     ],
+    ids=idfn,
 )
-def test_has_area_conflict(desc, area_occupancy, t_start, t_end, want):
+def test_has_area_conflict(tc):
     """Verify behavior of date math in has_area_conflict"""
-    assert s.has_area_conflict(area_occupancy, t_start, t_end) == want
+    assert s.has_area_conflict(tc.area_occupancy, tc.t_start, tc.t_end) == tc.want
+
+
+Tc2 = namedtuple("TC", "desc,d,exclusions,want")
 
 
 @pytest.mark.parametrize(
-    "desc,d,exclusions,want",
+    "tc",
     [
-        ("Simple containment", d(0, 12), [(d(0), d(1), "foo")], "foo"),
-        ("Too late", d(2), [(d(0), d(1), "foo")], False),
-        ("Too early", d(-1), [(d(0), d(1), "foo")], False),
+        Tc2("Simple containment", d(0, 12), [(d(0), d(1), "foo")], "foo"),
+        Tc2("Too late", d(2), [(d(0), d(1), "foo")], False),
+        Tc2("Too early", d(-1), [(d(0), d(1), "foo")], False),
     ],
+    ids=idfn,
 )
-def test_date_within_exclusions(desc, d, exclusions, want):
+def test_date_within_exclusions(tc):
     """Verify behavior of date math in date_within_exclusions"""
-    assert s.date_within_exclusions(d, exclusions) == want
+    assert s.date_within_exclusions(tc.d, tc.exclusions) == tc.want
 
 
 def test_solve_simple():

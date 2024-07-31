@@ -92,7 +92,8 @@ def date_range_overlaps(a0, a1, b0, b1):
 
 
 def has_area_conflict(area_occupancy, t_start, t_end):
-    """Return name of class if any of `area_occupancy` lie within `t_start` and `t_end`, false otherwise"""
+    """Return name of class if any of `area_occupancy` lie
+    within `t_start` and `t_end`, false otherwise"""
     for a_start, a_end, name in area_occupancy:
         if date_range_overlaps(a_start, a_end, t_start, t_end):
             return name
@@ -100,7 +101,8 @@ def has_area_conflict(area_occupancy, t_start, t_end):
 
 
 def date_within_exclusions(d, exclusions):
-    """Returns the matching exclusion date if `d` is within any of the tuples in the list of `exclusions`"""
+    """Returns the matching exclusion date if `d` is
+    within any of the tuples in the list of `exclusions`"""
     for e1, e2, esched in exclusions:
         if e1 <= d <= e2:
             return esched

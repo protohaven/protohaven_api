@@ -1,14 +1,17 @@
 """Commands for handling violations of storage and other policies"""
-import logging
 import argparse
+import datetime
+import logging
+
 import yaml
 
 from protohaven_api.commands.decorator import arg, command
-from protohaven_api.config import get_config  # pylint: disable=import-error
+from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable  # pylint: disable=import-error
 from protohaven_api.policy_enforcement import enforcer
 
 log = logging.getLogger("cli.violations")
+
 
 class Commands:  # pylint: disable=too-few-public-methods
     """Commands for violations"""
@@ -35,7 +38,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         arg(
             "--fee", help="fee per day while violation is open", type=float, default=0.0
         ),
-        arg("--notes", help="additional context", type=str, default="")
+        arg("--notes", help="additional context", type=str, default=""),
     )
     def new_violation(self, args):
         """Create a new Violation in Airtable"""
@@ -72,7 +75,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             "--notes",
             help="any additionald details",
             type=str,
-        )
+        ),
     )
     def close_violation(self, args):
         """Close out a violation so consequences cease"""

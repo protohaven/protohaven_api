@@ -24,7 +24,7 @@ import {get, post} from '$lib/api.ts';
     return "warning";
   }
   function onboarded(p) {
-    for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user', 'in_calendar']) {
+    for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user']) {
       if (li_color(p[k]) == "warning") {
 	return false;
       }
@@ -59,7 +59,6 @@ import {get, post} from '$lib/api.ts';
 	<ListGroupItem color={li_color(p.capabilities_listed)}>Capabilities: {p.capabilities_listed}</ListGroupItem>
 	<ListGroupItem color={li_color(p.paperwork)}>Paperwork: {p.paperwork}</ListGroupItem>
 	<ListGroupItem color={li_color(p.discord_user)}>Discord: {#if p.discord_user == "missing"}Missing{:else}OK{/if}</ListGroupItem>
-	<ListGroupItem color={li_color(p.in_calendar)}>Availabity: {#if p.in_calendar == "missing"} MISSING (see <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Calendar</a>){:else}{p.in_calendar}{/if}</ListGroupItem>
       </ListGroup>
     {#if !onboarded(p) }
     <Alert color="warning" class="m-3">

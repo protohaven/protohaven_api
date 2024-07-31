@@ -48,7 +48,6 @@ class PHClient(discord.Client):
         """Runs when a new member joins the server"""
         # channel = get(member.guild.channels, id=768670193379049483)
         # await channel.send(f'{member} welcome')
-        pass
 
     async def set_nickname(self, name, nickname):
         """Set the nickname of a named server member"""

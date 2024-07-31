@@ -4,6 +4,7 @@ import json
 
 import pytest
 from dateutil import parser as dateparser
+from collections import namedtuple
 
 from protohaven_api.config import tz
 from protohaven_api.integrations import airtable as a
@@ -133,7 +134,7 @@ def test_get_announcements_after(desc, data, want, mocker):
         assert not got
 
 
-def _arec(email, start, end, interval, interval_end=None):
+def _arec(email, start, end, rrule=""):
     return {
         "id": 123,
         "fields": {
@@ -141,76 +142,87 @@ def _arec(email, start, end, interval, interval_end=None):
             "Email (from Instructor)": email,
             "Start": start.isoformat(),
             "End": end.isoformat(),
-            "Interval": interval,
-            "Interval End": interval_end.isoformat() if interval_end else None,
+            "Recurrence": rrule,
         },
     }
 
 
+Tc = namedtuple("TC", "desc,records,t0,t1,want")
+def idfn(tc):
+    return tc.desc
+
 @pytest.mark.parametrize(
-    "desc,records,t0,t1,want",
+    "tc",
     [
-        (
-            "Email match, simple inclusion",
-            [_arec("a", d(0, 18), d(0, 21), 0)],
+        Tc(
+            "Simple inclusion",
+            [_arec("a", d(0, 18), d(0, 21))],
             d(-2),
             d(2),
             [(123, d(0, 18), d(0, 21))],
         ),
-        (
+        Tc(
             "Daily repeat returns on next day availability",
-            [_arec("a", d(0, 18), d(0, 21), 1)],
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY")],
             d(1),
             d(2),
             [(123, d(1, 18), d(1, 21))],
         ),
-        (
+        Tc(
             "No returns if before repeating event",
-            [_arec("a", d(0, 18), d(0, 21), 1)],
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY")],
             d(-2),
             d(-1),
             [],
         ),
-        (
-            "Availability is clamped by t0 and t1",
-            [_arec("a", d(0, 18), d(0, 21), 0)],
+        Tc(
+            "Availability is clamped by t0 and t1, no recurrence",
+            [_arec("a", d(0, 18), d(0, 21))],
             d(0, 19),
             d(0, 20),
             [(123, d(0, 19), d(0, 20))],
         ),
-        (
+        Tc(
+            "Availability is clamped by t0 and t1, with recurrence",
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY")],
+            d(0, 19),
+            d(0, 20),
+            [(123, d(0, 19), d(0, 20))],
+        ),
+        Tc(
             "2d repetition skips over search window",
-            [_arec("a", d(0, 18), d(0, 21), 2)],
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY;INTERVAL=2")],
             d(1),
             d(2),
             [],
         ),
-        (
+        Tc(
             "Long repetition test",
-            [_arec("a", d(0, 18), d(0, 21), 1)],
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY")],
             d(365),
             d(366),
             [(123, d(365, 18), d(365, 21))],
         ),
-        (
+        Tc(
             "Multiple returns",
-            [_arec("a", d(0, 18), d(0, 21), 1)],
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY")],
             d(1),
             d(3),
             [(123, d(1, 18), d(1, 21)), (123, d(2, 18), d(2, 21))],
         ),
-        (
+        Tc(
             "Search after interval end returns nothing",
-            [_arec("a", d(0, 18), d(0, 21), 1, d(5))],
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY;COUNT=5")],
             d(6),
             d(7),
             [],
         ),
     ],
+    ids=idfn,
 )
-def test_expand_instructor_availability(mocker, desc, records, t0, t1, want):
-    got = list(a.expand_instructor_availability(records, t0, t1))
-    assert got == want
+def test_expand_instructor_availability(mocker, tc):
+    got = list(a.expand_instructor_availability(tc.records, tc.t0, tc.t1))
+    assert got == tc.want
 
 
 @pytest.mark.parametrize(
@@ -232,10 +244,10 @@ def test_expand_instructor_availability(mocker, desc, records, t0, t1, want):
         ),
         (
             "Slice",
-            _arec("a", d(0, 18), d(0, 21), 1, d(5)),
+            _arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY;COUNT=5"),
             d(2),
             d(4),
-            ({"Interval End": d(2)}, _arec("a", d(4, 18), d(4, 21), 1, d(5))),
+            ({"Interval End": d(2)}, _arec("a", d(4, 18), d(4, 21), "RRULE:FREQ=DAILY;COUNT=5")),
         ),
     ],
 )

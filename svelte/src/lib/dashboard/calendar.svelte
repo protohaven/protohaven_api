@@ -37,12 +37,12 @@ function reload() {
 	  d.setDate(d.getDate() + 7*i);
 	  let sched = {
 	  	idx,
-	  	inst: sch['fields']['Instructor'], 
+	  	inst: sch['fields']['Instructor'],
 		name: sch['fields']['Name (from Class)'],
 	  };
 	  console.log(sched);
 	  sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
-	  sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched]; 
+	  sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
 	  idx += 1
 	}
       }
@@ -63,8 +63,8 @@ function reload() {
       for (; d <= e; d.setDate(d.getDate() + 1)) {
 	let dstr = isodate(d);
 	darr.push({
-	  'date': dstr, 
-	  'events': lookup[dstr] || [], 
+	  'date': dstr,
+	  'events': lookup[dstr] || [],
 	  'schedule': sched_days[dstr] || []
 	});
 	if (darr.length >= 7) {
@@ -80,9 +80,9 @@ function reload() {
     });
   }
 }
-$: { 
+$: {
   if (start && end) {
-    reload(); 
+    reload();
   }
 }
 onMount(reload);
@@ -113,11 +113,11 @@ function start_edit(e, d) {
 
 function save_avail() {
     promise = put(`/instructor/calendar/availability`, {
-    	inst_id, 
-    	rec: avail_id, 
-	t0: avail_start, 
-	t1: avail_end, 
-	interval: avail_interval, 
+    	inst_id,
+    	rec: avail_id,
+	t0: avail_start,
+	t1: avail_end,
+	interval: avail_interval,
 	interval_end: avail_interval_end
     }).then(reload).finally(() => {
 	open = false;
@@ -173,7 +173,7 @@ function delete_avail() {
 	    </tr>
 	  {/each}
 	</tbody>
-    
+
   </Table>
   <Modal size="md" isOpen={open}>
 	<ModalHeader>Add/Edit Availability</ModalHeader>
@@ -211,4 +211,3 @@ function delete_avail() {
 {:catch error}
   <FetchError {error}/>
 {/await}
-

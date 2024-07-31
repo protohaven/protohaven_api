@@ -19,7 +19,7 @@
   start = isodate(start);
   let end = new Date();
   end.setDate(end.getDate() + 40);
-  end = isodate(end); 
+  end = isodate(end);
   let running = false;
   let env = null;
   let output = null;
@@ -28,7 +28,23 @@
   // console.log(start, end);
 
   let env_promise;
-  function reload() {
+  function reload(src) {
+    // Make sure dates are reasonable
+
+    if (end <= start) {
+    	console.log("Date crunch; moving the one other than " + src, start, end);
+	if (src === "end") {
+		start = new Date(end);
+		start.setDate(start.getDate() - 14);
+		start = isodate(start);
+	} else {
+		end = new Date(start);
+		end.setDate(end.getDate() + 14);
+		end = isodate(end);
+	}
+	console.log("Now", start, end);
+    }
+
     console.log("Reloading scheduler env");
     env_promise = get("/instructor/setup_scheduler_env?" + new URLSearchParams({
       start, end, inst: inst.toLowerCase()})).then((data) => {
@@ -111,15 +127,15 @@
     <Row cols={2}>
     <Col>
     From
-    <Input type="date" placeholder="From Date" bind:value={start} on:change={reload}/>
+    <Input type="date" placeholder="From Date" bind:value={start} on:change={() => reload("start")}/>
     </Col>
     <Col>
     Until
-    <Input type="date" placeholder="Until Date" bind:value={end} on:change={reload}/>
+    <Input type="date" placeholder="Until Date" bind:value={end} on:change={() => reload("end")}/>
     </Col>
     </Row>
 
-    
+
     <Calendar {inst} {inst_id} {start} {end}></Calendar>
 
     <h5>2. Check Availability</h5>
