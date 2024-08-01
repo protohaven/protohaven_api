@@ -1,0 +1,32 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - CORS=true
+      - LOG_LEVEL=debug
+      - PH_CONFIG=config_dev.yaml
+      - PH_SERVER_MODE=dev
+      - UNSAFE_NO_RBAC=true
+    configs:
+      - source: ph-config
+        target: /config.yaml
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          ignore:
+            - .git
+            - requirements.txt
+            - Dockerfile
+          target: /code
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: Dockerfile
+
+configs:
+  ph-config:
+    # external: true
+    file: config_dev.yaml
