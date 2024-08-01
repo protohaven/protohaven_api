@@ -403,7 +403,7 @@ def get_instructor_availability(inst):
             yield row
 
 
-MAX_EXPANSION = 100
+MAX_EXPANSION = 1000
 
 
 def expand_instructor_availability(rows, t0, t1):
@@ -419,9 +419,17 @@ def expand_instructor_availability(rows, t0, t1):
         if rr is None or rr == "":
             yield row["id"], max(start0, t0), min(end0, t1)
         else:
+            i = 0
             for start, end in zip(
                 rrulestr(rr, dtstart=start0), rrulestr(rr, dtstart=end0)
             ):
+                i += 1
+                if i > MAX_EXPANSION:
+                    log.error(
+                        "MAX_EXPANSION exceeded for expanding instructor availability: %s",
+                        f" {row}\nfrom\n{t0}\nto\n{t1}",
+                    )
+                    break
                 if start > t1:  # Stop iterating once we've slid past the interval
                     break
                 if end < t0:  # Advance until we get dates within the interval
