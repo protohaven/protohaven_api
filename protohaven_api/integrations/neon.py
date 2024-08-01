@@ -13,6 +13,12 @@ from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
+from protohaven_api.integrations.data.neon import (
+    ADMIN_URL,
+    URL_BASE,
+    Category,
+    CustomField,
+)
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("integrations.neon")
@@ -27,40 +33,8 @@ TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
 
 
-@dataclass
-class CustomField:
-    """Account Custom Fields from Neon"""
-
-    API_SERVER_ROLE = 85
-    CLEARANCES = 75
-    INTEREST = 148
-    EXPERTISE = 155
-    DISCORD_USER = 150
-    WAIVER_ACCEPTED = 151
-    SHOP_TECH_SHIFT = 152
-    SHOP_TECH_LAST_DAY = 158
-    SHOP_TECH_FIRST_DAY = 160
-    AREA_LEAD = 153
-    ANNOUNCEMENTS_ACKNOWLEDGED = 154
-    ZERO_COST_OK_UNTIL = 159
-
-
-@dataclass
-class Category:
-    """Event categories from Neon"""
-
-    VOLUNTEER_DAY = "32"
-    MEMBER_EVENT = "33"
-    PROJECT_BASED_WORKSHOP = "15"
-    SHOP_TECH = "34"
-    SKILLS_AND_SAFETY_WORKSHOP = "16"
-    SOMETHING_ELSE_AMAZING = "27"
-
-
 WAIVER_FMT = "version {version} on {accepted}"
 WAIVER_REGEX = r"version (.+?) on (.*)"
-URL_BASE = "https://api.neoncrm.com/v2"
-ADMIN_URL = "https://protohaven.app.neoncrm.com/np/admin"
 
 
 def fetch_published_upcoming_events(back_days=7):
@@ -453,6 +427,7 @@ def fetch_techs_list():
         ],
     ):
         clr = []
+        print("**********************", t)
         if t.get("Clearances") is not None:
             clr = t["Clearances"].split("|")
         interest = t.get("Interest", "")
@@ -476,6 +451,7 @@ def fetch_techs_list():
             }
         )
     techs.sort(key=lambda t: len(t["clearances"]))
+    print(techs)
     return techs
 
 

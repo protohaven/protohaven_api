@@ -1,8 +1,20 @@
 <script type="ts">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Accordion, AccordionItem, Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
+
+let shift_edit_date = null;
+let shift_edit_techs = [];
+let adjust_promise = new Promise((resolve) => {});
+function forecast_date() {
+  adjust_promise = get("/techs/forecast?days=1&date=" + shift_edit_date).then((data) => {
+    shift_edit_techs = data.calendar_view;
+  });
+}
+function override_forecast() {
+  adjust_promise = post("/techs/override", {date: shift_edit_date, techs: shift_edit_techs});
+}
 
 let promise = new Promise((resolve) => {});
 function refresh() {
@@ -19,17 +31,17 @@ onMount(refresh);
 {#await promise}
 	<Spinner/>
 {:then p}
-  <Row cols={{ xxl: 2, xl: 2, l: 2, m: 2, s: 1, xs: 1}}>
-    <Col>
-			<h2>Missing Coverage</h2>
+  <Accordion>
+    <AccordionItem>
+			<h4 slot="header">Missing Coverage</h4>
 			{#each p.coverage_missing as s}
 				<Card>
 					<div>{s.fields['Date']} - {s.fields['Rendered Shop Tech']}</div>
 				</Card>
 			{/each}
-    </Col>
-    <Col>
-			<h2>Covered Swaps</h2>
+    </AccordionItem>
+    <AccordionItem>
+			<h4 slot="header">Covered Swaps</h4>
 			{#each p.coverage_ok as s}
 				<Card>
 					<div>
@@ -38,8 +50,8 @@ onMount(refresh);
 					</div>
 				</Card>
 			{/each}
-    </Col>
-  </Row>
+    </AccordionItem>
+  </Accordion>
   <h2>Forecast</h2>
   <div class="my-3">
     <p>
@@ -63,6 +75,25 @@ onMount(refresh);
 	</div>
 	{/each}
   </div>
+
+  <hr/>
+  <div>
+    Adjust coverage for date: <Input on:change={forecast_date} class="mx-1" type="date" bind:value={shift_edit_date}/>
+    {#await adjust_promise}
+      <Spinner/>
+    {:then p2}
+	{#each shift_edit_techs as shift}
+	<h4>{shift.title}</h4>
+	  {#each shift.people as person}
+	    <div>{person} <Button>-</Button></div>
+	  {/each}
+	    <Input type="select">
+		<option>Add a Tech...</option>
+	    </Input>
+	{/each}
+    {/await}
+  </div>
+
 {/await}
   </CardBody>
 </Card>

@@ -21,12 +21,10 @@ def cfg(base):
 
 def get_record(base, tbl, rec):
     """Grabs a record from a named table (from config.yaml)"""
-    response = get_connector().airtable_request("GET", base, tbl, rec)
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"Airtable fetch {base} {tbl} {rec}", response.status_code, response.content
-        )
-    return json.loads(response.content)
+    status, content = get_connector().airtable_request("GET", base, tbl, rec)
+    if status != 200:
+        raise RuntimeError(f"Airtable fetch {base} {tbl} {rec}", status, content)
+    return json.loads(content)
 
 
 def get_all_records(base, tbl, suffix=None):
@@ -37,14 +35,14 @@ def get_all_records(base, tbl, suffix=None):
         s = f"?offset={offs}"
         if suffix is not None:
             s += "&" + suffix
-        response = get_connector().airtable_request("GET", base, tbl, suffix=s)
-        if response.status_code != 200:
+        status, content = get_connector().airtable_request("GET", base, tbl, suffix=s)
+        if status != 200:
             raise RuntimeError(
                 f"Airtable fetch {base} {tbl} {s}",
-                response.status_code,
-                response.content,
+                status,
+                content,
             )
-        data = json.loads(response.content)
+        data = json.loads(content)
         records += data["records"]
         if data.get("offset") is None:
             break
@@ -65,19 +63,19 @@ def get_all_records_after(base, tbl, after_date):
 def insert_records(data, base, tbl):
     """Inserts one or more records into a named table"""
     post_data = {"records": [{"fields": d} for d in data]}
-    response = get_connector().airtable_request(
+    status, content = get_connector().airtable_request(
         "POST", base, tbl, data=json.dumps(post_data)
     )
-    return response
+    return status, json.loads(content) if content else None
 
 
 def update_record(data, base, tbl, rec):
     """Updates/patches a record in a named table"""
     post_data = {"fields": data}
-    response = get_connector().airtable_request(
+    status, content = get_connector().airtable_request(
         "PATCH", base, tbl, rec=rec, data=json.dumps(post_data)
     )
-    return response, json.loads(response.content) if response.content else None
+    return status, json.loads(content) if content else None
 
 
 def delete_record(base, tbl, rec):
@@ -145,20 +143,20 @@ def get_all_class_templates():
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
     log.info(f"Append classes to schedule: {payload}")
-    rep = insert_records(payload, "class_automation", "schedule")
-    if rep.status_code != 200:
-        raise RuntimeError(rep.content)
+    status, content = insert_records(payload, "class_automation", "schedule")
+    if status != 200:
+        raise RuntimeError(content)
 
 
 def log_email(neon_id, to, subject, status):
     """Logs the sending of an email in Airtable"""
-    rep = insert_records(
+    status, content = insert_records(
         [{"To": to, "Subject": subject, "Status": status, "Neon ID": str(neon_id)}],
         "class_automation",
         "email_log",
     )
-    if rep.status_code != 200:
-        raise RuntimeError(rep.content)
+    if status != 200:
+        raise RuntimeError(content)
 
 
 @cache

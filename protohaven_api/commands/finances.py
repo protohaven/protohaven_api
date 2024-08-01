@@ -78,7 +78,7 @@ class Commands:
                 f"\n{len(untaxed)} subscriptions active but do not have 7% sales tax:\n"
             )
             body += "\n".join(untaxed)
-            body += "\n Please remedy by following the instructions at "
+            body += "\n\nPlease remedy by following the instructions at "
             body += "https://protohaven.org/wiki/shoptechs/storage_sales_tax"
 
         result = []
@@ -231,8 +231,8 @@ class Commands:
                 "noreply@protohaven.org", operator="NOT_EQUAL"
             ):
                 if n % 5 == 0:
-                    sys.stdout.write(".")
-                    sys.stdout.flush()
+                    sys.stderr.write(".")
+                    sys.stderr.flush()
                 if mem["Account Current Membership Status"].lower() != "active":
                     continue
                 aid = mem["Account ID"]
@@ -294,7 +294,7 @@ class Commands:
                     household_paying_member_count[hid] += 1
                 company_member_count[mem["Company ID"]] += 1
                 n += 1
-            sys.stdout.write("\n")
+            sys.stderr.write("\n")
             if write_cache:
                 with open(write_cache, "wb") as f:
                     pickle.dump(

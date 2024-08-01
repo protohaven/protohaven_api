@@ -133,14 +133,22 @@ def instructor_class_attendees():
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
-    result = list(neon.fetch_attendees(event_id))
+    try:
+        result = list(neon.fetch_attendees(event_id))
+    except RuntimeError:
+        log.warning(f"Failed to fetch event #{event_id}")
+        result = []
+
     for a in result:
         if a["accountId"]:
-            acc = neon.fetch_account(a["accountId"])
-            if acc is not None:
-                a["email"] = acc.get("individualAccount", acc.get("companyAccount"))[
-                    "primaryContact"
-                ]["email1"]
+            try:
+                acc = neon.fetch_account(a["accountId"])
+                if acc is not None:
+                    a["email"] = acc.get(
+                        "individualAccount", acc.get("companyAccount")
+                    )["primaryContact"]["email1"]
+            except RuntimeError:
+                pass
 
     return result
 

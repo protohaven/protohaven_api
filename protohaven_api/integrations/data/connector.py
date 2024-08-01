@@ -3,10 +3,10 @@ configured state of the server"""
 import asyncio
 import json
 import logging
-import pickle
 import random
 import smtplib
 import time
+from dataclasses import dataclass
 from email.mime.text import MIMEText
 from threading import Lock
 
@@ -17,6 +17,8 @@ from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
+from protohaven_api.integrations.data import dev_airtable, dev_neon
+from protohaven_api.integrations.data.loader import mock_data
 
 log = logging.getLogger("integrations.data.connector")
 
@@ -37,44 +39,31 @@ class Connector:
         self.dev = dev
         self.cfg = get_config()
         self.neon_ratelimit = Lock()
-        self.data = None
-        if dev:
-            with open("mock_data.pkl", "rb") as f:
-                self.data = pickle.load(f)
-            print("Mock data loaded")
-
-    def _neon_request_dev(self, *args, **kwargs):
-        """Dev handler for neon requests"""
-        if args[0].startswith("https://api.neoncrm.com/v2/events"):
-            return {
-                "events": self.data["neon"]["events"],
-                "pagination": {"totalPages": 1},
-            }
-
-        raise NotImplementedError(
-            f"Mock data handler for Neon request with args\n{args}\nkwargs\n{kwargs}"
-        )
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request, passing through to httplib2"""
         if self.dev:
-            return self._neon_request_dev(*args, **kwargs)
-        h = httplib2.Http(".cache")
-        h.add_credentials(self.cfg["neon"]["domain"], api_key)
-
-        # Attendee endpoint is often called repeatedly; runs into
-        # neon request ratelimit. Here we globally synchronize and
-        # include a sleep timer to prevent us from overrunning
-        if "/attendees" in args[0]:
-            with self.neon_ratelimit:
-                resp, content = h.request(*args, **kwargs)
-                time.sleep(0.25)
+            resp = dev_neon.handle(*args, **kwargs)
+            status = resp.status_code
+            content = resp.data
         else:
-            resp, content = h.request(*args, **kwargs)
+            h = httplib2.Http(".cache")
+            h.add_credentials(self.cfg["neon"]["domain"], api_key)
 
-        if resp.status != 200:
+            # Attendee endpoint is often called repeatedly; runs into
+            # neon request ratelimit. Here we globally synchronize and
+            # include a sleep timer to prevent us from overrunning
+            if "/attendees" in args[0]:
+                with self.neon_ratelimit:
+                    resp, content = h.request(*args, **kwargs)
+                    time.sleep(0.25)
+            else:
+                resp, content = h.request(*args, **kwargs)
+            status = resp.status
+
+        if status != 200:
             raise RuntimeError(
-                f"neon_request(args={args}, kwargs={kwargs}) returned {resp.status}: {content}"
+                f"neon_request(args={args}, kwargs={kwargs}) returned {status}: {content}"
             )
         return json.loads(content)
 
@@ -90,19 +79,10 @@ class Connector:
             return self._neon_session_dev()
         return requests.Session()
 
-    def _airtable_request_dev(self, *args, **kwargs):
-        """Dev handler for airtable web requests"""
-        raise NotImplementedError(
-            f"Mock data handler for Airtable request with args\n{args}\nkwargs\n{kwargs}"
-        )
-
     def airtable_request(
         self, mode, base, tbl, rec=None, suffix=None, data=None
     ):  # pylint: disable=too-many-arguments
         """Make an airtable request using the requests module"""
-        if self.dev:
-            return self._airtable_request_dev(mode, base, tbl, rec, suffix, data)
-
         cfg = self.cfg["airtable"][base]
         headers = {
             "Authorization": f"Bearer {cfg['token']}",
@@ -115,9 +95,14 @@ class Connector:
             url += suffix
         for i in range(NUM_READ_ATTEMPTS):
             try:
-                return requests.request(
-                    mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
-                )
+                if self.dev:
+                    rep = dev_airtable.handle(mode, url, data)
+                    return rep.status_code, rep.data
+                else:
+                    rep = requests.request(
+                        mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
+                    )
+                    return rep.status_code, rep.content
             except requests.exceptions.ReadTimeout as rt:
                 if mode != "GET" or i == NUM_READ_ATTEMPTS - 1:
                     raise rt

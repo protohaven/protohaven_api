@@ -1,7 +1,7 @@
 <script type="ts">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Popover, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get} from '$lib/api.ts';
 
 let promise = new Promise((resolve) => {});
@@ -26,6 +26,8 @@ onMount(refresh);
 <Card style="width: 100%" class="my-3">
   <CardHeader><CardTitle>Tool States</CardTitle></CardHeader>
   <CardBody>
+	<em>Click on any badge to see more details, make tool reports, documentation etc.</em>
+
 {#await promise}
 <Spinner/>
 {:then p}
@@ -34,7 +36,12 @@ onMount(refresh);
     <Row>
       <CardBody>
       {#each p[color] as tool}
-	<Badge class="mx-2" color={get_color(color)}>{tool.name} ({tool.modified} days)</Badge>
+	<Badge class="mx-2" id="btn-{tool.code}" color={get_color(color)}>{tool.name} ({tool.modified} days)</Badge>
+        <Popover target="btn-{tool.code}" title={tool.name} hideOnOutsideClick>
+		<div>{tool.date}</div>
+		<div>{tool.message}</div>
+	    	<div><a href="https://airtable.com/appbIlORlmbIxNU1L/shr9Hbyf7tdf7Y5LD/tblalZYdLVoTICzE6?filter_Tool Name={tool.name}" target="_blank">more info</a></div>
+	</Popover>
       {/each}
       </CardBody>
     </Row>
