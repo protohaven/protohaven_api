@@ -11,7 +11,7 @@ from protohaven_api.class_automation.scheduler import (
 from protohaven_api.class_automation.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon, schedule
+from protohaven_api.integrations import airtable, neon
 from protohaven_api.rbac import Role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -65,7 +65,7 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
-def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
+def get_instructor_readiness(inst, caps=None):
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
@@ -441,14 +441,11 @@ def inst_availability():
                 "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
                 status=400,
             )
-        interval = request.json.get("interval")
-        interval_end = _safe_date(request.json.get("interval_end"))
+        recurrence = request.json.get("recurrence")
         if rec is not None:
-            result = airtable.update_availability(
-                rec, inst_id, t0, t1, interval, interval_end
-            )
+            result = airtable.update_availability(rec, inst_id, t0, t1, recurrence)
         else:
-            result = airtable.add_availability(inst_id, t0, t1, interval, interval_end)
+            result = airtable.add_availability(inst_id, t0, t1, recurrence)
         log.info(f"PUT result {result}")
         return result
 

@@ -3,7 +3,6 @@ import datetime
 import json
 import logging
 from collections import defaultdict
-from datetime import timedelta
 from functools import cache
 
 from dateutil import parser as dateparser
@@ -402,6 +401,7 @@ def get_instructor_availability(inst):
         if row["fields"]["Instructor (from Instructor)"][0].lower() == inst.lower():
             yield row
 
+
 MAX_EXPANSION = 100
 
 
@@ -414,16 +414,18 @@ def expand_instructor_availability(rows, t0, t1):
         start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
             row["fields"]["End"]
         )
-        rr = row['fields'].get('Recurrence', '')
-        if rr is None or rr == '':
-            yield row['id'], max(start0, t0), min(end0, t1)
+        rr = row["fields"].get("Recurrence", "")
+        if rr is None or rr == "":
+            yield row["id"], max(start0, t0), min(end0, t1)
         else:
-            for start, end in zip(rrulestr(rr, dtstart=start0), rrulestr(rr, dtstart=end0)):
-                if start > t1: # Stop iterating once we've slid past the interval
+            for start, end in zip(
+                rrulestr(rr, dtstart=start0), rrulestr(rr, dtstart=end0)
+            ):
+                if start > t1:  # Stop iterating once we've slid past the interval
                     break
-                if end < t0: # Advance until we get dates within the interval
+                if end < t0:  # Advance until we get dates within the interval
                     continue
-                yield row['id'], max(start, t0), min(end, t1)
+                yield row["id"], max(start, t0), min(end, t1)
 
 
 def add_availability(inst_id, start, end, recurrence=""):
@@ -444,7 +446,7 @@ def add_availability(inst_id, start, end, recurrence=""):
 
 
 def update_availability(
-    rec, inst_id, start, end, interval, interval_end
+    rec, inst_id, start, end, recurrence
 ):  # pylint: disable=too-many-arguments
     """Updates a specific availability record"""
     _, content = update_record(
@@ -472,38 +474,37 @@ def trim_availability(rec, cut_start=None, cut_end=None):
     of a repeating Availability record. The one or two result records
     are returned"""
     raise NotImplementedError("Need to refactor to support RRULE")
-    if cut_start is None:  # No start means delete
-        delete_record("class_automation", "availability", rec)
-        return (None, None)
-    r = get_record("class_automation", "availability", rec)
+    # if cut_start is None:  # No start means delete
+    #     delete_record("class_automation", "availability", rec)
+    #     return (None, None)
+    # r = get_record("class_automation", "availability", rec)
 
-    # We'll always be truncating the record beginning at cut_start
-    r2 = update_record(
-        {"Interval End": cut_start}, "class_automation", "availability", rec
-    )
+    # # We'll always be truncating the record beginning at cut_start
+    # r2 = update_record(
+    #     {"Interval End": cut_start}, "class_automation", "availability", rec
+    # )
 
-    # If we don't have an end, we're done.
-    if cut_end is None:
-        return (r2, None)
+    # # If we don't have an end, we're done.
+    # if cut_end is None:
+    #     return (r2, None)
 
-    # Otherwise we're slicing the record in two and leaving a gap; add a new one as suffix
-    start0, end0 = dateparser.parse(r["fields"]["Start"]), dateparser.parse(
-        r["fields"]["End"]
-    )
-    interval = r["fields"]["Interval"]
-    i = (
-        (_day_trunc(cut_end) - _day_trunc(start0)).days // interval
-        if interval > 0
-        else 0
-    )
-    offs = timedelta(days=i * interval)
-    assert offs.days >= 0
-    r3 = add_availability(
-        r["fields"]["Instructor"][0],
-        start0 + offs,
-        end0 + offs,
-        interval,
-        dateparser.parse(r["fields"]["Interval End"]),
-    )
+    # # Otherwise we're slicing the record in two and leaving a gap; add a new one as suffix
+    # start0, end0 = dateparser.parse(r["fields"]["Start"]), dateparser.parse(
+    #     r["fields"]["End"]
+    # )
+    # interval = r["fields"]["Interval"]
+    # i = (
+    #     (_day_trunc(cut_end) - _day_trunc(start0)).days // interval
+    #     if interval > 0
+    #     else 0
+    # )
+    # offs = timedelta(days=i * interval)
+    # assert offs.days >= 0
+    # r3 = add_availability(
+    #     r["fields"]["Instructor"][0],
+    #     start0 + offs,
+    #     end0 + offs,
+    #     recurrence,
+    # )
 
-    return (r2, r3)
+    # return (r2, r3)

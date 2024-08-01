@@ -45,6 +45,8 @@ def subscription_tax_pct(sub, price):
     from linked invoices"""
     if sub.get("tax_percentage"):
         return float(sub["tax_percentage"])
+    if price <= 0.00000000001:
+        return 0  # Avoid div by zero
     # Not having a tax_percentage field doesn't guarantee it has no tax.
     # We have to inspect the latest invoice and work backwards from the charge.
     if len(sub["invoice_ids"]) == 0:

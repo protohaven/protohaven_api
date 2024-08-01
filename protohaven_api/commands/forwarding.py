@@ -152,8 +152,8 @@ class Commands:
             }
             print(yaml.dump([result], default_flow_style=False, default_style=""))
 
-
     def _form_from_task_notes(self, notes):
+        """Extract Asana form data from the Notes field of the task"""
         field = None
         body = []
         result = {}
@@ -172,6 +172,30 @@ class Commands:
             result[field] = "\n".join(body)
         return result
 
+    def _format_private_instruction_request_task(self, req, now):
+        """Return a string summary of the private instruction request"""
+        d = dateparser.parse(req["created_at"]).astimezone(tz)
+        dt = now - d
+        form = self._form_from_task_notes(req["notes"])
+        summary = form["Details"].replace("\n", " ")
+        if len(summary) > 120:
+            summary = summary[:117] + "..."
+
+        ddur = dt.days
+        if ddur > 7:
+            duration = f"{ddur//7} weeks"
+        else:
+            duration = f"{ddur} days"
+
+        avail = form["Availability"].replace("\n", ", ")
+        if len(avail) > 90:
+            avail = avail[:87] + "..."
+        fmt = (
+            f"- {d.strftime('%b %-d'):6} {'(' + duration + ' ago)':14} "
+            f"{form['Name'].strip()}, {form['Email'].strip()}: "
+            f"{summary} (Availability: {avail})"
+        )
+        return dt, fmt
 
     @command(
         arg(
@@ -181,82 +205,74 @@ class Commands:
             default=False,
         ),
     )
-    def private_instruction(self, args):
+    def private_instruction(self, args):  # pylint: disable=
         """Generate reminders to take action on private instruction.
-           This targets membership@ email and Discord's #instructors/#education-leads channels"""
+        This targets membership@ email and Discord's #instructors/#education-leads channels
+        """
         formatted = []
         formatted_past_day = []
-        now = tznow()
         num = 0
+        now = tznow()
         for req in tasks.get_private_instruction_requests():
             if req["completed"]:
                 continue
-            d = dateparser.parse(req["created_at"]).astimezone(tz)
-            dt = now-d
-            form = self._form_from_task_notes(req['notes'])
-            summary = form['Details'].replace("\n", " ")
-            if len(summary) > 120:
-                summary = summary[:117] + '...'
-
-            ddur = dt.days
-            if ddur > 7:
-                duration = f"{ddur//7} weeks"
-            else:
-                duration = f"{ddur} days"
-
-            avail = form['Availability'].replace("\n", ", ")
-            if len(avail) > 90:
-                avail = avail[:87] + '...'
-            fmt = f"- {d.strftime('%b %-d'):6} {'(' + duration + ' ago)':14} {form['Name'].strip()}, {form['Email'].strip()}: {summary} (Availability: {avail})" 
+            dt, fmt = self._format_private_instruction_request_task(req, now)
             formatted.append(fmt)
             if dt.days < 1 and dt.seconds // 3600 < 24:
                 formatted_past_day.append(fmt)
-
             num += 1
 
         log.info(f"Found {num} open private instruction requests")
-
 
         results = []
         if not args.daily and len(formatted) > 0:
             log.info("Generating weekly summaries")
             results.append(
-            {
-                "id": "",
-                "target": "membership@protohaven.org",
-                "subject": f"{num} Private Instruction Request(s) Active",
-                "body": (
-                    "The following requests are active for private instruction:\n\n" +
-                  "\n".join(formatted) + 
-                "\n\nPlease go to https://app.asana.com/0/1203922725251220/1207896962249498 and check off " + 
-                "any requests that have already been handled, and raise the rest to the instructors to fulfill."
-                )
-            })
+                {
+                    "id": "",
+                    "target": "membership@protohaven.org",
+                    "subject": f"{num} Private Instruction Request(s) Active",
+                    "body": (
+                        "The following requests are active for private instruction:\n\n"
+                        + "\n".join(formatted)
+                        + "\n\nPlease go to "
+                        + "https://app.asana.com/0/1203922725251220/1207896962249498 "
+                        + "and check off any requests that have already been handled, and raise "
+                        + "the rest to the instructors to fulfill."
+                    ),
+                }
+            )
             results.append(
-            {
-                "id": "",
-                "target": "#education-leads",
-                "subject": f"{num} Private Instruction Request(s) Active",
-                "body": (
-                    f"The following requests are active for private instruction (showing up to 5 most recent, of {num}):\n\n" +
-                    "\n".join(formatted[:5]) + 
-                "\n\nPlease go to https://app.asana.com/0/1203922725251220/1207896962249498 and check off " + 
-                "any requests that have already been handled, and raise the rest to the instructors to fulfill."
-                )
-            })
+                {
+                    "id": "",
+                    "target": "#education-leads",
+                    "subject": f"{num} Private Instruction Request(s) Active",
+                    "body": (
+                        "The following requests are active for private instruction "
+                        + f"(showing up to 5 most recent, of {num}):\n\n"
+                        + "\n".join(formatted[:5])
+                        + "\n\nPlease go to "
+                        + "https://app.asana.com/0/1203922725251220/1207896962249498 and check off "
+                        + "any requests that have already been handled, and raise the rest "
+                        + "to the instructors to fulfill."
+                    ),
+                }
+            )
         if args.daily and len(formatted_past_day) > 0:
             log.info("Generating daily request to instructors")
             results.append(
-            {
-                "id": "",
-                "target": "#instructors",
-                "subject": f"New Private Instruction Request(s) in the past 24 hours",
-                "body": (
-                  "\n".join(formatted_past_day) + 
-                  "\n\nPlease go to https://app.asana.com/0/1203922725251220/1207896962249498 and assign yourself "+
-                  "if you'd like to take any requests. If you lack access, ask one of the staff or education leads. Thanks!"
-                )
-            }
+                {
+                    "id": "",
+                    "target": "#instructors",
+                    "subject": "New Private Instruction Request(s) in the past 24 hours",
+                    "body": (
+                        "\n".join(formatted_past_day)
+                        + "\n\nPlease go to "
+                        + "https://app.asana.com/0/1203922725251220/1207896962249498 and assign "
+                        + "yourself if you'd like to take any requests. If you lack access, ask "
+                        + "one of the staff or education leads. Thanks!"
+                    ),
+                }
             )
         print(yaml.dump(results, default_flow_style=False, default_style=""))
 

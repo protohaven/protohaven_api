@@ -1,10 +1,10 @@
 # pylint: skip-file
 import datetime
 import json
+from collections import namedtuple
 
 import pytest
 from dateutil import parser as dateparser
-from collections import namedtuple
 
 from protohaven_api.config import tz
 from protohaven_api.integrations import airtable as a
@@ -148,8 +148,11 @@ def _arec(email, start, end, rrule=""):
 
 
 Tc = namedtuple("TC", "desc,records,t0,t1,want")
+
+
 def idfn(tc):
     return tc.desc
+
 
 @pytest.mark.parametrize(
     "tc",
@@ -247,7 +250,10 @@ def test_expand_instructor_availability(mocker, tc):
             _arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY;COUNT=5"),
             d(2),
             d(4),
-            ({"Interval End": d(2)}, _arec("a", d(4, 18), d(4, 21), "RRULE:FREQ=DAILY;COUNT=5")),
+            (
+                {"Interval End": d(2)},
+                _arec("a", d(4, 18), d(4, 21), "RRULE:FREQ=DAILY;COUNT=5"),
+            ),
         ),
     ],
 )
