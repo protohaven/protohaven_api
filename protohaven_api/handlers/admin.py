@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, Response
 
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.rbac import Role, require_login_role
@@ -15,10 +15,10 @@ log = logging.getLogger("handlers.admin")
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.ADMIN)
 def user_clearances():
-    """CRUD operations for member clearances"""
-    emails = [e.strip() for e in request.values.get("emails", "").split(",")]
+    """CRUD operations for member clearances - used to update clearances when instructor submits logs"""
+    emails = [e.strip() for e in request.values.get("emails", "").split(",") if e.strip() != '']
     if len(emails) == 0:
-        raise RuntimeError("require param emails")
+        return Response("Missing required param 'emails'", status=400)
     results = {}
     for e in emails:
         m = list(neon.search_member(e))
@@ -34,7 +34,7 @@ def user_clearances():
 
         initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
-            raise RuntimeError("Require param codes")
+            return Response("Missing required param 'codes'", status=400)
 
         # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP...)
         mapping = airtable.get_clearance_to_tool_map()
@@ -49,7 +49,11 @@ def user_clearances():
             codes.update(delta)
         elif request.method == "DELETE":
             codes -= set(delta)
-        neon.set_clearances(neon_id, codes)
+        try:
+            content = neon.set_clearances(neon_id, codes)
+            log.info("Neon response: " + str(content))
+        except RuntimeError as e:
+            return Response(str(e), status=500)
         results[e] = "OK"
     return results
 
