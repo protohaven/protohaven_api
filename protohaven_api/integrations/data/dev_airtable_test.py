@@ -1,3 +1,4 @@
+# pylint: skip-file
 import json
 
 from protohaven_api.integrations.data.dev_airtable import handle

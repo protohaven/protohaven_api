@@ -1,7 +1,12 @@
+"""Constants and other datatypes for Neon integration"""
 from dataclasses import dataclass
 
 URL_BASE = "https://api.neoncrm.com/v2"
 ADMIN_URL = "https://protohaven.app.neoncrm.com/np/admin"
+
+
+class CustomFieldNotFoundError(RuntimeError):
+    """Raised when the custom field is not found by an ID"""
 
 
 @dataclass
@@ -22,13 +27,14 @@ class CustomField:
     ZERO_COST_OK_UNTIL = 159
 
     @classmethod
-    def fromId(cls, v):
+    def from_id(cls, v):
+        """Converts to a CustomField from a neon ID"""
         for k in dir(cls):
             if int(v) == getattr(cls, k):
                 return " ".join(
                     [w.capitalize() for w in k.split("_")]
                 )  # Neon uses capital case names for custom fields
-        raise NotFoundError(f"No CustomField ID {v}")
+        raise CustomFieldNotFoundError(f"No CustomField ID {v}")
 
 
 @dataclass

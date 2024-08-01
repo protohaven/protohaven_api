@@ -102,7 +102,8 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 f"Sign-in with {data['email']} returned multiple accounts "
                 + "in Neon with same email:\n"
                 + "\n".join(urls)
-                + "\nAdmin: please deduplicate (see https://protohaven.org/wiki/software/membership_validation)"
+                + "\nAdmin: please deduplicate "
+                + "(see https://protohaven.org/wiki/software/membership_validation)"
             )
             log.info("Notified of multiple accounts")
         if len(mm) == 0:

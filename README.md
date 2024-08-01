@@ -30,7 +30,7 @@ LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=dev flask --app pro
 LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=prod flask --app protohaven_api.main run
 ```
 
-In either mode, the server is available at http://localhost:5000. 
+In either mode, the server is available at http://localhost:5000.
 
 ## Running the CLI
 

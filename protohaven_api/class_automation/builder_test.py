@@ -41,14 +41,14 @@ def test_get_account_email_unset(mocker):
     assert not builder.get_account_email("1234")
 
 
-def test_gen_calendar_reminders(mocker):
+def test_gen_scheduling_reminders(mocker):
     """Test calendar reminder generation. This mostly replicates an equivalent test of the comms
     module but I'm including it here anyways."""
     mocker.patch(
         "protohaven_api.integrations.airtable.get_instructor_email_map",
         return_value={"Test Name": "test@email.com"},
     )
-    got = builder.gen_calendar_reminders(
+    got = builder.gen_scheduling_reminders(
         parse_date("2024-02-20"), parse_date("2024-03-30")
     )
     assert len(got) == 2  # Email and summary

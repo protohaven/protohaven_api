@@ -80,8 +80,8 @@ def update_record(data, base, tbl, rec):
 
 def delete_record(base, tbl, rec):
     """Deletes a record in a named table"""
-    response = get_connector().airtable_request("DELETE", base, tbl, rec=rec)
-    return response, json.loads(response.content) if response.content else None
+    status, content = get_connector().airtable_request("DELETE", base, tbl, rec=rec)
+    return status, json.loads(content) if content else None
 
 
 def get_class_automation_schedule():
@@ -437,7 +437,7 @@ def expand_instructor_availability(rows, t0, t1):
 
 def add_availability(inst_id, start, end, recurrence=""):
     """Adds an optionally-recurring availability row to the Availability airtable"""
-    rep = insert_records(
+    _, content = insert_records(
         [
             {
                 "Instructor": [inst_id],
@@ -449,7 +449,7 @@ def add_availability(inst_id, start, end, recurrence=""):
         "class_automation",
         "availability",
     )
-    return json.loads(rep.content)["records"][0]
+    return json.loads(content)["records"][0]
 
 
 def update_availability(
