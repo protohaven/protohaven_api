@@ -66,6 +66,11 @@ export function isodate(d) {
 	return new Date(d).toJSON().slice(0,10);
 }
 
+export function isodatetime(d) {
+	// ISO 8601 datetime string without milliseconds
+	return new Date(d).toISOString().slice(0,-5)+"Z";
+}
+
 export function localtime(d) {
 	return new Date(d).toLocaleTimeString("en-US", {timeStyle: 'short'});
 }
@@ -74,4 +79,18 @@ export function as_datetimelocal(d) {
 	d = new Date(d);
 	d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
 	return d.toISOString().slice(0,16);
+}
+
+export function parse_8601_basic(input) {
+  	// https://stackoverflow.com/questions/43898263/parse-iso-8601-basic-datetime-format-in-javascript
+	// ISO 8601 dates allow removal of punctuation - this is done in RRULE strings as it messes with
+	// parsing of the rest of the string.
+	  return new Date(Date.UTC(
+	    parseInt(input.slice(0, 4), 10),
+	    parseInt(input.slice(4, 6), 10) - 1,
+	    parseInt(input.slice(6, 8), 10),
+	    parseInt(input.slice(9, 11), 10),
+	    parseInt(input.slice(11, 13), 10),
+	    parseInt(input.slice(13,15), 10)
+	  ));
 }

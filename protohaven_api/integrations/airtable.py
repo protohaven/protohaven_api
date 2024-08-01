@@ -397,8 +397,9 @@ def _day_trunc(d):
 
 def get_instructor_availability(inst):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
+    inst = inst.strip().lower()
     for row in get_all_records("class_automation", "availability"):
-        if row["fields"]["Instructor (from Instructor)"][0].lower() == inst.lower():
+        if row["fields"]["Instructor (from Instructor)"][0].strip().lower() == inst:
             yield row
 
 

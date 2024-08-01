@@ -3,7 +3,6 @@
   import { onMount } from 'svelte';
   import Calendar from '$lib/dashboard/calendar.svelte';
   import {get, post, isodate} from '$lib/api.ts';
-  export let email;
   export let open;
   export let inst;
   export let inst_id;
@@ -29,9 +28,8 @@
 
   let env_promise;
   function reload(src) {
-    // Make sure dates are reasonable
-
-    if (end <= start) {
+    // Make sure date range is reasonable
+    if (end <= start || (new Date(end).getTime() - new Date(start).getTime()) / (3600*1000) > 45) {
     	console.log("Date crunch; moving the one other than " + src, start, end);
 	if (src === "end") {
 		start = new Date(end);

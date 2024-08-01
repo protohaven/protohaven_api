@@ -206,7 +206,6 @@ def test_class_details_both_email_and_session(mocker, client):
 
 def test_get_instructor_readiness_all_bad(mocker):
     mocker.patch.object(instructor, "airtable")
-    mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = None
     result = instructor.get_instructor_readiness(
         [
@@ -239,7 +238,6 @@ def test_get_instructor_readiness_all_bad(mocker):
 
 def test_get_instructor_readiness_all_ok(mocker):
     mocker.patch.object(instructor, "airtable")
-    mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = {
         "id": "inst_id",
         "fields": {

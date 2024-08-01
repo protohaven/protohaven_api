@@ -1,26 +1,20 @@
 <script type="ts">
 import { onMount } from 'svelte';
 import {get, put, del, isodate, localtime, as_datetimelocal} from '$lib/api.ts';
-import { Spinner, Table, Badge, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
+import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
 import FetchError from './fetch_error.svelte';
+import CalendarEdit from '$lib/dashboard/calendar_edit.svelte';
 
 export let inst;
 export let inst_id;
 export let start;
 export let end;
-let open = false;
 
-let avail_id = null;
-let avail_start = null;
-let avail_end = null;
-let avail_interval = null;
-let avail_interval_end = null;
 let records = {};
+let edit_rec = null;
 
 function reload() {
-  console.log("Reload triggered");
   if (start && end && inst) {
-    let bounds = [new Date(start), new Date(end)]
     promise = get(`/instructor/calendar/availability?inst=${inst}&t0=${start}&t1=${end}`).then((data) => {
       let lookup = {};
       records = data.records;
@@ -40,13 +34,11 @@ function reload() {
 	  	inst: sch['fields']['Instructor'],
 		name: sch['fields']['Name (from Class)'],
 	  };
-	  console.log(sched);
 	  sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
 	  sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
 	  idx += 1
 	}
       }
-      console.log(sched_days);
 
       let s = new Date(start);
       let d = new Date(start);
@@ -89,42 +81,38 @@ onMount(reload);
 
 let promise = Promise.resolve((resolve, reject)=>{resolve([])});
 
-function start_edit(e, d) {
-	let r = records[d];
-	if (r) {
-	  avail_id = d;
-	  avail_start = as_datetimelocal(r['Start']);
-	  avail_end = as_datetimelocal(r['End']);
-	  avail_interval = r['Interval'];
-	  avail_interval_end = null;
-	  if (r['Interval End']) {
-	  	avail_interval_end = isodate(r['Interval End']);
-	  }
-	} else {
-	  avail_id = null;
-	  avail_start = `${d}T18:00`;
-	  avail_end = `${d}T21:00`;
-	  avail_interval = null;
-	  avail_interval_end = null;
-	}
-	e.stopPropagation();
-	open = true;
-}
 
-function save_avail() {
+function save_avail(id, start, end, recurrence) {
     promise = put(`/instructor/calendar/availability`, {
     	inst_id,
-    	rec: avail_id,
-	t0: avail_start,
-	t1: avail_end,
-	interval: avail_interval,
-	interval_end: avail_interval_end
-    }).then(reload).finally(() => {
-	open = false;
-    });
+    	rec: id,
+	t0: start,
+	t1: end,
+	recurrence: recurrence,
+    }).then(reload)
 }
-function delete_avail() {
-  promise = del(`/instructor/calendar/availability`, {rec: avail_id}).then(reload).finally(() => open = false);
+function delete_avail(id) {
+  promise = del(`/instructor/calendar/availability`, {'rec': id}).then(reload).finally(() => open = false);
+}
+
+function start_edit(e, d) {
+  e.stopPropagation();
+  let r = records[d];
+  if (r)  {
+    edit_rec = {
+    id: d,
+    start: as_datetimelocal(r['Start']),
+    end: as_datetimelocal(r['End']),
+    recurrence: r['Recurrence'],
+    };
+  } else {
+    edit_rec = {
+    id: null,
+    start: `${d}T18:00`,
+    end: `${d}T21:00`,
+    recurrence: "",
+    };
+  }
 }
 </script>
 
@@ -136,6 +124,16 @@ function delete_avail() {
     color: #ddd;
   }
 </style>
+
+<Accordion flush stayOpen>
+<AccordionItem header="Click here for legend">
+<ul>
+<li><Button style="display: block" color='secondary'>HH:MM A/P</Button>Available to schedule - click to edit</li>
+<li><Badge color="primary">XX</Badge> Your scheduled class - hover for info</li>
+<li><Badge color="light">XX</Badge> Another instructors' scheduled class - hover for info</li>
+</ul>
+</AccordionItem>
+</Accordion>
 
 {#await promise}
   <Spinner/>
@@ -159,7 +157,7 @@ function delete_avail() {
 		<td on:click={(evt) => start_edit(evt, d.date)} class={(d.filler) ? "filler" : ""}>
 			{#if d.events.length > 0}
 			{#each d.events as e}
-			  <Button style="display:block" color={(avail_id === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {console.log('se', e[0]); start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
+			  <Button style="display:block" color={((edit_rec && edit_rec.id) === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
 			{/each}
 			{#each d.schedule as s}
 			  <Tooltip target={"sched"+s.idx}>Scheduled: {s.name} with {s.inst}</Tooltip>
@@ -175,39 +173,7 @@ function delete_avail() {
 	</tbody>
 
   </Table>
-  <Modal size="md" isOpen={open}>
-	<ModalHeader>Add/Edit Availability</ModalHeader>
-	<ModalBody>
-		<FormGroup>
-			<Label>Availability</Label>
-			<InputGroup>
-				<InputGroupText>Start</InputGroupText>
-				<Input type="datetime-local" bind:value={avail_start}/>
-			</InputGroup>
-			<InputGroup>
-				<InputGroupText>End</InputGroupText>
-				<Input type="datetime-local" bind:value={avail_end}/>
-			</InputGroup>
-		</FormGroup>
-		<FormGroup>
-			<Label>Optional</Label>
-			<InputGroup>
-				<InputGroupText>Repeat Every</InputGroupText>
-    				<Input type="number" bind:value={avail_interval}/>
-				<InputGroupText>Day(s)</InputGroupText>
-			</InputGroup>
-			<InputGroup>
-				<InputGroupText>Until</InputGroupText>
-    				<Input type="date" bind:value={avail_interval_end}/>
-			</InputGroup>
-		</FormGroup>
-	</ModalBody>
-	<ModalFooter>
-	    <Button on:click={save_avail}>Save</Button>
-	    <Button on:click={delete_avail} disabled={!avail_id}>Delete</Button>
-	    <Button on:click={() => open = false}>Cancel</Button>
-	</ModalFooter>
-  </Modal>
 {:catch error}
   <FetchError {error}/>
 {/await}
+<CalendarEdit bind:rec={edit_rec} on_save={save_avail} on_delete={delete_avail}/>
