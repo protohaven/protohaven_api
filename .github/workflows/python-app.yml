@@ -34,4 +34,4 @@ jobs:
         pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error
     - name: Test with pytest
       run: |
-        PH_CONFIG=test_config.yaml python -m pytest
+        PH_CONFIG=test_config.yaml TZ=US/Eastern python -m pytest
