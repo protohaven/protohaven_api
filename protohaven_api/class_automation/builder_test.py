@@ -41,19 +41,48 @@ def test_get_account_email_unset(mocker):
     assert not builder.get_account_email("1234")
 
 
-def test_gen_calendar_reminders(mocker):
+def test_gen_scheduling_reminders_not_scheduled(mocker):
     """Test calendar reminder generation. This mostly replicates an equivalent test of the comms
     module but I'm including it here anyways."""
     mocker.patch(
         "protohaven_api.integrations.airtable.get_instructor_email_map",
         return_value={"Test Name": "test@email.com"},
     )
-    got = builder.gen_calendar_reminders(
+    mocker.patch.object(
+        builder.airtable, "get_class_automation_schedule", return_value=[]
+    )
+
+    got = builder.gen_scheduling_reminders(
         parse_date("2024-02-20"), parse_date("2024-03-30")
     )
     assert len(got) == 2  # Email and summary
-    assert got[0]["subject"] == "Test: please confirm your teaching availability!"
-    assert_matches_testdata(got[0]["body"], "test_gen_calendar_reminders.txt")
+    assert got[0]["subject"] == "Test: please schedule your classes!"
+    assert_matches_testdata(got[0]["body"], "test_instructor_schedule_classes.txt")
+
+
+def test_gen_scheduling_reminders_already_scheduled(mocker):
+    """Test calendar reminder generation doesn't notify if already scheduled"""
+    mocker.patch(
+        "protohaven_api.integrations.airtable.get_instructor_email_map",
+        return_value={"Test Name": "test@email.com"},
+    )
+    mocker.patch.object(
+        builder.airtable,
+        "get_class_automation_schedule",
+        return_value=[
+            {
+                "fields": {
+                    "Start Time": parse_date("2024-02-21").isoformat(),
+                    "Email": "TeSt@email.com",
+                }
+            }
+        ],
+    )
+
+    got = builder.gen_scheduling_reminders(
+        parse_date("2024-02-20"), parse_date("2024-03-30")
+    )
+    assert len(got) == 0  # No emails, so no summary
 
 
 def _mock_builder(  # pylint: disable=too-many-arguments

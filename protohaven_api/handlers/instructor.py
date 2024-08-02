@@ -11,7 +11,7 @@ from protohaven_api.class_automation.scheduler import (
 from protohaven_api.class_automation.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon, schedule
+from protohaven_api.integrations import airtable, neon
 from protohaven_api.rbac import Role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -65,17 +65,17 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
-def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
+def get_instructor_readiness(inst, caps=None):
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
         "neon_id": None,
         "email": "OK",
+        "airtable_id": None,
         "fullname": "unknown",
         "active_membership": "inactive",
         "discord_user": "missing",
         "capabilities_listed": "missing",
-        "in_calendar": "missing",
         "paperwork": "unknown",
         "profile_img": None,
         "bio": None,
@@ -97,6 +97,7 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:
+        result["airtable_id"] = caps["id"]
         if len(caps["fields"].get("Class", [])) > 0:
             result["capabilities_listed"] = "OK"
 
@@ -122,18 +123,6 @@ def get_instructor_readiness(inst, caps=None, instructor_schedules=None):
         else:
             result["paperwork"] = "OK"
 
-    now = tznow()
-    try:
-        if not instructor_schedules:
-            instructor_schedules = schedule.fetch_instructor_schedules(
-                (now - datetime.timedelta(days=90)).replace(tzinfo=None),
-                (now + datetime.timedelta(days=90)).replace(tzinfo=None),
-            )
-        if result["fullname"] in instructor_schedules.keys():
-            result["in_calendar"] = "OK"
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        log.warning(f"Calendar fetch error: {e}")
-        result["in_calendar"] = "HTTP Error"
     return result
 
 
@@ -350,15 +339,14 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, _ = solve_with_env(request.json)
-    if len(result) == 0:
-        return Response(
-            "No valid schedule possible from the given inputs. "
-            "This may be due to classes having run too recently, "
-            "a too-small scheduling window, or too few available times.",
-            status=400,
-        )
-    return result
+    result, score, skip_counters = solve_with_env(request.json)
+    for inst, kv in skip_counters.items():
+        for k, vv in kv.items():
+            print(vv)
+            skip_counters[inst][k] = [
+                (t.isoformat(), skip_t.isoformat(), cname) for t, skip_t, cname in vv
+            ]
+    return {"result": result, "score": score, "skip_counters": skip_counters}
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -415,3 +403,62 @@ def cancel_class():
     log.warning(f"Cancelling class {cid}")
     neon.set_event_scheduled_state(cid, scheduled=False)
     return {"success": True}
+
+
+def _safe_date(v):
+    if v is None:
+        return v
+    return dateparser.parse(v).astimezone(tz)
+
+
+@page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
+def inst_availability():
+    """Different methods for CRUD actions on Availability records in airtable, used to
+    describe an instructor's availability"""
+    if request.method == "GET":
+        inst = request.values.get("inst").lower()
+        log.warning(f"inst_availability for {inst}")
+        t0 = _safe_date(request.values.get("t0"))
+        t1 = _safe_date(request.values.get("t1"))
+        if not t0 or not t1:
+            return Response(
+                "Both t0 and t1 required in request to /instructor/calendar/availability",
+                status=400,
+            )
+        avail = list(airtable.get_instructor_availability(inst))
+        print(avail)
+        expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
+        sched = [
+            s
+            for s in airtable.get_class_automation_schedule()
+            if dateparser.parse(s["fields"]["Start Time"]) >= t0
+        ]
+        return {
+            "records": {r["id"]: r["fields"] for r in avail},
+            "availability": expanded,
+            "schedule": sched,
+        }
+
+    if request.method == "PUT":
+        rec = request.json.get("rec")
+        t0 = _safe_date(request.json.get("t0"))
+        t1 = _safe_date(request.json.get("t1"))
+        inst_id = request.json.get("inst_id")
+        if not t0 or not t1:
+            return Response(
+                "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
+                status=400,
+            )
+        recurrence = request.json.get("recurrence")
+        if rec is not None:
+            result = airtable.update_availability(rec, inst_id, t0, t1, recurrence)
+        else:
+            result = airtable.add_availability(inst_id, t0, t1, recurrence)
+        log.info(f"PUT result {result}")
+        return result
+
+    if request.method == "DELETE":
+        rec = request.json.get("rec")
+        return airtable.delete_availability(rec)
+
+    return Response(f"Unsupported method {request.method}", status=400)

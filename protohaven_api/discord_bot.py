@@ -48,7 +48,6 @@ class PHClient(discord.Client):
         """Runs when a new member joins the server"""
         # channel = get(member.guild.channels, id=768670193379049483)
         # await channel.send(f'{member} welcome')
-        pass
 
     async def set_nickname(self, name, nickname):
         """Set the nickname of a named server member"""
@@ -67,7 +66,7 @@ class PHClient(discord.Client):
         """Grants a role (e.g. "Members") to a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
-            log.info("Member {name} not found")
+            log.info("Discord user {name} not found")
             return False
 
         log.info(f"Adding role {role_name} to {name}")

@@ -150,7 +150,7 @@ def test_welcome_signin_membership_expired(mocker):
     assert rep["status"] == "Inactive"
     index.submit_google_form.assert_called()  # Form submission even if membership is expired
     index.send_membership_automation_message.assert_called_with(
-        "First (foo@bar.com) just signed in at the front desk but has a non-Active membership status in Neon: status is Inactive\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345"
+        "First (foo@bar.com) just signed in at the front desk but has a non-Active membership status in Neon: status is Inactive\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345\nhttps://protohaven.org/wiki/software/membership_validation"
     )
 
 
@@ -189,7 +189,7 @@ def test_welcome_signin_ok_with_violations(mocker):
         {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}}
     ]
     index.send_membership_automation_message.assert_called_with(
-        "First (foo@bar.com) just signed in at the front desk with violations: [{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345"
+        "First (foo@bar.com) just signed in at the front desk with violations: [{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345\nhttps://protohaven.org/wiki/software/membership_validation"
     )
 
 

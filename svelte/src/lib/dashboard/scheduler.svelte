@@ -1,10 +1,11 @@
 <script type="ts">
-  import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
+  import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, Accordion, AccordionItem, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
-  import {get, post} from '$lib/api.ts';
-  export let email;
+  import Calendar from '$lib/dashboard/calendar.svelte';
+  import {get, post, isodate} from '$lib/api.ts';
   export let open;
   export let inst;
+  export let inst_id;
 
   let solve_promise = Promise.resolve([]);
   let save_promise = Promise.resolve(null);
@@ -14,18 +15,34 @@
 
   let start = new Date();
   start.setDate(start.getDate() + 14);
-  start = start.toJSON().slice(0, 10);
+  start = isodate(start);
   let end = new Date();
   end.setDate(end.getDate() + 40);
-  end = end.toJSON().slice(0,10);
+  end = isodate(end);
   let running = false;
   let env = null;
   let output = null;
+  let run_details = null;
 
   // console.log(start, end);
 
   let env_promise;
-  function reload() {
+  function reload(src) {
+    // Make sure date range is reasonable
+    if (end <= start || (new Date(end).getTime() - new Date(start).getTime()) / (3600*1000) > 45) {
+    	console.log("Date crunch; moving the one other than " + src, start, end);
+	if (src === "end") {
+		start = new Date(end);
+		start.setDate(start.getDate() - 14);
+		start = isodate(start);
+	} else {
+		end = new Date(start);
+		end.setDate(end.getDate() + 14);
+		end = isodate(end);
+	}
+	console.log("Now", start, end);
+    }
+
     console.log("Reloading scheduler env");
     env_promise = get("/instructor/setup_scheduler_env?" + new URLSearchParams({
       start, end, inst: inst.toLowerCase()})).then((data) => {
@@ -71,7 +88,9 @@
     console.log(body.instructors[0].caps);
 
     solve_promise = post("/instructor/run_scheduler", body).then((data) => {
-      output = data[inst.toLowerCase()];
+      console.log(data);
+      output = data.result[inst.toLowerCase()];
+      run_details = data.skip_counters[inst.toLowerCase()];
       for (let cls of output) {
       	console.log(cls);
 	cls[2] = (new Date(cls[2])).toLocaleString();
@@ -102,17 +121,20 @@
     <strong>See <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">the Instructor wiki page</a> for details and a video tutorial on how to use this scheduler.</strong>
 
     <h5>1. Pick Scheduling Window</h5>
-    <p>Select the window of time where you want to schedule your classes, or use the default.</p>
+    <p>Select the window of time where you want to schedule your classes, and build your availability.</p>
     <Row cols={2}>
     <Col>
     From
-    <Input type="date" placeholder="From Date" bind:value={start} on:change={reload}/>
+    <Input type="date" placeholder="From Date" bind:value={start} on:change={() => reload("start")}/>
     </Col>
     <Col>
     Until
-    <Input type="date" placeholder="Until Date" bind:value={end} on:change={reload}/>
+    <Input type="date" placeholder="Until Date" bind:value={end} on:change={() => reload("end")}/>
     </Col>
     </Row>
+
+
+    <Calendar {inst} {inst_id} {start} {end}></Calendar>
 
     <h5>2. Check Availability</h5>
     <p>Edit your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. if you wish to change any of the generated schedule times here.</p>
@@ -145,6 +167,21 @@
 	      {#each p as c}
 		<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
 	      {/each}
+
+	      {#if run_details}
+	      <Accordion class="my-3" stayOpen>
+	      	<AccordionItem header="Some dates were excluded from scheduling particular classes - click for details">
+	        {#each Object.keys(run_details) as d}
+		  <strong>{d}:</strong>
+	      	<ul>
+		  {#each run_details[d] as skip_info}
+		     <li>{isodate(skip_info[0])} (confict with {skip_info[2]} on {isodate(skip_info[1])})</li>
+		  {/each}
+		</ul>
+		{/each}
+		</AccordionItem>
+	      </Accordion>
+	      {/if}
 
 	      {#if output}
 		<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>

@@ -1,6 +1,6 @@
+"""Mock airtable service using canned data"""
 import json
 import uuid
-from dataclasses import dataclass
 from functools import cache
 from urllib.parse import urlparse
 
@@ -13,45 +13,51 @@ app = Flask(__file__)
 
 
 @cache
-def _base_lookup(id):
+def _base_lookup(_id):
+    """Lookup base within config.yaml"""
     cfg = get_config()["airtable"]
-    return {v["base_id"]: k for k, v in cfg.items()}[id]
+    return {v["base_id"]: k for k, v in cfg.items()}[_id]
 
 
 @cache
-def _tbl_lookup(id):
+def _tbl_lookup(_id):
+    """Lookup table within config.yaml"""
     cfg = get_config()["airtable"]
-    return {v: k for tbl in cfg.values() for k, v in tbl.items()}[id]
+    return {v: k for tbl in cfg.values() for k, v in tbl.items()}[_id]
 
 
 @app.route("/v0/<base>/<tbl>", methods=["GET", "POST"])
 def recordless_op(base, tbl):
-    tbl = mock_data["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]
+    """Perform CRUD operations on canned data, without referencing a record"""
+    tbl = mock_data()["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]
     if request.method == "GET":
         return {"records": tbl}
-    elif request.method == "POST":
+    if request.method == "POST":
+        rep = []
         for rec in request.json["records"]:
             rec["id"] = str(uuid.uuid4().hex)
             tbl.append(rec)
-    else:
-        return Response("Method not supported", status=400)
+            rep.append(rec)
+        return {"records": rep}
+    return Response("Method not supported", status=400)
 
 
 @app.route("/v0/<base>/<tbl>/<rec>", methods=["GET", "PATCH"])
 def single_record_op(base, tbl, rec):
-    for r in mock_data["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]:
+    """Perform CRUD operations on canned data for a single record"""
+    r = {}
+    for r in mock_data()["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]:
         if r["id"] == rec:
             break
     if r["id"] != rec:
         return Response("Record Not Found", status=404)
     if request.method == "GET":
         return r
-    elif request.method == "PATCH":
+    if request.method == "PATCH":
         for k, v in request.json["fields"].items():
             r["fields"][k] = v
         return r
-    else:
-        return Response("Method not supported", status=400)
+    return Response("Method not supported", status=400)
 
 
 client = app.test_client()
@@ -62,7 +68,8 @@ def handle(mode, url, data):
     url = urlparse(url).path
     if mode == "GET":
         return client.get(url)
-    elif mode == "POST":
+    if mode == "POST":
         return client.post(url, json=json.loads(data))
-    elif mode == "PATCH":
+    if mode == "PATCH":
         return client.patch(url, json=json.loads(data))
+    return RuntimeError(f"Req not supported with mode {mode}")

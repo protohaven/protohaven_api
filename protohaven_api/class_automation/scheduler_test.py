@@ -10,6 +10,13 @@ from protohaven_api.class_automation import scheduler as s
 from protohaven_api.config import tz, tznow
 
 
+def d(i, h=0):
+    """Returns a date based on an integer, for testing"""
+    return datetime.datetime(year=2025, month=1, day=1) + datetime.timedelta(
+        days=i, hours=h
+    )
+
+
 def t(hour, weekday=0):
     """Create a datetime object from hour and weekday"""
     return tz.localize(
@@ -116,7 +123,7 @@ def test_push_schedule(mocker):
 def test_gen_class_and_area_stats_exclusions():
     """Verify that exclusions account for the time before and after a run of a class
     that should be avoided when schedling new classes"""
-    got, _, _ = s.gen_class_and_area_stats(
+    exclusions, _, _ = s.gen_class_and_area_stats(
         [
             {
                 "fields": {
@@ -138,6 +145,56 @@ def test_gen_class_and_area_stats_exclusions():
         parse_date("2024-02-01T00:00:00-04:00"),
         parse_date("2024-05-01T00:00:00-05:00"),
     )
-    assert [
-        (d1.strftime("%Y-%m-%d"), d2.strftime("%Y-%m-%d")) for d1, d2 in got["r1"]
-    ] == [("2024-03-02", "2024-05-01"), ("2024-01-31", "2024-03-31")]
+    assert [tuple([d.strftime("%Y-%m-%d") for d in dd]) for dd in exclusions["r1"]] == [
+        ("2024-03-02", "2024-05-01", "2024-04-01"),
+        ("2024-01-31", "2024-03-31", "2024-03-01"),
+    ]
+
+
+def test_filter_same_classday():
+    got = s.filter_same_classday(
+        "inst",
+        [(d(i * 7, 16).isoformat(), None) for i in range(4)],
+        [
+            {
+                "fields": {
+                    "Start Time": d(7, 12).isoformat(),
+                    "Days (from Class)": [2],
+                    "Instructor": "inst",
+                }
+            },
+            {
+                "fields": {
+                    "Start Time": d(0, 12).isoformat(),
+                    "Days (from Class)": [1],
+                    "Instructor": "ignored",
+                }
+            },
+        ],
+    )
+    assert got == [(d(i, 16).isoformat(), None) for i in (0, 21)]
+
+
+def test_fetch_formatted_availability(mocker):
+    mocker.patch.object(
+        s.airtable,
+        "get_instructor_availability",
+        return_value=[
+            {
+                "id": "rowid",
+                "fields": {
+                    "Instructor (from Instructor)": "foo",
+                    "Start": d(0, 16).isoformat(),
+                    "End": d(0, 19).isoformat(),
+                    "Recurrence": "RRULE:FREQ=DAILY",
+                },
+            }
+        ],
+    )
+    got = s.fetch_formatted_availability(["foo"], d(0), d(2, 0))
+    assert got == {
+        "foo": [
+            [d(0, 16).isoformat(), d(0, 19).isoformat()],
+            [d(1, 16).isoformat(), d(1, 19).isoformat()],
+        ]
+    }

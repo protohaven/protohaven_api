@@ -6,6 +6,7 @@ from collections import defaultdict
 from functools import cache
 
 from dateutil import parser as dateparser
+from dateutil.rrule import rrulestr
 
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -74,6 +75,12 @@ def update_record(data, base, tbl, rec):
     status, content = get_connector().airtable_request(
         "PATCH", base, tbl, rec=rec, data=json.dumps(post_data)
     )
+    return status, json.loads(content) if content else None
+
+
+def delete_record(base, tbl, rec):
+    """Deletes a record in a named table"""
+    status, content = get_connector().airtable_request("DELETE", base, tbl, rec=rec)
     return status, json.loads(content) if content else None
 
 
@@ -380,3 +387,131 @@ def create_fees(fees):
 def pay_fee(fee_id):
     """Mark fee as paid"""
     raise NotImplementedError()
+
+
+def _day_trunc(d):
+    return d.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_instructor_availability(inst):
+    """Fetches all rows from Availability airtable matching `inst` as instructor"""
+    inst = inst.strip().lower()
+    for row in get_all_records("class_automation", "availability"):
+        if row["fields"]["Instructor (from Instructor)"][0].strip().lower() == inst:
+            yield row
+
+
+MAX_EXPANSION = 1000
+
+
+def expand_instructor_availability(rows, t0, t1):
+    """Given the `Availability` Airtable as `rows` and interval `t0` to
+    `t1`, return all events within the interval
+    as (airtable_id, start_time, end_time) tuples
+    """
+    for row in rows:
+        start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
+            row["fields"]["End"]
+        )
+        rr = row["fields"].get("Recurrence", "")
+        if rr is None or rr == "":
+            yield row["id"], max(start0, t0), min(end0, t1)
+        else:
+            i = 0
+            for start, end in zip(
+                rrulestr(rr, dtstart=start0), rrulestr(rr, dtstart=end0)
+            ):
+                i += 1
+                if i > MAX_EXPANSION:
+                    log.error(
+                        "MAX_EXPANSION exceeded for expanding instructor availability: %s",
+                        f" {row}\nfrom\n{t0}\nto\n{t1}",
+                    )
+                    break
+                if start > t1:  # Stop iterating once we've slid past the interval
+                    break
+                if end < t0:  # Advance until we get dates within the interval
+                    continue
+                yield row["id"], max(start, t0), min(end, t1)
+
+
+def add_availability(inst_id, start, end, recurrence=""):
+    """Adds an optionally-recurring availability row to the Availability airtable"""
+    _, content = insert_records(
+        [
+            {
+                "Instructor": [inst_id],
+                "Start": start.isoformat(),
+                "End": end.isoformat(),
+                "Recurrence": recurrence,
+            }
+        ],
+        "class_automation",
+        "availability",
+    )
+    return json.loads(content)["records"][0]
+
+
+def update_availability(
+    rec, inst_id, start, end, recurrence
+):  # pylint: disable=too-many-arguments
+    """Updates a specific availability record"""
+    _, content = update_record(
+        {
+            "Instructor": [inst_id],
+            "Start": start.isoformat(),
+            "End": end.isoformat(),
+            "Recurrence": recurrence,
+        },
+        "class_automation",
+        "availability",
+        rec,
+    )
+    return content
+
+
+def delete_availability(rec):
+    """Removes an Availability record"""
+    _, content = delete_record("class_automation", "availability", rec)
+    return content
+
+
+def trim_availability(rec, cut_start=None, cut_end=None):
+    """Similar to string.slice() in javascript, supports removing a section
+    of a repeating Availability record. The one or two result records
+    are returned"""
+    raise NotImplementedError("Need to refactor to support RRULE")
+    # if cut_start is None:  # No start means delete
+    #     delete_record("class_automation", "availability", rec)
+    #     return (None, None)
+    # r = get_record("class_automation", "availability", rec)
+
+    # # We'll always be truncating the record beginning at cut_start
+    # r2 = update_record(
+    #     {"Interval End": cut_start}, "class_automation", "availability", rec
+    # )
+
+    # # If we don't have an end, we're done.
+    # if cut_end is None:
+    #     return (r2, None)
+
+    # # Otherwise we're slicing the record in two and leaving a gap; add a new one as suffix
+    # start0, end0 = dateparser.parse(r["fields"]["Start"]), dateparser.parse(
+    #     r["fields"]["End"]
+    # )
+    # interval = r["fields"]["Interval"]
+    # i = (
+    #     (_day_trunc(cut_end) - _day_trunc(start0)).days // interval
+    #     if interval > 0
+    #     else 0
+    # )
+    # offs = timedelta(days=i * interval)
+    # assert offs.days >= 0
+    # r3 = add_availability(
+    #     r["fields"]["Instructor"][0],
+    #     start0 + offs,
+    #     end0 + offs,
+    #     recurrence,
+    # )
+
+    # return (r2, r3)

@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Blueprint, render_template, request, Response
+from flask import Blueprint, Response, render_template, request
 
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.rbac import Role, require_login_role
@@ -15,8 +15,13 @@ log = logging.getLogger("handlers.admin")
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.ADMIN)
 def user_clearances():
-    """CRUD operations for member clearances - used to update clearances when instructor submits logs"""
-    emails = [e.strip() for e in request.values.get("emails", "").split(",") if e.strip() != '']
+    """CRUD operations for member clearances.
+    used to update clearances when instructor submits logs"""
+    emails = [
+        e.strip()
+        for e in request.values.get("emails", "").split(",")
+        if e.strip() != ""
+    ]
     if len(emails) == 0:
         return Response("Missing required param 'emails'", status=400)
     results = {}
@@ -51,7 +56,7 @@ def user_clearances():
             codes -= set(delta)
         try:
             content = neon.set_clearances(neon_id, codes)
-            log.info("Neon response: " + str(content))
+            log.info("Neon response: %s", str(content))
         except RuntimeError as e:
             return Response(str(e), status=500)
         results[e] = "OK"
@@ -73,7 +78,6 @@ def set_discord_nick():
     if name == "" or nick == "":
         return "Bad argument: want ?name=foo&nick=bar"
     result = comms.set_discord_nickname(name, nick)
-    print(result)
     if result is False:
         return f"Member '{name}' not found"
     return f"Member '{name}' now nicknamed '{nick}'"

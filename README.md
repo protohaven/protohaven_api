@@ -30,7 +30,7 @@ LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=dev flask --app pro
 LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=prod flask --app protohaven_api.main run
 ```
 
-In either mode, the server is available at http://localhost:5000. 
+In either mode, the server is available at http://localhost:5000.
 
 ## Running the CLI
 
@@ -42,6 +42,22 @@ pip install -e .
 
 # Run the command
 python3 -m protohaven_api.cli project_requests
+```
+
+## Running tests and full lint
+
+# These commands are close copies of the ones run by GitHub workflows as pre-submission checks
+
+Unit tests:
+
+```
+PH_CONFIG=test_config.yaml python -m pytest -v
+```
+
+Linter check, all files:
+
+```
+pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error
 ```
 
 ## Server installation

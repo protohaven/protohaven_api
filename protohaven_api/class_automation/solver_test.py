@@ -1,7 +1,15 @@
 """Test behavior of linear solver for class scheduling"""
 import datetime
+from collections import namedtuple
+
+import pytest
 
 from protohaven_api.class_automation import solver as s  # pylint: disable=import-error
+
+
+def idfn(tc):
+    """Extract description from named tuple for parameterization"""
+    return tc.desc
 
 
 def d(i, h=0):
@@ -11,29 +19,48 @@ def d(i, h=0):
     )
 
 
-def test_has_area_conflict():
+Tc = namedtuple("TC", "desc,area_occupancy,t_start,t_end,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("Perfect overlap", [(d(0, 0), d(0, 3), "a")], d(0, 0), d(0, 3), "a"),
+        Tc("Slightly before", [(d(0, 1), d(0, 4), "a")], d(0, 0), d(0, 3), "a"),
+        Tc("Slightly after", [(d(0, 0), d(0, 3), "a")], d(0, 1), d(0, 4), "a"),
+        Tc("Enclosed", [(d(0, 0), d(0, 3), "a")], d(0, 1), d(0, 2), "a"),
+        Tc("Enclosing", [(d(0, 1), d(0, 2), "a")], d(0, 0), d(0, 3), "a"),
+        Tc("Directly before", [(d(0, 3), d(0, 6), "a")], d(0, 0), d(0, 3), False),
+        Tc("Directly after", [(d(0, 0), d(0, 3), "a")], d(0, 3), d(0, 6), False),
+        Tc("Different day", [(d(1, 0), d(1, 3), "a")], d(0, 0), d(0, 3), False),
+    ],
+    ids=idfn,
+)
+def test_has_area_conflict(tc):
     """Verify behavior of date math in has_area_conflict"""
-    # Perfect overlap
-    assert s.has_area_conflict([(d(0, 0), d(0, 3))], d(0, 0), d(0, 3)) is True
-    # Slightly before
-    assert s.has_area_conflict([(d(0, 1), d(0, 4))], d(0, 0), d(0, 3)) is True
-    # Slightly after
-    assert s.has_area_conflict([(d(0, 0), d(0, 3))], d(0, 1), d(0, 4)) is True
-    # Enclosed
-    assert s.has_area_conflict([(d(0, 0), d(0, 3))], d(0, 1), d(0, 2)) is True
-    # Enclosing
-    assert s.has_area_conflict([(d(0, 1), d(0, 2))], d(0, 0), d(0, 3)) is True
-    # Directly before
-    assert s.has_area_conflict([(d(0, 3), d(0, 6))], d(0, 0), d(0, 3)) is False
-    # Directly after
-    assert s.has_area_conflict([(d(0, 0), d(0, 3))], d(0, 3), d(0, 6)) is False
-    # Different day
-    assert s.has_area_conflict([(d(1, 0), d(1, 3))], d(0, 0), d(0, 3)) is False
+    assert s.has_area_conflict(tc.area_occupancy, tc.t_start, tc.t_end) == tc.want
+
+
+Tc2 = namedtuple("TC", "desc,d,exclusions,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc2("Simple containment", d(0, 12), [(d(0), d(1), "foo")], "foo"),
+        Tc2("Too late", d(2), [(d(0), d(1), "foo")], False),
+        Tc2("Too early", d(-1), [(d(0), d(1), "foo")], False),
+    ],
+    ids=idfn,
+)
+def test_date_within_exclusions(tc):
+    """Verify behavior of date math in date_within_exclusions"""
+    assert s.date_within_exclusions(tc.d, tc.exclusions) == tc.want
 
 
 def test_solve_simple():
     """An instructor can schedule a class at a time"""
-    got, score = s.solve(
+    got, score, _ = s.solve(
         classes=[s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7)],
         instructors=[s.Instructor("A", [1], [d(0)])],
         area_occupancy={},
@@ -43,7 +70,7 @@ def test_solve_simple():
 
 
 def test_solve_complex():
-    """Run an example set of classes and instructors through the solver"""
+    """Run an example set of classes and instructors through the solver; assert no exceptions"""
     classes = [
         s.Class(*v)
         for v in [
@@ -71,42 +98,45 @@ def test_solve_complex():
     ]
 
     area_occupancy = {}
-
     s.solve(classes, people, area_occupancy)
-    # (schedule, score) = solve(classes, people)
 
 
 def test_solve_no_area_overlap():
     """When an instructor attempts to schedule a class, the solver prefers
     not offering the class instead of scheduling it in an occupied area"""
-    pd = (d(1), d(1, 3))
-    got, score = s.solve(
+    pd = (d(1), d(1, 3), "pd")
+    got, score, skips = s.solve(
         classes=[s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7)],
         instructors=[s.Instructor("A", [1], [pd[0]])],
         area_occupancy={"textiles": [pd]},
     )
     assert not got
     assert score == 0
+    assert skips == {
+        "a": {"Area already occupied by other class": [(d(1), d(1), "pd")]}
+    }
 
 
 def test_solve_exclusion():
     """When an instructor attempts to schedule a class, the solver prefers not
     offering the class instead of running it in an exclusion region"""
-    pd = (d(1), d(1, 3))
-    c = s.Class(1, "Embroidery", 1, ["textiles"], [[d(0), d(2)]], 0.7)
-    got, score = s.solve(
+    c = s.Class(1, "Embroidery", 1, ["textiles"], [[d(-2), d(2), d(0)]], 0.7)
+    got, score, skips = s.solve(
         classes=[c],
-        instructors=[s.Instructor("A", [1], [pd[0]])],
+        instructors=[s.Instructor("A", [1], [d(1)])],
         area_occupancy={},
     )
     assert not got
     assert score == 0
+    assert skips == {
+        "a": {"Too soon before/after same class": [(d(1), d(0), "Embroidery")]}
+    }
 
 
 def test_solve_no_concurrent_overlap():
     """Verify classes do not overlap the same area at the same time
     when scheduled concurrently. Higher score classes win."""
-    got, score = s.solve(
+    got, score, _ = s.solve(
         classes=[
             s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
             s.Class(2, "Embroidery but cooler", 1, ["textiles"], [], 0.8),
@@ -124,7 +154,7 @@ def test_solve_no_concurrent_overlap():
 def test_solve_no_double_booking():
     """An instructor should only be scheduled one class at a given time.
     Higher score classes should be preferred"""
-    got, score = s.solve(
+    got, score, _ = s.solve(
         classes=[
             s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
             s.Class(2, "Lasers", 1, ["lasers"], [], 0.8),
@@ -140,7 +170,7 @@ def test_solve_no_double_booking():
 
 def test_solve_at_most_once():
     """Classes run at most once per run of the solver"""
-    got, score = s.solve(
+    got, score, _ = s.solve(
         classes=[
             s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
         ],

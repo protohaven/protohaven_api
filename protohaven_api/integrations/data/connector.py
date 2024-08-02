@@ -6,7 +6,6 @@ import logging
 import random
 import smtplib
 import time
-from dataclasses import dataclass
 from email.mime.text import MIMEText
 from threading import Lock
 
@@ -18,7 +17,9 @@ from square.client import Client as SquareClient
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
 from protohaven_api.integrations.data import dev_airtable, dev_neon
-from protohaven_api.integrations.data.loader import mock_data
+from protohaven_api.integrations.data.loader import (  # pylint: disable=unused-import
+    mock_data,
+)
 
 log = logging.getLogger("integrations.data.connector")
 
@@ -98,11 +99,11 @@ class Connector:
                 if self.dev:
                     rep = dev_airtable.handle(mode, url, data)
                     return rep.status_code, rep.data
-                else:
-                    rep = requests.request(
-                        mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
-                    )
-                    return rep.status_code, rep.content
+
+                rep = requests.request(
+                    mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
+                )
+                return rep.status_code, rep.content
             except requests.exceptions.ReadTimeout as rt:
                 if mode != "GET" or i == NUM_READ_ATTEMPTS - 1:
                     raise rt
@@ -111,7 +112,7 @@ class Connector:
                     f"{rec} {suffix}, retry #{i+1}"
                 )
                 time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
-        return None
+        return None, None
 
     def _google_form_submit_dev(self, url, params):
         """Dev handler for submitting google forms"""

@@ -5,7 +5,6 @@ import logging
 import re
 import time
 import urllib
-from dataclasses import dataclass
 from functools import cache
 
 from bs4 import BeautifulSoup

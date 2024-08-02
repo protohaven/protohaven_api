@@ -54,7 +54,8 @@ def require_login(fn):
 
 
 def get_roles():
-    """Gets all the roles accessible by the incoming request/user - the payload and headers are searched for API keys"""
+    """Gets all the roles accessible by the incoming request/user.
+    The payload and headers are searched for API keys"""
     api_key = request.values.get("api_key", None)
     if not api_key:
         api_key = request.headers.get("X-Protohaven-APIKey", None)

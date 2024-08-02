@@ -3,7 +3,6 @@
 import datetime
 import logging
 import pickle
-import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
@@ -14,8 +13,8 @@ from protohaven_api.class_automation import comms  # pylint: disable=import-erro
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
-
 log = logging.getLogger("class_automation.builder")
+
 
 def get_account_email(account_id):
     """Gets the matching email for a Neon account, by ID"""
@@ -38,14 +37,16 @@ def gen_scheduling_reminders(start, end):
     for cls in airtable.get_class_automation_schedule():
         d = dateparser.parse(cls["fields"]["Start Time"])
         if start <= d <= end:
-           already_scheduled[cls["fields"]["Email"].lower()] = True
-    log.info(f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}")
+            already_scheduled[cls["fields"]["Email"].lower()] = True
+    log.info(
+        f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
+    )
 
     for name, email in airtable.get_instructor_email_map(
         require_teachable_classes=True
     ).items():
         if already_scheduled[email.lower()]:
-            continue # Don't nag folks that already have their classes set up
+            continue  # Don't nag folks that already have their classes set up
 
         subject, body = comms.instructor_schedule_classes(name, start, end)
         results.append(
@@ -61,9 +62,10 @@ def gen_scheduling_reminders(start, end):
     subject, body = comms.automation_summary(
         {"id": "N/A", "name": "summary", "events": summary}
     )
-    results.append(
-        {"id": "", "target": "#class-automation", "subject": subject, "body": body}
-    )
+    if len(results) > 0:
+        results.append(
+            {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+        )
     return results
 
 
@@ -187,9 +189,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     notify_instructors = True  # @param {type:"boolean"}
     notify_registrants = True  # @param {type:"boolean"}
 
-    def __init__(self, log=logging.getLogger(), use_cache=True):
+    def __init__(self, _log=logging.getLogger(), use_cache=True):
         self.use_cache = use_cache
-        self.log = log
+        self.log = _log
         self.for_techs = []
         self.actionable_classes = []  # (evt, action)
         self.summary = defaultdict(lambda: {"action": set(), "targets": set()})

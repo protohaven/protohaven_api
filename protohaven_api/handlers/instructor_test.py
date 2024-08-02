@@ -206,9 +206,7 @@ def test_class_details_both_email_and_session(mocker, client):
 
 def test_get_instructor_readiness_all_bad(mocker):
     mocker.patch.object(instructor, "airtable")
-    mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = None
-    instructor.schedule.fetch_instructor_schedules.return_value = {}
     result = instructor.get_instructor_readiness(
         [
             {
@@ -225,13 +223,13 @@ def test_get_instructor_readiness_all_bad(mocker):
         ]
     )
     assert result == {
+        "airtable_id": None,
         "neon_id": 12345,
         "fullname": "First Last",
         "active_membership": "Inactive",
         "discord_user": "missing",
         "email": "2 duplicate accounts in Neon",
         "capabilities_listed": "missing",
-        "in_calendar": "missing",
         "paperwork": "unknown",
         "profile_img": None,
         "bio": None,
@@ -240,18 +238,15 @@ def test_get_instructor_readiness_all_bad(mocker):
 
 def test_get_instructor_readiness_all_ok(mocker):
     mocker.patch.object(instructor, "airtable")
-    mocker.patch.object(instructor, "schedule")
     instructor.airtable.fetch_instructor_capabilities.return_value = {
+        "id": "inst_id",
         "fields": {
             "Class": [1, 2, 3],
             "W9 Form": "<file>",
             "Direct Deposit Info": "<file>",
             "Profile Pic": [{"url": "<url>"}],
             "Bio": "test bio",
-        }
-    }
-    instructor.schedule.fetch_instructor_schedules.return_value = {
-        "First Last": [1, 2, 3]
+        },
     }
     result = instructor.get_instructor_readiness(
         [
@@ -265,13 +260,13 @@ def test_get_instructor_readiness_all_ok(mocker):
         ]
     )
     assert result == {
+        "airtable_id": "inst_id",
         "neon_id": 12345,
         "fullname": "First Last",
         "active_membership": "OK",
         "discord_user": "OK",
         "email": "OK",
         "capabilities_listed": "OK",
-        "in_calendar": "OK",
         "paperwork": "OK",
         "profile_img": "<url>",
         "bio": "test bio",

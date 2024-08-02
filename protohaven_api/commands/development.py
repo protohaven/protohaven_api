@@ -45,7 +45,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         arg("--path", help="Path to destination file", type=str, required=True),
         arg("--after", help="Earliest date for event data", type=str, required=True),
     )
-    def gen_mock_data(self, args):
+    def gen_mock_data(self, args):  # pylint: disable=too-many-locals
         """Fetch mock data from airtable, neon etc.
         Write this to a file for running without touching production data"""
         log.info("Fetching events from neon...")

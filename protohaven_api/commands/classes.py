@@ -173,8 +173,9 @@ class Commands:
         """Run the class scheduler on a provided env"""
         with open(args.path, "r", encoding="utf-8") as f:
             env = yaml.safe_load(f.read())
-        instructor_classes, final_score = scheduler.solve_with_env(env)
+        instructor_classes, final_score, skip_counters = scheduler.solve_with_env(env)
         log.info(f"Final score: {final_score}")
+        log.info(f"Skip counters: {skip_counters}")
         print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
 
     @command(
