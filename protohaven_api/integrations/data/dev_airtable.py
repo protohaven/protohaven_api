@@ -29,7 +29,7 @@ def _tbl_lookup(_id):
 @app.route("/v0/<base>/<tbl>", methods=["GET", "POST"])
 def recordless_op(base, tbl):
     """Perform CRUD operations on canned data, without referencing a record"""
-    tbl = mock_data["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]
+    tbl = mock_data()["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]
     if request.method == "GET":
         return {"records": tbl}
     if request.method == "POST":
@@ -46,7 +46,7 @@ def recordless_op(base, tbl):
 def single_record_op(base, tbl, rec):
     """Perform CRUD operations on canned data for a single record"""
     r = {}
-    for r in mock_data["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]:
+    for r in mock_data()["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]:
         if r["id"] == rec:
             break
     if r["id"] != rec:

@@ -6,6 +6,7 @@ comms:
 airtable:
 calendar:
 square:
+  location: ""
 asana:
 sheets:
 booked:

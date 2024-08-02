@@ -95,7 +95,7 @@ def _neon_dev_search_filter(field, operator, value):
 def get_event(event_id):
     """Mock event endpoint for Neon"""
     if request.method == "GET":
-        for e, v in mock_data["neon"]["events"].items():
+        for e, v in mock_data()["neon"]["events"].items():
             if str(e) == str(event_id):
                 return v
         return Response("Event not found", status=404)
@@ -106,7 +106,7 @@ def get_event(event_id):
 def get_events():
     """Mock events endpoint for Neon"""
     return {
-        "events": mock_data["neon"]["events"],
+        "events": mock_data()["neon"]["events"],
         "pagination": {"totalPages": 1},
     }
 
@@ -126,7 +126,7 @@ def get_event_registrations(event_id):
 @app.route("/v2/events/<event_id>/attendees")
 def get_attendees(event_id):
     """Mock event attendees endpoint for Neon"""
-    a = mock_data["neon"]["attendees"].get(int(event_id))
+    a = mock_data()["neon"]["attendees"].get(int(event_id))
     if not a:
         return Response("Event not found", status=404)
     return {"attendees": a, "pagination": {"totalResults": len(a), "totalPages": 1}}
@@ -138,7 +138,7 @@ def search_accounts():
     data = request.json
     filters = [_neon_dev_search_filter(**f) for f in data["searchFields"]]
     results = []
-    for a in mock_data["neon"]["accounts"].values():
+    for a in mock_data()["neon"]["accounts"].values():
         if False not in [f(a) for f in filters]:
             result = {}
             for k in data["outputFields"]:
@@ -161,7 +161,7 @@ def search_accounts():
 @app.route("/v2/accounts/<account_id>", methods=["GET", "PATCH"])
 def get_account(account_id):
     """Mock account lookup endpoint for Neon"""
-    a = mock_data["neon"]["accounts"].get(int(account_id))
+    a = mock_data()["neon"]["accounts"].get(int(account_id))
     if not a:
         return Response("Account not found", status=404)
 
@@ -173,7 +173,7 @@ def get_account(account_id):
 @app.route("/v2/accounts/<account_id>/memberships")
 def get_account_memberships(account_id):
     """Mock account membership endpoint for Neon"""
-    m = mock_data["neon"]["memberships"].get(int(account_id))
+    m = mock_data()["neon"]["memberships"].get(int(account_id))
     if not m:
         return Response("Memberships not found for account", status=404)
     return m

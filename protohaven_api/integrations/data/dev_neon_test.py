@@ -1,26 +1,31 @@
 # pylint: skip-file
 import json
 
-from protohaven_api.integrations.data.dev_neon import handle
+from protohaven_api.integrations.data import dev_neon as n
 
 
-def test_get_events_dev():
-    rep = handle("https://api.neoncrm.com/v2/events")
+def test_get_events_dev(mocker):
+    with mocker.patch.object(
+        n, "mock_data", return_value={"neon": {"events": [1, 2, 3]}}
+    ):
+        rep = n.handle("https://api.neoncrm.com/v2/events")
     assert rep.status_code == 200
     data = rep.get_json()
     assert isinstance(data["events"], list)
     assert len(data["events"]) > 0
 
 
-def test_get_event_dev():
-    e = handle("/events").get_json()["events"][0]
-
-    got = handle(f"/events/{e['id']}")
+def test_get_event_dev(mocker):
+    with mocker.patch.object(
+        n, "mock_data", return_value={"neon": {"events": {1: {"id": 1}}}}
+    ):
+        e = list(n.handle("/v2/events").get_json()["events"].values())[0]
+        got = n.handle(f"/v2/events/{e['id']}")
     assert got.status_code == 200
     assert got.get_json()["id"] == e["id"]
 
 
-def test_search_accounts_dev():
+def test_search_accounts_dev(mocker):
     data = {
         "searchFields": [
             {
@@ -39,12 +44,28 @@ def test_search_accounts_dev():
         },
     }
     # Matches _paginated_account_search in integrations.neon
-    rep = handle(
-        "/accounts/search",
-        "POST",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
+    with mocker.patch.object(
+        n,
+        "mock_data",
+        return_value={
+            "neon": {
+                "accounts": {
+                    123: {
+                        "individualAccount": {
+                            "accountId": 123,
+                            "primaryContact": {"firstName": "Test"},
+                        }
+                    }
+                }
+            }
+        },
+    ):
+        rep = n.handle(
+            "/v2/accounts/search",
+            "POST",
+            body=json.dumps(data),
+            headers={"content-type": "application/json"},
+        )
     assert rep.status_code == 200
     got = rep.get_json()["searchResults"]
     assert len(got) > 0

@@ -47,13 +47,8 @@ def test_get_all_records(mocker):
     )
     mocker.patch.object(a, "get_connector")
     a.get_connector().airtable_request.side_effect = [
-        mocker.MagicMock(
-            status_code=200,
-            content=json.dumps({"records": ["foo", "bar", "baz"], "offset": 1}),
-        ),
-        mocker.MagicMock(
-            status_code=200, content=json.dumps({"records": ["fizz", "buzz"]})
-        ),
+        (200, json.dumps({"records": ["foo", "bar", "baz"], "offset": 1})),
+        (200, json.dumps({"records": ["fizz", "buzz"]})),
     ]
     assert a.get_all_records("test_base", "test_tbl", suffix="a=test_suffix") == [
         "foo",
