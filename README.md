@@ -44,6 +44,22 @@ pip install -e .
 python3 -m protohaven_api.cli project_requests
 ```
 
+## Running tests and full lint
+
+# These commands are close copies of the ones run by GitHub workflows as pre-submission checks
+
+Unit tests:
+
+```
+PH_CONFIG=test_config.yaml python -m pytest -v
+```
+
+Linter check, all files:
+
+```
+pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error
+```
+
 ## Server installation
 
 ```

@@ -62,9 +62,10 @@ def gen_scheduling_reminders(start, end):
     subject, body = comms.automation_summary(
         {"id": "N/A", "name": "summary", "events": summary}
     )
-    results.append(
-        {"id": "", "target": "#class-automation", "subject": subject, "body": body}
-    )
+    if len(results) > 0:
+        results.append(
+            {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+        )
     return results
 
 

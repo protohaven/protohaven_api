@@ -12,4 +12,17 @@ def assert_matches_testdata(got, fname):
     assert data.strip() != ""
     print(got)
     print(data)
-    assert got.strip() == data.strip()
+    if got.strip() != data.strip():
+        raise AssertionError(
+            "Test data mismatch:\n\n"
+            + f"============== TEST DATA FROM {fname} ==============\n"
+            + data
+            + "\n"
+            + "=============== END TEST DATA FROM {fname} ============\n\n"
+            + "=============== TEST RESULT ==================\n"
+            + got
+            + "\n"
+            + "=============== END TEST RESULT ================\n\n"
+            + f"You'll need to copy the test result into {dirname}/{fname} "
+            + "to pass the test"
+        )

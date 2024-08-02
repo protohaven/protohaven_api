@@ -10,10 +10,24 @@ def test_airtable_read_retry(mocker):
     mocker.patch.object(
         con.requests,
         "request",
-        side_effect=[con.requests.exceptions.ReadTimeout("Whoopsie"), True],
+        side_effect=[
+            con.requests.exceptions.ReadTimeout("Whoopsie"),
+            mocker.MagicMock(status_code=200, content=True),
+        ],
     )
     c = con.Connector(dev=False)
-    assert c.airtable_request("GET", "tools_and_equipment", "tools") is True
+    c.cfg = {
+        "airtable": {
+            "tools_and_equipment": {
+                "token": "ASDF",
+                "base_id": "GHJK",
+                "tools": "TOOLS",
+            }
+        }
+    }
+    status, content = c.airtable_request("GET", "tools_and_equipment", "tools")
+    assert status == 200
+    assert content is True
     con.time.sleep.assert_called()
 
 
@@ -30,5 +44,14 @@ def test_airtable_read_max_retries(mocker):
         ],
     )
     c = con.Connector(dev=False)
+    c.cfg = {
+        "airtable": {
+            "tools_and_equipment": {
+                "token": "ASDF",
+                "base_id": "GHJK",
+                "tools": "TOOLS",
+            }
+        }
+    }
     with pytest.raises(con.requests.exceptions.ReadTimeout):
         c.airtable_request("GET", "tools_and_equipment", "tools")

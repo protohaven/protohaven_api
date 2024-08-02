@@ -28,7 +28,7 @@ def test_set_booked_resource_id(mocker):
             "tools": "tools_id",
         },
     )
-    a.get_connector().airtable_request.return_value = mocker.MagicMock(content="{}")
+    a.get_connector().airtable_request.return_value = (200, "{}")
     a.set_booked_resource_id("airtable_id", "resource_id")
     fname, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
     assert kwargs["data"] == json.dumps({"fields": {"BookedResourceId": "resource_id"}})
