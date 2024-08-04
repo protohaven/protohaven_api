@@ -515,3 +515,38 @@ def trim_availability(rec, cut_start=None, cut_end=None):
     # )
 
     # return (r2, r3)
+
+
+def get_forecast_overrides():
+    """Gets all overrides for the shop tech shift forecast"""
+    for r in get_all_records("people", "shop_tech_forecast_overrides"):
+        if r["fields"].get("Shift Start", None) is None:
+            continue
+        d = dateparser.parse(r["fields"]["Shift Start"]).astimezone(tz)
+        ap = "AM" if d.hour < 12 else "PM"
+        print("Shift start", d, "AP", ap)
+        techs = r["fields"].get("Override", "").split("\n")
+        yield f"{d.strftime('%Y-%m-%d')} {ap}", (
+            r["id"],
+            techs if techs != [""] else [],
+        )
+
+
+def delete_forecast_override(rec):
+    """Deletes a shift override by its id"""
+    _, content = delete_record("people", "shop_tech_forecast_overrides", rec)
+    return content
+
+
+def set_forecast_override(rec, date, ap, techs):
+    """Upserts a shop tech shift override"""
+    ap = ap.lower()
+    date = (
+        dateparser.parse(date)
+        .astimezone(tz)
+        .replace(hour=10 if ap.lower() == "am" else 16, minute=0, second=0)
+    )
+    data = {"Shift Start": date.isoformat(), "Override": "\n".join(techs)}
+    if rec is not None:
+        return update_record(data, "people", "shop_tech_forecast_overrides", rec)
+    return insert_records([data], "people", "shop_tech_forecast_overrides")

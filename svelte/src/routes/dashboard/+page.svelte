@@ -9,7 +9,7 @@ import Calendar from '$lib/dashboard/calendar.svelte';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
-import FetchError from '$lib/dashboard/fetch_error.svelte';
+import FetchError from '$lib/fetch_error.svelte';
 
 
 let start = new Date();

@@ -91,8 +91,13 @@ def require_login_role(role):
             if roles is None:
                 session["redirect_to_login_url"] = request.url
                 return redirect(url_for("auth.login_user_neon_oauth"))
-            if role["name"] in roles:
+            # Check for presence of role. Note that shop techs are a special case; leads can do
+            # anything that a shop tech is allowed to do
+            if role["name"] in roles or (
+                role == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles
+            ):
                 return fn(*args, **kwargs)
+
             return Response(
                 "Access Denied - if you think this is an error, try going to "
                 "https://api.protohaven.org/logout and then log in again.",

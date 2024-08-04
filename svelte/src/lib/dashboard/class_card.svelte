@@ -2,7 +2,7 @@
 import { onMount } from 'svelte';
 import { Button, Row, Tooltip, Col, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardFooter, CardBody, Input, Spinner, FormGroup, Dropdown, DropdownMenu, DropdownItem, DropdownToggle, Navbar, NavbarBrand, Nav, NavItem, Alert } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
-import FetchError from './fetch_error.svelte';
+import FetchError from '../fetch_error.svelte';
 
 export let eid;
 

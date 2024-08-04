@@ -3,6 +3,8 @@
 import {onMount} from 'svelte';
 import { Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
+import FetchError from '../fetch_error.svelte';
+
 import EditCell from './editable_td.svelte';
 
 let promise = new Promise((resolve) => {});
@@ -103,5 +105,5 @@ function clearance_click(id) {
   </CardBody>
 </Card>
 {:catch error}
-	TODO error {error.message}
+  <FetchError {error}/>
 {/await}

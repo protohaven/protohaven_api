@@ -426,7 +426,6 @@ def fetch_techs_list():
         ],
     ):
         clr = []
-        print("**********************", t)
         if t.get("Clearances") is not None:
             clr = t["Clearances"].split("|")
         interest = t.get("Interest", "")
@@ -450,7 +449,6 @@ def fetch_techs_list():
             }
         )
     techs.sort(key=lambda t: len(t["clearances"]))
-    print(techs)
     return techs
 
 

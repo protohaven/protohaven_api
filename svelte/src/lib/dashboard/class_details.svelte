@@ -4,7 +4,7 @@ import {onMount} from 'svelte';
 import { Table, Button, Row, Col, Card, CardHeader, Alert, CardTitle, CardSubtitle, CardText, Icon, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem } from '@sveltestrap/sveltestrap';
 import ClassCard from './class_card.svelte';
 import {get, post} from '$lib/api.ts';
-import FetchError from './fetch_error.svelte';
+import FetchError from '../fetch_error.svelte';
 
 let classes = [];
 let readiness = {};

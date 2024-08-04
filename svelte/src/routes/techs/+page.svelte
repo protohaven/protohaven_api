@@ -1,6 +1,8 @@
 <script type="ts">
   import '../../app.scss';
-  import { Spinner, Row, Card, Container, Navbar, NavbarBrand } from '@sveltestrap/sveltestrap';
+  import FetchError from '$lib/fetch_error.svelte';
+  import { Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
+  import {get} from '$lib/api.ts';
   import TechsList from '$lib/techs/techs_list.svelte';
   import ToolState from '$lib/techs/tool_state.svelte';
   import Shifts from '$lib/techs/shifts.svelte';
@@ -10,48 +12,42 @@
 
   let promise = new Promise((resolve, reject) => {});
   onMount(() => {
-    let base_url = "http://localhost:5000";
-    if (window.location.href.indexOf("localhost") === -1) {
-    let base_url = "https://api.protohaven.org";
+    const urlParams = new URLSearchParams(window.location.search);
+    let e= urlParams.get("email");
+    if (!e) {
+      promise = get("/whoami").then((data) => data.email).catch((e) => {
+        if (e.message.indexOf("You are not logged in") !== -1) {
+	  return "";
+        }
+	throw e;
+      });
+    } else {
+      promise = Promise.resolve(e);
     }
-    promise = Promise.resolve(base_url);
   });
 
 </script>
 
 
 <Navbar color="secondary-subtle">
-  <NavbarBrand>Techs Dashboard</NavbarBrand>
+  <NavbarBrand>
+  Techs Dashboard
+  </NavbarBrand>
+  <Nav navbar>
+  <NavItem>
+  	<NavLink href="/login?referrer=/techs">Login</NavLink>
+  </NavItem>
+  </Nav>
 </Navbar>
 
 {#await promise}
   <Spinner/>
-{:then base_url}
+{:then email}
   <ToolState/>
   <Shifts/>
-  <Forecast/>
+  <Forecast {email}/>
   <AreaLeads/>
-  <TechsList {base_url}/>
+  <TechsList/>
+{:catch error}
+  <FetchError {error}/>
 {/await}
-
-
-<style>
-		main {
-			width: 80vw;
-			padding: 15px;
-			margin: 0 auto;
-			display: -ms-flexbox;
-			display: -webkit-box;
-			display: flex;
-			flex-direction: column;
-			-ms-flex-align: center;
-			-ms-flex-pack: center;
-			-webkit-box-align: center;
-			align-items: center;
-			-webkit-box-pack: center;
-			justify-content: center;
-			padding-top: 40px;
-			padding-bottom: 40px;
-  			background-color: #f8f8f8;
-		}
-</style>
