@@ -2,7 +2,7 @@
   import { Button, Icon, Image, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardBody, CardFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
-  import FetchError from './fetch_error.svelte';
+  import FetchError from '../fetch_error.svelte';
 
   export let email;
   export let on_scheduler;

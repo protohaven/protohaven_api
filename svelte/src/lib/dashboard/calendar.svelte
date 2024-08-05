@@ -2,7 +2,7 @@
 import { onMount } from 'svelte';
 import {get, put, del, isodate, localtime, as_datetimelocal} from '$lib/api.ts';
 import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
-import FetchError from './fetch_error.svelte';
+import FetchError from '../fetch_error.svelte';
 import CalendarEdit from '$lib/dashboard/calendar_edit.svelte';
 
 export let inst;

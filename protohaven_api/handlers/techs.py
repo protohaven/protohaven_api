@@ -136,25 +136,28 @@ def _calendar_badge_color(num_people):
 
 def _create_calendar_view(
     start_date, shift_map, shift_term_map, time_off, forecast_len
-):  # pylint: disable=too-many-locals
+):  # pylint: disable=too-many-locals, too-many-nested-blocks
+    # This can be simplified after overrides have been rolled out; we can
+    # remove the time_off lookup
     calendar_view = []
+    overrides = dict(airtable.get_forecast_overrides())
     for i in range(forecast_len):
         day_view = []
         d = start_date + datetime.timedelta(days=i)
         for ap in ["AM", "PM"]:
+            dstr = d.strftime("%Y-%m-%d")
             s = f"{d.strftime('%A')} {ap}"
+
+            ovr, ovr_people, ovr_editor = overrides.get(
+                f"{dstr} {ap}", (None, None, None)
+            )
+
             people = shift_map.get(s, [])
             for cov in time_off:
-                if (
-                    cov["fields"]["Date"] == d.strftime("%Y-%m-%d")
-                    and cov["fields"]["Shift"] == ap
-                ):
-                    people = [
-                        p for p in people if p != cov["fields"]["Rendered Shop Tech"]
-                    ]
-                    if cov["fields"].get("Rendered Covered By"):
-                        people.append(cov["fields"]["Rendered Covered By"])
-
+                if cov["fields"]["Date"] == dstr and cov["fields"]["Shift"] == ap:
+                    people = [p for p in people if p != cov["fields"]["Shop Tech"]]
+                    if cov["fields"].get("Covered By"):
+                        people.append(cov["fields"]["Covered By"])
             final_people = []
             for p in people:  # remove if outside of the tech's tenure
                 first_day, last_day = shift_term_map.get(p, (None, None))
@@ -162,14 +165,18 @@ def _create_calendar_view(
                     last_day is None or last_day >= d
                 ):
                     final_people.append(p)
-            day_view.append(
-                {
-                    "title": f"{d.strftime('%a %m/%d')} {ap}",
-                    "color": _calendar_badge_color(len(people)),
-                    "people": final_people,
-                    "id": f"Badge{i}{ap}",
-                }
-            )
+
+            day = {
+                "ap": ap,
+                "date": dstr,
+                "title": f"{d.strftime('%a %m/%d')} {ap}",
+                "people": ovr_people or final_people,
+                "id": f"Badge{i}{ap}",
+            }
+            day["color"] = _calendar_badge_color(len(day["people"]))
+            if ovr:
+                day["ovr"] = {"id": ovr, "orig": final_people, "editor": ovr_editor}
+            day_view.append(day)
         calendar_view.append(day_view)
     return calendar_view
 
@@ -228,6 +235,29 @@ def techs_forecast():
         "coverage_missing": coverage_missing,
         "coverage_ok": coverage_ok,
     }
+
+
+@page.route("/techs/forecast/override", methods=["POST", "DELETE"])
+@require_login_role(Role.SHOP_TECH)
+def techs_forecast_override():
+    """Update/remove forecast overrides on shop tech forecast"""
+    data = request.json
+    if request.method == "POST":
+        status, content = airtable.set_forecast_override(
+            data.get("id"),
+            data["date"],
+            data["ap"],
+            data["techs"],
+            data.get("email"),
+            data.get("fullname"),
+        )
+        if status != 200:
+            return Response(content, status=status)
+        return content
+    if request.method == "DELETE":
+        return airtable.delete_forecast_override(data["id"])
+
+    return Response(f"Method {request.method} not supported", status=400)
 
 
 @page.route("/techs/list")

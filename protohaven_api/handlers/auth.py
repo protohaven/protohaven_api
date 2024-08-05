@@ -32,7 +32,11 @@ def user_fullname():
 @page.route("/login")
 def login_user_neon_oauth():
     """Redirect to Neon CRM oauth server"""
-    referrer = request.referrer
+    referrer = request.values.get(
+        "referrer"
+    )  # Start with GET param override as it's most explicit
+    if referrer is None:
+        referrer = request.referrer
     if referrer is None:
         referrer = session.get("redirect_to_login_url")
     if referrer is None or referrer == "/login":

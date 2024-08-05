@@ -343,3 +343,11 @@ def test_gen_comms_for_suspension_bounded():
     assert "suspended" in subject
     assert f"until {dt(4).strftime('%Y-%m-%d')}"
     assert "testname" in got
+
+
+def test_gen_comms_empty_array_if_nothing_interesting(mocker):
+    """Ensure that gen_comms isn't excessively noisy if there's nothing to noise about"""
+    mocker.patch.object(enforcer.airtable, "get_policy_sections", return_value=[])
+    mocker.patch.object(enforcer.airtable, "get_policy_fees", return_value=[])
+    got = enforcer.gen_comms([], [], [], [])
+    assert not got
