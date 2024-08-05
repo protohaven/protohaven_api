@@ -6,7 +6,7 @@ import Editor from './forecast_override.svelte';
 import FetchError from '../fetch_error.svelte';
 import {get, post} from '$lib/api.ts';
 
-export let email;
+export let user;
 let promise = new Promise((resolve) => {});
 function refresh() {
   promise = get("/techs/forecast")
@@ -16,7 +16,11 @@ onMount(refresh);
 let edit = null;
 
 function start_edit(s) {
-  edit = {ap: s.ap, date: s.date, techs: s.people, id: s.ovr};
+ let e = {ap: s.ap, date: s.date, techs: s.people, ...user};
+ if (s.ovr) {
+   e = {...e, id: s.ovr.id, orig: s.ovr.orig, editor: s.ovr.editor};
+ }
+  edit = e;
 }
 
 </script>
@@ -58,8 +62,8 @@ function start_edit(s) {
 			<Button color='info'>2 Techs</Button>
 			<Button color='warning'>1 Tech</Button>
 			<Button color='danger'>0 Techs</Button>
-			<em>* indicates overridden shift info</em>
     </p>
+    <p><em>* indicates overridden shift info</em></p>
     <p>Hover over a day for details on shift coverage:</p>
   </div>
   <div class="d-flex flex-wrap">
@@ -89,4 +93,4 @@ function start_edit(s) {
   </CardBody>
 </Card>
 
-<Editor {edit} {email} on_update={refresh}/>
+<Editor {edit} on_update={refresh}/>

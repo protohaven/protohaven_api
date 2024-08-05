@@ -529,6 +529,7 @@ def get_forecast_overrides():
         yield f"{d.strftime('%Y-%m-%d')} {ap}", (
             r["id"],
             techs if techs != [""] else [],
+            f"{r['fields'].get('Last Modified By', 'Unknown')} on {r['fields']['Last Modified']}",
         )
 
 
@@ -538,7 +539,9 @@ def delete_forecast_override(rec):
     return content
 
 
-def set_forecast_override(rec, date, ap, techs):
+def set_forecast_override(
+    rec, date, ap, techs, editor_email, editor_name
+):  # pylint: disable=too-many-arguments
     """Upserts a shop tech shift override"""
     ap = ap.lower()
     date = (
@@ -546,7 +549,11 @@ def set_forecast_override(rec, date, ap, techs):
         .astimezone(tz)
         .replace(hour=10 if ap.lower() == "am" else 16, minute=0, second=0)
     )
-    data = {"Shift Start": date.isoformat(), "Override": "\n".join(techs)}
+    data = {
+        "Shift Start": date.isoformat(),
+        "Override": "\n".join(techs),
+        "Last Modified By": f"{editor_name} ({editor_email})",
+    }
     if rec is not None:
         return update_record(data, "people", "shop_tech_forecast_overrides", rec)
     return insert_records([data], "people", "shop_tech_forecast_overrides")

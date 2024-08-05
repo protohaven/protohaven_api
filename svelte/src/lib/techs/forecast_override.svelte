@@ -4,14 +4,12 @@ import { Modal, ModalBody, ModalFooter, Button, ListGroup, ListGroupItem, Input,
 import {get, post, del} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
-export let edit = null; // obj with `date`, `ap`, `techs`
+export let edit = null; // obj with `date`, `ap`, `techs`, `orig`, `email`, `fullname`
 export let all_techs = get("/techs/list").then((data) => {
   let tt = data.techs.map((t) => { return {name: t.name, shift: t.shift}});
   tt.sort((a,b) => a.name > b.name);
-  console.log(tt);
   return tt;
 });
-export let email;
 export let on_update;
 
 function rm(tech) {
@@ -61,6 +59,15 @@ function revert() {
   {#if edit && edit.techs.length == 0}
     No techs on shift
   {/if}
+  {#if edit.id}
+	Original:
+	  {#each edit.orig as t}
+	    <ul>
+	      <li>{t}</li>
+	    </ul>
+	  {/each}
+      <hr/>
+  {/if}
   {#each edit.techs as t}
     <ListGroupItem><Button on:click={() => rm(t)}>X</Button>{t}</ListGroupItem>
   {/each}
@@ -88,6 +95,9 @@ function revert() {
   </ListGroup>
 </ModalBody>
 <ModalFooter>
+  {#if edit.id}
+  <div><em>Last edit: {edit.editor}</em></div>
+  {/if}
   {#await promise}
    <Spinner/>
   {:catch error}
