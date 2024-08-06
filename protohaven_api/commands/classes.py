@@ -211,11 +211,17 @@ class Commands:
             neon.set_event_scheduled_state(i, scheduled=False)
         log.info("Done")
 
-    def _apply_pricing(self, event_id, evt):
+    def _apply_pricing(self, event_id, evt, include_discounts):
         price = evt["fields"]["Price (from Class)"][0]
         qty = evt["fields"]["Capacity (from Class)"][0]
         log.debug(f"{event_id} {evt['fields']['Name (from Class)']} {price} {qty}")
-        neon.assign_pricing(event_id, price, qty, clear_existing=True)
+        neon.assign_pricing(
+            event_id,
+            price,
+            qty,
+            include_discounts=include_discounts,
+            clear_existing=True,
+        )
 
     @classmethod
     def neon_category_from_event_name(cls, name):
@@ -229,7 +235,9 @@ class Commands:
             return neon.Category.PROJECT_BASED_WORKSHOP
         return neon.Category.SKILLS_AND_SAFETY_WORKSHOP
 
-    def _schedule_event(self, event, desc, dry_run=True):
+    def _schedule_event(  # pylint: disable=too-many-arguments
+        self, event, desc, published=True, registration=True, dry_run=True
+    ):
         start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
         end = start + datetime.timedelta(hours=event["fields"]["Hours (from Class)"][0])
         days = event["fields"]["Days (from Class)"][0]
@@ -245,6 +253,8 @@ class Commands:
             category=self.neon_category_from_event_name(name),
             max_attendees=capacity,
             dry_run=dry_run,
+            published=published,
+            registration=registration,
         )
 
     @command(
@@ -262,16 +272,40 @@ class Commands:
         ),
         arg(
             "--ovr",
-            help="Schedule items with this ID will always be acted upon (repeatable)",
+            help="Only schedule items with this ID will always be acted upon (repeatable)",
             type=str,
             nargs="+",
             default=[],
+        ),
+        arg(
+            "--publish",
+            help="Publish the classes so they are visible in the event list",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+        arg(
+            "--registration",
+            help="Publish the classes so people can register to take them",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+        arg(
+            "--discounts",
+            help="Include AMP, Member, and Instructor discounts for all events",
+            action=argparse.BooleanOptionalAction,
+            default=True,
         ),
     )
     def post_classes_to_neon(
         self, args
     ):  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         """Post a list of classes to Neon"""
+        log.info(
+            f"Classes will {'NOT ' if not args.publish else ''}be published to the public list"
+        )
+        log.info(
+            f"Classes will {'NOT ' if not args.registration else ''}be open for registration"
+        )
         boilerplate = airtable.get_all_records("class_automation", "boilerplate")
         rules_and_expectations = [
             b["fields"]["Notes"]
@@ -290,16 +324,17 @@ class Commands:
         ][0]
 
         def format_class_description(cls, suf=" (from Class)"):
+            """Construct description of class from airtable columns; strip 'from Class' suffix"""
             result = (
                 markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
             )
             sections = []
             for col in (
-                "What you Will Create" + suf,
-                "What to Bring/Wear" + suf,
-                "Clearances Earned" + suf,
+                "What you Will Create",
+                "What to Bring/Wear",
+                "Clearances Earned",
             ):
-                body = cls["fields"].get(col, [""])[0]
+                body = cls["fields"].get(col + suf, [""])[0]
                 if body.strip() != "":
                     sections.append((col, body))
 
@@ -388,10 +423,12 @@ class Commands:
                 result_id = self._schedule_event(
                     event,
                     format_class_description(event),
-                    not args.apply,
+                    dry_run=not args.apply,
+                    published=args.publish,
+                    registration=args.registration,
                 )
                 log.info(f"- Neon event {result_id} created")
-                self._apply_pricing(result_id, event)
+                self._apply_pricing(result_id, event, args.discounts)
                 log.info("- Pricing applied")
                 airtable.update_record(
                     {"Neon ID": str(result_id)},
