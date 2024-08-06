@@ -839,6 +839,8 @@ def create_event(  # pylint: disable=too-many-arguments
     category=Category.PROJECT_BASED_WORKSHOP,
     max_attendees=6,
     dry_run=True,
+    published=True,
+    registration=True,
 ):
     """Creates a new event in Neon CRM"""
     event = {
@@ -846,8 +848,8 @@ def create_event(  # pylint: disable=too-many-arguments
         "summary": name,
         "maximumAttendees": max_attendees,
         "category": {"id": category},
-        "publishEvent": True,
-        "enableEventRegistrationForm": True,
+        "publishEvent": published,
+        "enableEventRegistrationForm": registration,
         "archived": False,
         "enableWaitListing": False,
         "createAccountsforAttendees": True,
@@ -1214,7 +1216,9 @@ pricing = [
 ]
 
 
-def assign_pricing(event_id, price, seats, clear_existing=False, n=None):
+def assign_pricing(  # pylint: disable=too-many-arguments
+    event_id, price, seats, clear_existing=False, include_discounts=True, n=None
+):
     """Assigns ticket pricing and quantities for a preexisting Neon event"""
     if n is None:
         n = NeonOne(cfg("login_user"), cfg("login_pass"))
@@ -1222,7 +1226,7 @@ def assign_pricing(event_id, price, seats, clear_existing=False, n=None):
     if clear_existing:
         n.delete_all_prices_and_groups(event_id)
 
-    for p in pricing:
+    for p in pricing if include_discounts else pricing[:1]:
         log.debug(f"Assign pricing: {p['name']}")
         group_id = n.upsert_ticket_group(
             event_id, group_name=p["name"], group_desc=p["desc"]
