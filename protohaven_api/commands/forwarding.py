@@ -88,7 +88,7 @@ class Commands:
         log.info(f"Found {num} open applications")
 
         if num > 0:
-            body = "The following applicants are waiting for a decision:\n"
+            body = "@TechLeads, the following applicants are waiting for a decision:\n"
             body += "\n".join(open_applicants)
             body += "\nDetails at https://app.asana.com/0/1203664351777333"
 
@@ -267,7 +267,7 @@ class Commands:
                     "subject": "New Private Instruction Request(s) in the past 24 hours",
                     "body": (
                         "\n".join(formatted_past_day)
-                        + "\n\nPlease go to "
+                        + "\n\n@PrivateInstructors, please go to "
                         + "https://app.asana.com/0/1203922725251220/1207896962249498 and assign "
                         + "yourself if you'd like to take any requests. If you lack access, ask "
                         + "one of the staff or education leads. Thanks!"
@@ -354,7 +354,7 @@ class Commands:
                         "subject": f"Staffing report for {shift} shift",
                         "body": (
                             (
-                                "No techs assigned this shift have signed in."
+                                "@TechLeads: no techs assigned this shift have signed in."
                                 if len(result) == 0
                                 else "\n".join(result)
                             )

@@ -86,7 +86,7 @@ class Commands:
             result = [
                 {
                     "id": None,
-                    "subject": "Square Validation",
+                    "subject": "@Staff: Action Needed for Square Validation",
                     "body": body,
                     "target": "#finance-automation",
                 }
@@ -195,7 +195,7 @@ class Commands:
             result = [
                 {
                     "id": None,
-                    "subject": "Membership Validation",
+                    "subject": "@Staff: Action Required for Membership Validation",
                     "body": body,
                     "target": "#membership-automation",
                 }

@@ -4,10 +4,10 @@ Required, IMAP enabled in gmail, also less secure access turned on
 see https://myaccount.google.com/u/3/lesssecureapps
 """
 
+import re
+
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
-
-cfg = get_config()["comms"]
 
 
 def send_email(subject, body, recipients):
@@ -17,10 +17,25 @@ def send_email(subject, body, recipients):
 
 def send_discord_message(content, channel=None):
     """Sends a message to the techs-live channel"""
+    cfg = get_config()["comms"]
     if channel is None:
         channel = cfg["techs-live"]
     else:
         channel = cfg[channel]
+
+    # For convenience, any recognizable @role mentions are converted
+    # See https://discord.com/developers/docs/reference#message-formatting
+    def sub_roles(m):
+        s = m.group()
+        role_id = cfg["discord_roles"].get(m.group()[1:], None)
+        if role_id is None:
+            return s
+
+        print(f"Replacing {s} with role id tag {role_id}")
+        return f"<@&{role_id}>"
+
+    content = re.sub(r"@\w+", sub_roles, content, flags=re.MULTILINE)
+
     result = get_connector().discord_webhook(channel, content)
     result.raise_for_status()
 

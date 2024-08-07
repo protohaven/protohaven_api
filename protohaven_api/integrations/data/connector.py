@@ -31,6 +31,13 @@ RETRY_MAX_DELAY_SEC = 3.0
 AIRTABLE_URL = "https://api.airtable.com/v0"
 
 
+class DevDiscordResponse:  # pylint: disable=too-few-public-methods
+    """Discord response in dev mode"""
+
+    def raise_for_status(self):
+        """Do nothing; stub only"""
+
+
 class Connector:
     """Provides dev and production access to dependencies.
     In the case of dev, mock data and sandboxes are used to
@@ -129,6 +136,7 @@ class Connector:
         log.info(
             f"Suppressing Discord webhook submission: {webhook}, content {content}"
         )
+        return DevDiscordResponse()
 
     def discord_webhook(self, webhook, content):
         """Send content to a Discord webhook"""
