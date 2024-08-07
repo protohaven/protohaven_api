@@ -181,10 +181,20 @@ class Commands:
             type=str,
         ),
         arg("--read_cache", help="run off pickle cache file", type=str),
+        arg(
+            "--member_ids",
+            help="Space-separated list of Neon IDs to validate",
+            type=str,
+        ),
     )
     def validate_memberships(self, args):
         """Loops through all accounts and verifies that memberships are correctly set"""
-        problems = self.validate_memberships_internal(args.write_cache, args.read_cache)
+        if args.member_ids is not None:
+            args.member_ids = [m.strip() for m in args.member_ids.split(",")]
+            log.warning(f"Filtering to member IDs: {args.member_ids}")
+        problems = self.validate_memberships_internal(
+            args.write_cache, args.read_cache, args.member_ids
+        )
         body = ""
         if len(problems) > 0:
             body += f"{len(problems)} membership validation problem(s) found:\n- "
@@ -204,7 +214,7 @@ class Commands:
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def validate_memberships_internal(
-        self, write_cache=None, read_cache=None
+        self, write_cache=None, read_cache=None, member_ids=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
         results = []
@@ -230,12 +240,14 @@ class Commands:
             for mem in neon.search_member(
                 "noreply@protohaven.org", operator="NOT_EQUAL"
             ):
-                if n % 5 == 0:
+                if n % 10 == 0:
                     sys.stderr.write(".")
                     sys.stderr.flush()
                 if mem["Account Current Membership Status"].lower() != "active":
                     continue
                 aid = mem["Account ID"]
+                if member_ids is not None and aid not in member_ids:
+                    continue
                 hid = mem["Household ID"]
                 level = mem["Membership Level"]
                 acct = neon.fetch_account(mem["Account ID"])
@@ -246,6 +258,11 @@ class Commands:
                 now = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
                 has_fee = False
                 for ms in neon.fetch_memberships(mem["Account ID"]):
+                    start = (
+                        dateparser.parse(ms.get("termStartDate")).astimezone(tz)
+                        if ms.get("termEndDate")
+                        else None
+                    )
                     end = (
                         dateparser.parse(ms.get("termEndDate")).astimezone(tz)
                         if ms.get("termEndDate")
@@ -259,6 +276,8 @@ class Commands:
                                 "renew": ms["autoRenewal"],
                                 "level": ms["membershipLevel"]["name"],
                                 "term": ms["membershipTerm"]["name"],
+                                "status": ms["status"],
+                                "start_date": start,
                                 "end_date": end,
                             }
                         )
@@ -316,6 +335,9 @@ class Commands:
         log.info("Validating member details")
 
         for aid, details in member_data.items():
+            if member_ids is not None and aid not in member_ids:
+                continue
+
             # suggested = self._suggest_membership(details,
             #                                     household_member_count.get(details['hid'], 0),
             #                                     household_num_addl_members.get(details['hid'], 0),
@@ -340,16 +362,24 @@ class Commands:
         return results
 
     def validate_membership_singleton(
-        self, details
+        self, details, now=None
     ):  # pylint: disable=too-many-branches
         """Validate membership of a single member"""
         level = details["level"].strip()
         result = []
-        if len(details["active_memberships"]) != 1:
-            result.append(
-                f"Multiple active memberships: {len(details['active_memberships'])} total"
-            )
+        if now is None:
+            now = tznow()
+        # Filter out future and unsuccessful membership registrations
+
+        num = 0
         for am in details["active_memberships"]:
+            if (
+                am.get("start_date", now) > now
+                or am.get("status", "SUCCEEDED") != "SUCCEEDED"
+            ):
+                continue
+            num += 1
+
             if am["fee"] <= 0 and am["level"] not in (
                 "Shop Tech",
                 "Board Member",
@@ -364,6 +394,11 @@ class Commands:
                 result.append(
                     f"Membership {am.get('level')} with no end date (infinite duration)"
                 )
+
+        if num > 1:
+            result.append(
+                f"Multiple active memberships: {len(details['active_memberships'])} total"
+            )
 
         if level in (
             "General Membership",

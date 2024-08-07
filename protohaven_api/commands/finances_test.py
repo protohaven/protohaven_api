@@ -4,8 +4,16 @@ import datetime
 from protohaven_api.commands.finances import (
     Commands as C,  # pylint: disable=import-error
 )
-from protohaven_api.config import tznow  # pylint: disable=import-error
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
+
+
+def d(i, h=0):
+    """Returns a date based on an integer, for testing"""
+    return (
+        datetime.datetime(year=2025, month=1, day=1)
+        + datetime.timedelta(days=i, hours=h)
+    ).astimezone(tz)
 
 
 def test_validate_memberships_empty(mocker):
@@ -22,8 +30,64 @@ def test_validate_membership_amp_ok():
             "level": "AMP",
             "term": "Extremely Low Income",
             "amp": {"optionValues": ["ELI"]},
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(5)}],
+        },
+        d(0),
+    )
+    assert not got
+
+
+def test_validate_multi_membership_bad():
+    """All memberships should have an end date"""
+    got = C().validate_membership_singleton(
+        {
+            "level": "General Membership",
+            "active_memberships": [
+                {"fee": 1, "end_date": d(5), "level": "General Membership"},
+                {"fee": 1, "end_date": d(5), "level": "General Membership"},
+            ],
+        },
+        d(0),
+    )
+    assert got == ["Multiple active memberships: 2 total"]
+
+
+def test_validate_multi_membership_future_start_date_ok():
+    """All memberships should have an end date"""
+    got = C().validate_membership_singleton(
+        {
+            "level": "General Membership",
+            "active_memberships": [
+                {"fee": 1, "end_date": d(5), "level": "General Membership"},
+                {
+                    "fee": 1,
+                    "start_date": d(1),
+                    "end_date": d(10),
+                    "level": "General Membership",
+                },
+            ],
+        },
+        d(0),
+    )
+    assert not got
+
+
+def test_validate_multi_membership_refunded_ok():
+    """All memberships should have an end date"""
+    got = C().validate_membership_singleton(
+        {
+            "level": "General Membership",
+            "active_memberships": [
+                {"fee": 1, "end_date": d(5), "level": "General Membership"},
+                {
+                    "fee": 1,
+                    "end_date": d(5),
+                    "level": "General Membership",
+                    "status": "REFUNDED",
+                },
+            ],
+        },
+        d(0),
     )
     assert not got
 
@@ -46,8 +110,9 @@ def test_validate_membership_zero_cost_roles_ok():
             {
                 "level": l,
                 "roles": [l],
-                "active_memberships": [{"fee": 0, "level": l, "end_date": 123}],
-            }
+                "active_memberships": [{"fee": 0, "level": l, "end_date": d(1)}],
+            },
+            d(0),
         )
     assert not got
 
@@ -58,10 +123,11 @@ def test_validate_membership_general_zero_cost_bad():
         {
             "level": "General Membership",
             "active_memberships": [
-                {"fee": 0, "level": "General Membership", "end_date": 123}
+                {"fee": 0, "level": "General Membership", "end_date": d(1)}
             ],
             "zero_cost_ok_until": tznow() - datetime.timedelta(days=1),
-        }
+        },
+        d(0),
     )
     assert got == ["Abnormal zero-cost membership General Membership"]
 
@@ -69,10 +135,11 @@ def test_validate_membership_general_zero_cost_bad():
         {
             "level": "General Membership",
             "active_memberships": [
-                {"fee": 0, "level": "General Membership", "end_date": 123}
+                {"fee": 0, "level": "General Membership", "end_date": d(1)}
             ],
             "zero_cost_ok_until": tznow() + datetime.timedelta(days=1),
-        }
+        },
+        d(0),
     )
     assert not got
 
@@ -83,8 +150,9 @@ def test_validate_membership_instructor_ok():
         {
             "level": "Instructor",
             "roles": ["Instructor"],
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(1)}],
+        },
+        d(0),
     )
     assert not got
 
@@ -95,8 +163,9 @@ def test_validate_membership_instructor_no_role():
         {
             "level": "Instructor",
             "roles": [],
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(1)}],
+        },
+        d(0),
     )
     assert got == ["Needs role Instructor, has []"]
 
@@ -109,8 +178,9 @@ def test_validate_membership_addl_family_ok():
             "household_paying_member_count": 1,
             "household_num_addl_members": 1,
             "level": "Additional Family Membership",
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(1)}],
+        },
+        d(0),
     )
     assert not got
 
@@ -123,8 +193,9 @@ def test_validate_membership_addl_family_no_fullprice_bad():
             "household_paying_member_count": 0,
             "household_num_addl_members": 2,
             "level": "Additional Family Membership",
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(1)}],
+        },
+        d(0),
     )
     assert got == ["Missing required non-additional paid member in household #123"]
 
@@ -135,8 +206,9 @@ def test_validate_membership_employer_ok():
         {
             "company_member_count": 2,
             "level": "Corporate Membership",
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(1)}],
+        },
+        d(0),
     )
     assert not got
 
@@ -148,7 +220,8 @@ def test_validate_membership_employer_too_few_bad():
             "cid": "123",
             "company_member_count": 1,
             "level": "Corporate Membership",
-            "active_memberships": [{"fee": 1, "end_date": 123}],
-        }
+            "active_memberships": [{"fee": 1, "end_date": d(1)}],
+        },
+        d(0),
     )
     assert got == ["Missing required 2+ members in company #123"]
