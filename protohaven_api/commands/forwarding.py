@@ -263,7 +263,7 @@ class Commands:
             results.append(
                 {
                     "id": "",
-                    "target": "#instructors",
+                    "target": "#private-instructors",
                     "subject": "New Private Instruction Request(s) in the past 24 hours",
                     "body": (
                         "\n".join(formatted_past_day)
