@@ -44,6 +44,16 @@ def get_sign_ins_between(start, end):
     """Returns sign-in events between start and end dates. Not very efficient."""
     log.info(cfg["welcome_waiver_form"])
     headers = get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A1:D")[0]
+    # Remap long header names
+    headers = [
+        {
+            "Email address (members must use the address from your Neon Protohaven account)": "email",  # pylint: disable=line-too-long
+            "Timestamp": "timestamp",
+            "First Name": "first",
+            "Last Name": "last",
+        }.get(h, h)
+        for h in headers
+    ]
     for row in get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A12200:D"):
         data = dict(zip(headers, row))
         t = dateparser.parse(data["Timestamp"]).astimezone(tz)

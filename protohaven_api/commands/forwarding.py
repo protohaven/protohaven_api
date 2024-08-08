@@ -328,7 +328,6 @@ class Commands:
             f"Checking sign-ins, current time {now}, shift {shift}, range {start} - {end}"
         )
 
-        result = []
         techs_on_duty = {
             t["email"]: t["name"]
             for t in neon.fetch_techs_list()
@@ -337,20 +336,20 @@ class Commands:
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         on_duty_fmt = "\n".join([f"- {v} ({k})" for k, v in techs_on_duty.items()])
 
+        on_duty_ok = False
+        log.info("Sign ins:")
         for s in list(sheets.get_sign_ins_between(start, end)):
-            email = s[
-                "Email address (members must use the address from your Neon Protohaven account)"
-            ].lower()
+            email = s["email"].lower()
             log.debug(f"- {email}")
             tod = techs_on_duty.get(email)
             if tod:
-                result.append(
-                    f"{tod} ({email}, signed in {s['Timestamp'].strftime('%-I%p')})"
+                on_duty_ok = True
+                log.info(
+                    f"{tod} ({email}, signed in {s.get('timestamp', now).strftime('%-I%p')})"
                 )
 
-        log.info("Matching tech sign ins:\n%s", "\n".join(result))
         comms = []
-        if len(result) == 0:
+        if not on_duty_ok:
             comms.append(
                 {
                     "id": "",
@@ -358,7 +357,8 @@ class Commands:
                     "subject": f"{shift} shift has no signed in techs",
                     "body": f"@TechLeads: no techs assigned for {shift} have signed in.\n"
                     + f"Expecting any of:\n{on_duty_fmt}"
-                    + "\nDetails at https://api.protohaven.org/techs",
+                    + "\nPlease check immediately for techs on duty."
+                    + "\nShift details at https://api.protohaven.org/techs",
                 }
             )
 

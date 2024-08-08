@@ -1,23 +1,52 @@
 """Test of fowarding CLI commands"""
+from collections import namedtuple
+
+import pytest
 import yaml
 
 from protohaven_api.commands import forwarding as F
-from protohaven_api.testing import t
+from protohaven_api.testing import idfn, t
+
+AM_TECH = {"email": "a@b.com", "name": "A B", "shift": "Monday AM"}
+PM_TECH = {"email": "c@d.com", "name": "C D", "shift": "Monday PM"}
+
+Tc = namedtuple("TC", "desc,now,signins,techs,want")
 
 
-def test_tech_sign_ins_am_shift_bad(mocker, capsys):
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc(
+            "AM shift without signin",
+            t(11, 0),
+            [],
+            [AM_TECH],
+            [AM_TECH["email"], "no techs assigned for Monday AM"],
+        ),
+        Tc("AM shift with signin", t(11, 0), [AM_TECH], [AM_TECH], []),
+        Tc(
+            "PM shift without signin",
+            t(17, 0),
+            [],
+            [PM_TECH],
+            [PM_TECH["email"], "no techs assigned for Monday PM"],
+        ),
+        Tc("PM shift with signin", t(17, 0), [PM_TECH], [PM_TECH], []),
+        Tc("No techs", t(11, 0), [], [], ["no techs assigned"]),
+    ],
+    ids=idfn,
+)
+def test_tech_sign_ins(mocker, capsys, tc):
     """Notifies if nobody is signed in for the AM shift"""
-    mocker.patch.object(F.sheets, "get_sign_ins_between", return_value=[])
+    mocker.patch.object(F.sheets, "get_sign_ins_between", return_value=tc.signins)
     mocker.patch.object(
         F.neon,
         "fetch_techs_list",
-        return_value=[
-            {"email": "a@b.com", "name": "A B", "shift": "Monday AM"},
-        ],
+        return_value=tc.techs,
     )
-    F.Commands().tech_sign_ins(["--now", t(11, 0).isoformat()])
+    F.Commands().tech_sign_ins(["--now", tc.now.isoformat()])
 
     got = yaml.safe_load(capsys.readouterr().out.strip())
-    assert len(got) == 1
-    assert "a@b.com" in got[0]["body"]
-    assert "no techs assigned for Monday AM" in got[0]["body"]
+    assert len(got) == (1 if len(tc.want) > 0 else 0)
+    for w in tc.want:
+        assert w in got[0]["body"]
