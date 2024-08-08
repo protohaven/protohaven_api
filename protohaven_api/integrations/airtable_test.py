@@ -8,13 +8,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.config import tz
 from protohaven_api.integrations import airtable as a
-
-
-def d(i, h=0):
-    """Returns a date based on an integer, for testing"""
-    return datetime.datetime(year=2025, month=1, day=1) + datetime.timedelta(
-        days=i, hours=h
-    )
+from protohaven_api.testing import d, idfn
 
 
 def test_set_booked_resource_id(mocker):
@@ -143,10 +137,6 @@ def _arec(email, start, end, rrule=""):
 
 
 Tc = namedtuple("TC", "desc,records,t0,t1,want")
-
-
-def idfn(tc):
-    return tc.desc
 
 
 @pytest.mark.parametrize(

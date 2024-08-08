@@ -4,16 +4,9 @@ import datetime
 from protohaven_api.commands.finances import (
     Commands as C,  # pylint: disable=import-error
 )
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-
-
-def d(i, h=0):
-    """Returns a date based on an integer, for testing"""
-    return (
-        datetime.datetime(year=2025, month=1, day=1)
-        + datetime.timedelta(days=i, hours=h)
-    ).astimezone(tz)
+from protohaven_api.testing import d
 
 
 def test_validate_memberships_empty(mocker):
