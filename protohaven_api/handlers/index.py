@@ -25,7 +25,9 @@ log = logging.getLogger("handlers.index")
 @require_login
 def index():
     """Show the main dashboard page"""
-    neon_account = session.get("neon_account")
+    neon_account = session.get("neon_account") or {
+        "individualAccount": {"accountCustomFields": []}
+    }
     clearances = []
     roles = []
     neon_account["custom_fields"] = {"Clearances": {"optionValues": []}}

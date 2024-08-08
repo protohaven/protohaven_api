@@ -1,23 +1,10 @@
 """Test behavior of linear solver for class scheduling"""
-import datetime
 from collections import namedtuple
 
 import pytest
 
 from protohaven_api.class_automation import solver as s  # pylint: disable=import-error
-
-
-def idfn(tc):
-    """Extract description from named tuple for parameterization"""
-    return tc.desc
-
-
-def d(i, h=0):
-    """Returns a date based on an integer, for testing"""
-    return datetime.datetime(year=2025, month=1, day=1) + datetime.timedelta(
-        days=i, hours=h
-    )
-
+from protohaven_api.testing import d, idfn
 
 Tc = namedtuple("TC", "desc,area_occupancy,t_start,t_end,want")
 

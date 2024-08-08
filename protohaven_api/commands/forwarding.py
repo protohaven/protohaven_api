@@ -314,7 +314,9 @@ class Commands:
             return f"{now - datetime.timedelta(days=1).strftime('%A')} PM"
         return f"{now.strftime('%A')} {'AM' if now.hour < 16 else 'PM'}"
 
-    @command(arg("--now", help="Override current time", type=str, default=None))
+    @command(
+        arg("--now", help="Override current time", type=str, default=None),
+    )
     def tech_sign_ins(self, args):
         """Craft a notification to indicate whether the scheduled techs have signed in
         for their shift"""
@@ -333,6 +335,7 @@ class Commands:
             if t["shift"] == shift
         }
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
+        on_duty_fmt = "\n".join([f"- {v} ({k})" for k, v in techs_on_duty.items()])
 
         for s in list(sheets.get_sign_ins_between(start, end)):
             email = s[
@@ -345,22 +348,18 @@ class Commands:
                     f"{tod} ({email}, signed in {s['Timestamp'].strftime('%-I%p')})"
                 )
 
-        print(
-            yaml.dump(
-                [
-                    {
-                        "id": "",
-                        "target": "#techs-live",
-                        "subject": f"Staffing report for {shift} shift",
-                        "body": (
-                            (
-                                "@TechLeads: no techs assigned this shift have signed in."
-                                if len(result) == 0
-                                else "\n".join(result)
-                            )
-                            + "\nSee who's scheduled at https://api.protohaven.org/techs"
-                        ),
-                    }
-                ]
+        log.info("Matching tech sign ins:\n%s", "\n".join(result))
+        comms = []
+        if len(result) == 0:
+            comms.append(
+                {
+                    "id": "",
+                    "target": "#tech-leads",
+                    "subject": f"{shift} shift has no signed in techs",
+                    "body": f"@TechLeads: no techs assigned for {shift} have signed in.\n"
+                    + f"Expecting any of:\n{on_duty_fmt}"
+                    + "\nDetails at https://api.protohaven.org/techs",
+                }
             )
-        )
+
+        print(yaml.dump(comms, default_flow_style=False, default_style=""))
