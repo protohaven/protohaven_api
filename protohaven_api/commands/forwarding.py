@@ -9,6 +9,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.forecasting import techs as forecast
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
@@ -328,25 +329,33 @@ class Commands:
             f"Checking sign-ins, current time {now}, shift {shift}, range {start} - {end}"
         )
 
-        techs_on_duty = {
+        # Current day from calendar
+        techs_on_duty = forecast.generate(now, 1)["calendar_view"][0]
+        # Pick AM vs PM shift
+        techs_on_duty = techs_on_duty[0 if shift.endswith("AM") else 1]["people"]
+        log.info(f"Expecting on-duty techs: {techs_on_duty}")
+        email_map = {
             t["email"]: t["name"]
             for t in neon.fetch_techs_list()
             if t["shift"] == shift
         }
-        log.info(f"Expecting on-duty techs: {techs_on_duty}")
-        on_duty_fmt = "\n".join([f"- {v} ({k})" for k, v in techs_on_duty.items()])
-
+        rev_email_map = {v: k for k, v in email_map.items()}
+        log.info(f"Email map: {email_map}")
+        on_duty_fmt = "\n".join(
+            [f"- {v} ({rev_email_map.get(v, 'unknown email')})" for v in techs_on_duty]
+        )
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(sheets.get_sign_ins_between(start, end)):
             email = s["email"].lower()
-            log.debug(f"- {email}")
-            tod = techs_on_duty.get(email)
-            if tod:
+            name = email_map.get(email)
+            if name in techs_on_duty:
                 on_duty_ok = True
                 log.info(
-                    f"{tod} ({email}, signed in {s.get('timestamp', now).strftime('%-I%p')})"
+                    f"{name} ({email}, signed in {s.get('timestamp', now).strftime('%-I%p')})"
                 )
+            else:
+                log.info(email)
 
         comms = []
         if not on_duty_ok:
