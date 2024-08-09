@@ -56,9 +56,9 @@ def get_sign_ins_between(start, end):
     ]
     for row in get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A12200:D"):
         data = dict(zip(headers, row))
-        t = dateparser.parse(data["Timestamp"]).astimezone(tz)
+        t = dateparser.parse(data["timestamp"]).astimezone(tz)
         if start <= t <= end:
-            data["Timestamp"] = t
+            data["timestamp"] = t
             yield data
 
 
