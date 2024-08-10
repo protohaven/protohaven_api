@@ -104,14 +104,17 @@ class Commands:
                 if not dryrun:
                     neon.set_event_scheduled_state(str(v), scheduled=False)
 
-        if e["target"].startswith("#"):
+        if e["target"][0] in ("#", "@"): # channels or users
             content = f"{e['subject']}\n\n{e['body']}"
             if dryrun:
                 log.info(f"DRY RUN to discord {e['target']}")
                 log.info(content)
             else:
-                comms.send_discord_message(content, e["target"].split("#")[1])
+                comms.send_discord_message(content, e["target"])
                 log.info(f"Sent to discord {e['target']}: {e['subject']}")
+                if e.get('intent'): # Intents 
+                    airtable.log_intent_notified(e['intent'])
+                    log.info("Intent logged to airtable")
         else:
             email_validate_pattern = r"\S+@\S+\.\S+"
             emails = re.findall(

@@ -81,9 +81,3 @@ def set_discord_nick():
     if result is False:
         return f"Member '{name}' not found"
     return f"Member '{name}' now nicknamed '{nick}'"
-
-
-@page.route("/admin/discord/all_members_and_roles")
-def sync_discord_roles():
-    """Endpoint to expose discord bot fetch request for members and roles"""
-    return comms.get_all_members_and_roles()

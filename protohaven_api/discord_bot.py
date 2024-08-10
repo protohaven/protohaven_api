@@ -79,13 +79,18 @@ class PHClient(discord.Client):
 
     async def get_all_members_and_roles(self):
         """Retrieves all data on members and roles for the server"""
-        return {
-            "members": [
+        members = [
                 (m.name, m.display_name, [(r.name, r.id) for r in m.roles])
                 for m in self.guild.members
-            ],
-            "role_map": self.role_map,
-        }
+            ]
+        role_map= self.role_map
+        return members, role_map
+
+    async def send_dm(self, discord_id, msg):
+        mem = self.guild.get_member_named(discord_id)
+        if mem is None:
+            raise RuntimeError(f"Cannot DM discord member {discord_id}; not found in PH server")
+        await mem.send(msg)
 
     async def on_message(self, msg):
         """Runs on every message"""

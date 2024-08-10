@@ -20,8 +20,12 @@ def send_discord_message(content, channel=None):
     cfg = get_config()["comms"]
     if channel is None:
         channel = cfg["techs-live"]
+    elif channel.startswith("@"): # Send to a user
+        return get_connector().discord_bot_send_dm(channel[1:], content)
+    elif channel.startswith("#"): # Send to a channel
+        channel = cfg[channel[1:]]
     else:
-        channel = cfg[channel]
+        raise RuntimeError(f"Unknown channel data for discord message: {channel}")
 
     # For convenience, any recognizable @role mentions are converted
     # See https://discord.com/developers/docs/reference#message-formatting

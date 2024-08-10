@@ -208,6 +208,18 @@ class Connector:
         ).result()
         return result
 
+    def _discord_bot_send_dm(self, user, msg):
+        raise NotImplementedError("TODO")
+
+    def discord_bot_send_dm(self, user, msg):
+        if self.dev:
+            return self._discord_bot_send_dm(user, msg)
+        client = get_discord_bot()
+        result = asyncio.run_coroutine_threadsafe(
+            client.send_dm(user, msg), client.loop
+        ).result()
+        return result
+
     def _booked_request_dev(self, *args, **kwargs):
         """Dev handler for reservation system requests"""
         raise NotImplementedError("TODO")

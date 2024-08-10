@@ -147,6 +147,11 @@ def append_classes_to_schedule(payload):
     if status != 200:
         raise RuntimeError(content)
 
+def get_role_intents():
+    return get_all_records("people", "automation_intents")
+
+def log_intent_notified(intent):
+    return update_record({"Last Notified": tznow().isoformat()}, "people", "automation_intents", intent)
 
 def log_email(neon_id, to, subject, status):
     """Logs the sending of an email in Airtable"""
