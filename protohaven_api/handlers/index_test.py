@@ -11,7 +11,6 @@ from protohaven_api.rbac import set_rbac
 
 @pytest.fixture()
 def client():
-    set_rbac(False)
     return app.test_client()
 
 
