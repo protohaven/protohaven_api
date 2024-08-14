@@ -68,6 +68,9 @@ def set_discord_role(name, role):
     """Adds a role for a discord user, e.g. Members"""
     return get_connector().discord_bot_setrole(name, role)
 
+def revoke_discord_role(name, role):
+    """Removes a role for a discord user"""
+    return get_connector().discord_bot_revoke_role(name, role)
 
 def get_all_members_and_roles():
     """Gets all members and roles on Discord"""

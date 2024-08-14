@@ -108,3 +108,6 @@ def require_login_role(role):
         return do_role_check
 
     return fn_setup
+
+def am_admin():
+    return (require_login_role(Role.ADMIN)(lambda: True)() is True)

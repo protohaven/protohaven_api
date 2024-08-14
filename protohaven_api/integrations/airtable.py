@@ -61,7 +61,11 @@ def get_all_records_after(base, tbl, after_date):
 
 
 def insert_records(data, base, tbl):
-    """Inserts one or more records into a named table"""
+    """Inserts one or more records into a named table. the "fields" structure is
+    automatically applied."""
+    # Max of 10 records allowed for insertion, see
+    # https://airtable.com/developers/web/api/create-records
+    assert len(data) <= 10 
     post_data = {"records": [{"fields": d} for d in data]}
     status, content = get_connector().airtable_request(
         "POST", base, tbl, data=json.dumps(post_data)
@@ -150,8 +154,27 @@ def append_classes_to_schedule(payload):
 def get_role_intents():
     return get_all_records("people", "automation_intents")
 
-def log_intent_notified(intent):
-    return update_record({"Last Notified": tznow().isoformat()}, "people", "automation_intents", intent)
+
+def sync_role_intents(additions: list[dict], deletions: list[str], updates: list[dict]):
+    """Apply mutations to intent table, returning any errors"""
+    errors = []
+    for d in deletions:
+        status, content = delete_record(base, tbl, d)
+        if status != 200:
+            errors.push((d, status, content))
+    for a in additions:
+        status, content = insert_records([a], base, tbl)
+        if status != 200:
+            errors.push((a, status, content))
+    for u, rec in updates:
+        status, content = update_record(u['fields'], base, tbl, u['id'])
+        if status != 200:
+            errors.push((u, status, content))
+    return errors
+
+def log_intents_notified(intents):
+    for intent in intents:
+        update_record({"Last Notified": tznow().isoformat()}, "people", "automation_intents", intent)
 
 def log_email(neon_id, to, subject, status):
     """Logs the sending of an email in Airtable"""

@@ -38,11 +38,11 @@ class PHClient(discord.Client):
 
     async def on_ready(self):
         """Runs when the bot is connected and ready to go"""
-        log.info(f"We have logged in as {self.user}")
+        log.info(f"Logged in as {self.user}")
         # role = guild.get_role(role_id)
         for r in self.guild.roles:
             self.role_map[r.name] = r
-        log.info(f"Roles: {self.role_map}")
+        log.debug(f"Roles: {self.role_map}")
 
     async def on_member_join(self, member):
         """Runs when a new member joins the server"""
@@ -62,7 +62,8 @@ class PHClient(discord.Client):
             log.error(str(e))
             return str(e)
 
-    async def grant_role(self, name, role_name):
+
+    async def _role_edit(self, name, role_name, action):
         """Grants a role (e.g. "Members") to a named server member"""
         mem = self.guild.get_member_named(name)
         if mem is None:
@@ -71,16 +72,31 @@ class PHClient(discord.Client):
 
         log.info(f"Adding role {role_name} to {name}")
         try:
-            await mem.add_roles(self.role_map[role_name])
+            if action == "ADD":
+                await mem.add_roles(self.role_map[role_name])
+            elif action == "REMOVE":
+                await mem.remove_roles(self.role_map[role_name])
+            else:
+                raise RuntimeError(f"Unknown role_edit action: {action}")
             return True
         except discord.HTTPException as e:
             log.error(str(e))
             return str(e)
 
+    async def grant_role(self, name, role_name):
+        """Grants a role (e.g. "Members") to a named server member"""
+        rep = await self._role_edit(name, role_name, "ADD")
+        return rep
+
+    async def revoke_role(self, name, role_name):
+        """Revokes a role (e.g. "Members") from a named server member"""
+        rep = await self._role_edit(name, role_name, "REMOVE")
+        return rep
+
     async def get_all_members_and_roles(self):
         """Retrieves all data on members and roles for the server"""
         members = [
-                (m.name, m.display_name, [(r.name, r.id) for r in m.roles])
+                (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
                 for m in self.guild.members
             ]
         role_map= self.role_map

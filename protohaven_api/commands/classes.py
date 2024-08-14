@@ -112,9 +112,10 @@ class Commands:
             else:
                 comms.send_discord_message(content, e["target"])
                 log.info(f"Sent to discord {e['target']}: {e['subject']}")
-                if e.get('intent'): # Intents 
-                    airtable.log_intent_notified(e['intent'])
-                    log.info("Intent logged to airtable")
+                intents = e.get('intents')
+                if intents:
+                    airtable.log_intents_notified(intents)
+                    log.info(f"Intents updated in airtable: {intents}")
         else:
             email_validate_pattern = r"\S+@\S+\.\S+"
             emails = re.findall(
@@ -133,7 +134,7 @@ class Commands:
             else:
                 comms.send_email(e["subject"], e["body"], emails)
                 log.info(f"Sent to {emails}: '{e['subject']}'")
-                airtable.log_email(e["id"], ", ".join(emails), e["subject"], "Sent")
+                airtable.log_email(e.get("id", ""), ", ".join(emails), e["subject"], "Sent")
                 log.info("Logged to airtable")
 
     @command(
