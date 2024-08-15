@@ -32,12 +32,9 @@
   let submitting = false;
   let submit_promise = new Promise((res,rej) => res(null));
   function set_discord() {
-    console.log("blap");
     output = null;
     submitting = true;
-    console.log("setting discord", neon_id, discord_id);
     submit_promise = post("/member/set_discord", {discord_id, neon_id}).then((data) => {
-	console.log(data);
 	output = "Discord user set successfully.";
     }).finally(()=> {submitting = false;});
   }
