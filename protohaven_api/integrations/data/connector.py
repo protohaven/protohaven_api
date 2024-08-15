@@ -191,7 +191,17 @@ class Connector:
             return self._discord_bot_setrole_dev(name, role)
         client = get_discord_bot()
         result = asyncio.run_coroutine_threadsafe(
-            client.grant_role(name, "Members"), client.loop
+            client.grant_role(name, role), client.loop
+        ).result()
+        return result
+
+    def discord_bot_revoke_role(self, name, role):
+        """Set the role of a server member on Discord"""
+        if self.dev:
+            return self._discord_bot_setrole_dev(name, role)
+        client = get_discord_bot()
+        result = asyncio.run_coroutine_threadsafe(
+            client.revoke_role(name, role), client.loop
         ).result()
         return result
 
@@ -205,6 +215,19 @@ class Connector:
         client = get_discord_bot()
         result = asyncio.run_coroutine_threadsafe(
             client.get_all_members_and_roles(), client.loop
+        ).result()
+        return result
+
+    def _discord_bot_send_dm(self, user, msg):
+        raise NotImplementedError("TODO")
+
+    def discord_bot_send_dm(self, user, msg):
+        """Sends a DM to a specific user"""
+        if self.dev:
+            return self._discord_bot_send_dm(user, msg)
+        client = get_discord_bot()
+        result = asyncio.run_coroutine_threadsafe(
+            client.send_dm(user, msg), client.loop
         ).result()
         return result
 

@@ -15,6 +15,7 @@ from protohaven_api.commands import (
     finances,
     forwarding,
     reservations,
+    roles,
     violations,
 )
 from protohaven_api.config import tznow
@@ -30,6 +31,20 @@ log = logging.getLogger("cli")
 server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
 log.info(f"Mode is {server_mode}\n")
 init_connector(dev=server_mode != "prod")
+
+run_discord_bot = os.getenv("DISCORD_BOT", "false").lower() == "true"
+if run_discord_bot:
+    import threading
+    import time
+
+    from protohaven_api.discord_bot import run as run_bot
+
+    threading.Thread(target=run_bot, daemon=True).start()
+    time.sleep(
+        2.0
+    )  # Hacky - should use `wait_until_ready` but there's threading problems
+else:
+    log.debug("Skipping startup of discord bot")
 
 
 def purchase_request_alerts():
@@ -96,6 +111,7 @@ class ProtohavenCLI(
     finances.Commands,
     development.Commands,
     violations.Commands,
+    roles.Commands,
 ):
     """argparser-based CLI for protohaven operations"""
 

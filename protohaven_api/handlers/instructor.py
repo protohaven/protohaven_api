@@ -12,7 +12,7 @@ from protohaven_api.class_automation.scheduler import push_schedule, solve_with_
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
-from protohaven_api.rbac import Role, require_login_role
+from protohaven_api.rbac import Role, require_login_role, am_admin
 
 log = logging.getLogger("handlers.instructor")
 
@@ -196,7 +196,7 @@ def instructor_about():
     email = request.args.get("email")
     if email is not None:
         ue = user_email()
-        if ue != email and require_login_role(Role.ADMIN)(lambda: True)() is not True:
+        if ue != email and not am_admin():
             return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
@@ -258,7 +258,7 @@ def instructor_class_details():
     email = request.args.get("email")
     if email is not None:
         ue = user_email()
-        if ue != email and require_login_role(Role.ADMIN)(lambda: True)() is not True:
+        if ue != email and not am_admin():
             return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
