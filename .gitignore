@@ -163,3 +163,5 @@ config.yaml
 *.swp
 token.json
 credentials.json
+comms.yaml
+protohaven_api/static/svelte/

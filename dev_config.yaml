@@ -1,0 +1,117 @@
+general:
+  session_secret: "secret"
+  admin_users: ["1245"]
+  external_access_codes:
+    "secret_code": ["Admin"]
+neon:
+  domain: "protohaven"
+  oauth_client_id: ""
+  oauth_client_secret: ""
+  api_key1: ""
+  api_key2: ""
+  api_key3: ""
+  login_user: ""
+  login_pass: ""
+  waiver_expiration_days: 60
+  waiver_published_date: "2023-03-14"
+discord_bot:
+  token: ""
+  guild_id: 123
+  onboarding_channel_id: 123
+comms:
+  email_username: "noreply@protohaven.org"
+  email_password: ""
+  techs: ""
+  techs-live: ""
+  board-private: ""
+  maintenance: ""
+  tech-leads: ""
+  help-wanted: ""
+  instructors: ""
+  education-leads: ""
+  class-automation: ""
+  membership-automation: ""
+  storage: ""
+  finance-automation: ""
+  docs-automation: ""
+  software: ""
+airtable:
+  tools_and_equipment:
+    token: ""
+    base_id: ""
+    areas: ""
+    tools: ""
+    clearances: ""
+    recurring_tasks: ""
+  class_automation:
+    token: ""
+    base_id: ""
+    clearance_codes: ""
+    classes: ""
+    capabilities: ""
+    email_log: ""
+    schedule: ""
+    boilerplate: ""
+    availability: ""
+  policy_enforcement:
+    token: ""
+    base_id: ""
+    sections: ""
+    violations: ""
+    suspensions: ""
+    fees: ""
+  people:
+    token: ""
+    base_id: ""
+    shop_tech_time_off: ""
+    sign_in_announcements: ""
+calendar:
+  instructor_schedules: ""
+  shop_events: ""
+  scopes: [""]
+square:
+  sandbox_app_id: ""
+  sandbox_token: ""
+  app_id: ""
+  token: ""
+  location: ""
+asana:
+  token: ""
+  gid: ""
+  techs_project: ""
+  shop_tech_applicants: ""
+  instructor_applicants: ""
+  project_requests: ""
+  private_instruction_requests: ""
+  phone_messages: ""
+  purchase_requests: ""
+  purchase_high_priority_section: ""
+  class_supply_requests: ""
+  class_supply_default_section: ""
+  tool_report_tag: ""
+  tech_ready_tag: ""
+  custom_field_airtable_id: ""
+sheets:
+  instructor_hours: ""
+  welcome_waiver_form: ""
+  scopes: [""]
+booked:
+  id: ""
+  key: ""
+  resource_custom_attribute:
+    area: 2
+    tool_code: 3
+    clearance_code: 4
+wiki:
+  user: ""
+  password: ""
+forms:
+  signin:
+    base_url: ""
+    keys:
+      email: ""
+      dependent_info: ""
+      waiver_ack: ""
+      referrer: ""
+      purpose: ""
+      am_member: ""
