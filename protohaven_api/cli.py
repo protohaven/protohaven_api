@@ -15,13 +15,13 @@ from protohaven_api.commands import (
     finances,
     forwarding,
     reservations,
-    violations,
     roles,
+    violations,
 )
 from protohaven_api.config import tznow
 from protohaven_api.docs_automation.docs import validate as validate_docs
 from protohaven_api.integrations import comms, neon, tasks
-from protohaven_api.integrations.data.connector import init as init_connector, get as get_connector
+from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.maintenance import manager
 from protohaven_api.rbac import Role
 
@@ -34,12 +34,15 @@ init_connector(dev=server_mode != "prod")
 
 run_discord_bot = os.getenv("DISCORD_BOT", "false").lower() == "true"
 if run_discord_bot:
-    from protohaven_api.discord_bot import run as run_bot
+    import threading
     import time
-    import threading, asyncio
-    t = threading.Thread(target=run_bot, daemon=True)
-    t.start()
-    time.sleep(2.0) # Hacky - should use `wait_until_ready` but there's threading problems
+
+    from protohaven_api.discord_bot import run as run_bot
+
+    threading.Thread(target=run_bot, daemon=True).start()
+    time.sleep(
+        2.0
+    )  # Hacky - should use `wait_until_ready` but there's threading problems
 else:
     log.debug("Skipping startup of discord bot")
 

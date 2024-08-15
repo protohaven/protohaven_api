@@ -62,7 +62,6 @@ class PHClient(discord.Client):
             log.error(str(e))
             return str(e)
 
-
     async def _role_edit(self, name, role_name, action):
         """Grants a role (e.g. "Members") to a named server member"""
         mem = self.guild.get_member_named(name)
@@ -96,16 +95,19 @@ class PHClient(discord.Client):
     async def get_all_members_and_roles(self):
         """Retrieves all data on members and roles for the server"""
         members = [
-                (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
-                for m in self.guild.members
-            ]
-        role_map= self.role_map
+            (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
+            for m in self.guild.members
+        ]
+        role_map = self.role_map
         return members, role_map
 
     async def send_dm(self, discord_id, msg):
+        """Send a direct message"""
         mem = self.guild.get_member_named(discord_id)
         if mem is None:
-            raise RuntimeError(f"Cannot DM discord member {discord_id}; not found in PH server")
+            raise RuntimeError(
+                f"Cannot DM discord member {discord_id}; not found in PH server"
+            )
         await mem.send(msg)
 
     async def on_message(self, msg):

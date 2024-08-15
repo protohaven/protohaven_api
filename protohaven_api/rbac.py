@@ -109,5 +109,7 @@ def require_login_role(role):
 
     return fn_setup
 
+
 def am_admin():
-    return (require_login_role(Role.ADMIN)(lambda: True)() is True)
+    """Returns True if the current session is an administrator"""
+    return require_login_role(Role.ADMIN)(lambda: True)() is True

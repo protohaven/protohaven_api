@@ -222,6 +222,7 @@ class Connector:
         raise NotImplementedError("TODO")
 
     def discord_bot_send_dm(self, user, msg):
+        """Sends a DM to a specific user"""
         if self.dev:
             return self._discord_bot_send_dm(user, msg)
         client = get_discord_bot()

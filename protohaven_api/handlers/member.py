@@ -1,30 +1,22 @@
 """handlers for member pages"""
-import datetime
-import json
 import logging
 
-from dateutil import parser as dateparser
-from flask import Blueprint, Response, current_app, render_template, request, session
-from flask_sock import Sock
+from flask import Blueprint, Response, current_app, request, session
 
-from protohaven_api.config import tz, tznow
-from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon
-from protohaven_api.integrations.booked import get_reservations
-from protohaven_api.integrations.comms import send_membership_automation_message
-from protohaven_api.integrations.forms import submit_google_form
-from protohaven_api.integrations.schedule import fetch_shop_events
-from protohaven_api.rbac import require_login, am_admin
+from protohaven_api.integrations import neon
+from protohaven_api.rbac import am_admin, require_login
 
 page = Blueprint("member", __name__, template_folder="templates")
 
 log = logging.getLogger("handlers.member")
+
 
 @page.route("/member")
 @require_login
 def member():
     """Return svelte compiled static page for member dashboard"""
     return current_app.send_static_file("svelte/member.html")
+
 
 @page.route("/member/_app/immutable/<typ>/<path>")
 @require_login
@@ -45,10 +37,16 @@ def set_discord_nick():
             return Response("Access Denied for admin parameter `neon_id`", status=401)
 
     if not discord_id:
-        return response("discord_id field required", status=400)
+        return Response("discord_id field required", status=400)
     if not neon_id:
-        return response("You must be logged in as the user you are attempting to change", status=401)
+        return Response(
+            "You must be logged in as the user you're attempting to change", status=401
+        )
     result = neon.set_discord_user(neon_id, discord_id)
-    if not result.get('accountId') == str(neon_id):
-        return Response(f"Error setting discord user {discord_id} for neon user {neon_id}: {result}", 500) 
+    if not result.get("accountId") == str(neon_id):
+        return Response(
+            f"Error setting discord user {discord_id} "
+            "for neon user {neon_id}: {result}",
+            500,
+        )
     return result
