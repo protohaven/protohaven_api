@@ -12,7 +12,7 @@ from protohaven_api.class_automation.scheduler import push_schedule, solve_with_
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
-from protohaven_api.rbac import Role, require_login_role, am_admin
+from protohaven_api.rbac import Role, am_admin, require_login_role
 
 log = logging.getLogger("handlers.instructor")
 

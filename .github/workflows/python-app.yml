@@ -35,3 +35,9 @@ jobs:
     - name: Test with pytest
       run: |
         PH_CONFIG=test_config.yaml TZ=US/Eastern python -m pytest
+    - name: Check for unintentional secrets
+      steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+      - name: Secret Scanner
+        uses: secret-scanner/action@0.0.2

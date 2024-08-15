@@ -14,7 +14,8 @@ from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.comms import send_membership_automation_message
 from protohaven_api.integrations.forms import submit_google_form
 from protohaven_api.integrations.schedule import fetch_shop_events
-from protohaven_api.rbac import require_login, is_enabled as rbac_enabled
+from protohaven_api.rbac import is_enabled as rbac_enabled
+from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
 
