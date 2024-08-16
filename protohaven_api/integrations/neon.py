@@ -267,6 +267,16 @@ def set_clearances(user_id, codes):
     )
 
 
+def fetch_search_fields():
+    """Fetches possible search fields for member search"""
+    content = get_connector().neon_request(
+        cfg("api_key2"), f"{URL_BASE}/accounts/search/searchFields"
+    )
+    if isinstance(content, list):
+        raise RuntimeError(content)
+    return content
+
+
 def fetch_output_fields():
     """Fetches possible output fields for member search"""
     content = get_connector().neon_request(

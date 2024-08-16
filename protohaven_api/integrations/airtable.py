@@ -269,7 +269,6 @@ def get_clearance_to_tool_map():
         ctt = set()
         for tool_id in c["fields"].get("Tool Records", []):
             ct = tool_code_by_id.get(tool_id)
-            # print(cc, tool_id, '->', ct)
             if ct is not None:
                 ctt.add(ct)
         clearance_to_tool[cc] = ctt
@@ -544,7 +543,6 @@ def get_forecast_overrides():
             continue
         d = dateparser.parse(r["fields"]["Shift Start"]).astimezone(tz)
         ap = "AM" if d.hour < 12 else "PM"
-        print("Shift start", d, "AP", ap)
         techs = r["fields"].get("Override", "").split("\n")
         yield f"{d.strftime('%Y-%m-%d')} {ap}", (
             r["id"],
