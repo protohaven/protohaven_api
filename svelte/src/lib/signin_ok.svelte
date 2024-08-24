@@ -37,7 +37,7 @@
     <Row class="text-left justify-content-center my-3">
       <Col sm={{size: 'auto'}}>
       <h4>How did you hear about us?</h4>
-      {#each ['Friend/colleauge/family', 'Google search', 'Protohaven booth at community event', 'Social media', 'Legacy TechShop', 'Drove/biked/walked by', 'Gift', 'Other'] as value}
+      {#each ['Friend/colleague/family', 'Google search', 'Protohaven booth at community event', 'Social media', 'Legacy TechShop', 'Drove/biked/walked by', 'Gift', 'Other'] as value}
 	<Input type="radio" bind:group={radioGroup} {value} label={value.charAt(0).toUpperCase() + value.slice(1)} />
 
       {/each}
