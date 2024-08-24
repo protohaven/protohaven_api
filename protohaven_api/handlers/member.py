@@ -30,11 +30,7 @@ def member_svelte_files(typ, path):
 def set_discord_nick():
     """Set the nickname of a particular discord user"""
     discord_id = (request.json.get("discord_id") or "").strip()
-    neon_id = (request.json.get("neon_id") or "").strip()
-    if neon_id != "":
-        nid = (session.get("neon_id") or "").strip()
-        if nid != neon_id and not am_admin():
-            return Response("Access Denied for admin parameter `neon_id`", status=401)
+    neon_id = (request.json.get("neon_id") or session.get("neon_id") or "").strip()
 
     if not discord_id:
         return Response("discord_id field required", status=400)
@@ -42,6 +38,11 @@ def set_discord_nick():
         return Response(
             "You must be logged in as the user you're attempting to change", status=401
         )
+
+    if neon_id != "":
+        nid = (session.get("neon_id") or "").strip()
+        if nid != neon_id and not am_admin():
+            return Response("Access Denied for admin parameter `neon_id`", status=401)
     result = neon.set_discord_user(neon_id, discord_id)
     if not result.get("accountId") == str(neon_id):
         return Response(
