@@ -69,15 +69,17 @@ class Commands:
         body = ""
         if len(unpaid) > 0:
             body = (
-                f"{len(unpaid)} subscriptions active but not caught up on payments:\n"
+                f"{len(unpaid)} subscriptions active but not caught up on payments "
+                + "(showing max of 10):\n"
             )
-            body += "\n".join(unpaid)
+            body += "\n".join(unpaid[:10])
 
         if len(untaxed) > 0:
             body += (
-                f"\n{len(untaxed)} subscriptions active but do not have 7% sales tax:\n"
+                f"\n{len(untaxed)} subscriptions active but do not have 7% sales tax "
+                + "(showing max of 10):\n"
             )
-            body += "\n".join(untaxed)
+            body += "\n".join(untaxed[:10])
             body += "\n\nPlease remedy by following the instructions at "
             body += "https://protohaven.org/wiki/shoptechs/storage_sales_tax"
 

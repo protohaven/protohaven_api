@@ -67,6 +67,7 @@ SYNC_ROLES = {
     "Onboarders": Role.ONBOARDING["name"],
     "Staff": Role.STAFF["name"],
     "Instructors": Role.INSTRUCTOR["name"],
+    "PrivateInstructors": Role.PRIVATE_INSTRUCTOR["name"],
     "Techs": Role.SHOP_TECH["name"],
     "Board": Role.BOARD_MEMBER["name"],
     "TechLeads": Role.SHOP_TECH_LEAD["name"],

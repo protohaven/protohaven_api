@@ -13,8 +13,8 @@ page = Blueprint("reservations", __name__)
 
 @page.route("/reservations/set_tool", methods=["POST"])
 @require_login_role(Role.ADMIN)
-def instructor_class_update():
-    """Confirm or unconfirm a class to run, by the instructor"""
+def reservations_set_tool():
+    """Set the tool availability in Booked scheduler"""
     data = request.json
     rid = data["id"]
     avail = data["available"]

@@ -79,19 +79,8 @@ sudo systemctl start protohaven_api.service
 
 # Pushing updates
 
-## Building svelte static pages
-
-```
-cd svelte
-npm run build
-rm -r ../protohaven_api/static/svelte
-cp -r ./build ../protohaven_api/static/svelte
-cd ../ && git add ./protohaven_api/static/svelte/*
-```
-
 Various routes are set up in Flask to remap to static assets in ./protohaven_api/static/svelte.
 
-* Commit and push the static build changes to main.
 * Create a new release on Github so there's a known tag to refer to the release in case we need to roll back
 * SSH into the IONOS server (username and password in Bitwarden)
 
@@ -105,12 +94,22 @@ Make a note of the branch name, again in case of rollback. If changes to `config
 ```
 git fetch --all
 git checkout <release_name>
+```
+
+
+Next, build the static pages:
+
+```
+cd svelte
+npm run build
+rm -r ../protohaven_api/static/svelte
+cp -r ./build ../protohaven_api/static/svelte
+```
+
+Finally, restart the service and check its status
+
+```
 sudo systemctl restart protohaven_api.service
-```
-
-You can view the status of the restart with:
-
-```
 sudo systemctl status protohaven_api.service
 ```
 
@@ -164,6 +163,29 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id
 
 After deployment, verify that:
 
-* https://api.protohaven.org/onboarding loads and can check membership
-* https://api.protohaven.org/tech_lead loads
-* https://api.protohaven.org/instructor/class loads, can run scheduler, and can confirm/unconfirm a class
+* https://api.protohaven.org/welcome
+  * Member sign in fails with hello+testnonmember@protohaven.org
+  * Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
+  * Guest sign in presents waiver and completes
+* https://api.protohave.norg/events
+  * Displays upcoming calendar events
+  * Shows reservations
+  * Shows classes including attendee data
+* https://api.protohaven.org/onboarding
+  * can check membership
+  * can generate a coupon
+  * can setup a discord user
+* https://api.protohaven.org/techs
+  * Tool states load, clicking a tool shows info
+  * Tech shifts load
+  * Shift swaps load, individual shifts can be clicked and overridden
+  * Areas have some leads assigned to them
+  * Shop techs list can set interest, expertise, shift and can view clearances
+* https://api.protohaven.org/instructor/class
+  * Loads classes for instructor, including attendance data
+  * Adding, editing, and deleting availability in calendar works
+  * Scheduler runs and proposes classes
+  * Can confirm/unconfirm a class
+  * Log submission button works
+* https://api.protohaven.org/member
+  * Discord association form correctly sets discord ID on Neon account

@@ -7,7 +7,7 @@ import yaml
 
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import tznow
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.role_automation import roles
 
 log = logging.getLogger("cli.roles")
@@ -125,6 +125,68 @@ class Commands:  # pylint: disable=too-few-public-methods
                 default_style="",
             )
         )
+
+    @command(
+        arg(
+            "--apply",
+            help="Actually make changes to discord user nicknames",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--limit",
+            help="Limit number of changes to this amount",
+            type=int,
+            default=3,
+        ),
+    )
+    def enforce_discord_nicknames(self, args):
+        """Ensure nicknames of all associated Discord users are properly set.
+        This only targets active members, as inactive members shouldn't
+        be present in channels anyways."""
+        discord_members, _ = comms.get_all_members_and_roles()
+        user_nick = {m[0]: m[1] for m in discord_members}
+
+        if not args.apply:
+            log.warning(
+                "--apply not set; will only print name changes and not modify Discord"
+            )
+
+        i = 0
+        for m in neon.get_active_members(
+            [
+                neon.CustomField.DISCORD_USER,
+                neon.CustomField.PRONOUNS,
+                "First Name",
+                "Last Name",
+                "Preferred Name",
+            ]
+        ):
+            if i >= args.limit:
+                log.info(f"Limit of {args.limit} changes reached; stopping")
+                return
+            discord_user = (m.get("Discord User") or "").strip()
+            if discord_user == "":
+                continue
+            first = (
+                m["Preferred Name"].strip()
+                if "Preferred Name" in m
+                else m.get("First Name").strip()
+            )
+            last = m.get("Last Name").strip()
+            nick = f"{first} {last}" if first != last else first
+            if m.get("Pronouns"):
+                nick += f" ({m['Pronouns']})"
+            cur = user_nick.get(discord_user)
+            if not cur:
+                continue
+            if nick != cur:
+                log.info(
+                    f"Discord user {discord_user} nickname change: {cur} -> {nick}"
+                )
+                if args.apply:
+                    log.info(str(comms.set_discord_nickname(discord_user, nick)))
+                    i += 1
 
     @command(
         arg(

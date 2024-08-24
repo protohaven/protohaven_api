@@ -364,10 +364,12 @@ class Commands:
                     "id": "",
                     "target": "#tech-leads",
                     "subject": f"{shift} shift has no signed in techs",
-                    "body": f"@TechLeads: no techs assigned for {shift} have signed in.\n"
-                    + f"Expecting any of:\n{on_duty_fmt}"
-                    + "\nPlease check immediately for techs on duty."
-                    + "\nShift details at https://api.protohaven.org/techs",
+                    "body": (
+                        f"@TechLeads: no techs assigned for {shift} have signed in.\n"
+                        + f"Expecting any of:\n{on_duty_fmt}"
+                        + "\nPlease check immediately for techs on duty."
+                        + "\nShift details at https://api.protohaven.org/techs"
+                    ),
                 }
             )
 
