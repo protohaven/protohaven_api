@@ -46,17 +46,17 @@ def send_discord_message(content, channel=None):
 
 def send_help_wanted(content):
     """Sends a message to the help-wanted channel"""
-    return send_discord_message(content, "help-wanted")
+    return send_discord_message(content, "#help-wanted")
 
 
 def send_board_message(content):
     """Sends a message to the board-private channel"""
-    return send_discord_message(content, "board-private")
+    return send_discord_message(content, "#board-private")
 
 
 def send_membership_automation_message(content):
     """Sends message to membership automation channel"""
-    return send_discord_message(content, "membership-automation")
+    return send_discord_message(content, "#membership-automation")
 
 
 def set_discord_nickname(name, nick):

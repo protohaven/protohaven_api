@@ -433,7 +433,7 @@ def expand_instructor_availability(rows, t0, t1):
             row["fields"]["End"]
         )
         rr = row["fields"].get("Recurrence", "")
-        if rr is None or rr == "":
+        if rr is None or rr == "" or "=" not in rr: # Empty or malformed
             yield row["id"], max(start0, t0), min(end0, t1)
         else:
             i = 0
@@ -468,7 +468,7 @@ def add_availability(inst_id, start, end, recurrence=""):
         "class_automation",
         "availability",
     )
-    return json.loads(content)["records"][0]
+    return content["records"][0]
 
 
 def update_availability(
