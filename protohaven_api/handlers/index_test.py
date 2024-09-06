@@ -1,8 +1,11 @@
 """Verify proper behavior of public access pages"""
 # pylint: skip-file
 import json
+import logging
 
 import pytest
+
+log = logging.getLogger("index_test")
 
 from protohaven_api.handlers import index
 from protohaven_api.main import app
@@ -48,7 +51,10 @@ def test_whoami(client):
 
 def test_welcome_signin_get(client):
     """Check that the svelte page is loaded"""
+    for rule in app.url_map.iter_rules():
+        logging.warning(rule)
     assert "Welcome! Please sign in" in client.get("/welcome").data.decode("utf8")
+    raise Exception("HERP")
 
 
 def test_welcome_signin_guest_no_referrer(mocker):
