@@ -1,11 +1,8 @@
 """Verify proper behavior of public access pages"""
 # pylint: skip-file
 import json
-import logging
 
 import pytest
-
-log = logging.getLogger("index_test")
 
 from protohaven_api.handlers import index
 from protohaven_api.main import app

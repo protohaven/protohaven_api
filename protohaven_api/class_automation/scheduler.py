@@ -255,7 +255,6 @@ def generate_env(
     # Regardless of capabilities, the class must also be set as schedulable
     all_inst_caps = set()
     for i in instructors:
-        log.info(str(i))
         all_inst_caps = all_inst_caps.union(i.caps)
 
     log.info(f"All capabilities: {all_inst_caps}")
