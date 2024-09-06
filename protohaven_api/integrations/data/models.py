@@ -1,11 +1,11 @@
+"""OOP-style representation of entities stored in Airtable and elsewhere"""
 from dataclasses import dataclass
-
-class ForecastOverride:
-    pass
 
 
 @dataclass
 class SignInEvent:
+    """Represents a sign-in event by a user at the /welcome form"""
+
     email: str
     dependent_info: str
     waiver_ack: bool
@@ -23,6 +23,7 @@ class SignInEvent:
             "Purpose": self.purpose,
             "Am Member": self.am_member,
         }
+
     def to_google_form(self):
         """Convert data to google form format"""
         return {
@@ -31,8 +32,10 @@ class SignInEvent:
             "waiver_ack": (
                 "I have read and understand this agreement and "
                 "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
-            ) if self.waiver_ack else "",
+            )
+            if self.waiver_ack
+            else "",
             "referrer": self.referrer,
             "purpose": "I'm a member, just signing in!",
-            "am_member": "Yes" if data["person"] == "member" else "No",
+            "am_member": "Yes" if self.am_member else "No",
         }

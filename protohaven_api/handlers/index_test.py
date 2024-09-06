@@ -133,7 +133,7 @@ def test_welcome_signin_membership_expired(mocker):
             "API server role": None,  # This can happen
         }
     ]
-    index.airtable.get_announcements_after.return_value = None
+    index.airtable.get_announcements_after.return_value = []
     index.neon.update_waiver_status.return_value = True
     ws = mocker.MagicMock()
     ws.receive.return_value = json.dumps(

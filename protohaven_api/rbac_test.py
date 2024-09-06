@@ -31,11 +31,11 @@ def test_require_login_role_techlead_on_tech(mocker):
     """Ensure tech leads can access things that techs can access"""
     rbac.set_rbac(True)
     fn = rbac.require_login_role(Role.SHOP_TECH)(lambda: "called")
-    with mocker.patch.object(rbac, "get_roles", return_value=[Role.SHOP_TECH["name"]]):
-        assert fn() == "called"
-    with mocker.patch.object(
-        rbac, "get_roles", return_value=[Role.SHOP_TECH_LEAD["name"]]
-    ):
-        assert fn() == "called"
-    with mocker.patch.object(rbac, "get_roles", return_value=[Role.INSTRUCTOR["name"]]):
-        assert fn() != "called"
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.SHOP_TECH["name"]])
+    assert fn() == "called"
+
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.SHOP_TECH_LEAD["name"]])
+    assert fn() == "called"
+
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.INSTRUCTOR["name"]])
+    assert fn() != "called"

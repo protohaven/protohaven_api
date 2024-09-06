@@ -97,8 +97,8 @@ def test_build_instructor_daterange_not_supported():
     )
     assert inst.avail == []
     assert (
-        "Availability range does not include one of the scheduler's allowed class times"
-        in inst.rejected["avail_id"][0][2]
+        "Available time does not include one of the scheduler's allowed class times"
+        in inst.rejected["Availability Validation"][0]["reason"]
     )
 
 
@@ -121,7 +121,10 @@ def test_build_instructor_no_caps():
         class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
     )
     assert inst.avail == []
-    assert "Instructor has no capabilities listed" in inst.rejected["avail_id"][0][2]
+    assert (
+        "Instructor has no capabilities listed"
+        in inst.rejected["Instructor Validation"][0]["reason"]
+    )
 
 
 def test_push_schedule(mocker):

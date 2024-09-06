@@ -60,14 +60,16 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def build_instructor(name, v, caps, instructor_occupancy, area_occupancy, class_by_id):
+def build_instructor(
+    name, v, caps, instructor_occupancy, area_occupancy, class_by_id
+):  # pylint: disable=too-many-locals,too-many-arguments
     """Create and return an Instructor object for use in the solver"""
     candidates = defaultdict(list)
     rejected = defaultdict(list)
 
     # Convert instructor-provided availability ranges into discrete "class at time" candidates,
     # making notes on which candidates are rejected and why
-    for a, b, row_id in v:
+    for a, b, _ in v:
         t0 = dateparser.parse(a).astimezone(tz)
         t1 = dateparser.parse(b).astimezone(tz)
         sliced = slice_date_range(t0, t1)
@@ -75,17 +77,21 @@ def build_instructor(name, v, caps, instructor_occupancy, area_occupancy, class_
             rejected["Availability Validation"].append(
                 {
                     "time": t0.isoformat(),
-                    "reason": "Available time does not include one of the scheduler's allowed class times (e.g. weekdays 6pm-9pm, see wiki for details)",
+                    "reason": "Available time does not include one of the scheduler's "
+                    "allowed class times (e.g. weekdays 6pm-9pm, see wiki for details)",
                 }
             )
             continue
-        elif len(caps) == 0:
+
+        if len(caps) == 0:
             rejected["Instructor Validation"].append(
                 {
                     "time": t0.isoformat(),
-                    "reason": "Instructor has no capabilities listed - please contact an education lead.",
+                    "reason": "Instructor has no capabilities listed - "
+                    "please contact an education lead.",
                 }
             )
+            continue
 
         for t0 in sliced:
             for c in caps:
@@ -100,7 +106,8 @@ def build_instructor(name, v, caps, instructor_occupancy, area_occupancy, class_
 
     candidates = dict(candidates)
 
-    # Append empty lists for remaining capabilities, to indicate we have that capability but no scheduling window
+    # Append empty lists for remaining capabilities,
+    # to indicate we have that capability but no scheduling window
     for c in caps:
         if c not in candidates:
             candidates[c] = []
@@ -149,6 +156,7 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
 
 
 def load_schedulable_classes(exclusions):
+    """Load all classes which are schedulable, as Class instances"""
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
             yield Class(
@@ -245,11 +253,9 @@ def generate_env(
         )
 
     # Regardless of capabilities, the class must also be set as schedulable
-    class_ids = {c.airtable_id for c in classes}
     all_inst_caps = set()
     for i in instructors:
         log.info(str(i))
-        # i.caps = list(i.caps) # [c for c in i.caps if c in class_ids]
         all_inst_caps = all_inst_caps.union(i.caps)
 
     log.info(f"All capabilities: {all_inst_caps}")
@@ -266,7 +272,7 @@ def solve_with_env(env):
     """Solves a scheduling problem given a specific env"""
     classes = [Class(**c) for c in env["classes"]]
     instructors = [Instructor(**i) for i in env["instructors"]]
-    return solve(classes, instructors, env["area_occupancy"])
+    return solve(classes, instructors)
 
 
 def format_class(cls):

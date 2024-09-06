@@ -1,10 +1,8 @@
 """Test behavior of linear solver for class scheduling"""
-from collections import namedtuple
 
-import pytest
 
 from protohaven_api.class_automation import solver as s  # pylint: disable=import-error
-from protohaven_api.testing import d, idfn
+from protohaven_api.testing import d
 
 
 def test_solve_simple():
@@ -13,7 +11,6 @@ def test_solve_simple():
     got, score = s.solve(
         classes=[c],
         instructors=[s.Instructor("A", {c.airtable_id: [d(0)]})],
-        area_occupancy={},
     )
     assert got == {"A": [[1, "Embroidery", d(0).isoformat()]]}
     assert score == 0.7
@@ -63,8 +60,7 @@ def test_solve_complex():
         ]
     ]
 
-    area_occupancy = {}
-    got, score = s.solve(classes, people, area_occupancy)
+    got, score = s.solve(classes, people)
     assert score > 0
     assert len(got) > 0
 
@@ -81,7 +77,6 @@ def test_solve_no_concurrent_overlap():
             s.Instructor("A", {1: [d(0)]}),
             s.Instructor("B", {2: [d(0)]}),
         ],
-        area_occupancy={},
     )
     assert got == {"B": [[2, "Embroidery but cooler", d(0).isoformat()]]}
     assert score == 0.8
@@ -98,7 +93,6 @@ def test_solve_no_double_booking():
         instructors=[
             s.Instructor("A", {1: [d(0)], 2: [d(0)]}),
         ],
-        area_occupancy={},
     )
     assert got == {"A": [[2, "Lasers", d(0).isoformat()]]}
     assert score == 0.8
@@ -114,7 +108,6 @@ def test_solve_at_most_once():
             s.Instructor("A", {1: [d(0)]}),
             s.Instructor("B", {1: [d(1)]}),
         ],
-        area_occupancy={},
     )
     assert got == {"A": [[1, "Embroidery", d(0).isoformat()]]}
     assert score == 0.7

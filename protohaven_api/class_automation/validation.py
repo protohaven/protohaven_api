@@ -1,7 +1,7 @@
+"""Provide date and availability validation methods for class scheduling"""
 import datetime
 
 import holidays
-from dateutil import parser as dateparser
 
 
 def date_range_overlaps(a0, a1, b0, b1):
@@ -16,7 +16,7 @@ def date_range_overlaps(a0, a1, b0, b1):
     return False
 
 
-def sort_and_merge_date_ranges(aa):
+def sort_and_merge_date_ranges(aa):  # pylint: disable=inconsistent-return-statements
     """Sort and then merge overlapping date ranges to eliminate duplicates"""
     if not isinstance(aa, list):
         aa = list(aa)
@@ -67,7 +67,7 @@ def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
     if c is None or c.hours is None:
         return False, "Could not fetch class timing details"
 
-    # TODO handle multi-day classes (intensives)
+    # Note: We'll want to handle multi-day classes (intensives) eventually
     t1 = t0 + datetime.timedelta(hours=c.hours)
 
     # Skip holiday classes
@@ -83,7 +83,6 @@ def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
             )
 
     # Skip if area is already occupied
-    conflict = False
     for a in c.areas:
         conflicting_class = has_area_conflict(area_occupancy.get(a, []), t0, t1)
         if conflicting_class:
@@ -95,7 +94,9 @@ def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
         e1, e2, esched = excluding_class_dates
         return (
             False,
-            f"Too soon before/after same class (scheduled for {esched.strftime('%Y-%m-%d')}; no repeats allowed between {e1.strftime('%Y-%m-%d')} and {e2.strftime('%Y-%m-%d')})",
+            f"Too soon before/after same class (scheduled for "
+            f"{esched.strftime('%Y-%m-%d')}; no repeats allowed "
+            f"between {e1.strftime('%Y-%m-%d')} and {e2.strftime('%Y-%m-%d')})",
         )
 
     return True, None

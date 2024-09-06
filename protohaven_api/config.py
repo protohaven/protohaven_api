@@ -32,11 +32,15 @@ def get_execution_log_link():
     Cronicle injects environment variables upon execution of a job, including `JOB_ID`.
     This was confirmed via a call to `printenv` inside of a Cronicle job.
     """
-    job_id = getenv('JOB_ID', None)
+    job_id = getenv("JOB_ID", None)
     if job_id:
         return f"https://www.api.protohaven.org:3013/#JobDetails?id={job_id}"
     return None
 
+
 def exec_details_footer():
+    """Return a formatted footer with details related to cron-style execution of this
+    process.
+    """
     l = get_execution_log_link()
     return "" if not l else "\nExecution log: " + l
