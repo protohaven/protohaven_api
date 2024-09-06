@@ -83,8 +83,6 @@ class Instructor:
         """Return instructor as a dict"""
         return {
             "name": self.name,
-            "caps": self.caps,
-            "avail": self.avail,
             "candidates": self.candidates,
             "rejected": self.rejected,
         }

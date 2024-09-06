@@ -8,8 +8,8 @@ from flask import Blueprint, Response, current_app, redirect, request
 from protohaven_api.class_automation.scheduler import (
     generate_env as generate_scheduler_env,
 )
-from protohaven_api.class_automation.validation import sort_and_merge_date_ranges
 from protohaven_api.class_automation.scheduler import push_schedule, solve_with_env
+from protohaven_api.class_automation.validation import sort_and_merge_date_ranges
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
@@ -324,7 +324,8 @@ def setup_scheduler_env():
     try:
         return generate_scheduler_env(
             dateparser.parse(request.args.get("start")).astimezone(tz),
-            dateparser.parse(request.args.get("end")).astimezone(tz) + datetime.timedelta(hours=24), # End of final day
+            dateparser.parse(request.args.get("end")).astimezone(tz)
+            + datetime.timedelta(hours=24),  # End of final day
             [request.args.get("inst")],
         )
     except dateparser.ParserError:
@@ -340,14 +341,8 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, score, skip_counters = solve_with_env(request.json)
-    for inst, kv in skip_counters.items():
-        for k, vv in kv.items():
-            print(vv)
-            skip_counters[inst][k] = [
-                (t.isoformat(), skip_t.isoformat(), cname) for t, skip_t, cname in vv
-            ]
-    return {"result": result, "score": score, "skip_counters": skip_counters}
+    result, score = solve_with_env(request.json)
+    return {"result": result, "score": score}
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -425,7 +420,7 @@ def inst_availability():
                 "Both t0 and t1 required in request to /instructor/calendar/availability",
                 status=400,
             )
-        t1 += datetime.timedelta(hours=24) # End date is inclusive
+        t1 += datetime.timedelta(hours=24)  # End date is inclusive
         avail = list(airtable.get_instructor_availability(inst))
 
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))

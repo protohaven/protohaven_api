@@ -72,17 +72,19 @@ def build_instructor(name, v, caps, instructor_occupancy, area_occupancy, class_
         t1 = dateparser.parse(b).astimezone(tz)
         sliced = slice_date_range(t0, t1)
         if len(sliced) == 0:
-            rejected[row_id].append(
-                [
-                    t0.isoformat(),
-                    "N/A",
-                    "Availability range does not include one of the scheduler's allowed class times (e.g. weekdays 6pm-9pm)",
-                ]
+            rejected["Availability Validation"].append(
+                {
+                    "time": t0.isoformat(),
+                    "reason": "Available time does not include one of the scheduler's allowed class times (e.g. weekdays 6pm-9pm, see wiki for details)",
+                }
             )
             continue
         elif len(caps) == 0:
-            rejected[row_id].append(
-                [t0.isoformat(), "N/A", "Instructor has no capabilities listed"]
+            rejected["Instructor Validation"].append(
+                {
+                    "time": t0.isoformat(),
+                    "reason": "Instructor has no capabilities listed - please contact an education lead.",
+                }
             )
 
         for t0 in sliced:

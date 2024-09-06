@@ -162,7 +162,9 @@ function start_edit(e, d) {
 	    <tr>
 		{#each w as d}
 		<td on:click={(evt) => start_edit(evt, d.date)} class={(d.filler) ? "filler" : ""}>
+			{d.date.substr(5)}
 			{#if d.events.length > 0}
+
 			{#each d.events as e}
 			  <Button style="display:block" color={((edit_rec && edit_rec.id) === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
 			{/each}
@@ -170,8 +172,6 @@ function start_edit(e, d) {
 			  <Tooltip target={"sched"+s.idx}>Scheduled: {s.name} with {s.inst}</Tooltip>
 			  <Badge id={"sched"+s.idx} color={(s.inst === inst) ? "primary" : "light"}>{s.display}</Badge>
 			{/each}
-			{:else}
-			{d.date.substr(5)}
 			{/if}
 		</td>
 		{/each}
