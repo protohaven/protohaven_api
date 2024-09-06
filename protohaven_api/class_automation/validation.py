@@ -64,6 +64,9 @@ def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
     - In an area that's already reserved for something else (`area_occupancy`)
     - Too soon before/after the same class is already scheduled (c.exclusions)
     """
+    if c is None or c.hours is None:
+        return False, "Could not fetch class timing details"
+
     # TODO handle multi-day classes (intensives)
     t1 = t0 + datetime.timedelta(hours=c.hours)
 

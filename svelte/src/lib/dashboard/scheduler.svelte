@@ -79,7 +79,7 @@
     let body = JSON.parse(JSON.stringify(env));
     body.instructors[0].candidates = {};
     for (let cap of Object.keys(env.instructors[0].candidates)) {
-      if (classes[cap].checked) {
+      if (classes[cap] && classes[cap].checked) {
 	      body.instructors[0].candidates[cap] = env.instructors[0].candidates[cap];
       }
     }
