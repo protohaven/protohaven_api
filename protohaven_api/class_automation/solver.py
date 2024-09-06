@@ -60,10 +60,19 @@ class Instructor:
     def __init__(self, name, candidates, rejected={}):
         """Candidates is a dict of {Class.airtable_id: [(t0, t1), ...]}"""
         self.name = name
-        self.caps = list(set(candidates.keys()))  # references Class.airtable_id; discard duplicates. List instead of Set so we can serialize JSON
-        self.avail = list({(dateparser.parse(a) if isinstance(a, str) else a) for cap, avail in candidates.items() for a in avail})
+        self.caps = list(
+            set(candidates.keys())
+        )  # references Class.airtable_id; discard duplicates. List instead of Set so we can serialize JSON
+        self.avail = list(
+            {
+                (dateparser.parse(a) if isinstance(a, str) else a)
+                for cap, avail in candidates.items()
+                for a in avail
+            }
+        )
         self.candidates = {
-            cap: [dateparser.parse(a) if isinstance(a, str) else a for a in aa] for cap, aa in candidates.items()
+            cap: [dateparser.parse(a) if isinstance(a, str) else a for a in aa]
+            for cap, aa in candidates.items()
         }
         self.rejected = rejected
 
@@ -195,7 +204,4 @@ def solve(
                         [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
                     )
     log.info(f"Scheduler result: {instructor_classes}, final score {final_score}")
-    return (
-        dict(instructor_classes),
-        final_score
-    )
+    return (dict(instructor_classes), final_score)

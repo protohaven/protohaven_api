@@ -36,9 +36,29 @@ def test_solve_complex():
     people = [
         s.Instructor(*v)
         for v in [
-            ("A", {classes[c].airtable_id: [d(i) for i in [1, 7, 14, 21, 29]] for c in (0,1)}),
-            ("B", {classes[c].airtable_id: [d(i) for i in [1, 4, 5, 8, 11, 14, 22, 25, 29]] for c in (2, 0, 3)}),
-            ("C", {classes[c].airtable_id: [d(i) for i in [5, 7, 2, 1]] for c in (4, 5, 0)}),
+            (
+                "A",
+                {
+                    classes[c].airtable_id: [d(i) for i in [1, 7, 14, 21, 29]]
+                    for c in (0, 1)
+                },
+            ),
+            (
+                "B",
+                {
+                    classes[c].airtable_id: [
+                        d(i) for i in [1, 4, 5, 8, 11, 14, 22, 25, 29]
+                    ]
+                    for c in (2, 0, 3)
+                },
+            ),
+            (
+                "C",
+                {
+                    classes[c].airtable_id: [d(i) for i in [5, 7, 2, 1]]
+                    for c in (4, 5, 0)
+                },
+            ),
             ("D", {classes[c].airtable_id: [d(i) for i in range(30)] for c in (3, 1)}),
         ]
     ]
@@ -47,7 +67,6 @@ def test_solve_complex():
     got, score = s.solve(classes, people, area_occupancy)
     assert score > 0
     assert len(got) > 0
-
 
 
 def test_solve_no_concurrent_overlap():

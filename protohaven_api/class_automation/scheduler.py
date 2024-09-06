@@ -5,12 +5,12 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation.solver import (
-    Class,
-    Instructor,
-    solve,
+from protohaven_api.class_automation.solver import Class, Instructor, solve
+from protohaven_api.class_automation.validation import (
+    date_range_overlaps,
+    sort_and_merge_date_ranges,
+    validate_candidate_class_time,
 )
-from protohaven_api.class_automation.validation import validate_candidate_class_time, date_range_overlaps, sort_and_merge_date_ranges
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable
 
@@ -26,7 +26,9 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
         # Have to drop the record IDs
         result[inst] = [
             [t0.isoformat(), t1.isoformat(), row_id]
-            for row_id, t0, t1 in sort_and_merge_date_ranges(airtable.expand_instructor_availability(rows, time_min, time_max))
+            for row_id, t0, t1 in sort_and_merge_date_ranges(
+                airtable.expand_instructor_availability(rows, time_min, time_max)
+            )
         ]
     return result
 
@@ -70,20 +72,30 @@ def build_instructor(name, v, caps, instructor_occupancy, area_occupancy, class_
         t1 = dateparser.parse(b).astimezone(tz)
         sliced = slice_date_range(t0, t1)
         if len(sliced) == 0:
-            rejected[row_id].append([t0.isoformat(), "N/A", "Availability range does not include one of the scheduler's allowed class times (e.g. weekdays 6pm-9pm)"])
+            rejected[row_id].append(
+                [
+                    t0.isoformat(),
+                    "N/A",
+                    "Availability range does not include one of the scheduler's allowed class times (e.g. weekdays 6pm-9pm)",
+                ]
+            )
             continue
         elif len(caps) == 0:
-            rejected[row_id].append([t0.isoformat(), "N/A", "Instructor has no capabilities listed"])
+            rejected[row_id].append(
+                [t0.isoformat(), "N/A", "Instructor has no capabilities listed"]
+            )
 
         for t0 in sliced:
             for c in caps:
                 cbid = class_by_id.get(c)
-                valid, reason = validate_candidate_class_time(cbid, t0, instructor_occupancy, area_occupancy)
+                valid, reason = validate_candidate_class_time(
+                    cbid, t0, instructor_occupancy, area_occupancy
+                )
                 if not valid:
-                    rejected[c].append({'time': t0.isoformat(), 'reason': reason})
+                    rejected[c].append({"time": t0.isoformat(), "reason": reason})
                 else:
                     candidates[c].append(t0)
-    
+
     candidates = dict(candidates)
 
     # Append empty lists for remaining capabilities, to indicate we have that capability but no scheduling window
@@ -123,9 +135,11 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
             ]
             if date_range_overlaps(ao[0], ao[1], start_date, end_date):
                 aoc = ao + [
-                        c["fields"]["Name (from Class)"]
-                    ]  # Include class name for later reference
-                area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(aoc)
+                    c["fields"]["Name (from Class)"]
+                ]  # Include class name for later reference
+                area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
+                    aoc
+                )
                 instructor_occupancy[c["fields"]["Instructor"].lower()].append(aoc)
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
@@ -136,13 +150,14 @@ def load_schedulable_classes(exclusions):
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
             yield Class(
-                    c["id"],
-                    c["fields"]["Name"],
-                    c["fields"]["Hours"],
-                    c["fields"]["Area"],
-                    exclusions[c["id"]],
-                    compute_score(c),
-                )
+                c["id"],
+                c["fields"]["Name"],
+                c["fields"]["Hours"],
+                c["fields"]["Area"],
+                exclusions[c["id"]],
+                compute_score(c),
+            )
+
 
 def generate_env(
     start_date,

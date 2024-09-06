@@ -1,6 +1,8 @@
-import holidays
 import datetime
+
+import holidays
 from dateutil import parser as dateparser
+
 
 def date_range_overlaps(a0, a1, b0, b1):
     """Return True if [a0,a1] and [b0,b1] overlap"""
@@ -26,7 +28,7 @@ def sort_and_merge_date_ranges(aa):
         if i <= last_seen:
             continue
         a = list(a)
-        for j, b in enumerate(aa[i+1:], start=i+1):
+        for j, b in enumerate(aa[i + 1 :], start=i + 1):
             if date_range_overlaps(a[1], a[2], b[1], b[2]):
                 a[2] = max(a[2], b[2])
                 last_seen = j
@@ -54,16 +56,17 @@ def date_within_exclusions(d, exclusions):
 # Pylint seems to think `US()` doesn't exist. It may be dynamically loaded?
 us_holidays = holidays.US()  # pylint: disable=no-member
 
+
 def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
     """Ensure solver.Class `c` being taught at datetime t0 is not invalid for reasons e.g.
-       - Scheduled on a US holiday
-       - On the same day as instructor is already teaching (`inst_occupancy`)
-       - In an area that's already reserved for something else (`area_occupancy`)
-       - Too soon before/after the same class is already scheduled (c.exclusions)
+    - Scheduled on a US holiday
+    - On the same day as instructor is already teaching (`inst_occupancy`)
+    - In an area that's already reserved for something else (`area_occupancy`)
+    - Too soon before/after the same class is already scheduled (c.exclusions)
     """
     # TODO handle multi-day classes (intensives)
     t1 = t0 + datetime.timedelta(hours=c.hours)
-    
+
     # Skip holiday classes
     if t0 in us_holidays:
         return False, "Occurs on a US holiday"
@@ -71,7 +74,10 @@ def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
     # Skip if instructor is already busy on this day
     for occ in inst_occupancy:
         if t0.date() == occ[0].date():
-            return False, f"Same day as another class being taught by instructor ({occ[2]})"
+            return (
+                False,
+                f"Same day as another class being taught by instructor ({occ[2]})",
+            )
 
     # Skip if area is already occupied
     conflict = False
@@ -84,8 +90,9 @@ def validate_candidate_class_time(c, t0, inst_occupancy, area_occupancy):
     excluding_class_dates = date_within_exclusions(t0, c.exclusions)
     if excluding_class_dates:
         e1, e2, esched = excluding_class_dates
-        return False, f"Too soon before/after same class (scheduled for {esched.strftime('%Y-%m-%d')}; no repeats allowed between {e1.strftime('%Y-%m-%d')} and {e2.strftime('%Y-%m-%d')})"
-
-    
+        return (
+            False,
+            f"Too soon before/after same class (scheduled for {esched.strftime('%Y-%m-%d')}; no repeats allowed between {e1.strftime('%Y-%m-%d')} and {e2.strftime('%Y-%m-%d')})",
+        )
 
     return True, None

@@ -47,11 +47,18 @@ def test_slice_date_range_tzinfo():
 
 def test_build_instructor_basic():
     """Test that given nominal data, an Instructor is built and returned OK."""
-    TEST_CLASS = Class("test_id", "Test Class", 3, areas=["a0"], exclusions=[[d(5), d(10), d(7)]], score=1.0)
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
     assert s.build_instructor(
-        name="testname", 
-        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]], 
-        caps=[TEST_CLASS.airtable_id], 
+        name="testname",
+        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
+        caps=[TEST_CLASS.airtable_id],
         instructor_occupancy=[],
         area_occupancy={},
         class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
@@ -61,9 +68,9 @@ def test_build_instructor_basic():
 def test_build_instructor_respects_empty_caps():
     """Capabilities are still listed even when we have no candidate dates"""
     assert s.build_instructor(
-        name="testname", 
-        v=[], 
-        caps=["test_cap"], 
+        name="testname",
+        v=[],
+        caps=["test_cap"],
         instructor_occupancy=[],
         area_occupancy={},
         class_by_id={},
@@ -72,31 +79,49 @@ def test_build_instructor_respects_empty_caps():
 
 def test_build_instructor_daterange_not_supported():
     """Test that rejected candidates for class/time are returned when the instructor has availability"""
-    TEST_CLASS = Class("test_id", "Test Class", 3, areas=["a0"], exclusions=[[d(5), d(10), d(7)]], score=1.0)
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
     inst = s.build_instructor(
-        name="testname", 
-        v=[[d(1, 12).isoformat(), d(1, 14).isoformat(), "avail_id"]], 
+        name="testname",
+        v=[[d(1, 12).isoformat(), d(1, 14).isoformat(), "avail_id"]],
         caps=[],  # <--- no capabilities!
         instructor_occupancy=[],
         area_occupancy={},
         class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
     )
     assert inst.avail == []
-    assert 'Availability range does not include one of the scheduler\'s allowed class times' in inst.rejected["avail_id"][0][2]
+    assert (
+        "Availability range does not include one of the scheduler's allowed class times"
+        in inst.rejected["avail_id"][0][2]
+    )
+
 
 def test_build_instructor_no_caps():
     """If instructor has no capabilities, it is mentioned in `rejected`"""
-    TEST_CLASS = Class("test_id", "Test Class", 3, areas=["a0"], exclusions=[[d(5), d(10), d(7)]], score=1.0)
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
     inst = s.build_instructor(
-        name="testname", 
-        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]], 
+        name="testname",
+        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
         caps=[],  # <--- no capabilities!
         instructor_occupancy=[],
         area_occupancy={},
         class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
     )
     assert inst.avail == []
-    assert 'Instructor has no capabilities listed' in inst.rejected["avail_id"][0][2]
+    assert "Instructor has no capabilities listed" in inst.rejected["avail_id"][0][2]
 
 
 def test_push_schedule(mocker):

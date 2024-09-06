@@ -1,12 +1,14 @@
-import pytest
 from collections import namedtuple
 
-from protohaven_api.testing import d, idfn
-from protohaven_api.class_automation.solver import Class
-from protohaven_api.class_automation import validation as v
+import pytest
 
+from protohaven_api.class_automation import validation as v
+from protohaven_api.class_automation.solver import Class
+from protohaven_api.testing import d, idfn
 
 Tc = namedtuple("tc", "desc,a0,a1,b0,b1,want")
+
+
 @pytest.mark.parametrize(
     "tc",
     [
@@ -22,27 +24,65 @@ Tc = namedtuple("tc", "desc,a0,a1,b0,b1,want")
 )
 def test_date_range_overlaps(tc):
     """Test date range overlaps returns proper responses, also automatically
-      testing the symmetric case (where `a` and `b` are swapped)
+    testing the symmetric case (where `a` and `b` are swapped)
     """
     assert v.date_range_overlaps(tc.a0, tc.a1, tc.b0, tc.b1) == tc.want
     assert v.date_range_overlaps(tc.b0, tc.b1, tc.a0, tc.a1) == tc.want
 
+
 Tc = namedtuple("tc", "desc,t0,inst_occupancy,area_occupancy,want_reason")
+
+
 @pytest.mark.parametrize(
     "tc",
     [
         Tc("pass, simple", d(1), [], {}, None),
-        Tc("fail, holiday", d(0, 14), [], {}, "Occurs on a US holiday"), # Jan 1, 2025 i.e. new years' day
-        Tc("fail, instructor occupied that day", d(1, 12), [[d(1, 16), d(1,19), "Other Class"]], {}, "Same day as another class being taught by instructor (Other Class)"),
-        Tc("fail, area overlap", d(1, 18), [], {"a0": [[d(1, 18), d(1, 19), "Occupying Event"]]}, "Area already occupied by other event (Occupying Event)"),
-        Tc("fail, too soon", d(6), [], {}, "Too soon before/after same class (scheduled for 2025-01-08; no repeats allowed between 2025-01-06 and 2025-01-11)"),
-        Tc("pass, complex", d(4, 18), [[d(3, 18), d(3, 21), "Other Class"]], {"a0": [[d(3, 18), d(3, 21), "Occupying Event"]]}, None)
+        Tc(
+            "fail, holiday", d(0, 14), [], {}, "Occurs on a US holiday"
+        ),  # Jan 1, 2025 i.e. new years' day
+        Tc(
+            "fail, instructor occupied that day",
+            d(1, 12),
+            [[d(1, 16), d(1, 19), "Other Class"]],
+            {},
+            "Same day as another class being taught by instructor (Other Class)",
+        ),
+        Tc(
+            "fail, area overlap",
+            d(1, 18),
+            [],
+            {"a0": [[d(1, 18), d(1, 19), "Occupying Event"]]},
+            "Area already occupied by other event (Occupying Event)",
+        ),
+        Tc(
+            "fail, too soon",
+            d(6),
+            [],
+            {},
+            "Too soon before/after same class (scheduled for 2025-01-08; no repeats allowed between 2025-01-06 and 2025-01-11)",
+        ),
+        Tc(
+            "pass, complex",
+            d(4, 18),
+            [[d(3, 18), d(3, 21), "Other Class"]],
+            {"a0": [[d(3, 18), d(3, 21), "Occupying Event"]]},
+            None,
+        ),
     ],
-    ids=idfn
+    ids=idfn,
 )
 def test_validate_candidate_class_time(tc):
-    TEST_CLASS = Class("test_id", "Test Class", 3, areas=["a0"], exclusions=[[d(5), d(10), d(7)]], score=1.0)
-    valid, reason = v.validate_candidate_class_time(TEST_CLASS, tc.t0, tc.inst_occupancy, tc.area_occupancy)
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
+    valid, reason = v.validate_candidate_class_time(
+        TEST_CLASS, tc.t0, tc.inst_occupancy, tc.area_occupancy
+    )
     if valid and tc.want_reason:
         raise Exception(f"got valid; want invalid with reason {tc.want_reason}")
     elif not valid:
@@ -50,6 +90,7 @@ def test_validate_candidate_class_time(tc):
 
 
 Tc = namedtuple("TC", "desc,area_occupancy,t_start,t_end,want")
+
 
 @pytest.mark.parametrize(
     "tc",
@@ -88,23 +129,34 @@ def test_date_within_exclusions(tc):
 
 
 Tc = namedtuple("TC", "desc,dd,want")
+
+
 @pytest.mark.parametrize(
-        "tc",
-        [
-            Tc("Empty case", [], []),
-            Tc("Base case", [("a", d(0, 12), d(0, 13))], [("a", d(0, 12), d(0, 13))]),
-            Tc("Simple merge", [
-                ("a", d(0, 12), d(0, 14)), ("b", d(0, 13), d(0, 15))
-                ], [
-                    ("a", d(0, 12), d(0, 15))]),
-            Tc("Duplicate merge", [
-                ("a", d(0, 12), d(0, 14)), ("b", d(0, 12), d(0, 14))],
-               [("a", d(0, 12), d(0, 14))]),
-            Tc("Merge does not affect next date if separate", [
-                ("a", d(0, 12), d(0, 13)), ("b", d(0, 12), d(0, 14)), ("c", d(0, 14), d(0, 15))],
-               [("a", d(0, 12), d(0, 14)), ("c", d(0, 14), d(0, 15))]),
-        ], ids=idfn,
+    "tc",
+    [
+        Tc("Empty case", [], []),
+        Tc("Base case", [("a", d(0, 12), d(0, 13))], [("a", d(0, 12), d(0, 13))]),
+        Tc(
+            "Simple merge",
+            [("a", d(0, 12), d(0, 14)), ("b", d(0, 13), d(0, 15))],
+            [("a", d(0, 12), d(0, 15))],
+        ),
+        Tc(
+            "Duplicate merge",
+            [("a", d(0, 12), d(0, 14)), ("b", d(0, 12), d(0, 14))],
+            [("a", d(0, 12), d(0, 14))],
+        ),
+        Tc(
+            "Merge does not affect next date if separate",
+            [
+                ("a", d(0, 12), d(0, 13)),
+                ("b", d(0, 12), d(0, 14)),
+                ("c", d(0, 14), d(0, 15)),
+            ],
+            [("a", d(0, 12), d(0, 14)), ("c", d(0, 14), d(0, 15))],
+        ),
+    ],
+    ids=idfn,
 )
 def test_sort_and_merge_date_ranges(tc):
     assert list(v.sort_and_merge_date_ranges(tc.dd)) == tc.want
-
