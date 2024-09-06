@@ -108,6 +108,15 @@ def test_get_all_records(mocker):
             },
             False,
         ),
+        (
+            "too new (scheduled)",
+            {
+                "Published": "2024-03-15",
+                "Roles": ["role1"],
+                "Tool Name (from Tool Codes)": [],
+            },
+            False,
+        ),
     ],
 )
 def test_get_announcements_after(desc, data, want, mocker):
@@ -204,6 +213,20 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
             d(6),
             d(7),
             [],
+        ),
+        Tc(
+            "Across day boundary with weekly repeat",
+            [_arec("a", d(0, 21), d(1, 2), "RRULE:FREQ=WEEKLY;BYDAY=WE")], # d(0) is a wednesday
+            d(-2),
+            d(10),
+            [(123, d(0, 21), d(1, 2)), (123, d(7, 21), d(8, 2))],
+        ),
+        Tc(
+            "RRULE parsing errors are ignored; non-recurrent date used",
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:::FREQ==ASDF;;=;=")],
+            d(-2),
+            d(2),
+            [(123, d(0, 18), d(0, 21))],
         ),
     ],
     ids=idfn,

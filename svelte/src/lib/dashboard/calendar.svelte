@@ -9,6 +9,7 @@ export let inst;
 export let inst_id;
 export let start;
 export let end;
+export let date_edited;
 
 let records = {};
 let edit_rec = null;
@@ -50,6 +51,10 @@ function reload() {
       for (; d < s; d.setDate(d.getDate() + 1)) {
 	let dstr = isodate(d);
 	darr.push({'date': dstr, 'filler': true, 'events': []});
+	if (darr.length >= 7) {
+	  weeks.push(darr);
+	  darr = [];
+	}
       }
 
       for (; d <= e; d.setDate(d.getDate() + 1)) {
@@ -89,10 +94,12 @@ function save_avail(id, start, end, recurrence) {
 	t0: start,
 	t1: end,
 	recurrence: recurrence,
-    }).then(reload)
+    }).then(date_edited).then(reload).finally(() => {edit_rec = null});
+    return promise;
 }
 function delete_avail(id) {
-  promise = del(`/instructor/calendar/availability`, {'rec': id}).then(reload).finally(() => open = false);
+  promise = del(`/instructor/calendar/availability`, {'rec': id}).then(date_edited).then(reload).finally(() => edit_rec = null);
+  return promise;
 }
 
 function start_edit(e, d) {

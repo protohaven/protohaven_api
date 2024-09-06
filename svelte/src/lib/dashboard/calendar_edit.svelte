@@ -49,6 +49,7 @@ function expand(rr, start) {
 export let rec;
 let expanded;
 
+let busy = false;
 export let on_save;
 export let on_delete;
 
@@ -74,7 +75,13 @@ function do_save() {
   }
   let rrule = 'RRULE:' + rules.join(';');
   //console.log(rec.id, rec.start, rec.end, rrule);
-  on_save(rec.id, rec.start, rec.end, rrule);
+  busy = true;
+  return on_save(rec.id, rec.start, rec.end, rrule).finally(() => busy = false);
+}
+
+function do_delete() {
+  busy = true;
+  return on_delete(rec.id).finally(() => busy = false);
 }
 
 </script>
@@ -87,16 +94,16 @@ function do_save() {
 			<Label>Availability</Label>
 			<InputGroup>
 				<InputGroupText>Start</InputGroupText>
-				<Input type="datetime-local" bind:value={rec.start}/>
+				<Input type="datetime-local" bind:value={rec.start} disabled={busy}/>
 			</InputGroup>
 			<InputGroup>
 				<InputGroupText>End</InputGroupText>
-				<Input type="datetime-local" bind:value={rec.end}/>
+				<Input type="datetime-local" bind:value={rec.end} disabled={busy}/>
 			</InputGroup>
 		</FormGroup>
 		<FormGroup>
 			<InputGroup>
-				<Input type="select" bind:value={expanded.recurrence}>
+				<Input type="select" bind:value={expanded.recurrence} disabled={busy}>
 				  <option value="">Does Not Repeat</option>
 				  <option value="DAILY">Daily</option>
 				  <option value="WEEKLY">Weekly</option>
@@ -104,24 +111,24 @@ function do_save() {
 				</Input>
 			</InputGroup>
 			{#if expanded.recurrence=="WEEKLY"}
-			<Input type="checkbox" bind:checked={expanded.weekly.SU} label="Sunday"></Input>
-			<Input type="checkbox" bind:checked={expanded.weekly.MO} label="Monday"></Input>
-			<Input type="checkbox" bind:checked={expanded.weekly.TU} label="Tuesday"></Input>
-			<Input type="checkbox" bind:checked={expanded.weekly.WE} label="Wednesday"></Input>
-			<Input type="checkbox" bind:checked={expanded.weekly.TH} label="Thursday"></Input>
-			<Input type="checkbox" bind:checked={expanded.weekly.FR} label="Friday"></Input>
-			<Input type="checkbox" bind:checked={expanded.weekly.SA} label="Saturday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.SU} label="Sunday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.MO} label="Monday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.TU} label="Tuesday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.WE} label="Wednesday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.TH} label="Thursday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.FR} label="Friday"></Input>
+			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.SA} label="Saturday"></Input>
 			{/if}
 
 			<InputGroup>
 				<InputGroupText>Until</InputGroupText>
-				<Input type="date" bind:value={expanded.until}/>
+				<Input type="date" bind:value={expanded.until} disabled={busy}/>
 			</InputGroup>
 		</FormGroup>
 	</ModalBody>
 	<ModalFooter>
-	    <Button on:click={do_save}>Save</Button>
-	    <Button on:click={() => on_delete(rec.id)} disabled={!(rec && rec.id)}>Delete</Button>
-	    <Button on:click={() => rec = null}>Cancel</Button>
+	    <Button on:click={do_save} disabled={busy}>Save</Button>
+	    <Button on:click={do_delete} disabled={!(rec && rec.id) || busy}>Delete</Button>
+	    <Button on:click={() => rec = null} disabled={busy}>Cancel</Button>
 	</ModalFooter>
   </Modal>

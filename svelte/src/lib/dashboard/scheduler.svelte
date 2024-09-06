@@ -1,5 +1,5 @@
 <script type="ts">
-  import { Row, Col, Button, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, Accordion, AccordionItem, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
+  import { Row, Col, Button, Badge, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, Accordion, AccordionItem, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
   import Calendar from '$lib/dashboard/calendar.svelte';
   import {get, post, isodate} from '$lib/api.ts';
@@ -11,7 +11,8 @@
   let save_promise = Promise.resolve(null);
 
   let classes = {};
-  let availability = [];
+  let candidates = {};
+  let rejected = {};
 
   let start = new Date();
   start.setDate(start.getDate() + 14);
@@ -31,16 +32,16 @@
     // Make sure date range is reasonable
     if (end <= start || (new Date(end).getTime() - new Date(start).getTime()) / (3600*1000) > 45) {
     	console.log("Date crunch; moving the one other than " + src, start, end);
-	if (src === "end") {
-		start = new Date(end);
-		start.setDate(start.getDate() - 14);
-		start = isodate(start);
-	} else {
-		end = new Date(start);
-		end.setDate(end.getDate() + 14);
-		end = isodate(end);
-	}
-	console.log("Now", start, end);
+      if (src === "end") {
+        start = new Date(end);
+        start.setDate(start.getDate() - 14);
+        start = isodate(start);
+      } else {
+        end = new Date(start);
+        end.setDate(end.getDate() + 14);
+        end = isodate(end);
+      }
+      console.log("Now", start, end);
     }
 
     console.log("Reloading scheduler env");
@@ -52,19 +53,16 @@
         throw Error(`No instructor data found for interval ${start} to ${end}.\n\nThe scheduler currently picks only times >2wks from now where you are fully available from 6-9pm weeknights, or weekends from 10am-1pm, 1pm-4pm, 2pm-5pm, or 6pm-9pm.\n\nPlease check the calendar to ensure you have availability in that range.`);
       }
 
-      // Format availability and class info for display
-      let avail = data.instructors[0].avail;
-      availability = [];
-      for (let i = 0; i < avail.length; i++) {
-	availability.push(`${(new Date(avail[i])).toLocaleString()}`);
-      }
+      // Format candidates, rejected and class info for display
+      candidates = data.instructors[0].candidates;
+      rejected = data.instructors[0].rejected;
+
       let cls_ids = new Set(data.instructors[0].caps);
       classes = {};
       for (let cls of data.classes) {
-	// console.log(cls.airtable_id, cls.name);
-	if (cls_ids.has(cls.airtable_id)) {
-	  classes[cls.airtable_id] = {name: cls.name, checked: true};
-	}
+        if (cls_ids.has(cls.airtable_id)) {
+          classes[cls.airtable_id] = {name: cls.name, checked: true};
+        }
       }
     });
   }
@@ -90,6 +88,10 @@
     solve_promise = post("/instructor/run_scheduler", body).then((data) => {
       console.log(data);
       output = data.result[inst.toLowerCase()];
+      if (!output) {
+        console.log("No result for instructor - output", output);
+	throw Error("The scheduler ran but no schedule was able to be generated.");
+      }
       run_details = data.skip_counters[inst.toLowerCase()];
       for (let cls of output) {
       	console.log(cls);
@@ -134,21 +136,45 @@
     </Row>
 
 
-    <Calendar {inst} {inst_id} {start} {end}></Calendar>
+    <Calendar {inst} {inst_id} {start} {end} date_edited={() => {console.log('ONCHANGE'); reload("start")}}></Calendar>
 
     <h5>2. Check Availability</h5>
-    <p>Edit your availability in the <a href="https://calendar.google.com/calendar/u/1/r?cid=Y19hYjA0OGUyMTgwNWEwYjVmN2YwOTRhODFmNmRiZDE5YTNjYmE1NTY1YjQwODk2MjU2NTY3OWNkNDhmZmQwMmQ5QGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20" target="_blank">Instructor Availability Calendar</a>. if you wish to change any of the generated schedule times here.</p>
+    <p>Edit your availability in the calendar above, then check here to see what the scheduler is able to use.</p>
     {#await env_promise}
       <Spinner/>
     {:then p}
 	      <div class="my-3">
-	      <ListGroup>
-	      {#each availability as a}
-		<ListGroupItem>{a}</ListGroupItem>
-	      {/each}
-	      </ListGroup>
-	      </div>
+        {#if Object.keys(candidates).length == 0}
+          <Alert color="warning"><strong>No good times found for scheduling classes. Click <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">HERE</a> for more info on how the scheduler picks times.</strong></Alert>
+        {/if}
 
+	      {#each Object.keys(candidates) as k}
+        <div class="mt-3">{(classes[k] || "").name}</div>
+	      <div>
+          {#if candidates[k].length == 0}
+            <em>No good times found for scheduling this class</em>
+          {/if}
+          {#each candidates[k] as c}
+		      <Badge color="light">{(new Date(c)).toLocaleString()}</Badge>
+          {/each}
+	      </div>
+	      {/each}
+
+        {#if Object.keys(rejected).length > 0}
+	      <Accordion class="my-3" stayOpen>
+	      	<AccordionItem header="Scheduler passed on some class times - click for details">
+          {#each Object.keys(rejected) as k}
+          <div>{(classes[k] || "").name}</div>
+          <ListGroup>
+            {#each rejected[k] as r}
+            <ListGroupItem>Skip {(new Date(r.time)).toLocaleString()}: {r.reason}</ListGroupItem>
+            {/each}
+          </ListGroup>
+          {/each}
+          </AccordionItem>
+        </Accordion>
+        {/if}
+        </div>
 	      <h5>3. Select Classes to Include</h5>
 	      <p>Deselect any classes you do not wish to schedule.</p>
 	      <div class="my-3">
