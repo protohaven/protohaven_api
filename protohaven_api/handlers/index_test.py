@@ -49,12 +49,11 @@ def test_whoami(client):
     }
 
 
-def test_welcome_signin_get(client):
+def test_welcome_signin_get(client, mocker):
     """Check that the svelte page is loaded"""
-    for rule in app.url_map.iter_rules():
-        logging.warning(rule)
-    assert "Welcome! Please sign in" in client.get("/welcome").data.decode("utf8")
-    raise Exception("HERP")
+    mocker.patch.object(app, "send_static_file", return_value="TEST")
+    assert "TEST" == client.get("/welcome").data.decode("utf8")
+    app.send_static_file.assert_called_with("svelte/index.html")
 
 
 def test_welcome_signin_guest_no_referrer(mocker):
