@@ -118,6 +118,8 @@ class Commands:  # pylint: disable=too-few-public-methods
             ):
                 roles_revoked += 1
 
+        # TODO summary to #discord-automation with exec log
+
         print(
             yaml.dump(
                 list(roles.gen_role_comms(user_log, roles_assigned, roles_revoked)),
@@ -187,6 +189,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                 if args.apply:
                     log.info(str(comms.set_discord_nickname(discord_user, nick)))
                     i += 1
+
+        # TODO summary to #discord-automation with exec log
 
     @command(
         arg(

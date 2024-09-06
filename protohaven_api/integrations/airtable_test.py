@@ -216,7 +216,9 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
         ),
         Tc(
             "Across day boundary with weekly repeat",
-            [_arec("a", d(0, 21), d(1, 2), "RRULE:FREQ=WEEKLY;BYDAY=WE")], # d(0) is a wednesday
+            [
+                _arec("a", d(0, 21), d(1, 2), "RRULE:FREQ=WEEKLY;BYDAY=WE")
+            ],  # d(0) is a wednesday
             d(-2),
             d(10),
             [(123, d(0, 21), d(1, 2)), (123, d(7, 21), d(8, 2))],

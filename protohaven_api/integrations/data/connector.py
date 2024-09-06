@@ -221,14 +221,18 @@ class Connector:
     def _discord_bot_send_dm(self, user, msg):
         raise NotImplementedError("TODO")
 
-    def discord_bot_send_dm(self, user, msg):
+    def discord_bot_send_dm(self, user, msg, blocking=True):
         """Sends a DM to a specific user"""
         if self.dev:
             return self._discord_bot_send_dm(user, msg)
         client = get_discord_bot()
-        result = asyncio.run_coroutine_threadsafe(
-            client.send_dm(user, msg), client.loop
-        ).result()
+
+        if blocking:
+            result = asyncio.run_coroutine_threadsafe(
+                client.send_dm(user, msg), client.loop
+            ).result()
+        else:
+            result = client.send_dm(user, msg)
         return result
 
     def _booked_request_dev(self, *args, **kwargs):

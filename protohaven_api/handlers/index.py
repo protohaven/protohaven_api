@@ -12,6 +12,7 @@ from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.comms import send_membership_automation_message
+from protohaven_api.integrations.data.models import SignInEvent
 from protohaven_api.integrations.forms import submit_google_form
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import is_enabled as rbac_enabled
@@ -107,7 +108,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 f"Sign-in with {data['email']} returned multiple accounts "
                 + "in Neon with same email:\n"
                 + "\n".join(urls)
-                + "\nAdmin: please deduplicate "
+                + "\n@Staff: please deduplicate "
                 + "(see https://protohaven.org/wiki/software/membership_validation)"
             )
             log.info("Notified of multiple accounts")
@@ -142,8 +143,10 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 roles.append("Member")
             _send("Fetching announcements...", 55)
             clearances = [] if not m.get("Clearances") else m["Clearances"].split("|")
-            result["announcements"] = airtable.get_announcements_after(
-                last_announcement_ack, roles, set(clearances)
+            result["announcements"] = list(
+                airtable.get_announcements_after(
+                    last_announcement_ack, roles, set(clearances)
+                )
             )
 
             _send("Checking storage...", 70)
@@ -189,20 +192,20 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
     ) or (data["person"] == "guest" and data.get("referrer")):
         # Note: setting `purpose` this way tricks the form into not requiring other fields
         assert result["waiver_signed"] is True
-        form_data = {
-            "email": data["email"],
-            "dependent_info": data["dependent_info"],
-            "waiver_ack": (
-                "I have read and understand this agreement and "
-                "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
-            ),
-            "referrer": data.get("referrer"),
-            "purpose": "I'm a member, just signing in!",
-            "am_member": "Yes" if data["person"] == "member" else "No",
-        }
+        form_data = SignInEvent(
+            email=data["email"],
+            dependent_info=data["dependent_info"],
+            waiver_ack=result["waiver_signed"],
+            referrer=data.get("referrer"),
+            purpose="I'm a member, just signing in!",
+            am_member=(data["person"] == "member"),
+        )
         _send("Logging sign-in...", 95)
-        rep = submit_google_form("signin", form_data)
+        rep = submit_google_form("signin", form_data.to_google_form())
         log.info(f"Google form submitted, response {rep}")
+        _send("Logging sign-in......", 97)
+        rep = airtable.insert_signin(form_data.to_airtable)
+        log.info(f"Airtable log submitted, response {rep}")
 
     ws.send(json.dumps(result))
     return result
@@ -229,7 +232,22 @@ def acknowledge_announcements():
     if len(m) == 0:
         raise KeyError("Member not found")
     neon.update_announcement_status(m[0]["Account ID"])
-    return "OK"
+    return {"status": "OK"}
+
+
+@page.route("/welcome/survey_response", methods=["POST"])
+def survey_response():
+    """Set the acknowledgement date to `now` so prior announcements
+    are no longer displayed"""
+    data = request.json
+
+    neon_id = None
+    m = list(neon.search_member(data["email"]))
+    if len(m) != 0:
+        neon_id = m[0]["Account ID"]
+    return airtable.insert_simple_survey_response(
+        data["rec"], data["email"], neon_id, data["response"]
+    )
 
 
 @page.route("/class_listing", methods=["GET"])

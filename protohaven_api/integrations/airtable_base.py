@@ -77,4 +77,3 @@ def delete_record(base, tbl, rec):
     """Deletes a record in a named table"""
     status, content = get_connector().airtable_request("DELETE", base, tbl, rec=rec)
     return status, json.loads(content) if content else None
-

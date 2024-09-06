@@ -54,8 +54,8 @@ def apply_maintenance_tasks(tt, now=None):
             t["name"], t["detail"], t["id"], section_gid=t["section"]
         ):
             log.debug("Task already inserted")
-        rep, content = airtable.update_recurring_task_date(t["id"], now)
-        if rep.status_code != 200:
+        status, content = airtable.update_recurring_task_date(t["id"], now)
+        if status != 200:
             raise RuntimeError(content)
 
 

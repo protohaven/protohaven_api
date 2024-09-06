@@ -8,7 +8,11 @@ import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import (  # pylint: disable=import-error
+    exec_details_footer,
+    tz,
+    tznow,
+)
 from protohaven_api.forecasting import techs as forecast
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
@@ -369,6 +373,7 @@ class Commands:
                         + f"Expecting any of:\n{on_duty_fmt}"
                         + "\nPlease check immediately for techs on duty."
                         + "\nShift details at https://api.protohaven.org/techs"
+                        + exec_details_footer()
                     ),
                 }
             )

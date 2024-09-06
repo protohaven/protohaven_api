@@ -10,8 +10,15 @@ from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
 from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.integrations.airtable_base import (
+    delete_record,
+    get_all_records,
+    get_all_records_after,
+    get_record,
+    insert_records,
+    update_record,
+)
 from protohaven_api.integrations.data.connector import get as get_connector
-from protohaven_api.integrations.airtable_base import get_record, get_all_records, get_all_records_after, insert_records, update_record, delete_record 
 
 log = logging.getLogger("integrations.airtable")
 
@@ -242,18 +249,25 @@ def get_announcements_after(d, roles, clearances):
 
         for r in row["fields"]["Roles"]:
             if r in roles:
-                row['fields']['rec_id'] = row['id']
-                yield row['fields']
+                row["fields"]["rec_id"] = row["id"]
+                yield row["fields"]
                 break
 
 
 def insert_simple_survey_response(announcement_id, email, neon_id, response):
-    return insert_records([{
-        'announcement': [announcement_id], 
-        'email': email,
-        'neon_id': neon_id,
-        'response': response,
-    }], "people", "sign_in_survey_responses")
+    return insert_records(
+        [
+            {
+                "announcement": [announcement_id],
+                "email": email,
+                "neon_id": neon_id,
+                "response": response,
+            }
+        ],
+        "people",
+        "sign_in_survey_responses",
+    )
+
 
 def get_policy_sections():
     """Gets all sections of policy that require enforcement"""
@@ -375,15 +389,17 @@ def expand_instructor_availability(rows, t0, t1):
             row["fields"]["End"]
         )
         rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
-        try: 
+        try:
             rr = rrulestr(rr, dtstart=start0) if rr != "" else None
         except ValueError as e:
             log.warning("Failed to parse rrule str: %s, %s", rr, str(e))
             rr = None
 
-        if not rr: # Empty or malformed
-           if t0 <= start0 <= t1 or t0 <= end0 <= t1 or (start0 <= t0 and t1 <= end0): # Only yield if event overlaps the interval
-               yield row["id"], max(start0, t0), min(end0, t1)
+        if not rr:  # Empty or malformed
+            if (
+                t0 <= start0 <= t1 or t0 <= end0 <= t1 or (start0 <= t0 and t1 <= end0)
+            ):  # Only yield if event overlaps the interval
+                yield row["id"], max(start0, t0), min(end0, t1)
         else:
             duration = end0 - start0
             for i, start in enumerate(rr):

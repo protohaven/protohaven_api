@@ -167,7 +167,7 @@ After deployment, verify that:
   * Member sign in fails with hello+testnonmember@protohaven.org
   * Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
   * Guest sign in presents waiver and completes
-* https://api.protohave.norg/events
+* https://api.protohaven.org/events
   * Displays upcoming calendar events
   * Shows reservations
   * Shows classes including attendee data
@@ -181,6 +181,7 @@ After deployment, verify that:
   * Shift swaps load, individual shifts can be clicked and overridden
   * Areas have some leads assigned to them
   * Shop techs list can set interest, expertise, shift and can view clearances
+  * In incognito window (not logged in) cannot make edits to tech data, shift data
 * https://api.protohaven.org/instructor/class
   * Loads classes for instructor, including attendance data
   * Adding, editing, and deleting availability in calendar works
@@ -189,3 +190,4 @@ After deployment, verify that:
   * Log submission button works
 * https://api.protohaven.org/member
   * Discord association form correctly sets discord ID on Neon account
+* Ensure cronicle is running, su to root then use control.sh

@@ -12,7 +12,7 @@ from protohaven_api.testing import d
 def test_validate_memberships_empty(mocker):
     """Empty search shoud pass by default"""
     mocker.patch.object(neon, "search_member", return_value=[])
-    got = C().validate_memberships_internal([])
+    got = C().validate_memberships_internal()
     assert not got
 
 
