@@ -65,7 +65,6 @@ PuLP==2.8.0
 pyasn1==0.5.1
 pyasn1-modules==0.3.0
 pycparser==2.22
-pygitguardian==1.16.0
 Pygments==2.18.0
 PyJWT==2.6.0
 pylint==3.0.3
