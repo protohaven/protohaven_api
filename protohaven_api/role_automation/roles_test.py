@@ -200,7 +200,8 @@ def test_sync_delayed_intents_toggling_apply(mocker):
     )
     r.airtable.insert_records.assert_called()
     r.airtable.delete_record.assert_called()
+    got["foo"].sort(key=lambda i: i[0])
     assert got["foo"] == [
-        ("IN 14 DAYS: revoke Discord role None (None)", "456"),
         ("CANCELLED: revoke Discord role None (Now present in Neon CRM)", "123"),
+        ("IN 14 DAYS: revoke Discord role None (None)", "456"),
     ]
