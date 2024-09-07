@@ -118,13 +118,15 @@ class Commands:  # pylint: disable=too-few-public-methods
             ):
                 roles_revoked += 1
 
+        result = list(roles.gen_role_comms(user_log, roles_assigned, roles_revoked))
         print(
             yaml.dump(
-                list(roles.gen_role_comms(user_log, roles_assigned, roles_revoked)),
+                result,
                 default_flow_style=False,
                 default_style="",
             )
         )
+        log.info(f"Done - generated {len(result)} comms")
 
     @command(
         arg(

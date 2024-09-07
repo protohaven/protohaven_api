@@ -1,7 +1,7 @@
 <script type="ts">
   import '../app.scss';
   import { onMount } from 'svelte';
-  import {get, post, open_ws} from '$lib/api.ts';
+  import {base_ws, get, post, open_ws} from '$lib/api.ts';
   import { Row, Card, Container } from '@sveltestrap/sveltestrap';
   import Splash from '$lib/splash.svelte';
   import SigninOk from '$lib/signin_ok.svelte';
@@ -21,6 +21,7 @@
   let violations = [];
 
   onMount(() => {
+    console.log("Base WS:", base_ws());
   });
 
 
