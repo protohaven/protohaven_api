@@ -1,5 +1,5 @@
 general:
-  session_secret: "secret"
+  session_secret: "secret" # pragma: allowlist secret
   admin_users: ["1245"]
   external_access_codes:
     "secret_code": ["Admin"]

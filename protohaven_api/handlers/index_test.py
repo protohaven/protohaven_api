@@ -46,9 +46,11 @@ def test_whoami(client):
     }
 
 
-def test_welcome_signin_get(client):
+def test_welcome_signin_get(client, mocker):
     """Check that the svelte page is loaded"""
-    assert "Welcome! Please sign in" in client.get("/welcome").data.decode("utf8")
+    mocker.patch.object(app, "send_static_file", return_value="TEST")
+    assert "TEST" == client.get("/welcome").data.decode("utf8")
+    app.send_static_file.assert_called_with("svelte/index.html")
 
 
 def test_welcome_signin_guest_no_referrer(mocker):
@@ -133,7 +135,7 @@ def test_welcome_signin_membership_expired(mocker):
             "API server role": None,  # This can happen
         }
     ]
-    index.airtable.get_announcements_after.return_value = None
+    index.airtable.get_announcements_after.return_value = []
     index.neon.update_waiver_status.return_value = True
     ws = mocker.MagicMock()
     ws.receive.return_value = json.dumps(

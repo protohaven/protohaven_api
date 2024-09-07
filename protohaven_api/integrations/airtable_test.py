@@ -8,13 +8,14 @@ from dateutil import parser as dateparser
 
 from protohaven_api.config import tz
 from protohaven_api.integrations import airtable as a
+from protohaven_api.integrations import airtable_base as ab
 from protohaven_api.testing import d, idfn
 
 
 def test_set_booked_resource_id(mocker):
-    mocker.patch.object(a, "get_connector")
+    mocker.patch.object(ab, "get_connector")
     mocker.patch.object(
-        a,
+        ab,
         "cfg",
         return_value={
             "base_id": "test_base_id",
@@ -22,42 +23,13 @@ def test_set_booked_resource_id(mocker):
             "tools": "tools_id",
         },
     )
-    a.get_connector().airtable_request.return_value = (200, "{}")
+    ab.get_connector().airtable_request.return_value = (200, "{}")
+
     a.set_booked_resource_id("airtable_id", "resource_id")
-    fname, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
+
+    fname, args, kwargs = ab.get_connector().airtable_request.mock_calls[0]
     assert kwargs["data"] == json.dumps({"fields": {"BookedResourceId": "resource_id"}})
     assert "airtable_id" == kwargs["rec"]
-
-
-def test_get_all_records(mocker):
-    mocker.patch.object(
-        a,
-        "cfg",
-        return_value={
-            "base_id": "test_base_id",
-            "token": "test_token",
-            "test_tbl": "test_tbl_id",
-        },
-    )
-    mocker.patch.object(a, "get_connector")
-    a.get_connector().airtable_request.side_effect = [
-        (200, json.dumps({"records": ["foo", "bar", "baz"], "offset": 1})),
-        (200, json.dumps({"records": ["fizz", "buzz"]})),
-    ]
-    assert a.get_all_records("test_base", "test_tbl", suffix="a=test_suffix") == [
-        "foo",
-        "bar",
-        "baz",
-        "fizz",
-        "buzz",
-    ]
-    _, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
-    print(kwargs)
-    assert kwargs["suffix"] == "?offset=&a=test_suffix"
-
-    _, args, kwargs = a.get_connector().airtable_request.mock_calls[1]
-    print(kwargs)
-    assert kwargs["suffix"] == "?offset=1&a=test_suffix"
 
 
 @pytest.mark.parametrize(
@@ -108,14 +80,30 @@ def test_get_all_records(mocker):
             },
             False,
         ),
+        (
+            "too new (scheduled)",
+            {
+                "Published": "2024-05-05",
+                "Roles": ["role1"],
+                "Tool Name (from Tool Codes)": [],
+            },
+            False,
+        ),
     ],
 )
 def test_get_announcements_after(desc, data, want, mocker):
     mocker.patch.object(
-        a, "_get_announcements_cached_impl", return_value=[{"fields": data}]
+        a,
+        "_get_announcements_cached_impl",
+        return_value=[{"fields": data, "id": "123"}],
     )
-    got = a.get_announcements_after(
-        dateparser.parse("2024-03-14").astimezone(tz), ["role1"], ["Sandblaster"]
+    mocker.patch.object(
+        a, "tznow", return_value=dateparser.parse("2024-04-02").astimezone(tz)
+    )
+    got = list(
+        a.get_announcements_after(
+            dateparser.parse("2024-03-14").astimezone(tz), ["role1"], ["Sandblaster"]
+        )
     )
     if want:
         assert got
@@ -204,6 +192,22 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
             d(6),
             d(7),
             [],
+        ),
+        Tc(
+            "Across day boundary with weekly repeat",
+            [
+                _arec("a", d(0, 21), d(1, 2), "RRULE:FREQ=WEEKLY;BYDAY=WE")
+            ],  # d(0) is a wednesday
+            d(-2),
+            d(10),
+            [(123, d(0, 21), d(1, 2)), (123, d(7, 21), d(8, 2))],
+        ),
+        Tc(
+            "RRULE parsing errors are ignored; non-recurrent date used",
+            [_arec("a", d(0, 18), d(0, 21), "RRULE:::FREQ==ASDF;;=;=")],
+            d(-2),
+            d(2),
+            [(123, d(0, 18), d(0, 21))],
         ),
     ],
     ids=idfn,

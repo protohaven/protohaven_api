@@ -165,3 +165,4 @@ token.json
 credentials.json
 comms.yaml
 protohaven_api/static/svelte/
+mock_data.pkl

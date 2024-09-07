@@ -1,6 +1,5 @@
 """Airtable integration (classes, tool state etc)"""
 import datetime
-import json
 import logging
 from collections import defaultdict
 from functools import cache
@@ -8,84 +7,16 @@ from functools import cache
 from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import get_config, tz, tznow
-from protohaven_api.integrations.data.connector import get as get_connector
+from protohaven_api.config import tz, tznow
+from protohaven_api.integrations.airtable_base import (
+    delete_record,
+    get_all_records,
+    get_all_records_after,
+    insert_records,
+    update_record,
+)
 
 log = logging.getLogger("integrations.airtable")
-
-
-def cfg(base):
-    """Get config for airtable stuff"""
-    return get_config()["airtable"][base]
-
-
-def get_record(base, tbl, rec):
-    """Grabs a record from a named table (from config.yaml)"""
-    status, content = get_connector().airtable_request("GET", base, tbl, rec)
-    if status != 200:
-        raise RuntimeError(f"Airtable fetch {base} {tbl} {rec}", status, content)
-    return json.loads(content)
-
-
-def get_all_records(base, tbl, suffix=None):
-    """Get all records for a given named table (ID in config.yaml)"""
-    records = []
-    offs = ""
-    while offs is not None:
-        s = f"?offset={offs}"
-        if suffix is not None:
-            s += "&" + suffix
-        status, content = get_connector().airtable_request("GET", base, tbl, suffix=s)
-        if status != 200:
-            raise RuntimeError(
-                f"Airtable fetch {base} {tbl} {s}",
-                status,
-                content,
-            )
-        data = json.loads(content)
-        records += data["records"]
-        if data.get("offset") is None:
-            break
-        offs = data["offset"]
-    return records
-
-
-def get_all_records_after(base, tbl, after_date):
-    """Returns a list of all records in the table with the
-    Created field timestamp after a certain date"""
-    return get_all_records(
-        base,
-        tbl,
-        suffix=f"filterByFormula=IS_AFTER(%7BCreated%7D,'{after_date.isoformat()}')",
-    )
-
-
-def insert_records(data, base, tbl):
-    """Inserts one or more records into a named table. the "fields" structure is
-    automatically applied."""
-    # Max of 10 records allowed for insertion, see
-    # https://airtable.com/developers/web/api/create-records
-    assert len(data) <= 10
-    post_data = {"records": [{"fields": d} for d in data]}
-    status, content = get_connector().airtable_request(
-        "POST", base, tbl, data=json.dumps(post_data)
-    )
-    return status, json.loads(content) if content else None
-
-
-def update_record(data, base, tbl, rec):
-    """Updates/patches a record in a named table"""
-    post_data = {"fields": data}
-    status, content = get_connector().airtable_request(
-        "PATCH", base, tbl, rec=rec, data=json.dumps(post_data)
-    )
-    return status, json.loads(content) if content else None
-
-
-def delete_record(base, tbl, rec):
-    """Deletes a record in a named table"""
-    status, content = get_connector().airtable_request("DELETE", base, tbl, rec=rec)
-    return status, json.loads(content) if content else None
 
 
 def get_class_automation_schedule():
@@ -280,6 +211,11 @@ def get_shop_tech_time_off():
     return get_all_records("people", "shop_tech_time_off")
 
 
+def insert_signin(evt):
+    """Insert sign-in event into Airtable"""
+    return insert_records([evt.to_airtable()], "people", "sign_ins")
+
+
 @cache
 def _get_announcements_cached_impl(i):  # pylint: disable=unused-argument
     return list(get_all_records("people", "sign_in_announcements"))
@@ -287,15 +223,15 @@ def _get_announcements_cached_impl(i):  # pylint: disable=unused-argument
 
 def get_announcements_after(d, roles, clearances):
     """Gets all announcements, excluding those before `d`"""
-    result = []
     cache_id = int(
         datetime.datetime.now().timestamp() % 3600
     )  # hourly arg change busts the cache
+    now = tznow()
     for row in _get_announcements_cached_impl(cache_id):
         adate = dateparser.parse(
             row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)
-        if adate <= d:
+        if adate <= d or adate > now:
             continue
 
         tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
@@ -310,9 +246,25 @@ def get_announcements_after(d, roles, clearances):
 
         for r in row["fields"]["Roles"]:
             if r in roles:
-                result.append(row["fields"])
+                row["fields"]["rec_id"] = row["id"]
+                yield row["fields"]
                 break
-    return result
+
+
+def insert_simple_survey_response(announcement_id, email, neon_id, response):
+    """Insert a survey response from the welcome page into Airtable"""
+    return insert_records(
+        [
+            {
+                "announcement": [announcement_id],
+                "email": email,
+                "neon_id": neon_id,
+                "response": response,
+            }
+        ],
+        "people",
+        "sign_in_survey_responses",
+    )
 
 
 def get_policy_sections():
@@ -426,21 +378,30 @@ MAX_EXPANSION = 1000
 def expand_instructor_availability(rows, t0, t1):
     """Given the `Availability` Airtable as `rows` and interval `t0` to
     `t1`, return all events within the interval
-    as (airtable_id, start_time, end_time) tuples
+    as (airtable_id, start_time, end_time) tuples.
+
+    Note that this doesn't deduplicate or merge overlapping availabilities.
     """
     for row in rows:
         start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
             row["fields"]["End"]
         )
-        rr = row["fields"].get("Recurrence", "")
-        if rr is None or rr == "" or "=" not in rr: # Empty or malformed
-            yield row["id"], max(start0, t0), min(end0, t1)
+        rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
+        try:
+            rr = rrulestr(rr, dtstart=start0) if rr != "" else None
+        except ValueError as e:
+            log.warning("Failed to parse rrule str: %s, %s", rr, str(e))
+            rr = None
+
+        if not rr:  # Empty or malformed
+            if (
+                t0 <= start0 <= t1 or t0 <= end0 <= t1 or (start0 <= t0 and t1 <= end0)
+            ):  # Only yield if event overlaps the interval
+                yield row["id"], max(start0, t0), min(end0, t1)
         else:
-            i = 0
-            for start, end in zip(
-                rrulestr(rr, dtstart=start0), rrulestr(rr, dtstart=end0)
-            ):
-                i += 1
+            duration = end0 - start0
+            for i, start in enumerate(rr):
+                end = start + duration
                 if i > MAX_EXPANSION:
                     log.error(
                         "MAX_EXPANSION exceeded for expanding instructor availability: %s",

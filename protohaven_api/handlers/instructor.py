@@ -323,7 +323,8 @@ def setup_scheduler_env():
     try:
         return generate_scheduler_env(
             dateparser.parse(request.args.get("start")).astimezone(tz),
-            dateparser.parse(request.args.get("end")).astimezone(tz),
+            dateparser.parse(request.args.get("end")).astimezone(tz)
+            + datetime.timedelta(hours=24),  # End of final day
             [request.args.get("inst")],
         )
     except dateparser.ParserError:
@@ -339,14 +340,8 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, score, skip_counters = solve_with_env(request.json)
-    for inst, kv in skip_counters.items():
-        for k, vv in kv.items():
-            print(vv)
-            skip_counters[inst][k] = [
-                (t.isoformat(), skip_t.isoformat(), cname) for t, skip_t, cname in vv
-            ]
-    return {"result": result, "score": score, "skip_counters": skip_counters}
+    result, score = solve_with_env(request.json)
+    return {"result": result, "score": score}
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -417,7 +412,6 @@ def inst_availability():
     describe an instructor's availability"""
     if request.method == "GET":
         inst = request.values.get("inst").lower()
-        log.warning(f"inst_availability for {inst}")
         t0 = _safe_date(request.values.get("t0"))
         t1 = _safe_date(request.values.get("t1"))
         if not t0 or not t1:
@@ -425,9 +419,12 @@ def inst_availability():
                 "Both t0 and t1 required in request to /instructor/calendar/availability",
                 status=400,
             )
+        t1 += datetime.timedelta(hours=24)  # End date is inclusive
         avail = list(airtable.get_instructor_availability(inst))
-        print(avail)
+
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
+
+        log.info(f"Expanded and merged availability: {expanded}")
         sched = [
             s
             for s in airtable.get_class_automation_schedule()

@@ -7,9 +7,10 @@ from protohaven_api.config import tz
 
 def d(i, h=0):
     """Returns a date based on an integer, for testing"""
-    return datetime.datetime(year=2025, month=1, day=1) + datetime.timedelta(
-        days=i, hours=h
-    )
+    return (
+        datetime.datetime(year=2025, month=1, day=1)
+        + datetime.timedelta(days=i, hours=h)
+    ).astimezone(tz)
 
 
 def t(hour, weekday=0):

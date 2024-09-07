@@ -7,6 +7,7 @@ import pytz
 from dateutil.parser import parse as parse_date
 
 from protohaven_api.class_automation import scheduler as s
+from protohaven_api.class_automation.solver import Class
 from protohaven_api.config import tz, tznow
 from protohaven_api.testing import d, t
 
@@ -44,33 +45,85 @@ def test_slice_date_range_tzinfo():
     ] == ["05:00", "04:00"]
 
 
-def test_generate_schedule_data():
-    """Properly generates data for scheduler to run on"""
-    # holiday = datetime.datetime(year=2024, month=7, day=4, hour=7, tzinfo=tz)
-    # assert holiday in holidays.US()
-    # assert slice_date_range(holiday, holiday.replace(hour=22)) == [] # Holidays are excluded
-
-
-def test_build_instructor():
+def test_build_instructor_basic():
+    """Test that given nominal data, an Instructor is built and returned OK."""
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
     assert s.build_instructor(
-        "testname", [("2024-04-01T18:00:00-04:00", "2024-04-01T21:00:00-04:00")], [], []
-    ).avail == [parse_date("2024-04-01T18:00:00-04:00")]
+        name="testname",
+        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
+        caps=[TEST_CLASS.airtable_id],
+        instructor_occupancy=[],
+        area_occupancy={},
+        class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
+    ).avail == [d(1, 18)]
 
 
-def test_build_instructor_respects_occupancy():
+def test_build_instructor_respects_empty_caps():
+    """Capabilities are still listed even when we have no candidate dates"""
+    assert s.build_instructor(
+        name="testname",
+        v=[],
+        caps=["test_cap"],
+        instructor_occupancy=[],
+        area_occupancy={},
+        class_by_id={},
+    ).caps == ["test_cap"]
+
+
+def test_build_instructor_daterange_not_supported():
+    """Test that rejected candidates for class/time are returned when the instructor has availability"""
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
+    inst = s.build_instructor(
+        name="testname",
+        v=[[d(1, 12).isoformat(), d(1, 14).isoformat(), "avail_id"]],
+        caps=[],  # <--- no capabilities!
+        instructor_occupancy=[],
+        area_occupancy={},
+        class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
+    )
+    assert inst.avail == []
     assert (
-        s.build_instructor(
-            "testname",
-            [("2024-04-01T18:00:00-05:00", "2024-04-01T21:00:00-05:00")],
-            [],
-            [
-                [
-                    parse_date("2024-04-01T19:00:00-04:00"),
-                    parse_date("2024-04-01T22:00:00-04:00"),
-                ]
-            ],
-        ).avail
-        == []
+        "Available time does not include one of the scheduler's allowed class times"
+        in inst.rejected["Availability Validation"][0]["reason"]
+    )
+
+
+def test_build_instructor_no_caps():
+    """If instructor has no capabilities, it is mentioned in `rejected`"""
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7)]],
+        score=1.0,
+    )
+    inst = s.build_instructor(
+        name="testname",
+        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
+        caps=[],  # <--- no capabilities!
+        instructor_occupancy=[],
+        area_occupancy={},
+        class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
+    )
+    assert inst.avail == []
+    assert (
+        "Instructor has no capabilities listed"
+        in inst.rejected["Instructor Validation"][0]["reason"]
     )
 
 
@@ -131,30 +184,6 @@ def test_gen_class_and_area_stats_exclusions():
     ]
 
 
-def test_filter_same_classday():
-    got = s.filter_same_classday(
-        "inst",
-        [(d(i * 7, 16).isoformat(), None) for i in range(4)],
-        [
-            {
-                "fields": {
-                    "Start Time": d(7, 12).isoformat(),
-                    "Days (from Class)": [2],
-                    "Instructor": "inst",
-                }
-            },
-            {
-                "fields": {
-                    "Start Time": d(0, 12).isoformat(),
-                    "Days (from Class)": [1],
-                    "Instructor": "ignored",
-                }
-            },
-        ],
-    )
-    assert got == [(d(i, 16).isoformat(), None) for i in (0, 21)]
-
-
 def test_fetch_formatted_availability(mocker):
     mocker.patch.object(
         s.airtable,
@@ -174,7 +203,7 @@ def test_fetch_formatted_availability(mocker):
     got = s.fetch_formatted_availability(["foo"], d(0), d(2, 0))
     assert got == {
         "foo": [
-            [d(0, 16).isoformat(), d(0, 19).isoformat()],
-            [d(1, 16).isoformat(), d(1, 19).isoformat()],
+            [d(0, 16).isoformat(), d(0, 19).isoformat(), "rowid"],
+            [d(1, 16).isoformat(), d(1, 19).isoformat(), "rowid"],
         ]
     }

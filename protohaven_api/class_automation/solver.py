@@ -2,7 +2,6 @@
 # https://stackoverflow.com/questions/42450533/bin-packing-python-query-with-variable-people-cost-and-sizes
 # https://gist.github.com/sameerkumar18/086cc6bdc277dc1cefb4374fa7b0327a
 
-import datetime
 import logging
 from collections import defaultdict
 
@@ -57,16 +56,24 @@ class Class:
 class Instructor:
     """Represents an instructor able to teach classes at particular times"""
 
-    def __init__(self, name, caps, avail):
+    def __init__(self, name, candidates, rejected=None):
+        """Candidates is a dict of {Class.airtable_id: [(t0, t1), ...]}"""
         self.name = name
-        self.caps = list(set(caps))  # references Class.airtable_id; discard duplicates
-
-        # Optionally parse str to python datetime
-        self.avail = (
-            [dateparser.parse(a) for a in avail]
-            if len(avail) > 0 and isinstance(avail[0], str)
-            else avail
+        # references Class.airtable_id; discard duplicates.
+        # We use List instead of Set so we can serialize JSON
+        self.caps = list(set(candidates.keys()))
+        self.avail = list(
+            {
+                (dateparser.parse(a) if isinstance(a, str) else a)
+                for cap, avail in candidates.items()
+                for a in avail
+            }
         )
+        self.candidates = {
+            cap: [dateparser.parse(a) if isinstance(a, str) else a for a in aa]
+            for cap, aa in candidates.items()
+        }
+        self.rejected = rejected or {}
 
     def __repr__(self):
         return f"{self.name} (caps={len(self.caps)}, times={len(self.avail)}"
@@ -75,43 +82,12 @@ class Instructor:
         """Return instructor as a dict"""
         return {
             "name": self.name,
-            "caps": self.caps,
-            "avail": self.avail,
+            "candidates": self.candidates,
+            "rejected": self.rejected,
         }
 
 
-def date_range_overlaps(a0, a1, b0, b1):
-    """Return True if [a0,a1] and [b0,b1] overlap"""
-    if b0 <= a0 < b1:
-        return True
-    if b0 < a1 <= b1:
-        return True
-    if a0 <= b0 and a1 >= b1:
-        return True
-    return False
-
-
-def has_area_conflict(area_occupancy, t_start, t_end):
-    """Return name of class if any of `area_occupancy` lie
-    within `t_start` and `t_end`, false otherwise"""
-    for a_start, a_end, name in area_occupancy:
-        if date_range_overlaps(a_start, a_end, t_start, t_end):
-            return name
-    return False
-
-
-def date_within_exclusions(d, exclusions):
-    """Returns the matching exclusion date if `d` is
-    within any of the tuples in the list of `exclusions`"""
-    for e1, e2, esched in exclusions:
-        if e1 <= d <= e2:
-            return esched
-    return False
-
-
-def solve(
-    classes, instructors, area_occupancy
-):  # pylint: disable=too-many-locals,too-many-branches
+def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.airtable_id: cls for cls in classes}
     areas = {a for c in classes for a in c.areas}
@@ -121,42 +97,11 @@ def solve(
     # Note the implicit constraint: no instructor is assigned a class they can't
     # teach, or a time they're unable to teach.
     possible_assignments = []
-    skip_counters = defaultdict(lambda: defaultdict(list))
-    assignment_counters = defaultdict(int)
     for instructor in instructors:
-        for t in instructor.avail:
-            for airtable_id in instructor.caps:
-                # Skip this particular time if it's in an exclusion region
-                cbid = class_by_id[airtable_id]
-                excluding_class_date = date_within_exclusions(t, cbid.exclusions)
-                if excluding_class_date:
-                    skip_counters[instructor.name.lower()][
-                        "Too soon before/after same class"
-                    ].append((t, excluding_class_date, cbid.name))
-                    continue
-
-                # Skip if area already occupied
-                conflict = False
-                for a in cbid.areas:
-                    conflict = has_area_conflict(
-                        area_occupancy.get(a, []),
-                        t,
-                        t + datetime.timedelta(hours=cbid.hours),
-                    )
-                    if conflict:
-                        break
-                if conflict:
-                    skip_counters[instructor.name.lower()][
-                        "Area already occupied by other class"
-                    ].append((t, t, conflict))
-                    continue
-
+        for airtable_id, tt in instructor.candidates.items():
+            for t in tt:
                 possible_assignments.append((airtable_id, instructor.name, t))
-                assignment_counters[f"{instructor.name} {airtable_id}"] += 1
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
-    for k, v in assignment_counters.items():
-        log.info(f"  {k}: {v} possible assignments")
-    log.info(f"Skipped {dict(skip_counters)}")
 
     x = pulp.LpVariable.dicts(
         "ClassAssignedToInstructorAtTime",
@@ -254,8 +199,4 @@ def solve(
                         [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
                     )
     log.info(f"Scheduler result: {instructor_classes}, final score {final_score}")
-    return (
-        dict(instructor_classes),
-        final_score,
-        {k: dict(v) for k, v in skip_counters.items()},
-    )
+    return (dict(instructor_classes), final_score)

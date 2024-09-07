@@ -142,8 +142,10 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 roles.append("Member")
             _send("Fetching announcements...", 55)
             clearances = [] if not m.get("Clearances") else m["Clearances"].split("|")
-            result["announcements"] = airtable.get_announcements_after(
-                last_announcement_ack, roles, set(clearances)
+            result["announcements"] = list(
+                airtable.get_announcements_after(
+                    last_announcement_ack, roles, set(clearances)
+                )
             )
 
             _send("Checking storage...", 70)
