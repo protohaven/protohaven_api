@@ -1,3 +1,4 @@
+# pylint: skip-file
 """Tests for role_automation functions"""
 from collections import namedtuple
 from dataclasses import replace
@@ -157,4 +158,50 @@ def test_gen_role_intents_no_neon(mocker):
             role="Techs",
             reason="not associated with a Neon account",
         ),
+    ]
+
+
+def test_sync_delayed_intents_toggling_apply(mocker):
+    """Setting apply_records to False prevents comms and does not
+    call airtable; setting to True does"""
+    mocker.patch.object(r.airtable, "delete_record", return_value=(200, None))
+    mocker.patch.object(
+        r.airtable, "insert_records", return_value=(200, {"records": [{"id": "456"}]})
+    )
+
+    i1 = r.DiscordIntent(
+        discord_id="foo",
+        rec="123",
+        action="REVOKE",
+    )
+    i2 = r.DiscordIntent(
+        discord_id="foo",
+        action="REVOKE",
+    )
+    got = {"foo": []}
+
+    # Behavior without applying records
+    r.sync_delayed_intents(
+        intents={i2.rec: i2},
+        airtable_intents={i1.rec: i1},
+        user_log=got,
+        apply_records=False,
+    )
+    r.airtable.insert_records.assert_not_called()
+    r.airtable.delete_record.assert_not_called()
+    assert not got["foo"]
+
+    # Behavior with applying records
+    r.sync_delayed_intents(
+        intents={i2.rec: i2},
+        airtable_intents={i1.rec: i1},
+        user_log=got,
+        apply_records=True,
+    )
+    r.airtable.insert_records.assert_called()
+    r.airtable.delete_record.assert_called()
+    got["foo"].sort(key=lambda i: i[0])
+    assert got["foo"] == [
+        ("CANCELLED: revoke Discord role None (Now present in Neon CRM)", "123"),
+        ("IN 14 DAYS: revoke Discord role None (None)", "456"),
     ]

@@ -3,9 +3,7 @@ import argparse
 import datetime
 import logging
 
-import yaml
-
-from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable  # pylint: disable=import-error
 from protohaven_api.policy_enforcement import enforcer
@@ -138,5 +136,5 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
 
-        print(yaml.dump(result, default_flow_style=False, default_style=""))
+        print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")

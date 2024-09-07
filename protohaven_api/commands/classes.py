@@ -6,11 +6,10 @@ import re
 from collections import defaultdict
 
 import markdown
-import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import builder, scheduler
-from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
@@ -46,13 +45,7 @@ class Commands:
         start = dateparser.parse(args.start).astimezone(tz)
         end = dateparser.parse(args.end).astimezone(tz)
         result = builder.gen_scheduling_reminders(start, end)
-        print(
-            yaml.dump(
-                result,
-                default_flow_style=False,
-                default_style="",
-            )
-        )
+        print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
 
     @command(
@@ -93,7 +86,7 @@ class Commands:
         # Add the rest here as needed
 
         result = b.build()
-        print(yaml.dump(result, default_flow_style=False, default_style=""))
+        print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
 
     def _handle_comms_event(self, e, dryrun=True):
@@ -165,7 +158,7 @@ class Commands:
         end = dateparser.parse(args.end).astimezone(tz)
         inst = {a.strip() for a in args.filter.split(",")} if args.filter else None
         env = scheduler.generate_env(start, end, inst)
-        print(yaml.dump(env, default_flow_style=False, default_style=""))
+        print_yaml(env)
 
     @command(
         arg(
@@ -177,11 +170,10 @@ class Commands:
     )
     def run_scheduler(self, args):
         """Run the class scheduler on a provided env"""
-        with open(args.path, "r", encoding="utf-8") as f:
-            env = yaml.safe_load(f.read())
+        env = load_yaml(args.path)
         instructor_classes, final_score = scheduler.solve_with_env(env)
         log.info(f"Final score: {final_score}")
-        print(yaml.dump(instructor_classes, default_flow_style=False, default_style=""))
+        print_yaml(instructor_classes)
 
     @command(
         arg(
@@ -194,11 +186,10 @@ class Commands:
     def append_schedule(self, args):
         """Adds a schedule (created with `run_scheduler`) to Airtable for
         instructor confirmation."""
-        with open(args.path, "r", encoding="utf-8") as f:
-            sched = yaml.safe_load(f.read())
+        sched = load_yaml(args.path)
         notifications = scheduler.gen_schedule_push_notifications(sched)
         scheduler.push_schedule(sched)
-        print(yaml.dump(notifications, default_flow_style=False, default_style=""))
+        print_yaml(notifications)
 
     @command(
         arg(
@@ -456,10 +447,4 @@ class Commands:
                 to_reserve, args.apply
             )
 
-        print(
-            yaml.dump(
-                builder.gen_class_scheduled_alerts(scheduled_by_instructor),
-                default_flow_style=False,
-                default_style="",
-            )
-        )
+        print_yaml(builder.gen_class_scheduled_alerts(scheduled_by_instructor))

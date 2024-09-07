@@ -1,20 +1,11 @@
 
-function base_ws() {
-  if (window.location.href.indexOf("localhost") === -1) {
-      return "wss://api.protohaven.org";
-  }
-  return  "ws://localhost:5000";
-}
-
-function base_url() {
-  if (window.location.href.indexOf("localhost") === -1) {
-      return "https://api.protohaven.org";
-  }
-  return  "http://localhost:5000";
+export function base_ws() {
+  // Use ws:// if http://, or wss:// if https://
+  return window.location.origin.replace("http", "ws");
 }
 
 function json_req(url, data, method) {
-  return fetch(base_url() + url, {
+  return fetch(url, {
     method,
     headers: {
       'Accept': 'application/json',
@@ -48,7 +39,7 @@ export function del(url, data) {
 }
 
 export function get(url) {
-  return fetch(base_url() + url).then((rep)=>rep.text())
+  return fetch(url).then((rep)=>rep.text())
     .then((body) => {
       try {
 	    return JSON.parse(body);

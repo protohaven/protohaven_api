@@ -69,6 +69,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 
+# Create the static build file destination for frontend assets
+mkdir -p protohaven_api/static/svelte
+# Then follow the steps at "Pushing updates" below.
+
 # Having a separate socket config allows us to bind to privileged ports (i.e. 80) without root access
 sudo cp ./protohaven_api.service /lib/systemd/system/protohaven_api.service
 sudo cp ./protohaven_api.socket /lib/systemd/system/protohaven_api.socket
@@ -97,21 +101,40 @@ git checkout <release_name>
 ```
 
 
-Next, build the static pages:
+Next, build the static pages (Note: you may likely have to build on your dev machine and scp them to the server):
 
 ```
 cd svelte
 npm run build
 rm -r ../protohaven_api/static/svelte
 cp -r ./build ../protohaven_api/static/svelte
+
+# To push to the server
+scp -r build <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/svelte/build
+
+# You may also need to push the config file
+scp config.yaml <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/config_new.yaml
+
+```
+
+Then SSH into the server and copy over the build files, leaving a copy of the old config just in case
+
+```
+cd path/to/staging_protohaven_api
+rm -r ./protohaven_api/static/svelte/* && cp -r ./svelte/build ./protohaven_api/static/svelte
+cp config.yaml config_old_v0_XX_XX.yaml
+mv config_new.yaml config.yaml
 ```
 
 Finally, restart the service and check its status
 
 ```
+# For prod; staging TODO
 sudo systemctl restart protohaven_api.service
 sudo systemctl status protohaven_api.service
 ```
+
+When staging is observed to work properly, do the same for prod.
 
 # Common Actions
 

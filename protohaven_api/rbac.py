@@ -36,6 +36,7 @@ class Role:
     STAFF = {"name": "Staff", "id": "245"}
     SHOP_TECH = {"name": "Shop Tech", "id": "238"}
     SHOP_TECH_LEAD = {"name": "Shop Tech Lead", "id": "241"}
+    EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
     ONBOARDING = {"name": "Onboarding", "id": "240"}
     ADMIN = {"name": "Admin", "id": "239"}
 
