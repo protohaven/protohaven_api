@@ -3,9 +3,7 @@ import argparse
 import logging
 from collections import defaultdict
 
-import yaml
-
-from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.role_automation import roles
@@ -119,13 +117,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 roles_revoked += 1
 
         result = list(roles.gen_role_comms(user_log, roles_assigned, roles_revoked))
-        print(
-            yaml.dump(
-                result,
-                default_flow_style=False,
-                default_style="",
-            )
-        )
+        print_yaml(result)
         log.info(f"Done - generated {len(result)} comms")
 
     @command(

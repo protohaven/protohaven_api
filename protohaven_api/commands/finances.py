@@ -6,10 +6,9 @@ import re
 import sys
 from collections import defaultdict
 
-import yaml
 from dateutil import parser as dateparser
 
-from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
@@ -106,7 +105,7 @@ class Commands:
                 }
             ]
 
-        print(yaml.dump(result, default_flow_style=False, default_style=""))
+        print_yaml(result)
         log.info("Done")
 
     def _validate_role_membership(self, details, role):
@@ -224,7 +223,7 @@ class Commands:
                     "target": "#membership-automation",
                 }
             ]
-            print(yaml.dump(result, default_flow_style=False, default_style=""))
+            print_yaml(result)
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def validate_memberships_internal(
