@@ -1,24 +1,20 @@
 """Airtable integration (classes, tool state etc)"""
 import datetime
-import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
 from functools import cache
 
 from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations.airtable_base import (
     delete_record,
     get_all_records,
     get_all_records_after,
-    get_record,
     insert_records,
     update_record,
 )
-from protohaven_api.integrations.data.connector import get as get_connector
 
 log = logging.getLogger("integrations.airtable")
 
@@ -216,6 +212,7 @@ def get_shop_tech_time_off():
 
 
 def insert_signin(evt):
+    """Insert sign-in event into Airtable"""
     return insert_records([evt.to_airtable()], "people", "sign_ins")
 
 
@@ -255,6 +252,7 @@ def get_announcements_after(d, roles, clearances):
 
 
 def insert_simple_survey_response(announcement_id, email, neon_id, response):
+    """Insert a survey response from the welcome page into Airtable"""
     return insert_records(
         [
             {

@@ -43,10 +43,11 @@ def subscription_tax_pct(sub, price):
     """Compute the tax percentage for a given subscription. Note that only
     some subscriptions have the `tax_percentage` field, others must be computed
     from linked invoices"""
+    assert price >= 0.000000001
+
     if sub.get("tax_percentage"):
         return float(sub["tax_percentage"])
-    if price <= 0.00000000001:
-        return 0  # Avoid div by zero
+
     # Not having a tax_percentage field doesn't guarantee it has no tax.
     # We have to inspect the latest invoice and work backwards from the charge.
     if len(sub["invoice_ids"]) == 0:
@@ -59,13 +60,13 @@ def subscription_tax_pct(sub, price):
 
 def get_subscription_plan_map():
     """Get available subscription options, mapped by ID to type"""
-    data = client().catalog.list_catalog()
+    data = client().catalog.list_catalog(types="SUBSCRIPTION_PLAN_VARIATION")
     if not data.is_success():
         raise RuntimeError(data.errors)
 
     result = {}
     for v in data.body["objects"]:
-        if v["type"] == "SUBSCRIPTION_PLAN_VARIATION" and not v["is_deleted"]:
+        if not v["is_deleted"]:
             name = v["subscription_plan_variation_data"]["name"]
             price = v["subscription_plan_variation_data"]["phases"][0]["pricing"][
                 "price"

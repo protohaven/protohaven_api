@@ -4,10 +4,9 @@ import logging
 import re
 from datetime import datetime
 
-import yaml
 from dateutil import parser as dateparser
 
-from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
@@ -78,7 +77,7 @@ class Commands:
             num += 1
         log.info(f"Done - {num} project request(s) generated")
 
-        print(yaml.dump(results, default_flow_style=False, default_style=""))
+        print_yaml(results)
 
     @command()
     def shop_tech_applications(self, _):
@@ -103,7 +102,7 @@ class Commands:
                 "subject": "**Open shop tech applications:**",
                 "body": body,
             }
-            print(yaml.dump([result], default_flow_style=False, default_style=""))
+            print_yaml([result])
 
     @command()
     def instructor_applications(self, _):
@@ -129,7 +128,7 @@ class Commands:
                 "subject": "**Open instructor applications:**",
                 "body": body,
             }
-            print(yaml.dump([result], default_flow_style=False, default_style=""))
+            print_yaml([result])
 
     @command()
     def class_proposals(self, _):
@@ -155,7 +154,7 @@ class Commands:
                 "subject": "**Proposed classes awaiting approval:**",
                 "body": body,
             }
-            print(yaml.dump([result], default_flow_style=False, default_style=""))
+            print_yaml([result])
 
     def _form_from_task_notes(self, notes):
         """Extract Asana form data from the Notes field of the task"""
@@ -279,7 +278,7 @@ class Commands:
                     ),
                 }
             )
-        print(yaml.dump(results, default_flow_style=False, default_style=""))
+        print_yaml(results)
 
     @command(
         arg(
@@ -312,7 +311,7 @@ class Commands:
             num += 1
         log.info(f"Found {num} open phone messages")
 
-        print(yaml.dump(results, default_flow_style=False, default_style=""))
+        print_yaml(results)
 
     def _cur_shift(self, now):
         if now.hour < 10:  # Earlier than start of shift, so prev shift
@@ -378,4 +377,4 @@ class Commands:
                 }
             )
 
-        print(yaml.dump(comms, default_flow_style=False, default_style=""))
+        print_yaml(comms)

@@ -57,7 +57,7 @@
       candidates = data.instructors[0].candidates;
       rejected = data.instructors[0].rejected;
 
-      let cls_ids = new Set(data.instructors[0].caps);
+      let cls_ids = new Set(Object.keys(candidates) || []);
       classes = {};
       for (let cls of data.classes) {
         if (cls_ids.has(cls.airtable_id)) {
@@ -77,13 +77,13 @@
     // Clone environment so we can strip deselected classes
     // without affecting the actual env
     let body = JSON.parse(JSON.stringify(env));
-    body.instructors[0].caps = [];
-    for (let cap of env.instructors[0].caps) {
-      if (classes[cap].checked) {
-	body.instructors[0].caps.push(cap);
+    body.instructors[0].candidates = {};
+    for (let cap of Object.keys(env.instructors[0].candidates)) {
+      if (classes[cap] && classes[cap].checked) {
+	      body.instructors[0].candidates[cap] = env.instructors[0].candidates[cap];
       }
     }
-    console.log(body.instructors[0].caps);
+    console.log(body.instructors[0].candidates);
 
     solve_promise = post("/instructor/run_scheduler", body).then((data) => {
       console.log(data);
@@ -92,7 +92,6 @@
         console.log("No result for instructor - output", output);
 	throw Error("The scheduler ran but no schedule was able to be generated.");
       }
-      run_details = data.skip_counters[inst.toLowerCase()];
       for (let cls of output) {
       	console.log(cls);
 	cls[2] = (new Date(cls[2])).toLocaleString();
@@ -161,16 +160,20 @@
 	      {/each}
 
         {#if Object.keys(rejected).length > 0}
-	      <Accordion class="my-3" stayOpen>
-	      	<AccordionItem header="Scheduler passed on some class times - click for details">
+	      <Accordion id="rejected_flyout" class="my-3" stayOpen>
+	      	<AccordionItem header="Scheduler passed on some of your available windows - click for details">
           {#each Object.keys(rejected) as k}
-          <div>{(classes[k] || "").name}</div>
+          <div>{(classes[k] || "").name || k}</div>
           <ListGroup>
             {#each rejected[k] as r}
             <ListGroupItem>Skip {(new Date(r.time)).toLocaleString()}: {r.reason}</ListGroupItem>
             {/each}
           </ListGroup>
           {/each}
+
+          <div class="my-3">
+            See <strong><a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">the Instructor wiki page</a></strong> for more details.
+          </div>
           </AccordionItem>
         </Accordion>
         {/if}
@@ -193,21 +196,6 @@
 	      {#each p as c}
 		<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
 	      {/each}
-
-	      {#if run_details}
-	      <Accordion class="my-3" stayOpen>
-	      	<AccordionItem header="Some dates were excluded from scheduling particular classes - click for details">
-	        {#each Object.keys(run_details) as d}
-		  <strong>{d}:</strong>
-	      	<ul>
-		  {#each run_details[d] as skip_info}
-		     <li>{isodate(skip_info[0])} (confict with {skip_info[2]} on {isodate(skip_info[1])})</li>
-		  {/each}
-		</ul>
-		{/each}
-		</AccordionItem>
-	      </Accordion>
-	      {/if}
 
 	      {#if output}
 		<Alert color="warning"><strong>Your classes aren't saved yet!</strong> Click "save proposed classes" below to add them to your schedule.</Alert>
@@ -237,4 +225,8 @@
   h5 {
     margin-top: 20px;
   }
+  :global(#rejected_flyout button) {
+    background-color: var(--bs-warning) !important;
+  }
+
 </style>

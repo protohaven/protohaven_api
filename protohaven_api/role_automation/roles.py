@@ -71,6 +71,7 @@ SYNC_ROLES = {
     "Techs": Role.SHOP_TECH["name"],
     "Board": Role.BOARD_MEMBER["name"],
     "TechLeads": Role.SHOP_TECH_LEAD["name"],
+    "EduLeads": Role.EDUCATION_LEAD["name"],
     "Admin": Role.ADMIN["name"],
     "Members": None,
 }
@@ -264,6 +265,13 @@ def sync_delayed_intents(intents, airtable_intents, user_log, apply_records):
                     log.error(content)
                 else:
                     intent.rec = content["records"][0]["id"]
+            else:
+                # Don't stage impending comms if we aren't inserting the record
+                log.warning(
+                    f"Skip record insertion: {intent.discord_id} {prefix} "
+                    f"{intent.action.lower()} Discord role {intent.role} ({intent.reason})"
+                )
+                continue
         elif k not in intents and intent.rec is not None:
             prefix = "CANCELLED"
             intent.reason = "Now present in Neon CRM"
@@ -271,6 +279,13 @@ def sync_delayed_intents(intents, airtable_intents, user_log, apply_records):
                 status, content = airtable.delete_record(
                     "people", "automation_intents", intent.rec
                 )
+            else:
+                # Don't stage cancellation comms if we don't update the record
+                log.warning(
+                    f"Skip record deletion: {intent.discord_id} {prefix} "
+                    f"{intent.action.lower()} Discord role {intent.role} ({intent.reason})"
+                )
+                continue
 
         if prefix:
             user_log[intent.discord_id].append(

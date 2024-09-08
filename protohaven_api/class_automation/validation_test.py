@@ -1,3 +1,4 @@
+"""Tests for validation module"""
 from collections import namedtuple
 
 import pytest
@@ -59,7 +60,8 @@ Tc = namedtuple("tc", "desc,t0,inst_occupancy,area_occupancy,want_reason")
             d(6),
             [],
             {},
-            "Too soon before/after same class (scheduled for 2025-01-08; no repeats allowed between 2025-01-06 and 2025-01-11)",
+            "Too soon before/after same class (scheduled for 2025-01-08; "
+            "no repeats allowed between 2025-01-06 and 2025-01-11)",
         ),
         Tc(
             "pass, complex",
@@ -72,7 +74,8 @@ Tc = namedtuple("tc", "desc,t0,inst_occupancy,area_occupancy,want_reason")
     ids=idfn,
 )
 def test_validate_candidate_class_time(tc):
-    TEST_CLASS = Class(
+    """Test cases for validate_candidate_class_time"""
+    testclass = Class(
         "test_id",
         "Test Class",
         3,
@@ -81,11 +84,11 @@ def test_validate_candidate_class_time(tc):
         score=1.0,
     )
     valid, reason = v.validate_candidate_class_time(
-        TEST_CLASS, tc.t0, tc.inst_occupancy, tc.area_occupancy
+        testclass, tc.t0, tc.inst_occupancy, tc.area_occupancy
     )
     if valid and tc.want_reason:
-        raise Exception(f"got valid; want invalid with reason {tc.want_reason}")
-    elif not valid:
+        raise RuntimeError(f"got valid; want invalid with reason {tc.want_reason}")
+    if not valid:
         assert reason == tc.want_reason
 
 
@@ -159,4 +162,5 @@ Tc = namedtuple("TC", "desc,dd,want")
     ids=idfn,
 )
 def test_sort_and_merge_date_ranges(tc):
+    """Test cases for sort_and_merge_date_ranges function"""
     assert list(v.sort_and_merge_date_ranges(tc.dd)) == tc.want

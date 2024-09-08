@@ -39,5 +39,8 @@ def get_execution_log_link():
 
 
 def exec_details_footer():
+    """Return a formatted footer with details related to cron-style execution of this
+    process.
+    """
     l = get_execution_log_link()
     return "" if not l else "\nExecution log: " + l

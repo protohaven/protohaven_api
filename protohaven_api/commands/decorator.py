@@ -2,6 +2,8 @@
 import argparse
 import functools
 
+import yaml
+
 
 def command(*parser_args):
     """Returns a configured decorator that provides help info based on the function comment
@@ -27,3 +29,14 @@ def arg(*args, **kwargs):
     """Allows specifying of arguments in a parser.Argument call, but instead via decorato"""
     assert len(args) == 1
     return args[0], kwargs
+
+
+def load_yaml(path):
+    """Loads yaml file from a path"""
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f.read())
+
+
+def print_yaml(data):
+    """Prints yaml to stdout"""
+    print(yaml.dump(data, default_flow_style=False, default_style=""))

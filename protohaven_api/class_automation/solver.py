@@ -2,7 +2,6 @@
 # https://stackoverflow.com/questions/42450533/bin-packing-python-query-with-variable-people-cost-and-sizes
 # https://gist.github.com/sameerkumar18/086cc6bdc277dc1cefb4374fa7b0327a
 
-import datetime
 import logging
 from collections import defaultdict
 
@@ -57,12 +56,12 @@ class Class:
 class Instructor:
     """Represents an instructor able to teach classes at particular times"""
 
-    def __init__(self, name, candidates, rejected={}):
+    def __init__(self, name, candidates, rejected=None):
         """Candidates is a dict of {Class.airtable_id: [(t0, t1), ...]}"""
         self.name = name
-        self.caps = list(
-            set(candidates.keys())
-        )  # references Class.airtable_id; discard duplicates. List instead of Set so we can serialize JSON
+        # references Class.airtable_id; discard duplicates.
+        # We use List instead of Set so we can serialize JSON
+        self.caps = list(set(candidates.keys()))
         self.avail = list(
             {
                 (dateparser.parse(a) if isinstance(a, str) else a)
@@ -74,7 +73,7 @@ class Instructor:
             cap: [dateparser.parse(a) if isinstance(a, str) else a for a in aa]
             for cap, aa in candidates.items()
         }
-        self.rejected = rejected
+        self.rejected = rejected or {}
 
     def __repr__(self):
         return f"{self.name} (caps={len(self.caps)}, times={len(self.avail)}"
@@ -83,16 +82,12 @@ class Instructor:
         """Return instructor as a dict"""
         return {
             "name": self.name,
-            "caps": self.caps,
-            "avail": self.avail,
             "candidates": self.candidates,
             "rejected": self.rejected,
         }
 
 
-def solve(
-    classes, instructors, area_occupancy
-):  # pylint: disable=too-many-locals,too-many-branches
+def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.airtable_id: cls for cls in classes}
     areas = {a for c in classes for a in c.areas}

@@ -6,10 +6,9 @@ import re
 import sys
 from collections import defaultdict
 
-import yaml
 from dateutil import parser as dateparser
 
-from protohaven_api.commands.decorator import arg, command
+from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
@@ -33,6 +32,7 @@ class Commands:
         log.info("Fetching subscription plans")
         sub_plan_map = sales.get_subscription_plan_map()
         log.info(f"Fetched {len(sub_plan_map)} subscription plans")
+        assert len(sub_plan_map) > 0  # We should at least have some plans
         now = tznow()
         log.info("Fetching subscriptions")
 
@@ -46,10 +46,15 @@ class Commands:
 
             sub_id = sub["id"]
             url = f"https://squareup.com/dashboard/subscriptions-list/{sub_id}"
-            log.debug(f"Subscription {sub_id}")
+            log.debug(f"Subscription {sub_id}: {sub}")
             plan, price = sub_plan_map.get(
                 sub["plan_variation_id"], (sub["plan_variation_id"], 0)
             )
+            if price == 0:
+                log.warning(
+                    f"Subscription plan not resolved: {sub['plan_variation_id']}"
+                )
+                continue
             tax_pct = sales.subscription_tax_pct(sub, price)
 
             log.debug(f"{plan} ${price/100} tax={tax_pct}%")
@@ -57,6 +62,7 @@ class Commands:
 
             if tax_pct < 6.9 or tax_pct > 7.1:
                 untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax, {url}")
+                log.info(untaxed[-1])
 
             charged_through = dateparser.parse(sub["charged_through_date"]).astimezone(
                 tz
@@ -65,6 +71,7 @@ class Commands:
                 unpaid.append(
                     f"- {cust} - {plan} - charged through {charged_through}, {url}"
                 )
+                log.info(unpaid[-1])
 
         log.info(
             f"Processed {n} active subscriptions - {len(unpaid)} unpaid, {len(untaxed)} untaxed"
@@ -74,16 +81,16 @@ class Commands:
         if len(unpaid) > 0:
             body = (
                 f"{len(unpaid)} subscriptions active but not caught up on payments "
-                + "(showing max of 10):\n"
+                + "(showing max of 5):\n"
             )
-            body += "\n".join(unpaid[:10])
+            body += "\n".join(unpaid[:5])
 
         if len(untaxed) > 0:
             body += (
                 f"\n{len(untaxed)} subscriptions active but do not have 7% sales tax "
-                + "(showing max of 10):\n"
+                + "(showing max of 5):\n"
             )
-            body += "\n".join(untaxed[:10])
+            body += "\n".join(untaxed[:5])
             body += "\n\nPlease remedy by following the instructions at "
             body += "https://protohaven.org/wiki/shoptechs/storage_sales_tax"
             body += exec_details_footer()
@@ -94,12 +101,12 @@ class Commands:
                 {
                     "id": None,
                     "subject": "@Staff: Action Needed for Square Validation",
-                    "body": body,
+                    "body": body + exec_details_footer(),
                     "target": "#finance-automation",
                 }
             ]
 
-        print(yaml.dump(result, default_flow_style=False, default_style=""))
+        print_yaml(result)
         log.info("Done")
 
     def _validate_role_membership(self, details, role):
@@ -222,7 +229,7 @@ class Commands:
                     "target": "#membership-automation",
                 }
             ]
-            print(yaml.dump(result, default_flow_style=False, default_style=""))
+            print_yaml(result)
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def validate_memberships_internal(

@@ -27,6 +27,12 @@ def onboarding_svelte_files(typ, path):
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
+@page.route("/join_discord.png")
+def discord_qr():
+    """Return svelte QR code image"""
+    return current_app.send_static_file("svelte/join_discord.png")
+
+
 @page.route("/onboarding/check_membership")
 @require_login_role(Role.ONBOARDING)
 def onboarding_check_membership():

@@ -114,3 +114,15 @@ def test_update_role_intents(mocker, capsys):
     got = yaml.safe_load(capsys.readouterr().out.strip())
     got_intents = {i for c in got for i in c.get("intents", [])}
     assert 999 in got_intents
+
+
+def test_update_role_intents_zero_comms(mocker, capsys):
+    """Ensure that no comms are sent if there were no changes"""
+    mocker.patch.object(r.roles, "gen_role_intents", return_value=[])
+    mocker.patch.object(r.airtable, "get_role_intents", return_value=[])
+
+    r.Commands().update_role_intents(
+        ["--apply_records", "--apply_discord", "--destructive"]
+    )
+    got = yaml.safe_load(capsys.readouterr().out.strip())
+    assert not got
