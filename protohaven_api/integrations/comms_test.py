@@ -18,7 +18,7 @@ def test_send_discord_message_with_role_embed(mocker):
     mocker.patch.object(c, "get_connector")
     c.send_discord_message("Hello @TestRole!", "#test_channel")
     c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
-        "https://test_channel_webhook", "Hello <@&TEST_ROLE_ID>!"
+        "https://test_channel_webhook", "Hello <@&TEST_ROLE_ID>!", blocking=True
     )
 
 

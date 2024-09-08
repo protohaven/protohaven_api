@@ -256,10 +256,10 @@ def insert_simple_survey_response(announcement_id, email, neon_id, response):
     return insert_records(
         [
             {
-                "announcement": [announcement_id],
-                "email": email,
-                "neon_id": neon_id,
-                "response": response,
+                "Announcement": [announcement_id],
+                "Email": email,
+                "Neon ID": neon_id,
+                "Response": response,
             }
         ],
         "people",

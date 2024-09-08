@@ -17,11 +17,17 @@
   let dependent_info="";
 	let feedback=null;
   let referrer = "";
+  let testing = false;
+
   let announcements = [];
   let violations = [];
 
   onMount(() => {
     console.log("Base WS:", base_ws());
+    if (new URLSearchParams(window.location.search).get('testing')) {
+      testing = true;
+      console.log("testing mode enabled; test announcements will be fetched");
+    }
   });
 
 
@@ -37,7 +43,7 @@
 
   function do_post(silent=false) {
     // We capture the data at the time of invocation to prevent data from getting cleared asynchronously
-    let capture = JSON.stringify({email, person, waiver_ack, dependent_info, referrer});
+    let capture = JSON.stringify({email, person, waiver_ack, dependent_info, referrer, testing});
     return new Promise((resolve, reject) => {
       const socket = open_ws("/welcome/ws")
       socket.addEventListener("open", (event) => {
@@ -47,16 +53,15 @@
       	resolve(null);
       } else {
 	      socket.addEventListener("message", (event) => {
-		let data = JSON.parse(event.data);
-		console.log(data);
-		if (data.pct !== undefined) {
-		  progress = data;
-		} else {
-		  progress = null;
-		  resolve(data);
-		}
-	      });
-	}
+          let data = JSON.parse(event.data);
+          if (data.pct !== undefined) {
+            progress = data;
+          } else {
+            progress = null;
+            resolve(data);
+          }
+        });
+      }
     });
   }
 
@@ -93,7 +98,6 @@
     checking = true;
     let result = await do_post();
     checking = false;
-    console.log(result);
     if (result.notfound) {
       feedback = "Member not found; please try again";
       return;
@@ -118,7 +122,7 @@
 	<Row class="mb-5">
 		<img src="logo_color.svg" alt="logo"/>
 	</Row>
-	<Row>
+	<Row class="d-flex justify-content-center" style="max-width: 920px">
     {#if state == 'splash'}
       <Splash bind:email={email} bind:dependent_info={dependent_info} {feedback} {progress} on_member={()=>on_splash_submit('member')} on_guest={()=>on_splash_submit('guest')}/>
     {:else if state == 'waiver' }
@@ -126,7 +130,7 @@
     {:else if state == 'membership_expired' }
       <MembershipExpired name={name} on_close={restart_flow}/>
     {:else if state == 'signin_ok'}
-      <SigninOk {name} guest={person == 'guest'} {announcements} {violations} on_close={on_signin_return}/>
+      <SigninOk {name} {email} guest={person == 'guest'} {announcements} {violations} on_close={on_signin_return}/>
     {/if}
 	</Row>
 </main>

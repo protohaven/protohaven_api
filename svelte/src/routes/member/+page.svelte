@@ -16,9 +16,7 @@
 	  const urlParams = new URLSearchParams(window.location.search);
 	  discord_id = urlParams.get("discord_id") || "";
 	  neon_id = urlParams.get("neon_id") || null;
-	  promise = get("/whoami").then((data) => {
-		console.log(data);
-	  });
+	  promise = get("/whoami");
   });
 
   $: {

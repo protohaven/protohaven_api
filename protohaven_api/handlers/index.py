@@ -139,6 +139,10 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 for r in (m.get("API server role", "") or "").split("|")  # Can be None
                 if r.strip() != ""
             ]
+            if data.get(
+                "testing"
+            ):  # Show testing announcements if ?testing=<anything> in URL
+                roles.append("Testing")
             if result["status"] == "Active":
                 roles.append("Member")
             _send("Fetching announcements...", 55)
@@ -148,6 +152,10 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                     last_announcement_ack, roles, set(clearances)
                 )
             )
+            # Don't send others' survey responses to the frontend
+            for a in result["announcements"]:
+                if "Sign-In Survey Responses" in a:
+                    del a["Sign-In Survey Responses"]
 
             _send("Checking storage...", 70)
             for pv in airtable.get_policy_violations():
@@ -204,7 +212,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
         rep = submit_google_form("signin", form_data.to_google_form())
         log.info(f"Google form submitted, response {rep}")
         _send("Logging sign-in......", 97)
-        rep = airtable.insert_signin(form_data.to_airtable)
+        rep = airtable.insert_signin(form_data)
         log.info(f"Airtable log submitted, response {rep}")
 
     ws.send(json.dumps(result))
@@ -245,9 +253,12 @@ def survey_response():
     m = list(neon.search_member(data["email"]))
     if len(m) != 0:
         neon_id = m[0]["Account ID"]
-    return airtable.insert_simple_survey_response(
-        data["rec"], data["email"], neon_id, data["response"]
+    status, content = airtable.insert_simple_survey_response(
+        data["rec_id"], data["email"], neon_id, data["response"]
     )
+    if status != 200:
+        log.error(f"Survey response error {status}: {content}")
+    return Response(json.dumps({"status": status}), status=status)
 
 
 @page.route("/class_listing", methods=["GET"])

@@ -182,7 +182,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                     log.info(str(comms.set_discord_nickname(discord_user, nick)))
                     i += 1
 
-        # TODO summary to #discord-automation with exec log
+        # Need to send a summary to #discord-automation with exec log
+        # Also send reminder to associate with Neon
 
     @command(
         arg(
