@@ -71,7 +71,6 @@ def _neon_dev_search_filter(field, operator, value):
         if field == "Email":
 
             def email_filter(rec):
-                print("Filter by email:", rec)
                 acc = first(rec, "individualAccount", "companyAccount")
                 return True in [
                     acc["primaryContact"][f"email{i}"] == value for i in range(1, 4)

@@ -1,5 +1,7 @@
 <script type="ts">
-  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody } from '@sveltestrap/sveltestrap';
+  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody, CardFooter, Spinner } from '@sveltestrap/sveltestrap';
+  import { post } from '$lib/api.ts';
+  import FetchError from '$lib/fetch_error.svelte';
 
   export let on_close;
   export let name;
@@ -7,6 +9,7 @@
   export let radioGroup;
   export let announcements;
   export let violations;
+  export let email;
 
   let count = 15;
   function updateTimer() {
@@ -17,6 +20,21 @@
   }
   addEventListener('keypress', extendTimer);
   addEventListener('mousemove', extendTimer);
+
+  function submitAnnouncementResponse(a) {
+    a.submitting = true;
+    a.submit_ok = false;
+    announcements = announcements; // Force UI rerender
+    a.promise = post('/welcome/survey_response', {
+      rec_id: a.rec_id,
+      email,
+      response: a.response
+    }).then(() => a.submit_ok = true).finally(() => {
+      a.submitting = false;
+      announcements = announcements; // Force UI rerender
+    });
+    return a.promise;
+  }
 
   let interval = setInterval(updateTimer, 1000);
   $: if (count === 0) {clearInterval(interval); on_close(radioGroup);}
@@ -66,11 +84,34 @@
   {/if}
 
   {#if announcements.length > 0 }
-    <h4 class="my-4 text-center">Announcements</h4>
     {#each announcements as a}
     <Card class="m-2">
-      <CardHeader><CardTitle>{a.Title}</CardTitle></CardHeader>
-      <CardBody>{a.Message}</CardBody>
+      <CardHeader><CardTitle>
+        {#if a.Survey }
+          <strong>Response Requested: </strong>
+        {/if}
+        {a.Title}
+      </CardTitle></CardHeader>
+      <CardBody>
+      {a.Message}
+      {#if a.Survey == 'Text' }
+        <Input type="text" placeholder="(Optional) please type a response" bind:value={a.response} disabled={a.submitting || a.submit_ok}></Input>
+      {/if}
+      </CardBody>
+      {#if a.Survey}
+      <CardFooter>
+        <Button on:click={() => submitAnnouncementResponse(a)} color="primary" disabled={a.submitting || a.submit_ok || !a.response}>Submit</Button>
+        {#await a.promise}
+          <Spinner/>
+        {:then arep}
+          {#if a.submit_ok}
+            <em>Thanks for your response!</em>
+          {/if}
+        {:catch error}
+          <FetchError {error} nohelp/>
+        {/await}
+      </CardFooter>
+      {/if}
     </Card>
     {/each}
   {/if}

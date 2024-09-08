@@ -15,7 +15,7 @@ def send_email(subject, body, recipients):
     return get_connector().email(subject, body, recipients)
 
 
-def send_discord_message(content, channel=None):
+def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config()["comms"]
     if channel is None:
@@ -41,7 +41,10 @@ def send_discord_message(content, channel=None):
     content = re.sub(r"@\w+", sub_roles, content, flags=re.MULTILINE)
 
     result = get_connector().discord_webhook(channel, content)
-    result.raise_for_status()
+    if blocking:
+        result.raise_for_status()
+    else:
+        return result
 
 
 def send_help_wanted(content):
@@ -55,8 +58,9 @@ def send_board_message(content):
 
 
 def send_membership_automation_message(content):
-    """Sends message to membership automation channel"""
-    return send_discord_message(content, "#membership-automation")
+    """Sends message to membership automation channel.
+    Messages are sent asynchronously and not awaited"""
+    return send_discord_message(content, "#membership-automation", blocking=False)
 
 
 def set_discord_nickname(name, nick):

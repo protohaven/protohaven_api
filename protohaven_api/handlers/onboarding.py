@@ -75,6 +75,12 @@ def onboarding_create_coupon():
     return {"coupon": neon.create_coupon_code(code, ONBOARDING_DISCOUNT_AMT)}
 
 
+NOTFOUND_INFO = (
+    "member not found in our Discord server. Make sure the "
+    "user has joined via https://protohaven.org/discord"
+)
+
+
 @page.route("/onboarding/discord_member_add")
 @require_login_role(Role.ONBOARDING)
 def discord_member_add():
@@ -88,11 +94,11 @@ def discord_member_add():
 
     result = comms.set_discord_role(name, "Members")
     if result is False:
-        return Response("Failed to grant Members role: member not found", status=404)
+        return Response("Failed to grant Members role: " + NOTFOUND_INFO, status=404)
 
     result = comms.set_discord_nickname(name, nick)
     if result is False:
-        return Response("Failed to set nickname: member not found", status=404)
+        return Response("Failed to set nickname: " + NOTFOUND_INFO, status=404)
 
     # Set the discord user after we know the member can be found
     rep = neon.set_discord_user(neon_id, name)

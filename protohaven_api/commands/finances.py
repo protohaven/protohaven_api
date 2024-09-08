@@ -93,6 +93,7 @@ class Commands:
             body += "\n".join(untaxed[:5])
             body += "\n\nPlease remedy by following the instructions at "
             body += "https://protohaven.org/wiki/shoptechs/storage_sales_tax"
+            body += exec_details_footer()
 
         result = []
         if body != "":
@@ -114,6 +115,7 @@ class Commands:
         roles = details.get("roles", [])
         if role["name"] not in roles:
             results.append(f"Needs role {role['name']}, has {roles}")
+            log.info(f"Missing role {role['name']}: {details}")
         return results
 
     def _validate_addl_family_membership(self, details):
@@ -123,6 +125,7 @@ class Commands:
             results.append(
                 f"Missing required non-additional paid member in household #{details['hid']}"
             )
+            log.info(f"Missing paid family member: {details}")
         return results
 
     def _validate_employer_membership(self, details):
@@ -130,6 +133,7 @@ class Commands:
         results = []
         if details["company_member_count"] < 2:
             results.append(f"Missing required 2+ members in company #{details['cid']}")
+            log.info(f"Missing company members: {details}")
         return results
 
     def _validate_amp_membership(self, details):
@@ -154,6 +158,7 @@ class Commands:
                         f"Mismatch between Income based rate ({ibr}) "
                         f"and membership type {term_type[1]}"
                     )
+                    log.info(f"AMP mismatch: {details}")
         return results
 
     def _suggest_membership(  # pylint: disable=too-many-return-statements
@@ -214,6 +219,7 @@ class Commands:
             body += "\n- ".join(problems)
             body += "\n Please remedy by following the instructions at "
             body += "https://protohaven.org/wiki/software/membership_validation"
+            body += exec_details_footer()
 
             result = [
                 {
@@ -403,15 +409,18 @@ class Commands:
                     or details["zero_cost_ok_until"] < tznow()
                 ):
                     result.append(f"Abnormal zero-cost membership {am['level']}")
+                    log.info(f"Abnormal zero-cost: {details} - active membership {am}")
             if am.get("end_date") is None:
                 result.append(
                     f"Membership {am.get('level')} with no end date (infinite duration)"
                 )
+                log.info(f"Infinite duration: {details} - active membership {am}")
 
         if num > 1:
             result.append(
                 f"Multiple active memberships: {len(details['active_memberships'])} total"
             )
+            log.info(f"Multiple active memberships: {details}")
 
         if level in (
             "General Membership",

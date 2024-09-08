@@ -67,6 +67,7 @@ def test_welcome_signin_guest_no_referrer(mocker):
 def test_welcome_signin_guest_referrer(mocker):
     """Guest sign in with referrer data is submitted"""
     mocker.patch.object(index, "submit_google_form")
+    mocker.patch.object(index.airtable, "insert_signin")
     ws = mocker.MagicMock()
     ws.receive.return_value = json.dumps(
         {
@@ -91,6 +92,7 @@ def test_welcome_signin_guest_referrer(mocker):
             "am_member": "No",
         },
     )
+    index.airtable.insert_signin.assert_called()
 
 
 def test_welcome_signin_notfound(mocker):
@@ -124,6 +126,7 @@ def test_welcome_signin_notfound(mocker):
 def test_welcome_signin_membership_expired(mocker):
     """Ensure form submits and proper status returns on expired membership"""
     mocker.patch.object(index, "submit_google_form")
+    mocker.patch.object(index.airtable, "insert_signin")
     mocker.patch.object(index, "neon")
     mocker.patch.object(index, "airtable")
     mocker.patch.object(index, "send_membership_automation_message")
@@ -150,6 +153,7 @@ def test_welcome_signin_membership_expired(mocker):
     rep = json.loads(ws.send.mock_calls[-1].args[0])
     assert rep["status"] == "Inactive"
     index.submit_google_form.assert_called()  # Form submission even if membership is expired
+    index.airtable.insert_signin.assert_called()
     index.send_membership_automation_message.assert_called_with(
         "First (foo@bar.com) just signed in at the front desk but has a non-Active membership status in Neon: status is Inactive\nhttps://protohaven.app.neoncrm.com/admin/accounts/12345\nhttps://protohaven.org/wiki/software/membership_validation"
     )
@@ -275,6 +279,7 @@ def test_welcome_signin_ok_with_announcements(mocker):
             "am_member": "Yes",
         },
     )
+    index.airtable.insert_signin.assert_called()
 
 
 def test_welcome_signin_ok_with_company_id(mocker):
