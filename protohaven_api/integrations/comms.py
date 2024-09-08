@@ -40,7 +40,7 @@ def send_discord_message(content, channel=None, blocking=True):
 
     content = re.sub(r"@\w+", sub_roles, content, flags=re.MULTILINE)
 
-    result = get_connector().discord_webhook(channel, content, blocking=blocking)
+    result = get_connector().discord_webhook(channel, content)
     if blocking:
         result.raise_for_status()
     else:

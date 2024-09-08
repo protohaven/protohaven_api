@@ -75,7 +75,10 @@ def onboarding_create_coupon():
     return {"coupon": neon.create_coupon_code(code, ONBOARDING_DISCOUNT_AMT)}
 
 
-NOTFOUND_INFO = "member not found in our Discord server. Make sure the user has joined via https://protohaven.org/discord"
+NOTFOUND_INFO = (
+    "member not found in our Discord server. Make sure the "
+    "user has joined via https://protohaven.org/discord"
+)
 
 
 @page.route("/onboarding/discord_member_add")

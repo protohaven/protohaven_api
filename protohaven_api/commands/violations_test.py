@@ -1,3 +1,4 @@
+# pylint: skip-file
 from protohaven_api.commands import violations as v
 from protohaven_api.policy_enforcement import enforcer as e
 
