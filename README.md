@@ -5,7 +5,12 @@ API system for protohaven
 
 ### Configuration
 
-This module requires a `config.yaml` file to run - chat with other protohaven devs to receive a copy.
+This module has several config files:
+
+* `.env.defaults` - default values to pass into `config.yaml`
+* `.env.secret` - secret values which touch production and must not be checked in - you can request a copy from other Protohaven devs.
+* `config.yaml` - provides structure and includes non-secret config info
+* `credentials.json` - google session credentials for accessing sheets & calendar - you can request a copy from other Protohaven devs.
 
 ### pre-commit
 
