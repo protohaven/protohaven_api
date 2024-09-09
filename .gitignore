@@ -119,6 +119,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+.env.secret
 .env
 .venv
 env/
@@ -159,7 +160,6 @@ cython_debug/
 #.idea/
 #
 stderr.log
-config.yaml
 *.swp
 token.json
 credentials.json

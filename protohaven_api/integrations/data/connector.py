@@ -17,9 +17,6 @@ from square.client import Client as SquareClient
 from protohaven_api.config import get_config
 from protohaven_api.discord_bot import get_client as get_discord_bot
 from protohaven_api.integrations.data import dev_airtable, dev_neon
-from protohaven_api.integrations.data.loader import (  # pylint: disable=unused-import
-    mock_data,
-)
 
 log = logging.getLogger("integrations.data.connector")
 
