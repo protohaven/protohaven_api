@@ -56,7 +56,7 @@ python3 -m protohaven_api.cli project_requests
 Unit tests:
 
 ```
-python -m pytest -v
+PH_SERVER_MODE=dev python -m pytest -v
 ```
 
 Linter check, all files:
