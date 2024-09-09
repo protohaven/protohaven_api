@@ -3,7 +3,6 @@
 import argparse
 import datetime
 import logging
-import os
 import sys
 from collections import defaultdict
 
@@ -18,21 +17,21 @@ from protohaven_api.commands import (
     roles,
     violations,
 )
-from protohaven_api.config import tznow
+from protohaven_api.config import get_config, tznow
 from protohaven_api.docs_automation.docs import validate as validate_docs
 from protohaven_api.integrations import comms, neon, tasks
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.maintenance import manager
 from protohaven_api.rbac import Role
 
-LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
-logging.basicConfig(level=LOGLEVEL)
+cfg = get_config()
+logging.basicConfig(level=cfg["general"]["log_level"].upper())
 log = logging.getLogger("cli")
-server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
+server_mode = cfg["general"]["server_mode"].lower()
 log.info(f"Mode is {server_mode}\n")
 init_connector(dev=server_mode != "prod")
 
-run_discord_bot = os.getenv("DISCORD_BOT", "false").lower() == "true"
+run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"
 if run_discord_bot:
     import threading
     import time

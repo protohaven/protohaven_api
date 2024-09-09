@@ -51,7 +51,7 @@ python3 -m protohaven_api.cli project_requests
 Unit tests:
 
 ```
-PH_CONFIG=test_config.yaml python -m pytest -v
+python -m pytest -v
 ```
 
 Linter check, all files:

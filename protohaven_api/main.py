@@ -1,6 +1,5 @@
 """Collect various blueprints and start the flask server - also the discord bot"""
 import logging
-import os
 
 from flask import Flask  # pylint: disable=import-error
 from flask_cors import CORS
@@ -19,16 +18,17 @@ from protohaven_api.handlers.techs import page as techs_pages
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.rbac import set_rbac
 
-LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
-logging.basicConfig(level=LOGLEVEL)
+cfg = get_config()
+
+logging.basicConfig(level=cfg["general"]["log_level"].upper())
 log = logging.getLogger("main")
 
 app = Flask(__name__)
-if os.getenv("CORS", "false").lower() == "true":
+if cfg["general"]["cors"].lower() == "true":
     log.warning("CORS enabled - this should be done in dev environments only")
     CORS(app)
 
-if os.getenv("UNSAFE_NO_RBAC", "false").lower() == "true":
+if cfg["general"]["unsafe_no_rbac"].lower() == "true":
     log.warning(
         "DANGER DANGER DANGER\n\nRBAC DISABLED; EVERYONE CAN DO EVERYTHING\n\nDANGER DANGER DANGER"
     )
@@ -36,8 +36,7 @@ if os.getenv("UNSAFE_NO_RBAC", "false").lower() == "true":
 
 
 application = app  # our hosting requires application in passenger_wsgi
-cfg = get_config()["general"]
-app.secret_key = cfg["session_secret"]
+app.secret_key = cfg["general"]["session_secret"]
 app.config["TEMPLATES_AUTO_RELOAD"] = True  # Reload template if signature differs
 for p in (
     auth_pages,
@@ -53,8 +52,8 @@ for p in (
 
 setup_sock_routes(app)
 
-server_mode = os.getenv("PH_SERVER_MODE", "dev").lower()
-run_discord_bot = os.getenv("DISCORD_BOT", "false").lower() == "true"
+server_mode = cfg["general"]["server_mode"].lower()
+run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"
 init_connector(dev=server_mode != "prod")
 if run_discord_bot:
     import threading

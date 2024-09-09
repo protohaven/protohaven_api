@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, Response, request
 
-from protohaven_api.integrations.data.loader import mock_data
+from protohaven_api.config import mock_data
 from protohaven_api.integrations.data.neon import CustomField
 
 app = Flask(__file__)

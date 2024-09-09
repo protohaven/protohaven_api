@@ -1,0 +1,138 @@
+general:
+  log_level: "${LOGLEVEL}"
+  server_mode: "${PH_SERVER_MODE}"
+  cors: "${CORS}"
+  unsafe_no_rbac: "${UNSAFE_NO_RBAC}"
+  session_secret: "${SESSION_SECRET}"
+  admin_users: ["1245"]
+  external_access_codes:
+    "${EXTERNAL_ACCESS_CODES_ADMIN}": ["ADMIN"]
+neon:
+  domain: "protohaven"
+  oauth_client_id: "${NEON_OAUTH_CLIENT_ID}"
+  oauth_client_secret: "${NEON_OAUTH_CLIENT_SECRET}"
+  api_key1: "${NEON_API_KEY1}"
+  api_key2: "${NEON_API_KEY2}"
+  api_key3: "${NEON_API_KEY3}"
+  login_user: "${NEON_LOGIN_USER}"
+  login_pass: "${NEON_LOGIN_PASS}"
+  waiver_expiration_days: 60
+  waiver_published_date: "2023-03-14"
+discord_bot:
+  enabled: "${DISCORD_BOT}"
+  token: "${DISCORD_BOT_TOKEN}"
+  guild_id: 791673872529358869
+  onboarding_channel_id: 1175450738596528279
+comms:
+  email_username: "${EMAIL_USERNAME}"
+  email_password: "${EMAIL_PASSWORD}"
+  techs: "${WEBHOOK_TECHS}"
+  techs-live: "${WEBHOOK_TECHS_LIVE}"
+  board-private: "${WEBHOOK_BOARD_PRIVATE}"
+  maintenance: "${WEBHOOK_MAINTENANCE}"
+  tech-leads: "${WEBHOOK_TECH_LEADS}"
+  help-wanted: "${WEBHOOK_HELP_WANTED}"
+  instructors: "${WEBHOOK_INSTRUCTORS}"
+  private-instructors: "${WEBHOOK_PRIVATE_INSTRUCTORS}"
+  education-leads: "${WEBHOOK_EDUCATION_LEADS}"
+  class-automation: "${WEBHOOK_CLASS_AUTOMATION}"
+  membership-automation: "${WEBHOOK_MEMBERSHIP_AUTOMATION}"
+  storage: "${WEBHOOK_STORAGE}"
+  finance-automation: "${WEBHOOK_FINANCE_AUTOMATION}"
+  docs-automation: "${WEBHOOK_DOCS_AUTOMATION}"
+  discord-automation: "${WEBHOOK_DISCORD_AUTOMATION}"
+  software: "${WEBHOOK_SOFTWARE}"
+  discord_roles:
+    Staff: 1130895854769807520
+    Techs: 801513013710422056
+    TechLeads: 1074870525026893844
+    Onboarders: 1248676878038863872
+    PrivateInstructors: 1248640897126633575
+    Members: 800816903881752616
+    Board: 953363629837799434
+airtable:
+  tools_and_equipment:
+    token: "${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}"
+    base_id: "appbIlORlmbIxNU1L"
+    areas: "tblpZf4XLHiptLLzL"
+    tools: "tblalZYdLVoTICzE6"
+    clearances: "tblsDjiWCOQLgDCHd"
+    recurring_tasks: "tbl2934K2YxSVnZMC"
+  class_automation:
+    token: "${AIRTABLE_TOKEN_CLASS_AUTOMATION}"
+    base_id: "applultHGJxHNg69H"
+    clearance_codes: "tblzfYMmIuxchMJk7"
+    classes: "tblBHGwrU8cwVwbHI"
+    capabilities: "tbltv8tpiCqUnLTp4"
+    email_log: "tblEJqjHuYDhL09tY"
+    schedule: "tbl5FGO2hj9t8vGo0"
+    boilerplate: "tblZDWOcljKw0OnwN"
+    availability: "tbl4tOuZKNJduN4LC"
+  policy_enforcement:
+    token: "${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}"
+    base_id: "apppMbG0r1ZrluVMv"
+    sections: "tblfCye5J6cS3rBGs"
+    violations: "tblxivDVVxoARFkHC"
+    suspensions: "tblYrhew72MpILAjK"
+    fees: "tblpM1KXai4koCgCV"
+  people:
+    token: "${AIRTABLE_TOKEN_PEOPLE}"
+    base_id: "appZIwlIgaq1Ps28Y"
+    shop_tech_time_off: "tblaHsLZd6yvxRKn9"
+    shop_tech_forecast_overrides: "tblbQYTMDnMmsud7H"
+    sign_in_announcements: "tblTv5DGemRkB424u"
+    sign_in_survey_responses: "tbl6hPSnVBIXk8MQO"
+    sign_ins: "tblVBhzeE3k9yYRn9"
+    automation_intents: "tblBgXQlOFjNqvBVm"
+calendar:
+  # Access to calendars requires `credentials.json`
+  instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"
+  shop_events: "workshop@protohaven.org"
+  scopes: ["https://www.googleapis.com/auth/calendar.readonly"]
+square:
+  sandbox_app_id: "sandbox-sq0idb-sUaoKt-N2lB7_geQO-cgjg"
+  sandbox_token: "EAAAEGKUuR67gUfi0Hmfq5dfn8nSiuhibpB2HSDQTlAzQbaCQCEcJ6uPUJjcyAcm" # pragma: allowlist secret
+  app_id: "${SQUARE_APP_ID}"
+  token: "${SQUARE_TOKEN}"
+  location: "EHP2KE13B35EQ"
+asana:
+  token: "${ASANA_TOKEN}"
+  gid: "1199692158232291"
+  techs_project: "1202469740885594"
+  shop_tech_applicants: "1203664351777333"
+  instructor_applicants: "1202211433878591"
+  project_requests: "1204107875202537"
+  private_instruction_requests: "1203922725251220"
+  phone_messages: "1203963688927297"
+  purchase_requests: "1203839223519118"
+  purchase_high_priority_section: "1205427182922331"
+  class_supply_requests: "1202392844192314"
+  class_supply_default_section: "1202392844192315"
+  tool_report_tag: "1206437193319065"
+  tech_ready_tag: "1205552792690050"
+  custom_field_airtable_id: "1206525862874335"
+sheets:
+  # Access to sheets requires `credentials.json`
+  instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
+  welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
+  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+booked:
+  id: "${BOOKED_ID}"
+  key: "${BOOKED_KEY}"
+  resource_custom_attribute:
+    area: 2
+    tool_code: 3
+    clearance_code: 4
+wiki:
+  user: "${WIKI_USER}"
+  password: "${WIKI_PASSWORD}"
+forms:
+  signin:
+    base_url: "https://docs.google.com/forms/d/e/1FAIpQLSfen4NHmAivUPKuvMIqT8UeRqD9meoxq31ZHNG17upDWiTGkQ/"
+    keys:
+      email: "entry.1009036564"
+      dependent_info: "entry.2120218255"
+      waiver_ack: "entry.1193877380"
+      referrer: "entry.366779110"
+      purpose: "entry.131288088"
+      am_member: "entry.1823004694"
