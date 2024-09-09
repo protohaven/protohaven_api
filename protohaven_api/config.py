@@ -46,9 +46,7 @@ def load_yaml_with_env_substitution(yaml_path):
         **dict(os.environ),
     }
 
-    # We specifically use `substitute` and not `safe_substitute` so that
-    # missing environment vars are caught via exception
-    yaml_content_with_env = Template(yaml_content).substitute(env)
+    yaml_content_with_env = Template(yaml_content).safe_substitute(env)
     return yaml.safe_load(yaml_content_with_env)
 
 
