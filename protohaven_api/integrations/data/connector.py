@@ -43,14 +43,6 @@ class Connector:
     def __init__(self, dev):
         self.dev = dev
         self.cfg = get_config()
-        if (
-            not self.dev
-            and self.cfg["general"]["session_secret"] == "${SESSION_SECRET}"
-        ):
-            raise RuntimeError(
-                "Prod connector appears to be missing values from .env.secrets; please ensure "
-                "the file exists and is properly populated"
-            )
         self.neon_ratelimit = Lock()
 
     def neon_request(self, api_key, *args, **kwargs):
