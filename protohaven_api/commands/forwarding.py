@@ -84,9 +84,9 @@ class Commands:
         """Send reminders to check shop tech applicants"""
         num = 0
         open_applicants = []
-        for req in tasks.get_shop_tech_applicants():
-            if req["completed"]:
-                continue
+        for req in tasks.get_shop_tech_applicants(
+            exclude_complete=True, exclude_on_hold=True
+        ):
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
         log.info(f"Found {num} open applications")
@@ -109,9 +109,9 @@ class Commands:
         """Send reminders to check for instructor applications"""
         num = 0
         open_applicants = []
-        for req in tasks.get_instructor_applicants():
-            if req["completed"]:
-                continue
+        for req in tasks.get_instructor_applicants(
+            exclude_on_hold=True, exclude_complete=True
+        ):
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
         log.info(f"Found {num} open instructor applications")
@@ -289,7 +289,7 @@ class Commands:
         ),
     )
     def phone_messages(self, args):
-        """Send reminders to check shop tech applicants"""
+        """Check on phone messages and forward to email"""
         num = 0
         results = []
         for req in tasks.get_phone_messages():

@@ -28,17 +28,18 @@
   // console.log(start, end);
 
   let env_promise;
+  const MAX_DATE_RANGE = 60;
   function reload(src) {
     // Make sure date range is reasonable
-    if (end <= start || (new Date(end).getTime() - new Date(start).getTime()) / (3600*1000) > 45) {
+    if (end <= start || (new Date(end).getTime() - new Date(start).getTime()) / (24*60*60*1000) > MAX_DATE_RANGE) {
     	console.log("Date crunch; moving the one other than " + src, start, end);
       if (src === "end") {
         start = new Date(end);
-        start.setDate(start.getDate() - 14);
+        start.setDate(start.getDate() - MAX_DATE_RANGE);
         start = isodate(start);
       } else {
         end = new Date(start);
-        end.setDate(end.getDate() + 14);
+        end.setDate(end.getDate() + MAX_DATE_RANGE);
         end = isodate(end);
       }
       console.log("Now", start, end);

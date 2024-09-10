@@ -66,15 +66,14 @@ function do_save() {
   let rules = [];
   if (expanded.recurrence) {
     rules.push('FREQ=' + expanded.recurrence);
-  }
-  if (expanded.until) {
-    rules.push('UNTIL=' + isodatetime(expanded.until).replace(/[-:\s]/g, ''));
-  }
-  if (expanded.recurrence == 'WEEKLY') {
-    rules.push("BYDAY=" + Object.keys(expanded.weekly).filter(key => expanded.weekly[key]).join(','));
+    if (expanded.until) {
+      rules.push('UNTIL=' + isodatetime(expanded.until).replace(/[-:\s]/g, ''));
+    }
+    if (expanded.recurrence == 'WEEKLY') {
+      rules.push("BYDAY=" + Object.keys(expanded.weekly).filter(key => expanded.weekly[key]).join(','));
+    }
   }
   let rrule = 'RRULE:' + rules.join(';');
-  //console.log(rec.id, rec.start, rec.end, rrule);
   busy = true;
   return on_save(rec.id, rec.start, rec.end, rrule).finally(() => busy = false);
 }
@@ -119,11 +118,12 @@ function do_delete() {
 			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.FR} label="Friday"></Input>
 			<Input type="checkbox" disabled={busy} bind:checked={expanded.weekly.SA} label="Saturday"></Input>
 			{/if}
-
+      {#if expanded.recurrence }
 			<InputGroup>
 				<InputGroupText>Until</InputGroupText>
 				<Input type="date" bind:value={expanded.until} disabled={busy}/>
 			</InputGroup>
+      {/if}
 		</FormGroup>
 	</ModalBody>
 	<ModalFooter>

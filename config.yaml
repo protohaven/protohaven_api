@@ -99,8 +99,12 @@ asana:
   token: "${ASANA_TOKEN}"
   gid: "1199692158232291"
   techs_project: "1202469740885594"
-  shop_tech_applicants: "1203664351777333"
-  instructor_applicants: "1202211433878591"
+  shop_tech_applicants:
+    gid: "1203664351777333"
+    on_hold_section: "1208278245183318"
+  instructor_applicants:
+    gid: "1202211433878591"
+    on_hold_section: "1208278245183323"
   project_requests: "1204107875202537"
   private_instruction_requests: "1203922725251220"
   phone_messages: "1203963688927297"
