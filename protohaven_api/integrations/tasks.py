@@ -71,24 +71,40 @@ def get_private_instruction_requests():
     )
 
 
-def get_instructor_applicants():
+def get_instructor_applicants(exclude_on_hold=False, exclude_complete=False):
     """Get applications for instructor position that aren't completed"""
-    return _tasks().get_tasks_for_project(
-        cfg["instructor_applicants"],
+    onhold_id = cfg["instructor_applicants"]["on_hold_section"]
+    for req in _tasks().get_tasks_for_project(
+        cfg["instructor_applicants"]["gid"],
         {
-            "opt_fields": ",".join(["completed", "name"]),
+            "opt_fields": ",".join(["completed", "name", "memberships.section"]),
         },
-    )
+    ):
+        if exclude_complete and req.get("completed"):
+            continue
+        if exclude_on_hold and onhold_id in [
+            m.get("section", {}).get("gid") for m in req.get("memberships", [])
+        ]:
+            continue
+        yield req
 
 
-def get_shop_tech_applicants():
+def get_shop_tech_applicants(exclude_on_hold=False, exclude_complete=False):
     """Get applications for shop tech position that aren't completed"""
-    return _tasks().get_tasks_for_project(
-        cfg["shop_tech_applicants"],
+    onhold_id = cfg["shop_tech_applicants"]["on_hold_section"]
+    for req in _tasks().get_tasks_for_project(
+        cfg["shop_tech_applicants"]["gid"],
         {
-            "opt_fields": ",".join(["completed", "name"]),
+            "opt_fields": ",".join(["completed", "name", "memberships.section"]),
         },
-    )
+    ):
+        if exclude_complete and req.get("completed"):
+            continue
+        if exclude_on_hold and onhold_id in [
+            m.get("section", {}).get("gid") for m in req.get("memberships", [])
+        ]:
+            continue
+        yield req
 
 
 def get_phone_messages():

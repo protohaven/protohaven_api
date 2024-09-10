@@ -368,7 +368,10 @@ def get_instructor_availability(inst):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
     inst = inst.strip().lower()
     for row in get_all_records("class_automation", "availability"):
-        if row["fields"]["Instructor (from Instructor)"][0].strip().lower() == inst:
+        row_inst = (
+            row["fields"].get("Instructor (from Instructor)", [""])[0].strip().lower()
+        )
+        if row_inst == inst:
             yield row
 
 
