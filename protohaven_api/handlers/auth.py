@@ -29,6 +29,9 @@ def user_fullname():
         return None
 
 
+def _redirect_uri():
+   return f"{request.url_root}/oauth_redirect"
+
 @page.route("/login")
 def login_user_neon_oauth():
     """Redirect to Neon CRM oauth server"""
@@ -44,7 +47,7 @@ def login_user_neon_oauth():
     session["login_referrer"] = referrer
 
     print("Set login referrer:", session["login_referrer"])
-    return redirect(oauth.prep_request(f"{request.url_root}/oauth_redirect"))
+    return redirect(oauth.prep_request(_redirect_uri()))
     # request.url_root + url_for(neon_oauth_redirect.__name__)))
 
 
@@ -60,7 +63,7 @@ def logout():
 def neon_oauth_redirect():
     """Redirect back to the page the user came from for login"""
     code = request.args.get("code")
-    rep = oauth.retrieve_token(url_for("auth." + neon_oauth_redirect.__name__), code)
+    rep = oauth.retrieve_token(_redirect_uri(), code)
     session["neon_id"] = rep.get("access_token")
     session["neon_account"] = neon.fetch_account(session["neon_id"])
     referrer = session.get("login_referrer", "/")

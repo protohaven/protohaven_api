@@ -1,5 +1,5 @@
 """OAuth integration with Neon CRM"""
-import sys
+# import sys
 import urllib.parse
 
 import requests
@@ -25,18 +25,18 @@ def prep_request(redirect_uri):
         "https://protohaven.app.neoncrm.com/np/oauth/auth?"
         + f"response_type=code&client_id={client_id}&redirect_uri={redirect_uri}"
     )
-    sys.stderr.write(result + "\n")
-    sys.stderr.flush()
+    # sys.stderr.write(result + "\n")
+    #sys.stderr.flush()
     return result
 
 
 def retrieve_token(redirect_uri, authorization_code):
     """Get the user token (i.e. the user's account_id) after a successful OAuth"""
     client_id, client_secret = client_data()
-    sys.stderr.write(
-        f"client_id {client_id} client_secret {client_secret}  auth_code {authorization_code}\n"
-    )
-    sys.stderr.flush()
+    #sys.stderr.write(
+    #    f"client_id {client_id} client_secret {client_secret}  auth_code {authorization_code}\n"
+    #)
+    # sys.stderr.flush()
     rep = requests.post(
         "https://app.neoncrm.com/np/oauth/token",
         data={
