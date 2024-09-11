@@ -1,6 +1,7 @@
 general:
   log_level: "${LOGLEVEL}"
   server_mode: "${PH_SERVER_MODE}"
+  behind_proxy: true
   cors: "${CORS}"
   unsafe_no_rbac: "${UNSAFE_NO_RBAC}"
   session_secret: "${SESSION_SECRET}"

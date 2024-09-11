@@ -21,6 +21,32 @@ def discord_role_change_dm(logs, discord_id):
     )
 
 
+def not_associated_warning(discord_id):
+    """Generate message about user not being associated with Neon"""
+    subject = "**Action requested - associate your Discord user:**"
+    return subject, env.get_template("not_associated.jinja2").render(
+        discord_id=discord_id,
+    )
+
+
+def nick_change_summary(changes, notified):
+    """Generate summary of Discord actions taken"""
+    subject = "**Discord Nickname Automation Summary:**"
+    m = len(notified)
+    notified = list(notified)
+    if m > 30:
+        notified = notified[:30] + ['...']
+    return (
+        subject,
+        env.get_template("discord_nick_change_summary.jinja2").render(
+            changes=list(changes),
+            n=len(changes),
+            notified=notified,
+            m=m,
+        )
+        + exec_details_footer(),
+    )
+
 def discord_role_change_summary(user_log, roles_assigned, roles_revoked):
     """Generate summary of Discord actions taken"""
     subject = "**Discord Role Automation Summary:**"

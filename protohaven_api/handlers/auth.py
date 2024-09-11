@@ -44,7 +44,7 @@ def login_user_neon_oauth():
     session["login_referrer"] = referrer
 
     print("Set login referrer:", session["login_referrer"])
-    return redirect(oauth.prep_request("https://api.protohaven.org/oauth_redirect"))
+    return redirect(oauth.prep_request(f"{request.url_root}/oauth_redirect"))
     # request.url_root + url_for(neon_oauth_redirect.__name__)))
 
 
