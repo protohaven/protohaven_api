@@ -121,6 +121,18 @@ class Commands:  # pylint: disable=too-few-public-methods
         print_yaml(result)
         log.info(f"Done - generated {len(result)} comms")
 
+    def resolve_nickname(self, first, preferred, last, pronouns):
+        """Convert neon values into a single string of Discord nickname for user"""
+        first = first.strip() if first else ""
+        preferred = preferred.strip() if preferred else ""
+        last = last.strip() if last else ""
+        pronouns = pronouns.strip() if pronouns else ""
+        first = preferred if preferred != "" else first
+        nick = f"{first} {last}" if first != last else first
+        if pronouns != "":
+            nick += f" ({pronouns})"
+        return nick
+
     @command(
         arg(
             "--apply",
@@ -180,15 +192,12 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.info(f"Limit of {args.limit} changes reached")
                 i += 1
             elif i < args.limit:
-                first = (
-                    m["Preferred Name"].strip()
-                    if "Preferred Name" in m
-                    else m.get("First Name").strip()
+                nick = self.resolve_nickname(
+                    m.get("First Name"),
+                    m.get("Preferred Name"),
+                    m.get("Last Name"),
+                    m.get("Pronouns"),
                 )
-                last = m.get("Last Name").strip()
-                nick = f"{first} {last}" if first != last else first
-                if m.get("Pronouns"):
-                    nick += f" ({m['Pronouns']})"
                 cur = user_nick.get(discord_user)
                 if not cur:
                     continue

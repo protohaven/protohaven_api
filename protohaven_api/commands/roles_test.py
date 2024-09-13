@@ -1,11 +1,14 @@
 # pylint: skip-file
 """Tests for role commands"""
+from collections import namedtuple
+
+import pytest
 import yaml
 
 from protohaven_api.commands import roles as r
 from protohaven_api.role_automation import roles as ra
 from protohaven_api.role_automation.roles import DiscordIntent
-from protohaven_api.testing import d
+from protohaven_api.testing import d, idfn
 
 
 def test_update_role_intents(mocker, capsys):
@@ -126,3 +129,66 @@ def test_update_role_intents_zero_comms(mocker, capsys):
     )
     got = yaml.safe_load(capsys.readouterr().out.strip())
     assert not got
+
+
+Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("basic", "first", "preferred", "last", "a/b", "preferred last (a/b)"),
+        Tc("no pronouns or preferred", "first", "", "last", "", "first last"),
+        Tc("preferred is last name", "first", "last", "last", "", "last"),
+    ],
+    ids=idfn,
+)
+def test_resolve_nickname(tc):
+    assert (
+        r.Commands().resolve_nickname(tc.first, tc.preferred, tc.last, tc.pronouns)
+        == tc.want
+    )
+
+
+def test_enforce_discord_nicknames_zero_comms(mocker, capsys):
+    """Ensure that no comms are sent if there were no problems"""
+    mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=([], None))
+    mocker.patch.object(r.neon, "get_active_members", return_value=[])
+    r.Commands().enforce_discord_nicknames(["--apply", "--warn_not_associated"])
+    got = yaml.safe_load(capsys.readouterr().out.strip())
+    assert not got
+
+
+def test_enforce_discord_nicknames(mocker, capsys):
+    """Ensure that nicknames are enforced and a summary sent; limit not exceeded"""
+    mocker.patch.object(
+        r.comms,
+        "get_all_members_and_roles",
+        return_value=(
+            [
+                ["usr1", "bad1"],
+                ["usr2", "a b"],
+                ["usr3", "not_in_neon"],
+            ],
+            None,
+        ),
+    )
+    mocker.patch.object(r.comms, "set_discord_nickname")
+    mocker.patch.object(
+        r.neon,
+        "get_active_members",
+        return_value=[
+            {"Discord User": "usr1", "First Name": "first", "Last Name": "last"},
+            {"Discord User": "usr2", "First Name": "a", "Last Name": "b"},
+        ],
+    )
+
+    r.Commands().enforce_discord_nicknames(
+        ["--apply", "--warn_not_associated", "--limit=1"]
+    )
+    got = yaml.safe_load(capsys.readouterr().out.strip())
+    r.comms.set_discord_nickname.assert_called_once_with("usr1", "first last")
+    assert len(got) == 2
+    assert "your Discord user isn't associated" in got[0]["body"]
+    assert "https://api.protohaven.org/member?discord_id=usr3" in got[0]["body"]
+    assert "bad1 -> first last" in got[1]["body"]
