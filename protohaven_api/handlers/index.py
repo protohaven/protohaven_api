@@ -106,10 +106,8 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
             ]
             send_membership_automation_message(
                 f"Sign-in with {data['email']} returned multiple accounts "
-                + "in Neon with same email:\n"
-                + "\n".join(urls)
-                + "\n@Staff: please deduplicate "
-                + "(see https://protohaven.org/wiki/software/membership_validation)"
+                f"in Neon with same email:\n" + "\n".join(urls) + "\n@Staff: please "
+                "[deduplicate](https://protohaven.org/wiki/software/membership_validation)"
             )
             log.info("Notified of multiple accounts")
         if len(mm) == 0:
@@ -172,21 +170,22 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 data.get("waiver_ack", False),
             )
 
+            data[
+                "url"
+            ] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
             if result["status"] != "Active":
                 send_membership_automation_message(
-                    f"{result['firstname']} ({data['email']}) just signed in at the front desk "
-                    "but has a non-Active membership status in Neon: "
-                    f"status is {result['status']}\n"
-                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}\n"
-                    "https://protohaven.org/wiki/software/membership_validation"
+                    f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
+                    "at the front desk but has a non-Active membership status in Neon: "
+                    f"status is {result['status']} "
+                    "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
                 )
                 log.info("Notified of non-active member sign in")
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
-                    f"{result['firstname']} ({data['email']}) just signed in at the front desk "
-                    f"with violations: {result['violations']}\n"
-                    f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}\n"
-                    "https://protohaven.org/wiki/software/membership_validation"
+                    f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
+                    f"at the front desk with violations: {result['violations']} "
+                    "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
                 )
                 log.info("Notified of sign-in with violations")
     elif data["person"] == "guest":

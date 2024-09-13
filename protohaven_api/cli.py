@@ -13,6 +13,7 @@ from protohaven_api.commands import (
     development,
     finances,
     forwarding,
+    maintenance,
     reservations,
     roles,
     violations,
@@ -21,7 +22,6 @@ from protohaven_api.config import get_config, tznow
 from protohaven_api.docs_automation.docs import validate as validate_docs
 from protohaven_api.integrations import comms, neon, tasks
 from protohaven_api.integrations.data.connector import init as init_connector
-from protohaven_api.maintenance import manager
 from protohaven_api.rbac import Role
 
 cfg = get_config()
@@ -103,7 +103,7 @@ def purchase_request_alerts():
     log.info("Done")
 
 
-class ProtohavenCLI(
+class ProtohavenCLI(  # pylint: disable=too-many-ancestors
     reservations.Commands,
     classes.Commands,
     forwarding.Commands,
@@ -111,6 +111,7 @@ class ProtohavenCLI(
     development.Commands,
     violations.Commands,
     roles.Commands,
+    maintenance.Commands,
 ):
     """argparser-based CLI for protohaven operations"""
 
@@ -200,20 +201,6 @@ class ProtohavenCLI(
         parser.parse_args(argv)
         result = validate_docs()
         print(yaml.dump([result], default_flow_style=False, default_style=""))
-
-    def gen_maintenance_tasks(self, argv):
-        """Check recurring tasks list in Airtable, add new tasks to asana
-        And notify techs about new and stale tasks that are tech_ready."""
-        parser = argparse.ArgumentParser(description=self.gen_maintenance_tasks.__doc__)
-        parser.add_argument(
-            "--dryrun",
-            help="don't actually create new Asana tasks",
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        )
-        args = parser.parse_args(argv)
-        report = manager.run_daily_maintenance(args.dryrun)
-        print(yaml.dump([report], default_flow_style=False, default_style=""))
 
     def validate_member_clearances(self, argv):
         """Match clearances in spreadsheet with clearances in Neon.

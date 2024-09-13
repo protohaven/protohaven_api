@@ -2,7 +2,7 @@
 import datetime
 import logging
 from collections import defaultdict
-from functools import cache
+from functools import lru_cache
 
 from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
@@ -110,7 +110,7 @@ def log_email(neon_id, to, subject, status):
         raise RuntimeError(content)
 
 
-@cache
+@lru_cache(maxsize=1)
 def get_instructor_log_tool_codes():
     """Fetch tool codes used in the instructor log form"""
     codes = get_all_records("class_automation", "clearance_codes")
@@ -185,7 +185,7 @@ def update_recurring_task_date(task_id, date):
     )
 
 
-@cache
+@lru_cache(maxsize=1)
 def get_clearance_to_tool_map():
     """Returns a mapping of clearance codes (e.g. MWB) to individual tool codes"""
     airtable_clearances = get_all_records("tools_and_equipment", "clearances")
@@ -216,7 +216,7 @@ def insert_signin(evt):
     return insert_records([evt.to_airtable()], "people", "sign_ins")
 
 
-@cache
+@lru_cache(maxsize=1)
 def _get_announcements_cached_impl(i):  # pylint: disable=unused-argument
     return list(get_all_records("people", "sign_in_announcements"))
 

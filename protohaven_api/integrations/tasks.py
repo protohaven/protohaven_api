@@ -185,7 +185,7 @@ def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None
         },
     )
     if len(list(matching)) > 0:
-        return False  # Already exists
+        return matching[0].get("gid")  # Already exists
 
     result = _tasks().create_task(
         {
@@ -208,7 +208,7 @@ def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None
         _sections().add_task_for_section(
             str(section_gid), {"body": {"data": {"task": task_gid}}}
         )
-    return True
+    return task_gid
 
 
 if __name__ == "__main__":

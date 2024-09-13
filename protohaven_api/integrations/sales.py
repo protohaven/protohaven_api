@@ -1,6 +1,6 @@
 """Square point of sale integration for Protohaven"""
 
-from functools import cache
+from functools import lru_cache
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -9,7 +9,7 @@ cfg = get_config()["square"]
 LOCATION = cfg["location"]
 
 
-@cache
+@lru_cache(maxsize=1)
 def client():
     """Gets the square client via the connector module"""
     return get_connector().square_client()

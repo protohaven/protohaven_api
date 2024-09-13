@@ -47,15 +47,23 @@ CLOSINGS = [
 MAX_STALE_TASKS = 3
 
 
-def daily_tasks_summary(new_tasks, stale_tasks, stale_thresh):
+def daily_tasks_summary(new_tasks):
     """Generate a summary of violation and suspension state, if there is any"""
     subject = random.choice(SALUTATIONS)
-    stale_tasks.sort(key=lambda k: k["days_ago"], reverse=True)
     return subject, env.get_template("tech_daily_tasks.jinja2").render(
         closing=random.choice(CLOSINGS),
         new_count=len(new_tasks),
-        stale_count=len(stale_tasks),
         new_tasks=new_tasks,
+    )
+
+
+def tech_leads_summary(stale_tasks, stale_thresh):
+    """Generate a summary of tale tasks"""
+    stale_tasks.sort(key=lambda k: k["days_ago"], reverse=True)
+    return "Stale maintenance tasks", env.get_template(
+        "tech_leads_maintenance_status.jinja2"
+    ).render(
+        stale_count=len(stale_tasks),
         stale_thresh=stale_thresh,
         stale_tasks=stale_tasks[:MAX_STALE_TASKS],
     )

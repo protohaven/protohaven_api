@@ -2,7 +2,7 @@
 import datetime
 import os
 import pickle
-from functools import cache
+from functools import lru_cache
 from string import Template
 
 import pytz
@@ -29,7 +29,7 @@ def tznow():
     return datetime.datetime.now(tz)
 
 
-@cache
+@lru_cache(maxsize=1)
 def load_yaml_with_env_substitution(yaml_path):
     """
     Loads a YAML file and substitutes placeholder values with corresponding environment variables.
@@ -55,14 +55,14 @@ def get_config():
     return load_yaml_with_env_substitution(os.getenv(CONFIG_YAML_ENV, CONFIG_YAML_PATH))
 
 
-@cache
+@lru_cache(maxsize=1)
 def mock_data():
     """Fetches mock data from .pkl file"""
     with open(MOCK_DATA_PATH, "rb") as f:
         return pickle.load(f)
 
 
-@cache
+@lru_cache(maxsize=1)
 def get_execution_log_link():
     """If this process is executed asynchronously via Cronicle, return a link
     to the execution log of the job. If we're not running as part of a Cronicle job,
@@ -82,4 +82,4 @@ def exec_details_footer():
     process.
     """
     l = get_execution_log_link()
-    return "" if not l else "\nExecution log: " + l
+    return "" if not l else f"\n*See [execution log]({l})*"

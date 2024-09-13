@@ -6,7 +6,6 @@ from dateutil import parser as dateparser
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, tasks
-from protohaven_api.maintenance import comms as mcomms
 
 log = logging.getLogger("maintenance.manager")
 
@@ -50,10 +49,10 @@ def apply_maintenance_tasks(tt, now=None):
         now = tznow()
     for t in tt:
         log.info(f"Applying {t['id']} {t['name']} section {t['section']}")
-        if not tasks.add_maintenance_task_if_not_exists(
+        t["gid"] = tasks.add_maintenance_task_if_not_exists(
             t["name"], t["detail"], t["id"], section_gid=t["section"]
-        ):
-            log.debug("Task already inserted")
+        )
+        log.info(f"Asana task gid {t.get('gid')} for task {t['id']}")
         status, content = airtable.update_recurring_task_date(t["id"], now)
         if status != 200:
             raise RuntimeError(content)
@@ -74,33 +73,15 @@ def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
     return result
 
 
-def run_daily_maintenance(dryrun=False, num_to_generate=4):
+def run_daily_maintenance(apply=False, num_to_generate=4):
     """Generates a bounded number of new maintenance tasks per day,
     also looks up stale tasks and creates a summary message for Techs"""
     tt = get_maintenance_needed_tasks()
     log.info(f"Found {len(tt)} needed maintenance tasks")
     tt.sort(key=lambda t: t["next_schedule"])
     tt = tt[:num_to_generate]
-    if dryrun:
-        log.warning("Dry run mode - skipping application of tasks")
-    else:
+    if apply:
         apply_maintenance_tasks(tt)
-    stale = get_stale_tech_ready_tasks(thresh=DEFAULT_STALE_DAYS)
-    log.info(f"Found {len(stale)} stale tasks")
-    subject, body = mcomms.daily_tasks_summary(tt, stale, DEFAULT_STALE_DAYS)
-    return {
-        "id": "daily_maintenance",
-        "target": "#techs-live",
-        "subject": subject,
-        "body": body,
-    }
-
-
-if __name__ == "__main__":
-    from protohaven_api.integrations.data.connector import init as init_connector
-
-    init_connector(dev=False)
-    logging.basicConfig(level=logging.INFO)
-    report = run_daily_maintenance()
-    print(report["subject"])
-    print(report["body"])
+    else:
+        log.warning("skipping application of tasks (apply=False)")
+    return tt

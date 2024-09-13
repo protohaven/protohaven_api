@@ -1,7 +1,7 @@
 """Mock airtable service using canned data"""
 import json
 import uuid
-from functools import cache
+from functools import lru_cache
 from urllib.parse import urlparse
 
 from flask import Flask, Response, request
@@ -11,14 +11,14 @@ from protohaven_api.config import get_config, mock_data
 app = Flask(__file__)
 
 
-@cache
+@lru_cache(maxsize=128)
 def _base_lookup(_id):
     """Lookup base within config.yaml"""
     cfg = get_config()["airtable"]
     return {v["base_id"]: k for k, v in cfg.items()}[_id]
 
 
-@cache
+@lru_cache(maxsize=128)
 def _tbl_lookup(_id):
     """Lookup table within config.yaml"""
     cfg = get_config()["airtable"]
