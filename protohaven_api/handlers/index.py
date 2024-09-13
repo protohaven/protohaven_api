@@ -184,7 +184,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
             elif len(result["violations"]) > 0:
                 send_membership_automation_message(
                     f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
-                    f"at the front desk with violations: {result['violations']} "
+                    f"at the front desk with violations: `{result['violations']}` "
                     "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
                 )
                 log.info("Notified of sign-in with violations")
