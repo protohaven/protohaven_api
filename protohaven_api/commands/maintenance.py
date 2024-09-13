@@ -38,12 +38,16 @@ class Commands:
     def gen_tech_leads_maintenance_summary(self, _):
         """Report on status of equipment maintenance & stale tasks"""
         stale = manager.get_stale_tech_ready_tasks()
-        log.info(f"Found {len(stale)} stale tasks")
-        subject, body = mcomms.tech_leads_summary(stale, manager.DEFAULT_STALE_DAYS)
-        report = {
-            "id": "daily_maintenance",
-            "target": "#techs-leads",
-            "subject": subject,
-            "body": body + exec_details_footer(),
-        }
-        print_yaml([report])
+        report = []
+        if len(stale) > 0:
+            log.info(f"Found {len(stale)} stale tasks")
+            subject, body = mcomms.tech_leads_summary(stale, manager.DEFAULT_STALE_DAYS)
+            report = [
+                {
+                    "id": "daily_maintenance",
+                    "target": "#techs-leads",
+                    "subject": subject,
+                    "body": body + exec_details_footer(),
+                }
+            ]
+        print_yaml(report)

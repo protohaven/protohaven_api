@@ -1,10 +1,14 @@
 """User auth handlers for login/logout and metadata"""
+import logging
+
 from flask import Blueprint, redirect, request, session
 
 from protohaven_api import oauth
 from protohaven_api.integrations import neon
 
 page = Blueprint("auth", __name__, template_folder="templates")
+
+log = logging.getLogger("handlers.auth")
 
 
 def user_email():
@@ -47,7 +51,7 @@ def login_user_neon_oauth():
         referrer = "/"
     session["login_referrer"] = referrer
 
-    print("Set login referrer:", session["login_referrer"])
+    log.info(f"Set login referrer: {session['login_referrer']}")
     return redirect(oauth.prep_request(_redirect_uri()))
 
 
@@ -67,5 +71,5 @@ def neon_oauth_redirect():
     session["neon_id"] = rep.get("access_token")
     session["neon_account"] = neon.fetch_account(session["neon_id"])
     referrer = session.get("login_referrer", "/")
-    print("Login referrer redirect:", referrer)
+    log.info(f"Login referrer redirect: {referrer}")
     return redirect(referrer)
