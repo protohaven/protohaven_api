@@ -92,9 +92,11 @@ class Commands:
         log.info(f"Found {num} open applications")
 
         if num > 0:
-            body = "@TechLeads, the following applicants are waiting for a decision:\n"
+            body = (
+                "@TechLeads, the following applicants are "
+                "[waiting for a decision](https://app.asana.com/0/1203664351777333):\n"
+            )
             body += "\n".join(open_applicants)
-            body += "\nDetails at https://app.asana.com/0/1203664351777333"
 
             result = {
                 "id": "",
@@ -118,9 +120,11 @@ class Commands:
 
         if num > 0:
             log.info("Generating summary email")
-            body = "The following applicants are waiting for a decision:\n"
+            body = (
+                "The following applicants are "
+                "[waiting for a decision](https://app.asana.com/0/1202211433878591):\n"
+            )
             body += "\n".join(open_applicants)
-            body += "\nDetails at https://app.asana.com/0/1202211433878591"
 
             result = {
                 "id": "",
@@ -143,10 +147,12 @@ class Commands:
         log.info(f"Found {num} proposed classes awaiting approval.")
 
         if num > 0:
-            body = "The following classes are proposed, but not yet approved for scheduling:\n"
+            lnk = "https://airtable.com/applultHGJxHNg69H/tblBHGwrU8cwVwbHI/"
+            body = (
+                "The following classes are "
+                f"[proposed, but not yet approved]({lnk}) for scheduling:\n"
+            )
             body += "\n".join(unapproved_classes)
-            body += "\nDetails at https://airtable.com/applultHGJxHNg69H/tblBHGwrU8cwVwbHI/ "
-            body += "(requires Airtable credentials)"
 
             result = {
                 "id": "",

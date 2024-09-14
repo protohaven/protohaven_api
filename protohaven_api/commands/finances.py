@@ -61,7 +61,7 @@ class Commands:
             cust = cust_map.get(sub["customer_id"], sub["customer_id"])
 
             if tax_pct < 6.9 or tax_pct > 7.1:
-                untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax, {url}")
+                untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
                 log.info(untaxed[-1])
 
             charged_through = dateparser.parse(sub["charged_through_date"]).astimezone(
@@ -69,7 +69,7 @@ class Commands:
             )
             if charged_through + datetime.timedelta(days=1) < now:
                 unpaid.append(
-                    f"- {cust} - {plan} - charged through {charged_through}, {url}"
+                    f"- {cust} - {plan} - charged through {charged_through} ([link]({url}))"
                 )
                 log.info(unpaid[-1])
 
@@ -91,9 +91,8 @@ class Commands:
                 + "(showing max of 5):\n"
             )
             body += "\n".join(untaxed[:5])
-            body += "\n\nPlease remedy by following the instructions at "
-            body += "https://protohaven.org/wiki/shoptechs/storage_sales_tax"
-            body += exec_details_footer()
+            body += "\n\nPlease remedy by following the instructions "
+            body += "[here](https://protohaven.org/wiki/shoptechs/storage_sales_tax)"
 
         result = []
         if body != "":
@@ -217,8 +216,8 @@ class Commands:
         if len(problems) > 0:
             body += f"{len(problems)} membership validation problem(s) found:\n- "
             body += "\n- ".join(problems)
-            body += "\n Please remedy by following the instructions at "
-            body += "https://protohaven.org/wiki/software/membership_validation"
+            body += "\n Please remedy by following the instructions "
+            body += "[here](https://protohaven.org/wiki/software/membership_validation)"
             body += exec_details_footer()
 
             result = [

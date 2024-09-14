@@ -5,7 +5,7 @@ import logging
 import re
 import time
 import urllib
-from functools import cache
+from functools import lru_cache
 
 from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
@@ -156,7 +156,7 @@ def fetch_attendees(event_id):
         current_page += 1
 
 
-@cache
+@lru_cache(maxsize=1)
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
     content = get_connector().neon_request(

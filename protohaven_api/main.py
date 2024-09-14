@@ -24,6 +24,12 @@ logging.basicConfig(level=cfg["general"]["log_level"].upper())
 log = logging.getLogger("main")
 
 app = Flask(__name__)
+if cfg["general"]["behind_proxy"]:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+    )
+
 if cfg["general"]["cors"].lower() == "true":
     log.warning("CORS enabled - this should be done in dev environments only")
     CORS(app)

@@ -6,6 +6,7 @@ from collections import defaultdict
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.role_automation import comms as ccom
 from protohaven_api.role_automation import roles
 
 log = logging.getLogger("cli.roles")
@@ -120,10 +121,28 @@ class Commands:  # pylint: disable=too-few-public-methods
         print_yaml(result)
         log.info(f"Done - generated {len(result)} comms")
 
+    def resolve_nickname(self, first, preferred, last, pronouns):
+        """Convert neon values into a single string of Discord nickname for user"""
+        first = first.strip() if first else ""
+        preferred = preferred.strip() if preferred else ""
+        last = last.strip() if last else ""
+        pronouns = pronouns.strip() if pronouns else ""
+        first = preferred if preferred != "" else first
+        nick = f"{first} {last}" if first != last else first
+        if pronouns != "":
+            nick += f" ({pronouns})"
+        return nick
+
     @command(
         arg(
             "--apply",
             help="Actually make changes to discord user nicknames",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--warn_not_associated",
+            help="Send a DM to all users not associated in Neon",
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
@@ -134,7 +153,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=3,
         ),
     )
-    def enforce_discord_nicknames(self, args):
+    def enforce_discord_nicknames(
+        self, args
+    ):  # pylint: disable=too-many-locals,too-many-branches
         """Ensure nicknames of all associated Discord users are properly set.
         This only targets active members, as inactive members shouldn't
         be present in channels anyways."""
@@ -147,6 +168,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             )
 
         i = 0
+        result = []
+        changes = []
+        not_associated = set(user_nick.keys())
         for m in neon.get_active_members(
             [
                 neon.CustomField.DISCORD_USER,
@@ -156,34 +180,59 @@ class Commands:  # pylint: disable=too-few-public-methods
                 "Preferred Name",
             ]
         ):
-            if i >= args.limit:
-                log.info(f"Limit of {args.limit} changes reached; stopping")
-                return
             discord_user = (m.get("Discord User") or "").strip()
             if discord_user == "":
                 continue
-            first = (
-                m["Preferred Name"].strip()
-                if "Preferred Name" in m
-                else m.get("First Name").strip()
-            )
-            last = m.get("Last Name").strip()
-            nick = f"{first} {last}" if first != last else first
-            if m.get("Pronouns"):
-                nick += f" ({m['Pronouns']})"
-            cur = user_nick.get(discord_user)
-            if not cur:
-                continue
-            if nick != cur:
-                log.info(
-                    f"Discord user {discord_user} nickname change: {cur} -> {nick}"
+            if (
+                discord_user in not_associated
+            ):  # Not all associated users remain in Discord
+                not_associated.remove(discord_user)
+
+            if i == args.limit:
+                log.info(f"Limit of {args.limit} changes reached")
+                i += 1
+            elif i < args.limit:
+                nick = self.resolve_nickname(
+                    m.get("First Name"),
+                    m.get("Preferred Name"),
+                    m.get("Last Name"),
+                    m.get("Pronouns"),
                 )
-                if args.apply:
-                    log.info(str(comms.set_discord_nickname(discord_user, nick)))
+                cur = user_nick.get(discord_user)
+                if not cur:
+                    continue
+                if nick != cur:
+                    changes.append(
+                        f"- User {discord_user} nickname change: "
+                        f"{cur} -> {nick}{' (dry run)' if not args.apply else ''}"
+                    )
+                    log.info(changes[-1])
+                    if args.apply:
+                        log.info(str(comms.set_discord_nickname(discord_user, nick)))
                     i += 1
 
-        # Need to send a summary to #discord-automation with exec log
-        # Also send reminder to associate with Neon
+        if args.warn_not_associated:
+            for discord_id in not_associated:
+                subject, body = ccom.not_associated_warning(discord_id)
+                result.append(
+                    {
+                        "target": f"@{discord_id}",
+                        "subject": subject,
+                        "body": body,
+                    }
+                )
+
+        if len(changes) > 0 or (len(not_associated) > 0 and args.warn_not_associated):
+            subject, body = ccom.nick_change_summary(changes, not_associated)
+            result.append(
+                {
+                    "target": "#discord-automation",
+                    "subject": subject,
+                    "body": body,
+                }
+            )
+
+        print_yaml(result)
 
     @command(
         arg(
