@@ -389,6 +389,8 @@ def expand_instructor_availability(rows, t0, t1):
         start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
             row["fields"]["End"]
         )
+        start0 = start0.astimezone(tz)
+        end0 = end0.astimezone(tz)
         rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
         try:
             rr = rrulestr(rr, dtstart=start0) if rr != "" else None
@@ -403,14 +405,10 @@ def expand_instructor_availability(rows, t0, t1):
                 yield row["id"], max(start0, t0), min(end0, t1)
         else:
             duration = end0 - start0
-            for i, start in enumerate(rr):
+            for start in rr.xafter(
+                t0 - datetime.timedelta(hours=24), count=MAX_EXPANSION, inc=True
+            ):
                 end = start + duration
-                if i > MAX_EXPANSION:
-                    log.error(
-                        "MAX_EXPANSION exceeded for expanding instructor availability: %s",
-                        f" {row}\nfrom\n{t0}\nto\n{t1}",
-                    )
-                    break
                 if start > t1:  # Stop iterating once we've slid past the interval
                     break
                 if end < t0:  # Advance until we get dates within the interval

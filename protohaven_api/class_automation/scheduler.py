@@ -41,15 +41,12 @@ def slice_date_range(start_date, end_date):
     evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
     class_duration = datetime.timedelta(hours=3)
     ret = []
-    base_date = start_date.replace(
-        hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-    )
+    base_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz)
     for i in range((end_date - start_date).days + 1):
         for j in day_class_hours:
             candidate = base_date + datetime.timedelta(days=i, hours=j)
             if candidate.weekday() in evening_only_days and j < evening_threshold:
                 continue  # Some days, we only allow classes to run in the evening
-            candidate = tz.localize(candidate)
             if candidate >= start_date and candidate + class_duration <= end_date:
                 ret.append(candidate)
     return ret
@@ -290,7 +287,7 @@ def push_schedule(sched, autoconfirm=False):
         for record_id, _, date in classes:
             date = dateparser.parse(date)
             if date.tzinfo is None:
-                date = tz.localize(date)
+                date = date.astimezone(tz)
             payload.append(
                 {
                     "Instructor": inst,

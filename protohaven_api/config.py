@@ -5,12 +5,14 @@ import pickle
 from functools import lru_cache
 from string import Template
 
-import pytz
 import yaml
+from dateutil import tz as dtz
 from dotenv import dotenv_values
 
-tz = pytz.timezone("US/Eastern")
-
+# Using dateutil.tz instead of pytz here is a deliberate choice - multiple DST issues have occurred
+# in this repo due to pytz's eager evaluation of time zone information.
+# See https://blog.ganssle.io/articles/2018/03/pytz-fastest-footgun.html for more details.
+tz = dtz.gettz("America/New_York")
 
 MOCK_DATA_PATH = "mock_data.pkl"
 ENV_DEFAULTS_PATH = ".env.default"
