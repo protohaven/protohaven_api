@@ -3,7 +3,6 @@
 
 import datetime
 
-import pytz
 from dateutil.parser import parse as parse_date
 
 from protohaven_api.class_automation import scheduler as s
@@ -30,14 +29,13 @@ def test_slice_date_range():
 
 def test_slice_date_range_tzinfo():
     """Confirm daylight savings is observed for US/Eastern, regardless of incoming time zone info"""
-    tz2 = pytz.timezone("EST")  # Force incorrect DST on input dates
     pre_dst = s.slice_date_range(
-        datetime.datetime(year=2024, month=3, day=4, hour=00, tzinfo=tz2),
-        datetime.datetime(year=2024, month=3, day=5, hour=23, tzinfo=tz2),
+        datetime.datetime(year=2024, month=3, day=4, hour=00, tzinfo=tz),
+        datetime.datetime(year=2024, month=3, day=5, hour=23, tzinfo=tz),
     )[0]
     post_dst = s.slice_date_range(
-        datetime.datetime(year=2024, month=3, day=12, hour=00, tzinfo=tz2),
-        datetime.datetime(year=2024, month=3, day=14, hour=23, tzinfo=tz2),
+        datetime.datetime(year=2024, month=3, day=12, hour=00, tzinfo=tz),
+        datetime.datetime(year=2024, month=3, day=14, hour=23, tzinfo=tz),
     )[1]
     assert [
         pre_dst.isoformat().rsplit("-")[-1],

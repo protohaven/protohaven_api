@@ -15,15 +15,14 @@ def d(i, h=0):
 
 def t(hour, weekday=0):
     """Create a datetime object from hour and weekday"""
-    return tz.localize(
-        datetime.datetime(
-            year=2024,
-            month=11,
-            day=4 + weekday,
-            hour=hour,
-            minute=0,
-            second=0,
-        )
+    return datetime.datetime(
+        year=2024,
+        month=11,
+        day=4 + weekday,
+        hour=hour,
+        minute=0,
+        second=0,
+        tzinfo=tz,
     )
 
 

@@ -209,6 +209,31 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
             d(2),
             [(123, d(0, 18), d(0, 21))],
         ),
+        Tc(
+            "OK across daylight savings time boundary",  # Boundary at 2024-11-03, 3AM EST
+            [
+                _arec(
+                    "a",
+                    dateparser.parse("2024-11-02T18:00").astimezone(tz),
+                    dateparser.parse("2024-11-02T21:00").astimezone(tz),
+                    "RRULE:FREQ=DAILY",
+                )
+            ],
+            dateparser.parse("2024-11-02").astimezone(tz),
+            dateparser.parse("2024-11-04").astimezone(tz),
+            [
+                (
+                    123,
+                    dateparser.parse("2024-11-02T18:00").astimezone(tz),
+                    dateparser.parse("2024-11-02T21:00").astimezone(tz),
+                ),
+                (
+                    123,
+                    dateparser.parse("2024-11-03T18:00").astimezone(tz),
+                    dateparser.parse("2024-11-03T21:00").astimezone(tz),
+                ),
+            ],
+        ),
     ],
     ids=idfn,
 )

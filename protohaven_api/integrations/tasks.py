@@ -176,15 +176,17 @@ def get_shop_tech_maintenance_section_map():
 # Could also create tech task for maintenance here
 def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None):
     """Add a task to the shop tech asana project if it doesn't already exist"""
-    matching = _tasks().search_tasks_for_workspace(
-        cfg["gid"],
-        {
-            f"custom_fields.{cfg['custom_field_airtable_id']}.value": airtable_id,
-            "completed": False,
-            "limit": 1,
-        },
+    matching = list(
+        _tasks().search_tasks_for_workspace(
+            cfg["gid"],
+            {
+                f"custom_fields.{cfg['custom_field_airtable_id']}.value": airtable_id,
+                "completed": False,
+                "limit": 1,
+            },
+        )
     )
-    if len(list(matching)) > 0:
+    if len(matching) > 0:
         return matching[0].get("gid")  # Already exists
 
     result = _tasks().create_task(
