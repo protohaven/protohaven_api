@@ -316,3 +316,34 @@ def test_welcome_signin_ok_with_company_id(mocker):
     rep = json.loads(ws.send.mock_calls[-1].args[0])
     assert rep["status"] == "Active"
     index.send_membership_automation_message.assert_not_called()
+
+
+def test_welcome_signin_with_notify_board_and_staff(mocker):
+    """Test that a discord notification is sent if the account is flagged"""
+    mocker.patch.object(index, "submit_google_form")
+    mocker.patch.object(index, "neon")
+    mocker.patch.object(index, "airtable")
+    mocker.patch.object(index, "send_membership_automation_message")
+    index.neon.search_member.return_value = [
+        {
+            "Account ID": 12345,
+            "Account Current Membership Status": "Active",
+            "First Name": "First",
+            "Notify Board & Staff": "On Sign In|Other Unrelated Condition",
+        },
+    ]
+    index.airtable.get_announcements_after.return_value = []
+    index.neon.update_waiver_status.return_value = True
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {
+            "person": "member",
+            "waiver_ack": True,
+            "email": "foo@bar.com",
+            "dependent_info": "DEP_INFO",
+        },
+    )
+    index.welcome_sock(ws)
+    index.send_membership_automation_message.assert_called_with(
+        "@Board and @Staff: [First (foo@bar.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with `Notify Board & Staff = On Sign In`. This indicator suggests immediate followup with this member is needed. Click the name/email link for notes in Neon CRM."
+    )

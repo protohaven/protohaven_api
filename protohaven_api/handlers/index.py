@@ -124,6 +124,20 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
 
             result["status"] = m.get("Account Current Membership Status", "Unknown")
             result["firstname"] = m.get("First Name")
+            data[
+                "url"
+            ] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+
+            if "On Sign In" in (m.get("Notify Board & Staff") or ""):
+                log.warning(f"Member sign-in with notify bit set: {m}")
+                send_membership_automation_message(
+                    f"@Board and @Staff: [{result['firstname']} ({data['email']})]({data['url']}) "
+                    "just signed in at the front desk with `Notify Board & Staff = On Sign In`. "
+                    "This indicator suggests immediate followup with this member is needed. "
+                    "Click the name/email link for notes in Neon CRM."
+                )
+                log.info("Notified of member-of-interest sign in")
+
             last_announcement_ack = m.get("Announcements Acknowledged", None)
             if last_announcement_ack:
                 last_announcement_ack = dateparser.parse(
@@ -170,9 +184,6 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
                 data.get("waiver_ack", False),
             )
 
-            data[
-                "url"
-            ] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
             if result["status"] != "Active":
                 send_membership_automation_message(
                     f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
