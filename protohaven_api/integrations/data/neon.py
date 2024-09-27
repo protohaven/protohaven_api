@@ -26,6 +26,7 @@ class CustomField:
     ANNOUNCEMENTS_ACKNOWLEDGED = 154
     ZERO_COST_OK_UNTIL = 159
     PRONOUNS = 161
+    NOTIFY_BOARD_AND_STAFF = 162
 
     @classmethod
     def from_id(cls, v):

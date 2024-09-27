@@ -399,6 +399,7 @@ def search_member(email, operator="EQUAL"):
             CustomField.WAIVER_ACCEPTED,
             CustomField.ANNOUNCEMENTS_ACKNOWLEDGED,
             CustomField.API_SERVER_ROLE,
+            CustomField.NOTIFY_BOARD_AND_STAFF,
         ],
     }
     return _paginated_account_search(data)
