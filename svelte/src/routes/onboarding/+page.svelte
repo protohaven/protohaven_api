@@ -3,11 +3,12 @@
   import FetchError from '$lib/fetch_error.svelte';
   import { onMount } from 'svelte';
   import { Alert, Accordion, AccordionItem, ListGroup, ListGroupItem, Image, FormGroup, Label, Spinner, Input, Button, Row, Card, CardFooter, CardHeader, CardTitle, CardBody, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
-  import {get} from '$lib/api.ts';
+  import {get, post} from '$lib/api.ts';
 
 
   let onboarders = new Promise((r) => r([]));
-  let fields = {'email': '', 'discord_user': '', 'membership': []};
+  let assignable_roles = new Promise((r) => r([]));
+  let fields = {'email': '', 'membership': []};
   onMount(() => {
 	  for (let id of Object.keys(fields)) {
 	  	console.log("fetch field", id);
@@ -16,7 +17,8 @@
 	  fields.membership = [];
 	  console.log("Now", fields);
 
-	onboarders = get('/onboarding/onboarders');
+	  onboarders = get('/onboarding/onboarders');
+    assignable_roles = get('/onboarding/role_assignment');
   });
 
   function save() {
@@ -45,6 +47,7 @@
           });
   }
 
+
   let discord_promise = new Promise((r,_) => r());
   let discord_feedback = [];
   let discord_submitting = false;
@@ -64,6 +67,14 @@
     }
     discord_submitting = true;
     discord_promise = get(`/onboarding/discord_member_add?name=${m.discord_user}&neon_id=${m.neon_id}&nick=${m.first}%20${m.last}`).finally(() => discord_submitting=false);
+  }
+
+
+  let roles_submitting = false;
+  let roles_promise = new Promise((r,_) => r());
+  function submit_roles(m) {
+    roles_submitting = true;
+    roles_promise = post('/onboarding/role_assignment', {email: fields.email, roles: m.roles}).finally(() => roles_submitting = false);
   }
 
   let coupon_promise = new Promise((r,_) => r());
@@ -112,6 +123,7 @@
 		<ListGroupItem><strong>Full Name:</strong> {m.first} {m.last}</ListGroupItem>
 		<ListGroupItem><strong>Membership:</strong> {m.level}</ListGroupItem>
 		<ListGroupItem><strong>Status:</strong> {m.status}</ListGroupItem>
+		<ListGroupItem><strong>Roles:</strong> {m.roles}</ListGroupItem>
 	</ListGroup>
 	{/each}
 </Card>
@@ -161,6 +173,41 @@
 {:catch error}
   <FetchError {error} nohelp/>
 {/await}
+
+{#if fields.membership.length > 0}
+<Card class="my-5">
+<CardHeader><CardTitle>Role Assignment</CardTitle></CardHeader>
+<CardBody>
+<p>Roles determine what channels are visible in Discord, and which internal pages can be accessed or modified. For regular and AMP members, you can ignore this.</p>
+{#await assignable_roles}
+	<Spinner/>
+{:then p}
+	{#each fields.membership as m}
+		<FormGroup>
+			<Label>Roles for {m.first} {m.last} (#{m.neon_id}):</Label>
+      {#each p as rolename}
+        <Input type="checkbox" label={rolename} bind:checked={m.roles[rolename]}></Input>
+      {/each}
+      <Button on:click={() => submit_roles(m)} disabled={roles_submitting}>Apply</Button>
+		</FormGroup>
+	{/each}
+{:catch error}
+	<FetchError {error} nohelp/>
+{/await}
+
+{#await roles_promise}
+	<Spinner/> <em>Updating roles can take up to 2 minutes.</em>
+{:then r}
+{#if r}
+	{r.status}
+{/if}
+{:catch error}
+	<FetchError {error} nohelp/>
+{/await}
+</CardBody>
+</Card>
+{/if}
+
 
 <Card class="my-5">
 <CardHeader><CardTitle>Coupon creator</CardTitle></CardHeader>

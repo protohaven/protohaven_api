@@ -28,7 +28,7 @@ def is_enabled():
 
 @dataclass
 class Role:
-    """Every Neon user has zero or more roles that can be checked for access"""
+    """Every Neon user has zero or more roles that can be checked for access."""
 
     INSTRUCTOR = {"name": "Instructor", "id": "75"}
     PRIVATE_INSTRUCTOR = {"name": "Private Instructor", "id": "246"}
@@ -39,6 +39,21 @@ class Role:
     EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
     ONBOARDING = {"name": "Onboarding", "id": "240"}
     ADMIN = {"name": "Admin", "id": "239"}
+
+    @classmethod
+    def as_dict(cls):
+        """Return dictionary mapping name to the value of each field"""
+        results = {}
+        for f in dir(cls()):
+            v = getattr(cls, f)
+            if isinstance(v, dict) and v.get("id") is not None:
+                results[v["name"]] = v
+        return results
+
+    @classmethod
+    def can_onboard(cls, r):
+        """Returns True if an onboarder can set this role in /onboarding/wizard"""
+        return r in (cls.INSTRUCTOR, cls.PRIVATE_INSTRUCTOR, cls.SHOP_TECH)
 
 
 def require_login(fn):

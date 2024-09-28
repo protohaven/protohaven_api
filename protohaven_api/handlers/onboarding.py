@@ -33,6 +33,12 @@ def discord_qr():
     return current_app.send_static_file("svelte/join_discord.png")
 
 
+def _prep_roles(rr: str):
+    if rr.strip() == "":
+        return {}
+    return {k: True for k in rr.strip().split("|")}
+
+
 @page.route("/onboarding/check_membership")
 @require_login_role(Role.ONBOARDING)
 def onboarding_check_membership():
@@ -49,9 +55,33 @@ def onboarding_check_membership():
             "status": m["Account Current Membership Status"],
             "level": m["Membership Level"],
             "discord_user": m["Discord User"],
+            "roles": _prep_roles(m.get("API server role") or ""),
         }
         for m in mm
     ]
+
+
+@page.route("/onboarding/role_assignment", methods=["GET", "POST"])
+@require_login_role(Role.ONBOARDING)
+def onboarding_role_assignment():
+    """Fetch and apply role assignments to the user"""
+    if request.method == "GET":
+        result = [k for k, v in Role.as_dict().items() if Role.can_onboard(v)]
+        return result
+
+    if request.method == "POST":
+        data = request.json
+        roledict = Role.as_dict()
+        for rname, en in data["roles"].items():
+            r = roledict.get(rname)
+            if not r or not Role.can_onboard(r):
+                return Response(f"Cannot onboard role {rname}", status=401)
+            # Calling tihs on individual roles is pretty inefficient, but we don't really
+            # need it much faster right now (as of 2024-09-28)
+            log.info(neon.patch_member_role(data["email"], r, en))
+        return {"status": f"Updated {len(data['roles'])} role(s) for {data['email']}"}
+
+    return Response("Unsupported method", status=400)
 
 
 @page.route("/onboarding/onboarders")
