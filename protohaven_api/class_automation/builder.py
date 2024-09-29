@@ -338,7 +338,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         notify_thresh = evt["python_date"] - datetime.timedelta(days=14)
         evt["notifications"] = {
             k.lower(): v
-            for k, v in airtable.get_emails_notified_after(
+            for k, v in airtable.get_notifications_after(
                 evt["id"], notify_thresh
             ).items()
         }
