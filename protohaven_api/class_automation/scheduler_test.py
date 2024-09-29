@@ -161,7 +161,7 @@ def test_gen_class_and_area_stats_exclusions():
                     "Start Time": "2024-04-01",
                     "Class": ["r1"],
                     "Days (from Class)": [0],
-                    "Period (from Class)": [1],
+                    "Period (from Class)": [30],
                 }
             },
             {
@@ -169,7 +169,7 @@ def test_gen_class_and_area_stats_exclusions():
                     "Start Time": "2024-03-01",
                     "Class": ["r1"],
                     "Days (from Class)": [0],
-                    "Period (from Class)": [1],
+                    "Period (from Class)": [30],
                 }
             },
         ],

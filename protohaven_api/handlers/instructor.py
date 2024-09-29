@@ -429,6 +429,7 @@ def inst_availability():
             s
             for s in airtable.get_class_automation_schedule()
             if dateparser.parse(s["fields"]["Start Time"]) >= t0
+            and not s["fields"].get("Rejected")
         ]
         return {
             "records": {r["id"]: r["fields"] for r in avail},

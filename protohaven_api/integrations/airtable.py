@@ -99,8 +99,8 @@ def log_intents_notified(intents):
         )
 
 
-def log_email(neon_id, to, subject, status):
-    """Logs the sending of an email in Airtable"""
+def log_comms(neon_id, to, subject, status):
+    """Logs the sending of comms in Airtable"""
     status, content = insert_records(
         [{"To": to, "Subject": subject, "Status": status, "Neon ID": str(neon_id)}],
         "class_automation",

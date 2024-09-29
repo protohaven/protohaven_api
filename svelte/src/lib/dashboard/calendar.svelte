@@ -1,7 +1,7 @@
 <script type="ts">
 import { onMount } from 'svelte';
 import {get, put, del, isodate, localtime, as_datetimelocal} from '$lib/api.ts';
-import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
+import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Popover, Input } from '@sveltestrap/sveltestrap';
 import FetchError from '../fetch_error.svelte';
 import CalendarEdit from '$lib/dashboard/calendar_edit.svelte';
 
@@ -33,9 +33,13 @@ function reload() {
 	  let sched = {
 	  	idx,
 	  	inst: sch['fields']['Instructor'],
-		name: sch['fields']['Name (from Class)'],
+		  name: sch['fields']['Name (from Class)'],
+      neon_id: sch['fields']['Neon ID']
 	  };
 	  sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
+    if (!sched.neon_id) {
+      sched.display = "*" + sched.display;
+    }
 	  sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
 	  idx += 1
 	}
@@ -136,8 +140,8 @@ function start_edit(e, d) {
 <AccordionItem header="Click here for legend">
 <ul>
 <li><Button style="display: block" color='secondary'>HH:MM A/P</Button>Available to schedule - click to edit</li>
-<li><Badge color="primary">XX</Badge> Your scheduled class - hover for info</li>
-<li><Badge color="light">XX</Badge> Another instructors' scheduled class - hover for info</li>
+<li><Badge color="primary">XX</Badge> Your scheduled class - click for info</li>
+<li><Badge color="light">XX</Badge> Another instructors' scheduled class - click for info</li>
 </ul>
 </AccordionItem>
 </Accordion>
@@ -169,7 +173,13 @@ function start_edit(e, d) {
 			  <Button style="display:block" color={((edit_rec && edit_rec.id) === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
 			{/each}
 			{#each d.schedule as s}
-			  <Tooltip target={"sched"+s.idx}>Scheduled: {s.name} with {s.inst}</Tooltip>
+			  <Popover trigger="hover" target={"sched"+s.idx}>
+          {#if s.neon_id}
+            Scheduled: {s.name} with {s.inst} (#{s.neon_id})
+          {:else}
+            *Proposed but not yet scheduled: {s.name} with {s.inst}
+          {/if}
+        </Popover>
 			  <Badge id={"sched"+s.idx} color={(s.inst === inst) ? "primary" : "light"}>{s.display}</Badge>
 			{/each}
 			{/if}

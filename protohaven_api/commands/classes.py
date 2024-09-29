@@ -12,11 +12,7 @@ from protohaven_api.class_automation import builder, scheduler
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
-    comms,
-    neon,
-)
+from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
 log = logging.getLogger("cli.classes")
 
@@ -88,49 +84,6 @@ class Commands:
         result = b.build()
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
-
-    def _handle_comms_event(self, e, dryrun=True):
-        """Handle a single entry in a comms YAML file"""
-        for k, v in e.get("side_effect", {}).items():
-            if k.lower().strip() == "cancel":
-                log.info(f"Cancelling #{v}")
-                if not dryrun:
-                    neon.set_event_scheduled_state(str(v), scheduled=False)
-
-        if e["target"][0] in ("#", "@"):  # channels or users
-            content = f"{e['subject']}\n\n{e['body']}"
-            if dryrun:
-                log.info(f"DRY RUN to discord {e['target']}")
-                log.info(content)
-            else:
-                comms.send_discord_message(content, e["target"])
-                log.info(f"Sent to discord {e['target']}: {e['subject']}")
-                intents = e.get("intents")
-                if intents:
-                    airtable.log_intents_notified(intents)
-                    log.info(f"Intents updated in airtable: {intents}")
-        else:
-            email_validate_pattern = r"\S+@\S+\.\S+"
-            emails = re.findall(
-                email_validate_pattern,
-                e["target"].replace(";", " ").replace(",", " ").lower(),
-            )
-            emails = [
-                e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
-                for e in emails
-            ]
-
-            if dryrun:
-                log.info(f"\nDRY RUN to {', '.join(emails)}")
-                log.info(f"Subject: {e['subject']}")
-                log.info(e["body"])
-            else:
-                comms.send_email(e["subject"], e["body"], emails)
-                log.info(f"Sent to {emails}: '{e['subject']}'")
-                airtable.log_email(
-                    e.get("id", ""), ", ".join(emails), e["subject"], "Sent"
-                )
-                log.info("Logged to airtable")
 
     @command(
         arg(
