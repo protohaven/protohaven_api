@@ -90,7 +90,7 @@ def _mock_builder(  # pylint: disable=too-many-arguments
     airtable_schedule,
     neon_events,
     fetch_attendees_fn=lambda _id: [],
-    emails_notified_after_fn=lambda _neon_id, _date: {},
+    notifications_after_fn=lambda _neon_id, _date: {},
     get_account_email_fn=lambda _id: None,
 ):
     mocker.patch(
@@ -110,8 +110,8 @@ def _mock_builder(  # pylint: disable=too-many-arguments
         side_effect=get_account_email_fn,
     )
     mocker.patch(
-        "protohaven_api.integrations.airtable.get_emails_notified_after",
-        side_effect=emails_notified_after_fn,
+        "protohaven_api.integrations.airtable.get_notifications_after",
+        side_effect=notifications_after_fn,
     )
 
 

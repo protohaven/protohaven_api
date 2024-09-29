@@ -166,13 +166,14 @@ def test_enforce_discord_nicknames(mocker, capsys):
         "get_all_members_and_roles",
         return_value=(
             [
-                ["usr1", "bad1"],
-                ["usr2", "a b"],
-                ["usr3", "not_in_neon"],
+                ["usr1", "bad1", d(0)],
+                ["usr2", "a b", d(-1)],
+                ["usr3", "not_in_neon", d(-2)],
             ],
             None,
         ),
     )
+    mocker.patch.object(r.airtable, "get_notifications_after", return_value=[])
     mocker.patch.object(r.comms, "set_discord_nickname")
     mocker.patch.object(
         r.neon,
@@ -192,3 +193,26 @@ def test_enforce_discord_nicknames(mocker, capsys):
     assert "your Discord user isn't associated" in got[0]["body"]
     assert "https://api.protohaven.org/member?discord_id=usr3" in got[0]["body"]
     assert "bad1 -> first last" in got[1]["body"]
+
+
+def test_enforce_discord_nicknames_warning_period_observed(mocker, capsys):
+    """Ensure that warnings about association don't happen too frequently"""
+    mocker.patch.object(
+        r.comms,
+        "get_all_members_and_roles",
+        return_value=(
+            [
+                ["usr3", "not_in_neon", d(-2)],
+            ],
+            None,
+        ),
+    )
+    mocker.patch.object(r.airtable, "get_notifications_after", return_value=[1])
+    mocker.patch.object(r.comms, "set_discord_nickname")
+    mocker.patch.object(r.neon, "get_active_members", return_value=[])
+
+    r.Commands().enforce_discord_nicknames(
+        ["--no-apply", "--warn_not_associated", "--limit=1"]
+    )
+    got = yaml.safe_load(capsys.readouterr().out.strip())
+    assert len(got) == 0

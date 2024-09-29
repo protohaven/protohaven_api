@@ -24,17 +24,17 @@ def get_class_automation_schedule():
     return get_all_records("class_automation", "schedule")
 
 
-def get_emails_notified_after(neon_id: str, after_date):
-    """Gets all logged emails that were sent after a specific date,
+def get_notifications_after(tag: str, after_date):
+    """Gets all logged targets that were sent after a specific date,
     including their date of ontification"""
-    emails = defaultdict(list)
+    targets = defaultdict(list)
     for row in get_all_records_after("class_automation", "email_log", after_date):
-        if row["fields"].get("Neon ID", "") != str(neon_id):
+        if row["fields"].get("Neon ID", "") != str(tag):
             continue
-        emails[row["fields"]["To"].lower()].append(
+        targets[row["fields"]["To"].lower()].append(
             dateparser.parse(row["fields"]["Created"])
         )
-    return emails
+    return targets
 
 
 def get_instructor_email_map(require_teachable_classes=False):
@@ -99,10 +99,10 @@ def log_intents_notified(intents):
         )
 
 
-def log_comms(neon_id, to, subject, status):
+def log_comms(tag, to, subject, status):
     """Logs the sending of comms in Airtable"""
     status, content = insert_records(
-        [{"To": to, "Subject": subject, "Status": status, "Neon ID": str(neon_id)}],
+        [{"To": to, "Subject": subject, "Status": status, "Neon ID": str(tag)}],
         "class_automation",
         "email_log",
     )

@@ -1,5 +1,6 @@
 """Commands related operations on Dicsord"""
 import argparse
+import datetime
 import logging
 from collections import defaultdict
 
@@ -141,6 +142,11 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=False,
         ),
         arg(
+            "--filter",
+            help="Restrict to comma separated list of discord users",
+            type=str,
+        ),
+        arg(
             "--warn_not_associated",
             help="Send a DM to all users not associated in Neon",
             action=argparse.BooleanOptionalAction,
@@ -155,12 +161,17 @@ class Commands:  # pylint: disable=too-few-public-methods
     )
     def enforce_discord_nicknames(
         self, args
-    ):  # pylint: disable=too-many-locals,too-many-branches
+    ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Ensure nicknames of all associated Discord users are properly set.
         This only targets active members, as inactive members shouldn't
         be present in channels anyways."""
         discord_members, _ = comms.get_all_members_and_roles()
         user_nick = {m[0]: m[1] for m in discord_members}
+        join_dates = {m[0]: m[2] for m in discord_members}
+
+        if args.filter:
+            ff = {f.strip() for f in args.filter.split(",")}
+            user_nick = {k: v for k, v in user_nick.items() if k in ff}
 
         if not args.apply:
             log.warning(
@@ -203,27 +214,52 @@ class Commands:  # pylint: disable=too-few-public-methods
                     continue
                 if nick != cur:
                     changes.append(
-                        f"- User {discord_user} nickname change: "
-                        f"{cur} -> {nick}{' (dry run)' if not args.apply else ''}"
+                        f"{discord_user} ({cur} -> {nick}){' (dry run)' if not args.apply else ''}"
                     )
                     log.info(changes[-1])
                     if args.apply:
                         log.info(str(comms.set_discord_nickname(discord_user, nick)))
                     i += 1
 
+        not_associated_final = []
         if args.warn_not_associated:
+            thresh = tznow() - datetime.timedelta(days=30)
+            log.info(
+                f"Crawling {len(not_associated)} unassociated discord users, "
+                "starting with most recent to join"
+            )
+            not_associated = list(not_associated)
+            not_associated.sort(key=join_dates.get, reverse=True)
             for discord_id in not_associated:
+                if len(result) >= args.limit:
+                    log.info("Limit reached; stopping early")
+                    break
+                tag = f"not_associated:{discord_id}"
+                log.info(
+                    f"Checking for past notifications for discord user {discord_id}"
+                )
+                notified = len(airtable.get_notifications_after(tag, after_date=thresh))
+                if notified:
+                    log.info(
+                        f"Skipping association reminder for {discord_id} "
+                        "(already notified in last 30 days)"
+                    )
+                    continue
+                not_associated_final.append(discord_id)
                 subject, body = ccom.not_associated_warning(discord_id)
                 result.append(
                     {
                         "target": f"@{discord_id}",
                         "subject": subject,
                         "body": body,
+                        "id": tag,
                     }
                 )
 
-        if len(changes) > 0 or (len(not_associated) > 0 and args.warn_not_associated):
-            subject, body = ccom.nick_change_summary(changes, not_associated)
+        if len(changes) > 0 or (
+            len(not_associated_final) > 0 and args.warn_not_associated
+        ):
+            subject, body = ccom.nick_change_summary(changes, not_associated_final)
             result.append(
                 {
                     "target": "#discord-automation",
