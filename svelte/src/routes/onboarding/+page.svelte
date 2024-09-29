@@ -123,7 +123,7 @@
 		<ListGroupItem><strong>Full Name:</strong> {m.first} {m.last}</ListGroupItem>
 		<ListGroupItem><strong>Membership:</strong> {m.level}</ListGroupItem>
 		<ListGroupItem><strong>Status:</strong> {m.status}</ListGroupItem>
-		<ListGroupItem><strong>Roles:</strong> {m.roles}</ListGroupItem>
+		<ListGroupItem><strong>Roles:</strong> {Object.keys(m.roles)}</ListGroupItem>
 	</ListGroup>
 	{/each}
 </Card>
@@ -214,7 +214,7 @@
 <CardBody>
 <Button on:click={create_coupon} disabled={creating}>Create coupon</Button>
 {#await coupon_promise}
-	<Spinner/>
+	<Spinner/> <em>Coupon creation can take up to 2 minutes.</em>
 {:then p}
 {#if p}
 	{p.coupon}

@@ -88,58 +88,57 @@ sudo systemctl start protohaven_api.service
 
 # Pushing updates
 
-Various routes are set up in Flask to remap to static assets in ./protohaven_api/static/svelte.
-
 * Create a new release on Github so there's a known tag to refer to the release in case we need to roll back
-* SSH into the IONOS server (username and password in Bitwarden)
+* SSH into the IONOS server (username and password are in Bitwarden)
 
 ```
-cd ~/protohaven_api
+cd ~/staging_protohaven_api
 git status
 ```
 
-Make a note of the branch name, again in case of rollback. If changes to `config.yaml` were made, move the old config to a separate name and `scp` the new one over into its place.
+Make a note of the branch name, in case of rollback. If changes to `.env.secret` were made, move the old config to a separate name and `scp` the new one over into its place.
 
 ```
 git fetch --all
 git checkout <release_name>
 ```
 
-
-Next, build the static pages (Note: you may likely have to build on your dev machine and scp them to the server):
+Next, build the static pages. Due to resource limits on the server, it's best to build on the dev machine and `scp` them to the server:
 
 ```
+source venv/bin/activate
 cd svelte
 npm run build
-rm -r ../protohaven_api/static/svelte
 cp -r ./build ../protohaven_api/static/svelte
-
-# To push to the server
-scp -r build <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/svelte/build
-
-# You may also need to push the config file
-scp config.yaml <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/config_new.yaml
-
 ```
 
-Then SSH into the server and copy over the build files, leaving a copy of the old config just in case
-
+Run this on the server to blow away existing build files - **double check that this is the staging instance first!**
 ```
-cd path/to/staging_protohaven_api
-rm -r ./protohaven_api/static/svelte/* && cp -r ./svelte/build ./protohaven_api/static/svelte
-cp config.yaml config_old_v0_XX_XX.yaml
-mv config_new.yaml config.yaml
+rm -r ./protohaven_api/static/svelte/*
+```
+
+And push the new files to the static svelte directory.
+```
+scp -r build <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/protohaven_api/static/svelte/
 ```
 
 Finally, restart the service and check its status
-
 ```
-# For prod; staging TODO
-sudo systemctl restart protohaven_api.service
-sudo systemctl status protohaven_api.service
+sudo systemctl restart staging_protohaven_api.service
+sudo systemctl status staging_protohaven_api.service
 ```
 
-When staging is observed to work properly, do the same for prod.
+Follow the QA check steps in the section at the end of this doc (testing at https://staging.protohaven.api), then turn the staging instance off again to conserve on host RAM:
+
+```
+sudo systemctl stop staging_protohaven_api.service
+```
+
+When staging is observed to work properly, do the same for prod (just remove all references to `staging_` in the above instructions). The SCP command can be replaced with
+```
+rm -r ~/protohaven_api/protohaven_api/static/svelte/* && \
+cp -r ~/staging_protohaven_api/protohaven_api/static/svelte/* ~/protohaven_api/protohaven_api/static/svelte/
+```
 
 # Common Actions
 
@@ -200,7 +199,7 @@ After deployment, verify that:
   * Shows reservations
   * Shows classes including attendee data
 * https://api.protohaven.org/onboarding
-  * can check membership
+  * can check membership (e.g. hello+testmember@protohaven.org)
   * can generate a coupon
   * can setup a discord user
 * https://api.protohaven.org/techs

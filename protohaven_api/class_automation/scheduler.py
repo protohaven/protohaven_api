@@ -125,8 +125,8 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
         rec = c["fields"]["Class"][0]
 
         exclusion_window = [
-            t - datetime.timedelta(pd * 30),
-            t + datetime.timedelta(pd * 30),
+            t - datetime.timedelta(pd),
+            t + datetime.timedelta(pd),
             t,  # Main date is included for reference
         ]
         if exclusion_window[0] <= end_date or exclusion_window[1] >= start_date:
