@@ -235,6 +235,7 @@ def test_resolve_nickname(tc):
 def test_setup_discord_user_not_associated(mocker):
     """If user isn't associated with neon, return association request"""
     mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
+    mocker.patch.object(r.airtable, "log_comms")
     got = list(r.setup_discord_user(("a", "a", None, [])))
     assert len(got) == 1
     assert got[0][0] == "send_dm"
@@ -242,6 +243,7 @@ def test_setup_discord_user_not_associated(mocker):
     content = got[0][2]
     assert "**Action requested - associate your Discord user:**" in content
     assert "https://api.protohaven.org/member?discord_id=a" in content
+    r.airtable.log_comms.assert_called()
 
 
 def test_setup_discord_nonmember_nodiffs(mocker):
