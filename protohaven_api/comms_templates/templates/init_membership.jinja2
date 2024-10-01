@@ -1,0 +1,15 @@
+{% if subject %}{{fname}}: your first class is on us!{% else %}Hi, {{fname}}!
+
+We're excited to have you join us at Protohaven, and we're sure you're excited to start making things - that's why we're giving you a coupon code for a free class! 
+
+{{coupon_code}}
+
+The code above is good for one free class up to ${{coupon_amount}}; this covers all our basic classes. Just add that code when you go to sign up online at https://protohaven.org/classes.
+{% if sample_classes %}
+Here's a couple basic classes with open seats that you can register for today:
+{% for l in sample_classes %}
+ - {{l}}{% endfor %}
+{% endif %}
+
+See you in the shop soon!
+{% endif %}

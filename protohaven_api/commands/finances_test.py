@@ -218,3 +218,19 @@ def test_validate_membership_employer_too_few_bad():
         d(0),
     )
     assert got == ["Missing required 2+ members in company #123"]
+
+
+def test_generate_coupon_id():
+    raise NotImplemented()
+
+def test_get_sample_classes():
+    raise NotImplemented()
+
+def test_init_membership():
+    raise NotImplemented()
+
+def test_event_is_suggestible():
+    raise NotImplemented()
+
+def test_init_new_memberships():
+    raise NotImplemented()

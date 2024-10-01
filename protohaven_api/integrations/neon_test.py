@@ -198,3 +198,9 @@ def test_set_event_scheduled_state(mocker):
             "enableWaitListing": False,
         }
     )
+
+def test_membership_start_date():
+    raise NotImplemented()
+
+def test_membership_start_date_no_memberships():
+    raise NotImplemented()

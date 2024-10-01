@@ -1,13 +1,19 @@
 """Commands related to financial information and alerting"""
 import datetime
+import argparse
 import logging
 import pickle
 import re
 import sys
+import random
+import string
+
 from collections import defaultdict
+from functools import lru_cache
 
 from dateutil import parser as dateparser
 
+from protohaven_api.comms_templates import render
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
@@ -19,6 +25,9 @@ from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.finances")
 
+# The "start date" for members' memberships which haven't yet been
+# activated via logging in at the front desk
+PLACEHOLDER_START_DATE = dateparser.parse("9001-01-01")
 
 class Commands:
     """Commands for managing classes in Airtable and Neon"""
@@ -452,6 +461,123 @@ class Commands:
         else:
             result += [f"Unhandled membership: '{level}'"]
         return result
+
+    def generate_coupon_id(self, N=8):
+        """https://stackoverflow.com/a/2257449"""
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+
+
+    @lru_cache(maxsize=1)
+    def get_sample_classes(self, coupon_amount):
+        log.info("Fetching classes within coupon amount, for advertising in welcome email")
+        sample_classes = []
+        for e in neon.fetch_published_upcoming_events(back_days=-1):
+            ok, num_remaining = self.event_is_suggestible(e['id'], coupon_amount)
+            if not ok:
+                continue
+            d = dateparser.parse(e['startDate'] + ' ' + e['startTime']).astimezone(tz)
+            d = d.strftime("%A %b %-d, %-I%p")
+            s = f"{d}: {e['name']}"
+            s += f", https://protohaven.org/e/{e['id']}"
+            if num_remaining < 2:
+                s += f" ({num_remaining} seats left!)"
+            sample_classes.append(s)
+            log.info(sample_classes[-1])
+            if len(sample_classes) >= 3:
+                break
+        return sample_classes
+
+    def init_membership(self, account_id, fname, coupon_amount, apply=True):
+        log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
+        if apply:
+            rep = neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE)
+            if rep.status_code != 200:
+                log.error(f"Error {rep.status_code} setting start date: {rep.content}")
+                return None, None
+        
+        cid = None
+        if coupon_amount > 0:
+            cid = self.generate_coupon_id()
+            if apply:
+                rep = neon.create_coupon_code(cid, coupon_amount)
+                if rep.status_code != 200:
+                    log.error(f"Error {rep.status_code} generating coupon: {rep.content}")
+                    return None, None
+
+        if apply:
+            rep = neon.update_account_automation_run_status(account_id, "deferred")
+            if rep.status_code != 200:
+                log.error(f"Error {rep.status_code} logging automation run: {rep.content}")
+                return None, None
+    
+        if cid:
+            return render("init_membership", 
+                          fname=fname, 
+                          coupon_amount=coupon_amount, 
+                          coupon_code=cid, 
+                          sample_classes=self.get_sample_classes(coupon_amount))
+
+    def event_is_suggestible(self, event_id, max_price):
+        for t in neon.fetch_tickets(event_id):
+            if t['name'] == 'Single Registration' and t['fee'] > 0 and t['fee'] <= max_price and t['numberRemaining'] > 0:
+                return True, t['numberRemaining']
+        return False, 0
+
+    @command(
+        arg(
+            "--apply",
+            help="When true, actually defer membership start date",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--coupon_amount",
+            help="Create a copon with this price and generate comms about it",
+            type=int,
+            default=102,
+        ),
+        arg(
+            "--created_after",
+            help="Only apply to Neon accounts created after YYYY-MM-DD",
+            type=str,
+        ),
+        arg(
+            "--filter",
+            help="CSV of Neon IDs to restrict processing",
+            type=str,
+            default="",
+        ),
+    )
+    def init_new_memberships(self, args):
+        """Perform initialization steps for new members: deferring membership until first
+        sign-in and creation of a coupon for their first class.
+
+        See proposal doc: https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit
+        """
+        log.info(str(neon.fetch_search_fields()))
+        return
+
+        if args.filter:
+            args.filter = {a.strip() for a in args.filter.split(",")}
+            log.info(f"Filtering to {args.filter}")
+
+        log.info("Looping through new members to defer their start date and provide coupons")
+        result = []
+        for m in neon.get_new_members_needing_setup(dateparser.parse(args.created_after), extra_fields=['Email 1']):
+            aid = m['Account ID']
+            if args.filter and aid not in args.filter:
+                log.debug(f"Skipping {aid}: not in filter")
+                continue
+            subject, body = self.init_membership(m['Account ID'], m['First Name'], args.coupon_amount, apply=args.apply)
+            if subject and body:
+                result.append({
+                    "target": m['Email 1'],
+                    "subject": subject,
+                    "body": body,
+                    "id": f"init member {m['Account ID']}",
+                })
+        print_yaml(result)
+
 
     @command()
     def neon_failed_membership_txns(self, args):

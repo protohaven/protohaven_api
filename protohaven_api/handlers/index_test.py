@@ -347,3 +347,6 @@ def test_welcome_signin_with_notify_board_and_staff(mocker):
     index.send_membership_automation_message.assert_called_with(
         "@Board and @Staff: [First (foo@bar.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with `Notify Board & Staff = On Sign In`. This indicator suggests immediate followup with this member is needed. Click the name/email link for notes in Neon CRM."
     )
+
+def test_get_or_activate_member(mocker):
+    raise NotImplemented()
