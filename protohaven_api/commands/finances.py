@@ -466,7 +466,6 @@ class Commands:
         """https://stackoverflow.com/a/2257449"""
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
 
-
     @lru_cache(maxsize=1)
     def get_sample_classes(self, coupon_amount):
         log.info("Fetching classes within coupon amount, for advertising in welcome email")
@@ -480,7 +479,7 @@ class Commands:
             s = f"{d}: {e['name']}"
             s += f", https://protohaven.org/e/{e['id']}"
             if num_remaining < 2:
-                s += f" ({num_remaining} seats left!)"
+                s += f" ({num_remaining} seat{'s' if num_remaining != 1 else ''} left!)"
             sample_classes.append(s)
             log.info(sample_classes[-1])
             if len(sample_classes) >= 3:
@@ -489,26 +488,23 @@ class Commands:
 
     def init_membership(self, account_id, fname, coupon_amount, apply=True):
         log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
-        if apply:
-            rep = neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE)
+        def _ok(rep, action):
             if rep.status_code != 200:
-                log.error(f"Error {rep.status_code} setting start date: {rep.content}")
-                return None, None
+                log.error(f"Error {rep.status_code} {action}: {rep.content}")
+                return False
+            return True
+
+        if apply and not _ok(neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE), "setting start date"):
+            return None, None
         
         cid = None
         if coupon_amount > 0:
             cid = self.generate_coupon_id()
-            if apply:
-                rep = neon.create_coupon_code(cid, coupon_amount)
-                if rep.status_code != 200:
-                    log.error(f"Error {rep.status_code} generating coupon: {rep.content}")
-                    return None, None
-
-        if apply:
-            rep = neon.update_account_automation_run_status(account_id, "deferred")
-            if rep.status_code != 200:
-                log.error(f"Error {rep.status_code} logging automation run: {rep.content}")
+            if apply and not _ok(neon.create_coupon_code(cid, coupon_amount), "generating coupon"):
                 return None, None
+
+        if apply and not _ok(neon.update_account_automation_run_status(account_id, "deferred"), "logging automation run"):
+            return None, None
     
         if cid:
             return render("init_membership", 
@@ -518,6 +514,7 @@ class Commands:
                           sample_classes=self.get_sample_classes(coupon_amount))
 
     def event_is_suggestible(self, event_id, max_price):
+        """Return True if the event with `event_id` has open seats within $`max_price`"""
         for t in neon.fetch_tickets(event_id):
             if t['name'] == 'Single Registration' and t['fee'] > 0 and t['fee'] <= max_price and t['numberRemaining'] > 0:
                 return True, t['numberRemaining']
@@ -540,6 +537,7 @@ class Commands:
             "--created_after",
             help="Only apply to Neon accounts created after YYYY-MM-DD",
             type=str,
+            required=True,
         ),
         arg(
             "--filter",
@@ -554,9 +552,6 @@ class Commands:
 
         See proposal doc: https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit
         """
-        log.info(str(neon.fetch_search_fields()))
-        return
-
         if args.filter:
             args.filter = {a.strip() for a in args.filter.split(",")}
             log.info(f"Filtering to {args.filter}")
@@ -576,7 +571,8 @@ class Commands:
                     "body": body,
                     "id": f"init member {m['Account ID']}",
                 })
-        print_yaml(result)
+        if len(result) > 0:
+            print_yaml(result)
 
 
     @command()

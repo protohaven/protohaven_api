@@ -199,8 +199,14 @@ def test_set_event_scheduled_state(mocker):
         }
     )
 
-def test_membership_start_date():
+def test_set_membership_start_date():
     raise NotImplemented()
 
-def test_membership_start_date_no_memberships():
+def test_set_membership_start_date_no_memberships():
+    raise NotImplemented()
+
+def test_update_account_automation_run_status():
+    raise NotImplemented()
+
+def test_paginated_account_search():
     raise NotImplemented()
