@@ -21,6 +21,7 @@ neon:
   waiver_published_date: "2023-03-14"
 discord_bot:
   enabled: "${DISCORD_BOT}"
+  event_hooks_enabled: "${EVENT_HOOKS_ENABLED}"
   token: "${DISCORD_BOT_TOKEN}"
   guild_id: 791673872529358869
   onboarding_channel_id: 1175450738596528279

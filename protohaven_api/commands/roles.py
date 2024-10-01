@@ -122,18 +122,6 @@ class Commands:  # pylint: disable=too-few-public-methods
         print_yaml(result)
         log.info(f"Done - generated {len(result)} comms")
 
-    def resolve_nickname(self, first, preferred, last, pronouns):
-        """Convert neon values into a single string of Discord nickname for user"""
-        first = first.strip() if first else ""
-        preferred = preferred.strip() if preferred else ""
-        last = last.strip() if last else ""
-        pronouns = pronouns.strip() if pronouns else ""
-        first = preferred if preferred != "" else first
-        nick = f"{first} {last}" if first != last else first
-        if pronouns != "":
-            nick += f" ({pronouns})"
-        return nick
-
     @command(
         arg(
             "--apply",
@@ -203,7 +191,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.info(f"Limit of {args.limit} changes reached")
                 i += 1
             elif i < args.limit:
-                nick = self.resolve_nickname(
+                nick = roles.resolve_nickname(
                     m.get("First Name"),
                     m.get("Preferred Name"),
                     m.get("Last Name"),
@@ -234,7 +222,11 @@ class Commands:  # pylint: disable=too-few-public-methods
                 if len(result) >= args.limit:
                     log.info("Limit reached; stopping early")
                     break
-                tag = f"not_associated:{discord_id}"
+                if len(list(neon.get_members_with_discord_id(discord_id))) > 0:
+                    # Previous list was all *active* members, so inactive
+                    # members may still be associated even if not active.
+                    continue
+                tag = roles.not_associated_tag(discord_id)
                 log.info(
                     f"Checking for past notifications for discord user {discord_id}"
                 )

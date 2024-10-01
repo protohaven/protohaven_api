@@ -26,9 +26,8 @@ log = logging.getLogger("main")
 app = Flask(__name__)
 if cfg["general"]["behind_proxy"]:
     from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(
-        app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
-    )
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 if cfg["general"]["cors"].lower() == "true":
     log.warning("CORS enabled - this should be done in dev environments only")
@@ -64,7 +63,11 @@ init_connector(dev=server_mode != "prod")
 if run_discord_bot:
     import threading
 
-    t = threading.Thread(target=run_bot, daemon=True)
+    from protohaven_api.role_automation.roles import (  # pylint: disable=ungrouped-imports
+        setup_discord_user,
+    )
+
+    t = threading.Thread(target=run_bot, daemon=True, args=(setup_discord_user,))
     t.start()
 
 else:

@@ -81,3 +81,8 @@ def revoke_discord_role(name, role):
 def get_all_members_and_roles():
     """Gets all members and roles on Discord"""
     return get_connector().discord_bot_get_all_members_and_roles()
+
+
+def get_member_details(discord_id):
+    """Gets specific discord's member details"""
+    return get_connector().discord_bot_get_member_details(discord_id)

@@ -131,25 +131,6 @@ def test_update_role_intents_zero_comms(mocker, capsys):
     assert not got
 
 
-Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
-
-
-@pytest.mark.parametrize(
-    "tc",
-    [
-        Tc("basic", "first", "preferred", "last", "a/b", "preferred last (a/b)"),
-        Tc("no pronouns or preferred", "first", "", "last", "", "first last"),
-        Tc("preferred is last name", "first", "last", "last", "", "last"),
-    ],
-    ids=idfn,
-)
-def test_resolve_nickname(tc):
-    assert (
-        r.Commands().resolve_nickname(tc.first, tc.preferred, tc.last, tc.pronouns)
-        == tc.want
-    )
-
-
 def test_enforce_discord_nicknames_zero_comms(mocker, capsys):
     """Ensure that no comms are sent if there were no problems"""
     mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=([], None))
@@ -169,6 +150,7 @@ def test_enforce_discord_nicknames(mocker, capsys):
                 ["usr1", "bad1", d(0)],
                 ["usr2", "a b", d(-1)],
                 ["usr3", "not_in_neon", d(-2)],
+                ["usr4", "in_neon_non_member", d(-3)],
             ],
             None,
         ),
@@ -182,6 +164,11 @@ def test_enforce_discord_nicknames(mocker, capsys):
             {"Discord User": "usr1", "First Name": "first", "Last Name": "last"},
             {"Discord User": "usr2", "First Name": "a", "Last Name": "b"},
         ],
+    )
+    mocker.patch.object(
+        r.neon,
+        "get_members_with_discord_id",
+        side_effect=lambda discord_id: [1] if discord_id == "usr4" else [],
     )
 
     r.Commands().enforce_discord_nicknames(
@@ -210,6 +197,7 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, capsys):
     mocker.patch.object(r.airtable, "get_notifications_after", return_value=[1])
     mocker.patch.object(r.comms, "set_discord_nickname")
     mocker.patch.object(r.neon, "get_active_members", return_value=[])
+    mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
 
     r.Commands().enforce_discord_nicknames(
         ["--no-apply", "--warn_not_associated", "--limit=1"]
