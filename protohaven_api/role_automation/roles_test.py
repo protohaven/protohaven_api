@@ -58,6 +58,13 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
             ["A"],
             [("REVOKE", "A", "not associated with a Neon account")],
         ),
+        Tc(
+            "@everyone role is ignored",
+            "INACTIVE",
+            [],
+            ["@everyone"],
+            [],
+        ),
     ],
     ids=idfn,
 )
@@ -205,3 +212,120 @@ def test_sync_delayed_intents_toggling_apply(mocker):
         ("CANCELLED: revoke Discord role None (Now present in Neon CRM)", "123"),
         ("IN 14 DAYS: revoke Discord role None (None)", "456"),
     ]
+
+
+Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("basic", "first", "preferred", "last", "a/b", "preferred last (a/b)"),
+        Tc("no pronouns or preferred", "first", "", "last", "", "first last"),
+        Tc("preferred is last name", "first", "last", "last", "", "last"),
+        Tc("only first name", "first", None, None, None, "first"),
+    ],
+    ids=idfn,
+)
+def test_resolve_nickname(tc):
+    """Confirm expected behavior of nickname resolution from Neon data"""
+    assert r.resolve_nickname(tc.first, tc.preferred, tc.last, tc.pronouns) == tc.want
+
+
+def test_setup_discord_user_not_associated(mocker):
+    """If user isn't associated with neon, return association request"""
+    mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
+    mocker.patch.object(r.airtable, "log_comms")
+    got = list(r.setup_discord_user(("a", "a", None, [])))
+    assert len(got) == 1
+    assert got[0][0] == "send_dm"
+    assert got[0][1] == "a"
+    content = got[0][2]
+    assert "**Action requested - associate your Discord user:**" in content
+    assert "https://api.protohaven.org/member?discord_id=a" in content
+    r.airtable.log_comms.assert_called()
+
+
+def test_setup_discord_nonmember_nodiffs(mocker):
+    """Non-member with zero diffs gets zero response"""
+    mocker.patch.object(
+        r.neon,
+        "get_members_with_discord_id",
+        return_value=[
+            {
+                "Account ID": 1,
+                "Account Current Membership Status": "INACTIVE",
+                "First Name": "a",
+            }
+        ],
+    )
+    got = list(r.setup_discord_user(("a", "a", None, [])))
+    assert not got
+
+
+def test_setup_discord_user_no_diffs(mocker):
+    """If the user is set up properly and there's no action to take, no
+    message is returned."""
+    mocker.patch.object(
+        r.neon,
+        "get_members_with_discord_id",
+        return_value=[
+            {
+                "Account ID": 1,
+                "Account Current Membership Status": "ACTIVE",
+                "First Name": "a",
+                "API server role": "Instructor|Shop Tech",
+            }
+        ],
+    )
+    got = list(
+        r.setup_discord_user(
+            ("a", "a", None, [("Instructors", 123), ("Techs", 456), ("Members", 789)])
+        )
+    )
+    assert not got
+
+
+def test_setup_discord_user_nickname_change(mocker):
+    """Nickname change is passed to discord bot"""
+    mocker.patch.object(
+        r.neon,
+        "get_members_with_discord_id",
+        return_value=[
+            {
+                "Account ID": 1,
+                "Account Current Membership Status": "ACTIVE",
+                "First Name": "b",
+                "API server role": "",
+            }
+        ],
+    )
+    got = list(r.setup_discord_user(("a", "a", None, [("Members", 123)])))
+    assert len(got) == 1
+    assert got[0] == ("set_nickname", "a", "b")
+
+
+def test_setup_discord_user_multiple_accounts(mocker):
+    """Multiple accounts with active user is handled OK"""
+    mocker.patch.object(
+        r.neon,
+        "get_members_with_discord_id",
+        return_value=[
+            {
+                "Account ID": 1,
+                "Account Current Membership Status": "INACTIVE",
+                "First Name": "a",
+                "API server role": "Instructor",
+            },
+            {
+                "Account ID": 2,
+                "Account Current Membership Status": "ACTIVE",
+                "First Name": "a",
+                "API server role": "",
+            },
+        ],
+    )
+    got = list(r.setup_discord_user(("a", "a", None, [])))
+    assert len(got) == 3
+    assert ("grant_role", "a", "Instructors") in got
+    assert ("grant_role", "a", "Members") in got

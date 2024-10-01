@@ -1,6 +1,7 @@
 Based on your current membership state and your involvement in groups at Protohaven, we are taking the following action{%if n != 1%}s{% endif %} to modify the roles assigned to your Discord account:
 {% for l in logs %}
 - {{l}}{% endfor %}
+
 Roles affect your ability to see certain channels on Protohaven's discord server, and are determined by your account in Neon.
 {% if not_associated %}
 **To associate your Discord membership and retain your assigned Discord roles, go to https://api.protohaven.org/member?discord_id={{discord_id}}, log in (if needed), then click "Save".**

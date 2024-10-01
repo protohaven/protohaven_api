@@ -420,6 +420,26 @@ def get_members_with_role(role, extra_fields):
     return _paginated_account_search(data)
 
 
+def get_members_with_discord_id(discord_id, extra_fields=None):
+    """Fetch all members with a specific Discord ID"""
+    data = {
+        "searchFields": [
+            {
+                "field": str(CustomField.DISCORD_USER),
+                "operator": "EQUAL",
+                "value": discord_id,
+            }
+        ],
+        "outputFields": [
+            "Account ID",
+            "First Name",
+            "Last Name",
+            *(extra_fields or []),
+        ],
+    }
+    return _paginated_account_search(data)
+
+
 def fetch_techs_list():
     """Fetches a list of current shop techs, ordered by number of clearances"""
     techs = []

@@ -14,6 +14,7 @@ class PHClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.role_map = {}
+        self.member_join_hook_fn = lambda details: []
 
     @property
     def cfg(self):
@@ -42,12 +43,23 @@ class PHClient(discord.Client):
         # role = guild.get_role(role_id)
         for r in self.guild.roles:
             self.role_map[r.name] = r
-        log.debug(f"Roles: {self.role_map}")
+        log.info(f"Roles: {self.role_map}")
+
+    async def handle_hook_action(self, fn_name, *args):
+        """Handle actions yielded back from calling a hook_fn (see `on_member_join`)"""
+        fn = getattr(self, fn_name)
+        log.info(f"handle_hook_action {fn} {args}")
+        return await fn(*args)
 
     async def on_member_join(self, member):
         """Runs when a new member joins the server"""
-        # channel = get(member.guild.channels, id=768670193379049483)
-        # await channel.send(f'{member} welcome')
+        if not self.cfg["event_hooks_enabled"]:
+            return
+        if member.guild != self.guild:
+            log.info(f"Ignoring member joining unrelated guild {member.guild}")
+            return
+        for a in self.member_join_hook_fn(self._member_details(member)):
+            await self.handle_hook_action(*a)
 
     async def set_nickname(self, name, nickname):
         """Set the nickname of a named server member"""
@@ -92,14 +104,22 @@ class PHClient(discord.Client):
         rep = await self._role_edit(name, role_name, "REMOVE")
         return rep
 
+    def _member_details(self, m):
+        return (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
+
     async def get_all_members_and_roles(self):
         """Retrieves all data on members and roles for the server"""
-        members = [
-            (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
-            for m in self.guild.members
-        ]
+        members = [self._member_details(m) for m in self.guild.members]
         role_map = self.role_map
         return members, role_map
+
+    async def get_member_details(self, discord_id):
+        """Returns data in the same format as `get_all_members_and_roles`
+        just for a single member (if exists)"""
+        m = self.guild.get_member_named(discord_id)
+        if m is None:
+            return None
+        return self._member_details(m)
 
     async def send_dm(self, discord_id, msg):
         """Send a direct message"""
@@ -112,24 +132,31 @@ class PHClient(discord.Client):
 
     async def on_message(self, msg):
         """Runs on every message"""
+        if not self.cfg["event_hooks_enabled"]:
+            return
+
         if msg.author == client.user:
             return
         if isinstance(msg.channel, discord.DMChannel):
             log.info(f"Received DM: {msg}")
-        # print(msg)
-        # mem = self.guild.get_member(msg.author.id)
-        # if mem is None:
-        #    print("Msg author {msg.author.name} ({msg.author.id}) not in PH server")
-        #    return
-        # print(f"Member {mem.display_name}: {mem.roles}")
+        mem = self.guild.get_member(msg.author.id)
+        if mem is None:
+            log.info(
+                "Msg author {msg.author.name} ({msg.author.id}) not in PH server; ignoring"
+            )
+            return
 
-        # await message.channel.send('Hello!')
+        # print(f"Member {mem.display_name}: {mem.roles}")
+        if msg.content.strip() == "TEST_MEMBER_JOIN":
+            log.info("Running on_member_join hook function as requested")
+            for a in self.member_join_hook_fn(self._member_details(mem)):
+                await self.handle_hook_action(*a)
 
 
 client = None  # pylint: disable=invalid-name
 
 
-def run():
+def run(member_join_hook_fn=None):
     """Run the bot"""
     global client  # pylint: disable=global-statement
 
@@ -139,6 +166,8 @@ def run():
     intents.dm_messages = True
     intents.members = True
     client = PHClient(intents=intents)
+    if member_join_hook_fn:
+        client.member_join_hook_fn = member_join_hook_fn
     client.run(get_config()["discord_bot"]["token"])
 
 

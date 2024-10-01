@@ -13,6 +13,22 @@ from protohaven_api.role_automation import comms as ccom
 log = logging.getLogger("role_automation.roles")
 
 
+def not_associated_tag(discord_id):
+    """This is the tag used to dedupe comms regarding the user not being
+    associated with a neon account"""
+    return f"not_associated:{discord_id}"
+
+
+@dataclass
+class DiscordNickIntent:
+    """Represents an intent to change the display name of
+    a Discord user"""
+
+    discord_id: str = None
+    discord_nick: str = None
+    action: str = "NICK_CHANGE"
+
+
 @dataclass
 class DiscordIntent:  # pylint: disable=too-many-instance-attributes
     """Represents an intent to change a Discord role"""
@@ -79,6 +95,8 @@ SYNC_ROLES = {
 
 def singleton_role_sync(neon_member, neon_roles, discord_roles):
     """Given neon membership state and listed roles, compute ops to make discord role smatch"""
+    # Remove generic roles not enforced
+    discord_roles = discord_roles - {"@everyone"}
     if neon_member != "ACTIVE":
         # Revoke all roles of any users missing Neon information
         if len(discord_roles) == 0:
@@ -119,7 +137,7 @@ def gen_role_intents(
         sys.stderr.flush()
         discord_user = (m.get("Discord User") or "").strip()
         roles = {}
-        if m["API server role"]:
+        if m.get("API server role"):
             roles = {rev_roles.get(r) for r in m["API server role"].split("|")}
         if discord_user != "":
             state[discord_user][0] = roles
@@ -228,7 +246,7 @@ def handle_delayed_revocation(
     return None
 
 
-def handle_role_addition(v, user_log, apply_discord):
+def handle_role_addition(v, user_log, apply_discord=True):
     """Fulfill the role addition"""
     assert v.action == "ADD"
     user_log[v.discord_id].append(
@@ -320,3 +338,114 @@ def gen_role_comms(user_log, roles_assigned, roles_revoked):
             "subject": subject,
             "body": body,
         }
+
+
+def resolve_nickname(first, preferred, last, pronouns):
+    """Convert neon values into a single string of Discord nickname for user"""
+    first = first.strip() if first else ""
+    preferred = preferred.strip() if preferred else ""
+    last = last.strip() if last else ""
+    pronouns = pronouns.strip() if pronouns else ""
+    first = preferred if preferred != "" else first
+    nick = f"{first} {last}".strip() if first != last else first
+    if pronouns != "":
+        nick += f" ({pronouns})"
+    return nick
+
+
+def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
+    """Given a user's discord ID and roles, carry out initial association
+    and role assignment. While the periodic discord automation will
+    handle this eventually, setup_user greatly
+    shortens the lead time for a new member joining discord and seeing
+    member channels.
+
+    Note that we do blocking calls on async DiscordBot functions in `comms`,
+    but this function may be called by the bot itself (causing deadlock).
+    This is why we yield named function calls back to the caller to handle as
+    needed.
+    """
+    discord_id, display_name, _, discord_roles = discord_details
+    discord_roles = {dd[0] for dd in discord_roles}
+    # Now we need to fetch the neon roles and membership state.
+    # At this point we may bail out and ask them to associate.
+    rev_roles = {v: k for k, v in SYNC_ROLES.items()}
+    log.info("Searching for discord user in Neon")
+    mm = list(
+        neon.get_members_with_discord_id(
+            discord_id,
+            extra_fields=[
+                "Preferred Name",
+                neon.CustomField.PRONOUNS,
+                neon.CustomField.API_SERVER_ROLE,
+                "Account Current Membership Status",
+            ],
+        )
+    )
+    log.info(mm)
+    if len(mm) == 0:
+        log.info("Neon user not found; issuing association request")
+        subject, body = ccom.not_associated_warning(discord_id)
+        yield "send_dm", discord_id, f"**{subject}**\n\n{body}"
+        airtable.log_comms(
+            not_associated_tag(discord_id), f"@{discord_id}", subject, "Sent"
+        )
+        return
+
+    m = mm[0]
+    neon_member = None
+    neon_roles = set()
+    for m in mm:
+        neon_roles = neon_roles.union(
+            {
+                rev_roles.get(r)
+                for r in (m.get("API server role") or "").split("|")
+                if r.strip() != ""
+            }
+        )
+        if neon_member != "ACTIVE":
+            neon_member = m["Account Current Membership Status"].upper()
+    log.info(f"Found matching Neon account {m['Account ID']}, status {neon_member}")
+
+    # Sync display/nickname
+    nick = resolve_nickname(
+        m.get("First Name"),
+        m.get("Preferred Name"),
+        m.get("Last Name"),
+        m.get("Pronouns"),
+    )
+    if nick != display_name:
+        log.info(f"{discord_id} display name: {display_name} -> {nick}")
+        yield "set_nickname", discord_id, nick
+
+    # Go through intents and apply any that are additive.
+    log.info(f"singleton_role_sync({neon_member}, {neon_roles}, {discord_roles})")
+    user_log = []
+    for action, role, reason in singleton_role_sync(
+        neon_member, neon_roles, discord_roles
+    ):
+        if action != "ADD":
+            log.info(f"Deferring action {action} on role {role} (reason {reason})")
+            continue
+        yield "grant_role", discord_id, role
+        user_log.append(f"Discord role assigned: {role} ({reason})")
+
+    if len(user_log) > 0:
+        subject, body = ccom.discord_role_change_dm(user_log, discord_id)
+        yield "send_dm", discord_id, f"**{subject}**\n\n{body}"
+    log.info("setup_discord_user done")
+
+
+def setup_discord_user_sync(discord_id):
+    """Synchronous version of `setup_discord_user`. Must be called outside of
+    discord bot / coroutine flow to prevent deadlock"""
+    details = comms.get_member_details(discord_id)
+    for a in setup_discord_user(details):
+        if a[0] == "send_dm":
+            comms.send_discord_message(a[2], f"@{a[1]}")
+        elif a[0] == "set_nickname":
+            comms.set_discord_nickname(a[1], a[2])
+        elif a[0] == "grant_role":
+            comms.set_discord_role(a[1], a[2])
+        else:
+            raise RuntimeError(f"Unhandled uesr sync action: {a}")

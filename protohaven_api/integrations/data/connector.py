@@ -215,6 +215,19 @@ class Connector:
         ).result()
         return result
 
+    def _discord_bot_get_member_details_dev(self, discord_id):
+        raise NotImplementedError("TODO")
+
+    def discord_bot_get_member_details(self, discord_id):
+        """Fetch all members and roles on Discord"""
+        if self.dev:
+            return self._discord_bot_get_member_details_dev(discord_id)
+        client = get_discord_bot()
+        result = asyncio.run_coroutine_threadsafe(
+            client.get_member_details(discord_id), client.loop
+        ).result()
+        return result
+
     def _discord_bot_send_dm(self, user, msg):
         raise NotImplementedError("TODO")
 
