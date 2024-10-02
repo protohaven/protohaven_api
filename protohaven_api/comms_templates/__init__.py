@@ -1,10 +1,11 @@
 """Message template functions for CLI commands"""
-from urllib.parse import quote
 from functools import lru_cache
+from urllib.parse import quote
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from protohaven_api.config import tznow  # pylint: disable=import-error
+
 
 @lru_cache(maxsize=1)
 def _env():
@@ -12,6 +13,12 @@ def _env():
         loader=PackageLoader("protohaven_api.comms_templates"),
         autoescape=select_autoescape(),
     )
+
+
+def get_all_templates():
+    """Returns a list of all templates callable by `render()`"""
+    return [e.replace(".jinja2", "") for e in _env().list_templates()]
+
 
 def render(template_name, **kwargs):
     """Returns a rendered template in two parts - subject and body.

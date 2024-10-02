@@ -1,4 +1,4 @@
-Hi {{firstname}},
+{% if subject %}Your class '{{classname}}' was cancelled{% else %}Hi {{firstname}},
 
 Unfortunately, we had to cancel your class {{classname}} (scheduled for {{evt_date}}).
 
@@ -10,3 +10,4 @@ We're sorry for the change of plans - it would have been great to have you. If y
 
 Hope to see you in the shop soon!
 - Protohaven Staff
+{% endif %}

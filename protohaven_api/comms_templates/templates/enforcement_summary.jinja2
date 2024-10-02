@@ -1,4 +1,4 @@
-{% if vs|length > 0 %}
+{% if subject %}Violations and Actions Summary{% else %}{% if vs|length > 0 %}
 {{vs|length}} active violation(s):{% for v in vs %}
 - Since {{v['onset']}}{% if v['fee'] != 0 %}
   Daily fee: ${{v['fee']}}
@@ -9,3 +9,4 @@ There are {{ss|length}} new suspension(s).{% for s in ss %}
  - from {{s['start']}} until {{s['end']}}{% endfor %}
 {% endif %}
 See all active violations (with pictures) at https://protohaven.org/violations
+{% endif %}

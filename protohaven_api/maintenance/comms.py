@@ -2,12 +2,7 @@
 
 import random
 
-from jinja2 import Environment, PackageLoader, select_autoescape
-
-env = Environment(
-    loader=PackageLoader("protohaven_api.maintenance"),
-    autoescape=select_autoescape(),
-)
+from protohaven_api.comms_templates import render
 
 SALUTATIONS = [
     "Greetings techs!",
@@ -21,6 +16,11 @@ SALUTATIONS = [
     "Ahoy techs!",
     "Hey ho, techs!",
     "Beep boop, hello fellow techs!",
+    "What's up, techs!",
+    "Greetings and salutations, techs!",
+    "Hi techs, ready to make something?",
+    "Hey there, tech wizards!",
+    "Top of the morning, techs!",
 ]
 
 CLOSINGS = [
@@ -42,6 +42,8 @@ CLOSINGS = [
     "Remember - every circuit starts with a single connection. Keep connecting!",
     "Your passion fuels progress — keep the fire burning!",
     "You're not just making things, you're making history — keep on crafting!",
+    "From concept to creation, keep the momentum!",
+    "Invent, iterate, and inspire — the maker's trifecta!",
 ]
 
 MAX_STALE_TASKS = 3
@@ -49,8 +51,9 @@ MAX_STALE_TASKS = 3
 
 def daily_tasks_summary(new_tasks):
     """Generate a summary of violation and suspension state, if there is any"""
-    subject = random.choice(SALUTATIONS)
-    return subject, env.get_template("tech_daily_tasks.jinja2").render(
+    return render(
+        "tech_daily_tasks",
+        salutation=random.choice(SALUTATIONS),
         closing=random.choice(CLOSINGS),
         new_count=len(new_tasks),
         new_tasks=new_tasks,
@@ -60,9 +63,8 @@ def daily_tasks_summary(new_tasks):
 def tech_leads_summary(stale_tasks, stale_thresh):
     """Generate a summary of tale tasks"""
     stale_tasks.sort(key=lambda k: k["days_ago"], reverse=True)
-    return "Stale maintenance tasks", env.get_template(
-        "tech_leads_maintenance_status.jinja2"
-    ).render(
+    return render(
+        "tech_leads_maintenance_status",
         stale_count=len(stale_tasks),
         stale_thresh=stale_thresh,
         stale_tasks=stale_tasks[:MAX_STALE_TASKS],

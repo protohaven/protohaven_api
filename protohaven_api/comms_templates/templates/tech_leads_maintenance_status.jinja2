@@ -1,0 +1,4 @@
+{% if subject %}Stale maintenance tasks{% else %}{{stale_count}} tech_ready {% if stale_count != 1 %}tasks not updated in >{{stale_thresh}} days (see [Asana](https://app.asana.com/0/1202469740885594/1204138662113052) for full list):
+{% for t in stale_tasks %}
+- [{{ t['name'] }}](https://app.asana.com/0/1202469740885594/{{ t['gid'] }}) ({{ t['days_ago'] }} days){% endfor %}
+{% endif %}{% endif %}

@@ -1,5 +1,4 @@
-
-Hello {{firstname}},
+{% if subject %}{{firstname}}: new Protohaven violation issued for {{start}}{% else %}Hello {{firstname}},
 
 It has come to our attention that on {{start}}, you violated one or more of our shop policies. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
 
@@ -29,3 +28,4 @@ Any additional questions and appeals may be sent to membership@protohaven.org. P
 
 Thanks for your cooperation,
 Protohaven Automation
+{% endif %}

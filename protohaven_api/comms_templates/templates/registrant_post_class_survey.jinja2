@@ -1,4 +1,4 @@
-Hi {{firstname}},
+{% if subject %}{{classname}}: Please share feedback{% else %}Hi {{firstname}},
 
 Thanks again for taking a class with us! Your interest supports our instructors, and we hope it's helped you in your projects as well.
 
@@ -8,3 +8,4 @@ We'd really appreciate any feedback you have, so we can improve the class for ne
 
 Hope to see you again soon!
 - Protohaven Staff
+{% endif %}

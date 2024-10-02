@@ -1,4 +1,4 @@
-Hi {{firstname}},
+{% if subject %}Your class '{{classname}}' is on for {{evt_date}}!{% else %}Hi {{firstname}},
 
 Get excited! Your class {{classname}} {% if signups > 1 %}has {{signups}} total students, and {% endif %}will be running on {{evt_date}}
 {% if capacity > 0 and days > 1 %}
@@ -10,3 +10,4 @@ If you have any questions, please reach out to education@protohaven.org.
 
 Hope to see you in the shop soon!
 - Protohaven Staff
+{% endif %}

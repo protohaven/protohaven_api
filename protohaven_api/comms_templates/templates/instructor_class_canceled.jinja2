@@ -1,5 +1,6 @@
-Hi {{firstname}},
+{% if subject %}Your class '{{classname}}' was cancelled{% else %}Hi {{firstname}},
 
 Unfortunately, we had to cancel your class {{classname}} (scheduled for {{evt_date}})
 
 If you have any questions, please reach out to education@protohaven.org.
+{% endif %}

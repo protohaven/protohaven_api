@@ -1,4 +1,4 @@
-Hi {{firstname}},
+{% if subject %}{{classname}} on {{evt_date}} - please confirm class supplies{% else %}Hi {{firstname}},
 
 Thanks for agreeing to teach {{classname}} on {{evt_date}}.
 
@@ -10,3 +10,4 @@ If supplies are needed, make sure to submit a New Request via the same page or e
 
 Thanks!
  -Protohaven Automation
+ {% endif %}
