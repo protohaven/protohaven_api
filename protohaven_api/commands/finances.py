@@ -218,7 +218,7 @@ class Commands:
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
-        problems = self.validate_memberships_internal(
+        problems = self._validate_memberships_internal(
             args.write_cache, args.read_cache, args.member_ids
         )
         body = ""
@@ -240,7 +240,7 @@ class Commands:
             print_yaml(result)
         log.info(f"Done ({len(problems)} validation problems found)")
 
-    def validate_memberships_internal(
+    def _validate_memberships_internal(
         self, write_cache=None, read_cache=None, member_ids=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
@@ -380,7 +380,7 @@ class Commands:
             details["company_member_count"] = company_member_count.get(
                 details["cid"], 0
             )
-            result = self.validate_membership_singleton(details)
+            result = self._validate_membership_singleton(details)
             results += [
                 f"{details['name']}: {r} - "
                 f"https://protohaven.app.neoncrm.com/admin/accounts/{details['aid']}"
@@ -388,7 +388,7 @@ class Commands:
             ]
         return results
 
-    def validate_membership_singleton(
+    def _validate_membership_singleton(
         self, details, now=None
     ):  # pylint: disable=too-many-branches
         """Validate membership of a single member"""
@@ -462,16 +462,16 @@ class Commands:
             result += [f"Unhandled membership: '{level}'"]
         return result
 
-    def generate_coupon_id(self, n=8):
+    def _generate_coupon_id(self, n=8):
         """https://stackoverflow.com/a/2257449"""
         return "".join(random.choices(string.ascii_uppercase + string.digits, k=n))
 
     @lru_cache(maxsize=1)
-    def get_sample_classes(self, coupon_amount):
+    def _get_sample_classes(self, coupon_amount):
         """Fetch sample classes within the coupon amount for advertising in the welcome email"""
         sample_classes = []
         for e in neon.fetch_published_upcoming_events(back_days=-1):
-            ok, num_remaining = self.event_is_suggestible(e["id"], coupon_amount)
+            ok, num_remaining = self._event_is_suggestible(e["id"], coupon_amount)
             if not ok:
                 continue
             d = dateparser.parse(e["startDate"] + " " + e["startTime"]).astimezone(tz)
@@ -486,7 +486,7 @@ class Commands:
                 break
         return sample_classes
 
-    def init_membership(self, account_id, fname, coupon_amount, apply=True):
+    def _init_membership(self, account_id, fname, coupon_amount, apply=True):
         """
         This method initializes a membership by setting a start date,
         generating a coupon if applicable, and updating the automation run status.
@@ -507,7 +507,7 @@ class Commands:
 
         cid = None
         if coupon_amount > 0:
-            cid = self.generate_coupon_id()
+            cid = self._generate_coupon_id()
             if apply and not _ok(
                 neon.create_coupon_code(cid, coupon_amount), "generating coupon"
             ):
@@ -525,10 +525,10 @@ class Commands:
                 fname=fname,
                 coupon_amount=coupon_amount,
                 coupon_code=cid,
-                sample_classes=self.get_sample_classes(coupon_amount),
+                sample_classes=self._get_sample_classes(coupon_amount),
             )
 
-    def event_is_suggestible(self, event_id, max_price):
+    def _event_is_suggestible(self, event_id, max_price):
         """Return True if the event with `event_id` has open seats within $`max_price`"""
         for t in neon.fetch_tickets(event_id):
             if (
@@ -588,7 +588,7 @@ class Commands:
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
-            subject, body = self.init_membership(
+            subject, body = self._init_membership(
                 m["Account ID"], m["First Name"], args.coupon_amount, apply=args.apply
             )
             if subject and body:
@@ -602,8 +602,3 @@ class Commands:
                 )
         if len(result) > 0:
             print_yaml(result)
-
-    @command()
-    def neon_failed_membership_txns(self, args):
-        """Fetches and prepares comms to mention failed transactions in Neon"""
-        raise NotImplementedError()

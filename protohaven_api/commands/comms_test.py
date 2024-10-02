@@ -20,7 +20,7 @@ def test_send_comms_email_no_id(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "a@a.com",
@@ -42,7 +42,7 @@ def test_send_comms_email_with_id(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "a@a.com",
@@ -65,7 +65,7 @@ def test_send_comms_discord_dm(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "@discorduser",
@@ -92,7 +92,7 @@ def test_send_comms_discord_channel(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "#channel",
@@ -117,7 +117,7 @@ def test_send_comms_side_effect_cancellation(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "@testuser",
@@ -136,7 +136,7 @@ def test_send_comms_intent(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "#channel",
@@ -155,7 +155,7 @@ def test_send_comms_dryrun_does_nothing(mock_e, mocker):
     e, cmd = mock_e
     mocker.patch.object(
         cmd,
-        "load_comms_data",
+        "_load_comms_data",
         return_value=[
             {
                 "target": "#channel",

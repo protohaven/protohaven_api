@@ -261,19 +261,3 @@ class Commands:  # pylint: disable=too-few-public-methods
             )
 
         print_yaml(result)
-
-    @command(
-        arg(
-            "neon",
-            help="Neon ID",
-            type=str,
-        ),
-        arg(
-            "discord",
-            help="Discord user",
-            type=str,
-        ),
-    )
-    def associate_discord(self, args):
-        """Associate a Discord ID with a neon user"""
-        print(neon.set_discord_user(args.neon, args.discord))

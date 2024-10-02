@@ -67,7 +67,7 @@ class Commands:
             cls["fields"]["Days"],
             cls["fields"]["Hours"],
         )
-        self.reserve_equipment_for_class_internal(results, args.apply)
+        self._reserve_equipment_for_class_internal(results, args.apply)
         log.info("Done")
 
     @command(
@@ -106,10 +106,10 @@ class Commands:
                 cls["fields"]["Hours (from Class)"][0],
             )
         log.info(f"Resolved {len(results)} classes to areas")
-        self.reserve_equipment_for_class_internal(results, args.apply)
+        self._reserve_equipment_for_class_internal(results, args.apply)
         log.info("Done")
 
-    def reserve_equipment_for_class_internal(self, results, apply):
+    def _reserve_equipment_for_class_internal(self, results, apply):
         """Internal version of the same method, for use by post_classes_to_neon
         command in commands/classes.py"""
         # Convert areas to booked IDs using tool table
@@ -156,18 +156,6 @@ class Commands:
                 r[k] = v
                 changed = True
         return r, True in changed_attrs.values() or changed
-
-    @command(
-        arg(
-            "--id",
-            help="Tool ID",
-            type=int,
-        )
-    )
-    def get_booked_resource(self, args):
-        """Gets the raw data of a tool/resource in Booked scheduler"""
-        t = booked.get_resource(args.id)
-        return t
 
     @command(
         arg(
