@@ -1,5 +1,6 @@
 """Test methods for finance-oriented CLI commands"""
 import datetime
+
 import yaml
 
 from protohaven_api.commands.finances import (
@@ -222,73 +223,115 @@ def test_validate_membership_employer_too_few_bad():
 
 
 def test_generate_coupon_id():
-    got = C().generate_coupon_id(N=10)
+    """Test that coupons are generated uniquely"""
+    got = C().generate_coupon_id(n=10)
     assert len(got) == 10
-    assert C().generate_coupon_id(N=10) != got
+    assert C().generate_coupon_id(n=10) != got
+
 
 def test_get_sample_classes(mocker):
-    mocker.patch.object(neon, "fetch_published_upcoming_events", return_value=[
-        {'id': 1, 'startDate': '2023-10-10', 'startTime': '10:00AM', 'name': 'Class 1'},
-        {'id': 2, 'startDate': '2023-10-11', 'startTime': '11:00AM', 'name': 'Class 2'},
-        {'id': 3, 'startDate': '2023-10-12', 'startTime': '12:00PM', 'name': 'Class 3'},
-    ])
-    mocker.patch.object(C, "event_is_suggestible", side_effect=[
-        (True, 5), (True, 1), (False, 0)
-    ])
+    """Test fetching of sample classes"""
+    mocker.patch.object(
+        neon,
+        "fetch_published_upcoming_events",
+        return_value=[
+            {
+                "id": 1,
+                "startDate": "2023-10-10",
+                "startTime": "10:00AM",
+                "name": "Class 1",
+            },
+            {
+                "id": 2,
+                "startDate": "2023-10-11",
+                "startTime": "11:00AM",
+                "name": "Class 2",
+            },
+            {
+                "id": 3,
+                "startDate": "2023-10-12",
+                "startTime": "12:00PM",
+                "name": "Class 3",
+            },
+        ],
+    )
+    mocker.patch.object(
+        C, "event_is_suggestible", side_effect=[(True, 5), (True, 1), (False, 0)]
+    )
     result = C().get_sample_classes(10)
     assert result == [
-        'Tuesday Oct 10, 10AM: Class 1, https://protohaven.org/e/1',
-        'Wednesday Oct 11, 11AM: Class 2, https://protohaven.org/e/2 (1 seat left!)',
+        "Tuesday Oct 10, 10AM: Class 1, https://protohaven.org/e/1",
+        "Wednesday Oct 11, 11AM: Class 2, https://protohaven.org/e/2 (1 seat left!)",
     ]
+
 
 def test_init_membership(mocker):
     """Test init_membership"""
-    mocker.patch.object(neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200))
-    mocker.patch.object(neon, "create_coupon_code", return_value=mocker.Mock(status_code=200))
-    mocker.patch.object(neon, "update_account_automation_run_status", return_value=mocker.Mock(status_code=200))
+    mocker.patch.object(
+        neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
+    )
+    mocker.patch.object(
+        neon, "create_coupon_code", return_value=mocker.Mock(status_code=200)
+    )
+    mocker.patch.object(
+        neon,
+        "update_account_automation_run_status",
+        return_value=mocker.Mock(status_code=200),
+    )
     mocker.patch.object(C, "get_sample_classes", return_value=["class1", "class2"])
     # Test with coupon_amount > 0
     subject, body = C().init_membership("123", "John Doe", 50, apply=True)
     assert subject == "John Doe: your first class is on us!"
     assert "class1" in body
 
+
 def test_init_membership_no_classes(mocker):
     """Test init_membership without list of classes"""
-    mocker.patch.object(neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200))
-    mocker.patch.object(neon, "create_coupon_code", return_value=mocker.Mock(status_code=200))
-    mocker.patch.object(neon, "update_account_automation_run_status", return_value=mocker.Mock(status_code=200))
+    mocker.patch.object(
+        neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
+    )
+    mocker.patch.object(
+        neon, "create_coupon_code", return_value=mocker.Mock(status_code=200)
+    )
+    mocker.patch.object(
+        neon,
+        "update_account_automation_run_status",
+        return_value=mocker.Mock(status_code=200),
+    )
     mocker.patch.object(C, "get_sample_classes", return_value=[])
     # Test with coupon_amount > 0
     subject, body = C().init_membership("123", "John Doe", 50, apply=True)
     assert subject == "John Doe: your first class is on us!"
     assert "Here's a couple basic classes" not in body
 
+
 def test_event_is_suggestible(mocker):
-    mock_event_id = 123
-    mock_max_price = 100
+    """Test that suggestible events are returned if under max price"""
+    max_price = 100
     tickets = [
-        {'name': 'Single Registration', 'fee': 50, 'numberRemaining': 5},
-        {'name': 'VIP Registration', 'fee': 80, 'numberRemaining': 2},
+        {"name": "Single Registration", "fee": 50, "numberRemaining": 5},
+        {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
     ]
-    mocker.patch.object(neon, 'fetch_tickets', return_value=tickets)
-    result, number_remaining = C().event_is_suggestible(mock_event_id, mock_max_price)
+    mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
+    result, number_remaining = C().event_is_suggestible(123, max_price)
     assert result is True
     assert number_remaining == 5
 
+
 def test_event_is_suggestible_price_too_high(mocker):
-    mock_event_id = 123
-    mock_max_price = 40
+    """Test that events aren't returned if they exceed the max_price"""
+    max_price = 40
     tickets = [
-        {'name': 'Single Registration', 'fee': 50, 'numberRemaining': 3},
+        {"name": "Single Registration", "fee": 50, "numberRemaining": 3},
     ]
-    mocker.patch.object(neon, 'fetch_tickets', return_value=tickets)
-    result, number_remaining = C().event_is_suggestible(mock_event_id, mock_max_price)
+    mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
+    result, _ = C().event_is_suggestible(123, max_price)
     assert result is False
+
 
 def test_init_new_memberships(mocker, capsys):
     """Test init_new_memberships"""
     mocker.patch.object(neon, "get_new_members_needing_setup", return_value={})
     C().init_new_memberships(["--apply", "--created_after=2024-01-01"])
-    captured = capsys.readouterr()
     got = yaml.safe_load(capsys.readouterr().out.strip())
     assert not got

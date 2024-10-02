@@ -225,13 +225,13 @@ def set_custom_field(user_id, data):
 
 def set_membership_start_date(user_id, d):
     """Sets the termStartDate of the most recent membership of a user.
-        Recency is determined by its termStartDate."""
+    Recency is determined by its termStartDate."""
     latest = (None, None)
     for m in fetch_memberships(user_id):
         log.info(str(m))
-        tsd = dateparser.parse(m['Term Start Date']).astimezone(tz)
+        tsd = dateparser.parse(m["Term Start Date"]).astimezone(tz)
         if not latest[1] or latest[1] < tsd:
-            latest = (m['Membership ID'], tsd)
+            latest = (m["Membership ID"], tsd)
 
     if not latest[0]:
         raise RuntimeError(f"No latest membership for member {user_id}")
@@ -455,20 +455,16 @@ def get_new_members_needing_setup(created_after, extra_fields=None):
                 "field": str(CustomField.ACCOUNT_AUTOMATION_RAN),
                 "operator": "BLANK",
             },
-            { # TODO enable
+            {
                 "field": "Account Created Date",
                 "operator": "GREATER_THAN",
                 "value": created_after.strftime("%Y-%m-%d"),
-            },
-            { # TODO remove
-                "field": "Account Current Membership Status",
-                "operator": "EQUAL",
-                "value": "Active",
             },
         ],
         "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
     }
     return _paginated_account_search(data)
+
 
 def get_members_with_discord_id(discord_id, extra_fields=None):
     """Fetch all members with a specific Discord ID"""
@@ -1155,13 +1151,15 @@ def update_announcement_status(user_id, now=None):
     )
 
 
-def update_account_automation_run_status(user_id, status:str, now=None):
+def update_account_automation_run_status(user_id, status: str, now=None):
     """Updates automation ran timestamp"""
     if now is None:
         now = tznow()
     return _set_custom_singleton_fields(
-        user_id, {CustomField.ACCOUNT_AUTOMATION_RAN: status + ' ' + now.strftime("%Y-%m-%d")}
+        user_id,
+        {CustomField.ACCOUNT_AUTOMATION_RAN: status + " " + now.strftime("%Y-%m-%d")},
     )
+
 
 def update_waiver_status(  # pylint: disable=too-many-arguments
     user_id,

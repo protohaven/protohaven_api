@@ -96,28 +96,29 @@ def get_or_activate_member(email, send_fn):
             "[deduplicate](https://protohaven.org/wiki/software/membership_validation)"
         )
         log.info("Notified of multiple accounts")
-    elif len(mm) == 0:
-        return None
+
+    m = None
     for m in mm:
         for acf in (m.get("individualAccount") or {}).get("accountCustomFields", []):
-            if acf['name'] == 'Account Automation Ran' and acf['value'].startswith("deferred"):
-
+            if acf["name"] == "Account Automation Ran" and acf["value"].startswith(
+                "deferred"
+            ):
                 send_fn("Activating membership...", 50)
-                rep = neon.set_membership_start_date(m['Account ID'], tznow())
+                rep = neon.set_membership_start_date(m["Account ID"], tznow())
                 if rep.status_code != 200:
                     send_membership_automation_message(
-                        f"@Staff: Error {rep.status_code} activating membership for #{m['Account ID']}: "
+                        f"@Staff: Error {rep.status_code} activating membership for "
+                        f"#{m['Account ID']}: "
                         f"\n{rep.content}\n"
                         "Please sync with software folks to diagnose in protohaven_api. "
                         "Allowing the member through anyways."
                     )
-                neon.update_account_automation_run_status(m['Account ID'], "activated")
+                neon.update_account_automation_run_status(m["Account ID"], "activated")
                 return m
-        if (
-            m.get("Account Current Membership Status") or ""
-        ).upper() == "ACTIVE":
+        if (m.get("Account Current Membership Status") or "").upper() == "ACTIVE":
             return m
     return m
+
 
 def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
@@ -136,7 +137,7 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        m = get_or_activate_member(data['email'], ws.send)
+        m = get_or_activate_member(data["email"], ws.send)
 
         log.info(f"Member {m}")
         if not m:
