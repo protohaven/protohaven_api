@@ -27,6 +27,7 @@ class CustomField:
     ZERO_COST_OK_UNTIL = 159
     PRONOUNS = 161
     NOTIFY_BOARD_AND_STAFF = 162
+    ACCOUNT_AUTOMATION_RAN = 163
 
     @classmethod
     def from_id(cls, v):

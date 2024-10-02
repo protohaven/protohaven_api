@@ -223,6 +223,31 @@ def set_custom_field(user_id, data):
     )
 
 
+def set_membership_start_date(user_id, d):
+    """Sets the termStartDate of the most recent membership of a user.
+    Recency is determined by its termStartDate."""
+    latest = (None, None)
+    for m in fetch_memberships(user_id):
+        log.info(str(m))
+        tsd = dateparser.parse(m["Term Start Date"]).astimezone(tz)
+        if not latest[1] or latest[1] < tsd:
+            latest = (m["Membership ID"], tsd)
+
+    if not latest[0]:
+        raise RuntimeError(f"No latest membership for member {user_id}")
+
+    data = {
+        "termStartDate": d.strftime("%Y-%m-%d"),
+    }
+    return get_connector().neon_request(
+        cfg("api_key2"),
+        f"{URL_BASE}/memberships/{latest[0]}",
+        "PATCH",
+        body=json.dumps(data),
+        headers={"content-type": "application/json"},
+    )
+
+
 def set_interest(user_id, interest: str):
     """Assign interest to user custom field"""
     return set_custom_field(user_id, {"id": CustomField.INTEREST, "value": interest})
@@ -414,6 +439,27 @@ def get_members_with_role(role, extra_fields):
                 "operator": "CONTAIN",
                 "value": role["id"],
             }
+        ],
+        "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
+    }
+    return _paginated_account_search(data)
+
+
+def get_new_members_needing_setup(created_after, extra_fields=None):
+    """Fetch all members in need of automated setup"""
+    if not extra_fields:
+        extra_fields = []
+    data = {
+        "searchFields": [
+            {
+                "field": str(CustomField.ACCOUNT_AUTOMATION_RAN),
+                "operator": "BLANK",
+            },
+            {
+                "field": "Account Created Date",
+                "operator": "GREATER_THAN",
+                "value": created_after.strftime("%Y-%m-%d"),
+            },
         ],
         "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
     }
@@ -1102,6 +1148,16 @@ def update_announcement_status(user_id, now=None):
         now = tznow()
     return _set_custom_singleton_fields(
         user_id, {CustomField.ANNOUNCEMENTS_ACKNOWLEDGED: now.strftime("%Y-%m-%d")}
+    )
+
+
+def update_account_automation_run_status(user_id, status: str, now=None):
+    """Updates automation ran timestamp"""
+    if now is None:
+        now = tznow()
+    return _set_custom_singleton_fields(
+        user_id,
+        {CustomField.ACCOUNT_AUTOMATION_RAN: status + " " + now.strftime("%Y-%m-%d")},
     )
 
 

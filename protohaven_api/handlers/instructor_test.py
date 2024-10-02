@@ -254,7 +254,7 @@ def test_get_instructor_readiness_all_ok(mocker):
                 "Account ID": 12345,
                 "Account Current Membership Status": "Active",
                 "Discord User": "discord_user",
-                "First Name": "First",
+                "First Name": "First     ", # Egregious space in the name doesn't cause lookup error
                 "Last Name": "Last",
             }
         ]

@@ -147,8 +147,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
         print(yaml.dump([result], default_flow_style=False, default_style=""))
 
     def validate_member_clearances(self, argv):
-        """Match clearances in spreadsheet with clearances in Neon.
-        Remove this when clearance information is primarily stored in Neon."""
+        """Confirm clearance pipeline is correctly pushing clearances into Neon."""
         raise NotImplementedError("TODO implement")
 
     def sync_team_page(self, argv):

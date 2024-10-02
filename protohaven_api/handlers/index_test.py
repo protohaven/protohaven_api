@@ -5,6 +5,7 @@ import json
 import pytest
 
 from protohaven_api.handlers import index
+from protohaven_api.integrations import neon
 from protohaven_api.main import app
 from protohaven_api.rbac import set_rbac
 
@@ -347,3 +348,53 @@ def test_welcome_signin_with_notify_board_and_staff(mocker):
     index.send_membership_automation_message.assert_called_with(
         "@Board and @Staff: [First (foo@bar.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with `Notify Board & Staff = On Sign In`. This indicator suggests immediate followup with this member is needed. Click the name/email link for notes in Neon CRM."
     )
+
+def test_get_or_activate_multiple_accounts(mocker):
+    """Test if multiple accounts are found"""
+    mocker.patch.object(neon, "search_member", return_value=[
+        {"Account ID": "1", "Company ID": "2"},
+        {"Account ID": "3", "Company ID": "4"}
+    ])
+    mock_send_membership_automation_message = mocker.patch.object(index, "send_membership_automation_message")
+    result = index.get_or_activate_member("a@b.com", mocker.MagicMock())
+    mock_send_membership_automation_message.assert_called_once()
+
+def test_get_or_activate_deferred(mocker):
+    """Test if account automation is deferred"""
+    mocker.patch.object(neon, "search_member", return_value=[
+        {
+            "Account ID": "1",
+            "Company ID": "2",
+            "individualAccount": {
+                "accountCustomFields": [
+                    {"name": "Account Automation Ran", "value": "deferred"}
+                ]
+            }
+        }
+    ])
+    mock_set_membership_start_date = mocker.patch.object(neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200))
+    mock_update_account_automation_run_status = mocker.patch.object(neon, "update_account_automation_run_status")
+    
+    result = index.get_or_activate_member("a@b.com", mocker.MagicMock())
+    assert result == neon.search_member.return_value[0]
+    mock_set_membership_start_date.assert_called_once()
+    mock_update_account_automation_run_status.assert_called_once_with("1", "activated")
+
+def test_get_or_activate_active_membership(mocker):
+    """Test if account is already active"""
+    mocker.patch.object(neon, "search_member", return_value=[
+        {
+            "Account ID": "1",
+            "Company ID": "2",
+            "Account Current Membership Status": "ACTIVE"
+        }
+    ])
+    
+    result = index.get_or_activate_member("a@b.com", mocker.MagicMock())
+    assert result == neon.search_member.return_value[0]
+
+def test_get_or_activate_no_accounts(mocker):
+    """Test if no accounts are found"""
+    mocker.patch.object(neon, "search_member", return_value=[])
+    result = index.get_or_activate_member("a@b.com", mocker.MagicMock())
+    assert result is None
