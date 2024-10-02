@@ -75,13 +75,13 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-def get_or_activate_member(mm, send_fn):
+def get_or_activate_member(email, send_fn):
     """Fetch the candidate account from Neon, preferring active memberships.
     If automation deferred any particular membership, activate it now."""
     # Only select individuals as members, not companies
     mm = [
         m
-        for m in neon.search_member(data["email"])
+        for m in neon.search_member(email)
         if m.get("Account ID") != m.get("Company ID")
     ]
     if len(mm) > 1:
@@ -91,17 +91,16 @@ def get_or_activate_member(mm, send_fn):
             for m in mm
         ]
         send_membership_automation_message(
-            f"Sign-in with {data['email']} returned multiple accounts "
+            f"Sign-in with {email} returned multiple accounts "
             f"in Neon with same email:\n" + "\n".join(urls) + "\n@Staff: please "
             "[deduplicate](https://protohaven.org/wiki/software/membership_validation)"
         )
         log.info("Notified of multiple accounts")
+    elif len(mm) == 0:
         return None
-
-    m = mm[0]  # appease pylint
     for m in mm:
         for acf in (m.get("individualAccount") or {}).get("accountCustomFields", []):
-            if acf['name'] == 'Account Automation Ran' and acf['value'].startsWith("deferred"):
+            if acf['name'] == 'Account Automation Ran' and acf['value'].startswith("deferred"):
 
                 send_fn("Activating membership...", 50)
                 rep = neon.set_membership_start_date(m['Account ID'], tznow())
@@ -118,7 +117,7 @@ def get_or_activate_member(mm, send_fn):
             m.get("Account Current Membership Status") or ""
         ).upper() == "ACTIVE":
             return m
-    return None
+    return m
 
 def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
@@ -137,7 +136,9 @@ def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
 
     if data["person"] == "member":
         _send("Searching member database...", 40)
-        m = get_or_activate_member(data['email'])
+        m = get_or_activate_member(data['email'], ws.send)
+
+        log.info(f"Member {m}")
         if not m:
             result["notfound"] = True
         else:
