@@ -1,4 +1,5 @@
-Hello {{firstname}},
+{% if subject %}{% if accrued > 0 %}{{firstname}}: ongoing Protohaven violation has accrued ${{accrued}} in fees{% else %}{{firstname}}: ongoing Protohaven violation{% endif %}{% else %}Hello {{firstname}},
+
 
 On {{start}}, we discovered a violation of one or more of our shop policies, and the violation is currently ongoing. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members, and we need your help to make this happen.
 
@@ -18,3 +19,4 @@ Any additional questions and appeals may be sent to membership@protohaven.org. P
 
 Thanks for your cooperation,
 Protohaven Automation
+{% endif %}

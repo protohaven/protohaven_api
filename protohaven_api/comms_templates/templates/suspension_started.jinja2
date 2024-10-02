@@ -1,5 +1,4 @@
-
-Hello {{firstname}},
+{%if subject %}{{firstname}}: your Protohaven membership has been suspended{{suffix}}{% else %}Hello {{firstname}},
 
 On {{start}}, you violated one or more of our shop policies incurring a daily fee until the violation is resolved. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
 {% if accrued > 0 %}
@@ -12,3 +11,4 @@ Please take immediate action to pay any accrued fees and reinstate your membersh
 Any additional questions and appeals may be sent to membership@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
 
 Protohaven Automation
+{% endif %}

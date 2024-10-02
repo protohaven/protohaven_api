@@ -362,7 +362,7 @@ def test_builder_low_attendance_7days(caplog):
         {
             "id": 1234,
             "target": "Instructor (inst@ructor.com)",
-            "subject": "Test Event on February 20 - help us find 4 more students!",
+            "subject": "Test Event on February 20 - help us find 4 more student(s)!",
         },
         {
             "id": "N/A",
@@ -444,7 +444,7 @@ def test_builder_techs(caplog):
         {
             "id": "multiple",
             "target": "#techs",
-            "subject": "**New classes for tech backfill:**",
+            "subject": "New classes for tech backfill:",
         },
         {
             "id": "N/A",

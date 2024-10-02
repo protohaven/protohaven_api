@@ -241,7 +241,7 @@ def test_setup_discord_user_not_associated(mocker):
     assert got[0][0] == "send_dm"
     assert got[0][1] == "a"
     content = got[0][2]
-    assert "**Action requested - associate your Discord user:**" in content
+    assert "**Action Requested - Associate Your Discord User:**" in content
     assert "https://api.protohaven.org/member?discord_id=a" in content
     r.airtable.log_comms.assert_called()
 

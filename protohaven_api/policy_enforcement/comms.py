@@ -1,12 +1,8 @@
 """Message template functions for notifying instructors, techs, and event registrants"""
 
 from dateutil import parser as dateparser
-from jinja2 import Environment, PackageLoader, select_autoescape
 
-env = Environment(
-    loader=PackageLoader("protohaven_api.policy_enforcement"),
-    autoescape=select_autoescape(),
-)
+from protohaven_api.comms_templates import render
 
 
 def enforcement_summary(violations, fees, new_sus):
@@ -51,37 +47,34 @@ def enforcement_summary(violations, fees, new_sus):
     if len(vs) == 0 and len(ss) == 0 and outstanding == 0:
         return None, None
 
-    subject = "Violations and Actions Summary"
-    return subject, env.get_template("enforcement_summary.jinja2").render(
-        vs=vs.values(), outstanding=outstanding, ss=ss.values()
+    return render(
+        "enforcement_summary", vs=vs.values(), outstanding=outstanding, ss=ss.values()
     )
 
 
 def admin_create_suspension(neon_id, end):
     """Message for staff/admin to carry out suspension actions for a member"""
-    subject = f"ACTION REQUIRED: Suspend Protohaven member {neon_id} until {end}"
-    return subject, env.get_template("admin_create_suspension.jinja2").render(
-        neon_id=neon_id, end=end
-    )
+    return render("admin_create_suspension", neon_id=neon_id, end=end)
 
 
 def suspension_ended(firstname):
     """Message to member that their suspension is over"""
-    subject = f"{firstname}: your Protohaven membership has been reinstated"
-    return subject, env.get_template("suspension_ended.jinja2").render(
-        firstname=firstname
-    )
+    return render("suspension_ended", firstname=firstname)
 
 
 def suspension_started(firstname, start, accrued, end=None):
     """Message to member that their membership is suspended"""
-    subject = f"{firstname}: your Protohaven membership has been suspended"
+    suffix = ""
     if accrued > 0:
-        subject += " until fees are paid"
+        suffix += " until fees are paid"
     elif end:
-        subject += f" until {end}"
-    return subject, env.get_template("suspension_started.jinja2").render(
-        firstname=firstname, start=start, accrued=accrued
+        suffix += f" until {end}"
+    return render(
+        "suspension_started",
+        firstname=firstname,
+        start=start,
+        accrued=accrued,
+        suffix=suffix,
     )
 
 
@@ -89,13 +82,8 @@ def violation_ongoing(
     firstname, start, sections, notes, accrued, fee
 ):  # pylint: disable=too-many-arguments
     """Message to member about ongoing violation accruing fees"""
-    if accrued > 0:
-        subject = (
-            f"{firstname}: ongoing Protohaven violation has accrued ${accrued} in fees"
-        )
-    else:
-        subject = f"{firstname}: ongoing Protohaven violation"
-    return subject, env.get_template("violation_ongoing.jinja2").render(
+    return render(
+        "violation_ongoing",
         firstname=firstname,
         start=start,
         sections=sections,
@@ -107,9 +95,13 @@ def violation_ongoing(
 
 def violation_started(firstname, start, sections, notes, fee):
     """Message to member that a new violation was issued"""
-    subject = f"{firstname}: new Protohaven violation issued for {start}"
-    return subject, env.get_template("violation_started.jinja2").render(
-        firstname=firstname, start=start, sections=sections, notes=notes, fee=fee
+    return render(
+        "violation_started",
+        firstname=firstname,
+        start=start,
+        sections=sections,
+        notes=notes,
+        fee=fee,
     )
 
 

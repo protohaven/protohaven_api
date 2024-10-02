@@ -39,7 +39,7 @@ def test_techs_openings():
             ]
         }
     )
-    assert subject == "**New classes for tech backfill:**"
+    assert subject == "New classes for tech backfill:"
     assert_matches_testdata(body, "test_tech_openings.txt")
 
 
@@ -79,7 +79,7 @@ def test_instructor_check_supplies():
 def test_instructor_low_attendance():
     """Test instructor attendance template rendering"""
     subject, body = comms.instructor_low_attendance(TEST_CLASS)
-    assert subject == "Class Name on February 20 - help us find 2 more students!"
+    assert subject == "Class Name on February 20 - help us find 2 more student(s)!"
     assert_matches_testdata(body, "test_instructor_low_attendance.txt")
 
 
@@ -114,7 +114,7 @@ def test_instructor_class_cancelled():
 
 
 def test_registrant_post_class_survey():
-    """Test reigstrant clsas survey rendering"""
+    """Test registrant class survey rendering"""
     subject, body = comms.registrant_post_class_survey(TEST_CLASS, TEST_ATTENDEE)
     assert subject == "Class Name: Please share feedback"
     assert_matches_testdata(body, "test_registrant_post_class_survey.txt")

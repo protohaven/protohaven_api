@@ -1,8 +1,8 @@
-Hello {{firstname}},
+{% if subject %}{{firstname}}: your protohaven membership has been reinstated{% else %}Hello {{firstname}},
 
 Your membership suspension has been lifted and your membership is now reinstated.
 
 If you have any additional questions, please send them to hello@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
 
 Welcome back to the shop!
-Protohaven Automation
+Protohaven Automation{% endif %}

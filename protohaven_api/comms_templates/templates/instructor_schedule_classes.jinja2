@@ -1,4 +1,4 @@
-Hi {{firstname}} - thanks for your continued involvement at Protohaven.
+{% if subject %}{{firstname}}: please schedule your classes!{% else %}Hi {{firstname}} - thanks for your continued involvement at Protohaven.
 
 We need your help to keep our schedule full for {{start}} through {{end}}! Please take a couple minutes right now and ensure your schedule is set for this period:
 
@@ -18,3 +18,4 @@ If you need any help or have any questions, please reach out on the #instructors
 
 Thanks!
  -Protohaven Automation
+ {% endif %}
