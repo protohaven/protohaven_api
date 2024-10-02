@@ -1,20 +1,19 @@
 """Commands related to financial information and alerting"""
-import datetime
 import argparse
+import datetime
 import logging
 import pickle
-import re
-import sys
 import random
+import re
 import string
-
+import sys
 from collections import defaultdict
 from functools import lru_cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.comms_templates import render
 from protohaven_api.commands.decorator import arg, command, print_yaml
+from protohaven_api.comms_templates import render
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
@@ -28,6 +27,7 @@ log = logging.getLogger("cli.finances")
 # The "start date" for members' memberships which haven't yet been
 # activated via logging in at the front desk
 PLACEHOLDER_START_DATE = dateparser.parse("9001-01-01")
+
 
 class Commands:
     """Commands for managing classes in Airtable and Neon"""
@@ -462,19 +462,19 @@ class Commands:
             result += [f"Unhandled membership: '{level}'"]
         return result
 
-    def generate_coupon_id(self, N=8):
+    def generate_coupon_id(self, n=8):
         """https://stackoverflow.com/a/2257449"""
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=N))
+        return "".join(random.choices(string.ascii_uppercase + string.digits, k=n))
 
     @lru_cache(maxsize=1)
     def get_sample_classes(self, coupon_amount):
-        log.info("Fetching classes within coupon amount, for advertising in welcome email")
+        """Fetch sample classes within the coupon amount for advertising in the welcome email"""
         sample_classes = []
         for e in neon.fetch_published_upcoming_events(back_days=-1):
-            ok, num_remaining = self.event_is_suggestible(e['id'], coupon_amount)
+            ok, num_remaining = self.event_is_suggestible(e["id"], coupon_amount)
             if not ok:
                 continue
-            d = dateparser.parse(e['startDate'] + ' ' + e['startTime']).astimezone(tz)
+            d = dateparser.parse(e["startDate"] + " " + e["startTime"]).astimezone(tz)
             d = d.strftime("%A %b %-d, %-I%p")
             s = f"{d}: {e['name']}"
             s += f", https://protohaven.org/e/{e['id']}"
@@ -487,37 +487,57 @@ class Commands:
         return sample_classes
 
     def init_membership(self, account_id, fname, coupon_amount, apply=True):
+        """
+        This method initializes a membership by setting a start date,
+        generating a coupon if applicable, and updating the automation run status.
+        """
         log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
+
         def _ok(rep, action):
             if rep.status_code != 200:
                 log.error(f"Error {rep.status_code} {action}: {rep.content}")
                 return False
             return True
 
-        if apply and not _ok(neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE), "setting start date"):
+        if apply and not _ok(
+            neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE),
+            "setting start date",
+        ):
             return None, None
-        
+
         cid = None
         if coupon_amount > 0:
             cid = self.generate_coupon_id()
-            if apply and not _ok(neon.create_coupon_code(cid, coupon_amount), "generating coupon"):
+            if apply and not _ok(
+                neon.create_coupon_code(cid, coupon_amount), "generating coupon"
+            ):
                 return None, None
 
-        if apply and not _ok(neon.update_account_automation_run_status(account_id, "deferred"), "logging automation run"):
+        if apply and not _ok(
+            neon.update_account_automation_run_status(account_id, "deferred"),
+            "logging automation run",
+        ):
             return None, None
-    
+
         if cid:
-            return render("init_membership", 
-                          fname=fname, 
-                          coupon_amount=coupon_amount, 
-                          coupon_code=cid, 
-                          sample_classes=self.get_sample_classes(coupon_amount))
+            return render(
+                "init_membership",
+                fname=fname,
+                coupon_amount=coupon_amount,
+                coupon_code=cid,
+                sample_classes=self.get_sample_classes(coupon_amount),
+            )
 
     def event_is_suggestible(self, event_id, max_price):
         """Return True if the event with `event_id` has open seats within $`max_price`"""
         for t in neon.fetch_tickets(event_id):
-            if t['name'] == 'Single Registration' and t['fee'] > 0 and t['fee'] <= max_price and t['numberRemaining'] > 0:
-                return True, t['numberRemaining']
+            if (
+                t["name"] == "Single Registration"
+                and t["fee"] > 0
+                and t["fee"] <= max_price
+                and t["numberRemaining"] > 0
+            ):
+                return True, t["numberRemaining"]
         return False, 0
 
     @command(
@@ -550,30 +570,38 @@ class Commands:
         """Perform initialization steps for new members: deferring membership until first
         sign-in and creation of a coupon for their first class.
 
-        See proposal doc: https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit
+        See proposal doc:
+        https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit
         """
         if args.filter:
             args.filter = {a.strip() for a in args.filter.split(",")}
             log.info(f"Filtering to {args.filter}")
 
-        log.info("Looping through new members to defer their start date and provide coupons")
+        log.info(
+            "Looping through new members to defer their start date and provide coupons"
+        )
         result = []
-        for m in neon.get_new_members_needing_setup(dateparser.parse(args.created_after), extra_fields=['Email 1']):
-            aid = m['Account ID']
+        for m in neon.get_new_members_needing_setup(
+            dateparser.parse(args.created_after), extra_fields=["Email 1"]
+        ):
+            aid = m["Account ID"]
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
-            subject, body = self.init_membership(m['Account ID'], m['First Name'], args.coupon_amount, apply=args.apply)
+            subject, body = self.init_membership(
+                m["Account ID"], m["First Name"], args.coupon_amount, apply=args.apply
+            )
             if subject and body:
-                result.append({
-                    "target": m['Email 1'],
-                    "subject": subject,
-                    "body": body,
-                    "id": f"init member {m['Account ID']}",
-                })
+                result.append(
+                    {
+                        "target": m["Email 1"],
+                        "subject": subject,
+                        "body": body,
+                        "id": f"init member {m['Account ID']}",
+                    }
+                )
         if len(result) > 0:
             print_yaml(result)
-
 
     @command()
     def neon_failed_membership_txns(self, args):
