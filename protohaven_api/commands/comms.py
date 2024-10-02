@@ -17,7 +17,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
 log = logging.getLogger("cli.comms")
 
 
-class Commands:
+class Commands:  # pylint: disable=too-few-public-methods
     """Commands for sending Discord & email comms.
 
     Note that this does perform side effects e.g. cancelling a class
@@ -69,7 +69,7 @@ class Commands:
             airtable.log_comms(e.get("id", ""), ", ".join(target), e["subject"], "Sent")
             log.info("Logged to airtable")
 
-    def load_comms_data(self, path):
+    def _load_comms_data(self, path):
         """Fetch and parse a YAML file for use in comms"""
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f.read())
@@ -105,7 +105,10 @@ class Commands:
     )
     def send_comms(self, args):
         """Reads a list of emails/discord messages and sends them to their recipients"""
-        data = self.load_comms_data(args.path)
+        data = self._load_comms_data(args.path)
+        if not data:
+            log.info(f"{args.path} was empty, so nothing to do.")
+            return
 
         side_effects = defaultdict(list)
         for e in data:

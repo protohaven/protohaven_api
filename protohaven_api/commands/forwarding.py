@@ -2,6 +2,7 @@
 import argparse
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime
 
 from dateutil import parser as dateparser
@@ -15,6 +16,7 @@ from protohaven_api.config import (  # pylint: disable=import-error
 from protohaven_api.forecasting import techs as forecast
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
+    comms,
     neon,
     sheets,
     tasks,
@@ -366,9 +368,9 @@ class Commands:
             else:
                 log.info(email)
 
-        comms = []
+        result = []
         if not on_duty_ok:
-            comms.append(
+            result.append(
                 {
                     "id": "",
                     "target": "#tech-leads",
@@ -383,4 +385,61 @@ class Commands:
                 }
             )
 
-        print_yaml(comms)
+        print_yaml(result)
+
+    @command()
+    def purchase_request_alerts(self, _):
+        """Send alerts when there's purchase requests that haven't been acted upon for some time"""
+        content = "**Open Purchase Requests Report:**"
+        sections = defaultdict(list)
+        counts = defaultdict(int)
+        now = tznow()
+        thresholds = {
+            "low_pri": 7,
+            "high_pri": 2,
+            "class_supply": 3,
+            "on_hold": 30,
+            "unknown": 0,
+        }
+        headers = {
+            "low_pri": "Low Priority",
+            "high_pri": "High Priority",
+            "class_supply": "Class Supplies",
+            "on_hold": "On Hold",
+            "unknown": "Unknown/Unparsed Tasks",
+        }
+
+        def format_request(t):
+            if (t["modified_at"] - t["created_at"]).days > 1:
+                dt = (now - t["modified_at"]).days
+                dstr = f"modified {dt}d ago"
+            else:
+                dt = (now - t["created_at"]).days
+                dstr = f"created {dt}d ago"
+            return (f"- {t['name']} ({dstr})", dt)
+
+        for t in tasks.get_open_purchase_requests():
+            counts[t["category"]] += 1
+            thresh = now - datetime.timedelta(days=thresholds[t["category"]])
+            if t["created_at"] < thresh and t["modified_at"] < thresh:
+                sections[t["category"]].append(format_request(t))
+
+        # Sort oldest to youngest, by section
+        for k, v in sections.items():
+            v.sort(key=lambda t: -t[1])
+            sections[k] = [t[0] for t in v]
+
+        section_added = False
+        for k in ("high_pri", "class_supply", "low_pri", "on_hold", "unknown"):
+            if len(sections[k]) > 0:
+                section_added = True
+                content += f"\n\n{headers[k]} ({counts[k]} total open; "
+                content += f"showing only tasks older than {thresholds[k]} days):\n"
+                content += "\n".join(sections[k])
+
+        if not section_added:
+            content += "\nAll caught up. Nice."
+
+        log.info(content)
+        comms.send_board_message(content)
+        log.info("Done")

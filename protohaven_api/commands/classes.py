@@ -173,7 +173,7 @@ class Commands:
         )
 
     @classmethod
-    def neon_category_from_event_name(cls, name):
+    def _neon_category_from_event_name(cls, name):
         """Parses the event name and returns a category matching what kind of event it is"""
         if name == "All Member Meeting":
             return neon.Category.MEMBER_EVENT
@@ -199,7 +199,7 @@ class Commands:
             desc,
             start,
             end,
-            category=self.neon_category_from_event_name(name),
+            category=self._neon_category_from_event_name(name),
             max_attendees=capacity,
             dry_run=dry_run,
             published=published,
@@ -396,7 +396,7 @@ class Commands:
 
         if num > 0:
             log.info("Reserving equipment for scheduled classes")
-            self.reserve_equipment_for_class_internal(  # pylint: disable=no-member
+            self._reserve_equipment_for_class_internal(  # pylint: disable=no-member
                 to_reserve, args.apply
             )
 

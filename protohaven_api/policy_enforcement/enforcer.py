@@ -33,7 +33,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     if latest_fee is None:
         latest_fee = {}
         for f in airtable.get_policy_fees():
-            d = tz.localize(dateparser.parse(f["fields"]["Created"]))
+            d = dateparser.parse(f["fields"]["Created"]).astimezone(tz)
             vid = f["fields"]["Violation"][0]
             if vid not in latest_fee or latest_fee[vid] < d:
                 latest_fee[vid] = d
