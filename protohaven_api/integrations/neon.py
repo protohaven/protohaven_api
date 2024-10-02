@@ -237,7 +237,7 @@ def set_membership_start_date(user_id, d):
         raise RuntimeError(f"No latest membership for member {user_id}")
 
     data = {
-        "termStartDate": start.strftime("%Y-%m-%d"),
+        "termStartDate": d.strftime("%Y-%m-%d"),
     }
     return get_connector().neon_request(
         cfg("api_key2"),

@@ -2,10 +2,12 @@
 # pylint: skip-file
 import datetime
 import json
+import pytest
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon
 from protohaven_api.rbac import Role
+from protohaven_api.testing import d
 
 TEST_USER = 1234
 NOW = tznow()
@@ -199,14 +201,69 @@ def test_set_event_scheduled_state(mocker):
         }
     )
 
-def test_set_membership_start_date():
-    raise NotImplemented()
 
-def test_set_membership_start_date_no_memberships():
-    raise NotImplemented()
+def test_set_membership_start_date(mocker):
+    """Test setting the membership start date for a user"""
+    mock_fetch = mocker.patch.object(neon, 'fetch_memberships', return_value=[{'Term Start Date': '2022-01-01T00:00:00Z', 'Membership ID': '123'}])
+    mock_connector = mocker.patch.object(neon, 'get_connector')
+    mock_cfg = mocker.patch.object(neon, 'cfg', return_value="fake_api_key")
+    user_id = 'user_123'
+    start_date = d(0)
+    result = neon.set_membership_start_date(user_id, start_date)
+    mock_fetch.assert_called_once_with(user_id)
+    neon.get_connector().neon_request.assert_called_once_with(
+        "fake_api_key",
+        f"{neon.URL_BASE}/memberships/123",
+        "PATCH",
+        body=json.dumps({"termStartDate": d(0).strftime("%Y-%m-%d")}),
+        headers={"content-type": "application/json"}
+    )
+def test_set_membership_start_date_no_latest(mocker):
+    """Test setting the membership start date when no latest membership found"""
+    mock_fetch = mocker.patch.object(neon, 'fetch_memberships', return_value=[])
+    user_id = 'user_123'
+    start_date = d(0)
+    with pytest.raises(RuntimeError, match=f"No latest membership for member {user_id}"):
+        neon.set_membership_start_date(user_id, start_date)
 
-def test_update_account_automation_run_status():
-    raise NotImplemented()
+def test_update_account_automation_run_status(mocker):
+    """Test updating automation run status"""
+    mocker.patch.object(neon, "tznow", return_value=d(0))
+    mock_set_custom_singleton_fields = mocker.patch.object(neon, "_set_custom_singleton_fields", return_value=True)
+    result = neon.update_account_automation_run_status(123, "completed")
+    mock_set_custom_singleton_fields.assert_called_once_with(123, {neon.CustomField.ACCOUNT_AUTOMATION_RAN: "completed 2025-01-01"})
+    assert result
 
-def test_paginated_account_search():
-    raise NotImplemented()
+def test_paginated_account_search(mocker):
+    """Test paginated account search to ensure all pages are requested and results are aggregated"""
+    data = {"query": "test"}
+    mock_connector = mocker.patch.object(neon, "get_connector")
+    mock_neon_request = mock_connector.return_value.neon_request
+    mock_neon_request.side_effect = [
+        {
+            "pagination": {"totalPages": 2},
+            "searchResults": [{"id": 1}]
+        },
+        {
+            "pagination": {"totalPages": 2},
+            "searchResults": [{"id": 2}]
+        }
+    ]
+    results = list(neon._paginated_account_search(data))
+    assert results == [{"id": 1}, {"id": 2}]
+    assert mock_neon_request.call_count == 2
+
+
+def test_paginated_account_search_runtime_error(mocker):
+    """Test that _paginated_account_search raises RuntimeError when search fails"""
+    data = {"query": "test"}
+    mock_connector = mocker.patch.object(neon, "get_connector")
+    mock_neon_request = mock_connector.return_value.neon_request
+    mock_neon_request.side_effect = [
+        {
+            "pagination": {"totalPages": 2},
+            "searchResults": None
+        }
+    ]
+    with pytest.raises(RuntimeError, match="Search failed"):
+        list(neon._paginated_account_search(data))
