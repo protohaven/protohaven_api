@@ -18,11 +18,14 @@ def _act_on_content(directive, content):
 def summarize_message_history(msgs):
     """Summarize history of chat messages"""
     return _act_on_content(
-        "You are a newsletter writer trying to summarize the following series of chat \
-        messages sent via Discord. Use simple words, be casual and straightforward, \
-        and limit to 2-3 topics at maximum. This is a section that will be appended \
-        to a broader discussion about recent discord conversations. Do not mention \
-        users by name, and don't lead in or out; just jump straight into the content.",
+        "Create a summary for a newsletter about Protohaven, Pittsburgh’s Premier Makerspace, \
+        using highlights from Discord chats by members. The audience consists of Protohaven \
+        members and subscribers, so aim to showcase activities at the shop that might \
+        entice more visits. Consider including discussions about upcoming events, interesting \
+        projects, or practical advice shared among members. Use simple and informal language. \
+        Focus on 2-3 major topics, emphasizing recurring themes over isolated comments. \
+        Integrate these insights directly into the content without introductory or concluding \
+        remarks, ensuring a seamless addition to a broader discussion about Discord interactions.",
         msgs,
     )
 
@@ -30,9 +33,9 @@ def summarize_message_history(msgs):
 def summary_summarizer(summaries):
     """Summarizes a list of summaries using GPT."""
     return _act_on_content(
-        "You are a newsletter writer trying to cut down and summarize the following \
-        list of summaries of discord channels. Use simple words, be casual and \
-        straightforward, and limit to 4-6 topics at maximum. Markdown formatting \
-        Ois permitted.",
+        "As a newsletter writer, distill and summarize the provided list of Discord channel \
+        summaries. Aim to cover 4-6 key topics using simple and straightforward language. \
+        Apply markdown formatting appropriately for clear and effective communication. \
+        Focus on retaining essential information and present it casually and straightforwardly.",
         summaries,
     )
