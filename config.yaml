@@ -8,6 +8,8 @@ general:
   admin_users: ["1245"]
   external_access_codes:
     "${EXTERNAL_ACCESS_CODES_ADMIN}": ["ADMIN"]
+openai:
+  api_key: "${OPENAI_API_KEY}"
 neon:
   domain: "protohaven"
   oauth_client_id: "${NEON_OAUTH_CLIENT_ID}"
@@ -21,7 +23,10 @@ neon:
   waiver_published_date: "2023-03-14"
 discord_bot:
   enabled: "${DISCORD_BOT}"
-  event_hooks_enabled: "${EVENT_HOOKS_ENABLED}"
+  event_hooks:
+    enabled: "${EVENT_HOOKS_ENABLED}"
+    include_filter: None
+    exclude_filter: None
   token: "${DISCORD_BOT_TOKEN}"
   guild_id: 791673872529358869
   onboarding_channel_id: 1175450738596528279

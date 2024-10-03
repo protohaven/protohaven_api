@@ -15,7 +15,7 @@ import requests
 from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
-from protohaven_api.discord_bot import get_client as get_discord_bot
+from protohaven_api import discord_bot
 from protohaven_api.integrations.data import dev_airtable, dev_neon
 
 log = logging.getLogger("integrations.data.connector")
@@ -164,86 +164,22 @@ class Connector:
             smtp_server.sendmail(sender, recipients, msg.as_string())
         return None
 
-    def _discord_bot_setnick_dev(self, name, nick):
-        """Dev handler for setting a nickname"""
-        raise NotImplementedError("TODO")
-
-    def discord_bot_setnick(self, name, nick):
-        """Sets the nickname of a user on Discord"""
+    def discord_bot_fn(self, fn, *args, **kwargs):
+        """Executes a function synchronously on the discord bot"""
         if self.dev:
-            return self._discord_bot_setnick_dev(name, nick)
-        client = get_discord_bot()
-        result = asyncio.run_coroutine_threadsafe(
-            client.set_nickname(name, nick), client.loop
-        ).result()
-        return result
+            raise NotImplementedError("TODO")
+        return discord_bot.invoke_sync(fn, *args, **kwargs)
 
-    def _discord_bot_setrole_dev(self, name, role):
-        """Dev handler for setting a discord role"""
-        raise NotImplementedError("TODO")
-
-    def discord_bot_setrole(self, name, role):
-        """Set the role of a server member on Discord"""
+    def discord_bot_genfn(self, fn, *args, **kwargs):
         if self.dev:
-            return self._discord_bot_setrole_dev(name, role)
-        client = get_discord_bot()
-        result = asyncio.run_coroutine_threadsafe(
-            client.grant_role(name, role), client.loop
-        ).result()
-        return result
+            raise NotImplementedError("TODO")
+        return discord_bot.invoke_sync_generator(fn, *args, **kwargs)
 
-    def discord_bot_revoke_role(self, name, role):
-        """Set the role of a server member on Discord"""
+    def discord_bot_fn_nonblocking(self, fn, *args, **kwargs):
+        """Executes a function synchronously on the discord bot"""
         if self.dev:
-            return self._discord_bot_setrole_dev(name, role)
-        client = get_discord_bot()
-        result = asyncio.run_coroutine_threadsafe(
-            client.revoke_role(name, role), client.loop
-        ).result()
-        return result
-
-    def _discord_bot_get_all_members_and_roles_dev(self):
-        raise NotImplementedError("TODO")
-
-    def discord_bot_get_all_members_and_roles(self):
-        """Fetch all members and roles on Discord"""
-        if self.dev:
-            return self._discord_bot_get_all_members_and_roles_dev()
-        client = get_discord_bot()
-        result = asyncio.run_coroutine_threadsafe(
-            client.get_all_members_and_roles(), client.loop
-        ).result()
-        return result
-
-    def _discord_bot_get_member_details_dev(self, discord_id):
-        raise NotImplementedError("TODO")
-
-    def discord_bot_get_member_details(self, discord_id):
-        """Fetch all members and roles on Discord"""
-        if self.dev:
-            return self._discord_bot_get_member_details_dev(discord_id)
-        client = get_discord_bot()
-        result = asyncio.run_coroutine_threadsafe(
-            client.get_member_details(discord_id), client.loop
-        ).result()
-        return result
-
-    def _discord_bot_send_dm(self, user, msg):
-        raise NotImplementedError("TODO")
-
-    def discord_bot_send_dm(self, user, msg, blocking=True):
-        """Sends a DM to a specific user"""
-        if self.dev:
-            return self._discord_bot_send_dm(user, msg)
-        client = get_discord_bot()
-
-        if blocking:
-            result = asyncio.run_coroutine_threadsafe(
-                client.send_dm(user, msg), client.loop
-            ).result()
-        else:
-            result = client.send_dm(user, msg)
-        return result
+            raise NotImplementedError("TODO")
+        return getattr(discord_bot.get_client(), fn)(*args, **kwargs)
 
     def _booked_request_dev(self, *args, **kwargs):
         """Dev handler for reservation system requests"""
