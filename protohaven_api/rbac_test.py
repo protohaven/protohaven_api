@@ -42,7 +42,7 @@ def test_require_login_role_techlead_on_tech(mocker):
 
 
 def test_require_login_role_multiple_args(mocker):
-    """Ensure tech leads can access things that techs can access"""
+    """Ensure multiple roles can be set for access in `require_login_role`"""
     rbac.set_rbac(True)
     fn = rbac.require_login_role(Role.BOARD_MEMBER, Role.STAFF)(lambda: "called")
     mocker.patch.object(rbac, "get_roles", return_value=[Role.BOARD_MEMBER["name"]])

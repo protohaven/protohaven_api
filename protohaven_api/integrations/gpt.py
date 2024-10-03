@@ -1,20 +1,13 @@
 """Functions invoking LLMs and passing prompts"""
-from functools import lru_cache
-
 from openai import OpenAI
 
 from protohaven_api.config import get_config
 
 
-@lru_cache(maxsize=1)
-def client():
-    """Get OpenAI client instance"""
-    return OpenAI(api_key=get_config()["openai"]["api_key"])
-
-
 def _act_on_content(directive, content):
     """Invoke GPT on sequential content and return the result"""
-    response = client().chat.completions.create(
+    client = OpenAI(api_key=get_config()["openai"]["api_key"])
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "system", "content": directive}]
         + [{"role": "user", "content": c} for c in content],
