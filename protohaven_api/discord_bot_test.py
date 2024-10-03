@@ -48,9 +48,9 @@ def test_hook_on_user_is_permitted(tc, mocker):
         },
     )
     assert (
-        PHClient()._hook_on_user_is_permitted(  # pylint: disable=protected-access
-            tc.usr
-        )
+        PHClient(  # pylint: disable=protected-access
+            intents=None
+        )._hook_on_user_is_permitted(tc.usr)
         == tc.want
     )
 

@@ -36,6 +36,6 @@ def test_send_discord_message_dm(mocker):
     )
     mocker.patch.object(c, "get_connector")
     c.send_discord_message("Test content", "@testuser")
-    c.get_connector().discord_bot_send_dm.assert_called_with(  # pylint: disable=no-member
-        "testuser", "Test content"
+    c.get_connector().discord_bot_fn.assert_called_with(  # pylint: disable=no-member
+        "send_dm", "testuser", "Test content"
     )

@@ -39,3 +39,17 @@ def test_require_login_role_techlead_on_tech(mocker):
 
     mocker.patch.object(rbac, "get_roles", return_value=[Role.INSTRUCTOR["name"]])
     assert fn() != "called"
+
+
+def test_require_login_role_multiple_args(mocker):
+    """Ensure tech leads can access things that techs can access"""
+    rbac.set_rbac(True)
+    fn = rbac.require_login_role(Role.BOARD_MEMBER, Role.STAFF)(lambda: "called")
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.BOARD_MEMBER["name"]])
+    assert fn() == "called"
+
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.STAFF["name"]])
+    assert fn() == "called"
+
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.INSTRUCTOR["name"]])
+    assert fn() != "called"

@@ -96,7 +96,7 @@ def get_roles():
     return result
 
 
-def require_login_role(role):
+def require_login_role(*role):
     """Decorator that requires the use to be logged in and have a particular role"""
 
     def fn_setup(fn):
@@ -110,10 +110,11 @@ def require_login_role(role):
                 return redirect(url_for("auth.login_user_neon_oauth"))
             # Check for presence of role. Note that shop techs are a special case; leads can do
             # anything that a shop tech is allowed to do
-            if role["name"] in roles or (
-                role == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles
-            ):
-                return fn(*args, **kwargs)
+            for r in role:
+                if r["name"] in roles or (
+                    r == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles
+                ):
+                    return fn(*args, **kwargs)
 
             return Response(
                 "Access Denied - if you think this is an error, try going to "
