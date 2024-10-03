@@ -8,7 +8,7 @@
   let endDate = isodate(new Date());
   let startDate = isodate(new Date(new Date().setDate(new Date().getDate() - 30)));
   let channels = {};
-  
+
   async function fetchChannels() {
     try {
       const response = await get('/staff/discord_member_channels');
@@ -31,6 +31,7 @@
   }
 
   let messageLog = {};
+  let mediaLog = {};
   let channel_summaries = [];
   let final_summary = "";
 
@@ -40,6 +41,7 @@
       if (!lastreload || force || (now - lastreload) > 500) {
           messageLog = messageLog;
           channel_summaries = channel_summaries;
+          mediaLog = mediaLog;
           lastreload = now;
       }
   }
@@ -48,6 +50,7 @@
   const handleSubmit = () => {
     submitting = true;
     messageLog = {};
+    mediaLog = {};
     channel_summaries = [];
     final_summary = "";
     const socket = open_ws('/staff/summarize_discord');
@@ -66,6 +69,19 @@
       }
       if (d.type === 'individual') {
         messageLog[d.channel].push(`${d.created_at} ${d.author}: ${d.content}`);
+        console.log(d.links);
+        for (let l of d.images) {
+          if (!mediaLog[d.channel]) {
+            mediaLog[d.channel] = [];
+          }
+          mediaLog[d.channel].push({author: d.author, ref: d.ref, link: l, type: 'image'})
+        }
+        for (let l of d.videos) {
+          if (!mediaLog[d.channel]) {
+            mediaLog[d.channel] = [];
+          }
+          mediaLog[d.channel].push({author: d.author, ref: d.ref, link: l, type: 'video'})
+        }
       } else if (d.type === 'channel_summary') {
         channel_summaries[d.channel] = d.content;
       } else if (d.type === 'final_summary') {
@@ -92,11 +108,9 @@
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 10px;
   }
-  .accordion-header {
-    cursor: pointer;
-  }
-  .accordion-content {
-    transition: max-height 0.3s ease;
+  .thumb {
+      max-width: 480px;
+      max-height: 480px;
   }
 </style>
 <Card>
@@ -124,7 +138,7 @@
             <Label for={label}>{label}</Label>
           </div>
         {/each}
-      </div>   
+      </div>
     </FormGroup>
     <Button on:click={handleSubmit} disabled={submitting}>Submit</Button>
     {#if submitting}
@@ -151,5 +165,24 @@
     {/each}
     <h5>Final Summary:</h5>
     {@html final_summary}
+    <h5>Media</h5>
+    {#each Object.keys(mediaLog) as channel}
+      <strong>{channel}</strong>
+      {#each mediaLog[channel] as l}
+      <p>
+        <a href={l.ref} target="_blank">
+          {#if l.type == 'image'}
+            <img class="thumb" src={l.link}/>
+          {:else}
+            <video class="thumb" controls>
+              <source src="{l.link}" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+          {/if}
+        </a>
+        <em>Credit <a href={l.ref} target="_blank">{l.author}</a></em>
+      </p>
+      {/each}
+    {/each}
   </CardBody>
 </Card>

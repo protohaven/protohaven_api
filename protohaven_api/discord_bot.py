@@ -1,6 +1,7 @@
 """A bot for monitoring the Protohaven server and performing automated activities"""
 import asyncio
 import logging
+from urllib.parse import urlparse
 
 import discord
 
@@ -140,10 +141,25 @@ class PHClient(discord.Client):
                 total_length += message_length
                 if total_length > max_length:
                     break
+
+                images = []
+                videos = []
+                for attachment in message.attachments:
+                    log.info(attachment)
+                    parsed_url = urlparse(attachment.url)
+                    file_suffix = parsed_url.path.split("/")[-1].split("?")[0]
+                    if file_suffix.endswith(("jpg", "jpeg", "png", "gif")):
+                        images.append(attachment.url)
+                    elif file_suffix.endswith(("mp4", "mov")):
+                        videos.append(attachment.url)
+
                 yield {
+                    "ref": message.jump_url,
                     "created_at": message.created_at,
-                    "author": str(message.author),
+                    "author": message.author.display_name,
                     "content": message.content,
+                    "images": images,
+                    "videos": videos,
                 }
                 num += 1
 

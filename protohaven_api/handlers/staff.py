@@ -53,8 +53,11 @@ def summarizer_ws(ws):
                 json.dumps(
                     {
                         "type": "individual",
+                        "ref": msg["ref"],
                         "channel": channel_name,
                         "created_at": msg["created_at"].isoformat(),
+                        "images": msg["images"],
+                        "videos": msg["videos"],
                         "content": msg["content"],
                         "author": msg["author"],
                     }
