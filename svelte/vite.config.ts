@@ -14,6 +14,7 @@ const PROXY_PATHS = [
   '^/instructor/.',
   '^/techs/.',
   '^/member/.',
+  '^/staff/.',
   '^/instructor/.',
   '/whoami',
   '/class_listing',
@@ -21,6 +22,7 @@ const PROXY_PATHS = [
 ];
 const WS_PROXY_PATHS = [
   '/welcome/ws',
+  '/staff/summarize_discord',
 ];
 let proxy = {};
 for (let p of PROXY_PATHS) {

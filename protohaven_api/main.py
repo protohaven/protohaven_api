@@ -8,12 +8,12 @@ from protohaven_api.config import get_config
 from protohaven_api.discord_bot import run as run_bot
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
-from protohaven_api.handlers.index import page as index_pages
-from protohaven_api.handlers.index import setup_sock_routes
+from protohaven_api.handlers.index import page as index_pages, setup_sock_routes as index_ws_setup
 from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.member import page as member_pages
 from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.reservations import page as reservations_pages
+from protohaven_api.handlers.staff import page as staff_pages, setup_sock_routes as staff_ws_setup
 from protohaven_api.handlers.techs import page as techs_pages
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.rbac import set_rbac
@@ -49,13 +49,15 @@ for p in (
     admin_pages,
     instructor_pages,
     onboarding_pages,
+    staff_pages,
     techs_pages,
     reservations_pages,
     member_pages,
 ):
     app.register_blueprint(p)
 
-setup_sock_routes(app)
+index_ws_setup(app)
+staff_ws_setup(app)
 
 server_mode = cfg["general"]["server_mode"].lower()
 run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"

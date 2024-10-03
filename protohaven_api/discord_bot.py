@@ -1,5 +1,7 @@
 """A bot for monitoring the Protohaven server and performing automated activities"""
+import asyncio
 import logging
+from urllib.parse import urlparse
 
 import discord
 
@@ -53,7 +55,7 @@ class PHClient(discord.Client):
 
     async def on_member_join(self, member):
         """Runs when a new member joins the server"""
-        if not self.cfg["event_hooks_enabled"]:
+        if not self._hook_on_user_is_permitted(member.name):
             return
         if member.guild != self.guild:
             log.info(f"Ignoring member joining unrelated guild {member.guild}")
@@ -113,6 +115,58 @@ class PHClient(discord.Client):
         role_map = self.role_map
         return members, role_map
 
+    async def get_member_channels(self):
+        """Returns all channels in self.guild visible to the Members role.
+        Category headers and non-member-visible channels are stripped out."""
+        members_role = discord.utils.get(self.guild.roles, name="Members")
+        if not members_role:
+            return []
+        return [
+            (channel.id, channel.name)
+            for channel in self.guild.channels
+            if members_role in channel.overwrites and channel.category
+        ]
+
+    async def get_channel_history(self, channel_id, from_date, to_date, max_length):
+        """Gets the history of a channel up to a maximum length, between two dates"""
+        log.info(f"Fetching channel {channel_id}")
+        channel = self.guild.get_channel(channel_id)
+        num = 0
+        total_length = 0
+        if isinstance(channel, discord.TextChannel):
+            async for message in channel.history(
+                limit=None, after=from_date, before=to_date
+            ):
+                message_length = len(message.content)
+                total_length += message_length
+                if total_length > max_length:
+                    break
+
+                images = []
+                videos = []
+                for attachment in message.attachments:
+                    log.info(attachment)
+                    parsed_url = urlparse(attachment.url)
+                    file_suffix = parsed_url.path.split("/")[-1].split("?")[0]
+                    if file_suffix.endswith(("jpg", "jpeg", "png", "gif")):
+                        images.append(attachment.url)
+                    elif file_suffix.endswith(("mp4", "mov")):
+                        videos.append(attachment.url)
+
+                yield {
+                    "ref": message.jump_url,
+                    "created_at": message.created_at,
+                    "author": message.author.display_name,
+                    "content": message.content,
+                    "images": images,
+                    "videos": videos,
+                }
+                num += 1
+
+        log.info(
+            f"Retrieved {num} messages from channel {channel.name} (#{channel.id})"
+        )
+
     async def get_member_details(self, discord_id):
         """Returns data in the same format as `get_all_members_and_roles`
         just for a single member (if exists)"""
@@ -130,9 +184,21 @@ class PHClient(discord.Client):
             )
         await mem.send(msg)
 
+    def _hook_on_user_is_permitted(self, discord_id):
+        ec = self.cfg["event_hooks"]
+        if not ec.get("enabled"):
+            return False
+        if ec.get("include_filter") is not None:
+            if discord_id not in ec["include_filter"]:
+                return False
+        if ec.get("exclude_filter") is not None:
+            if discord_id in ec["exclude_filter"]:
+                return False
+        return True
+
     async def on_message(self, msg):
         """Runs on every message"""
-        if not self.cfg["event_hooks_enabled"]:
+        if not self._hook_on_user_is_permitted(msg.author.name):
             return
 
         if msg.author == client.user:
@@ -174,6 +240,30 @@ def run(member_join_hook_fn=None):
 def get_client():
     """Fetches the bot instance"""
     return client
+
+
+def invoke_sync(fn_name, *args, **kwargs):
+    """Execute synchronous function on a running instance"""
+    return asyncio.run_coroutine_threadsafe(
+        getattr(client, fn_name)(*args, **kwargs), client.loop
+    ).result()
+
+
+def invoke_sync_generator(fn_name, *args, **kwargs):
+    """Execute synchronous function yielding results from an async generator"""
+
+    async def wrapper():
+        async for item in getattr(client, fn_name)(*args, **kwargs):
+            yield item
+
+    generator = wrapper()
+    try:
+        while True:
+            yield asyncio.run_coroutine_threadsafe(
+                generator.__anext__(), client.loop
+            ).result()
+    except StopAsyncIteration:
+        pass
 
 
 if __name__ == "__main__":
