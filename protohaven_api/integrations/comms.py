@@ -21,7 +21,7 @@ def send_discord_message(content, channel=None, blocking=True):
     if channel is None:
         channel = cfg["techs-live"]
     elif channel.startswith("@"):  # Send to a user
-        return get_connector().discord_bot_send_dm(channel[1:], content)
+        return get_connector().discord_bot_fn("send_dm", channel[1:], content)
     elif channel.startswith("#"):  # Send to a channel
         channel = cfg[channel[1:]]
     else:
@@ -87,10 +87,15 @@ def get_member_details(discord_id):
     """Gets specific discord's member details"""
     return get_connector().discord_bot_fn("get_member_details", discord_id)
 
+
 def get_member_channels():
     """Fetches a list of channels that members can view"""
     return get_connector().discord_bot_fn("get_member_channels")
 
+
 def get_channel_history(channel_id, from_date, to_date, max_length=10000):
-    for result in get_connector().discord_bot_genfn("get_channel_history", channel_id, from_date, to_date, max_length):
+    """Get a list of messages from a channel between two dates"""
+    for result in get_connector().discord_bot_genfn(
+        "get_channel_history", channel_id, from_date, to_date, max_length
+    ):
         yield result

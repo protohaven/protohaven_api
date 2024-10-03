@@ -1,8 +1,8 @@
 """A bot for monitoring the Protohaven server and performing automated activities"""
+import asyncio
 import logging
 
 import discord
-import asyncio
 
 from protohaven_api.config import get_config
 
@@ -116,19 +116,26 @@ class PHClient(discord.Client):
 
     async def get_member_channels(self):
         """Returns all channels in self.guild visible to the Members role.
-           Category headers and non-member-visible channels are stripped out."""
+        Category headers and non-member-visible channels are stripped out."""
         members_role = discord.utils.get(self.guild.roles, name="Members")
         if not members_role:
             return []
-        return [(channel.id, channel.name) for channel in self.guild.channels if members_role in channel.overwrites and channel.category]
+        return [
+            (channel.id, channel.name)
+            for channel in self.guild.channels
+            if members_role in channel.overwrites and channel.category
+        ]
 
     async def get_channel_history(self, channel_id, from_date, to_date, max_length):
+        """Gets the history of a channel up to a maximum length, between two dates"""
         log.info(f"Fetching channel {channel_id}")
         channel = self.guild.get_channel(channel_id)
         num = 0
         total_length = 0
         if isinstance(channel, discord.TextChannel):
-            async for message in channel.history(limit=None, after=from_date, before=to_date):
+            async for message in channel.history(
+                limit=None, after=from_date, before=to_date
+            ):
                 message_length = len(message.content)
                 total_length += message_length
                 if total_length > max_length:
@@ -136,11 +143,13 @@ class PHClient(discord.Client):
                 yield {
                     "created_at": message.created_at,
                     "author": str(message.author),
-                    "content": message.content
+                    "content": message.content,
                 }
                 num += 1
-        
-        log.info(f"Retrieved {num} messages from channel {channel.name} (#{channel.id})")
+
+        log.info(
+            f"Retrieved {num} messages from channel {channel.name} (#{channel.id})"
+        )
 
     async def get_member_details(self, discord_id):
         """Returns data in the same format as `get_all_members_and_roles`
@@ -164,10 +173,10 @@ class PHClient(discord.Client):
         if not ec.get("enabled"):
             return False
         if ec.get("include_filter") is not None:
-            if discord_id not in ec['include_filter']:
+            if discord_id not in ec["include_filter"]:
                 return False
         if ec.get("exclude_filter") is not None:
-            if discord_id in ec['exclude_filter']:
+            if discord_id in ec["exclude_filter"]:
                 return False
         return True
 
@@ -186,7 +195,7 @@ class PHClient(discord.Client):
                 "Msg author {msg.author.name} ({msg.author.id}) not in PH server; ignoring"
             )
             return
-        
+
         # print(f"Member {mem.display_name}: {mem.roles}")
         if msg.content.strip() == "TEST_MEMBER_JOIN":
             log.info("Running on_member_join hook function as requested")
@@ -216,25 +225,29 @@ def get_client():
     """Fetches the bot instance"""
     return client
 
+
 def invoke_sync(fn_name, *args, **kwargs):
     """Execute synchronous function on a running instance"""
     return asyncio.run_coroutine_threadsafe(
         getattr(client, fn_name)(*args, **kwargs), client.loop
     ).result()
 
+
 def invoke_sync_generator(fn_name, *args, **kwargs):
     """Execute synchronous function yielding results from an async generator"""
+
     async def wrapper():
         async for item in getattr(client, fn_name)(*args, **kwargs):
             yield item
-    
+
     generator = wrapper()
     try:
         while True:
-            yield asyncio.run_coroutine_threadsafe(generator.__anext__(), client.loop).result()
+            yield asyncio.run_coroutine_threadsafe(
+                generator.__anext__(), client.loop
+            ).result()
     except StopAsyncIteration:
         pass
-
 
 
 if __name__ == "__main__":

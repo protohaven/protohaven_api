@@ -1,6 +1,5 @@
 """ Connects to various dependencies, or serves mock data depending on the
 configured state of the server"""
-import asyncio
 import json
 import logging
 import random
@@ -14,8 +13,8 @@ import httplib2
 import requests
 from square.client import Client as SquareClient
 
-from protohaven_api.config import get_config
 from protohaven_api import discord_bot
+from protohaven_api.config import get_config
 from protohaven_api.integrations.data import dev_airtable, dev_neon
 
 log = logging.getLogger("integrations.data.connector")
@@ -171,6 +170,7 @@ class Connector:
         return discord_bot.invoke_sync(fn, *args, **kwargs)
 
     def discord_bot_genfn(self, fn, *args, **kwargs):
+        """Properly interact with a generator function in the discord bot"""
         if self.dev:
             raise NotImplementedError("TODO")
         return discord_bot.invoke_sync_generator(fn, *args, **kwargs)
