@@ -2,6 +2,7 @@
 import datetime
 import json
 import logging
+import time
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, render_template, request, session
@@ -61,6 +62,12 @@ def whoami():
     if not session.get("neon_account"):
         return Response("You are not logged in", status=400)
     return {"fullname": user_fullname(), "email": user_email()}
+
+
+@page.route("/event_ticker")
+def event_ticker():
+    """Get upcoming events for advertisement purposes"""
+    return neon.get_sample_classes(int(time.time()) // 3600)
 
 
 @page.route("/welcome/_app/immutable/<typ>/<path>")

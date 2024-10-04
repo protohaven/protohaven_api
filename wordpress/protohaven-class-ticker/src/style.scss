@@ -1,0 +1,22 @@
+/**
+ * The following styles get applied both on the front of your site
+ * and in the editor.
+ *
+ * Replace them with your own styles or remove the file completely.
+ */
+
+.wp-block-create-block-protohaven-class-ticker {
+	padding: 2px;
+}
+
+#protohaven-class-ticker {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-around;
+	width: 100%;
+}
+
+#protohaven-class-ticker a {
+	margin-left: 10px;
+	margin-right: 10px;
+}
