@@ -13,7 +13,7 @@ from functools import lru_cache
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.comms_templates import render
+from protohaven_api.comms_templates import Msg
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
@@ -85,36 +85,16 @@ class Commands:
         log.info(
             f"Processed {n} active subscriptions - {len(unpaid)} unpaid, {len(untaxed)} untaxed"
         )
-
-        body = ""
-        if len(unpaid) > 0:
-            body = (
-                f"{len(unpaid)} subscriptions active but not caught up on payments "
-                + "(showing max of 5):\n"
+        if len(unpaid) > 0 or len(untaxed) > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "square_validation_action_needed",
+                    unpaid=unpaid,
+                    untaxed=untaxed,
+                    footer=exec_details_footer(),
+                    target="#finance-automation",
+                )
             )
-            body += "\n".join(unpaid[:5])
-
-        if len(untaxed) > 0:
-            body += (
-                f"\n{len(untaxed)} subscriptions active but do not have 7% sales tax "
-                + "(showing max of 5):\n"
-            )
-            body += "\n".join(untaxed[:5])
-            body += "\n\nPlease remedy by following the instructions "
-            body += "[here](https://protohaven.org/wiki/shoptechs/storage_sales_tax)"
-
-        result = []
-        if body != "":
-            result = [
-                {
-                    "id": None,
-                    "subject": "@Staff: Action Needed for Square Validation",
-                    "body": body + exec_details_footer(),
-                    "target": "#finance-automation",
-                }
-            ]
-
-        print_yaml(result)
         log.info("Done")
 
     def _validate_role_membership(self, details, role):
@@ -221,23 +201,14 @@ class Commands:
         problems = self._validate_memberships_internal(
             args.write_cache, args.read_cache, args.member_ids
         )
-        body = ""
         if len(problems) > 0:
-            body += f"{len(problems)} membership validation problem(s) found:\n- "
-            body += "\n- ".join(problems)
-            body += "\n Please remedy by following the instructions "
-            body += "[here](https://protohaven.org/wiki/software/membership_validation)"
-            body += exec_details_footer()
-
-            result = [
-                {
-                    "id": None,
-                    "subject": "@Staff: Action Required for Membership Validation",
-                    "body": body,
-                    "target": "#membership-automation",
-                }
-            ]
-            print_yaml(result)
+            print_yaml(
+                Msg.tmpl(
+                    "membership_validation_problems",
+                    problems=problems,
+                    target="#membership-automation",
+                )
+            )
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def _validate_memberships_internal(
@@ -486,7 +457,9 @@ class Commands:
                 break
         return sample_classes
 
-    def _init_membership(self, account_id, fname, coupon_amount, apply=True):
+    def _init_membership(  # pylint: disable=too-many-arguments
+        self, account_id, fname, coupon_amount, apply=True, target=None, _id=None
+    ):
         """
         This method initializes a membership by setting a start date,
         generating a coupon if applicable, and updating the automation run status.
@@ -503,7 +476,7 @@ class Commands:
             neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE),
             "setting start date",
         ):
-            return None, None, False
+            return None
 
         cid = None
         if coupon_amount > 0:
@@ -511,21 +484,23 @@ class Commands:
             if apply and not _ok(
                 neon.create_coupon_code(cid, coupon_amount), "generating coupon"
             ):
-                return None, None, False
+                return None
 
         if apply and not _ok(
             neon.update_account_automation_run_status(account_id, "deferred"),
             "logging automation run",
         ):
-            return None, None, False
+            return None
 
         if cid:
-            return render(
+            return Msg.tmpl(
                 "init_membership",
                 fname=fname,
                 coupon_amount=coupon_amount,
                 coupon_code=cid,
                 sample_classes=self._get_sample_classes(coupon_amount),
+                target=target,
+                id=_id,
             )
 
     def _event_is_suggestible(self, event_id, max_price):
@@ -588,18 +563,16 @@ class Commands:
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
-            subject, body, is_html = self._init_membership(
-                m["Account ID"], m["First Name"], args.coupon_amount, apply=args.apply
-            )
-            if subject and body:
-                result.append(
-                    {
-                        "target": m["Email 1"],
-                        "subject": subject,
-                        "body": body,
-                        "id": f"init member {m['Account ID']}",
-                        "html": is_html,
-                    }
+            result.append(
+                self._init_membership(
+                    m["Account ID"],
+                    m["First Name"],
+                    args.coupon_amount,
+                    apply=args.apply,
+                    target=m["Email 1"],
+                    _id=f"init member {m['Account ID']}",
                 )
+            )
+        result = [r for r in result if r is not None]
         if len(result) > 0:
             print_yaml(result)

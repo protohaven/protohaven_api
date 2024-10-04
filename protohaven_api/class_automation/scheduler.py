@@ -11,6 +11,7 @@ from protohaven_api.class_automation.validation import (
     sort_and_merge_date_ranges,
     validate_candidate_class_time,
 )
+from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable
 
@@ -304,26 +305,12 @@ def push_schedule(sched, autoconfirm=False):
 def gen_schedule_push_notifications(sched):
     """Generate notifications for scheduling automation when done out of band of instructor"""
     email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
-    notifications = []
     for inst, classes in sched.items():
         classes.sort(key=lambda c: c[2])
         formatted = [format_class(f) for f in classes]
-        subject = "Confirm class schedule"
-        email = email_map[inst]
-        body = f"Hello, {inst.title()}!"
-        body += "\nWe have a new set of potential classes for you to teach, and we are"
-        body += " looking for your confirmation:\n\n"
-        body += "\n".join(formatted)
-        body += "\n\nConfirm the classes you would like to teach ASAP by going to"
-        body += " http://api.protohaven.org/instructor/class."
-        body += "\n\nPlease note:"
-        body += "\n - Some classes may overlap in time; just pick whichever you prefer"
-        body += "\n - Not all classes you confirm will be scheduled"
-        body += "\n - Not all classes that are scheduled will fill up."
-        body += "\n\nWe will schedule your confirmed classes in the next few days."
-        body += "\n\nThank you!"
-        notifications.append(
-            {"id": None, "subject": subject, "body": body, "target": email}
+        yield Msg.tmpl(
+            "schedule_push_notification",
+            title=inst.title(),
+            target=email_map[inst],
+            formatted=formatted,
         )
-
-    return notifications

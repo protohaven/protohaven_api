@@ -55,7 +55,7 @@ class Msg:
     subject: str
     body: str
     id: str = ""
-    side_effect: list = field(default_factory=list)
+    side_effect: dict = field(default_factory=dict)
     html: bool = False
 
     # These field saren't necessary for template rendering, but will be
