@@ -1,6 +1,7 @@
-{% if subject %}{{classname}} on {{evt_date}} - please confirm class supplies{% else %}Hi {{firstname}},
+{% set evt_date = evt.python_date.strftime("%B %-d") %}
+{% if subject %}{{evt.name}} on {{evt_date}} - please confirm class supplies{% else %}Hi {{evt.instructor_firstname}},
 
-Thanks for agreeing to teach {{classname}} on {{evt_date}}.
+Thanks for agreeing to teach {{evt.name}} on {{evt_date}}.
 
 This is an automated reminder that you need to confirm there's adequate supplies at Protohaven to run your class.
 

@@ -6,11 +6,26 @@ from dataclasses import asdict, dataclass, replace
 
 from dateutil import parser as dateparser
 
+from protohaven_api.comms_templates import Msg
+from protohaven_api.config import exec_details_footer
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.rbac import Role
-from protohaven_api.role_automation import comms as ccom
 
 log = logging.getLogger("role_automation.roles")
+
+
+def discord_role_change_dm(logs, discord_id, target=None, intents=None):
+    """Generate message for techs about classes with open seats"""
+    not_associated = True in ["not associated with a Neon account" in l for l in logs]
+    return Msg.tmpl(
+        "discord_role_change_dm",
+        logs=logs,
+        n=len(logs),
+        discord_id=discord_id,
+        not_associated=not_associated,
+        target=target,
+        intents=intents,
+    )
 
 
 def not_associated_tag(discord_id):
@@ -291,7 +306,7 @@ def sync_delayed_intents(intents, airtable_intents, user_log, apply_records):
                 )
                 continue
         elif k not in intents and intent.rec is not None:
-            prefix = "CANCELLED"
+            prefix = "CANCELED"
             intent.reason = "Now present in Neon CRM"
             if apply_records:
                 status, content = airtable.delete_record(
@@ -321,23 +336,23 @@ def gen_role_comms(user_log, roles_assigned, roles_revoked):
     """Generates individual DMs and summary message based on actions taken"""
     for discord_id, logs in user_log.items():
         lines, recs = zip(*logs)
-        subject, body = ccom.discord_role_change_dm(lines, discord_id)
-        yield {
-            "target": f"@{discord_id}",
-            "subject": subject,
-            "body": body,
-            "intents": [r for r in recs if r is not None],
-        }
+        yield discord_role_change_dm(
+            lines,
+            discord_id,
+            target=f"@{discord_id}",
+            intents=[r for r in recs if r is not None],
+        )
 
     if len(user_log) > 0:
-        subject, body = ccom.discord_role_change_summary(
-            user_log, roles_assigned, roles_revoked
+        yield Msg.tmpl(
+            "discord_role_change_summary",
+            users=list(user_log.keys()),
+            n=len(user_log),
+            roles_assigned=roles_assigned,
+            roles_revoked=roles_revoked,
+            footer=exec_details_footer(),
+            target="#membership-automation",
         )
-        yield {
-            "target": "#membership-automation",
-            "subject": subject,
-            "body": body,
-        }
 
 
 def resolve_nickname(first, preferred, last, pronouns):
@@ -385,10 +400,10 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     log.info(mm)
     if len(mm) == 0:
         log.info("Neon user not found; issuing association request")
-        subject, body = ccom.not_associated_warning(discord_id)
-        yield "send_dm", discord_id, f"**{subject}**\n\n{body}"
+        msg = Msg.tmpl("not_associated", target=f"@{discord_id}", discord_id=discord_id)
+        yield "send_dm", discord_id, f"**{msg.subject}**\n\n{msg.body}"
         airtable.log_comms(
-            not_associated_tag(discord_id), f"@{discord_id}", subject, "Sent"
+            not_associated_tag(discord_id), f"@{discord_id}", msg.subject, "Sent"
         )
         return
 
@@ -431,8 +446,8 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
         user_log.append(f"Discord role assigned: {role} ({reason})")
 
     if len(user_log) > 0:
-        subject, body = ccom.discord_role_change_dm(user_log, discord_id)
-        yield "send_dm", discord_id, f"**{subject}**\n\n{body}"
+        msg = discord_role_change_dm(user_log, discord_id)
+        yield "send_dm", discord_id, f"**{msg.subject}**\n\n{msg.body}"
     log.info("setup_discord_user done")
 
 

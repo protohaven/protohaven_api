@@ -1,0 +1,5 @@
+{% if subject %}{{shift}} shift has no signed in techs{% else %}@TechLeads: no techs assigned for {{shift}} have signed in. Expecting any of:
+{% for name, email in onduty %}- {{name}} ({{email}})
+{% endfor %}
+Please check immediately for techs on duty; shift details at https://api.protohaven.org/techs
+{{footer}}{% endif %}

@@ -5,9 +5,9 @@ import logging
 from collections import defaultdict
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import tznow
+from protohaven_api.comms_templates import Msg
+from protohaven_api.config import exec_details_footer, tznow
 from protohaven_api.integrations import airtable, comms, neon
-from protohaven_api.role_automation import comms as ccom
 from protohaven_api.role_automation import roles
 
 log = logging.getLogger("cli.roles")
@@ -238,26 +238,32 @@ class Commands:  # pylint: disable=too-few-public-methods
                     )
                     continue
                 not_associated_final.append(discord_id)
-                subject, body = ccom.not_associated_warning(discord_id)
                 result.append(
-                    {
-                        "target": f"@{discord_id}",
-                        "subject": subject,
-                        "body": body,
-                        "id": tag,
-                    }
+                    Msg.tmpl(
+                        "not_associated",
+                        discord_id=discord_id,
+                        target=f"@{discord_id}",
+                        id=tag,
+                    )
                 )
 
         if len(changes) > 0 or (
             len(not_associated_final) > 0 and args.warn_not_associated
         ):
-            subject, body = ccom.nick_change_summary(changes, not_associated_final)
+            m = len(not_associated_final)
+            notified = list(not_associated_final)
+            if m > 30:
+                notified = notified[:30] + ["..."]
             result.append(
-                {
-                    "target": "#discord-automation",
-                    "subject": subject,
-                    "body": body,
-                }
+                Msg.tmpl(
+                    "discord_nick_change_summary",
+                    target="#discord-automation",
+                    changes=list(changes),
+                    n=len(changes),
+                    notified=notified,
+                    m=m,
+                    footer=exec_details_footer(),
+                )
             )
 
         print_yaml(result)

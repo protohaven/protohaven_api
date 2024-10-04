@@ -1,0 +1,6 @@
+{% if subject %}@Staff: Action Required for Membership Validation{% else %}{{problems|length}} membership validation problem(s) found:
+{% for p in problems %}- {{p}}
+{% endfor %}
+Please remedy by following the instructions [here](https://protohaven.org/wiki/software/membership_validation)
+{{footer}}
+{% endif %}

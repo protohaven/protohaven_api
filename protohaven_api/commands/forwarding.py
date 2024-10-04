@@ -8,6 +8,7 @@ from datetime import datetime
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
+from protohaven_api.comms_templates import Msg
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
@@ -66,12 +67,9 @@ class Commands:
                 continue
 
             results.append(
-                {
-                    "id": "",
-                    "target": "#help-wanted",
-                    "subject": "**New Project Request:**",
-                    "body": req["notes"],
-                }
+                Msg.tmpl(
+                    "new_project_request", notes=req["notes"], target="#help-wanted"
+                )
             )
             if args.apply:
                 tasks.complete(req["gid"])
@@ -92,21 +90,14 @@ class Commands:
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
         log.info(f"Found {num} open applications")
-
         if num > 0:
-            body = (
-                "@TechLeads, the following applicants are "
-                "[waiting for a decision](https://app.asana.com/0/1203664351777333):\n"
+            print_yaml(
+                Msg.tmpl(
+                    "shop_tech_applications",
+                    open_applicants=open_applicants,
+                    target="#tech-leads",
+                )
             )
-            body += "\n".join(open_applicants)
-
-            result = {
-                "id": "",
-                "target": "#tech-leads",
-                "subject": "**Open shop tech applications:**",
-                "body": body,
-            }
-            print_yaml([result])
 
     @command()
     def instructor_applications(self, _):
@@ -119,22 +110,14 @@ class Commands:
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
         log.info(f"Found {num} open instructor applications")
-
         if num > 0:
-            log.info("Generating summary email")
-            body = (
-                "The following applicants are "
-                "[waiting for a decision](https://app.asana.com/0/1202211433878591):\n"
+            print_yaml(
+                Msg.tmpl(
+                    "instructor_applications",
+                    open_applicants=open_applicants,
+                    target="#education-leads",
+                )
             )
-            body += "\n".join(open_applicants)
-
-            result = {
-                "id": "",
-                "target": "#education-leads",
-                "subject": "**Open instructor applications:**",
-                "body": body,
-            }
-            print_yaml([result])
 
     @command()
     def class_proposals(self, _):
@@ -147,22 +130,14 @@ class Commands:
             unapproved_classes.append("- " + r["fields"]["Name"])
             num += 1
         log.info(f"Found {num} proposed classes awaiting approval.")
-
         if num > 0:
-            lnk = "https://airtable.com/applultHGJxHNg69H/tblBHGwrU8cwVwbHI/"
-            body = (
-                "The following classes are "
-                f"[proposed, but not yet approved]({lnk}) for scheduling:\n"
+            print_yaml(
+                Msg.tmpl(
+                    "class_proposals",
+                    unapproved=unapproved_classes,
+                    target="#education-leads",
+                )
             )
-            body += "\n".join(unapproved_classes)
-
-            result = {
-                "id": "",
-                "target": "#education-leads",
-                "subject": "**Proposed classes awaiting approval:**",
-                "body": body,
-            }
-            print_yaml([result])
 
     def _form_from_task_notes(self, notes):
         """Extract Asana form data from the Notes field of the task"""
@@ -240,51 +215,27 @@ class Commands:
         if not args.daily and len(formatted) > 0:
             log.info("Generating weekly summaries")
             results.append(
-                {
-                    "id": "",
-                    "target": "membership@protohaven.org",
-                    "subject": f"{num} Private Instruction Request(s) Active",
-                    "body": (
-                        "The following requests are active for private instruction:\n\n"
-                        + "\n".join(formatted)
-                        + "\n\nPlease go to "
-                        + "https://app.asana.com/0/1203922725251220/1207896962249498 "
-                        + "and check off any requests that have already been handled, and raise "
-                        + "the rest to the instructors to fulfill."
-                    ),
-                }
+                Msg.tmpl(
+                    "instruction_requests",
+                    formatted=formatted,
+                    target="membership@protohaven.org",
+                )
             )
             results.append(
-                {
-                    "id": "",
-                    "target": "#education-leads",
-                    "subject": f"{num} Private Instruction Request(s) Active",
-                    "body": (
-                        "The following requests are active for private instruction "
-                        + f"(showing up to 5 most recent, of {num}):\n\n"
-                        + "\n".join(formatted[:5])
-                        + "\n\nPlease go to "
-                        + "https://app.asana.com/0/1203922725251220/1207896962249498 and check off "
-                        + "any requests that have already been handled, and raise the rest "
-                        + "to the instructors to fulfill."
-                    ),
-                }
+                Msg.tmpl(
+                    "instruction_requests",
+                    formatted=formatted,
+                    target="#education-leads",
+                )
             )
         if args.daily and len(formatted_past_day) > 0:
             log.info("Generating daily request to instructors")
             results.append(
-                {
-                    "id": "",
-                    "target": "#private-instructors",
-                    "subject": "New Private Instruction Request(s) in the past 24 hours",
-                    "body": (
-                        "\n".join(formatted_past_day)
-                        + "\n\n@PrivateInstructors, please go to "
-                        + "https://app.asana.com/0/1203922725251220/1207896962249498 and assign "
-                        + "yourself if you'd like to take any requests. If you lack access, ask "
-                        + "one of the staff or education leads. Thanks!"
-                    ),
-                }
+                Msg.tmpl(
+                    "daily_private_instruction",
+                    formatted=formatted_past_day,
+                    target="#private-instructors",
+                )
             )
         print_yaml(results)
 
@@ -303,15 +254,14 @@ class Commands:
         for req in tasks.get_phone_messages():
             if req["completed"]:
                 continue
-            d = dateparser.parse(req["created_at"]).strftime("%B %-d")
             results.append(
-                {
-                    "id": "",
-                    "target": "hello@protohaven.org",
-                    "subject": f"New phone message: {req['name'].split(',')[0]} ({d})",
-                    "body": req["notes"]
-                    + "\nDetails at https://app.asana.com/0/1203963688927297/1205117134611637",
-                }
+                Msg.tmpl(
+                    "phone_message",
+                    target="hello@protohaven.org",
+                    msg_header=req["name"].split(",")[0],
+                    date=dateparser.parse(req["created_at"]),
+                    notes=req["notes"],
+                )
             )
             if args.apply:
                 tasks.complete(req["gid"])
@@ -352,9 +302,6 @@ class Commands:
         }
         rev_email_map = {v: k for k, v in email_map.items()}
         log.info(f"Email map: {email_map}")
-        on_duty_fmt = "\n".join(
-            [f"- {v} ({rev_email_map.get(v, 'unknown email')})" for v in techs_on_duty]
-        )
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(sheets.get_sign_ins_between(start, end)):
@@ -371,18 +318,16 @@ class Commands:
         result = []
         if not on_duty_ok:
             result.append(
-                {
-                    "id": "",
-                    "target": "#tech-leads",
-                    "subject": f"{shift} shift has no signed in techs",
-                    "body": (
-                        f"@TechLeads: no techs assigned for {shift} have signed in.\n"
-                        + f"Expecting any of:\n{on_duty_fmt}"
-                        + "\nPlease check immediately for techs on duty."
-                        + "\nShift details at https://api.protohaven.org/techs"
-                        + exec_details_footer()
-                    ),
-                }
+                Msg.tmpl(
+                    "shift_no_techs",
+                    target="#tech-leads",
+                    shift=shift,
+                    onduty=[
+                        (v, rev_email_map.get(v, "unknown email"))
+                        for v in techs_on_duty
+                    ],
+                    footer=exec_details_footer(),
+                )
             )
 
         print_yaml(result)

@@ -1,6 +1,6 @@
-{% if subject %}ACTION REQUIRED: Suspend Protohaven member {{neon_id}} until {{end}}{% else %}A member with neon ID {{neon_id}} violated our shop policies in a manner requiring suspension, per procedure at https://protohaven.org/wiki/policies/procedure.
+{% if subject %}ACTION REQUIRED: Suspend Protohaven member {{neon_id}} until {{end.strftime("%Y-%m-%d")}}{% else %}A member with neon ID {{neon_id}} violated our shop policies in a manner requiring suspension, per procedure at https://protohaven.org/wiki/policies/procedure.
 
-Please suspend their account by going to https://protohaven.app.neoncrm.com/admin/accounts/{{neon_id}} and changing their membership start date to {{end}}.
+Please suspend their account by going to https://protohaven.app.neoncrm.com/admin/accounts/{{neon_id}} and changing their membership start date to {{end.strftime("%Y-%m-%d")}}.
 
 Thanks for taking action!
 Protohaven Automation

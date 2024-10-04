@@ -1,6 +1,6 @@
-{% if subject %}{{classname}} is on for {{evt_date}}!{% else %}Hi {{firstname}},
+{% set evt_date = evt.python_date.strftime("%B %-d") %}{% if subject %}{{evt.name}} is on for {{evt_date}}!{% else %}Hi {{evt.instructor_firstname}},
 
-Get excited! Your class {{classname}} has {{signups}} student{% if signups != 1 %}s{% endif %} and will be running on {{evt_date}}.
+Get excited! Your class {{evt.name}} has {{evt.signups}} student{% if signups != 1 %}s{% endif %} and will be running on {{evt_date}}.
 
 If you have any questions, please reach out to education@protohaven.org.
 

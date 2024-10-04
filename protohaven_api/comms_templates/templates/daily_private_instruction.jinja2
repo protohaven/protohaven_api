@@ -1,0 +1,6 @@
+{% if subject %}New Private Instruction Request(s) in the past 24 hours{% else %}
+{% for f in formatted %}{{f}}
+{% endfor %}
+@PrivateInstructors, please [go to Asana](https://app.asana.com/0/1203922725251220/1207896962249498) and assign yourself if you'd like to take any requests.
+If you lack access, ask one of the staff or education leads.
+Thanks!{% endif %}

@@ -30,7 +30,9 @@ def test_send_comms_email_no_id(mock_e, mocker):
         ],
     )
     cmd.send_comms(["--path", "/asdf/ghsdf", "--confirm"])
-    e.comms.send_email.assert_called_with("Test Subject", "Test Body", ["a@a.com"])
+    e.comms.send_email.assert_called_with(
+        "Test Subject", "Test Body", ["a@a.com"], False
+    )
     e.airtable.log_comms.assert_called_with("", "a@a.com", "Test Subject", "Sent")
     e.comms.send_discord_message.assert_not_called()
     e.airtable.log_intents_notified.assert_not_called()
@@ -53,7 +55,9 @@ def test_send_comms_email_with_id(mock_e, mocker):
         ],
     )
     cmd.send_comms(["--path", "/asdf/ghsdf", "--confirm"])
-    e.comms.send_email.assert_called_with("Test Subject", "Test Body", ["a@a.com"])
+    e.comms.send_email.assert_called_with(
+        "Test Subject", "Test Body", ["a@a.com"], False
+    )
     e.airtable.log_comms.assert_called_with("123", "a@a.com", "Test Subject", "Sent")
     e.comms.send_discord_message.assert_not_called()
     e.airtable.log_intents_notified.assert_not_called()

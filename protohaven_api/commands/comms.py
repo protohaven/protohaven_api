@@ -58,7 +58,9 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.info(e["body"])
             else:
                 target = emails
-                comms.send_email(e["subject"], e["body"], target)
+                comms.send_email(
+                    e["subject"], e["body"], target, e.get("html") or False
+                )
                 log.info(f"Sent to {target}: '{e['subject']}'")
 
         intents = e.get("intents")

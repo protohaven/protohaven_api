@@ -11,7 +11,7 @@ from protohaven_api.role_automation.roles import DiscordIntent
 from protohaven_api.testing import d, idfn
 
 
-def test_update_role_intents(mocker, capsys):
+def test_update_role_intents_various(mocker, capsys):
     """Test that various Discord role states are properly handled"""
     data = [
         DiscordIntent(discord_id="a", action="REVOKE", role="Staff"),
@@ -48,7 +48,7 @@ def test_update_role_intents(mocker, capsys):
         r.airtable,
         "get_role_intents",
         return_value=[
-            {"id": 0, "fields": {"Discord ID": "notpresent", "Action": "ADD"}},
+            {"id": 1, "fields": {"Discord ID": "notpresent", "Action": "ADD"}},
             {
                 "id": 123,
                 "fields": {
@@ -111,7 +111,7 @@ def test_update_role_intents(mocker, capsys):
 
     # D and 'notpresent' removed from airtable
     adr = r.airtable.delete_record.mock_calls
-    assert {a.args[2] for a in adr} == {0, 456}
+    assert {a.args[2] for a in adr} == {1, 456}
 
     # E shouldn't be present in other calls, but should be captured in stdout
     got = yaml.safe_load(capsys.readouterr().out.strip())

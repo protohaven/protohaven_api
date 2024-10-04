@@ -140,7 +140,7 @@ class Commands:
         """Adds a schedule (created with `run_scheduler`) to Airtable for
         instructor confirmation."""
         sched = load_yaml(args.path)
-        notifications = scheduler.gen_schedule_push_notifications(sched)
+        notifications = list(scheduler.gen_schedule_push_notifications(sched))
         scheduler.push_schedule(sched)
         print_yaml(notifications)
 

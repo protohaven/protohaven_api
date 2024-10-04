@@ -15,7 +15,7 @@ class Any:  # pylint: disable=too-few-public-methods
 
 
 TESTFEE = 5
-TESTMEMBER = {"firstName": "testname", "id": "1111"}
+TESTMEMBER = {"firstName": "testname", "id": "1111", "email1": "a@b.com"}
 
 
 def violation(instance, onset, resolution=None, fee=TESTFEE, neon_id=TESTMEMBER["id"]):
@@ -45,6 +45,7 @@ def suspension(start, end=None, reinstated=None):
             "Start Date": start.isoformat(),
             "End Date": end.isoformat() if end else None,
             "Reinstated": reinstated,
+            "Instance #": 12345,
         },
     }
 

@@ -1,12 +1,12 @@
-{% if subject %}Your class '{{classname}}' was cancelled{% else %}Hi {{firstname}},
+{% set evt_date = evt.python_date.strftime("%B %-d") %}{% if subject %}Your class '{{evt.name}}' was canceled{% else %}Hi {{a.firstName}},
 
-Unfortunately, we had to cancel your class {{classname}} (scheduled for {{evt_date}}).
+Unfortunately, we had to cancel your class {{evt.name}} (scheduled for {{evt_date}}).
 
 We can either refund the full amount of the class, or offer class credit if you'd like to enroll in a different class.
 
 Please reach out to education@protohaven.org with your choice so we can start the process.
 
-We're sorry for the change of plans - it would have been great to have you. If you're still interested in classes and tool instruction, please check our event schedule at https://www.protohaven.org/classes.
+We're sorry for the change of plans - if you're still interested in classes and tool instruction, please check our event schedule at https://www.protohaven.org/classes.
 
 Hope to see you in the shop soon!
 - Protohaven Staff

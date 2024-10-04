@@ -1,10 +1,8 @@
-{% if subject %}{{classname}}: Please share feedback{% else %}Hi {{firstname}},
+{# html #}{% if subject %}{{evt.name}}: Please share feedback{% else %}Hi {{a.firstName}},
 
 Thanks again for taking a class with us! Your interest supports our instructors, and we hope it's helped you in your projects as well.
 
-We'd really appreciate any feedback you have, so we can improve the class for next time. If you have 5 minutes, please click on the survey link below - it's anonymously shared with your instructor when submitted:
-
-{{form_link}}
+We'd really appreciate any feedback you have, so we can improve the class for next time. <strong>If you have 5 minutes, please <a href="https://docs.google.com/forms/d/e/1FAIpQLSdtXYv4RmtiTeyXAgc98fkgagpDX7wcWRC_S3P--z20yFFyMg/viewform?usp=pp_url&entry.1721595896={{evt.name|urlencode}}&entry.139457221={{evt.python_date.strftime('%Y-%m-%d')|urlencode}}&entry.1361715406={{a.firstName|urlencode}}&entry.1141790460={{a.email|urlencode}}&entry.2026118127={{evt.id|urlencode}}" target="_blank">give us feedback</a></strong> - it's anonymously shared with your instructor when submitted.
 
 Hope to see you again soon!
 - Protohaven Staff

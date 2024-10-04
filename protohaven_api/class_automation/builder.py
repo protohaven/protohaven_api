@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation import comms  # pylint: disable=import-error
+from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
@@ -48,23 +48,26 @@ def gen_scheduling_reminders(start, end):
         if already_scheduled[email.lower()]:
             continue  # Don't nag folks that already have their classes set up
 
-        subject, body = comms.instructor_schedule_classes(name, start, end)
+        firstname = name.split(" ")[0]
         results.append(
-            {
-                "id": "",
-                "target": email,
-                "subject": subject,
-                "body": body,
-            }
+            Msg.tmpl(
+                "instructor_schedule_classes",
+                name=name,
+                firstname=firstname,
+                start=start,
+                end=end,
+                target=email,
+            )
         )
         summary[""]["targets"].add(email)
 
-    subject, body = comms.automation_summary(
-        {"id": "N/A", "name": "summary", "events": summary}
-    )
     if len(results) > 0:
         results.append(
-            {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+            Msg.tmpl(
+                "class_automation_summary",
+                events=summary["events"],
+                target="#class-automation",
+            )
         )
     return results
 
@@ -88,26 +91,15 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         formatted = [format_class(c) for c in classes]
         formatted.sort()
         email = classes[0]["fields"]["Email"]
-        subject = (
-            f"You are now registered to teach {len(classes)} Protohaven "
-            f"class{'es' if len(classes) != 1 else ''}!"
+        results.append(
+            Msg.tmpl(
+                "class_scheduled",
+                inst=inst,
+                n=len(classes),
+                formatted=formatted,
+                target=email,
+            )
         )
-        body = f"Hello, {inst}!"
-        body += (
-            "\nWe have published the following classes for you to teach to members:\n\n"
-        )
-        body += "\n".join(formatted)
-        body += (
-            "\n\nThese were classes that you confirmed by visiting "
-            "https://api.protohaven.org/instructor/class_selector."
-        )
-        body += (
-            "\n\nPLEASE REACH OUT ASAP on the #instructors Discord if "
-            "you are unable to teach any of these classes so we can take action."
-        )
-        body += "\n\nThank you, and see you in the shop!"
-
-        results.append({"id": "", "target": email, "subject": subject, "body": body})
         details["targets"].append(email)
         channel_class_list += classes
 
@@ -116,21 +108,20 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
             key=lambda c: dateparser.parse(c["fields"]["Start Time"])
         )
         results.append(
-            {
-                "id": "",
-                "target": "#instructors",
-                "subject": f"Scheduled {len(channel_class_list)} new classes",
-                "body": "\n".join(
-                    [format_class(c, inst=True) for c in channel_class_list]
-                ),
-            }
+            Msg.tmpl(
+                "instructors_new_classes",
+                formatted=[format_class(c, inst=True) for c in channel_class_list],
+                target="#instructors",
+            )
         )
         details["targets"].append("#instructors")
-
         details["name"] = f"{len(channel_class_list)} new classes"
-        subject, body = comms.automation_summary({"events": {"": details}})
         results.append(
-            {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+            Msg.tmpl(
+                "class_automation_summary",
+                summary={"": details},
+                target="#class-automation",
+            )
         )
     return results
 
@@ -369,16 +360,16 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 if action.needed_for(evt, now):
                     self.push_class(evt, action)
 
-    def _append(self, action, target, fn, evt, *args):
+    def _append(self, action, msg, evt):
         """Append notification details onto the `output` list"""
+        if evt["id"]:
+            msg.id = evt["id"]
         self.summary[evt["id"]]["name"] = evt["name"]
         self.summary[evt["id"]]["action"].add(str(action))
-        self.summary[evt["id"]]["targets"].add(target)
-        subject, body = fn(evt, *args)
-        result = {"id": evt["id"], "target": target, "subject": subject, "body": body}
+        self.summary[evt["id"]]["targets"].add(msg.target)
         if action == Action.CANCEL:
-            result["side_effect"] = {"cancel": evt["id"]}
-        self.output.append(result)
+            msg.side_effect = {"cancel": evt["id"]}
+        self.output.append(msg)
 
     def _build_techs_notifications(self, evt, action):
         """Build all notifications to techs; requires self.for_techs prepopulated"""
@@ -416,18 +407,23 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 f"({evt['instructor_email']}); ignored by override"
             )
             return
-        target = f"Instructor ({evt['instructor_email']})"
-        fn = {
-            Action.LOW_ATTENDANCE_7DAYS: comms.instructor_low_attendance,
-            Action.SUPPLY_CHECK_NEEDED: comms.instructor_check_supplies,
-            Action.CONFIRM: comms.instructor_class_confirmed,
-            Action.CANCEL: comms.instructor_class_cancelled,
-            Action.POST_RUN_SURVEY: comms.instructor_log_reminder,
+        tmpl = {
+            Action.LOW_ATTENDANCE_7DAYS: "instructor_low_attendance",
+            Action.SUPPLY_CHECK_NEEDED: "instructor_check_supplies",
+            Action.CONFIRM: "instructor_class_confirmed",
+            Action.CANCEL: "instructor_class_canceled",
+            Action.POST_RUN_SURVEY: "instructor_log_reminder",
             Action.LOW_ATTENDANCE_3DAYS: None,
             Action.FOR_TECHS: None,
         }[action]
-        if fn:
-            self._append(action, target, fn, evt)
+        if tmpl:
+            self._append(
+                action,
+                Msg.tmpl(
+                    tmpl, target=f"Instructor ({evt['instructor_email']})", evt=evt
+                ),
+                evt,
+            )
 
     def _build_registrant_notification(self, evt, action, a):
         """Build notification for a registrant `a` about event `evt`"""
@@ -441,19 +437,27 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 f"Skipping email to attendee {a['firstName']} ({a['email']}); ignored by override"
             )
             return
-
-        target = f"{a['firstName']} {a['lastName']} ({a['email']})"
-        fn = {
-            Action.CONFIRM: comms.registrant_class_confirmed,
-            Action.CANCEL: comms.registrant_class_cancelled,
-            Action.POST_RUN_SURVEY: comms.registrant_post_class_survey,
+        tmpl = {
+            Action.CONFIRM: "registrant_class_confirmed",
+            Action.CANCEL: "registrant_class_canceled",
+            Action.POST_RUN_SURVEY: "registrant_post_class_survey",
             Action.LOW_ATTENDANCE_7DAYS: None,
             Action.LOW_ATTENDANCE_3DAYS: None,
             Action.SUPPLY_CHECK_NEEDED: None,
             Action.FOR_TECHS: None,
         }[action]
-        if fn:
-            self._append(action, target, fn, evt, a)
+        if tmpl:
+            self._append(
+                action,
+                Msg.tmpl(
+                    tmpl,
+                    target=f"{a['firstName']} {a['lastName']} ({a['email']})",
+                    evt=evt,
+                    a=a,
+                    now=tznow(),
+                ),
+                evt,
+            )
 
     def build(self, now=None):  # pylint: disable=too-many-branches
         """Build all notifications and return them in a list"""
@@ -517,8 +521,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             if len(self.for_techs) > 0:
                 self._append(
                     str(Action.FOR_TECHS),
-                    "#techs",
-                    comms.techs_openings,
+                    Msg.tmpl("tech_openings", events=self.for_techs, target="#techs"),
                     {"id": "multiple", "name": "multiple", "events": self.for_techs},
                 )
 
@@ -526,8 +529,11 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if len(self.summary) > 0:
             self._append(
                 "SUMMARY",
-                "#class-automation",
-                comms.automation_summary,
+                Msg.tmpl(
+                    "class_automation_summary",
+                    events=self.summary,
+                    target="#class-automation",
+                ),
                 {"id": "N/A", "name": "summary", "events": self.summary},
             )
 

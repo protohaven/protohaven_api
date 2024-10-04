@@ -4,6 +4,7 @@ import logging
 
 import requests
 
+from protohaven_api.comms_templates import Msg
 from protohaven_api.integrations import airtable
 
 log = logging.getLogger("validation.docs")
@@ -73,15 +74,10 @@ def validate():
         # rep = requests.head(tutorial_url, timeout=5.0)
         # tutorial_exists = rep.status_code == 200
 
-    subject = "Tool documentation report"
-    body = f"\nChecked {len(tools)} tools"
-
-    body += write_stats(stats["tooldoc"], "Tool Tutorials")
-    body += "\n"
-    body += write_stats(stats["clearance"], "Clearance Docs")
-    return {
-        "id": "doc_validation",
-        "target": "#docs-automation",
-        "subject": subject,
-        "body": body,
-    }
+    return Msg.tmpl(
+        "tool_documentation",
+        target="#docs-automation",
+        n=len(tools),
+        tool_tutorials=write_stats(stats["tooldoc"], "Tool Tutorials"),
+        clearance_docs=write_stats(stats["clearance"], "Clearance Docs"),
+    )

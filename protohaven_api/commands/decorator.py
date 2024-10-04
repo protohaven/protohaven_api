@@ -39,4 +39,7 @@ def load_yaml(path):
 
 def print_yaml(data):
     """Prints yaml to stdout"""
+    if not isinstance(data, list):
+        data = [data]
+    data = [dict(d) for d in data]
     print(yaml.dump(data, default_flow_style=False, default_style=""))
