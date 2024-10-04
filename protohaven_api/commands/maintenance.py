@@ -71,19 +71,15 @@ class Commands:
         And notify techs about new and stale tasks that are tech_ready."""
         tt = manager.run_daily_maintenance(args.apply)
         print_yaml(
-            [
-                dict(
-                    Msg.tmpl(
-                        "tech_daily_tasks",
-                        salutation=random.choice(SALUTATIONS),
-                        closing=random.choice(CLOSINGS),
-                        new_count=len(tt),
-                        new_tasks=tt,
-                        id="daily_maintenance",
-                        target="#techs-live",
-                    )
-                )
-            ]
+            Msg.tmpl(
+                "tech_daily_tasks",
+                salutation=random.choice(SALUTATIONS),
+                closing=random.choice(CLOSINGS),
+                new_count=len(tt),
+                new_tasks=tt,
+                id="daily_maintenance",
+                target="#techs-live",
+            )
         )
 
     @command()
@@ -94,16 +90,12 @@ class Commands:
             log.info(f"Found {len(stale)} stale tasks")
             stale.sort(key=lambda k: k["days_ago"], reverse=True)
             print_yaml(
-                [
-                    dict(
-                        Msg.tmpl(
-                            "tech_leads_maintenance_status",
-                            stale_count=len(stale),
-                            stale_thresh=manager.DEFAULT_STALE_DAYS,
-                            stale_tasks=stale[:MAX_STALE_TASKS],
-                            id="daily_maintenance",
-                            target="#techs-leads",
-                        )
-                    )
-                ]
+                Msg.tmpl(
+                    "tech_leads_maintenance_status",
+                    stale_count=len(stale),
+                    stale_thresh=manager.DEFAULT_STALE_DAYS,
+                    stale_tasks=stale[:MAX_STALE_TASKS],
+                    id="daily_maintenance",
+                    target="#techs-leads",
+                )
             )
