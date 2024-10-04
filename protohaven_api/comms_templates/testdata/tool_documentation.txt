@@ -1,7 +1,7 @@
 False
 Tool documentation report
-Checked {n} tool(s):
+Checked 1 tool(s):
 
-{tool_tutorials}
+tutorial info
 
-{clearance_docs}
+clearance info

@@ -1,8 +1,8 @@
 False
-: your Protohaven membership has been suspended
-Hello ,
+Firstname: your Protohaven membership has been suspended for testing purposes
+Hello Firstname,
 
-On , you violated one or more of our shop policies incurring a daily fee until the violation is resolved. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
+On 2025-01-01, you violated one or more of our shop policies incurring a daily fee until the violation is resolved. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
 
 **At this time you have accrued $100 in penalties. The violating item or items are now property of Protohaven and will be removed, and your membership is suspended until any outstanding fees are paid.**
 
@@ -10,6 +10,6 @@ You no longer have access to Protohaven tools, equipment, and member perks. If y
 
 Please take immediate action to pay any accrued fees and reinstate your membership. To pay fees, please ask the shop tech on duty. We will send a confirmation by the next business day to confirm the violation has been resolved.
 
-Any additional questions and appeals may be sent to membership@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
+Any additional questions and appeals may be sent to membership@protohaven.org.
 
 Protohaven Automation

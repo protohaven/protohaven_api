@@ -1,3 +1,12 @@
 False
 Violations and Actions Summary
+1 active violation(s):
+- Since 2025-01-01
+  Daily fee: $5
+  Accrued: $10
+  Notes: Test violation
+
+There are 1 new suspension(s).
+ - from 2025-01-01 until 2025-01-02
+
 See all active violations (with pictures) at https://protohaven.org/violations

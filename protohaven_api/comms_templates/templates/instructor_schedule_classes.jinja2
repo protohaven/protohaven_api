@@ -1,6 +1,6 @@
 {% if subject %}{{firstname}}: please schedule your classes!{% else %}Hi {{firstname}} - thanks for your continued involvement at Protohaven.
 
-We need your help to keep our schedule full for {{start}} through {{end}}! Please take a couple minutes right now and ensure your schedule is set for this period:
+We need your help to keep our schedule full for {{start.strftime("%B %-d")}} through {{end.strftime("%B %-d")}}! Please take a couple minutes right now and ensure your schedule is set for this period:
 
 1. Login to https://api.protohaven.org/instructor/class.
 

@@ -54,8 +54,8 @@ def gen_scheduling_reminders(start, end):
                 "instructor_schedule_classes",
                 name=name,
                 firstname=firstname,
-                start=start.strftime("%B %-d"),
-                end=end.strftime("%B %-d"),
+                start=start,
+                end=end,
                 target=email,
             )
         )

@@ -1,5 +1,5 @@
 False
-Scheduled  new classes
+Scheduled 3 new classes
 a
 b
 c

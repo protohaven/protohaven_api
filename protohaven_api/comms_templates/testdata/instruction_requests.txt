@@ -1,5 +1,8 @@
 False
-Private Instruction Request(s) Active
+3 Private Instruction Request(s) Active
 The following requests are active for private instruction:
+req 1
+req 2
+req 3
 
-Please go to https://app.asana.com/0/1203922725251220/1207896962249498 and check off any requests that have already been handled, and raise the rest to the instructors to fulfill.
+Please go to [Asana](https://app.asana.com/0/1203922725251220/1207896962249498) and check off any requests that have already been handled, and raise the rest to the instructors to fulfill.

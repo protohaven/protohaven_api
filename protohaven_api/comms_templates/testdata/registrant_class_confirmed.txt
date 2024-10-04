@@ -1,8 +1,8 @@
 False
 Your class 'Test Event' is on for January 1!
-Hi ,
+Hi TestAttendeeName,
 
-Get excited! Your class Test Event has 3 total students, and will be running on January 1
+Get excited! Your class Test Event has 3 total students, and will be running on January 1.
 
 Please remember to wear appropriate clothing for the activity - this usually means close-toed shoes, with any long sleeves or hair pulled back.
 

@@ -36,7 +36,7 @@ def enforcement_summary(violations, fees, new_sus, target):
     outstanding = 0
     for v in violations:
         vs[v["id"]] = {
-            "onset": dateparser.parse(v["fields"]["Onset"]).strftime("%Y-%m-%d"),
+            "onset": dateparser.parse(v["fields"]["Onset"]),
             "fee": v["fields"].get("Daily Fee", 0),
             "suspect": "known" if v["fields"].get("Neon ID") else "unknown",
             "notes": v["fields"].get("Notes", ""),
@@ -55,8 +55,8 @@ def enforcement_summary(violations, fees, new_sus, target):
     ss = {}
     for s in new_sus:
         ss[s["id"]] = {
-            "start": dateparser.parse(s["fields"]["Start Date"]).strftime("%Y-%m-%d"),
-            "end": dateparser.parse(s["fields"]["End Date"]).strftime("%Y-%m-%d")
+            "start": dateparser.parse(s["fields"]["Start Date"]),
+            "end": dateparser.parse(s["fields"]["End Date"])
             if s["fields"].get("End Date")
             else "fees paid",
         }
@@ -247,7 +247,6 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
     if not fields.get("Onset"):
         return None  # Incomplete record
     onset = dateparser.parse(fields["Onset"]).astimezone(tz)
-    onset_str = onset.strftime("%Y-%m-%d")
     now = tznow()
 
     if old_accrued == 0 and onset > now - datetime.timedelta(
@@ -256,7 +255,7 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
         return Msg.tmpl(
             "violation_started",
             firstname=member["firstName"],
-            start=onset_str,
+            start=onset,
             sections=sections,
             notes=fields["Notes"],
             fee=fields["Daily Fee"],
@@ -267,7 +266,7 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
     return Msg.tmpl(
         "violation_ongoing",
         firstname=member["firstName"],
-        start=onset_str,
+        start=onset,
         sections=sections,
         notes=fields["Notes"],
         accrued=old_accrued + new_accrued,
@@ -285,10 +284,10 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
 def gen_comms_for_suspension(sus, accrued, member):
     """Create comms to newly suspended users"""
     fields = sus["fields"]
-    start = dateparser.parse(fields["Start Date"]).astimezone(tz).strftime("%Y-%m-%d")
+    start = dateparser.parse(fields["Start Date"]).astimezone(tz)
     end = None
     if fields.get("End Time"):
-        end = dateparser.parse(fields["End Date"]).astimezone(tz).strftime("%Y-%m-%d")
+        end = dateparser.parse(fields["End Date"]).astimezone(tz)
     suffix = ""
     if accrued > 0:
         suffix += " until fees are paid"

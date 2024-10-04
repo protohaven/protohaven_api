@@ -1,6 +1,7 @@
 False
-
-Today we have 3 new tech_ready tasks:
+Whattup!
+Today we have 1 new tech_ready task:
+- [Test Task](https://app.asana.com/0/1202469740885594/123)
 Remember to check out the [Shop & Maintenance Tasks project](https://app.asana.com/0/1202469740885594/1204138662113052) while you're on duty and see if you can help anything along!
-
+Stay tested!
 Protohaven Automation

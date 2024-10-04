@@ -1,10 +1,10 @@
 False
-: your protohaven membership has been reinstated
-Hello ,
+Firstname: your protohaven membership has been reinstated
+Hello Firstname,
 
 Your membership suspension has been lifted and your membership is now reinstated.
 
-If you have any additional questions, please send them to hello@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
+If you have any additional questions, please send them to hello@protohaven.org.
 
 Welcome back to the shop!
 Protohaven Automation

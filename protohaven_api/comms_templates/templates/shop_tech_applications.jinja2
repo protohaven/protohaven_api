@@ -1,4 +1,3 @@
-{% if subject %}Open shop tech applications:{% else %}@TechLeads, the following applicants are
-[waiting for a decision](https://app.asana.com/0/1203664351777333):
+{% if subject %}Open shop tech applications:{% else %}@TechLeads, the following applicants are [waiting for a decision](https://app.asana.com/0/1203664351777333):
 {% for a in open_applicants %}{{a}}
 {% endfor %}{% endif %}

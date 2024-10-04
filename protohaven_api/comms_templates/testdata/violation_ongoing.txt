@@ -1,21 +1,23 @@
 False
-: ongoing Protohaven violation has accrued $10 in fees
-Hello ,
+Firstname: ongoing Protohaven violation has accrued $10 in fees
+Hello Firstname,
 
-
-On , we discovered a violation of one or more of our shop policies, and the violation is currently ongoing. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members, and we need your help to make this happen.
+On 2025-01-01, we discovered a violation of one or more of our shop policies, and the violation is currently ongoing. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members, and we need your help to make this happen.
 
 These are the policies that apply:
 
-Details on the violation:
+- Section A
+- Section B
 
-**At this time you have accrued $10 in fees. The violation is ongoing and will accrue $ per day until it is resolved**
+Details on the violation: Detailed violation notes
+
+**At this time you have accrued $10 in fees. The violation is ongoing and will accrue $ per day until it is resolved.**
 
 For a full list of active violations, see https://protohaven.org/violations.
 
 Please take immediate action to resolve the violation. To any accrued fees, please ask the shop tech on duty. We will send a confirmation the next business day to confirm the violation has been resolved.
 
-Any additional questions and appeals may be sent to membership@protohaven.org. Please do not respond to this email directly as it is not regularly checked.
+Any additional questions and appeals may be sent to membership@protohaven.org.
 
 Thanks for your cooperation,
 Protohaven Automation

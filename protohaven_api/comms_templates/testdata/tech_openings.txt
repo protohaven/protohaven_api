@@ -1,8 +1,9 @@
 False
 New classes for tech backfill:
-@Techs: There's  classes available for backfill in the next 24 hours:
+@Techs: There's 1 class available for backfill in the next 24 hours:
 
- - January 1, 12AM - Test Event (3 seats available, $0 cost): https://protohaven.app.neoncrm.com/eventReg.jsp?event=
+ - January 1, 12AM - Test Event (3 seats available, $0 cost): https://protohaven.org/e/34567
+
 You can pay at the front desk via Square (select "Walk-In (3 Hr Class / add price)", set to the cost listed above, charge as normal)
 
 Reply to this message if you're interested in filling a slot. First come, first served!

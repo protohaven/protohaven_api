@@ -1,4 +1,4 @@
-{% set evt_date = evt.python_date.strftime("%B %-d") %}{% set avail = evt.capacity - evt.signups %}{% if subject %}{{evt.name}} on {{evt_date}} - help us find {{avail}} more student(s)!{% else %}Hi {{evt.instructor_firstname}}
+{% set evt_date = evt.python_date.strftime("%B %-d") %}{% set avail = evt.capacity - evt.signups %}{% if subject %}{{evt.name}} on {{evt_date}} - help us find {{avail}} more student(s)!{% else %}Hi {{evt.instructor_firstname}},
 
 Thanks for agreeing to teach {{evt.name}} on {{evt_date}}! To maximize your impact, we need your help to find {{avail}} additional student{% if avail != 1 %}s{% endif %} to take the class.
 

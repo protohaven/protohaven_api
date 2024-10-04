@@ -1,6 +1,6 @@
 False
 Test Event on January 1 - help us find 3 more student(s)!
-Hi TestInstName
+Hi TestInstName,
 
 Thanks for agreeing to teach Test Event on January 1! To maximize your impact, we need your help to find 3 additional students to take the class.
 

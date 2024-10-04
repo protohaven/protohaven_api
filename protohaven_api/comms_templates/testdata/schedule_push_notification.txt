@@ -1,9 +1,11 @@
 False
 Confirm class schedule
-Hello, {title}!
+Hello, TestTitle!
 
 We have a new set of potential classes for you to teach, and we are looking for your confirmation:
-
+a
+b
+c
 
 Confirm the classes you would like to teach ASAP by going to http://api.protohaven.org/instructor/class.
 

@@ -1,8 +1,8 @@
 False
-: please schedule your classes!
-Hi  - thanks for your continued involvement at Protohaven.
+Firstname: please schedule your classes!
+Hi Firstname - thanks for your continued involvement at Protohaven.
 
-We need your help to keep our schedule full for  through ! Please take a couple minutes right now and ensure your schedule is set for this period:
+We need your help to keep our schedule full for January 1 through January 31! Please take a couple minutes right now and ensure your schedule is set for this period:
 
 1. Login to https://api.protohaven.org/instructor/class.
 

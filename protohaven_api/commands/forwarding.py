@@ -259,7 +259,7 @@ class Commands:
                     "phone_message",
                     target="hello@protohaven.org",
                     msg_header=req["name"].split(",")[0],
-                    date=dateparser.parse(req["created_at"]).strftime("%B %-d"),
+                    date=dateparser.parse(req["created_at"]),
                     notes=req["notes"],
                 )
             )

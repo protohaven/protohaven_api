@@ -37,6 +37,7 @@ def load_wantfile(name):
 
 
 TEST_EVENT = {
+    "id": "34567",
     "python_date": d(0),
     "name": "Test Event",
     "instructor_firstname": "TestInstName",
@@ -45,11 +46,16 @@ TEST_EVENT = {
 }
 TEST_ATTENDEE = {
     "firstName": "TestAttendeeName",
+    "email": "test@attendee.com",
 }
 TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}, "test_template"),
     ("test_html_template", {"val": "test_body"}, "test_html_template"),
-    ("admin_create_suspension", {}, "admin_create_suspension"),
+    (
+        "admin_create_suspension",
+        {"neon_id": 12345, "end": d(0)},
+        "admin_create_suspension",
+    ),
     (
         "class_automation_summary",
         {
@@ -63,31 +69,97 @@ TESTED_TEMPLATES = [
         },
         "class_automation_summary",
     ),
-    ("class_proposals", {}, "class_proposals"),
-    ("class_scheduled", {}, "class_scheduled"),
-    ("daily_private_instruction", {}, "daily_private_instruction"),
-    ("discord_nick_change_summary", {"n": 2, "m": 1}, "discord_nick_change_summary"),
-    ("discord_role_change_dm", {}, "discord_role_change_dm"),
-    ("discord_role_change_summary", {}, "discord_role_change_summary"),
-    ("enforcement_summary", {}, "enforcement_summary"),
-    ("init_membership", {}, "init_membership"),
-    ("instruction_requests", {}, "instruction_requests"),
-    ("instructor_applications", {}, "instructor_applications"),
+    ("class_proposals", {"unapproved": ["Unap1", "Unap2"]}, "class_proposals"),
+    (
+        "class_scheduled",
+        {"inst": "InstName", "formatted": ["Class1", "Class2"], "n": 2},
+        "class_scheduled",
+    ),
+    (
+        "daily_private_instruction",
+        {"formatted": ["Req 1", "Req 2"]},
+        "daily_private_instruction",
+    ),
+    (
+        "discord_nick_change_summary",
+        {"n": 2, "changes": ["Name1", "Name2"], "m": 1, "notified": ["testuser"]},
+        "discord_nick_change_summary",
+    ),
+    (
+        "discord_role_change_dm",
+        {
+            "logs": ["Entry 1", "Entry 2"],
+            "not_associated": True,
+            "discord_id": "testid",
+        },
+        "discord_role_change_dm",
+    ),
+    (
+        "discord_role_change_summary",
+        {
+            "n": 2,
+            "users": ["UserA", "UserB"],
+            "roles_assigned": 3,
+            "roles_revoked": 3,
+            "footer": "Test Footer",
+        },
+        "discord_role_change_summary",
+    ),
+    (
+        "enforcement_summary",
+        {
+            "vs": [{"onset": d(0), "fee": 5, "unpaid": 10, "notes": "Test violation"}],
+            "ss": [{"start": d(0), "end": d(1)}],
+        },
+        "enforcement_summary",
+    ),
+    (
+        "init_membership",
+        {
+            "fname": "Fname",
+            "coupon_code": "ASDF",
+            "coupon_amount": 5,
+            "sample_classes": ["class1", "class2"],
+        },
+        "init_membership",
+    ),
+    (
+        "instruction_requests",
+        {"num": 3, "formatted": ["req 1", "req 2", "req 3"]},
+        "instruction_requests",
+    ),
+    (
+        "instructor_applications",
+        {"open_applicants": ["Foo", "Bar", "Baz"]},
+        "instructor_applications",
+    ),
     ("instructor_check_supplies", {"evt": TEST_EVENT}, "instructor_check_supplies"),
     ("instructor_class_canceled", {"evt": TEST_EVENT}, "instructor_class_canceled"),
     ("instructor_class_confirmed", {"evt": TEST_EVENT}, "instructor_class_confirmed"),
     ("instructor_log_reminder", {"evt": TEST_EVENT}, "instructor_log_reminder"),
     ("instructor_low_attendance", {"evt": TEST_EVENT}, "instructor_low_attendance"),
-    ("instructor_schedule_classes", {}, "instructor_schedule_classes"),
+    (
+        "instructor_schedule_classes",
+        {"firstname": "Firstname", "start": d(0), "end": d(30)},
+        "instructor_schedule_classes",
+    ),
     (
         "instructors_new_classes",
-        {"formatted": ["a", "b", "c"]},
+        {"formatted": ["a", "b", "c"], "n": 3},
         "instructors_new_classes",
     ),
-    ("membership_validation_problems", {}, "membership_validation_problems"),
+    (
+        "membership_validation_problems",
+        {"problems": ["Problem 1", "Problem 2"]},
+        "membership_validation_problems",
+    ),
     ("new_project_request", {"notes": "test_notes"}, "new_project_request"),
-    ("not_associated", {}, "not_associated"),
-    ("phone_message", {}, "phone_message"),
+    ("not_associated", {"discord_id": "testid"}, "not_associated"),
+    (
+        "phone_message",
+        {"msg_header": "stuff and things", "notes": "This is a message", "date": d(0)},
+        "phone_message",
+    ),
     (
         "registrant_class_canceled",
         {"evt": TEST_EVENT, "a": TEST_ATTENDEE},
@@ -103,9 +175,24 @@ TESTED_TEMPLATES = [
         {"evt": TEST_EVENT, "a": TEST_ATTENDEE},
         "registrant_post_class_survey",
     ),
-    ("schedule_push_notification", {}, "schedule_push_notification"),
-    ("shift_no_techs", {}, "shift_no_techs"),
-    ("shop_tech_applications", {}, "shop_tech_applications"),
+    (
+        "schedule_push_notification",
+        {"title": "TestTitle", "formatted": ["a", "b", "c"]},
+        "schedule_push_notification",
+    ),
+    (
+        "shift_no_techs",
+        {
+            "shift": "Monwednesaturday TM",
+            "onduty": [("Tech A", "a@a.com"), ("Tech B", "b@b.com")],
+        },
+        "shift_no_techs",
+    ),
+    (
+        "shop_tech_applications",
+        {"open_applicants": ["Foo", "Bar", "Baz"]},
+        "shop_tech_applications",
+    ),
     (
         "square_validation_action_needed",
         {
@@ -114,14 +201,64 @@ TESTED_TEMPLATES = [
         },
         "square_validation_action_needed",
     ),
-    ("suspension_ended", {}, "suspension_ended"),
-    ("suspension_started", {"accrued": 100}, "suspension_started"),
-    ("tech_daily_tasks", {"new_count": 3}, "tech_daily_tasks"),
-    ("tech_leads_maintenance_status", {}, "tech_leads_maintenance_status"),
-    ("tech_openings", {"events": [TEST_EVENT]}, "tech_openings"),
-    ("tool_documentation", {}, "tool_documentation"),
-    ("violation_ongoing", {"accrued": 10}, "violation_ongoing"),
-    ("violation_started", {"fee": 5}, "violation_started"),
+    ("suspension_ended", {"firstname": "Firstname"}, "suspension_ended"),
+    (
+        "suspension_started",
+        {
+            "firstname": "Firstname",
+            "suffix": " for testing purposes",
+            "start": d(0),
+            "accrued": 100,
+        },
+        "suspension_started",
+    ),
+    (
+        "tech_daily_tasks",
+        {
+            "salutation": "Whattup!",
+            "new_count": 1,
+            "new_tasks": [{"name": "Test Task", "gid": "123"}],
+            "closing": "Stay tested!",
+        },
+        "tech_daily_tasks",
+    ),
+    (
+        "tech_leads_maintenance_status",
+        {
+            "stale_count": 1,
+            "stale_thresh": 999,
+            "stale_tasks": [{"name": "Test Task", "gid": "123", "days_ago": 9001}],
+        },
+        "tech_leads_maintenance_status",
+    ),
+    ("tech_openings", {"n": 1, "events": [TEST_EVENT]}, "tech_openings"),
+    (
+        "tool_documentation",
+        {"n": 1, "tool_tutorials": "tutorial info", "clearance_docs": "clearance info"},
+        "tool_documentation",
+    ),
+    (
+        "violation_ongoing",
+        {
+            "firstname": "Firstname",
+            "start": d(0),
+            "sections": ["Section A", "Section B"],
+            "notes": "Detailed violation notes",
+            "accrued": 10,
+        },
+        "violation_ongoing",
+    ),
+    (
+        "violation_started",
+        {
+            "firstname": "Firstname",
+            "start": d(0),
+            "notes": "Detailed violation notes",
+            "sections": ["Section A", "Section B"],
+            "fee": 5,
+        },
+        "violation_started",
+    ),
 ]
 
 
