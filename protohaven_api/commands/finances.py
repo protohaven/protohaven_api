@@ -503,7 +503,7 @@ class Commands:
             neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE),
             "setting start date",
         ):
-            return None, None
+            return None, None, False
 
         cid = None
         if coupon_amount > 0:
@@ -511,13 +511,13 @@ class Commands:
             if apply and not _ok(
                 neon.create_coupon_code(cid, coupon_amount), "generating coupon"
             ):
-                return None, None
+                return None, None, False
 
         if apply and not _ok(
             neon.update_account_automation_run_status(account_id, "deferred"),
             "logging automation run",
         ):
-            return None, None
+            return None, None, False
 
         if cid:
             return render(
@@ -588,7 +588,7 @@ class Commands:
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
-            subject, body = self._init_membership(
+            subject, body, is_html = self._init_membership(
                 m["Account ID"], m["First Name"], args.coupon_amount, apply=args.apply
             )
             if subject and body:
@@ -598,6 +598,7 @@ class Commands:
                         "subject": subject,
                         "body": body,
                         "id": f"init member {m['Account ID']}",
+                        "html": is_html,
                     }
                 )
         if len(result) > 0:

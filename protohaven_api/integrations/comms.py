@@ -10,9 +10,9 @@ from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
 
-def send_email(subject, body, recipients):
+def send_email(subject, body, recipients, html):
     """Sends an email via GMail API"""
-    return get_connector().email(subject, body, recipients)
+    return get_connector().email(subject, body, recipients, html)
 
 
 def send_discord_message(content, channel=None, blocking=True):

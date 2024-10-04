@@ -10,6 +10,7 @@ from pathlib import Path
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import comms  # pylint: disable=import-error
+from protohaven_api.comms_templates import render
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
@@ -48,18 +49,19 @@ def gen_scheduling_reminders(start, end):
         if already_scheduled[email.lower()]:
             continue  # Don't nag folks that already have their classes set up
 
-        subject, body = comms.instructor_schedule_classes(name, start, end)
+        subject, body, is_html = comms.instructor_schedule_classes(name, start, end)
         results.append(
             {
                 "id": "",
                 "target": email,
                 "subject": subject,
                 "body": body,
+                "is_html": is_html,
             }
         )
         summary[""]["targets"].add(email)
 
-    subject, body = comms.automation_summary(
+    subject, body, is_html = comms.automation_summary(
         {"id": "N/A", "name": "summary", "events": summary}
     )
     if len(results) > 0:
@@ -88,26 +90,18 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         formatted = [format_class(c) for c in classes]
         formatted.sort()
         email = classes[0]["fields"]["Email"]
-        subject = (
-            f"You are now registered to teach {len(classes)} Protohaven "
-            f"class{'es' if len(classes) != 1 else ''}!"
+        subject, body, is_html = render(
+            "class_scheduled", inst=inst, n=len(classes), formatted=formatted
         )
-        body = f"Hello, {inst}!"
-        body += (
-            "\nWe have published the following classes for you to teach to members:\n\n"
+        results.append(
+            {
+                "id": "",
+                "target": email,
+                "subject": subject,
+                "body": body,
+                "html": is_html,
+            }
         )
-        body += "\n".join(formatted)
-        body += (
-            "\n\nThese were classes that you confirmed by visiting "
-            "https://api.protohaven.org/instructor/class_selector."
-        )
-        body += (
-            "\n\nPLEASE REACH OUT ASAP on the #instructors Discord if "
-            "you are unable to teach any of these classes so we can take action."
-        )
-        body += "\n\nThank you, and see you in the shop!"
-
-        results.append({"id": "", "target": email, "subject": subject, "body": body})
         details["targets"].append(email)
         channel_class_list += classes
 
@@ -128,9 +122,15 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         details["targets"].append("#instructors")
 
         details["name"] = f"{len(channel_class_list)} new classes"
-        subject, body = comms.automation_summary({"events": {"": details}})
+        subject, body, is_html = comms.automation_summary({"events": {"": details}})
         results.append(
-            {"id": "", "target": "#class-automation", "subject": subject, "body": body}
+            {
+                "id": "",
+                "target": "#class-automation",
+                "subject": subject,
+                "body": body,
+                "html": is_html,
+            }
         )
     return results
 
@@ -374,8 +374,14 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.summary[evt["id"]]["name"] = evt["name"]
         self.summary[evt["id"]]["action"].add(str(action))
         self.summary[evt["id"]]["targets"].add(target)
-        subject, body = fn(evt, *args)
-        result = {"id": evt["id"], "target": target, "subject": subject, "body": body}
+        subject, body, is_html = fn(evt, *args)
+        result = {
+            "id": evt["id"],
+            "target": target,
+            "subject": subject,
+            "body": body,
+            "html": is_html,
+        }
         if action == Action.CANCEL:
             result["side_effect"] = {"cancel": evt["id"]}
         self.output.append(result)

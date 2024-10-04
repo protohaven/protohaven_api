@@ -29,7 +29,7 @@ def automation_summary(summary):
             f"{'|'.join(list(details['action']))} #{evtid} "
             f"{details['name']}: notified {', '.join(details['targets'])}"
         )
-    return "Automation notification summary", ("\n".join(content))
+    return "Automation notification summary", ("\n".join(content)), False
 
 
 def instructor_schedule_classes(name, start, end):

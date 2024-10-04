@@ -242,7 +242,7 @@ def test_gen_suspensions_reset_after_suspended():
 def test_gen_comms_for_violation_new():
     """Violation comms render properly for a new violation"""
     v = violation(1, dt(0), None)
-    subject, got = enforcer.gen_comms_for_violation(
+    subject, got, _ = enforcer.gen_comms_for_violation(
         v, 0, 0, ["section1", "section2"], TESTMEMBER
     )
     assert "new Protohaven violation issued" in subject
@@ -256,7 +256,7 @@ def test_gen_comms_for_violation_new():
 def test_gen_comms_for_violation_existing():
     """Violation comms render properly for an ongoing violation"""
     v = violation(1, dt(-1), None)
-    subject, got = enforcer.gen_comms_for_violation(
+    subject, got, _ = enforcer.gen_comms_for_violation(
         v, 50, 15, ["section1", "section2"], TESTMEMBER
     )
     assert "ongoing" in subject
@@ -296,7 +296,7 @@ def test_gen_comms_for_violation_no_fee():
     v = violation(1, dt(-1), None)
     v["fields"]["Daily Fee"] = 0
 
-    subject, got = enforcer.gen_comms_for_violation(
+    subject, got, _ = enforcer.gen_comms_for_violation(
         v, 0, 0, ["section1", "section2"], TESTMEMBER
     )
     assert "violation" in subject
@@ -313,7 +313,7 @@ def test_gen_comms_for_suspensions_with_accrued():
         dt(-1),
         None,
     )
-    subject, got = enforcer.gen_comms_for_suspension(s, 100, TESTMEMBER)
+    subject, got, _ = enforcer.gen_comms_for_suspension(s, 100, TESTMEMBER)
     assert "suspended" in subject
     assert "accrued $100" in got
     assert "testname" in got
@@ -326,7 +326,7 @@ def test_gen_comms_for_suspensions_no_end():
         dt(-1),
         None,
     )
-    subject, got = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
+    subject, got, _ = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
     assert "suspended" in subject
     assert "accrued" not in got
     assert "testname" in got
@@ -339,7 +339,7 @@ def test_gen_comms_for_suspension_bounded():
         dt(-1),
         dt(4),
     )
-    subject, got = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
+    subject, got, _ = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
     assert "suspended" in subject
     assert f"until {dt(4).strftime('%Y-%m-%d')}"
     assert "testname" in got

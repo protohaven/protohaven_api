@@ -25,12 +25,13 @@ class Commands:
         """Check recurring tasks list in Airtable, add new tasks to asana
         And notify techs about new and stale tasks that are tech_ready."""
         tt = manager.run_daily_maintenance(args.apply)
-        subject, body = mcomms.daily_tasks_summary(tt)
+        subject, body, is_html = mcomms.daily_tasks_summary(tt)
         report = {
             "id": "daily_maintenance",
             "target": "#techs-live",
             "subject": subject,
             "body": body,
+            "html": is_html,
         }
         print_yaml([report])
 
@@ -41,13 +42,16 @@ class Commands:
         report = []
         if len(stale) > 0:
             log.info(f"Found {len(stale)} stale tasks")
-            subject, body = mcomms.tech_leads_summary(stale, manager.DEFAULT_STALE_DAYS)
+            subject, body, is_html = mcomms.tech_leads_summary(
+                stale, manager.DEFAULT_STALE_DAYS
+            )
             report = [
                 {
                     "id": "daily_maintenance",
                     "target": "#techs-leads",
                     "subject": subject,
                     "body": body + exec_details_footer(),
+                    "html": is_html,
                 }
             ]
         print_yaml(report)

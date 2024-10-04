@@ -148,13 +148,13 @@ class Connector:
             f"Suppressing email sending to {recipients}:\nSubject: {subject}\n{body}"
         )
 
-    def email(self, subject, body, recipients):
+    def email(self, subject, body, recipients, html):
         """Send an email via GMail SMTP"""
         if self.dev:
             return self._email_dev(subject, body, recipients)
         sender = self.cfg["comms"]["email_username"]
         passwd = self.cfg["comms"]["email_password"]
-        msg = MIMEText(body)
+        msg = MIMEText(body, "html" if html else "plain")
         msg["Subject"] = subject
         msg["From"] = sender
         msg["To"] = ", ".join(recipients)

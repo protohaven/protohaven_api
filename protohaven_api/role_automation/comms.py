@@ -12,12 +12,12 @@ def discord_role_change_dm(logs, discord_id):
         n=len(logs),
         discord_id=discord_id,
         not_associated=not_associated,
-    )
+    )[:2]
 
 
 def not_associated_warning(discord_id):
     """Generate message about user not being associated with Neon"""
-    return render("not_associated", discord_id=discord_id)
+    return render("not_associated", discord_id=discord_id)[:2]
 
 
 def nick_change_summary(changes, notified):
@@ -33,7 +33,7 @@ def nick_change_summary(changes, notified):
         notified=notified,
         m=m,
         footer=exec_details_footer(),
-    )
+    )[:2]
 
 
 def discord_role_change_summary(user_log, roles_assigned, roles_revoked):
@@ -45,4 +45,4 @@ def discord_role_change_summary(user_log, roles_assigned, roles_revoked):
         roles_assigned=roles_assigned,
         roles_revoked=roles_revoked,
         footer=exec_details_footer(),
-    )
+    )[:2]

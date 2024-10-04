@@ -1,13 +1,20 @@
 """Unit tests for comms_templates module"""
+import pytest
+
 from protohaven_api.comms_templates import get_all_templates, render
 
 
 def test_comms_render():
     """Test that comms templates are rendered"""
-    assert render("test_template", val="test_body") == ("Test Subject", "test_body")
+    assert render("test_template", val="test_body") == (
+        "Test Subject",
+        "test_body",
+        False,
+    )
 
 
-def test_templates_handle_subject():
+@pytest.mark.parametrize("tmpl", get_all_templates())
+def test_templates_handle_subject(tmpl):
     """Test that all templates have a conditional based on `subject` var and no args"""
 
     # Some templates won't render without some variables defined.
@@ -20,7 +27,13 @@ def test_templates_handle_subject():
         "violation_ongoing": {"accrued": 5},
         "violation_started": {"fee": 5},
     }
+    subject, body, _ = render(tmpl, **extras.get(tmpl, {}))
+    assert subject != body
 
-    for tmpl in get_all_templates():
-        subject, body = render(tmpl, **extras.get(tmpl, {}))
-        assert subject != body
+
+def test_templates_html_detection():
+    """Test that templates properly detect html header"""
+    _, _, got = render("test_template")
+    assert not got
+    _, _, got = render("test_html_template")
+    assert got
