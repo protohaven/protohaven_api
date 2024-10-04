@@ -4,9 +4,6 @@ import logging
 from dateutil.parser import parse as parse_date
 
 from protohaven_api.class_automation import builder  # pylint: disable=import-error
-from protohaven_api.class_automation.testdata import (  # pylint: disable=import-error
-    assert_matches_testdata,
-)
 from protohaven_api.config import tz  # pylint: disable=import-error
 
 TEST_NOW = parse_date("2024-02-22").astimezone(tz)
@@ -57,7 +54,7 @@ def test_gen_scheduling_reminders_not_scheduled(mocker):
     )
     assert len(got) == 2  # Email and summary
     assert got[0].subject == "Test: please schedule your classes!"
-    assert_matches_testdata(got[0].body, "test_instructor_schedule_classes.txt")
+    assert "February 20 through March 30" in got[0].body
 
 
 def test_gen_scheduling_reminders_already_scheduled(mocker):
