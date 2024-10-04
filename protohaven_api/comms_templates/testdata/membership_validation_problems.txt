@@ -1,7 +1,0 @@
-False
-@Staff: Action Required for Membership Validation
-2 membership validation problem(s) found:
-- Problem 1
-- Problem 2
-
-Please remedy by following the instructions [here](https://protohaven.org/wiki/software/membership_validation)

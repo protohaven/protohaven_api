@@ -1,5 +1,0 @@
-False
-Discord Role Automation Summary
-* Sent DMs to 2 users regarding Discord role changes: UserA, UserB
-* Assigned 3 role(s) and revoked 3 role(s) (see [pending revocations](<https://airtable.com/appZIwlIgaq1Ps28Y/tblBgXQlOFjNqvBVm>))
-Test Footer

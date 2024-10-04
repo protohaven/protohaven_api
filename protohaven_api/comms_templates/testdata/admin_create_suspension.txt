@@ -1,8 +1,0 @@
-False
-ACTION REQUIRED: Suspend Protohaven member 12345 until 2025-01-01
-A member with neon ID 12345 violated our shop policies in a manner requiring suspension, per procedure at https://protohaven.org/wiki/policies/procedure.
-
-Please suspend their account by going to https://protohaven.app.neoncrm.com/admin/accounts/12345 and changing their membership start date to 2025-01-01.
-
-Thanks for taking action!
-Protohaven Automation

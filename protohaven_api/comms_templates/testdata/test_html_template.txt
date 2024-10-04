@@ -1,3 +1,0 @@
-True
-Hello!
-<p>Test HTML</p>
