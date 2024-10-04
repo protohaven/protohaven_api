@@ -281,9 +281,9 @@ def test_init_membership(mocker):
     )
     mocker.patch.object(C, "_get_sample_classes", return_value=["class1", "class2"])
     # Test with coupon_amount > 0
-    subject, body, _ = C()._init_membership("123", "John Doe", 50, apply=True)
-    assert subject == "John Doe: your first class is on us!"
-    assert "class1" in body
+    msg = C()._init_membership("123", "John Doe", 50, apply=True)
+    assert msg.subject == "John Doe: your first class is on us!"
+    assert "class1" in msg.body
 
 
 def test_init_membership_no_classes(mocker):
@@ -301,9 +301,9 @@ def test_init_membership_no_classes(mocker):
     )
     mocker.patch.object(C, "_get_sample_classes", return_value=[])
     # Test with coupon_amount > 0
-    subject, body, _ = C()._init_membership("123", "John Doe", 50, apply=True)
-    assert subject == "John Doe: your first class is on us!"
-    assert "Here's a couple basic classes" not in body
+    msg = C()._init_membership("123", "John Doe", 50, apply=True)
+    assert msg.subject == "John Doe: your first class is on us!"
+    assert "Here's a couple basic classes" not in msg.body
 
 
 def test_event_is_suggestible(mocker):

@@ -65,7 +65,7 @@ def gen_scheduling_reminders(start, end):
         results.append(
             Msg.tmpl(
                 "class_automation_summary",
-                summary=summary["events"],
+                events=summary["events"],
                 target="#class-automation",
             )
         )
@@ -360,13 +360,13 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 if action.needed_for(evt, now):
                     self.push_class(evt, action)
 
-    def _append(self, action, msg, evt, target_fmt=None):
+    def _append(self, action, msg, evt):
         """Append notification details onto the `output` list"""
         if evt["id"]:
             msg.id = evt["id"]
         self.summary[evt["id"]]["name"] = evt["name"]
         self.summary[evt["id"]]["action"].add(str(action))
-        self.summary[evt["id"]]["targets"].add(target_fmt or msg.target)
+        self.summary[evt["id"]]["targets"].add(msg.target)
         if action == Action.CANCEL:
             msg.side_effect = {"cancel": evt["id"]}
         self.output.append(msg)
@@ -411,7 +411,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             Action.LOW_ATTENDANCE_7DAYS: "instructor_low_attendance",
             Action.SUPPLY_CHECK_NEEDED: "instructor_check_supplies",
             Action.CONFIRM: "instructor_class_confirmed",
-            Action.CANCEL: "instructor_class_cancelled",
+            Action.CANCEL: "instructor_class_canceled",
             Action.POST_RUN_SURVEY: "instructor_log_reminder",
             Action.LOW_ATTENDANCE_3DAYS: None,
             Action.FOR_TECHS: None,
@@ -419,9 +419,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if tmpl:
             self._append(
                 action,
-                Msg.tmpl(tmpl, target=evt["instructor_email"], evt=evt),
+                Msg.tmpl(
+                    tmpl, target=f"Instructor ({evt['instructor_email']})", evt=evt
+                ),
                 evt,
-                target_fmt="Instructor {evt['instructor_email']}",
             )
 
     def _build_registrant_notification(self, evt, action, a):
@@ -438,7 +439,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             return
         tmpl = {
             Action.CONFIRM: "registrant_class_confirmed",
-            Action.CANCEL: "registrant_class_cancelled",
+            Action.CANCEL: "registrant_class_canceled",
             Action.POST_RUN_SURVEY: "registrant_post_class_survey",
             Action.LOW_ATTENDANCE_7DAYS: None,
             Action.LOW_ATTENDANCE_3DAYS: None,
@@ -448,9 +449,14 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if tmpl:
             self._append(
                 action,
-                Msg.tmpl(tmpl, target=a["email"], evt=evt, a=a, now=tznow()),
+                Msg.tmpl(
+                    tmpl,
+                    target=f"{a['firstName']} {a['lastName']} ({a['email']})",
+                    evt=evt,
+                    a=a,
+                    now=tznow(),
+                ),
                 evt,
-                target_fmt=f"{a['firstName']} {a['lastName']} ({a['email']})",
             )
 
     def build(self, now=None):  # pylint: disable=too-many-branches

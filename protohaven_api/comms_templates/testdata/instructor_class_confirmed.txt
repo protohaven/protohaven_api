@@ -1,0 +1,10 @@
+False
+Test Event is on for January 1!
+Hi TestInstName,
+
+Get excited! Your class Test Event has 3 students and will be running on January 1.
+
+If you have any questions, please reach out to education@protohaven.org.
+
+Hope to see you in the shop soon!
+- Protohaven Staff

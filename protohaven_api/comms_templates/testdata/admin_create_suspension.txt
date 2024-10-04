@@ -1,0 +1,8 @@
+False
+ACTION REQUIRED: Suspend Protohaven member  until
+A member with neon ID  violated our shop policies in a manner requiring suspension, per procedure at https://protohaven.org/wiki/policies/procedure.
+
+Please suspend their account by going to https://protohaven.app.neoncrm.com/admin/accounts/ and changing their membership start date to .
+
+Thanks for taking action!
+Protohaven Automation

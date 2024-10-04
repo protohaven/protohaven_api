@@ -1,0 +1,7 @@
+False
+Your class 'Test Event' was canceled
+Hi TestInstName,
+
+Unfortunately, we had to cancel your class Test Event (scheduled for January 1)
+
+If you have any questions, please reach out to education@protohaven.org.

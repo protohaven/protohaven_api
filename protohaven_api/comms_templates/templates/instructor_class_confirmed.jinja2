@@ -1,4 +1,4 @@
-{% set evt_date = evt.python_date.strftime("%B %-d") %}{% if subject %}{{evt.name}} is on for {{evt_date}}!{% else %}Hi {{a.firstName}},
+{% set evt_date = evt.python_date.strftime("%B %-d") %}{% if subject %}{{evt.name}} is on for {{evt_date}}!{% else %}Hi {{evt.instructor_firstname}},
 
 Get excited! Your class {{evt.name}} has {{evt.signups}} student{% if signups != 1 %}s{% endif %} and will be running on {{evt_date}}.
 

@@ -65,8 +65,6 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         # Update accrual totals so they're visible at protohaven.org/violations
         enforcer.update_accruals()
-
         result = enforcer.gen_comms(violations, old_fees, new_fees, new_sus)
-
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")

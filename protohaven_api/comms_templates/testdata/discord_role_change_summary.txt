@@ -1,0 +1,5 @@
+False
+Discord Role Automation Summary
+Sent DMs to  users regarding Discord role changes:
+Assigned  role(s) and revoked  role(s).
+See [pending revocations](<https://airtable.com/appZIwlIgaq1Ps28Y/tblBgXQlOFjNqvBVm>)

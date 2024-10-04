@@ -56,8 +56,8 @@ def test_gen_scheduling_reminders_not_scheduled(mocker):
         parse_date("2024-02-20"), parse_date("2024-03-30")
     )
     assert len(got) == 2  # Email and summary
-    assert got[0]["subject"] == "Test: please schedule your classes!"
-    assert_matches_testdata(got[0]["body"], "test_instructor_schedule_classes.txt")
+    assert got[0].subject == "Test: please schedule your classes!"
+    assert_matches_testdata(got[0].body, "test_instructor_schedule_classes.txt")
 
 
 def test_gen_scheduling_reminders_already_scheduled(mocker):
@@ -301,7 +301,7 @@ def test_builder_post_run_survey(caplog):
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.POST_RUN_SURVEY)]
     got = [
-        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [
@@ -331,7 +331,7 @@ def test_builder_supply_check(caplog):
     eb.actionable_classes = [_gen_actionable_class(builder.Action.SUPPLY_CHECK_NEEDED)]
 
     got = [
-        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [
@@ -355,7 +355,7 @@ def test_builder_low_attendance_7days(caplog):
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.LOW_ATTENDANCE_7DAYS)]
     got = [
-        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [
@@ -379,7 +379,7 @@ def test_builder_confirm(caplog):
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.CONFIRM)]
     got = [
-        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [
@@ -402,25 +402,25 @@ def test_builder_confirm(caplog):
 
 
 def test_builder_cancel(caplog):
-    """Instructor and attendee are notified when class is cancelled"""
+    """Instructor and attendee are notified when class is canceled"""
     caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
     eb.actionable_classes = [_gen_actionable_class(builder.Action.CANCEL)]
     got = [
-        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [
         {
             "id": 1234,
             "target": "Instructor (inst@ructor.com)",
-            "subject": "Your class 'Test Event' was cancelled",
+            "subject": "Your class 'Test Event' was canceled",
         },
         {
             "id": 1234,
             "target": "Test Attendee (test@attendee.com)",
-            "subject": "Your class 'Test Event' was cancelled",
+            "subject": "Your class 'Test Event' was canceled",
         },
         {
             "id": "N/A",
@@ -430,14 +430,13 @@ def test_builder_cancel(caplog):
     ]
 
 
-def test_builder_techs(caplog):
+def test_builder_techs():
     """Tests generation of class comms to techs"""
-    caplog.set_level(logging.DEBUG)
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
     eb.for_techs = [_gen_actionable_class(builder.Action.FOR_TECHS)[0]]
     got = [
-        {k: v for k, v in d.items() if k in ("id", "target", "subject")}
+        {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [

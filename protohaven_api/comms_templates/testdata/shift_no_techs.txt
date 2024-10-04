@@ -1,0 +1,5 @@
+False
+{shift} shift has no signed in techs
+@TechLeads: no techs assigned for  have signed in. Expecting any of:
+
+Please check immediately for techs on duty; shift details at https://api.protohaven.org/techs

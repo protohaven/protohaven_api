@@ -1,8 +1,8 @@
-{% with evt_date as evt.python_date.strtime("%B %-d") %}{% with avail as evt.capacity - evt.signups %}
+{% set evt_date = evt.python_date.strftime("%B %-d") %}{% set avail = evt.capacity - evt.signups %}
 {% if subject %}Your class '{{evt.name}}' is on for {{evt_date}}!{% else %}Hi {{firstname}},
 
 Get excited! Your class {{evt.name}} {% if evt.signups > 1 %}has {{evt.signups}} total students, and {% endif %}will be running on {{evt_date}}
-{% if evt.capacity > 0 and evt.python_date - now > 1 %}
+{% if evt.capacity > 0 and (evt.python_date - now).days > 1 %}
 We still have {{avail}} seat{% if (avail) != 1 %}s{% endif %} left, so invite your friends!
 {% endif %}
 Please remember to wear appropriate clothing for the activity - this usually means close-toed shoes, with any long sleeves or hair pulled back.
@@ -11,4 +11,4 @@ If you have any questions, please reach out to education@protohaven.org.
 
 Hope to see you in the shop soon!
 - Protohaven Staff
-{% endif %}{% endwith %}{% endwith %}
+{% endif %}

@@ -239,7 +239,12 @@ class Commands:  # pylint: disable=too-few-public-methods
                     continue
                 not_associated_final.append(discord_id)
                 result.append(
-                    Msg.tmpl("not_associated", target=f"@{discord_id}", id=tag)
+                    Msg.tmpl(
+                        "not_associated",
+                        discord_id=discord_id,
+                        target=f"@{discord_id}",
+                        id=tag,
+                    )
                 )
 
         if len(changes) > 0 or (
@@ -252,6 +257,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             result.append(
                 Msg.tmpl(
                     "discord_nick_change_summary",
+                    target="#discord-automation",
                     changes=list(changes),
                     n=len(changes),
                     notified=notified,

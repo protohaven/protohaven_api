@@ -166,7 +166,7 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.cli project_requests  --notify
 
 ## Managing classes
 
-Class emails will need to be triggered daily. This sends reminders to instructors to check for class materials, reminds both instructors and students when a class is happening, sends post-class feedback requests, and notifies when classes are cancelled due to low attendance.
+Class emails will need to be triggered daily. This sends reminders to instructors to check for class materials, reminds both instructors and students when a class is happening, sends post-class feedback requests, and notifies when classes are canceled due to low attendance.
 
 Do so via the following command:
 
@@ -180,7 +180,7 @@ You can then inspect `comms.yaml` to ensure that everything is in order, before 
 PH_SERVER_MODE=prod python3 -m protohaven_api.cli send_comms --path=comms.yaml
 ```
 
-When classes are cancelled, run the following command to remove them from the events page and prevent additional signups:
+When classes are canceled, run the following command to remove them from the events page and prevent additional signups:
 
 ```
 PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id=<id2>

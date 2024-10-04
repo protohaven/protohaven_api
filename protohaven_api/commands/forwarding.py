@@ -302,9 +302,6 @@ class Commands:
         }
         rev_email_map = {v: k for k, v in email_map.items()}
         log.info(f"Email map: {email_map}")
-        on_duty_fmt = "\n".join(
-            [f"- {v} ({rev_email_map.get(v, 'unknown email')})" for v in techs_on_duty]
-        )
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(sheets.get_sign_ins_between(start, end)):
@@ -325,7 +322,10 @@ class Commands:
                     "shift_no_techs",
                     target="#tech-leads",
                     shift=shift,
-                    onduty=on_duty_fmt,
+                    onduty=[
+                        (v, rev_email_map.get(v, "unknown email"))
+                        for v in techs_on_duty
+                    ],
                     footer=exec_details_footer(),
                 )
             )

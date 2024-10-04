@@ -1,0 +1,7 @@
+False
+Tool documentation report
+Checked {n} tool(s):
+
+{tool_tutorials}
+
+{clearance_docs}

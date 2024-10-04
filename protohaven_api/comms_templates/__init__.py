@@ -40,8 +40,8 @@ def render(template_name, **kwargs):
     is_html = src.strip().startswith("{# html #}")
     tmpl = e.get_template(fname)
     return (
-        tmpl.render(**kwargs, subject=True),
-        tmpl.render(**kwargs, subject=False),
+        tmpl.render(**kwargs, subject=True).strip(),
+        tmpl.render(**kwargs, subject=False).strip(),
         is_html,
     )
 
@@ -55,12 +55,13 @@ class Msg:
     subject: str
     body: str
     id: str = ""
+    intents: list = field(default_factory=list)
     side_effect: dict = field(default_factory=dict)
     html: bool = False
 
     # These field saren't necessary for template rendering, but will be
     # assigned
-    EXTRA_FIELDS = ("target", "id", "side_effect")
+    EXTRA_FIELDS = ("target", "id", "side_effect", "intents")
 
     @classmethod
     def tmpl(cls, tmpl, **kwargs):
@@ -80,6 +81,7 @@ class Msg:
                     "body": self.body,
                     "id": self.id,
                     "side_effect": self.side_effect,
+                    "intents": self.intents,
                     "html": self.html,
                 }.items()
                 if v

@@ -242,30 +242,30 @@ def test_gen_suspensions_reset_after_suspended():
 def test_gen_comms_for_violation_new():
     """Violation comms render properly for a new violation"""
     v = violation(1, dt(0), None)
-    subject, got, _ = enforcer.gen_comms_for_violation(
+    msg = enforcer.gen_comms_for_violation(
         v, 0, 0, ["section1", "section2"], TESTMEMBER
     )
-    assert "new Protohaven violation issued" in subject
-    assert "$5 per day" in got
-    assert "testname" in got
-    assert dt(0).strftime("%Y-%m-%d") in got
-    assert "section1" in got
-    assert "section2" in got
+    assert "new Protohaven violation issued" in msg.subject
+    assert "$5 per day" in msg.body
+    assert "testname" in msg.body
+    assert dt(0).strftime("%Y-%m-%d") in msg.body
+    assert "section1" in msg.body
+    assert "section2" in msg.body
 
 
 def test_gen_comms_for_violation_existing():
     """Violation comms render properly for an ongoing violation"""
     v = violation(1, dt(-1), None)
-    subject, got, _ = enforcer.gen_comms_for_violation(
+    msg = enforcer.gen_comms_for_violation(
         v, 50, 15, ["section1", "section2"], TESTMEMBER
     )
-    assert "ongoing" in subject
-    assert "$65" in subject
-    assert "$5 per day" in got
-    assert "testname" in got
-    assert dt(-1).strftime("%Y-%m-%d") in got
-    assert "section1" in got
-    assert "section2" in got
+    assert "ongoing" in msg.subject
+    assert "$65" in msg.subject
+    assert "$5 per day" in msg.body
+    assert "testname" in msg.body
+    assert dt(-1).strftime("%Y-%m-%d") in msg.body
+    assert "section1" in msg.body
+    assert "section2" in msg.body
 
 
 def test_gen_comms_for_violation_resolved():
@@ -296,15 +296,15 @@ def test_gen_comms_for_violation_no_fee():
     v = violation(1, dt(-1), None)
     v["fields"]["Daily Fee"] = 0
 
-    subject, got, _ = enforcer.gen_comms_for_violation(
+    msg = enforcer.gen_comms_for_violation(
         v, 0, 0, ["section1", "section2"], TESTMEMBER
     )
-    assert "violation" in subject
-    assert "have accrued" not in got
-    assert "testname" in got
-    assert dt(-1).strftime("%Y-%m-%d") in got
-    assert "section1" in got
-    assert "section2" in got
+    assert "violation" in msg.subject
+    assert "have accrued" not in msg.body
+    assert "testname" in msg.body
+    assert dt(-1).strftime("%Y-%m-%d") in msg.body
+    assert "section1" in msg.body
+    assert "section2" in msg.body
 
 
 def test_gen_comms_for_suspensions_with_accrued():
@@ -313,11 +313,11 @@ def test_gen_comms_for_suspensions_with_accrued():
         dt(-1),
         None,
     )
-    subject, got, _ = enforcer.gen_comms_for_suspension(s, 100, TESTMEMBER)
-    assert "suspended" in subject
-    assert "accrued $100" in got
-    assert "testname" in got
-    assert dt(-1).strftime("%Y-%m-%d") in got
+    msg = enforcer.gen_comms_for_suspension(s, 100, TESTMEMBER)
+    assert "suspended" in msg.subject
+    assert "accrued $100" in msg.body
+    assert "testname" in msg.body
+    assert dt(-1).strftime("%Y-%m-%d") in msg.body
 
 
 def test_gen_comms_for_suspensions_no_end():
@@ -326,11 +326,11 @@ def test_gen_comms_for_suspensions_no_end():
         dt(-1),
         None,
     )
-    subject, got, _ = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
-    assert "suspended" in subject
-    assert "accrued" not in got
-    assert "testname" in got
-    assert dt(-1).strftime("%Y-%m-%d") in got
+    msg = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
+    assert "suspended" in msg.subject
+    assert "accrued" not in msg.body
+    assert "testname" in msg.body
+    assert dt(-1).strftime("%Y-%m-%d") in msg.body
 
 
 def test_gen_comms_for_suspension_bounded():
@@ -339,10 +339,9 @@ def test_gen_comms_for_suspension_bounded():
         dt(-1),
         dt(4),
     )
-    subject, got, _ = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
-    assert "suspended" in subject
-    assert f"until {dt(4).strftime('%Y-%m-%d')}"
-    assert "testname" in got
+    msg = enforcer.gen_comms_for_suspension(s, 0, TESTMEMBER)
+    assert "suspended" in msg.subject
+    assert "testname" in msg.body
 
 
 def test_gen_comms_empty_array_if_nothing_interesting(mocker):

@@ -99,3 +99,5 @@ class Commands:
                     target="#techs-leads",
                 )
             )
+        else:
+            print_yaml([])

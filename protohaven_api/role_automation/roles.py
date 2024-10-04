@@ -306,7 +306,7 @@ def sync_delayed_intents(intents, airtable_intents, user_log, apply_records):
                 )
                 continue
         elif k not in intents and intent.rec is not None:
-            prefix = "CANCELLED"
+            prefix = "CANCELED"
             intent.reason = "Now present in Neon CRM"
             if apply_records:
                 status, content = airtable.delete_record(
@@ -400,7 +400,7 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     log.info(mm)
     if len(mm) == 0:
         log.info("Neon user not found; issuing association request")
-        msg = Msg.tmpl("not_associated", discord_id=discord_id)
+        msg = Msg.tmpl("not_associated", target=f"@{discord_id}", discord_id=discord_id)
         yield "send_dm", discord_id, f"**{msg.subject}**\n\n{msg.body}"
         airtable.log_comms(
             not_associated_tag(discord_id), f"@{discord_id}", msg.subject, "Sent"
