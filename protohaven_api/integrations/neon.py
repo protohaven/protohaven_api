@@ -66,6 +66,32 @@ def fetch_published_upcoming_events(back_days=7):
         current_page += 1
 
 
+def search_upcoming_events(from_date, to_date, extra_fields):
+    """Lookup upcoming events"""
+    data = {
+        "searchFields": [
+            {
+                "field": "Event Start Date",
+                "operator": "GREATER_AND_EQUAL",
+                "value": from_date.strftime("%Y-%m-%d"),
+            },
+            {
+                "field": "Event Start Date",
+                "operator": "LESS_AND_EQUAL",
+                "value": to_date.strftime("%Y-%m-%d"),
+            },
+        ],
+        "outputFields": [
+            "Event ID",
+            "Event Name",
+            "Event Web Publish",
+            "Event Web Register",
+            *extra_fields,
+        ],
+    }
+    return _paginated_search(data, typ="events")
+
+
 def fetch_events(after=None, before=None, published=True):
     """Load events from Neon CRM"""
     q_params = {"publishedEvent": published}
@@ -359,7 +385,7 @@ def search_member_by_name(firstname, lastname):
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
 
-def _paginated_account_search(data):
+def _paginated_search(data, typ="accounts"):
     cur = 0
     data["pagination"] = {
         "currentPage": cur,
@@ -369,7 +395,7 @@ def _paginated_account_search(data):
     while cur < total:
         content = get_connector().neon_request(
             cfg("api_key2"),
-            f"{URL_BASE}/accounts/search",
+            f"{URL_BASE}/{typ}/search",
             "POST",
             body=json.dumps(data),
             headers={"content-type": "application/json"},
@@ -396,7 +422,7 @@ def get_active_members(extra_fields):
         ],
         "outputFields": ["Account ID", *extra_fields],
     }
-    return _paginated_account_search(data)
+    return _paginated_search(data)
 
 
 def search_member(email, operator="EQUAL"):
@@ -427,7 +453,7 @@ def search_member(email, operator="EQUAL"):
             CustomField.NOTIFY_BOARD_AND_STAFF,
         ],
     }
-    return _paginated_account_search(data)
+    return _paginated_search(data)
 
 
 def get_members_with_role(role, extra_fields):
@@ -442,7 +468,7 @@ def get_members_with_role(role, extra_fields):
         ],
         "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
     }
-    return _paginated_account_search(data)
+    return _paginated_search(data)
 
 
 def get_new_members_needing_setup(created_after, extra_fields=None):
@@ -463,7 +489,7 @@ def get_new_members_needing_setup(created_after, extra_fields=None):
         ],
         "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
     }
-    return _paginated_account_search(data)
+    return _paginated_search(data)
 
 
 def get_members_with_discord_id(discord_id, extra_fields=None):
@@ -483,7 +509,7 @@ def get_members_with_discord_id(discord_id, extra_fields=None):
             *(extra_fields or []),
         ],
     }
-    return _paginated_account_search(data)
+    return _paginated_search(data)
 
 
 def fetch_techs_list():
@@ -527,6 +553,47 @@ def fetch_techs_list():
         )
     techs.sort(key=lambda t: len(t["clearances"]))
     return techs
+
+
+@lru_cache(maxsize=1)
+def get_sample_classes(cache_bust):  # pylint: disable=unused-argument
+    """Fetch sample classes within the coupon amount for advertising in the welcome email"""
+    sample_classes = []
+    now = tznow()
+    until = tznow() + datetime.timedelta(days=10)
+    for e in search_upcoming_events(
+        from_date=now,
+        to_date=until,
+        extra_fields=[
+            "Event Registration Attendee Count",
+            "Event Capacity",
+            "Event Start Date",
+            "Event Start Time",
+        ],
+    ):
+        if e.get("Event Web Publish") != "Yes" or e.get("Event Web Register") != "Yes":
+            continue
+        capacity = int(e.get("Event Capacity"))
+        numreg = int(e.get("Event Registration Attendee Count"))
+        if capacity <= numreg:
+            continue
+        if not e.get("Event Start Date") or not e.get("Event Start Time"):
+            continue
+        d = dateparser.parse(
+            e["Event Start Date"] + " " + e["Event Start Time"]
+        ).astimezone(tz)
+        d = d.strftime("%b %-d, %-I%p")
+        sample_classes.append(
+            {
+                "url": f"https://protohaven.org/e/{e['Event ID']}",
+                "name": e["Event Name"],
+                "date": d,
+                "seats_left": capacity - numreg,
+            }
+        )
+        if len(sample_classes) >= 3:
+            break
+    return sample_classes
 
 
 class DuplicateRequestToken:  # pylint: disable=too-few-public-methods

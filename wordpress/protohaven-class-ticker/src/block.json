@@ -1,0 +1,27 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "create-block/protohaven-class-ticker",
+	"version": "0.1.0",
+	"title": "Protohaven Class Ticker",
+	"category": "widgets",
+	"icon": "smiley",
+	"description": "Show upcoming classes",
+	"example": {},
+	"supports": {
+    "color": {
+        "background": false,
+        "text": true
+    },
+    "html": false,
+    "typography": {
+        "fontSize": true
+    }
+	},
+	"textdomain": "protohaven-class-ticker",
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"render": "file:./render.php",
+	"viewScript": "file:./view.js"
+}
