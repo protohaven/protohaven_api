@@ -280,7 +280,7 @@ def test_template_rendering(template_name, kwargs):
     if gothash != wanthash:
         raise RuntimeError(
             f"Test output hash {gothash} does not match prior hash {wanthash}:\n"
-            "got[0]\ngot[1]\ngot[2]"
+            f"{got[0]}\n{got[1]}\n{got[2]}"
         )
     assert got[0] != got[1]  # Subject should never match body
 
