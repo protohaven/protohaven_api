@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
   import { Button, Row, Col, Card, Input, Progress, FormGroup } from '@sveltestrap/sveltestrap';
   import { onMount, onDestroy } from 'svelte';
   export let on_member;

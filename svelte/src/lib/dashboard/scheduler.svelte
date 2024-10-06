@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
   import { Row, Col, Button, Badge, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, Accordion, AccordionItem, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
   import Calendar from '$lib/dashboard/calendar.svelte';

@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 
 import {onMount} from 'svelte';
 import { Table, Button, Row, Col, Card, CardHeader, Alert, CardTitle, CardSubtitle, CardText, Icon, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem } from '@sveltestrap/sveltestrap';

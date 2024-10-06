@@ -20,9 +20,15 @@ def command(*parser_args):
             parsed_args = parser.parse_args(args[1])  # argv
             return func(args[0], parsed_args)
 
+        wrapper.is_command = True
         return wrapper
 
     return decorate
+
+
+def is_command(func):
+    """Check if @command is applied to a given method."""
+    return hasattr(func, "is_command")
 
 
 def arg(*args, **kwargs):
@@ -37,9 +43,14 @@ def load_yaml(path):
         return yaml.safe_load(f.read())
 
 
-def print_yaml(data):
-    """Prints yaml to stdout"""
+def dump_yaml(data):
+    """Dumps yaml to string"""
     if not isinstance(data, list):
         data = [data]
     data = [dict(d) for d in data]
-    print(yaml.dump(data, default_flow_style=False, default_style=""))
+    return yaml.dump(data, default_flow_style=False, default_style="")
+
+
+def print_yaml(data):
+    """Prints yaml to stdout"""
+    print(dump_yaml(data))

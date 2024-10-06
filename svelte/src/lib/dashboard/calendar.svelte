@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 import { onMount } from 'svelte';
 import {get, put, del, isodate, localtime, as_datetimelocal} from '$lib/api.ts';
 import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Popover, Input } from '@sveltestrap/sveltestrap';

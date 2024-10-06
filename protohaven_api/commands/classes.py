@@ -134,14 +134,21 @@ class Commands:
             help="path to schedule file",
             type=str,
             required=True,
-        )
+        ),
+        arg(
+            "--apply",
+            help="Actually append",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
     )
     def append_schedule(self, args):
         """Adds a schedule (created with `run_scheduler`) to Airtable for
         instructor confirmation."""
         sched = load_yaml(args.path)
         notifications = list(scheduler.gen_schedule_push_notifications(sched))
-        scheduler.push_schedule(sched)
+        if args.apply:
+            scheduler.push_schedule(sched)
         print_yaml(notifications)
 
     @command(

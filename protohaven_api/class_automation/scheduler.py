@@ -304,13 +304,16 @@ def push_schedule(sched, autoconfirm=False):
 
 def gen_schedule_push_notifications(sched):
     """Generate notifications for scheduling automation when done out of band of instructor"""
-    email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
-    for inst, classes in sched.items():
-        classes.sort(key=lambda c: c[2])
-        formatted = [format_class(f) for f in classes]
-        yield Msg.tmpl(
-            "schedule_push_notification",
-            title=inst.title(),
-            target=email_map[inst],
-            formatted=formatted,
-        )
+    if sched:
+        email_map = {
+            k.lower(): v for k, v in airtable.get_instructor_email_map().items()
+        }
+        for inst, classes in sched.items():
+            classes.sort(key=lambda c: c[2])
+            formatted = [format_class(f) for f in classes]
+            yield Msg.tmpl(
+                "schedule_push_notification",
+                title=inst.title(),
+                target=email_map[inst],
+                formatted=formatted,
+            )

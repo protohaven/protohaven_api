@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 	import { Row, Col, Card, Button, Spinner } from '@sveltestrap/sveltestrap';
   export let on_submit;
   export let checking;

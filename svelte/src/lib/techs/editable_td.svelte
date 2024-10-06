@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
   import { Col, Icon, Input, Button } from '@sveltestrap/sveltestrap';
 
   export let title;
