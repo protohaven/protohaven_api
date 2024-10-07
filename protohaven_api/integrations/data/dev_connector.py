@@ -1,4 +1,5 @@
 """Dev version of Connector class that operates on mock data"""
+
 import json
 import logging
 
@@ -24,7 +25,7 @@ class DevConnector(Connector):
         self.sent_comms = False
         log.warning("DevConnector in use; mutations will not reach production")
 
-    def neon_request(self, _, *args, **kwargs):
+    def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request, passing through to httplib2"""
         if len(args) > 1 and args[2] != "GET":
             self.mutated = True

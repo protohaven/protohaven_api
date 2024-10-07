@@ -1,4 +1,5 @@
 """Commands related to forwarding messages/applications from Asana and other locations"""
+
 import argparse
 import datetime
 import logging
@@ -273,7 +274,7 @@ class Commands:
 
     def _cur_shift(self, now):
         if now.hour < 10:  # Earlier than start of shift, so prev shift
-            return f"{now - datetime.timedelta(days=1).strftime('%A')} PM"
+            return f"{(now - datetime.timedelta(days=1)).strftime('%A')} PM"
         return f"{now.strftime('%A')} {'AM' if now.hour < 16 else 'PM'}"
 
     @command(

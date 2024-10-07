@@ -61,8 +61,7 @@ def fetch_published_upcoming_events(back_days=7):
             "GET",
         )
         total_pages = content["pagination"]["totalPages"]
-        for cls in content["events"]:
-            yield cls
+        yield from content["events"]
         current_page += 1
 
 
@@ -154,8 +153,7 @@ def fetch_memberships(account_id):
         if content["pagination"]["totalResults"] == 0:
             return  # basically an empty yield
         total_pages = content["pagination"]["totalPages"]
-        for a in content["memberships"]:
-            yield a
+        yield from content["memberships"]
         current_page += 1
 
 
@@ -177,8 +175,7 @@ def fetch_attendees(event_id):
             return  # basically an empty yield
         total_pages = content["pagination"]["totalPages"]
         log.debug(content)
-        for a in content["attendees"]:
-            yield a
+        yield from content["attendees"]
         current_page += 1
 
 
@@ -406,8 +403,7 @@ def _paginated_search(data, typ="accounts"):
         total = content["pagination"]["totalPages"]
         cur += 1
         data["pagination"]["currentPage"] = cur
-        for r in content["searchResults"]:
-            yield r
+        yield from content["searchResults"]
 
 
 def get_active_members(extra_fields):

@@ -5,7 +5,6 @@ import re
 
 import yaml
 
-from protohaven_api.cli import ProtohavenCLI
 from protohaven_api.config import tz
 
 
@@ -54,9 +53,11 @@ def idfn(tc):
     return tc.desc
 
 
-def mkcli(capsys, C):
+def mkcli(capsys, module):
+    """Invoke CLI, read stdout, and return yaml-ized result text."""
+
     def run(cmd: str, args: list, parse_yaml=True):
-        getattr(C.Commands(), cmd)(args)
+        getattr(module.Commands(), cmd)(args)
         captured = capsys.readouterr()
         return yaml.safe_load(captured.out) if parse_yaml else captured.out.strip()
 

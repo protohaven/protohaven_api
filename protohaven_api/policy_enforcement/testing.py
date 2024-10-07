@@ -1,8 +1,8 @@
 """Helpers for testing policy enforcement methods"""
+
 import datetime
 
 from protohaven_api.config import tz
-from protohaven_api.testing import Any
 
 now = datetime.datetime.now().astimezone(tz)
 

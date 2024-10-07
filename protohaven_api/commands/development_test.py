@@ -1,3 +1,5 @@
+"""Tests for development CLI commands"""
+
 import pickle
 
 from protohaven_api.commands import development as dev
@@ -5,6 +7,7 @@ from protohaven_api.testing import d
 
 
 def test_gen_mock_data(mocker, tmp_path):
+    """Test `gen_mock_data` command"""
     for n in (
         "fetch_events",
         "fetch_attendees",

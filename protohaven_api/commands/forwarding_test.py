@@ -1,15 +1,16 @@
 """Test of fowarding CLI commands"""
+
 from collections import namedtuple
 
 import pytest
-import yaml
 
 from protohaven_api.commands import forwarding as F
 from protohaven_api.testing import MatchStr, d, idfn, mkcli, t
 
 
-@pytest.fixture
-def cli(capsys):
+@pytest.fixture(name="cli")
+def fixture_cli(capsys):
+    """Create cli() test function"""
     return mkcli(capsys, F)
 
 
@@ -64,6 +65,7 @@ def test_tech_sign_ins(mocker, tc, cli):
 
 
 def test_project_requests(mocker, cli):
+    """Test behavior of the `project_requests` CLI command"""
     mocker.patch.object(
         F.tasks,
         "get_project_requests",
@@ -71,7 +73,10 @@ def test_project_requests(mocker, cli):
             {
                 "gid": "123",
                 "name": "Foo",
-                "notes": f"Project Description:\\nTest Desc\\nMaterials Budget: $5\\nDeadline for Project Completion:\\n{d(1).isoformat()}\\n",
+                "notes": (
+                    f"Project Description:\\nTest Desc\\nMaterials Budget: $5\\n"
+                    f"Deadline for Project Completion:\\n{d(1).isoformat()}\\n"
+                ),
             }
         ],
     )
@@ -84,10 +89,11 @@ def test_project_requests(mocker, cli):
             "target": "#help-wanted",
         }
     ]
-    F.tasks.complete.assert_called_with("123")
+    F.tasks.complete.assert_called_with("123")  # pylint: disable=no-member
 
 
 def test_shop_tech_applications(mocker, cli):
+    """Test `shop_tech_applications` cmd"""
     mocker.patch.object(
         F.tasks,
         "get_shop_tech_applicants",
@@ -108,6 +114,7 @@ def test_shop_tech_applications(mocker, cli):
 
 
 def test_instructor_applications(mocker, cli):
+    """Test `instructor_applications` cmd"""
     mocker.patch.object(
         F.tasks,
         "get_instructor_applicants",
@@ -128,6 +135,7 @@ def test_instructor_applications(mocker, cli):
 
 
 def test_class_proposals(mocker, cli):
+    """Test `class_proposals` cmd"""
     mocker.patch.object(
         F.airtable,
         "get_all_class_templates",
@@ -147,6 +155,7 @@ def test_class_proposals(mocker, cli):
 
 
 def test_private_instruction_email(mocker, cli):
+    """Test `private_instruction` sends to email"""
     mocker.patch.object(
         F.tasks,
         "get_private_instruction_requests",
@@ -155,7 +164,10 @@ def test_private_instruction_email(mocker, cli):
                 "gid": "123",
                 "name": "Foo",
                 "created_at": d(0).isoformat(),
-                "notes": "Name:\nFoo\nDetails:\ntest details\nAvailability:\nwhenever\nEmail:\na@b.com\n———————Footer to ignore",
+                "notes": (
+                    "Name:\nFoo\nDetails:\ntest details\nAvailability:"
+                    "\nwhenever\nEmail:\na@b.com\n———————Footer to ignore"
+                ),
             }
         ],
     )
@@ -171,6 +183,7 @@ def test_private_instruction_email(mocker, cli):
 
 
 def test_private_instruction_daily(mocker, cli):
+    """Test daily run of private instruction sends to discord"""
     mocker.patch.object(
         F.tasks,
         "get_private_instruction_requests",
@@ -179,7 +192,10 @@ def test_private_instruction_daily(mocker, cli):
                 "gid": "123",
                 "name": "Foo",
                 "created_at": d(0).isoformat(),
-                "notes": "Name:\nFoo\nDetails:\ntest details\nAvailability:\nwhenever\nEmail:\na@b.com\n———————Footer to ignore",
+                "notes": (
+                    "Name:\nFoo\nDetails:\ntest details\nAvailability:\nwhenever\n"
+                    "Email:\na@b.com\n———————Footer to ignore"
+                ),
             }
         ],
     )
@@ -194,6 +210,7 @@ def test_private_instruction_daily(mocker, cli):
 
 
 def test_phone_messages(mocker, cli):
+    """Test `phone_messages` cli command"""
     mocker.patch.object(
         F.tasks,
         "get_phone_messages",
@@ -206,7 +223,7 @@ def test_phone_messages(mocker, cli):
             }
         ],
     )
-    mocker.patch.object(F.tasks, "complete")
+    mocker.patch.object(F.tasks, "complete", return_value=None)
     assert cli("phone_messages", ["--apply"]) == [
         {
             "body": MatchStr("test notes"),
@@ -214,10 +231,11 @@ def test_phone_messages(mocker, cli):
             "target": "hello@protohaven.org",
         }
     ]
-    F.tasks.complete.assert_called_with("123")
+    F.tasks.complete.assert_called_with("123")  # pylint: disable=no-member
 
 
 def test_purchase_request_alerts(mocker, cli):
+    """Test `purchase_request_alerts` cli command"""
     mocker.patch.object(
         F.tasks,
         "get_open_purchase_requests",
@@ -233,7 +251,8 @@ def test_purchase_request_alerts(mocker, cli):
         ],
     )
     mocker.patch.object(F, "tznow", return_value=d(14))
-    mocker.patch.object(F.tasks, "complete")
-    mocker.patch.object(F.comms, "send_board_message")
+    mocker.patch.object(F.comms, "send_board_message", return_value=None)
     cli("purchase_request_alerts", [])
-    F.comms.send_board_message.assert_called_with(MatchStr("Foo"))
+    F.comms.send_board_message.assert_called_with(  # pylint: disable=no-member
+        MatchStr("Foo")
+    )

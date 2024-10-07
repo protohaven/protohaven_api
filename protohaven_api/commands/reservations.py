@@ -1,4 +1,5 @@
 """Commands related to reserving equipment and the Booked reservation system"""
+
 import argparse
 import datetime
 import logging
@@ -125,6 +126,7 @@ class Commands:
         command in commands/classes.py"""
         # Convert areas to booked IDs using tool table
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
+            cid = None
             for cid in results:
                 for a in row["fields"]["Name (from Shop Area)"]:
                     if a in results[cid]["areas"] and row["fields"].get(

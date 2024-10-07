@@ -211,15 +211,3 @@ def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None
             str(section_gid), {"body": {"data": {"task": task_gid}}}
         )
     return task_gid
-
-
-if __name__ == "__main__":
-    # for task in get_open_purchase_requests():
-    #    print(task)
-    #    break
-    #
-    from protohaven_api.integrations.data.connector import init as init_connector
-
-    init_connector(dev=False)
-    for n, _ in get_shop_tech_maintenance_section_map().items():
-        print(n)

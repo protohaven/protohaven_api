@@ -3,7 +3,15 @@
 from dateutil import parser as dateparser
 
 from protohaven_api.policy_enforcement import enforcer
-from protohaven_api.policy_enforcement.testing import *  # pylint: disable=unused-wildcard-import,wildcard-import
+from protohaven_api.policy_enforcement.testing import (
+    TESTFEE,
+    TESTMEMBER,
+    dt,
+    now,
+    suspension,
+    violation,
+)
+from protohaven_api.testing import Any
 
 
 def test_gen_fees_closed_violation_subday():

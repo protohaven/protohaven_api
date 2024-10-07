@@ -1,4 +1,5 @@
 """Collect various blueprints and start the flask server - also the discord bot"""
+
 import logging
 
 from flask import Flask  # pylint: disable=import-error

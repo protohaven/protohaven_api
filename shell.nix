@@ -44,11 +44,17 @@ in let
 in pkgs.mkShell {
   packages = [
     (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+        # Devtools
         pip
         pytest
         pytest-cov
         pytest-xdist
         pylint
+        black
+        isort
+        pytest-mock
+
+        # Runtime requirements
         python-dateutil
         jinja2
         pyyaml
@@ -65,7 +71,6 @@ in pkgs.mkShell {
         holidays
         markdown
         openai
-        pytest-mock
 
         # Square & deps
         squareup
