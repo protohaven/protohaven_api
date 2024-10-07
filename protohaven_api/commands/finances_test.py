@@ -8,7 +8,7 @@ import yaml
 from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-from protohaven_api.testing import d, mkcli
+from protohaven_api.testing import d, mkcli, Any
 
 
 @pytest.fixture
@@ -50,13 +50,13 @@ def test_transaction_alerts_ok(mocker, cli):
 def test_validate_memberships_empty(mocker):
     """Empty search shoud pass by default"""
     mocker.patch.object(neon, "search_member", return_value=[])
-    got = C()._validate_memberships_internal()
+    got = f.Commands()._validate_memberships_internal()
     assert not got
 
 
 def test_validate_membership_amp_ok():
     """Amp member should pass validation if they are marked appropriately for their term"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "AMP",
             "term": "Extremely Low Income",
@@ -70,7 +70,7 @@ def test_validate_membership_amp_ok():
 
 def test_validate_multi_membership_bad():
     """All memberships should have an end date"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "General Membership",
             "active_memberships": [
@@ -85,7 +85,7 @@ def test_validate_multi_membership_bad():
 
 def test_validate_multi_membership_future_start_date_ok():
     """All memberships should have an end date"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "General Membership",
             "active_memberships": [
@@ -105,7 +105,7 @@ def test_validate_multi_membership_future_start_date_ok():
 
 def test_validate_multi_membership_refunded_ok():
     """All memberships should have an end date"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "General Membership",
             "active_memberships": [
@@ -125,7 +125,7 @@ def test_validate_multi_membership_refunded_ok():
 
 def test_validate_membership_no_end_date_bad():
     """All memberships should have an end date"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "General Membership",
             "active_memberships": [{"fee": 1, "level": "General Membership"}],
@@ -137,7 +137,7 @@ def test_validate_membership_no_end_date_bad():
 def test_validate_membership_zero_cost_roles_ok():
     """Various roles that are $0 memberships should validate OK"""
     for l in ["Shop Tech", "Board Member", "Staff"]:
-        got = C()._validate_membership_singleton(
+        got = f.Commands()._validate_membership_singleton(
             {
                 "level": l,
                 "roles": [l],
@@ -150,7 +150,7 @@ def test_validate_membership_zero_cost_roles_ok():
 
 def test_validate_membership_general_zero_cost_bad():
     """General membership should always cost money, unless explicitly marked"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "General Membership",
             "active_memberships": [
@@ -162,7 +162,7 @@ def test_validate_membership_general_zero_cost_bad():
     )
     assert got == ["Abnormal zero-cost membership General Membership"]
 
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "General Membership",
             "active_memberships": [
@@ -177,7 +177,7 @@ def test_validate_membership_general_zero_cost_bad():
 
 def test_validate_membership_instructor_ok():
     """Instructor should validate when role is applied"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "Instructor",
             "roles": ["Instructor"],
@@ -190,7 +190,7 @@ def test_validate_membership_instructor_ok():
 
 def test_validate_membership_instructor_no_role():
     """Raise validation error for instructor without role"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "level": "Instructor",
             "roles": [],
@@ -203,7 +203,7 @@ def test_validate_membership_instructor_no_role():
 
 def test_validate_membership_addl_family_ok():
     """Conforming additional family member"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "hid": "123",
             "household_paying_member_count": 1,
@@ -218,7 +218,7 @@ def test_validate_membership_addl_family_ok():
 
 def test_validate_membership_addl_family_no_fullprice_bad():
     """Addl membership without a paid membership in the household is a no-no"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "hid": "123",
             "household_paying_member_count": 0,
@@ -233,7 +233,7 @@ def test_validate_membership_addl_family_no_fullprice_bad():
 
 def test_validate_membership_employer_ok():
     """Corporate memberships with two members are OK"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "company_member_count": 2,
             "level": "Corporate Membership",
@@ -246,7 +246,7 @@ def test_validate_membership_employer_ok():
 
 def test_validate_membership_employer_too_few_bad():
     """Singleton corporate memberships fail validation"""
-    got = C()._validate_membership_singleton(
+    got = f.Commands()._validate_membership_singleton(
         {
             "cid": "123",
             "company_member_count": 1,
@@ -260,9 +260,9 @@ def test_validate_membership_employer_too_few_bad():
 
 def test_generate_coupon_id():
     """Test that coupons are generated uniquely"""
-    got = C()._generate_coupon_id(n=10)
+    got = f.Commands()._generate_coupon_id(n=10)
     assert len(got) == 10
-    assert C()._generate_coupon_id(n=10) != got
+    assert f.Commands()._generate_coupon_id(n=10) != got
 
 
 def test_get_sample_classes(mocker):
@@ -292,9 +292,9 @@ def test_get_sample_classes(mocker):
         ],
     )
     mocker.patch.object(
-        C, "_event_is_suggestible", side_effect=[(True, 5), (True, 1), (False, 0)]
+        f.Commands, "_event_is_suggestible", side_effect=[(True, 5), (True, 1), (False, 0)]
     )
-    result = C()._get_sample_classes(10)
+    result = f.Commands()._get_sample_classes(10)
     assert result == [
         "Tuesday Oct 10, 10AM: Class 1, https://protohaven.org/e/1",
         "Wednesday Oct 11, 11AM: Class 2, https://protohaven.org/e/2 (1 seat left!)",
@@ -314,9 +314,9 @@ def test_init_membership(mocker):
         "update_account_automation_run_status",
         return_value=mocker.Mock(status_code=200),
     )
-    mocker.patch.object(C, "_get_sample_classes", return_value=["class1", "class2"])
+    mocker.patch.object(f.Commands, "_get_sample_classes", return_value=["class1", "class2"])
     # Test with coupon_amount > 0
-    msg = C()._init_membership("123", "John Doe", 50, apply=True)
+    msg = f.Commands()._init_membership("123", "John Doe", 50, apply=True)
     assert msg.subject == "John Doe: your first class is on us!"
     assert "class1" in msg.body
 
@@ -334,9 +334,9 @@ def test_init_membership_no_classes(mocker):
         "update_account_automation_run_status",
         return_value=mocker.Mock(status_code=200),
     )
-    mocker.patch.object(C, "_get_sample_classes", return_value=[])
+    mocker.patch.object(f.Commands, "_get_sample_classes", return_value=[])
     # Test with coupon_amount > 0
-    msg = C()._init_membership("123", "John Doe", 50, apply=True)
+    msg = f.Commands()._init_membership("123", "John Doe", 50, apply=True)
     assert msg.subject == "John Doe: your first class is on us!"
     assert "Here's a couple basic classes" not in msg.body
 
@@ -349,7 +349,7 @@ def test_event_is_suggestible(mocker):
         {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
     ]
     mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
-    result, number_remaining = C()._event_is_suggestible(123, max_price)
+    result, number_remaining = f.Commands()._event_is_suggestible(123, max_price)
     assert result is True
     assert number_remaining == 5
 
@@ -361,16 +361,25 @@ def test_event_is_suggestible_price_too_high(mocker):
         {"name": "Single Registration", "fee": 50, "numberRemaining": 3},
     ]
     mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
-    result, _ = C()._event_is_suggestible(123, max_price)
+    result, _ = f.Commands()._event_is_suggestible(123, max_price)
     assert result is False
 
 
 def test_init_new_memberships(mocker, cli):
     """Test init_new_memberships"""
-    mocker.patch.object(neon, "get_new_members_needing_setup", return_value={})
+    mocker.patch.object(neon, "get_new_members_needing_setup", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
     assert not got
 
 
-def test_init_new_memberships_simple():
-    raise NotImplementedError()
+def test_init_new_memberships_simple(mocker, cli):
+    mocker.patch.object(neon, "get_new_members_needing_setup", return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}])
+    mocker.patch.object(neon, "create_coupon_code", return_value=mocker.MagicMock(status_code=200))
+    mocker.patch.object(neon, "set_membership_start_date", return_value=mocker.MagicMock(status_code=200))
+    mocker.patch.object(neon, "update_account_automation_run_status", return_value=mocker.MagicMock(status_code=200))
+    mocker.patch.object(f.Commands, "_get_sample_classes", return_value=[])
+    got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
+    neon.set_membership_start_date.assert_called_with("123", Any())
+    neon.create_coupon_code.assert_called_with(Any(), 102)
+    neon.update_account_automation_run_status.assert_called_with("123", "deferred")
+

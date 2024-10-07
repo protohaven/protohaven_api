@@ -2,6 +2,7 @@
 # pylint: skip-file
 import datetime
 from collections import namedtuple
+from unittest.mock import call
 
 import pytest
 
@@ -113,8 +114,8 @@ def test_append_schedule_apply(cli, mocker, testfile):
 
 def test_cancel_classes(cli, mocker):
     eb = mocker.patch.object(C.neon, "set_event_scheduled_state")
-    cli("cancel_classes", ["--id", "1,2,3"])
-    C.scheduler.push_schedule.assert_called_with("test")
+    cli("cancel_classes", ["--id", "1", "2"])
+    C.neon.set_event_scheduled_state.assert_has_calls([call("1", scheduled=False), call("2", scheduled=False)])
 
 
 def testcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
