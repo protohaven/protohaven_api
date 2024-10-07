@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 	export let error;
 	export let nohelp;
 	import {Alert} from '@sveltestrap/sveltestrap';

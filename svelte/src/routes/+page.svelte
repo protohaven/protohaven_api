@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
   import '../app.scss';
   import { onMount } from 'svelte';
   import {base_ws, get, post, open_ws} from '$lib/api.ts';

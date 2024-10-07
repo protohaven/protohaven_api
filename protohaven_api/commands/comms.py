@@ -23,18 +23,18 @@ class Commands:  # pylint: disable=too-few-public-methods
     Note that this does perform side effects e.g. cancelling a class
     """
 
-    def _handle_comms_event(self, e, dryrun=True):
+    def _handle_comms_event(self, e, apply):
         """Handle a single entry in a comms YAML file"""
         for k, v in e.get("side_effect", {}).items():
             if k.lower().strip() == "cancel":
                 log.info(f"Cancelling #{v}")
-                if not dryrun:
+                if apply:
                     neon.set_event_scheduled_state(str(v), scheduled=False)
 
         target = None
         if e["target"][0] in ("#", "@"):  # channels or users
             content = f"{e['subject']}\n\n{e['body']}"
-            if dryrun:
+            if not apply:
                 log.info(f"DRY RUN to discord {e['target']}")
                 log.info(content)
             else:
@@ -52,7 +52,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 for e in emails
             ]
 
-            if dryrun:
+            if not apply:
                 log.info(f"\nDRY RUN to {', '.join(emails)}")
                 log.info(f"Subject: {e['subject']}")
                 log.info(e["body"])
@@ -64,7 +64,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.info(f"Sent to {target}: '{e['subject']}'")
 
         intents = e.get("intents")
-        if intents and not dryrun:
+        if intents and apply:
             airtable.log_intents_notified(intents)
             log.info(f"Intents updated in airtable: {intents}")
         if target:  # Only set when not dry run
@@ -99,10 +99,10 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=False,
         ),
         arg(
-            "--dryrun",
-            help="just print them, don't send them",
+            "--apply",
+            help="Actually send; prints otherwise",
             action=argparse.BooleanOptionalAction,
-            default=False,
+            default=True,
         ),
     )
     def send_comms(self, args):
@@ -126,12 +126,12 @@ class Commands:  # pylint: disable=too-few-public-methods
             )
             confstr += " with side effects"
 
-        if not args.dryrun and not args.confirm:
+        if args.apply and not args.confirm:
             confirm = input(f'Please type "{confstr}" to continue: ')
             if confirm != confstr:
                 log.error("Confirmation string does not match; exiting")
                 sys.exit(1)
 
         for e in data:
-            self._handle_comms_event(e, args.dryrun)
+            self._handle_comms_event(e, args.apply)
         log.info("Done")

@@ -95,7 +95,6 @@ def get_member_channels():
 
 def get_channel_history(channel_id, from_date, to_date, max_length=10000):
     """Get a list of messages from a channel between two dates"""
-    for result in get_connector().discord_bot_genfn(
+    yield from get_connector().discord_bot_genfn(
         "get_channel_history", channel_id, from_date, to_date, max_length
-    ):
-        yield result
+    )

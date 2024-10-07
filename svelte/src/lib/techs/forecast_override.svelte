@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 
 import { Modal, ModalBody, ModalFooter, Button, ListGroup, ListGroupItem, Input, Spinner } from '@sveltestrap/sveltestrap';
 import {get, post, del} from '$lib/api.ts';

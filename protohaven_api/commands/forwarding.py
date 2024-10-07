@@ -1,9 +1,10 @@
 """Commands related to forwarding messages/applications from Asana and other locations"""
+
 import argparse
+import datetime
 import logging
 import re
 from collections import defaultdict
-from datetime import datetime
 
 from dateutil import parser as dateparser
 
@@ -51,7 +52,7 @@ class Commands:
         num = 0
         results = []
         for req in tasks.get_project_requests():
-            if req["completed"]:
+            if req.get("completed"):
                 continue
             req["notes"] = req["notes"].replace("\\n", "\n")
             deadline = completion_re.search(req["notes"])
@@ -201,7 +202,7 @@ class Commands:
         num = 0
         now = tznow()
         for req in tasks.get_private_instruction_requests():
-            if req["completed"]:
+            if req.get("completed"):
                 continue
             dt, fmt = self._format_private_instruction_request_task(req, now)
             formatted.append(fmt)
@@ -252,7 +253,7 @@ class Commands:
         num = 0
         results = []
         for req in tasks.get_phone_messages():
-            if req["completed"]:
+            if req.get("completed"):
                 continue
             results.append(
                 Msg.tmpl(
@@ -273,7 +274,7 @@ class Commands:
 
     def _cur_shift(self, now):
         if now.hour < 10:  # Earlier than start of shift, so prev shift
-            return f"{now - datetime.timedelta(days=1).strftime('%A')} PM"
+            return f"{(now - datetime.timedelta(days=1)).strftime('%A')} PM"
         return f"{now.strftime('%A')} {'AM' if now.hour < 16 else 'PM'}"
 
     @command(
@@ -368,6 +369,10 @@ class Commands:
             thresh = now - datetime.timedelta(days=thresholds[t["category"]])
             if t["created_at"] < thresh and t["modified_at"] < thresh:
                 sections[t["category"]].append(format_request(t))
+            else:
+                log.info(
+                    f"Task mod date at {thresh}; under threshold {thresholds[t['category']]}"
+                )
 
         # Sort oldest to youngest, by section
         for k, v in sections.items():

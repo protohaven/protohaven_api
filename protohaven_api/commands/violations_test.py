@@ -3,7 +3,7 @@ from protohaven_api.commands import violations as v
 from protohaven_api.policy_enforcement import enforcer as e
 
 
-def test_no_violations_no_output(mocker, capsys):
+def test_enforce_policies_no_output(mocker, capsys):
     """Confirm that when there are no violations, we send no notifications"""
     mocker.patch.object(v.airtable, "get_policy_violations", return_value=[])
     mocker.patch.object(v.airtable, "get_policy_fees", return_value=[])

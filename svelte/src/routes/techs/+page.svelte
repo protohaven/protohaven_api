@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
   import '../../app.scss';
   import FetchError from '$lib/fetch_error.svelte';
   import { Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';

@@ -1,4 +1,5 @@
-<script type="ts">
+<script type="typescript">
+
   import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody, CardFooter, Spinner } from '@sveltestrap/sveltestrap';
   import { post } from '$lib/api.ts';
   import FetchError from '$lib/fetch_error.svelte';

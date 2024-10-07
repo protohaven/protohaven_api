@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 
   import '../../app.scss';
   import {get, post} from '$lib/api.ts';

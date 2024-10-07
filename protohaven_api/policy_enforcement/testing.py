@@ -1,17 +1,10 @@
 """Helpers for testing policy enforcement methods"""
+
 import datetime
 
 from protohaven_api.config import tz
 
 now = datetime.datetime.now().astimezone(tz)
-
-
-class Any:  # pylint: disable=too-few-public-methods
-    """Matches any value - used for placeholder matching in asserts"""
-
-    def __eq__(self, other):
-        """Check for equality - always true"""
-        return True
 
 
 TESTFEE = 5

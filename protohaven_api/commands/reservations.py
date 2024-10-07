@@ -1,4 +1,5 @@
 """Commands related to reserving equipment and the Booked reservation system"""
+
 import argparse
 import datetime
 import logging
@@ -10,6 +11,17 @@ from protohaven_api.config import tz  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, booked  # pylint: disable=import-error
 
 log = logging.getLogger("cli.reservation")
+
+
+def reservation_dict_from_record(event):
+    """Like reservation_dict(), but from an airtable record"""
+    return reservation_dict(
+        event["fields"]["Name (from Area) (from Class)"],
+        event["fields"]["Name (from Class)"],
+        event["fields"]["Start Time"],
+        event["fields"]["Days (from Class)"][0],
+        event["fields"]["Hours (from Class)"][0],
+    )
 
 
 def reservation_dict(areas, name, start, days, hours):
@@ -114,6 +126,7 @@ class Commands:
         command in commands/classes.py"""
         # Convert areas to booked IDs using tool table
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
+            cid = None
             for cid in results:
                 for a in row["fields"]["Name (from Shop Area)"]:
                     if a in results[cid]["areas"] and row["fields"].get(
@@ -126,6 +139,9 @@ class Commands:
                             )
                         )
                         break
+            log.info(
+                f"Found {len(results[cid]['resources'])} resources for class {cid}"
+            )
 
         for cid in results:
             log.info(f"Class {results[cid]['name']} (#{cid}):")

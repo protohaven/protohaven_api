@@ -1,8 +1,30 @@
 """Helpers for testing code"""
 
 import datetime
+import re
+
+import yaml
 
 from protohaven_api.config import tz
+
+
+class Any:  # pylint: disable=too-few-public-methods
+    """Matches any value - used for placeholder matching in asserts"""
+
+    def __eq__(self, other):
+        """Check for equality - always true"""
+        return True
+
+
+class MatchStr:  # pylint: disable=too-few-public-methods
+    """Matchstr("foo") == "asdf foo bar", etc."""
+
+    def __init__(self, r):
+        self.r = r
+
+    def __eq__(self, other):
+        """Check for equality - true if string matches regex"""
+        return re.search(self.r, other) is not None
 
 
 def d(i, h=0):
@@ -29,3 +51,14 @@ def t(hour, weekday=0):
 def idfn(tc):
     """Extract description from named tuple for parameterization"""
     return tc.desc
+
+
+def mkcli(capsys, module):
+    """Invoke CLI, read stdout, and return yaml-ized result text."""
+
+    def run(cmd: str, args: list, parse_yaml=True):
+        getattr(module.Commands(), cmd)(args)
+        captured = capsys.readouterr()
+        return yaml.safe_load(captured.out) if parse_yaml else captured.out.strip()
+
+    return run

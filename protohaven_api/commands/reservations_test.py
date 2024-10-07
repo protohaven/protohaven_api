@@ -1,8 +1,16 @@
 # pylint: skip-file
 """Test reservation commands"""
+import datetime
+
 import pytest
 
 from protohaven_api.commands import reservations as r
+from protohaven_api.testing import d, mkcli
+
+
+@pytest.fixture
+def cli(capsys):
+    return mkcli(capsys, r)
 
 
 def test_command_decorator():
@@ -108,10 +116,77 @@ def test_sync_reservable_tools_diff(mocker):
     )
 
 
-def test_reserve_equipment_for_class(mocker):
-    mocker.patch.object(r, "airtable")
-    mocker.patch.object(r, "booked")
+def test_reserve_equipment_for_class(mocker, cli):
+    mocker.patch.object(
+        r.airtable,
+        "get_class_automation_schedule",
+        return_value=[
+            {
+                "fields": {
+                    "ID": 123,
+                    "Name (from Area) (from Class)": ["a1"],
+                    "Name (from Class)": "Test Class",
+                    "Days (from Class)": [1],
+                    "Hours (from Class)": [3],
+                    "Start Time": d(0).isoformat(),
+                },
+            }
+        ],
+    )
+    mocker.patch.object(
+        r.airtable,
+        "get_all_records",
+        return_value=[
+            {
+                "fields": {
+                    "Name (from Shop Area)": ["a1"],
+                    "Tool Name": "t1",
+                    "BookedResourceId": "1",
+                }
+            }
+        ],
+    )
+    mocker.patch.object(r.booked, "reserve_resource")
+    cli("reserve_equipment_for_class", ["--cls", "123", "--apply"])
+    r.booked.reserve_resource.assert_called_with(
+        "1", d(0), d(0) + datetime.timedelta(hours=3), title="Test Class"
+    )
 
-    r.Commands().reserve_equipment_for_class(["--cls=12345", "--apply"])
 
-    pytest.skip("todo")
+def test_reserve_equipment_from_template(mocker, cli):
+    mocker.patch.object(
+        r.airtable,
+        "get_all_class_templates",
+        return_value=[
+            {
+                "fields": {
+                    "ID": 123,
+                    "Name (from Area)": ["a1"],
+                    "Name": "Test Class",
+                    "Days": 1,
+                    "Hours": 3,
+                }
+            }
+        ],
+    )
+    mocker.patch.object(
+        r.airtable,
+        "get_all_records",
+        return_value=[
+            {
+                "fields": {
+                    "Name (from Shop Area)": ["a1"],
+                    "Tool Name": "t1",
+                    "BookedResourceId": "1",
+                }
+            }
+        ],
+    )
+    mocker.patch.object(r.booked, "reserve_resource")
+    cli(
+        "reserve_equipment_from_template",
+        ["--cls", "123", "--start", d(0).isoformat(), "--apply"],
+    )
+    r.booked.reserve_resource.assert_called_with(
+        "1", d(0), d(0) + datetime.timedelta(hours=3), title="Test Class"
+    )

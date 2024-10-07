@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
 import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
 import { isodate, parse_8601_basic, isodatetime } from '$lib/api.ts';
 

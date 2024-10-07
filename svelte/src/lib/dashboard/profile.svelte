@@ -1,4 +1,4 @@
-<script type="ts">
+<script type="typescript">
   import { Button, Icon, Image, Card, CardHeader, CardTitle, CardSubtitle, CardText, CardBody, CardFooter, Spinner, ListGroup, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';

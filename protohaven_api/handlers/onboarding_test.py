@@ -24,7 +24,7 @@ def test_onboarding_role_assignment_get(client):
 
 
 def test_onboarding_role_assignment_post(client, mocker):
-    mocker.patch.object(onboarding.neon, "patch_member_role")
+    mocker.patch.object(onboarding.neon, "patch_member_role", return_value=None)
     result = client.post(
         "/onboarding/role_assignment",
         json={

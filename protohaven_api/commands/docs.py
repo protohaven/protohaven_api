@@ -1,4 +1,5 @@
 """Commands related to documentation"""
+
 import logging
 
 from protohaven_api.commands.decorator import command, print_yaml

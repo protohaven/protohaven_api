@@ -18,12 +18,12 @@ class Commands:  # pylint: disable=too-few-public-methods
     def _sanitize_account(self, row):
         """Remove sensitive demographic, financial, location and non-email contact information"""
         acc = row.get("individualAccount", None)
-        if not acc:
+        if acc is None:
             acc = row["companyAccount"]
         acc["accountCustomFields"] = [
             a
-            for a in acc["accountCustomFields"]
-            if a["name"]
+            for a in acc.get("accountCustomFields", [])
+            if a.get("name")
             not in (
                 "Accessibility Demographics",
                 "Identity Demographics",
@@ -33,11 +33,10 @@ class Commands:  # pylint: disable=too-few-public-methods
                 "Income Based Rate",
             )
         ]
-
-        acc["primaryContact"]["addresses"] = []
-        acc["primaryContact"]["phone1"] = ""
-        acc["primaryContact"]["phone2"] = ""
-        acc["primaryContact"]["phone3"] = ""
+        if acc.get("primaryContact"):
+            acc["primaryContact"].update(
+                {"addresses": [], "phone1": "", "phone2": "", "phone3": ""}
+            )
         acc["generosityIndicator"] = None
         return row
 

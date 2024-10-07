@@ -17,14 +17,16 @@ from protohaven_api.commands import (
     violations,
 )
 from protohaven_api.config import get_config
+from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
+from protohaven_api.integrations.data.dev_connector import DevConnector
 
 cfg = get_config()
 logging.basicConfig(level=cfg["general"]["log_level"].upper())
 log = logging.getLogger("cli")
 server_mode = cfg["general"]["server_mode"].lower()
 log.info(f"Mode is {server_mode}\n")
-init_connector(dev=server_mode != "prod")
+init_connector(Connector if server_mode == "prod" else DevConnector)
 
 run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"
 if run_discord_bot:
@@ -55,18 +57,20 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
 ):
     """argparser-based CLI for protohaven operations"""
 
-    def __init__(self):
-        helptext = "\n".join(
-            [
-                f"{a}: {getattr(self, a).__doc__}"
-                for a in dir(self)
-                if not a.startswith("_")
-            ]
-        )
+    def __init__(self, args=sys.argv[1:2]):
+        def fmt_usage():
+            return "\n".join(
+                [
+                    f"{a}: {getattr(self, a).__doc__}"
+                    for a in dir(self)
+                    if not a.startswith("_")
+                ]
+            )
+
         parser = argparse.ArgumentParser(
             description="Protohaven CLI",
-            usage=f"{sys.argv[0]} <command> [<args>]\n\n{helptext}\n\n\n",
         )
+        parser.format_usage = fmt_usage
         parser.add_argument("command", help="Subcommand to run")
         args = parser.parse_args(sys.argv[1:2])  # Limit to only initial command args
         if not hasattr(self, args.command):
@@ -77,4 +81,5 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
         )  # Ignore first two argvs - already parsed
 
 
-ProtohavenCLI()
+if __name__ == "__main__":
+    ProtohavenCLI()
