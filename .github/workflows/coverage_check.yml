@@ -23,10 +23,10 @@ jobs:
     - name: Checkout base branch
       run: git checkout $BASE_BRANCH
     - name: Run tests with coverage on the base branch
-      run: pytest --cov=my_package --cov-report=json:base_coverage.json
+      run: TZ=US/Eastern python -m pytest --cov=my_package --cov-report=json:base_coverage.json
     - name: Checkout current branch
       run: git checkout $GITHUB_HEAD_REF
     - name: Run tests with coverage on current branch
-      run: pytest --cov=my_package --cov-report=json:current_coverage.json
+      run: TZ=US/Eastern python -m pytest --cov=my_package --cov-report=json:current_coverage.json
     - name: Compare coverage
       run: python compare_coverage.py
