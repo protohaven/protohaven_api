@@ -57,18 +57,20 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
 ):
     """argparser-based CLI for protohaven operations"""
 
-    def __init__(self):
-        helptext = "\n".join(
-            [
-                f"{a}: {getattr(self, a).__doc__}"
-                for a in dir(self)
-                if not a.startswith("_")
-            ]
-        )
+    def __init__(self, args=sys.argv[1:2]):
+        def fmt_usage():
+            return "\n".join(
+                [
+                    f"{a}: {getattr(self, a).__doc__}"
+                    for a in dir(self)
+                    if not a.startswith("_")
+                ]
+            )
+
         parser = argparse.ArgumentParser(
             description="Protohaven CLI",
-            usage=f"{sys.argv[0]} <command> [<args>]\n\n{helptext}\n\n\n",
         )
+        parser.format_usage = fmt_usage
         parser.add_argument("command", help="Subcommand to run")
         args = parser.parse_args(sys.argv[1:2])  # Limit to only initial command args
         if not hasattr(self, args.command):

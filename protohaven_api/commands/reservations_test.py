@@ -113,5 +113,8 @@ def test_reserve_equipment_for_class(mocker):
     mocker.patch.object(r, "booked")
 
     r.Commands().reserve_equipment_for_class(["--cls=12345", "--apply"])
+    raise NotImplementedError()
 
-    pytest.skip("todo")
+
+def test_reserve_equipment_from_template():
+    raise NotImplementedError()

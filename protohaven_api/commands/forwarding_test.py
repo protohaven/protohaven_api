@@ -57,3 +57,33 @@ def test_tech_sign_ins(mocker, capsys, tc):
     assert len(got) == (1 if len(tc.want) > 0 else 0)
     for w in tc.want:
         assert w in got[0]["body"]
+
+
+def test_project_requests():
+    raise NotImplementedError()
+
+
+def test_shop_tech_applications():
+    raise NotImplementedError()
+
+
+def test_instructor_applications():
+    raise NotImplementedError()
+
+
+def test_class_proposals():
+    raise NotImplementedError()
+
+
+def test_private_instruction():
+    raise NotImplementedError()
+
+
+def test_phone_messages():
+    raise NotImplementedError()
+
+
+def test_purchase_request_alerts():
+    raise NotImplementedError()
+
+    raise NotImplementedError()

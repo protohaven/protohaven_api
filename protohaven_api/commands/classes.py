@@ -4,13 +4,14 @@ import datetime
 import logging
 import re
 from collections import defaultdict
+from functools import lru_cache
 
 import markdown
 from dateutil import parser as dateparser
 
 from protohaven_api.class_automation import builder, scheduler
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
-from protohaven_api.commands.reservations import reservation_dict
+from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
 
@@ -213,6 +214,96 @@ class Commands:
             registration=registration,
         )
 
+    @lru_cache(maxsize=1)
+    def _fetch_boilerplate(self):
+        boilerplate = airtable.get_all_records("class_automation", "boilerplate")
+        return [
+            [b["fields"]["Notes"] for b in boilerplate if b["fields"]["Name"] == bname][
+                0
+            ]
+            for bname in (
+                "Rules & Expectations",
+                "Cancellation Policy",
+                "Age Requirement",
+            )
+        ]
+
+    def _format_class_description(self, cls, suf=" (from Class)"):
+        """Construct description of class from airtable columns; strip 'from Class' suffix"""
+        (
+            rules_and_expectations,
+            cancellation_policy,
+            age_section_fmt,
+        ) = self._fetch_boilerplate()
+        result = markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
+        sections = []
+        for col in (
+            "What you Will Create",
+            "What to Bring/Wear",
+            "Clearances Earned",
+        ):
+            body = cls["fields"].get(col + suf, [""])[0]
+            if body.strip() != "":
+                sections.append((col, body))
+
+        if cls["fields"].get("Age Requirement" + suf) is not None:
+            sections.append(
+                (
+                    "Age Requirement",
+                    age_section_fmt.format(
+                        age=cls["fields"]["Age Requirement" + suf][0]
+                    ),
+                )
+            )
+
+        result += "\n\n".join(
+            [markdown.markdown(f"**{hdr}**\n\n{body}") for hdr, body in sections]
+        )
+        result += markdown.markdown(rules_and_expectations)
+        result += markdown.markdown(cancellation_policy)
+        return result
+
+    def _resolve_schedule(self, min_future_days, overrides):
+        now = tznow()
+        for event in airtable.get_class_automation_schedule():
+            cid = event["fields"]["ID"]
+            start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
+            if overrides:
+                if str(cid) in overrides:
+                    log.warning(f"Adding override class with ID {cid}")
+                else:
+                    continue  # Skip if not in override list
+            else:
+                if start < now:
+                    log.debug(
+                        f"Skipping event {cid} from the past {event['fields']['Name (from Class)']}"
+                    )
+                    continue
+                # Quietly ignore already-scheduled events
+                if event["fields"].get("Neon ID", "") != "":
+                    log.debug(
+                        f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: "
+                        f"{event['fields']['Name (from Class)']}"
+                    )
+                    continue
+
+                if not event["fields"].get("Confirmed"):
+                    log.debug(
+                        f"Skipping unconfirmed: {start} {event['fields']['Name (from Class)'][0]} "
+                        f"with {event['fields']['Instructor']}"
+                    )
+                    continue
+                if start < now + datetime.timedelta(days=min_future_days):
+                    log.debug(
+                        f"Skipping too-soon: {start} {event['fields']['Name (from Class)'][0]} "
+                        f"with {event['fields']['Instructor']}"
+                    )
+                    continue
+
+            event["start"] = start
+            event["cid"] = cid
+            yield event
+
     @command(
         arg(
             "--min-future-days",
@@ -262,107 +353,8 @@ class Commands:
         log.info(
             f"Classes will {'NOT ' if not args.registration else ''}be open for registration"
         )
-        boilerplate = airtable.get_all_records("class_automation", "boilerplate")
-        rules_and_expectations = [
-            b["fields"]["Notes"]
-            for b in boilerplate
-            if b["fields"]["Name"] == "Rules & Expectations"
-        ][0]
-        cancellation_policy = [
-            b["fields"]["Notes"]
-            for b in boilerplate
-            if b["fields"]["Name"] == "Cancellation Policy"
-        ][0]
-        age_section_fmt = [
-            b["fields"]["Notes"]
-            for b in boilerplate
-            if b["fields"]["Name"] == "Age Requirement"
-        ][0]
-
-        def format_class_description(cls, suf=" (from Class)"):
-            """Construct description of class from airtable columns; strip 'from Class' suffix"""
-            result = (
-                markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
-            )
-            sections = []
-            for col in (
-                "What you Will Create",
-                "What to Bring/Wear",
-                "Clearances Earned",
-            ):
-                body = cls["fields"].get(col + suf, [""])[0]
-                if body.strip() != "":
-                    sections.append((col, body))
-
-            if cls["fields"].get("Age Requirement" + suf) is not None:
-                sections.append(
-                    (
-                        "Age Requirement",
-                        age_section_fmt.format(
-                            age=cls["fields"]["Age Requirement" + suf][0]
-                        ),
-                    )
-                )
-
-            result += "\n\n".join(
-                [markdown.markdown(f"**{hdr}**\n\n{body}") for hdr, body in sections]
-            )
-            result += markdown.markdown(rules_and_expectations)
-            result += markdown.markdown(cancellation_policy)
-            return result
-
         num = 0
-        skip_unconfirmed = []
-        skip_too_soon = []
-        now = tznow()
-
-        to_schedule = []
-        for event in airtable.get_class_automation_schedule():
-            cid = event["fields"]["ID"]
-            start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
-            if len(args.ovr) > 0:
-                if str(cid) in args.ovr:
-                    log.warning(f"Adding override class with ID {cid}")
-                else:
-                    continue  # Skip if not in override list
-            else:
-                if start < now:
-                    log.debug(
-                        f"Skipping event {cid} from the past {event['fields']['Name (from Class)']}"
-                    )
-                    continue
-                # Quietly ignore already-scheduled events
-                if event["fields"].get("Neon ID", "") != "":
-                    log.debug(
-                        f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: "
-                        f"{event['fields']['Name (from Class)']}"
-                    )
-                    continue
-
-                if not event["fields"].get("Confirmed"):
-                    skip_unconfirmed.append(
-                        f"\t{start} {event['fields']['Name (from Class)'][0]} "
-                        f"with {event['fields']['Instructor']}"
-                    )
-                    continue
-                if start < now + datetime.timedelta(days=args.min_future_days):
-                    skip_too_soon.append(
-                        f"\t{start} {event['fields']['Name (from Class)'][0]} "
-                        f"with {event['fields']['Instructor']}"
-                    )
-                    continue
-
-            event["start"] = start
-            event["cid"] = cid
-            to_schedule.append(event)
-
-        log.info("Skipping unconfirmed:")
-        for s in skip_unconfirmed:
-            log.info(s)
-        log.info(f"Skipping too-soon ({args.min_future_days}d or sooner):")
-        for s in skip_too_soon:
-            log.info(s)
-
+        to_schedule = list(self._resolve_schedule(args.min_future_days, args.ovr))
         scheduled_by_instructor = defaultdict(list)
         to_schedule.sort(key=lambda e: e["start"])
         to_reserve = {}
@@ -378,7 +370,7 @@ class Commands:
                 num += 1
                 result_id = self._schedule_event(
                     event,
-                    format_class_description(event),
+                    self._format_class_description(event),
                     dry_run=not args.apply,
                     published=args.publish,
                     registration=args.registration,
@@ -393,13 +385,7 @@ class Commands:
                     event["id"],
                 )
                 log.info("- Neon ID updated in Airtable")
-                to_reserve[event["cid"]] = reservation_dict(
-                    event["fields"]["Name (from Area) (from Class)"],
-                    event["fields"]["Name (from Class)"],
-                    event["fields"]["Start Time"],
-                    event["fields"]["Days (from Class)"][0],
-                    event["fields"]["Hours (from Class)"][0],
-                )
+                to_reserve[event["cid"]] = reservation_dict_from_record(event)
 
         if num > 0:
             log.info("Reserving equipment for scheduled classes")

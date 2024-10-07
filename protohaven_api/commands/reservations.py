@@ -12,6 +12,17 @@ from protohaven_api.integrations import airtable, booked  # pylint: disable=impo
 log = logging.getLogger("cli.reservation")
 
 
+def reservation_dict_from_record(event):
+    """Like reservation_dict(), but from an airtable record"""
+    return reservation_dict(
+        event["fields"]["Name (from Area) (from Class)"],
+        event["fields"]["Name (from Class)"],
+        event["fields"]["Start Time"],
+        event["fields"]["Days (from Class)"][0],
+        event["fields"]["Hours (from Class)"][0],
+    )
+
+
 def reservation_dict(areas, name, start, days, hours):
     """Convert params into a 'reservation dict' used to reserve resources at particular intervals"""
     start = dateparser.parse(start).astimezone(tz)

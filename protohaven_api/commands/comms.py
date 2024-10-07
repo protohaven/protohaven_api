@@ -100,9 +100,9 @@ class Commands:  # pylint: disable=too-few-public-methods
         ),
         arg(
             "--apply",
-            help="Actually send",
+            help="Actually send; prints otherwise",
             action=argparse.BooleanOptionalAction,
-            default=False,
+            default=True,
         ),
     )
     def send_comms(self, args):

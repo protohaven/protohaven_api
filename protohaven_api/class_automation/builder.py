@@ -119,7 +119,7 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         results.append(
             Msg.tmpl(
                 "class_automation_summary",
-                summary={"": details},
+                events={"": details},
                 target="#class-automation",
             )
         )

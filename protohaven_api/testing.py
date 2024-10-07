@@ -2,7 +2,18 @@
 
 import datetime
 
+import yaml
+
+from protohaven_api.cli import ProtohavenCLI
 from protohaven_api.config import tz
+
+
+class Any:  # pylint: disable=too-few-public-methods
+    """Matches any value - used for placeholder matching in asserts"""
+
+    def __eq__(self, other):
+        """Check for equality - always true"""
+        return True
 
 
 def d(i, h=0):
@@ -29,3 +40,12 @@ def t(hour, weekday=0):
 def idfn(tc):
     """Extract description from named tuple for parameterization"""
     return tc.desc
+
+
+def mkcli(capsys, C):
+    def run(cmd: str, args: list, parse_yaml=True):
+        getattr(C.Commands(), cmd)(args)
+        captured = capsys.readouterr()
+        return yaml.safe_load(captured.out) if parse_yaml else captured.out.strip()
+
+    return run

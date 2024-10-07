@@ -2,14 +2,49 @@
 # pylint: skip-file
 import datetime
 
+import pytest
 import yaml
 
-from protohaven_api.commands.finances import (
-    Commands as C,  # pylint: disable=import-error
-)
+from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-from protohaven_api.testing import d
+from protohaven_api.testing import d, mkcli
+
+
+@pytest.fixture
+def cli(capsys):
+    return mkcli(capsys, f)
+
+
+def test_transaction_alerts_ok(mocker, cli):
+    mocker.patch.object(
+        f.sales, "get_customer_name_map", return_value={"cust_id": "Foo Bar"}
+    )
+    mocker.patch.object(
+        f.sales,
+        "get_subscription_plan_map",
+        return_value={
+            "var_id": ("plan_id", 50),
+        },
+    )
+    mocker.patch.object(
+        f.sales,
+        "get_subscriptions",
+        return_value={
+            "subscriptions": [
+                {
+                    "status": "ACTIVE",
+                    "id": "sub_id",
+                    "plan_variation_id": "var_id",
+                    "customer_id": "cust_id",
+                    "charged_through_date": d(0).isoformat(),
+                }
+            ]
+        },
+    )
+    mocker.patch.object(f.sales, "subscription_tax_pct", return_value=7.0)
+    got = cli("transaction_alerts", [])
+    assert not got
 
 
 def test_validate_memberships_empty(mocker):
@@ -330,9 +365,12 @@ def test_event_is_suggestible_price_too_high(mocker):
     assert result is False
 
 
-def test_init_new_memberships(mocker, capsys):
+def test_init_new_memberships(mocker, cli):
     """Test init_new_memberships"""
     mocker.patch.object(neon, "get_new_members_needing_setup", return_value={})
-    C().init_new_memberships(["--apply", "--created_after=2024-01-01"])
-    got = yaml.safe_load(capsys.readouterr().out.strip())
+    got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
     assert not got
+
+
+def test_init_new_memberships_simple():
+    raise NotImplementedError()
