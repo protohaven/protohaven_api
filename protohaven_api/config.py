@@ -54,7 +54,10 @@ def load_yaml_with_env_substitution(yaml_path):
 
 def get_config():
     """Fetches the config, defined either as PH_CONFIG env var or default config.yaml"""
-    return load_yaml_with_env_substitution(os.getenv(CONFIG_YAML_ENV, CONFIG_YAML_PATH))
+    path = os.getenv(CONFIG_YAML_ENV)
+    if not path:
+        path = os.path.join(os.path.dirname(__file__), f"../{CONFIG_YAML_PATH}")
+    return load_yaml_with_env_substitution(path)
 
 
 @lru_cache(maxsize=1)

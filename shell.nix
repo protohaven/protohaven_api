@@ -47,6 +47,7 @@ in pkgs.mkShell {
         pip
         pytest
         pytest-cov
+        pytest-xdist
         pylint
         python-dateutil
         jinja2

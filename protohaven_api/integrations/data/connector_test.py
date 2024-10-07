@@ -15,7 +15,7 @@ def test_airtable_read_retry(mocker):
             mocker.MagicMock(status_code=200, content=True),
         ],
     )
-    c = con.Connector(dev=False)
+    c = con.Connector()
     c.cfg = {
         "airtable": {
             "tools_and_equipment": {
@@ -43,7 +43,7 @@ def test_airtable_read_max_retries(mocker):
             con.requests.exceptions.ReadTimeout("Last Fail"),
         ],
     )
-    c = con.Connector(dev=False)
+    c = con.Connector()
     c.cfg = {
         "airtable": {
             "tools_and_equipment": {
@@ -55,10 +55,3 @@ def test_airtable_read_max_retries(mocker):
     }
     with pytest.raises(con.requests.exceptions.ReadTimeout):
         c.airtable_request("GET", "tools_and_equipment", "tools")
-
-
-def test_discord_dev_webhook():
-    """Test that webhook returns an obj with raise_for_status in dev mode"""
-    c = con.Connector(dev=True)
-    rep = c.discord_webhook("test_webhook", "test_content")
-    assert hasattr(rep, "raise_for_status")  # Needed in interpretation

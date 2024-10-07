@@ -80,45 +80,47 @@ def test_build_scheduler_env(cli, mocker):
 
 
 @pytest.fixture
-def testfile(tmp_path):
+def tfile(tmp_path):
     f = tmp_path / "tmp.txt"
     f.write_text('"test"')
     return str(f)
 
 
-def test_run_scheduler(cli, mocker, testfile):
+def test_run_scheduler(cli, mocker, tfile):
     eb = mocker.patch.object(
         C.scheduler, "solve_with_env", return_value=(TESTVAL, None)
     )
-    assert cli("run_scheduler", ["--path", testfile]) == TESTVAL
+    assert cli("run_scheduler", ["--path", tfile]) == TESTVAL
     C.scheduler.solve_with_env.assert_called_with("test")
 
 
-def test_append_schedule_no_apply(cli, mocker, testfile):
+def test_append_schedule_no_apply(cli, mocker, tfile):
     eb = mocker.patch.object(
         C.scheduler, "gen_schedule_push_notifications", return_value=TESTVAL
     )
     eb = mocker.patch.object(C.scheduler, "push_schedule")
-    assert cli("append_schedule", ["--path", str(testfile)]) == TESTVAL
+    assert cli("append_schedule", ["--path", str(tfile)]) == TESTVAL
     C.scheduler.push_schedule.assert_not_called()
 
 
-def test_append_schedule_apply(cli, mocker, testfile):
+def test_append_schedule_apply(cli, mocker, tfile):
     eb = mocker.patch.object(
         C.scheduler, "gen_schedule_push_notifications", return_value=TESTVAL
     )
     eb = mocker.patch.object(C.scheduler, "push_schedule")
-    assert cli("append_schedule", ["--path", str(testfile), "--apply"]) == TESTVAL
+    assert cli("append_schedule", ["--path", str(tfile), "--apply"]) == TESTVAL
     C.scheduler.push_schedule.assert_called_with("test")
 
 
 def test_cancel_classes(cli, mocker):
     eb = mocker.patch.object(C.neon, "set_event_scheduled_state")
     cli("cancel_classes", ["--id", "1", "2"])
-    C.neon.set_event_scheduled_state.assert_has_calls([call("1", scheduled=False), call("2", scheduled=False)])
+    C.neon.set_event_scheduled_state.assert_has_calls(
+        [call("1", scheduled=False), call("2", scheduled=False)]
+    )
 
 
-def testcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
+def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
     return {
         "id": "abcd",
         "fields": {
@@ -146,9 +148,9 @@ Tc = namedtuple("Tc", "desc,cls")
     "tc",
     [
         Tc("No classes", []),
-        Tc("Too soon in future", [testcls(start=d(13).isoformat())]),
-        Tc("Unconfirmed", [testcls(confirmed=None)]),
-        Tc("Already scheduled", [testcls(neon_id="1234")]),
+        Tc("Too soon in future", [tcls(start=d(13).isoformat())]),
+        Tc("Unconfirmed", [tcls(confirmed=None)]),
+        Tc("Already scheduled", [tcls(neon_id="1234")]),
     ],
     ids=idfn,
 )
@@ -189,9 +191,12 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         C.Commands, "_reserve_equipment_for_class_internal", create=True
     )
     mocker.patch.object(
-        C.airtable, "get_class_automation_schedule", return_value=[testcls()]
+        C.airtable, "get_class_automation_schedule", return_value=[tcls()]
     )
     mocker.patch.object(C, "tznow", return_value=d(0))
+    mocker.patch.object(
+        C.Commands, "_fetch_boilerplate", return_value=("Foo", "Bar", "Baz")
+    )
     got = cli("post_classes_to_neon", ["--apply", *tc.args])
 
     assert {g["target"] for g in got} == {

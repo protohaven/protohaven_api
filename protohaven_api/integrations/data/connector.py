@@ -58,9 +58,9 @@ class Connector:
         """Create a new session using the requests lib"""
         return requests.Session()
 
-    def _handle_airtable_request(self, mode, url, data):
+    def _handle_airtable_request(self, mode, url, data, token):
         headers = {
-            "Authorization": f"Bearer {self.cfg['token']}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
         rep = requests.request(
@@ -80,7 +80,7 @@ class Connector:
             url += suffix
         for i in range(NUM_READ_ATTEMPTS):
             try:
-                return self._handle_airtable_request(mode, url, data)
+                return self._handle_airtable_request(mode, url, data, cfg["token"])
             except requests.exceptions.ReadTimeout as rt:
                 if mode != "GET" or i == NUM_READ_ATTEMPTS - 1:
                     raise rt

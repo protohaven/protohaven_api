@@ -137,6 +137,9 @@ class Commands:
                             )
                         )
                         break
+            log.info(
+                f"Found {len(results[cid]['resources'])} resources for class {cid}"
+            )
 
         for cid in results:
             log.info(f"Class {results[cid]['name']} (#{cid}):")

@@ -43,7 +43,7 @@ class DevConnector(Connector):
             "Neon session creation not implemented for dev environment"
         )
 
-    def _handle_airtable_request(self, mode, url, data):
+    def _handle_airtable_request(self, mode, url, data, _):
         rep = dev_airtable.handle(mode, url, data)
         if mode != "GET":
             self.mutated = True

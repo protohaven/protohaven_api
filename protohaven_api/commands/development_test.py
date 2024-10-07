@@ -12,6 +12,9 @@ def test_gen_mock_data(mocker, tmp_path):
         "fetch_memberships",
     ):
         mocker.patch.object(dev.neon, n, return_value=[])
+    mocker.patch.object(
+        dev.neon, "fetch_account", return_value={"individualAccount": {}}
+    )
     mocker.patch.object(dev.airtable, "get_all_records", return_value=[])
     dev.Commands().gen_mock_data(
         ["--path", str(tmp_path / "test.pkl"), "--after", d(0).isoformat()]

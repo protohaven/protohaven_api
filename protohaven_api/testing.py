@@ -1,6 +1,7 @@
 """Helpers for testing code"""
 
 import datetime
+import re
 
 import yaml
 
@@ -14,6 +15,17 @@ class Any:  # pylint: disable=too-few-public-methods
     def __eq__(self, other):
         """Check for equality - always true"""
         return True
+
+
+class MatchStr:  # pylint: disable=too-few-public-methods
+    """Matchstr("foo") == "asdf foo bar", etc."""
+
+    def __init__(self, r):
+        self.r = r
+
+    def __eq__(self, other):
+        """Check for equality - true if string matches regex"""
+        return re.search(self.r, other) is not None
 
 
 def d(i, h=0):
