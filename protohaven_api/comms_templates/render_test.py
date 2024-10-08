@@ -124,6 +124,10 @@ TESTED_TEMPLATES = [
         {"formatted": ["a", "b", "c"], "n": 3},
     ),
     (
+        "membership_activated",
+        {"fname": "First"},
+    ),
+    (
         "membership_validation_problems",
         {"problems": ["Problem 1", "Problem 2"]},
     ),
@@ -232,7 +236,7 @@ HASHES = {
     "discord_role_change_dm": "e36c6c70681a8804",
     "discord_role_change_summary": "8a34d924f30d0625",
     "enforcement_summary": "53728e884f150eec",
-    "init_membership": "8c33f4e841e2b782",
+    "init_membership": "ef01b9e647820e70",
     "instruction_requests": "7e0902003add426d",
     "instructor_applications": "282f1d709883f273",
     "instructor_check_supplies": "73815da04e9f47cc",
@@ -242,6 +246,7 @@ HASHES = {
     "instructor_low_attendance": "e7b4548a7a3f7fc2",
     "instructor_schedule_classes": "39aea10c71fc8895",
     "instructors_new_classes": "c3cbf1129a256abe",
+    "membership_activated": "8a27b2ff8900b48b",
     "membership_validation_problems": "959c9f70f5ab648e",
     "new_project_request": "4cffeae1816d93a2",
     "not_associated": "a8bd9d0037db82a5",

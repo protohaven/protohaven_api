@@ -5,7 +5,7 @@ import logging
 from flask import Blueprint, Response, render_template, request
 
 from protohaven_api.integrations import airtable, comms, neon
-from protohaven_api.rbac import Role, require_login_role
+from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 
 page = Blueprint("admin", __name__, template_folder="templates")
 
@@ -81,3 +81,26 @@ def set_discord_nick():
     if result is False:
         return f"Member '{name}' not found"
     return f"Member '{name}' now nicknamed '{nick}'"
+
+
+@page.route("/admin/neon_membership_created_callback", methods=["POST"])
+def neon_membership_created_callback():
+    """Called whenever a new membership is created in Neon CRM.
+
+    See https://developer.neoncrm.com/api/webhooks/membership-webhooks/
+    """
+    roles = roles_from_api_key(request.json.get("customParameters", {}).get("api_key"))
+    if Role.ADMIN not in roles:
+        return Response("Not authorized", status=400)
+    data = request.json["data"]["membership"]
+    membership_id = data.get("membershipId")
+    account_id = data.get("accountId")
+    membership_name = data.get("membershipName")
+    fee = data.get("fee")
+    enrollment = data.get("enrollmentType")
+    txn_status = data.get("status")
+    log.info(
+        f"NeonCRM new_membership callback: #{membership_id} (account #{account_id}) "
+        f"{membership_name} for ${fee} ({enrollment} {txn_status})"
+    )
+    return "TODO"

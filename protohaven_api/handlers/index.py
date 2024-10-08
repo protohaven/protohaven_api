@@ -8,9 +8,10 @@ from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, render_template, request, session
 from flask_sock import Sock
 
+from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.comms import send_membership_automation_message
 from protohaven_api.integrations.data.models import SignInEvent
@@ -120,7 +121,14 @@ def get_or_activate_member(email, send_fn):
                         "Please sync with software folks to diagnose in protohaven_api. "
                         "Allowing the member through anyways."
                     )
-                neon.update_account_automation_run_status(m["Account ID"], "activated")
+                else:
+                    neon.update_account_automation_run_status(
+                        m["Account ID"], "activated"
+                    )
+                    msg = Msg.tmpl(
+                        "membership_activated", fname=m.get("First Name"), target=email
+                    )
+                    comms.send_email(msg.subject, msg.body, email, msg.html)
                 return m
         if (m.get("Account Current Membership Status") or "").upper() == "ACTIVE":
             return m

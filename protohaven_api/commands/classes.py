@@ -26,21 +26,25 @@ class Commands:
             "--start",
             help="start date for calendar reminder window",
             type=str,
-            required=True,
         ),
         arg(
             "--end",
             help="end date for calendar reminder window",
             type=str,
-            required=True,
         ),
     )
     def gen_instructor_schedule_reminder(self, args):
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
-        start = dateparser.parse(args.start).astimezone(tz)
-        end = dateparser.parse(args.end).astimezone(tz)
+        if args.start:
+            start = dateparser.parse(args.start).astimezone(tz)
+        else:
+            start = tznow() + datetime.timedelta(days=30)
+        if args.end:
+            end = dateparser.parse(args.end).astimezone(tz)
+        else:
+            end = start + datetime.timedelta(days=60)
         result = builder.gen_scheduling_reminders(start, end)
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")

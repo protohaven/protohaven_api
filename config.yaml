@@ -21,6 +21,9 @@ neon:
   login_pass: "${NEON_LOGIN_PASS}"
   waiver_expiration_days: 60
   waiver_published_date: "2023-03-14"
+  webhooks:
+    new_membership:
+      enabled: True
 discord_bot:
   enabled: "${DISCORD_BOT}"
   event_hooks:

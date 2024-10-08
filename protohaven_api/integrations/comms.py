@@ -65,12 +65,12 @@ def send_membership_automation_message(content):
 
 def set_discord_nickname(name, nick):
     """Sets the nickname of a discord user"""
-    return get_connector().discord_bot_fn("setnick", name, nick)
+    return get_connector().discord_bot_fn("set_nickname", name, nick)
 
 
 def set_discord_role(name, role):
     """Adds a role for a discord user, e.g. Members"""
-    return get_connector().discord_bot_fn("setrole", name, role)
+    return get_connector().discord_bot_fn("grant_role", name, role)
 
 
 def revoke_discord_role(name, role):
