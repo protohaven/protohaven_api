@@ -445,16 +445,20 @@ class Commands:
             ok, num_remaining = self._event_is_suggestible(e["id"], coupon_amount)
             if not ok:
                 continue
-            d = dateparser.parse(e["startDate"] + " " + e["startTime"]).astimezone(tz)
-            d = d.strftime("%A %b %-d, %-I%p")
-            s = f"{d}: {e['name']}"
-            s += f", https://protohaven.org/e/{e['id']}"
-            if num_remaining < 2:
-                s += f" ({num_remaining} seat{'s' if num_remaining != 1 else ''} left!)"
-            sample_classes.append(s)
+            sample_classes.append(
+                {
+                    "date": dateparser.parse(
+                        e["startDate"] + " " + e["startTime"]
+                    ).astimezone(tz),
+                    "name": e["name"],
+                    "remaining": num_remaining,
+                    "id": e["id"],
+                }
+            )
             log.info(sample_classes[-1])
             if len(sample_classes) >= 3:
                 break
+        sample_classes.sort(key=lambda s: s["date"])
         return sample_classes
 
     def _init_membership(  # pylint: disable=too-many-arguments

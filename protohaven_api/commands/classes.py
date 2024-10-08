@@ -107,7 +107,7 @@ class Commands:
             "--filter",
             help="CSV of subset instructors to filter scheduling to",
             type=str,
-            required=False,
+            required=True,
         ),
     )
     def build_scheduler_env(self, args):
@@ -129,7 +129,7 @@ class Commands:
     def run_scheduler(self, args):
         """Run the class scheduler on a provided env"""
         env = load_yaml(args.path)
-        instructor_classes, final_score = scheduler.solve_with_env(env)
+        instructor_classes, final_score = scheduler.solve_with_env(env[0])
         log.info(f"Final score: {final_score}")
         print_yaml(instructor_classes)
 
@@ -150,7 +150,7 @@ class Commands:
     def append_schedule(self, args):
         """Adds a schedule (created with `run_scheduler`) to Airtable for
         instructor confirmation."""
-        sched = load_yaml(args.path)
+        sched = load_yaml(args.path)[0]
         notifications = list(scheduler.gen_schedule_push_notifications(sched))
         if args.apply:
             scheduler.push_schedule(sched)

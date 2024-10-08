@@ -28,14 +28,14 @@ def probe(url, name, stats):
 
 def write_stats(stats, title, max_per_segment=10):
     """Write a summary of missing or errored pages"""
-    b = f"\n\n=== {title} ==="
+    b = f"=== {title} ==="
     b += f"\n{stats['ok']} links resolved OK"
     b += f"\nMissing links for {len(stats['missing'])} tools; first {max_per_segment}:"
     for m in stats["missing"][:max_per_segment]:
-        b += f"\n - {m}"
+        b += f"- {m}\n"
     b += f"\nFailed to resolve {len(stats['error'])} links for tools; first {max_per_segment}:"
     for m in stats["error"][:max_per_segment]:
-        b += f"\n - {m}"
+        b += f"- {m}\n"
     return b
 
 
@@ -55,7 +55,7 @@ def validate():
     )
     for i, tool in enumerate(tools):
         if i != 0 and i % 5 == 0:
-            log.info(f"{i} complete")
+            log.info(f"{i}/{len(tools)}")
 
         if (
             tool["fields"]["Clearance Required"] is None

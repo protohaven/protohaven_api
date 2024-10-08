@@ -18,7 +18,6 @@ from protohaven_api.config import (  # pylint: disable=import-error
 from protohaven_api.forecasting import techs as forecast
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
-    comms,
     neon,
     sheets,
     tasks,
@@ -299,7 +298,7 @@ class Commands:
         email_map = {
             t["email"]: t["name"]
             for t in neon.fetch_techs_list()
-            if t["shift"] == shift
+            if t["name"] in techs_on_duty
         }
         rev_email_map = {v: k for k, v in email_map.items()}
         log.info(f"Email map: {email_map}")
@@ -336,21 +335,20 @@ class Commands:
     @command()
     def purchase_request_alerts(self, _):
         """Send alerts when there's purchase requests that haven't been acted upon for some time"""
-        content = "**Open Purchase Requests Report:**"
         sections = defaultdict(list)
         counts = defaultdict(int)
         now = tznow()
         thresholds = {
-            "low_pri": 7,
-            "high_pri": 2,
-            "class_supply": 3,
+            "requested": 7,
+            "approved": 7,
+            "ordered": 14,
             "on_hold": 30,
             "unknown": 0,
         }
         headers = {
-            "low_pri": "Low Priority",
-            "high_pri": "High Priority",
-            "class_supply": "Class Supplies",
+            "requested": "Requested",
+            "approved": "Approved",
+            "ordered": "Ordered",
             "on_hold": "On Hold",
             "unknown": "Unknown/Unparsed Tasks",
         }
@@ -379,17 +377,23 @@ class Commands:
             v.sort(key=lambda t: -t[1])
             sections[k] = [t[0] for t in v]
 
-        section_added = False
-        for k in ("high_pri", "class_supply", "low_pri", "on_hold", "unknown"):
+        render_sections = []
+        for k in ("requested", "approved", "ordered", "on_hold", "unknown"):
             if len(sections[k]) > 0:
-                section_added = True
-                content += f"\n\n{headers[k]} ({counts[k]} total open; "
-                content += f"showing only tasks older than {thresholds[k]} days):\n"
-                content += "\n".join(sections[k])
-
-        if not section_added:
-            content += "\nAll caught up. Nice."
-
-        log.info(content)
-        comms.send_board_message(content)
+                render_sections.append(
+                    {
+                        "name": headers[k],
+                        "counts": counts[k],
+                        "threshold": thresholds[k],
+                        "tasks": sections[k][:5],
+                    }
+                )
+        if len(render_sections) > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "stale_purchase_requests",
+                    sections=render_sections,
+                    target="#finance-automation",
+                )
+            )
         log.info("Done")

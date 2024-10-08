@@ -8,7 +8,7 @@ import yaml
 from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-from protohaven_api.testing import d, mkcli, Any
+from protohaven_api.testing import Any, d, mkcli
 
 
 @pytest.fixture
@@ -292,12 +292,14 @@ def test_get_sample_classes(mocker):
         ],
     )
     mocker.patch.object(
-        f.Commands, "_event_is_suggestible", side_effect=[(True, 5), (True, 1), (False, 0)]
+        f.Commands,
+        "_event_is_suggestible",
+        side_effect=[(True, 5), (True, 1), (False, 0)],
     )
     result = f.Commands()._get_sample_classes(10)
     assert result == [
-        "Tuesday Oct 10, 10AM: Class 1, https://protohaven.org/e/1",
-        "Wednesday Oct 11, 11AM: Class 2, https://protohaven.org/e/2 (1 seat left!)",
+        {"date": "Tuesday Oct 10, 10AM", "name": "Class 1", "id": 1, "remaining": 5},
+        {"date": "Wednesday Oct 11, 11AM", "name": "Class 2", "id": 2, "remaining": 1},
     ]
 
 
@@ -314,7 +316,14 @@ def test_init_membership(mocker):
         "update_account_automation_run_status",
         return_value=mocker.Mock(status_code=200),
     )
-    mocker.patch.object(f.Commands, "_get_sample_classes", return_value=["class1", "class2"])
+    mocker.patch.object(
+        f.Commands,
+        "_get_sample_classes",
+        return_value=[
+            {"date": d(0), "name": "class1", "id": 1, "remaining": 2},
+            {"date": d(1), "name": "class2", "id": 1, "remaining": 2},
+        ],
+    )
     # Test with coupon_amount > 0
     msg = f.Commands()._init_membership("123", "John Doe", 50, apply=True)
     assert msg.subject == "John Doe: your first class is on us!"
@@ -373,13 +382,26 @@ def test_init_new_memberships(mocker, cli):
 
 
 def test_init_new_memberships_simple(mocker, cli):
-    mocker.patch.object(neon, "get_new_members_needing_setup", return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}])
-    mocker.patch.object(neon, "create_coupon_code", return_value=mocker.MagicMock(status_code=200))
-    mocker.patch.object(neon, "set_membership_start_date", return_value=mocker.MagicMock(status_code=200))
-    mocker.patch.object(neon, "update_account_automation_run_status", return_value=mocker.MagicMock(status_code=200))
+    mocker.patch.object(
+        neon,
+        "get_new_members_needing_setup",
+        return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}],
+    )
+    mocker.patch.object(
+        neon, "create_coupon_code", return_value=mocker.MagicMock(status_code=200)
+    )
+    mocker.patch.object(
+        neon,
+        "set_membership_start_date",
+        return_value=mocker.MagicMock(status_code=200),
+    )
+    mocker.patch.object(
+        neon,
+        "update_account_automation_run_status",
+        return_value=mocker.MagicMock(status_code=200),
+    )
     mocker.patch.object(f.Commands, "_get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
     neon.set_membership_start_date.assert_called_with("123", Any())
     neon.create_coupon_code.assert_called_with(Any(), 102)
     neon.update_account_automation_run_status.assert_called_with("123", "deferred")
-

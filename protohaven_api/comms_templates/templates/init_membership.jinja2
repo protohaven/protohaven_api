@@ -12,7 +12,7 @@ The code above is good for one free class up to ${{coupon_amount}}; this covers 
 <p>
 Here's a couple basic classes with open seats that you can register for today:
 <ul>{% for l in sample_classes %}
-  <li>{{l}}</li>{% endfor %}
+  <li><a href="https://protohaven.org/e/{{l.id}}" target="_blank">{{l.date.strftime('%A %b %-d, %-I%p')}}: {{l.name}}{% if l.remaining < 3 %}({{l.remaining}} seat{% if l.remaining != 1 %}s{% endif %} left!){% endif %}</a></li>{% endfor %}
 </ul>
 </p>
 {% endif %}

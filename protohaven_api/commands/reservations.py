@@ -117,7 +117,7 @@ class Commands:
                 cls["fields"]["Days (from Class)"][0],
                 cls["fields"]["Hours (from Class)"][0],
             )
-        log.info(f"Resolved {len(results)} classes to areas")
+        log.info(f"Resolved {len(results)} class(es) to areas")
         self._reserve_equipment_for_class_internal(results, args.apply)
         log.info("Done")
 
@@ -139,14 +139,13 @@ class Commands:
                             )
                         )
                         break
-            log.info(
-                f"Found {len(results[cid]['resources'])} resources for class {cid}"
-            )
 
-        for cid in results:
-            log.info(f"Class {results[cid]['name']} (#{cid}):")
-            for name, resource_id in results[cid]["resources"]:
-                for start, end in results[cid]["intervals"]:
+        for cid, rr in results.items():
+            log.info(
+                f"Class {results[cid]['name']} (#{cid}) has {len(rr['resources'])} resources:"
+            )
+            for name, resource_id in rr["resources"]:
+                for start, end in rr["intervals"]:
                     log.info(
                         f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
                     )
@@ -154,7 +153,7 @@ class Commands:
                         log.info(
                             str(
                                 booked.reserve_resource(
-                                    resource_id, start, end, title=results[cid]["name"]
+                                    resource_id, start, end, title=rr["name"]
                                 )
                             )
                         )
