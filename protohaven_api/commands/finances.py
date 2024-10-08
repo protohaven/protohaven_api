@@ -3,12 +3,9 @@ import argparse
 import datetime
 import logging
 import pickle
-import random
 import re
-import string
 import sys
 from collections import defaultdict
-from functools import lru_cache
 
 from dateutil import parser as dateparser
 
@@ -20,13 +17,10 @@ from protohaven_api.config import (  # pylint: disable=import-error
     tznow,
 )
 from protohaven_api.integrations import neon, sales  # pylint: disable=import-error
+from protohaven_api.membership_automation import membership as memauto
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.finances")
-
-# The "start date" for members' memberships which haven't yet been
-# activated via logging in at the front desk
-PLACEHOLDER_START_DATE = dateparser.parse("9001-01-01")
 
 
 class Commands:
@@ -433,92 +427,6 @@ class Commands:
             result += [f"Unhandled membership: '{level}'"]
         return result
 
-    def _generate_coupon_id(self, n=8):
-        """https://stackoverflow.com/a/2257449"""
-        return "".join(random.choices(string.ascii_uppercase + string.digits, k=n))
-
-    @lru_cache(maxsize=1)
-    def _get_sample_classes(self, coupon_amount):
-        """Fetch sample classes within the coupon amount for advertising in the welcome email"""
-        sample_classes = []
-        for e in neon.fetch_published_upcoming_events(back_days=-1):
-            ok, num_remaining = self._event_is_suggestible(e["id"], coupon_amount)
-            if not ok:
-                continue
-            sample_classes.append(
-                {
-                    "date": dateparser.parse(
-                        e["startDate"] + " " + e["startTime"]
-                    ).astimezone(tz),
-                    "name": e["name"],
-                    "remaining": num_remaining,
-                    "id": e["id"],
-                }
-            )
-            log.info(sample_classes[-1])
-            if len(sample_classes) >= 3:
-                break
-        sample_classes.sort(key=lambda s: s["date"])
-        return sample_classes
-
-    def _init_membership(  # pylint: disable=too-many-arguments
-        self, account_id, fname, coupon_amount, apply=True, target=None, _id=None
-    ):
-        """
-        This method initializes a membership by setting a start date,
-        generating a coupon if applicable, and updating the automation run status.
-        """
-        log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
-
-        def _ok(rep, action):
-            if rep.status_code != 200:
-                log.error(f"Error {rep.status_code} {action}: {rep.content}")
-                return False
-            return True
-
-        if apply and not _ok(
-            neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE),
-            "setting start date",
-        ):
-            return None
-
-        cid = None
-        if coupon_amount > 0:
-            cid = self._generate_coupon_id()
-            if apply and not _ok(
-                neon.create_coupon_code(cid, coupon_amount), "generating coupon"
-            ):
-                return None
-
-        if apply and not _ok(
-            neon.update_account_automation_run_status(account_id, "deferred"),
-            "logging automation run",
-        ):
-            return None
-
-        if cid:
-            return Msg.tmpl(
-                "init_membership",
-                fname=fname,
-                coupon_amount=coupon_amount,
-                coupon_code=cid,
-                sample_classes=self._get_sample_classes(coupon_amount),
-                target=target,
-                id=_id,
-            )
-
-    def _event_is_suggestible(self, event_id, max_price):
-        """Return True if the event with `event_id` has open seats within $`max_price`"""
-        for t in neon.fetch_tickets(event_id):
-            if (
-                t["name"] == "Single Registration"
-                and t["fee"] > 0
-                and t["fee"] <= max_price
-                and t["numberRemaining"] > 0
-            ):
-                return True, t["numberRemaining"]
-        return False, 0
-
     @command(
         arg(
             "--apply",
@@ -530,7 +438,7 @@ class Commands:
             "--coupon_amount",
             help="Create a copon with this price and generate comms about it",
             type=int,
-            default=102,
+            default=memauto.DEFAULT_COUPON_AMOUNT,
         ),
         arg(
             "--created_after",
@@ -568,7 +476,7 @@ class Commands:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
             result.append(
-                self._init_membership(
+                memauto.init_membership(
                     m["Account ID"],
                     m["First Name"],
                     args.coupon_amount,

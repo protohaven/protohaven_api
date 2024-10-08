@@ -7,7 +7,7 @@ import yaml
 from dateutil import parser as dateparser
 
 from protohaven_api.commands import finances as f
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
 from protohaven_api.testing import Any, d, mkcli
 
@@ -259,132 +259,6 @@ def test_validate_membership_employer_too_few_bad():
     assert got == ["Missing required 2+ members in company #123"]
 
 
-def test_generate_coupon_id():
-    """Test that coupons are generated uniquely"""
-    got = f.Commands()._generate_coupon_id(n=10)
-    assert len(got) == 10
-    assert f.Commands()._generate_coupon_id(n=10) != got
-
-
-def test_get_sample_classes(mocker):
-    """Test fetching of sample classes"""
-    mocker.patch.object(
-        neon,
-        "fetch_published_upcoming_events",
-        return_value=[
-            {
-                "id": 1,
-                "startDate": "2023-10-10",
-                "startTime": "10:00AM",
-                "name": "Class 1",
-            },
-            {
-                "id": 2,
-                "startDate": "2023-10-11",
-                "startTime": "11:00AM",
-                "name": "Class 2",
-            },
-            {
-                "id": 3,
-                "startDate": "2023-10-12",
-                "startTime": "12:00PM",
-                "name": "Class 3",
-            },
-        ],
-    )
-    mocker.patch.object(
-        f.Commands,
-        "_event_is_suggestible",
-        side_effect=[(True, 5), (True, 1), (False, 0)],
-    )
-    result = f.Commands()._get_sample_classes(10)
-    assert result == [
-        {
-            "date": dateparser.parse("2023-10-10T10:00:00").astimezone(tz),
-            "name": "Class 1",
-            "id": 1,
-            "remaining": 5,
-        },
-        {
-            "date": dateparser.parse("2023-10-11T11:00:00").astimezone(tz),
-            "name": "Class 2",
-            "id": 2,
-            "remaining": 1,
-        },
-    ]
-
-
-def test_init_membership(mocker):
-    """Test init_membership"""
-    mocker.patch.object(
-        neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
-    )
-    mocker.patch.object(
-        neon, "create_coupon_code", return_value=mocker.Mock(status_code=200)
-    )
-    mocker.patch.object(
-        neon,
-        "update_account_automation_run_status",
-        return_value=mocker.Mock(status_code=200),
-    )
-    mocker.patch.object(
-        f.Commands,
-        "_get_sample_classes",
-        return_value=[
-            {"date": d(0), "name": "class1", "id": 1, "remaining": 2},
-            {"date": d(1), "name": "class2", "id": 1, "remaining": 2},
-        ],
-    )
-    # Test with coupon_amount > 0
-    msg = f.Commands()._init_membership("123", "John Doe", 50, apply=True)
-    assert msg.subject == "John Doe: your first class is on us!"
-    assert "class1" in msg.body
-
-
-def test_init_membership_no_classes(mocker):
-    """Test init_membership without list of classes"""
-    mocker.patch.object(
-        neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
-    )
-    mocker.patch.object(
-        neon, "create_coupon_code", return_value=mocker.Mock(status_code=200)
-    )
-    mocker.patch.object(
-        neon,
-        "update_account_automation_run_status",
-        return_value=mocker.Mock(status_code=200),
-    )
-    mocker.patch.object(f.Commands, "_get_sample_classes", return_value=[])
-    # Test with coupon_amount > 0
-    msg = f.Commands()._init_membership("123", "John Doe", 50, apply=True)
-    assert msg.subject == "John Doe: your first class is on us!"
-    assert "Here's a couple basic classes" not in msg.body
-
-
-def test_event_is_suggestible(mocker):
-    """Test that suggestible events are returned if under max price"""
-    max_price = 100
-    tickets = [
-        {"name": "Single Registration", "fee": 50, "numberRemaining": 5},
-        {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
-    ]
-    mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
-    result, number_remaining = f.Commands()._event_is_suggestible(123, max_price)
-    assert result is True
-    assert number_remaining == 5
-
-
-def test_event_is_suggestible_price_too_high(mocker):
-    """Test that events aren't returned if they exceed the max_price"""
-    max_price = 40
-    tickets = [
-        {"name": "Single Registration", "fee": 50, "numberRemaining": 3},
-    ]
-    mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
-    result, _ = f.Commands()._event_is_suggestible(123, max_price)
-    assert result is False
-
-
 def test_init_new_memberships(mocker, cli):
     """Test init_new_memberships"""
     mocker.patch.object(neon, "get_new_members_needing_setup", return_value=[])
@@ -392,7 +266,7 @@ def test_init_new_memberships(mocker, cli):
     assert not got
 
 
-def test_init_new_memberships_simple(mocker, cli):
+def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(
         neon,
         "get_new_members_needing_setup",
@@ -411,7 +285,7 @@ def test_init_new_memberships_simple(mocker, cli):
         "update_account_automation_run_status",
         return_value=mocker.MagicMock(status_code=200),
     )
-    mocker.patch.object(f.Commands, "_get_sample_classes", return_value=[])
+    mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
     neon.set_membership_start_date.assert_called_with("123", Any())
     neon.create_coupon_code.assert_called_with(Any(), 102)
