@@ -4,9 +4,10 @@ import datetime
 
 import pytest
 import yaml
+from dateutil import parser as dateparser
 
 from protohaven_api.commands import finances as f
-from protohaven_api.config import tznow  # pylint: disable=import-error
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
 from protohaven_api.testing import Any, d, mkcli
 
@@ -298,8 +299,18 @@ def test_get_sample_classes(mocker):
     )
     result = f.Commands()._get_sample_classes(10)
     assert result == [
-        {"date": "Tuesday Oct 10, 10AM", "name": "Class 1", "id": 1, "remaining": 5},
-        {"date": "Wednesday Oct 11, 11AM", "name": "Class 2", "id": 2, "remaining": 1},
+        {
+            "date": dateparser.parse("2023-10-10T10:00:00").astimezone(tz),
+            "name": "Class 1",
+            "id": 1,
+            "remaining": 5,
+        },
+        {
+            "date": dateparser.parse("2023-10-11T11:00:00").astimezone(tz),
+            "name": "Class 2",
+            "id": 2,
+            "remaining": 1,
+        },
     ]
 
 

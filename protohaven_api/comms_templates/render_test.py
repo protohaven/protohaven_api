@@ -99,7 +99,10 @@ TESTED_TEMPLATES = [
             "fname": "Fname",
             "coupon_code": "ASDF",
             "coupon_amount": 5,
-            "sample_classes": ["class1", "class2"],
+            "sample_classes": [
+                {"date": d(0), "name": "class1", "remaining": 3, "id": 1},
+                {"date": d(1), "name": "class2", "remaining": 2, "id": 2},
+            ],
         },
     ),
     (
@@ -171,6 +174,25 @@ TESTED_TEMPLATES = [
             "untaxed": ["c", "d"],
         },
     ),
+    (
+        "stale_purchase_requests",
+        {
+            "sections": [
+                {
+                    "name": "section1",
+                    "counts": 2,
+                    "threshold": 5,
+                    "tasks": ["t1", "t2"],
+                },
+                {
+                    "name": "section2",
+                    "counts": 2,
+                    "threshold": 5,
+                    "tasks": ["t3", "t4"],
+                },
+            ]
+        },
+    ),
     ("suspension_ended", {"firstname": "Firstname"}),
     (
         "suspension_started",
@@ -236,7 +258,7 @@ HASHES = {
     "discord_role_change_dm": "e36c6c70681a8804",
     "discord_role_change_summary": "8a34d924f30d0625",
     "enforcement_summary": "53728e884f150eec",
-    "init_membership": "ef01b9e647820e70",
+    "init_membership": "44cc465d9fe6e95d",
     "instruction_requests": "7e0902003add426d",
     "instructor_applications": "282f1d709883f273",
     "instructor_check_supplies": "73815da04e9f47cc",
@@ -249,7 +271,7 @@ HASHES = {
     "membership_activated": "8a27b2ff8900b48b",
     "membership_validation_problems": "959c9f70f5ab648e",
     "new_project_request": "4cffeae1816d93a2",
-    "not_associated": "a8bd9d0037db82a5",
+    "not_associated": "4368092931234979",
     "phone_message": "c17d7359c5ddace4",
     "registrant_class_canceled": "a3b36f01fde3ee4c",
     "registrant_class_confirmed": "38e0456bdb64d363",
@@ -258,12 +280,13 @@ HASHES = {
     "shift_no_techs": "9a2c858ff7ac2456",
     "shop_tech_applications": "cd77b6978d522da3",
     "square_validation_action_needed": "3ed4e73c9efa37db",
+    "stale_purchase_requests": "a335498511580ac9",
     "suspension_ended": "d05255f2fcb8e992",
     "suspension_started": "3b211a9a7c04be8a",
     "tech_daily_tasks": "55af86e04ce2551c",
     "tech_leads_maintenance_status": "e763f572fa0203a5",
     "tech_openings": "f9bd7999e37d1ebd",
-    "tool_documentation": "ea11c1bf9a119b05",
+    "tool_documentation": "30faa1dfb4e04a20",
     "violation_ongoing": "1ff24f039d2d424a",
     "violation_started": "12527581a8fbdd2d",
 }
