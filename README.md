@@ -59,6 +59,12 @@ Unit tests:
 python -m pytest -v
 ```
 
+Browser component tests:
+```
+cd svelte
+npx cypress run --component
+```
+
 Linter check, all files:
 
 ```

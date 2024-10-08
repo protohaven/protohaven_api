@@ -1,4 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vitest/config';
 
 // Base URL of the flask backend server
@@ -38,9 +39,9 @@ for (let p of WS_PROXY_PATHS) {
 console.log("Proxying endpoints to flask backend server:", proxy);
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [svelte()], // [sveltekit()] previously, but didn't work with Cypress
 	test: {
-		include: ['src/**/*.{test,spec}.{js,ts}']
+	 	include: ['src/**/*.{test,spec}.{js,ts}']
 	},
   server: { proxy },
 });
