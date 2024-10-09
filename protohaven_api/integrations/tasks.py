@@ -125,10 +125,8 @@ def get_open_purchase_requests():
         if t["completed"]:
             return None
         cats = {
-            cfg["purchase_low_priority_section"]: "low_pri",
-            cfg["purchase_high_priority_section"]: "high_pri",
-            cfg["purchase_on_hold_section"]: "on_hold",
-            cfg["class_supply_default_section"]: "class_supply",
+            cfg["purchase_requests"]["sections"][v]: v
+            for v in ("requested", "approved", "ordered", "on_hold")
         }
         t["category"] = "unknown"
         for mem in t["memberships"]:
@@ -151,11 +149,7 @@ def get_open_purchase_requests():
             ]
         ),
     }
-    for t in _tasks().get_tasks_for_project(cfg["purchase_requests"], opts):
-        t2 = aggregate(t)
-        if t2:
-            yield t2
-    for t in _tasks().get_tasks_for_project(cfg["class_supply_requests"], opts):
+    for t in _tasks().get_tasks_for_project(cfg["purchase_requests"]["gid"], opts):
         t2 = aggregate(t)
         if t2:
             yield t2

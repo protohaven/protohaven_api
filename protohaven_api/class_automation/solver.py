@@ -140,7 +140,7 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
                     for instructor in instructors
                     for airtable_id in instructor.caps
                     if t in instructor.avail
-                    and a in class_areas[airtable_id]
+                    and a in class_areas.get(airtable_id, {})
                     and x.get((airtable_id, instructor.name, t)) is not None
                 ]
             )

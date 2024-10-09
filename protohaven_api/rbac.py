@@ -70,6 +70,14 @@ def require_login(fn):
     return do_login_check
 
 
+def roles_from_api_key(api_key):
+    """Gets roles from the passed API key"""
+    if api_key is not None:
+        roles = get_config()["general"].get("external_access_codes").get(api_key)
+        return roles
+    return None
+
+
 def get_roles():
     """Gets all the roles accessible by the incoming request/user.
     The payload and headers are searched for API keys"""
@@ -77,8 +85,7 @@ def get_roles():
     if not api_key:
         api_key = request.headers.get("X-Protohaven-APIKey", None)
     if api_key is not None:
-        roles = get_config()["general"].get("external_access_codes").get(api_key)
-        return roles
+        return roles_from_api_key(api_key)
 
     neon_acct = session.get("neon_account")
     if neon_acct is None:

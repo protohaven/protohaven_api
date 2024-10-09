@@ -149,7 +149,7 @@ def test_enforce_discord_nicknames(mocker, capsys):
             [
                 ["usr1", "bad1", d(0)],
                 ["usr2", "a b", d(-1)],
-                ["usr3", "not_in_neon", d(-2)],
+                ["usr 3", "not_in_neon", d(-2)],
                 ["usr4", "in_neon_non_member", d(-3)],
             ],
             None,
@@ -178,7 +178,7 @@ def test_enforce_discord_nicknames(mocker, capsys):
     r.comms.set_discord_nickname.assert_called_once_with("usr1", "first last")
     assert len(got) == 2
     assert "your Discord user isn't associated" in got[0]["body"]
-    assert "https://api.protohaven.org/member?discord_id=usr3" in got[0]["body"]
+    assert "https://api.protohaven.org/member?discord_id=usr%203" in got[0]["body"]
     assert "bad1 -> first last" in got[1]["body"]
 
 

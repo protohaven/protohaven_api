@@ -468,7 +468,9 @@ def get_members_with_role(role, extra_fields):
 
 
 def get_new_members_needing_setup(created_after, extra_fields=None):
-    """Fetch all members in need of automated setup"""
+    """Fetch all members in need of automated setup; this includes
+    all paying members past the start of the Onboarding V2 plan
+    that haven't yet had automation applied to them."""
     if not extra_fields:
         extra_fields = []
     data = {
@@ -481,6 +483,11 @@ def get_new_members_needing_setup(created_after, extra_fields=None):
                 "field": "Account Created Date",
                 "operator": "GREATER_THAN",
                 "value": created_after.strftime("%Y-%m-%d"),
+            },
+            {
+                "field": "Membership Cost",
+                "operator": "GREATER_THAN",
+                "value": 10,
             },
         ],
         "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],

@@ -245,14 +245,16 @@ def test_purchase_request_alerts(mocker, cli):
                 "name": "Foo",
                 "created_at": d(0),
                 "modified_at": d(0),
-                "category": "high_pri",
+                "category": "requested",
                 "notes": "test notes",
             }
         ],
     )
-    mocker.patch.object(F, "tznow", return_value=d(14))
-    mocker.patch.object(F.comms, "send_board_message", return_value=None)
-    cli("purchase_request_alerts", [])
-    F.comms.send_board_message.assert_called_with(  # pylint: disable=no-member
-        MatchStr("Foo")
-    )
+    mocker.patch.object(F, "tznow", return_value=d(30))
+    assert cli("purchase_request_alerts", []) == [
+        {
+            "subject": MatchStr("Open purchase requests"),
+            "body": MatchStr("1 total"),
+            "target": "#finance-automation",
+        }
+    ]

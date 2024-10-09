@@ -202,7 +202,7 @@ def gen_role_intents(
             neon_member, neon_roleset, discord_roleset
         ):
             if action == "REVOKE" and not destructive:
-                log.warning(
+                log.debug(
                     f"Omitting destructive action {action} {role} ({reason}) for {intent}"
                 )
                 continue

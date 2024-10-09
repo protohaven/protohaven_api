@@ -21,6 +21,9 @@ neon:
   login_pass: "${NEON_LOGIN_PASS}"
   waiver_expiration_days: 60
   waiver_published_date: "2023-03-14"
+  webhooks:
+    new_membership:
+      enabled: True
 discord_bot:
   enabled: "${DISCORD_BOT}"
   event_hooks:
@@ -115,8 +118,14 @@ asana:
   project_requests: "1204107875202537"
   private_instruction_requests: "1203922725251220"
   phone_messages: "1203963688927297"
-  purchase_requests: "1203839223519118"
-  purchase_high_priority_section: "1205427182922331"
+  purchase_requests:
+    gid: "1203839223519118"
+    sections:
+      requested: "1203839223519119"
+      approved: "1205427182922331"
+      ordered: "1206330510308500"
+      on_hold: "1203723178286283"
+
   class_supply_requests: "1202392844192314"
   class_supply_default_section: "1202392844192315"
   tool_report_tag: "1206437193319065"

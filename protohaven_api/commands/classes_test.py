@@ -72,17 +72,17 @@ def test_build_scheduler_env(cli, mocker):
     assert (
         cli(
             "build_scheduler_env",
-            ["--start", d(0).isoformat(), "--end", d(1).isoformat()],
+            ["--start", d(0).isoformat(), "--end", d(1).isoformat(), "--filter", "foo"],
         )
         == TESTVAL
     )
-    C.scheduler.generate_env.assert_called_with(d(0), d(1), None)
+    C.scheduler.generate_env.assert_called_with(d(0), d(1), set(["foo"]))
 
 
 @pytest.fixture
 def tfile(tmp_path):
     f = tmp_path / "tmp.txt"
-    f.write_text('"test"')
+    f.write_text('- "test"')
     return str(f)
 
 

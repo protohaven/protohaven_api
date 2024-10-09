@@ -1,0 +1,4 @@
+{% if subject %}Open purchase requests report:{% else %}{% for section in sections %}
+{{section.name}} ({{section.counts}} total open; showing up to 5 tasks older than {{section.threshold}}d):
+{% for t in section.tasks %}{{t}}
+{% endfor %}{% endfor %}{% endif %}
