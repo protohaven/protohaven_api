@@ -9,7 +9,16 @@ from protohaven_api.automation.classes import (
 )
 from protohaven_api.testing import d, idfn
 
-Tc = namedtuple("tc", "desc,t,a,want")
+TEST_CLASSES = [
+    s.Class(cid, name, hours, days, areas, exclusions=[], score=1)
+    for cid, name, hours, days, areas in [
+        ("SB", "Sewing Basics", 3, 1, ["textiles"]),
+        ("AE", "Advanced embroidery", 3, 3, ["textiles"]),
+        ("BW", "Basic Woodshop", 6, 2, ["wood"]),
+    ]
+]
+TEST_TIMES = [d(0), d(7), d(14)]
+Tc = namedtuple("tc", "desc,c,t,times,want")
 
 
 @pytest.mark.parametrize(
@@ -17,41 +26,51 @@ Tc = namedtuple("tc", "desc,t,a,want")
     [
         Tc(
             "basic",
-            d(0),
-            "textiles",
+            TEST_CLASSES[0],
+            TEST_TIMES[0],
+            TEST_TIMES,
             [
-                ("AE", d(0)),
                 ("SB", d(0)),
+                ("AE", d(0)),
             ],
         ),
         Tc(
             "prev runs also included",
-            d(14),
-            "textiles",
+            TEST_CLASSES[0],
+            TEST_TIMES[-1],
+            TEST_TIMES,
             [
+                ("SB", d(14)),
                 ("AE", d(0)),
                 ("AE", d(7)),
                 ("AE", d(14)),
-                ("SB", d(14)),
+            ],
+        ),
+        Tc(
+            "self-overlapping multi-day class with offset",
+            TEST_CLASSES[2],
+            d(7, 3),
+            [d(0), d(7, 3)],
+            [
+                ("BW", d(0)),
+                ("BW", d(7, 3)),
+            ],
+        ),
+        Tc(
+            "non-overlap multi-day class",
+            TEST_CLASSES[2],
+            d(4),
+            [d(0), d(4)],
+            [
+                ("BW", d(4)),
             ],
         ),
     ],
     ids=idfn,
 )
-def test_class_starts_intersecting_time_and_area(tc):
+def test_get_overlapping(tc):
     """Testing various scenarios of classes overlapping one another"""
-    classes = [
-        s.Class(cid, name, hours, days, areas, exclusions=[], score=1)
-        for cid, name, hours, days, areas in [
-            ("AE", "Advanced embroidery", 3, 3, ["textiles"]),
-            ("SB", "Sewing Basics", 3, 1, ["textiles"]),
-            ("BW", "Basic Woodshop", 2, 1, ["wood"]),
-        ]
-    ]
-    times = [d(0), d(7), d(14)]
-    assert set(
-        s.class_starts_intersecting_time_and_area(tc.t, tc.a, times, classes)
-    ) == set(tc.want)
+    assert set(s.get_overlapping(tc.c, tc.t, TEST_CLASSES, tc.times)) == set(tc.want)
 
 
 def test_solve_simple():

@@ -9,6 +9,8 @@ from dateutil import parser as dateparser
 from pulp import constants as pulp_constants
 from pulp import pulp
 
+from protohaven_api.automation.classes.validation import date_range_overlaps
+
 log = logging.getLogger("class_automation.solver")
 
 
@@ -34,6 +36,14 @@ class Class:
         # Score is a normalized expected value based on revenue, likelihood to fill,
         # cost of materials etc.
         self.score = score
+
+    def expand(self, start_time):
+        """Generate a list of time intervals based on a given `start_time` for
+        which the class would be active"""
+        for d in range(self.days):
+            t0 = start_time + datetime.timedelta(days=7 * d)
+            t1 = t0 + datetime.timedelta(hours=self.hours)
+            yield (t0, t1)
 
     def __repr__(self):
         return (
@@ -88,25 +98,32 @@ class Instructor:
         }
 
 
-def class_starts_intersecting_time_and_area(t, a, times, classes):
-    """Yields a sequence of (class_id, time) of classes that use area `a` and
-    which would overlap at time `t`"""
-    for tt in times:
-        for c in classes:
-            if a not in c.areas:
-                continue
-            for session in range(c.days):
-                start = tt + datetime.timedelta(days=7 * session)
-                end = start + datetime.timedelta(hours=c.hours)
-                if start <= t <= end:
-                    yield c.class_id, tt
-                    break
+def _find_overlap(c1, t1, c2, t2):
+    for c1t0, c1t1 in c1.expand(t1):
+        for c2t0, c2t1 in c2.expand(t2):
+            if date_range_overlaps(c1t0, c1t1, c2t0, c2t1):
+                return t2
+    return None
+
+
+def get_overlapping(c1, t1, classes, times):
+    """Yields a sequence of (class_id, start_time) of classes that would
+    conflict with class `c` running at time `t`.
+    Note that duplicate values may be returned."""
+    for c2 in classes:
+        # Classes without intersecting areas don't have a chance of overlapping
+        if len(set(c1.areas).intersection(c2.areas)) == 0:
+            continue
+        for t2 in times:
+            ovr = _find_overlap(c1, t1, c2, t2)
+            print("Test ", c2, t2, ovr)
+            if ovr is not None:
+                yield c2.class_id, ovr
 
 
 def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.class_id: cls for cls in classes}
-    areas = {a for c in classes for a in c.areas}
 
     # Create a dictionary of the cartesian product of classes, instructors, and times.
     # The dict values are either 0 (not assigned) or 1 (assigned)
@@ -144,31 +161,28 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
 
     # ==== Constraints ====
     # Classes do not overlap the same area at the same time
-    times = set()
+    times = {a for i in instructors for a in i.avail}
     for i in instructors:
-        times.update(i.avail)
-    for a in areas:
-        for t in times:
-            # As classes may run for multiple days, we must first
-            # pick out a set of candidate classes which would overlap time `t`
-            # and area `a`, then collect instructors who would potentially
-            # be teaching that class at that time.
-            class_starts = list(
-                class_starts_intersecting_time_and_area(
-                    t, a, times, class_by_id.values()
+        for class_id in i.caps:
+            c = class_by_id.get(class_id)
+            for t in i.avail:
+                overlaps = set(get_overlapping(c, t, class_by_id.values(), times))
+                # Include all instructors that could teach each
+                # overlap at the computed start time
+                area_assigned_times = pulp.lpSum(
+                    [
+                        x[(cid, i2.name, start)]
+                        for cid, start in overlaps
+                        for i2 in instructors
+                        if start in i2.avail
+                        and cid in i2.caps
+                        and x.get((cid, i2.name, start)) is not None
+                    ]
                 )
-            )
-            area_assigned_times = pulp.lpSum(
-                [
-                    x[(class_id, instructor.name, start)]
-                    for class_id, start in class_starts
-                    for instructor in instructors
-                    if start in instructor.avail
-                    and class_id in instructor.caps
-                    and x.get((class_id, instructor.name, start)) is not None
-                ]
-            )
-            prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
+                prob += (
+                    area_assigned_times <= 1,
+                    f"NoOverlapRequirement_{i.name}_{class_id}_{t}",
+                )
 
     # Classes run at most once
     for cls in classes:
