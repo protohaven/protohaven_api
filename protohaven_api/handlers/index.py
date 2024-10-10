@@ -339,13 +339,9 @@ def class_listing():
     return result
 
 
-@page.route("/neon_lookup", methods=["GET", "POST"])
+@page.route("/neon_lookup", methods=["POST"])
 def neon_id_lookup():
     """Look up the ID of a user in Neon based on a search by name or email"""
-    if request.method == "GET":
-        return render_template("search.html")
-
-    # invariant: request.method == "POST"
     result = []
     search = request.values.get("search")
     if search is None:
@@ -358,6 +354,17 @@ def neon_id_lookup():
         i = i["data"]
         result.append(f"{i['firstName']} {i['lastName']} (#{i['accountId']})")
     return result
+
+
+@page.route("/events", methods=["GET"])
+def events_static():
+    """Events dashboard"""
+    return current_app.send_static_file("svelte/events.html")
+
+@page.route("/events/_app/immutable/<typ>/<path>")
+def events_svelte_files(typ, path):
+    """Return svelte compiled static pages for welcome page"""
+    return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
 @page.route("/events/attendees")
@@ -373,9 +380,9 @@ def events_dashboard_attendee_count():
     return str(attendees)
 
 
-@page.route("/events")
-def events_dashboard():
-    """Show relevant upcoming events - designed for a kiosk display"""
+@page.route("/events/upcoming")
+def upcoming_events():
+    """Show relevant upcoming events."""
     events = []
     now = tznow()
 
@@ -389,56 +396,58 @@ def events_dashboard():
         log.error("Failed to fetch instructor map, proceeding anyways")
         instructors_map = {}
 
-    # NOTE: does not currently support intensive date periods. Need to expand
-    # dates to properly show this.
-    try:
-        for e in neon.fetch_published_upcoming_events():
-            if not e.get("startDate"):
-                continue
-            if e["id"] == 17631:
-                continue  # Don't list private instruction
-            start = dateparser.parse(
-                e["startDate"] + " " + (e.get("startTime") or "")
-            ).astimezone(tz)
-            end = dateparser.parse(
-                e["endDate"] + " " + (e.get("endTime") or "")
-            ).astimezone(tz)
+    for e in neon.fetch_published_upcoming_events():
+        if not e.get("startDate"):
+            continue
+        if e["id"] == 17631:
+            continue  # Don't list private instruction
+        start = dateparser.parse(
+            e["startDate"] + " " + (e.get("startTime") or "")
+        ).astimezone(tz)
+        end = dateparser.parse(
+            e["endDate"] + " " + (e.get("endTime") or "")
+        ).astimezone(tz)
 
-            # Only include events that haven't ended
-            if end < now:
-                continue
-            events.append(
-                {
-                    "id": e["id"],
-                    "name": e["name"],
-                    "date": start,
-                    "instructor": instructors_map.get(str(e["id"]), ""),
-                    "start_date": start.strftime("%a %b %d"),
-                    "start_time": start.strftime("%-I:%M %p"),
-                    "end_date": end.strftime("%a %b %d"),
-                    "end_time": end.strftime("%-I:%M %p"),
-                    "capacity": e["capacity"],
-                    "registration": e["enableEventRegistrationForm"]
-                    and start - datetime.timedelta(hours=24) > now,
-                }
-            )
+        if end < now:
+            continue
+        events.append(
+            {
+                "id": e["id"],
+                "name": e["name"],
+                "date": start,
+                "instructor": instructors_map.get(str(e["id"]), ""),
+                "start_date": start.strftime("%a %b %d"),
+                "start_time": start.strftime("%-I:%M %p"),
+                "end_date": end.strftime("%a %b %d"),
+                "end_time": end.strftime("%-I:%M %p"),
+                "capacity": e["capacity"],
+                "registration": e["enableEventRegistrationForm"]
+                and start - datetime.timedelta(hours=24) > now,
+            }
+        )
 
-        events.sort(key=lambda e: e["date"])
-    except json.decoder.JSONDecodeError:
-        log.error("Neon fetch error, proceeding anyways")
+    events.sort(key=lambda e: e["date"])
+    return {'now': now, 'events': events}
 
+
+@page.route("/events/shop")
+def get_shop_events():
+    """Show shop events."""
     shop_events = []
-    try:
-        for e, dates in fetch_shop_events().items():
-            for start, end in dates:
-                start = dateparser.parse(start)
-                shop_events.append((e, start))
-        shop_events.sort(key=lambda v: v[1])
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        log.error(e)
-        shop_events = [(f"Error fetching shop events: {e}", now)]
+    now = tznow()
+    for e, dates in fetch_shop_events().items():
+        for start, _ in dates:
+            start = dateparser.parse(start)
+            shop_events.append({'name': e, 'start': start})
+    shop_events.sort(key=lambda v: v['start'])
+    return shop_events
 
+
+@page.route("/events/reservations")
+def get_event_reservations():
+    """Show reservations."""
     reservations = []
+    now = tznow()
     for r in get_reservations(
         now.replace(hour=0, minute=0, second=0),
         now.replace(hour=23, minute=59, second=59),
@@ -455,13 +464,4 @@ def events_dashboard():
                 "resource": r["resourceName"],
             }
         )
-    print(reservations)
-    now = tznow()
-    return render_template(
-        "events.html",
-        events=events,
-        shop_events=shop_events,
-        reservations=reservations,
-        now=now,
-        hide_events_after=now + datetime.timedelta(days=7),
-    )
+    return reservations

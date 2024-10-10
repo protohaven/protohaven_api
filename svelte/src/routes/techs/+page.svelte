@@ -8,6 +8,7 @@
   import Shifts from '$lib/techs/shifts.svelte';
   import Assignments from '$lib/techs/assignments.svelte';
   import AreaLeads from '$lib/techs/area_leads.svelte';
+  import Storage from '$lib/techs/storage.svelte';
   import { onMount } from 'svelte';
 
   let promise = new Promise((resolve, reject) => {});
@@ -47,6 +48,7 @@
   <Shifts {user}/>
   <Assignments/>
   <ToolState/>
+  <Storage/>
   <AreaLeads/>
   <TechsList/>
 </TabContent>
