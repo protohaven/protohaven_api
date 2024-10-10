@@ -6,9 +6,9 @@ from functools import lru_cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz
 from protohaven_api.integrations import neon
+from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("membership_automation")
 

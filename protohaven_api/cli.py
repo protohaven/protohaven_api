@@ -33,7 +33,7 @@ if run_discord_bot:
     import threading
     import time
 
-    from protohaven_api.discord_bot import run as run_bot
+    from protohaven_api.integrations.discord_bot import run as run_bot
 
     threading.Thread(target=run_bot, daemon=True).start()
     time.sleep(

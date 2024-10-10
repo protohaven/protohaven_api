@@ -4,9 +4,9 @@ import logging
 
 from flask import Blueprint, Response, render_template, request
 
+from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon
-from protohaven_api.membership_automation import membership as memauto
 from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 
 page = Blueprint("admin", __name__, template_folder="templates")
@@ -63,12 +63,6 @@ def user_clearances():
             return Response(str(e), status=500)
         results[e] = "OK"
     return results
-
-
-@page.route("/admin/user_clearances")
-def admin_user_clearances():
-    """Admin page for managing user clearances"""
-    return render_template("admin_set_clearances.html")
 
 
 @page.route("/admin/set_discord_nick")

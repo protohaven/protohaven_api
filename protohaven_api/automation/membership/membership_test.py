@@ -1,9 +1,9 @@
 """Test methods for membership automation commands"""
 from dateutil import parser as dateparser
 
+from protohaven_api.automation.membership import membership as m
 from protohaven_api.config import tz
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-from protohaven_api.membership_automation import membership as m
 from protohaven_api.testing import d
 
 # pylint: skip-file

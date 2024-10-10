@@ -1,7 +1,9 @@
 """Test behavior of linear solver for class scheduling"""
 
 
-from protohaven_api.class_automation import solver as s  # pylint: disable=import-error
+from protohaven_api.automation.classes import (
+    solver as s,  # pylint: disable=import-error
+)
 from protohaven_api.testing import d
 
 

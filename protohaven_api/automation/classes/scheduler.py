@@ -5,15 +5,15 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation.solver import Class, Instructor, solve
-from protohaven_api.class_automation.validation import (
+from protohaven_api.automation.classes.solver import Class, Instructor, solve
+from protohaven_api.automation.classes.validation import (
     date_range_overlaps,
     sort_and_merge_date_ranges,
     validate_candidate_class_time,
 )
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable
+from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.scheduler")
 

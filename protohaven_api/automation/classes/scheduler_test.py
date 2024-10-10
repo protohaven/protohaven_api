@@ -5,8 +5,8 @@ import datetime
 
 from dateutil.parser import parse as parse_date
 
-from protohaven_api.class_automation import scheduler as s
-from protohaven_api.class_automation.solver import Class
+from protohaven_api.automation.classes import scheduler as s
+from protohaven_api.automation.classes.solver import Class
 from protohaven_api.config import tz, tznow
 from protohaven_api.testing import d, t
 

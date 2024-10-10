@@ -9,7 +9,7 @@ from functools import lru_cache
 import markdown
 from dateutil import parser as dateparser
 
-from protohaven_api.class_automation import builder, scheduler
+from protohaven_api.automation.classes import builder, scheduler
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error

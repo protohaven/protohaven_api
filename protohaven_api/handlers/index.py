@@ -5,15 +5,22 @@ import logging
 import time
 
 from dateutil import parser as dateparser
-from flask import Blueprint, Response, current_app, render_template, request, session
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    redirect,
+    render_template,
+    request,
+    session,
+)
 from flask_sock import Sock
 
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.booked import get_reservations
-from protohaven_api.integrations.comms import send_membership_automation_message
+from protohaven_api.integrations.comms import Msg, send_membership_automation_message
 from protohaven_api.integrations.data.models import SignInEvent
 from protohaven_api.integrations.forms import submit_google_form
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -28,14 +35,30 @@ log = logging.getLogger("handlers.index")
 @page.route("/")
 @require_login
 def index():
-    """Show the main dashboard page"""
+    """Redirect to the member page"""
+    redirect("/member")
+
+
+@page.route("/whoami")
+def whoami():
+    """Returns data about the logged in user"""
+    if not rbac_enabled():
+        return {
+            "fullname": "Test User (RBAC disabled)",
+            "email": "noreply@noreply.com",
+            "clearances": [],
+            "roles": [],
+            "neon_id": "00000",
+        }
+    if not session.get("neon_account"):
+        return Response("You are not logged in", status=400)
+
     neon_account = session.get("neon_account") or {
         "individualAccount": {"accountCustomFields": []}
     }
     clearances = []
     roles = []
     neon_account["custom_fields"] = {"Clearances": {"optionValues": []}}
-    neon_json = json.dumps(neon_account, indent=2)
     for cf in neon_account["individualAccount"]["accountCustomFields"]:
         if cf["name"] == "Clearances":
             clearances = [v["name"] for v in cf["optionValues"]]
@@ -43,26 +66,13 @@ def index():
             roles = [v["name"] for v in cf["optionValues"]]
         neon_account["custom_fields"][cf["name"]] = cf
 
-    return render_template(
-        "dashboard.html",
-        fullname=user_fullname(),
-        email=user_email(),
-        neon_id=session.get("neon_id"),
-        neon_account=neon_account,
-        neon_json=neon_json,
-        clearances=clearances,
-        roles=roles,
-    )
-
-
-@page.route("/whoami")
-def whoami():
-    """Returns data about the logged in user"""
-    if not rbac_enabled():
-        return {"fullname": "Test User (RBAC disabled)", "email": "noreply@noreply.com"}
-    if not session.get("neon_account"):
-        return Response("You are not logged in", status=400)
-    return {"fullname": user_fullname(), "email": user_email()}
+    return {
+        "fullname": user_fullname(),
+        "email": user_email(),
+        "neon_id": neon_account.get("id"),
+        "clearances": clearances,
+        "roles": roles,
+    }
 
 
 @page.route("/event_ticker")
@@ -276,7 +286,7 @@ def setup_sock_routes(app):
 @page.route("/welcome", methods=["GET"])
 def welcome_signin():
     """Sign-in page at front desk"""
-    return current_app.send_static_file("svelte/index.html")
+    return current_app.send_static_file("svelte/welcome.html")
 
 
 @page.route("/welcome/announcement_ack", methods=["POST"])

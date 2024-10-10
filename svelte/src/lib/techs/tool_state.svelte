@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Popover, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { TabPane, Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Popover, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get} from '$lib/api.ts';
 
 let promise = new Promise((resolve) => {});
@@ -23,11 +23,12 @@ onMount(refresh);
 </script>
 
 
-<Card style="width: 100%" class="my-3">
-  <CardHeader><CardTitle>Tool States</CardTitle></CardHeader>
+<TabPane tabId="tools" tab="Tools">
+<Card>
+    <CardHeader><CardTitle>Tool Maintenance State</CardTitle>
+    <CardSubtitle>Click on a tool to see details and make reports</CardSubtitle>
+  </CardHeader>
   <CardBody>
-	<em>Click on any badge to see more details, make tool reports, documentation etc.</em>
-
 {#await promise}
 <Spinner/>
 {:then p}
@@ -36,7 +37,7 @@ onMount(refresh);
     <Row>
       <CardBody>
       {#each p[color] as tool}
-	<Badge class="mx-2" id="btn-{tool.code}" color={get_color(color)}>{tool.name} ({tool.modified} days)</Badge>
+	<Badge style="cursor: pointer" class="mx-2" id="btn-{tool.code}" color={get_color(color)}>{tool.name} ({tool.modified} days)</Badge>
         <Popover target="btn-{tool.code}" title={tool.name} hideOnOutsideClick>
 		<div>{tool.date}</div>
 		<div>{tool.message}</div>
@@ -49,4 +50,8 @@ onMount(refresh);
   {/each}
   {/await}
   </CardBody>
+  <CardFooter>
+      Looking for a task? Check the <a href="https://app.asana.com/0/1202469740885594/1204138662113052" target="_blank">Shop & Maintenance Tasks<a/> Asana project.
+  </CardFooter>
 </Card>
+</TabPane>

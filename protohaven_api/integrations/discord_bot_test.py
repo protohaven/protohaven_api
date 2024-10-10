@@ -3,7 +3,7 @@ from collections import namedtuple
 
 import pytest
 
-from protohaven_api.discord_bot import PHClient
+from protohaven_api.integrations.discord_bot import PHClient
 from protohaven_api.testing import idfn
 
 Tc = namedtuple("tc", "desc,usr,enabled,include,exclude,want")

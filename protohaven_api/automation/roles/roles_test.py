@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from protohaven_api.role_automation import roles as r
+from protohaven_api.automation.roles import roles as r
 from protohaven_api.testing import d, idfn
 
 Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")

@@ -6,9 +6,9 @@ from dataclasses import asdict, dataclass, replace
 
 from dateutil import parser as dateparser
 
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import exec_details_footer
 from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.integrations.comms import Msg
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("role_automation.roles")

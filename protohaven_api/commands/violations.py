@@ -3,10 +3,10 @@ import argparse
 import datetime
 import logging
 
+from protohaven_api.automation.policy import enforcer
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable  # pylint: disable=import-error
-from protohaven_api.policy_enforcement import enforcer
 
 log = logging.getLogger("cli.violations")
 

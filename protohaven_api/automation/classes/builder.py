@@ -9,9 +9,9 @@ from pathlib import Path
 
 from dateutil import parser as dateparser
 
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
+from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.builder")
 

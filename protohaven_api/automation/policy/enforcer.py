@@ -7,9 +7,9 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations.comms import Msg
 
 VIOLATION_MAX_AGE_DAYS = 90
 SUSPENSION_MAX_AGE_DAYS = 365

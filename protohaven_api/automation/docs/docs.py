@@ -4,8 +4,8 @@ import logging
 
 import requests
 
-from protohaven_api.comms_templates import Msg
 from protohaven_api.integrations import airtable
+from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("validation.docs")
 

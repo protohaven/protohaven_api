@@ -1,6 +1,6 @@
 # pylint: skip-file
+from protohaven_api.automation.policy import enforcer as e
 from protohaven_api.commands import violations as v
-from protohaven_api.policy_enforcement import enforcer as e
 
 
 def test_enforce_policies_no_output(mocker, capsys):

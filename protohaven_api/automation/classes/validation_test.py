@@ -3,8 +3,8 @@ from collections import namedtuple
 
 import pytest
 
-from protohaven_api.class_automation import validation as v
-from protohaven_api.class_automation.solver import Class
+from protohaven_api.automation.classes import validation as v
+from protohaven_api.automation.classes.solver import Class
 from protohaven_api.testing import d, idfn
 
 Tc = namedtuple("tc", "desc,a0,a1,b0,b1,want")

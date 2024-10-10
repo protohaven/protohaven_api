@@ -2,8 +2,8 @@
 
 from dateutil import parser as dateparser
 
-from protohaven_api.policy_enforcement import enforcer
-from protohaven_api.policy_enforcement.testing import (
+from protohaven_api.automation.policy import enforcer
+from protohaven_api.automation.policy.testing import (
     TESTFEE,
     TESTMEMBER,
     dt,

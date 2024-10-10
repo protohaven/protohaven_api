@@ -3,7 +3,7 @@ import logging
 
 from dateutil.parser import parse as parse_date
 
-from protohaven_api.class_automation import builder  # pylint: disable=import-error
+from protohaven_api.automation.classes import builder  # pylint: disable=import-error
 from protohaven_api.config import tz  # pylint: disable=import-error
 
 TEST_NOW = parse_date("2024-02-22").astimezone(tz)
@@ -103,7 +103,7 @@ def _mock_builder(  # pylint: disable=too-many-arguments
         side_effect=fetch_attendees_fn,
     )
     mocker.patch(
-        "protohaven_api.class_automation.builder.get_account_email",
+        "protohaven_api.automation.classes.builder.get_account_email",
         side_effect=get_account_email_fn,
     )
     mocker.patch(

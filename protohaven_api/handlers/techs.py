@@ -5,8 +5,8 @@ from collections import defaultdict
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
+from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
-from protohaven_api.forecasting import techs as forecast
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.rbac import Role, get_roles
 from protohaven_api.rbac import is_enabled as is_rbac_enabled
@@ -106,7 +106,7 @@ def techs_area_leads():
             if a not in area_map:
                 log.warning(f"Tech {t['name']} is area lead of invalid area {a}")
             else:
-                area_map[a].append(t["name"])
+                area_map[a].append(t)
     return area_map
 
 
