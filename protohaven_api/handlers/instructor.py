@@ -5,10 +5,10 @@ import logging
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
-from protohaven_api.class_automation.scheduler import (
+from protohaven_api.automation.classes.scheduler import (
     generate_env as generate_scheduler_env,
 )
-from protohaven_api.class_automation.scheduler import push_schedule, solve_with_env
+from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
@@ -92,7 +92,9 @@ def get_instructor_readiness(inst, caps=None):
         result["active_membership"] = inst["Account Current Membership Status"]
     if inst.get("Discord User"):
         result["discord_user"] = "OK"
-    result["fullname"] = f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
+    result[
+        "fullname"
+    ] = f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
 
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
@@ -153,10 +155,16 @@ def instructor_class_attendees():
     return result
 
 
-@page.route("/instructor/class_selector")
-def instructor_class_selector():
+@page.route("/instructor/class")
+def instructor_class_selector_redirect1():
     """Used previously. This redirects to the new endpoint"""
-    return redirect("/instructor/class")
+    return redirect("/instructor")
+
+
+@page.route("/instructor/class_selector")
+def instructor_class_selector_redirect2():
+    """Used previously. This redirects to the new endpoint"""
+    return redirect("/instructor")
 
 
 def get_dashboard_schedule_sorted(email, now=None):
@@ -238,11 +246,11 @@ def _annotate_schedule_class(e):
     return e
 
 
-@page.route("/instructor/class")
+@page.route("/instructor")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class():
     """Return svelte compiled static page for instructor dashboard"""
-    return current_app.send_static_file("svelte/dashboard.html")
+    return current_app.send_static_file("svelte/instructor.html")
 
 
 @page.route("/instructor/_app/immutable/<typ>/<path>")

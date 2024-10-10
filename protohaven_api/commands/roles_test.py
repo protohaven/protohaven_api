@@ -5,9 +5,9 @@ from collections import namedtuple
 import pytest
 import yaml
 
+from protohaven_api.automation.roles import roles as ra
+from protohaven_api.automation.roles.roles import DiscordIntent
 from protohaven_api.commands import roles as r
-from protohaven_api.role_automation import roles as ra
-from protohaven_api.role_automation.roles import DiscordIntent
 from protohaven_api.testing import MatchStr, d, idfn, mkcli
 
 

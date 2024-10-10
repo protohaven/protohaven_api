@@ -1,6 +1,17 @@
 # protohaven_api
 API system for protohaven
 
+## Architecture
+
+This project contains a CLI and a web server for handling the various software needs of Protohaven.
+
+* **integrations/** contains third-party integrations as python modules
+* **automations/** use various integrations combined with problem-specific logic to do useful stuff
+* **handlers/** provide Flask web handlers to perform actions and render content.
+* **commands/** contains the various commands used as part of the CLI
+* **main.py** is the entry point for the Flask web server
+* **cli.py** is the entry point for command line usage
+
 ## Setup
 
 ### Configuration

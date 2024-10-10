@@ -2,8 +2,8 @@
 
 import logging
 
+from protohaven_api.automation.docs.docs import validate as validate_docs
 from protohaven_api.commands.decorator import command, print_yaml
-from protohaven_api.docs_automation.docs import validate as validate_docs
 
 log = logging.getLogger("cli.docs")
 

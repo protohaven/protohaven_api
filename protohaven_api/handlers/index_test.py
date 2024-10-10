@@ -21,7 +21,16 @@ def _setup_session(client):
         session["neon_id"] = 1234
         session["neon_account"] = {
             "individualAccount": {
-                "accountCustomFields": [],
+                "accountCustomFields": [
+                    {
+                        "name": "Clearances",
+                        "optionValues": [{"name": "C1"}, {"name": "C2"}],
+                    },
+                    {
+                        "name": "API server role",
+                        "optionValues": [{"name": "test role"}],
+                    },
+                ],
                 "primaryContact": {
                     "firstName": "First",
                     "lastName": "Last",
@@ -35,7 +44,8 @@ def test_index(client):
     """Test behavior of index page"""
     _setup_session(client)
     response = client.get("/")
-    assert "Protohaven Dashboard" in response.data.decode("utf8")
+    assert response.status_code == 302
+    assert response.location == "/member"
 
 
 def test_whoami(client):
@@ -45,6 +55,9 @@ def test_whoami(client):
     assert json.loads(response.data.decode("utf8")) == {
         "fullname": "First Last",
         "email": "foo@bar.com",
+        "neon_id": 1234,
+        "clearances": ["C1", "C2"],
+        "roles": ["test role"],
     }
 
 
@@ -52,7 +65,7 @@ def test_welcome_signin_get(client, mocker):
     """Check that the svelte page is loaded"""
     mocker.patch.object(app, "send_static_file", return_value="TEST")
     assert "TEST" == client.get("/welcome").data.decode("utf8")
-    app.send_static_file.assert_called_with("svelte/index.html")
+    app.send_static_file.assert_called_with("svelte/welcome.html")
 
 
 def test_welcome_signin_guest_no_referrer(mocker):

@@ -1,6 +1,6 @@
 <script type="typescript">
 
-import { Modal, ModalBody, ModalFooter, Button, ListGroup, ListGroupItem, Input, Spinner } from '@sveltestrap/sveltestrap';
+import { Alert, Modal, ModalBody, ModalFooter, Button, ListGroup, ListGroupItem, Input, Spinner } from '@sveltestrap/sveltestrap';
 import {get, post, del} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
@@ -11,6 +11,8 @@ export let all_techs = get("/techs/list").then((data) => {
   return tt;
 });
 export let on_update;
+
+$: loggedin = edit && edit.fullname;
 
 function rm(tech) {
   edit.techs = edit.techs.filter((t) => t != tech);
@@ -53,24 +55,20 @@ function revert() {
 
 </script>
 
-<Modal isOpen={edit} header="Shift change: {edit && edit.date} {edit && edit.ap}">
+<Modal isOpen={edit} header="{edit && edit.date} {edit && edit.ap}">
 <ModalBody>
+  Current shift:
   <ListGroup>
   {#if edit && edit.techs.length == 0}
     No techs on shift
   {/if}
-  {#if edit.id}
-	Original:
-	  {#each edit.orig as t}
-	    <ul>
-	      <li>{t}</li>
-	    </ul>
-	  {/each}
-      <hr/>
-  {/if}
   {#each edit.techs as t}
-    <ListGroupItem><Button on:click={() => rm(t)}>X</Button>{t}</ListGroupItem>
+    <ListGroupItem>
+          {#if loggedin}
+          <Button on:click={() => rm(t)}>X</Button>&nbsp;
+          {/if}{t}</ListGroupItem>
   {/each}
+    {#if loggedin}
     <ListGroupItem>
       {#await all_techs}
 	<Spinner/>
@@ -92,20 +90,33 @@ function revert() {
 	  <FetchError {error}/>
 	{/await}
     </ListGroupItem>
+    {/if}
   </ListGroup>
+
 </ModalBody>
 <ModalFooter>
-  {#if edit.id}
-  <div><em>Last edit: {edit.editor}</em></div>
-  {/if}
+  <div style="width: 100%">
+    {#if !loggedin}
+      <Alert color="warning">You must be <a href="/login">logged in</a> to modify the shift schedule</Alert>
+    {/if}
+    {#if edit.id}
+      Original:
+      {#each edit.orig as t}
+        <ul>
+          <li>{t}</li>
+        </ul>
+      {/each}
+      <em>Last edit: {edit.editor}</em>
+    {/if}
+  </div>
   {#await promise}
    <Spinner/>
   {:catch error}
     <FetchError {error}/>
   {/await}
-  <Button color="primary" on:click={save} disabled={acting}>Save</Button>
+  <Button color="primary" on:click={save} disabled={acting || !loggedin}>Save</Button>
   {#if edit.id}
-  <Button color="primary" on:click={revert} disabled={acting}>Revert</Button>
+  <Button color="primary" on:click={revert} disabled={acting || !loggedin}>Revert</Button>
   {/if}
   <Button color="secondary" on:click={() => edit = null} disabled={acting}>Cancel</Button>
 </ModalFooter>

@@ -6,7 +6,6 @@ from flask import Flask  # pylint: disable=import-error
 from flask_cors import CORS
 
 from protohaven_api.config import get_config
-from protohaven_api.discord_bot import run as run_bot
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
 from protohaven_api.handlers.index import page as index_pages
@@ -21,6 +20,7 @@ from protohaven_api.handlers.techs import page as techs_pages
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
+from protohaven_api.integrations.discord_bot import run as run_bot
 from protohaven_api.rbac import set_rbac
 
 cfg = get_config()
@@ -75,7 +75,7 @@ init_connector(Connector if server_mode == "prod" else DevConnector)
 if run_discord_bot:
     import threading
 
-    from protohaven_api.role_automation.roles import (  # pylint: disable=ungrouped-imports
+    from protohaven_api.automation.roles.roles import (  # pylint: disable=ungrouped-imports
         setup_discord_user,
     )
 

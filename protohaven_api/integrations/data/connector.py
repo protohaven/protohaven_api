@@ -13,8 +13,8 @@ import httplib2
 import requests
 from square.client import Client as SquareClient
 
-from protohaven_api import discord_bot
 from protohaven_api.config import get_config
+from protohaven_api.integrations import discord_bot
 
 log = logging.getLogger("integrations.data.connector")
 

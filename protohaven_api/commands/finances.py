@@ -9,15 +9,15 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
+from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.comms_templates import Msg
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
     tz,
     tznow,
 )
 from protohaven_api.integrations import neon, sales  # pylint: disable=import-error
-from protohaven_api.membership_automation import membership as memauto
+from protohaven_api.integrations.comms import Msg
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.finances")

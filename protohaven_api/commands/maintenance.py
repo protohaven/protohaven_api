@@ -3,9 +3,9 @@ import argparse
 import logging
 import random
 
+from protohaven_api.automation.maintenance import manager
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.comms_templates import Msg
-from protohaven_api.maintenance import manager
+from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
 

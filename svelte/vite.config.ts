@@ -16,8 +16,10 @@ const PROXY_PATHS = [
   '^/techs/.',
   '^/member/.',
   '^/staff/.',
+  '^/events/.',
   '^/instructor/.',
   '/whoami',
+  '/neon_lookup',
   '/class_listing',
   '/welcome',
 ];

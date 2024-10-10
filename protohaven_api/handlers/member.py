@@ -4,9 +4,9 @@ import threading
 
 from flask import Blueprint, Response, current_app, request, session
 
+from protohaven_api.automation.roles.roles import setup_discord_user_sync
 from protohaven_api.integrations import neon
 from protohaven_api.rbac import am_admin, require_login
-from protohaven_api.role_automation.roles import setup_discord_user_sync
 
 page = Blueprint("member", __name__, template_folder="templates")
 

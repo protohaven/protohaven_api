@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { TabPane, Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
@@ -51,14 +51,16 @@ function clearance_click(id) {
 </script>
 
 
+<TabPane tabId="techs" tab="Techs">
+<Card>
+    <CardHeader>
+      <CardTitle>Tech Roster</CardTitle>
+      <CardSubtitle>Current info on all techs</CardSubtitle>
+    </CardHeader>
+<CardBody>
 {#await promise}
 <Spinner/>
 {:then p}
-<Card class="my-3" style="width: 100%">
-  <CardHeader>
-    <CardTitle>Shop Techs</CardTitle>
-  </CardHeader>
-  <CardBody>
   {#if p.tech_lead }
   <div class="d-flex">
     {#if enrolling}
@@ -102,8 +104,9 @@ function clearance_click(id) {
 	{/if}
       </Modal>
     {/each}
-  </CardBody>
-</Card>
 {:catch error}
   <FetchError {error}/>
 {/await}
+</CardBody>
+</Card>
+</TabPane>

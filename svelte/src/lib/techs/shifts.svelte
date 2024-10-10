@@ -1,47 +1,77 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
-import {get} from '$lib/api.ts';
+import { TabPane, Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import Editor from './forecast_override.svelte';
+import FetchError from '../fetch_error.svelte';
+import {get, post} from '$lib/api.ts';
 
+export let user;
 let promise = new Promise((resolve) => {});
 function refresh() {
-  promise = get("/techs/shifts");
+  promise = get("/techs/forecast");
 }
 onMount(refresh);
+
+let edit = null;
+
+function start_edit(s) {
+ let e = {ap: s.ap, date: s.date, techs: s.people, ...user};
+ if (s.ovr) {
+   e = {...e, id: s.ovr.id, orig: s.ovr.orig, editor: s.ovr.editor};
+ }
+  edit = e;
+}
+
 </script>
 
-
-<Card style="width: 100%" class="my-3">
+<TabPane tabId="schedule" tab="Cal" active>
+<Card>
   <CardHeader>
-    <CardTitle>Shifts</CardTitle>
+  <CardTitle>Calendar</CardTitle>
+  <p>An editable forecast of upcoming shifts.</p>
   </CardHeader>
-  <CardBody>
+<CardBody>
 {#await promise}
-<Spinner/>
+	<Spinner/>Loading...
 {:then p}
-    <Table class="my-3">
-      <thead>
-      	<th></th>
-	{#each ['AM', 'PM'] as ap}
-	  <th class="mx-3 text-center">{ap}</th>
+  <div class="d-flex flex-wrap">
+	{#each p.calendar_view as cv}
+	<div class="my-4" width="120px">
+		{#each cv as v}
+		<div class="mx-2">
+		  <Button id={v.id} class="p-2 mx-2" color={v.color} on:click={() => start_edit(v)}>
+		  {#if v.ovr}*{/if}
+		  {v.title}
+		  </Button>
+		</div>
+		<Tooltip target={v.id} placement="top">
+		  {#if v.people.length === 0}
+			Nobody is on shift!
+		  {:else}
+			{#each v.people as ppl}<div>{ppl}</div>{/each}
+		  {/if}
+		</Tooltip>
+		{/each}
+	</div>
 	{/each}
-      </thead>
-      <tbody>
-	{#each ['', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as d}
-	<tr>
-	  <td class="text-end align-middle"><strong>{d}</strong></td>
-	{#each ['AM', 'PM'] as ap}
-	  <td>
-	  {#each p[d + ' ' + ap] || [] as sm}
-	    <Card class="my-2 p-2">{sm}</Card>
-	  {/each}
-	  </td>
-	{/each}
-	</tr>
-	{/each}
-      </tbody>
-    </Table>
+  </div>
+
+{:catch error}
+  <FetchError {error}/>
 {/await}
-  </CardBody>
+</CardBody>
+<CardFooter>
+  <p>
+    Legend:
+    <Button color='success'>3+ Techs</Button>
+    <Button color='info'>2 Techs</Button>
+    <Button color='warning'>1 Tech</Button>
+    <Button color='danger'>0 Techs</Button>
+  </p>
+  <p><em>* indicates overridden shift info</em></p>
+</CardFooter>
 </Card>
+</TabPane>
+
+<Editor {edit} on_update={refresh}/>
