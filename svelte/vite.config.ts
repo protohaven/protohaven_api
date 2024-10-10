@@ -39,7 +39,7 @@ for (let p of WS_PROXY_PATHS) {
 console.log("Proxying endpoints to flask backend server:", proxy);
 
 export default defineConfig({
-	plugins: [svelte()], // [sveltekit()] previously, but didn't work with Cypress
+	plugins: [sveltekit()],//[svelte()], // [sveltekit()] previously, but didn't work with Cypress
 	test: {
 	 	include: ['src/**/*.{test,spec}.{js,ts}']
 	},

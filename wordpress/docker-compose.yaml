@@ -5,6 +5,7 @@ services:
    container_name: wordpress
    volumes:
      - ./wordpress:/var/www/html
+     - ./protohaven-class-ticker:/var/www/html/wp-content/plugins/protohaven-class-ticker
    environment:
      - WORDPRESS_DB_NAME=wordpress
      - WORDPRESS_TABLE_PREFIX=wp_

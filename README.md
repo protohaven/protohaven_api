@@ -196,6 +196,8 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id
 
 After deployment, verify that:
 
+* https://api.protohaven.org/
+  * Page loads and displays clearances
 * https://api.protohaven.org/welcome
   * Member sign in fails with hello+testnonmember@protohaven.org
   * Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
@@ -208,6 +210,7 @@ After deployment, verify that:
   * can check membership (e.g. hello+testmember@protohaven.org)
   * can generate a coupon
   * can setup a discord user
+  * can view list of onboarding people (bottom of page)
 * https://api.protohaven.org/techs
   * Tool states load, clicking a tool shows info
   * Tech shifts load
@@ -223,4 +226,9 @@ After deployment, verify that:
   * Log submission button works
 * https://api.protohaven.org/member
   * Discord association form correctly sets discord ID on Neon account
-* Ensure cronicle is running, su to root then use control.sh
+* https://api.protohaven.org/event_ticker
+  * Returns JSON of sample classes
+* https://api.protohaven.org/staff
+  * Can summarize one or more discord channels, and view photos
+* TODO script that sends POST requests to /admin/user_clearances, /admin/neon_membership_created_callback
+* Ensure cronicle is running: su to root then use control.sh

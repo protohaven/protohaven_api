@@ -1,5 +1,5 @@
 console.log( 'Hello World! (from create-block-protohaven-class-ticker block)' );
-fetch("https://api.protohaven.org/event_ticker").then((rep) => {
+fetch("https://staging.api.protohaven.org/event_ticker").then((rep) => {
 	if (rep.status != 200) {
 		throw Error(rep.status_text);
 	}

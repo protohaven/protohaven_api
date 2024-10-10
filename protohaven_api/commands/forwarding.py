@@ -353,20 +353,11 @@ class Commands:
             "unknown": "Unknown/Unparsed Tasks",
         }
 
-        def format_request(t):
-            if (t["modified_at"] - t["created_at"]).days > 1:
-                dt = (now - t["modified_at"]).days
-                dstr = f"modified {dt}d ago"
-            else:
-                dt = (now - t["created_at"]).days
-                dstr = f"created {dt}d ago"
-            return (f"- {t['name']} ({dstr})", dt)
-
         for t in tasks.get_open_purchase_requests():
             counts[t["category"]] += 1
             thresh = now - datetime.timedelta(days=thresholds[t["category"]])
             if t["created_at"] < thresh and t["modified_at"] < thresh:
-                sections[t["category"]].append(format_request(t))
+                sections[t["category"]].append(t)
             else:
                 log.info(
                     f"Task mod date at {thresh}; under threshold {thresholds[t['category']]}"
@@ -374,8 +365,7 @@ class Commands:
 
         # Sort oldest to youngest, by section
         for k, v in sections.items():
-            v.sort(key=lambda t: -t[1])
-            sections[k] = [t[0] for t in v]
+            v.sort(key=lambda t: min(t["created_at"], t["modified_at"]))
 
         render_sections = []
         for k in ("requested", "approved", "ordered", "on_hold", "unknown"):
@@ -393,6 +383,7 @@ class Commands:
                 Msg.tmpl(
                     "stale_purchase_requests",
                     sections=render_sections,
+                    now=now,
                     target="#finance-automation",
                 )
             )

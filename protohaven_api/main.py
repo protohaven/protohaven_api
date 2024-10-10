@@ -35,8 +35,13 @@ if cfg["general"]["behind_proxy"]:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 if cfg["general"]["cors"].lower() == "true":
-    log.warning("CORS enabled - this should be done in dev environments only")
+    log.warning(
+        "CORS enabled for all routes - this should be done in dev environments only"
+    )
     CORS(app)
+else:
+    # We do need CORS for requests hit by our wordpress page.
+    CORS(app, resources={r"/event_ticker": {"origins": "https://www.protohaven.org"}})
 
 if cfg["general"]["unsafe_no_rbac"].lower() == "true":
     log.warning(

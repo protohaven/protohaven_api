@@ -69,6 +69,10 @@ TESTED_TEMPLATES = [
         {"n": 2, "changes": ["Name1", "Name2"], "m": 1, "notified": ["testuser"]},
     ),
     (
+        "discord_nick_changed",
+        {"prev": "foo", "next": "bar"},
+    ),
+    (
         "discord_role_change_dm",
         {
             "logs": ["Entry 1", "Entry 2"],
@@ -180,17 +184,38 @@ TESTED_TEMPLATES = [
             "sections": [
                 {
                     "name": "section1",
-                    "counts": 2,
+                    "counts": 1,
                     "threshold": 5,
-                    "tasks": ["t1", "t2"],
+                    "tasks": [
+                        {
+                            "name": "t1",
+                            "modified_at": d(0),
+                            "created_at": d(1),
+                            "id": "123",
+                        }
+                    ],
                 },
                 {
                     "name": "section2",
                     "counts": 2,
                     "threshold": 5,
-                    "tasks": ["t3", "t4"],
+                    "tasks": [
+                        {
+                            "name": "t2",
+                            "modified_at": d(1),
+                            "created_at": d(0),
+                            "id": "456",
+                        },
+                        {
+                            "name": "t3",
+                            "modified_at": d(5),
+                            "created_at": d(6),
+                            "id": "789",
+                        },
+                    ],
                 },
-            ]
+            ],
+            "now": d(14),
         },
     ),
     ("suspension_ended", {"firstname": "Firstname"}),
@@ -255,6 +280,7 @@ HASHES = {
     "class_scheduled": "d7638c67655ae1eb",
     "daily_private_instruction": "ba81765c045917ee",
     "discord_nick_change_summary": "88493fe928a1f0d4",
+    "discord_nick_changed": "8aeda50de8ef931c",
     "discord_role_change_dm": "e36c6c70681a8804",
     "discord_role_change_summary": "8a34d924f30d0625",
     "enforcement_summary": "53728e884f150eec",
@@ -280,7 +306,7 @@ HASHES = {
     "shift_no_techs": "9a2c858ff7ac2456",
     "shop_tech_applications": "cd77b6978d522da3",
     "square_validation_action_needed": "3ed4e73c9efa37db",
-    "stale_purchase_requests": "a335498511580ac9",
+    "stale_purchase_requests": "09aad95e7c72afbf",
     "suspension_ended": "d05255f2fcb8e992",
     "suspension_started": "3b211a9a7c04be8a",
     "tech_daily_tasks": "55af86e04ce2551c",

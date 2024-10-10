@@ -179,13 +179,13 @@ class Commands:  # pylint: disable=too-few-public-methods
                 "Preferred Name",
             ]
         ):
-            discord_user = (m.get("Discord User") or "").strip()
-            if discord_user == "":
+            discord_id = (m.get("Discord User") or "").strip()
+            if discord_id == "":
                 continue
             if (
-                discord_user in not_associated
+                discord_id in not_associated
             ):  # Not all associated users remain in Discord
-                not_associated.remove(discord_user)
+                not_associated.remove(discord_id)
 
             if i == args.limit:
                 log.info(f"Limit of {args.limit} changes reached")
@@ -197,17 +197,26 @@ class Commands:  # pylint: disable=too-few-public-methods
                     m.get("Last Name"),
                     m.get("Pronouns"),
                 )
-                cur = user_nick.get(discord_user)
+                cur = user_nick.get(discord_id)
                 if not cur:
                     continue
                 if nick != cur:
                     changes.append(
-                        f"{discord_user} ({cur} -> {nick}){' (dry run)' if not args.apply else ''}"
+                        f"{discord_id} ({cur} -> {nick}){' (dry run)' if not args.apply else ''}"
                     )
                     log.info(changes[-1])
                     if args.apply:
-                        log.info(str(comms.set_discord_nickname(discord_user, nick)))
+                        log.info(str(comms.set_discord_nickname(discord_id, nick)))
                     i += 1
+                    result.append(
+                        Msg.tmpl(
+                            "discord_nick_changed",
+                            prev=cur,
+                            next=nick,
+                            target=f"@{discord_id}",
+                            id=f"{discord_id}_nick_change",
+                        )
+                    )
 
         not_associated_final = []
         if args.warn_not_associated:
