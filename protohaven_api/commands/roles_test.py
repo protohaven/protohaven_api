@@ -8,10 +8,16 @@ import yaml
 from protohaven_api.commands import roles as r
 from protohaven_api.role_automation import roles as ra
 from protohaven_api.role_automation.roles import DiscordIntent
-from protohaven_api.testing import d, idfn
+from protohaven_api.testing import MatchStr, d, idfn, mkcli
 
 
-def test_update_role_intents_various(mocker, capsys):
+@pytest.fixture(name="cli")
+def fixture_cli(capsys):
+    """Make CLI fixture"""
+    return mkcli(capsys, r)
+
+
+def test_update_role_intents_various(mocker, cli):
     """Test that various Discord role states are properly handled"""
     data = [
         DiscordIntent(discord_id="a", action="REVOKE", role="Staff"),
@@ -89,7 +95,7 @@ def test_update_role_intents_various(mocker, capsys):
     mocker.patch.object(ra.comms, "set_discord_role", return_value=True)
     mocker.patch.object(ra.comms, "revoke_discord_role", return_value=True)
     mocker.patch.object(r, "tznow", return_value=d(0))
-    r.Commands().update_role_intents(["--apply_records", "--apply_discord"])
+    got = cli("update_role_intents", ["--apply_records", "--apply_discord"])
 
     # Revocations A inserted into Airtable since not seen before
     irc = r.airtable.insert_records.mock_calls
@@ -114,33 +120,28 @@ def test_update_role_intents_various(mocker, capsys):
     assert {a.args[2] for a in adr} == {1, 456}
 
     # E shouldn't be present in other calls, but should be captured in stdout
-    got = yaml.safe_load(capsys.readouterr().out.strip())
     got_intents = {i for c in got for i in c.get("intents", [])}
     assert 999 in got_intents
 
 
-def test_update_role_intents_zero_comms(mocker, capsys):
+def test_update_role_intents_zero_comms(mocker, cli):
     """Ensure that no comms are sent if there were no changes"""
     mocker.patch.object(r.roles, "gen_role_intents", return_value=[])
     mocker.patch.object(r.airtable, "get_role_intents", return_value=[])
 
-    r.Commands().update_role_intents(
-        ["--apply_records", "--apply_discord", "--destructive"]
+    assert not cli(
+        "update_role_intents", ["--apply_records", "--apply_discord", "--destructive"]
     )
-    got = yaml.safe_load(capsys.readouterr().out.strip())
-    assert not got
 
 
-def test_enforce_discord_nicknames_zero_comms(mocker, capsys):
+def test_enforce_discord_nicknames_zero_comms(mocker, cli):
     """Ensure that no comms are sent if there were no problems"""
     mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=([], None))
     mocker.patch.object(r.neon, "get_active_members", return_value=[])
-    r.Commands().enforce_discord_nicknames(["--apply", "--warn_not_associated"])
-    got = yaml.safe_load(capsys.readouterr().out.strip())
-    assert not got
+    assert not cli("enforce_discord_nicknames", ["--apply", "--warn_not_associated"])
 
 
-def test_enforce_discord_nicknames(mocker, capsys):
+def test_enforce_discord_nicknames(mocker, cli):
     """Ensure that nicknames are enforced and a summary sent; limit not exceeded"""
     mocker.patch.object(
         r.comms,
@@ -171,18 +172,25 @@ def test_enforce_discord_nicknames(mocker, capsys):
         side_effect=lambda discord_id: [1] if discord_id == "usr4" else [],
     )
 
-    r.Commands().enforce_discord_nicknames(
-        ["--apply", "--warn_not_associated", "--limit=1"]
-    )
-    got = yaml.safe_load(capsys.readouterr().out.strip())
+    assert cli(
+        "enforce_discord_nicknames", ["--apply", "--warn_not_associated", "--limit=1"]
+    ) == [
+        {
+            "body": MatchStr("`bad1` to `first last`"),
+            "subject": MatchStr("Nickname changed"),
+            "target": "@usr1",
+            "id": "usr1_nick_change",
+        },
+        {
+            "body": MatchStr("1 nick"),
+            "subject": MatchStr("Nickname Automation Summary"),
+            "target": "#discord-automation",
+        },
+    ]
     r.comms.set_discord_nickname.assert_called_once_with("usr1", "first last")
-    assert len(got) == 2
-    assert "your Discord user isn't associated" in got[0]["body"]
-    assert "https://api.protohaven.org/member?discord_id=usr%203" in got[0]["body"]
-    assert "bad1 -> first last" in got[1]["body"]
 
 
-def test_enforce_discord_nicknames_warning_period_observed(mocker, capsys):
+def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
     """Ensure that warnings about association don't happen too frequently"""
     mocker.patch.object(
         r.comms,
@@ -199,8 +207,10 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, capsys):
     mocker.patch.object(r.neon, "get_active_members", return_value=[])
     mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
 
-    r.Commands().enforce_discord_nicknames(
-        ["--no-apply", "--warn_not_associated", "--limit=1"]
+    assert (
+        cli(
+            "enforce_discord_nicknames",
+            ["--no-apply", "--warn_not_associated", "--limit=1"],
+        )
+        == []
     )
-    got = yaml.safe_load(capsys.readouterr().out.strip())
-    assert len(got) == 0

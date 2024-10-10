@@ -27,7 +27,7 @@ neon:
 discord_bot:
   enabled: "${DISCORD_BOT}"
   event_hooks:
-    enabled: "${EVENT_HOOKS_ENABLED}"
+    enabled: ${EVENT_HOOKS_ENABLED}
     include_filter: ["workshop_protohaven"]
     exclude_filter: None
   token: "${DISCORD_BOT_TOKEN}"

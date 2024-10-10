@@ -288,5 +288,5 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
     neon.set_membership_start_date.assert_called_with("123", Any())
-    neon.create_coupon_code.assert_called_with(Any(), 102)
+    neon.create_coupon_code.assert_called_with(Any(), 75)
     neon.update_account_automation_run_status.assert_called_with("123", "deferred")

@@ -96,7 +96,7 @@ class Commands:
                     stale_thresh=manager.DEFAULT_STALE_DAYS,
                     stale_tasks=stale[:MAX_STALE_TASKS],
                     id="daily_maintenance",
-                    target="#techs-leads",
+                    target="#tech-leads",
                 )
             )
         else:

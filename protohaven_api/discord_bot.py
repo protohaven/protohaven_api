@@ -186,7 +186,7 @@ class PHClient(discord.Client):
 
     def _hook_on_user_is_permitted(self, discord_id):
         ec = self.cfg["event_hooks"]
-        if not ec.get("enabled"):
+        if not ec.get("enabled", False):
             return False
         if ec.get("include_filter") is not None:
             if discord_id not in ec["include_filter"]:

@@ -560,7 +560,7 @@ def fetch_techs_list():
 
 @lru_cache(maxsize=1)
 def get_sample_classes(cache_bust):  # pylint: disable=unused-argument
-    """Fetch sample classes within the coupon amount for advertising in the welcome email"""
+    """Fetch sample classes for advertisement on the homepage"""
     sample_classes = []
     now = tznow()
     until = tznow() + datetime.timedelta(days=10)
