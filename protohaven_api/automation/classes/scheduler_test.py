@@ -13,16 +13,16 @@ from protohaven_api.testing import d, t
 
 def test_slice_date_range():
     """Slices date range into individual start times"""
-    assert s.slice_date_range(t(9, weekday=6), t(14, weekday=6)) == [
+    assert s.slice_date_range(t(9, weekday=6), t(14, weekday=6), 3) == [
         t(10, weekday=6)
     ]  # Loose bounds
-    assert s.slice_date_range(t(10, weekday=6), t(13, weekday=6)) == [
+    assert s.slice_date_range(t(10, weekday=6), t(13, weekday=6), 3) == [
         t(10, weekday=6)
     ]  # Tight bounds still work
     assert not s.slice_date_range(
-        t(10, weekday=6), t(12, weekday=6)
+        t(10, weekday=6), t(12, weekday=6), 3
     )  # Too tight for a 3 hour class
-    assert s.slice_date_range(t(9, weekday=0), t(22, weekday=0)) == [
+    assert s.slice_date_range(t(9, weekday=0), t(22, weekday=0), 3) == [
         t(18, weekday=0)
     ]  # Only weekday evenings allowed
 
@@ -32,10 +32,12 @@ def test_slice_date_range_tzinfo():
     pre_dst = s.slice_date_range(
         datetime.datetime(year=2024, month=3, day=4, hour=00, tzinfo=tz),
         datetime.datetime(year=2024, month=3, day=5, hour=23, tzinfo=tz),
+        3,
     )[0]
     post_dst = s.slice_date_range(
         datetime.datetime(year=2024, month=3, day=12, hour=00, tzinfo=tz),
         datetime.datetime(year=2024, month=3, day=14, hour=23, tzinfo=tz),
+        3,
     )[1]
     assert [
         pre_dst.isoformat().rsplit("-")[-1],
@@ -48,18 +50,19 @@ def test_build_instructor_basic():
     TEST_CLASS = Class(
         "test_id",
         "Test Class",
-        3,
+        days=1,
+        hours=3,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7)]],
         score=1.0,
     )
     assert s.build_instructor(
         name="testname",
-        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
-        caps=[TEST_CLASS.airtable_id],
+        avail=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
+        caps=[TEST_CLASS.class_id],
         instructor_occupancy=[],
         area_occupancy={},
-        class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
+        class_by_id={TEST_CLASS.class_id: TEST_CLASS},
     ).avail == [d(1, 18)]
 
 
@@ -67,7 +70,7 @@ def test_build_instructor_respects_empty_caps():
     """Capabilities are still listed even when we have no candidate dates"""
     assert s.build_instructor(
         name="testname",
-        v=[],
+        avail=[],
         caps=["test_cap"],
         instructor_occupancy=[],
         area_occupancy={},
@@ -80,18 +83,19 @@ def test_build_instructor_daterange_not_supported():
     TEST_CLASS = Class(
         "test_id",
         "Test Class",
-        3,
+        hours=3,
+        days=1,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7)]],
         score=1.0,
     )
     inst = s.build_instructor(
         name="testname",
-        v=[[d(1, 12).isoformat(), d(1, 14).isoformat(), "avail_id"]],
-        caps=[],  # <--- no capabilities!
+        avail=[[d(1, 12).isoformat(), d(1, 14).isoformat(), "avail_id"]],
+        caps=["test_id"],
         instructor_occupancy=[],
         area_occupancy={},
-        class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
+        class_by_id={TEST_CLASS.class_id: TEST_CLASS},
     )
     assert inst.avail == []
     assert (
@@ -105,18 +109,19 @@ def test_build_instructor_no_caps():
     TEST_CLASS = Class(
         "test_id",
         "Test Class",
-        3,
+        hours=3,
+        days=1,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7)]],
         score=1.0,
     )
     inst = s.build_instructor(
         name="testname",
-        v=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
+        avail=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
         caps=[],  # <--- no capabilities!
         instructor_occupancy=[],
         area_occupancy={},
-        class_by_id={TEST_CLASS.airtable_id: TEST_CLASS},
+        class_by_id={TEST_CLASS.class_id: TEST_CLASS},
     )
     assert inst.avail == []
     assert (

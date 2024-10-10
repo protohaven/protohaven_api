@@ -31,44 +31,69 @@ def test_date_range_overlaps(tc):
     assert v.date_range_overlaps(tc.b0, tc.b1, tc.a0, tc.a1) == tc.want
 
 
-Tc = namedtuple("tc", "desc,t0,inst_occupancy,area_occupancy,want_reason")
+fields = {
+    "desc": None,
+    "t0": d(1),
+    "inst_occupancy": [],
+    "area_occupancy": {},
+    "avail": [(d(0), d(2))],
+    "want_reason": None,
+    "class_hours": 3,
+    "class_days": 1,
+}
+Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
 
 
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("pass, simple", d(1), [], {}, None),
+        Tc("pass, simple"),
         Tc(
-            "fail, holiday", d(0, 14), [], {}, "Occurs on a US holiday"
+            "fail, holiday",
+            t0=d(0, 14),
+            want_reason="Occurs on a US holiday",
         ),  # Jan 1, 2025 i.e. new years' day
         Tc(
             "fail, instructor occupied that day",
-            d(1, 12),
-            [[d(1, 16), d(1, 19), "Other Class"]],
-            {},
-            "Same day as another class being taught by instructor (Other Class)",
+            t0=d(1, 12),
+            inst_occupancy=[[d(1, 16), d(1, 19), "Other Class"]],
+            want_reason="Same day as another class being taught by instructor (Other Class)",
         ),
         Tc(
             "fail, area overlap",
-            d(1, 18),
-            [],
-            {"a0": [[d(1, 18), d(1, 19), "Occupying Event"]]},
-            "Area already occupied by other event (Occupying Event)",
+            t0=d(1, 18),
+            area_occupancy={"a0": [[d(1, 18), d(1, 19), "Occupying Event"]]},
+            want_reason="Area already occupied by other event (Occupying Event)",
         ),
         Tc(
             "fail, too soon",
-            d(6),
-            [],
-            {},
-            "Too soon before/after same class (scheduled for 2025-01-08; "
+            t0=d(6),
+            avail=[(d(0), d(8))],
+            want_reason="Too soon before/after same class (scheduled for 2025-01-08; "
             "no repeats allowed between 2025-01-06 and 2025-01-11)",
         ),
         Tc(
             "pass, complex",
-            d(4, 18),
-            [[d(3, 18), d(3, 21), "Other Class"]],
-            {"a0": [[d(3, 18), d(3, 21), "Occupying Event"]]},
-            None,
+            t0=d(4, 18),
+            inst_occupancy=[[d(3, 18), d(3, 21), "Other Class"]],
+            area_occupancy={"a0": [[d(3, 18), d(3, 21), "Occupying Event"]]},
+            avail=[(d(0), d(6))],
+        ),
+        Tc(
+            "pass, multi-day",
+            t0=d(20),
+            avail=[(d(20), d(21)), (d(27), d(28)), (d(34), d(35))],
+            class_days=3,
+        ),
+        Tc(
+            "fail, multi-day but unavailable on second session",
+            t0=d(20),
+            avail=[(d(20), d(21)), (d(27), d(28))],
+            class_days=3,
+            want_reason=(
+                "Day 3 (2025-02-04 00:00:00-05:00 - 2025-02-04 03:00:00-05:00) "
+                "does not fall within instructor availability"
+            ),
         ),
     ],
     ids=idfn,
@@ -78,13 +103,14 @@ def test_validate_candidate_class_time(tc):
     testclass = Class(
         "test_id",
         "Test Class",
-        3,
+        hours=tc.class_hours,
+        days=tc.class_days,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7)]],
         score=1.0,
     )
     valid, reason = v.validate_candidate_class_time(
-        testclass, tc.t0, tc.inst_occupancy, tc.area_occupancy
+        testclass, tc.t0, tc.inst_occupancy, tc.area_occupancy, tc.avail
     )
     if valid and tc.want_reason:
         raise RuntimeError(f"got valid; want invalid with reason {tc.want_reason}")

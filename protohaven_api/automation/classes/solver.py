@@ -1,7 +1,7 @@
 """Solves class scheduling problems given an environment containing Classes and Instructors"""
 # https://stackoverflow.com/questions/42450533/bin-packing-python-query-with-variable-people-cost-and-sizes
 # https://gist.github.com/sameerkumar18/086cc6bdc277dc1cefb4374fa7b0327a
-
+import datetime
 import logging
 from collections import defaultdict
 
@@ -16,11 +16,12 @@ class Class:
     """Represents a class template schedulable, in one or more areas, with score"""
 
     def __init__(
-        self, airtable_id, name, hours, areas, exclusions, score
+        self, class_id, name, hours, days, areas, exclusions, score
     ):  # pylint: disable=too-many-arguments
-        self.airtable_id = airtable_id
+        self.class_id = class_id  # The ID in airtable
         self.name = name
         self.hours = hours
+        self.days = days
 
         assert isinstance(areas, list)
         self.areas = areas
@@ -36,7 +37,7 @@ class Class:
 
     def __repr__(self):
         return (
-            f"{self.name} ({self.airtable_id}, exclusions {self.exclusions}, "
+            f"{self.name} ({self.class_id}, exclusions {self.exclusions}, "
             f"{self.hours}h, "
             f"{self.areas}, score={self.score})"
         )
@@ -44,7 +45,7 @@ class Class:
     def as_dict(self):
         """Return class as a dict"""
         return {
-            "airtable_id": self.airtable_id,
+            "class_id": self.class_id,
             "name": self.name,
             "hours": self.hours,
             "areas": self.areas,
@@ -57,9 +58,9 @@ class Instructor:
     """Represents an instructor able to teach classes at particular times"""
 
     def __init__(self, name, candidates, rejected=None):
-        """Candidates is a dict of {Class.airtable_id: [(t0, t1), ...]}"""
+        """Candidates is a dict of {Class.class_id: [(t0, t1), ...]}"""
         self.name = name
-        # references Class.airtable_id; discard duplicates.
+        # references Class.class_id; discard duplicates.
         # We use List instead of Set so we can serialize JSON
         self.caps = list(set(candidates.keys()))
         self.avail = list(
@@ -87,9 +88,24 @@ class Instructor:
         }
 
 
+def class_starts_intersecting_time_and_area(t, a, times, classes):
+    """Yields a sequence of (class_id, time) of classes that use area `a` and
+    which would overlap at time `t`"""
+    for tt in times:
+        for c in classes:
+            if a not in c.areas:
+                continue
+            for session in range(c.days):
+                start = tt + datetime.timedelta(days=7 * session)
+                end = start + datetime.timedelta(hours=c.hours)
+                if start <= t <= end:
+                    yield c.class_id, tt
+                    break
+
+
 def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
-    class_by_id = {cls.airtable_id: cls for cls in classes}
+    class_by_id = {cls.class_id: cls for cls in classes}
     areas = {a for c in classes for a in c.areas}
 
     # Create a dictionary of the cartesian product of classes, instructors, and times.
@@ -98,9 +114,9 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     # teach, or a time they're unable to teach.
     possible_assignments = []
     for instructor in instructors:
-        for airtable_id, tt in instructor.candidates.items():
+        for class_id, tt in instructor.candidates.items():
             for t in tt:
-                possible_assignments.append((airtable_id, instructor.name, t))
+                possible_assignments.append((class_id, instructor.name, t))
     log.info(f"Constructed {len(possible_assignments)} possible assignments")
 
     x = pulp.LpVariable.dicts(
@@ -116,11 +132,11 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     prob += (
         pulp.lpSum(
             [
-                class_by_id[airtable_id].score * x[(airtable_id, instructor.name, t)]
+                class_by_id[class_id].score * x[(class_id, instructor.name, t)]
                 for instructor in instructors
-                for airtable_id in instructor.caps
+                for class_id in instructor.caps
                 for t in instructor.avail
-                if x.get((airtable_id, instructor.name, t)) is not None
+                if x.get((class_id, instructor.name, t)) is not None
             ]
         ),
         "MaxScore",
@@ -128,20 +144,28 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
 
     # ==== Constraints ====
     # Classes do not overlap the same area at the same time
-    class_areas = {c.airtable_id: c.areas for c in classes}
     times = set()
     for i in instructors:
         times.update(i.avail)
     for a in areas:
         for t in times:
+            # As classes may run for multiple days, we must first
+            # pick out a set of candidate classes which would overlap time `t`
+            # and area `a`, then collect instructors who would potentially
+            # be teaching that class at that time.
+            class_starts = list(
+                class_starts_intersecting_time_and_area(
+                    t, a, times, class_by_id.values()
+                )
+            )
             area_assigned_times = pulp.lpSum(
                 [
-                    [x[airtable_id, instructor.name, t]]
+                    x[(class_id, instructor.name, start)]
+                    for class_id, start in class_starts
                     for instructor in instructors
-                    for airtable_id in instructor.caps
-                    if t in instructor.avail
-                    and a in class_areas.get(airtable_id, {})
-                    and x.get((airtable_id, instructor.name, t)) is not None
+                    if start in instructor.avail
+                    and class_id in instructor.caps
+                    and x.get((class_id, instructor.name, start)) is not None
                 ]
             )
             prob += area_assigned_times <= 1, f"NoOverlapRequirement_{a}_{t}"
@@ -150,26 +174,24 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     for cls in classes:
         class_assigned_count = pulp.lpSum(
             [
-                x[(cls.airtable_id, instructor.name, t)]
+                x[(cls.class_id, instructor.name, t)]
                 for instructor in instructors
                 for t in instructor.avail
-                if cls.airtable_id in instructor.caps
-                and x.get((cls.airtable_id, instructor.name, t)) is not None
+                if cls.class_id in instructor.caps
+                and x.get((cls.class_id, instructor.name, t)) is not None
             ]
         )
-        prob += (
-            class_assigned_count <= 1
-        ), f"NoDuplicatesRequirement_{cls.airtable_id}"
+        prob += (class_assigned_count <= 1), f"NoDuplicatesRequirement_{cls.class_id}"
 
     # Instructors teach at most 1 class at any given time
     for p in instructors:
         for t in p.avail:
             booking_count = pulp.lpSum(
                 [
-                    x[(cls.airtable_id, p.name, t)]
+                    x[(cls.class_id, p.name, t)]
                     for cls in classes
-                    if cls.airtable_id in p.caps
-                    and x.get((cls.airtable_id, p.name, t)) is not None
+                    if cls.class_id in p.caps
+                    and x.get((cls.class_id, p.name, t)) is not None
                 ]
             )
             prob += (
@@ -181,22 +203,22 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     prob.solve()
     instructor_classes = defaultdict(list)
     final_score = sum(
-        class_by_id[airtable_id].score
+        class_by_id[class_id].score
         for instructor in instructors
-        for airtable_id in instructor.caps
+        for class_id in instructor.caps
         for t in instructor.avail
-        if x.get((airtable_id, instructor.name, t)) is not None
-        and x[(airtable_id, instructor.name, t)].value() == 1
+        if x.get((class_id, instructor.name, t)) is not None
+        and x[(class_id, instructor.name, t)].value() == 1
     )
 
     for instructor in instructors:
-        for airtable_id in instructor.caps:
+        for class_id in instructor.caps:
             for t in instructor.avail:
-                if x.get((airtable_id, instructor.name, t)) is None:
+                if x.get((class_id, instructor.name, t)) is None:
                     continue
-                if x[(airtable_id, instructor.name, t)].value() == 1:
+                if x[(class_id, instructor.name, t)].value() == 1:
                     instructor_classes[instructor.name].append(
-                        [airtable_id, class_by_id[airtable_id].name, t.isoformat()]
+                        [class_id, class_by_id[class_id].name, t.isoformat()]
                     )
     log.info(f"Scheduler result: {instructor_classes}, final score {final_score}")
     return (dict(instructor_classes), final_score)

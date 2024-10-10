@@ -34,13 +34,12 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
     return result
 
 
-def slice_date_range(start_date, end_date):
+def slice_date_range(start_date: datetime, end_date: datetime, class_duration: int):
     """Convert all time between two datetime values into a set of
     discrete datetimes marking the potential onset of a class"""
     day_class_hours = [10, 13, 14, 18]
     evening_threshold = 17
     evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
-    class_duration = datetime.timedelta(hours=3)
     ret = []
     base_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz)
     for i in range((end_date - start_date).days + 1):
@@ -48,7 +47,10 @@ def slice_date_range(start_date, end_date):
             candidate = base_date + datetime.timedelta(days=i, hours=j)
             if candidate.weekday() in evening_only_days and j < evening_threshold:
                 continue  # Some days, we only allow classes to run in the evening
-            if candidate >= start_date and candidate + class_duration <= end_date:
+            if (
+                candidate >= start_date
+                and candidate + datetime.timedelta(hours=class_duration) <= end_date
+            ):
                 ret.append(candidate)
     return ret
 
@@ -59,48 +61,46 @@ def compute_score(cls):  # pylint: disable=unused-argument
 
 
 def build_instructor(
-    name, v, caps, instructor_occupancy, area_occupancy, class_by_id
+    name, avail, caps, instructor_occupancy, area_occupancy, class_by_id
 ):  # pylint: disable=too-many-locals,too-many-arguments
     """Create and return an Instructor object for use in the solver"""
     candidates = defaultdict(list)
     rejected = defaultdict(list)
+    if len(caps) == 0:
+        rejected["Instructor Validation"].append(
+            {
+                "time": None,
+                "reason": "Instructor has no capabilities listed - "
+                "please contact an education lead.",
+            }
+        )
+        return Instructor(name, candidates, rejected)
 
     # Convert instructor-provided availability ranges into discrete "class at time" candidates,
     # making notes on which candidates are rejected and why
-    for a, b, _ in v:
-        t0 = dateparser.parse(a).astimezone(tz)
-        t1 = dateparser.parse(b).astimezone(tz)
-        sliced = slice_date_range(t0, t1)
-        if len(sliced) == 0:
-            rejected["Availability Validation"].append(
-                {
-                    "time": t0.isoformat(),
-                    "reason": "Available time does not include one of the scheduler's "
-                    "allowed class times (e.g. weekdays 6pm-9pm, see wiki for details)",
-                }
-            )
-            continue
+    avail = [[dateparser.parse(a).astimezone(tz) for a in aa[:2]] for aa in avail]
+    for t0, t1 in avail:
+        for c in caps:
+            cbid = class_by_id.get(c)
+            sliced = slice_date_range(t0, t1, cbid.hours)
+            if len(sliced) == 0:
+                rejected["Availability Validation"].append(
+                    {
+                        "time": t0.isoformat(),
+                        "reason": "Available time does not include one of the scheduler's "
+                        "allowed class times (e.g. weekdays 6pm-9pm, see wiki for details)",
+                    }
+                )
+                continue
 
-        if len(caps) == 0:
-            rejected["Instructor Validation"].append(
-                {
-                    "time": t0.isoformat(),
-                    "reason": "Instructor has no capabilities listed - "
-                    "please contact an education lead.",
-                }
-            )
-            continue
-
-        for t0 in sliced:
-            for c in caps:
-                cbid = class_by_id.get(c)
+            for start in sliced:
                 valid, reason = validate_candidate_class_time(
-                    cbid, t0, instructor_occupancy, area_occupancy
+                    cbid, start, instructor_occupancy, area_occupancy, avail
                 )
                 if not valid:
                     rejected[c].append({"time": t0.isoformat(), "reason": reason})
                 else:
-                    candidates[c].append(t0)
+                    candidates[c].append(start)
 
     candidates = dict(candidates)
 
@@ -160,10 +160,11 @@ def load_schedulable_classes(exclusions):
             yield Class(
                 c["id"],
                 c["fields"]["Name"],
-                c["fields"]["Hours"],
-                c["fields"]["Area"],
-                exclusions[c["id"]],
-                compute_score(c),
+                hours=c["fields"]["Hours"],
+                days=c["fields"]["Days"],
+                areas=c["fields"]["Area"],
+                exclusions=exclusions[c["id"]],
+                score=compute_score(c),
             )
 
 
