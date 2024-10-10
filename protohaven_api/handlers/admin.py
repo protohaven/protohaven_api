@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Blueprint, Response, render_template, request
+from flask import Blueprint, Response, request
 
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config

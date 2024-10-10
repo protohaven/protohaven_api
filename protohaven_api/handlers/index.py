@@ -5,15 +5,7 @@ import logging
 import time
 
 from dateutil import parser as dateparser
-from flask import (
-    Blueprint,
-    Response,
-    current_app,
-    redirect,
-    render_template,
-    request,
-    session,
-)
+from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
 
 from protohaven_api.config import tz, tznow
@@ -36,7 +28,7 @@ log = logging.getLogger("handlers.index")
 @require_login
 def index():
     """Redirect to the member page"""
-    redirect("/member")
+    return redirect("/member")
 
 
 @page.route("/whoami")
@@ -69,7 +61,7 @@ def whoami():
     return {
         "fullname": user_fullname(),
         "email": user_email(),
-        "neon_id": neon_account.get("id"),
+        "neon_id": session.get("neon_id", ""),
         "clearances": clearances,
         "roles": roles,
     }
@@ -361,6 +353,7 @@ def events_static():
     """Events dashboard"""
     return current_app.send_static_file("svelte/events.html")
 
+
 @page.route("/events/_app/immutable/<typ>/<path>")
 def events_svelte_files(typ, path):
     """Return svelte compiled static pages for welcome page"""
@@ -427,19 +420,18 @@ def upcoming_events():
         )
 
     events.sort(key=lambda e: e["date"])
-    return {'now': now, 'events': events}
+    return {"now": now, "events": events}
 
 
 @page.route("/events/shop")
 def get_shop_events():
     """Show shop events."""
     shop_events = []
-    now = tznow()
     for e, dates in fetch_shop_events().items():
         for start, _ in dates:
             start = dateparser.parse(start)
-            shop_events.append({'name': e, 'start': start})
-    shop_events.sort(key=lambda v: v['start'])
+            shop_events.append({"name": e, "start": start})
+    shop_events.sort(key=lambda v: v["start"])
     return shop_events
 
 

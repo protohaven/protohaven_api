@@ -1,5 +1,5 @@
 <script type="typescript">
-  import '../app.scss';
+  import '../../app.scss';
   import { onMount } from 'svelte';
   import {base_ws, get, post, open_ws} from '$lib/api.ts';
   import { Row, Card, Container } from '@sveltestrap/sveltestrap';
