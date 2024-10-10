@@ -99,11 +99,14 @@ class Instructor:
 
 
 def _find_overlap(c1, t1, c2, t2):
+    """Expand two classes starting at two times and return
+    True if they overlap
+    """
     for c1t0, c1t1 in c1.expand(t1):
         for c2t0, c2t1 in c2.expand(t2):
             if date_range_overlaps(c1t0, c1t1, c2t0, c2t1):
-                return t2
-    return None
+                return True
+    return False
 
 
 def get_overlapping(c1, t1, classes, times):
@@ -112,13 +115,11 @@ def get_overlapping(c1, t1, classes, times):
     Note that duplicate values may be returned."""
     for c2 in classes:
         # Classes without intersecting areas don't have a chance of overlapping
-        if len(set(c1.areas).intersection(c2.areas)) == 0:
+        if len(set(c1.areas).intersection(set(c2.areas))) == 0:
             continue
         for t2 in times:
-            ovr = _find_overlap(c1, t1, c2, t2)
-            print("Test ", c2, t2, ovr)
-            if ovr is not None:
-                yield c2.class_id, ovr
+            if _find_overlap(c1, t1, c2, t2):
+                yield c2.class_id, t2
 
 
 def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
