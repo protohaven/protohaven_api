@@ -91,7 +91,7 @@ Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
             avail=[(d(20), d(21)), (d(27), d(28))],
             class_days=3,
             want_reason=(
-                "Day 3 (2025-02-04 00:00:00-05:00 - 2025-02-04 03:00:00-05:00) "
+                "Class time (2025-02-04 00:00:00-05:00 - 2025-02-04 03:00:00-05:00) "
                 "does not fall within instructor availability"
             ),
         ),

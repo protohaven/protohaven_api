@@ -1,5 +1,4 @@
 """Provide date and availability validation methods for class scheduling"""
-import datetime
 from functools import reduce
 
 import holidays
@@ -70,10 +69,7 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
     if c is None or c.hours is None:
         return False, "Could not fetch class timing details"
 
-    for session in range(c.days):
-        t0 = start + datetime.timedelta(days=7 * session)
-        t1 = t0 + datetime.timedelta(hours=c.hours)
-
+    for t0, t1 in c.expand(start):
         # Make sure the instructor is available
         within_avail = reduce(
             lambda a, b: a or b, [t0 >= a0 and t1 <= a1 for a0, a1 in avail], False
@@ -81,7 +77,7 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
         if not within_avail:
             return (
                 False,
-                f"Day {session+1} ({t0} - {t1}) does not fall within instructor availability",
+                f"Class time ({t0} - {t1}) does not fall within instructor availability",
             )
 
         # Skip holiday classes
