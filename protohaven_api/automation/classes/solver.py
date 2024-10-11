@@ -58,6 +58,7 @@ class Class:
             "class_id": self.class_id,
             "name": self.name,
             "hours": self.hours,
+            "days": self.days,
             "areas": self.areas,
             "exclusions": self.exclusions,
             "score": self.score,
@@ -122,6 +123,15 @@ def get_overlapping(c1, t1, classes, times):
                 yield c2.class_id, t2
 
 
+def _time_weight(t, earliest, latest):
+    """Penalize later classes"""
+    if latest == earliest:
+        return 0
+    return -0.001 * (
+        (t - earliest).total_seconds() / (latest - earliest).total_seconds()
+    )
+
+
 def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-branches
     """Solve a scheduling problem given a set of classes and instructors"""
     class_by_id = {cls.class_id: cls for cls in classes}
@@ -145,12 +155,16 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
 
     # Model formulation
     prob = pulp.LpProblem("Class_Packing_Problem", pulp_constants.LpMaximize)
+    times = {a for i in instructors for a in i.avail}
+    earliest = min(times)
+    latest = max(times)
 
     # Objective: maximize the total score of classes assigned
     prob += (
         pulp.lpSum(
             [
-                class_by_id[class_id].score * x[(class_id, instructor.name, t)]
+                (class_by_id[class_id].score + _time_weight(t, earliest, latest))
+                * x[(class_id, instructor.name, t)]
                 for instructor in instructors
                 for class_id in instructor.caps
                 for t in instructor.avail
@@ -162,7 +176,6 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
 
     # ==== Constraints ====
     # Classes do not overlap the same area at the same time
-    times = {a for i in instructors for a in i.avail}
     for i in instructors:
         for class_id in i.caps:
             c = class_by_id.get(class_id)

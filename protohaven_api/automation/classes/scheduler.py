@@ -205,7 +205,7 @@ def generate_env(
 
     # Load classes from airtable
     classes = list(load_schedulable_classes(exclusions))
-    class_by_id = {cls.airtable_id: cls for cls in classes}
+    class_by_id = {cls.class_id: cls for cls in classes}
     log.info(f"Loaded {len(classes)} classes")
 
     instructors = []
@@ -258,7 +258,7 @@ def generate_env(
 
     log.info(f"All capabilities: {all_inst_caps}")
     return {
-        "classes": [c.as_dict() for c in classes if c.airtable_id in all_inst_caps],
+        "classes": [c.as_dict() for c in classes if c.class_id in all_inst_caps],
         "instructors": [i.as_dict() for i in instructors],
         "area_occupancy": dict(
             area_occupancy.items()

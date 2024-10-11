@@ -86,6 +86,18 @@ def test_solve_simple():
     assert score == 0.7
 
 
+def test_solve_prefer_earlier():
+    """Given the same class at two times, the earlier one is scheduled"""
+    c = s.Class(
+        1, "Embroidery", days=1, hours=1, areas=["textiles"], exclusions=[], score=0.7
+    )
+    got, _ = s.solve(
+        classes=[c],
+        instructors=[s.Instructor("A", {c.class_id: [d(2), d(0), d(1)]})],
+    )
+    assert got == {"A": [[1, "Embroidery", d(0).isoformat()]]}
+
+
 def test_solve_complex():
     """Run an example set of classes and instructors through the solver; assert no exceptions"""
     classes = [
