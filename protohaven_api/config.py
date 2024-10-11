@@ -52,12 +52,27 @@ def load_yaml_with_env_substitution(yaml_path):
     return yaml.safe_load(yaml_content_with_env)
 
 
-def get_config():
-    """Fetches the config, defined either as PH_CONFIG env var or default config.yaml"""
-    path = os.getenv(CONFIG_YAML_ENV)
-    if not path:
-        path = os.path.join(os.path.dirname(__file__), f"../{CONFIG_YAML_PATH}")
-    return load_yaml_with_env_substitution(path)
+def _find(rv: dict, path: str):
+    for key in path.split("/"):
+        rv = rv[key]
+    return rv
+
+
+def get_config(path=None, default=None):
+    """Fetches the config, defined either as PH_CONFIG env var or default config.yaml.
+    If path is defined, returns the value located down the tree at that path, or
+    the default if there was an error.
+    """
+    cfg_path = os.getenv(CONFIG_YAML_ENV)
+    if not cfg_path:
+        cfg_path = os.path.join(os.path.dirname(__file__), f"../{CONFIG_YAML_PATH}")
+    data = load_yaml_with_env_substitution(cfg_path)
+    if path is None:
+        return data
+    try:
+        return _find(data, path)
+    except (KeyError, TypeError):
+        return default
 
 
 @lru_cache(maxsize=1)

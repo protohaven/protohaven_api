@@ -39,7 +39,17 @@ NEW_MEMBERSHIP_WEBHOOK_DATA = {
 }
 
 
-def test_neon_new_membership_callback(mocker, client):
+@pytest.mark.parametrize(
+    "field_present,field_value,does_init",
+    [
+        (True, None, True),
+        (False, None, False),  # Bail if we can't confirm there's no setup already done
+        (True, "asdf", False),  # Bail if setup is already done
+    ],
+)
+def test_neon_new_membership_callback(
+    mocker, client, field_present, field_value, does_init
+):
     """Test the flow where the user is new with a single membership"""
     mocker.patch.object(
         a,
@@ -50,8 +60,15 @@ def test_neon_new_membership_callback(mocker, client):
     mock_fetch_memberships = mocker.patch.object(
         a.neon, "fetch_memberships", return_value=[{"membershipId": 1}]
     )
-    mock_get_account_first_name = mocker.patch.object(
-        a, "get_account_first_name", return_value=("John", None, "a@b.com")
+    mocker.patch.object(
+        a,
+        "_get_account_details",
+        return_value={
+            "fname": "John",
+            "email": "a@b.com",
+            "auto_field_present": field_present,
+            "auto_field_value": field_value,
+        },
     )
     mock_init_membership = mocker.patch.object(
         a.memauto,
@@ -64,11 +81,18 @@ def test_neon_new_membership_callback(mocker, client):
     rep = client.post(
         "/admin/neon_membership_created_callback", json=NEW_MEMBERSHIP_WEBHOOK_DATA
     )
-    assert rep.status_code == 200
-    mock_fetch_memberships.assert_called_once_with(123958)
-    mock_get_account_first_name.assert_called_once_with(123958)
-    mock_init_membership.assert_called_once_with(123958, "John")
-    mock_send_email.assert_called_once_with("subj", "body", "a@b.com", True)
-    mock_log_comms.assert_called_once_with(
-        "neon_new_member_webhook", "a@b.com", "subj", "Sent"
-    )
+    if does_init:
+        assert rep.status_code == 200
+        mock_fetch_memberships.assert_called_once_with(123958)
+        mock_init_membership.assert_called_once_with(
+            account_id=123958, email="a@b.com", fname="John"
+        )
+        mock_send_email.assert_called_once_with("subj", "body", "a@b.com", True)
+        mock_log_comms.assert_called_once_with(
+            "neon_new_member_webhook", "a@b.com", "subj", "Sent"
+        )
+    else:
+        assert rep.status_code != 200
+        mock_init_membership.assert_not_called()
+        mock_send_email.assert_not_called()
+        mock_log_comms.assert_not_called()

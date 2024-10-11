@@ -182,6 +182,12 @@ def test_enforce_discord_nicknames(mocker, cli):
             "id": "usr1_nick_change",
         },
         {
+            "body": MatchStr("discord_id=usr%203"),
+            "subject": MatchStr("Associate"),
+            "target": "@usr 3",
+            "id": "not_associated:usr 3",
+        },
+        {
             "body": MatchStr("1 nick"),
             "subject": MatchStr("Nickname Automation Summary"),
             "target": "#discord-automation",

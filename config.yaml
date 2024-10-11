@@ -24,6 +24,7 @@ neon:
   webhooks:
     new_membership:
       enabled: True
+      include_filter: ["hello+testv2@protohaven.org"]
 discord_bot:
   enabled: "${DISCORD_BOT}"
   event_hooks:

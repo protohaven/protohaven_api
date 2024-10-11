@@ -79,18 +79,31 @@ def set_discord_nick():
     return f"Member '{name}' now nicknamed '{nick}'"
 
 
-def get_account_first_name(account_id):
+def _get_account_details(account_id):
     """Gets the matching email for a Neon account, by ID"""
-    content = neon.fetch_account(account_id)
+    content = neon.fetch_account(
+        account_id,
+    )
     if not content:
         raise RuntimeError(f"Failed to fetch account id {account_id}")
     content = content.get("individualAccount", None) or content.get("companyAccount")
     content = content.get("primaryContact", {})
-    return (
-        content.get("First Name"),
-        content.get("Last Name"),
-        content.get("email1") or content.get("email2") or content.get("email3"),
-    )
+
+    auto_field_present = False
+    auto_field_value = None
+    for cf in content.get("accountCustomFields", []):
+        if cf["name"] == "Account Automation Ran":
+            auto_field_present = True
+            auto_field_value = cf.get("optionValues")
+
+    return {
+        "fname": content.get("First Name"),
+        "email": content.get("email1")
+        or content.get("email2")
+        or content.get("email3"),
+        "auto_field_present": auto_field_present,
+        "auto_field_value": auto_field_value,
+    }
 
 
 @page.route("/admin/neon_membership_created_callback", methods=["POST"])
@@ -99,23 +112,16 @@ def neon_membership_created_callback():
 
     See https://developer.neoncrm.com/api/webhooks/membership-webhooks/
     """
-    if (
-        get_config()
-        .get("neon", {})
-        .get("webhooks", {})
-        .get("new_membership", {})
-        .get("enabled", False)
-        is True
-    ):
-        return Response("disabled", status=200)
+    if get_config("neon/webhooks/new_membership/enabled", False) is True:
+        return Response("Membership initializer disabled via config", status=200)
     roles = roles_from_api_key(request.json.get("customParameters", {}).get("api_key"))
     if Role.ADMIN not in roles:
         return Response("Not authorized", status=400)
     data = request.json["data"]["membership"]
-    membership_id = data.get("membershipId")
     account_id = data.get("accountId")
+    membership_id = data.get("membershipId")
     membership_name = data.get("membershipName")
-    fee = data.get("fee")
+    fee = float(data.get("fee"))
     enrollment = data.get("enrollmentType")
     txn_status = data.get("status")
     log.info(
@@ -123,15 +129,29 @@ def neon_membership_created_callback():
         f"{membership_name} for ${fee} ({enrollment} {txn_status})"
     )
 
+    if fee < 10:
+        log.info(f"Skipping init of atypical membership of ${fee}")
+        return Response("Fee below threshold", 400)
+
     # We must make sure this is the only (i.e. first) membership for the account
     num_memberships = len(list(neon.fetch_memberships(account_id)))
     if num_memberships == 1:
-        fname, _, email = get_account_first_name(account_id)
-        msg = memauto.init_membership(account_id, fname)
+        details = _get_account_details(account_id)
+        if not details["auto_field_present"] or details["auto_field_value"] is not None:
+            log.info(
+                f"Skipping init of membership with auto_field_present="
+                f"{details['auto_field_present']}, value={details['auto_field_value']}"
+            )
+            return Response("Field error", status=400)
+        msg = memauto.init_membership(
+            account_id=account_id, email=details["email"], fname=details["fname"]
+        )
         if msg:
-            comms.send_email(msg.subject, msg.body, email, msg.html)
-            log.info(f"Sent to {email}: '{msg.subject}'")
-            airtable.log_comms("neon_new_member_webhook", email, msg.subject, "Sent")
+            comms.send_email(msg.subject, msg.body, details["email"], msg.html)
+            log.info(f"Sent to {details['email']}: '{msg.subject}'")
+            airtable.log_comms(
+                "neon_new_member_webhook", details["email"], msg.subject, "Sent"
+            )
             log.info("Logged to airtable")
     else:
         log.info(
