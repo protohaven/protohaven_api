@@ -61,8 +61,8 @@
       let cls_ids = new Set(Object.keys(candidates) || []);
       classes = {};
       for (let cls of data.classes) {
-        if (cls_ids.has(cls.airtable_id)) {
-          classes[cls.airtable_id] = {name: cls.name, checked: true};
+        if (cls_ids.has(cls.class_id)) {
+          classes[cls.class_id] = {name: cls.name, checked: true};
         }
       }
     });
