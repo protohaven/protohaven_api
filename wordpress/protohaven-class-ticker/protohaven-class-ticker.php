@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name:       Protohaven Class Ticker
- * Description:       Example block scaffolded with Create Block tool.
+ * Description: 			A simple ticker showing upcoming classes at Protohaven - see https://github.com/protohaven/protohaven_api/
  * Requires at least: 6.6
  * Requires PHP:      7.2
  * Version:           0.1.0
- * Author:            The WordPress Contributors
+ * Author: 						Scott Martin (smartin015@gmail.com)
  * License:           GPL-2.0-or-later
- * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html:
  * Text Domain:       protohaven-class-ticker
  *
  * @package CreateBlock

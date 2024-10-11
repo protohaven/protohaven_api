@@ -228,7 +228,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             not_associated = list(not_associated)
             not_associated.sort(key=join_dates.get, reverse=True)
             for discord_id in not_associated:
-                if len(result) >= args.limit:
+                if len(result) >= 2 * args.limit:
                     log.info("Limit reached; stopping early")
                     break
                 if len(list(neon.get_members_with_discord_id(discord_id))) > 0:

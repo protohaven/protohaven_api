@@ -1,21 +1,26 @@
-console.log( 'Hello World! (from create-block-protohaven-class-ticker block)' );
-fetch("https://staging.api.protohaven.org/event_ticker").then((rep) => {
-	if (rep.status != 200) {
-		throw Error(rep.status_text);
-	}
-	return rep.json();
-}).then((data) => {
-	console.log(data);
+import { get_ph_events, ph_events_to_elems } from './lib';
+import { useEffect, useState } from '@wordpress/element';
+import { createRoot } from 'react-dom/client';
+
+function App( { attributes } ) {
+	const maxClassesShown = parseInt(attributes.maxClassesShown);
+	const [state, setState] = useState([]);
+
+	useEffect(() => {
+		get_ph_events(maxClassesShown).then((events) => {
+			events.splice(maxClassesShown);
+			setState(events);
+		});
+	}, [maxClassesShown]);
+  return (
+    <>
+      { ph_events_to_elems(state) }
+    </>
+  );
+}
+
+window.addEventListener("load", (event) => {
 	const elem = document.getElementById("protohaven-class-ticker");
-	for (let evt of data) {
-		let a = document.createElement('a');
-		a.href = evt['url'];
-		a.target = "_blank";
-		let s = `${evt['name']} on ${evt['date']}`;
-		if (evt['seats_left'] <= 2) {
-			s += ` (${evt['seats_left']} left!)`;
-		}
-		a.innerHTML = s
-		elem.appendChild(a);
-	}
+	const root = createRoot(elem);
+	root.render(<App attributes={elem.dataset}/>);
 });

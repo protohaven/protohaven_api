@@ -5,8 +5,14 @@
 	"version": "0.1.0",
 	"title": "Protohaven Class Ticker",
 	"category": "widgets",
-	"icon": "smiley",
-	"description": "Show upcoming classes",
+	"attributes": {
+		"maxClassesShown": {
+			"type": "integer",
+			"default": 3
+		}
+	},
+	"icon": "fluent:person-wrench-20-regular",
+	"description": "Show upcoming classes at Protohaven",
 	"example": {},
 	"supports": {
     "color": {
