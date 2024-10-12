@@ -1,0 +1,73 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "create-block/protohaven-airtable-grid",
+	"version": "0.1.0",
+	"title": "Protohaven Airtable Grid",
+	"category": "widgets",
+	"attributes": {
+		"token": {
+			"type": "string",
+			"default": "pat2ckfMS72Cn5Wfi.8baa96a0e836074f3fdc3d6beed89348a1d6a89b2cd5acf707f1a92bdf26ae8d"
+		},
+		"base": {
+				"type": "string",
+				"default": "appc6WQNsGvcKtTvb"
+		},
+		"table": {
+				"type": "string",
+				"default": "tblwibErLiHxGsLyS"
+		},
+		"imgSize": {
+				"type": "string",
+				"default": "207px"
+		},
+		"numColumns": {
+				"type": "integer",
+				"default": 3
+		},
+		"titleField": {
+				"type": "string",
+				"default": "Instructor"
+		},
+		"subtitleField": {
+				"type": "string",
+				"default": "Position"
+		},
+		"imgField": {
+				"type": "string",
+				"default": "Profile Pic"
+		},
+		"bodyField": {
+				"type": "string",
+				"default": "Bio"
+		},
+		"refField": {
+				"type": "string",
+				"default": "Portfolio"
+		},
+		"refText": {
+				"type": "string",
+				"default": "Learn More"
+		}
+	},
+	"icon": "fluent:person-wrench-20-regular",
+	"description": "Show Airtable entries in a grid",
+	"example": {},
+	"supports": {
+    "color": {
+        "background": false,
+        "text": true
+    },
+    "html": false,
+    "typography": {
+        "fontSize": true
+    }
+	},
+	"textdomain": "protohaven-airtable-grid",
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"render": "file:./render.php",
+	"viewScript": "file:./view.js"
+}
