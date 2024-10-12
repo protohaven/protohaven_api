@@ -5,59 +5,126 @@
  * Replace them with your own styles or remove the file completely.
  */
 
+$gray: #f0f0f0;
+$primary: #6ec6e1;
+$secondary: #5806e5;
+$bcol: #0693e3;
+
 .ph-grid {
 	display: grid;
-	grid-template-columns: 1fr 1fr 1fr;
+	grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
 	justify-items: center;
 	align-items: top;
 	gap: 10px;
+	font-family: "Nunito";
 
 
 	&> .ph-item {
 		&.cell {
-			min-width: 200px;
-			max-width: 300px;
 			order: 0;
-			border: 1px grey solid;
-			border-radius: 5px;
-
+			margin: 10px;
+			border: 2px $gray solid;
 			h3 {
-				font-size: 1.2em;
 				text-align: center;
 			}
+
 			.ph-img {
 				position: relative;
 				text-align: center;
+				margin: 5px;
 				h3 {
 					position: absolute;
-					bottom: 0;
+					font-size: 20px;
+					bottom: 10px;
+					left: -5px !important;
 					color: white;
 					background-color: black;
+					border: 2px $gray solid;
 					padding: 5px;
-					right: 0px;
 				}
+			}
+			.ph-footer {
+				width: 100%;
+				flex-direction: row;
+			}
+			.ph-desc {
+				padding: 20px;
 			}
 		}
 		&.fullbleed {
-				border-top: 1px grey solid;
+				border-top: 2px $gray solid;
+				margin-bottom: 16px;
 				grid-column: 1 / -1;
 				width: 100%;
 				order: 1;
 				display: flex;
 				flex-direction: row;
+				justify-content: space-between;
+
+				&> * {
+					margin-top: 10px;
+				}
+
+				.ph-tag {
+					color: white;
+					background-color: black;
+					padding: 5px;
+					display: inline;
+				}
 				.ph-content {
 					flex-grow: 1;
+					max-width: 600px;
 				}
 			  .ph-footer {
 					flex-direction: column;
 			  }
+
+				.ph-fold {
+					min-width: 160px;
+					flex-align: right;
+					@media (min-width: 1024px) {
+							flex-direction: row;
+					}
+				}
+		}
+
+		.ph-fold {
+			display: flex;
+			flex-direction: column;
+		}
+
+		h3 {
+			font-size: 30px;
+			font-weight: bold;
+			color: black;
+			margin: 0;
 		}
 
 		.ph-footer {
-			color: #CCC;
+			background-color: darken($primary, 10);
+			color: white;
+			padding: 10px;
 			display: flex;
-			flex-direction: row;
-			flex-justify: space-between;
+			justify-content: space-between;
+			align-items: center;
+
+			.ph-discount {
+				font-weight: bold;
+			}
+			.ph-price {
+				font-size: 30px;
+				font-weight: bold;
+			}
+
+			&:hover {
+				background-color: $primary;
+			}
+		}
+
+		.ph-features {
+			padding: 12px;
+			background-color: $gray;
+
 		}
 	}
 }
@@ -65,7 +132,7 @@
 
 .ph-filters {
 	padding: 10px;
-	border: 1px gray solid;
+	border: 2px $gray solid;
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;

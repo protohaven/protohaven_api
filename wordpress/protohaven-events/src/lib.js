@@ -35,28 +35,36 @@ function gotoEvent(event_id){
 	window.open('https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=' + event_id, '_blank').focus();
 }
 
-export function renderItem({id, title, area, level, features, price, discount, img, imgSize}) {
+export function renderItem({id, title, area, shortDesc, level, features, price, discount, img, imgSize}) {
 	let containerClass = "ph-item";
 	if (img) {
 		img = (<div class="ph-img">
 			<h3>{area}{level ? " " + level : ""}</h3>
-			<img src={img} style={{maxHeight: imgSize, maxWidth: imgSize, width: '100%'}}/>
+			<img src={img}/>
 		</div>);
 		containerClass += " cell";
 	} else {
-		title = `${area}${level ? " " + level : ""}: ${title}`;
+		img = <div class="ph-tag">{area} {level || ""}</div>;
 		containerClass += " fullbleed";
 	}
+	features = [
+		<div>Oct 10, 6-9pm (<a href="#">3 more</a>)</div>,
+		<div>Ages 12+</div>,
+		<div>3 hours</div>,
+	];
 	return (<div class={containerClass} id={id}>
 		<div class="ph-content">
 			{img}
-			<h3>{title}</h3>
-			<ul>{features}</ul>
+			<	h3>{title}</h3>
+
+			<div class="ph-desc">{shortDesc} (<a href="#">more</a>)</div>
 		</div>
-		<div class="ph-footer">
-			<div class="ph-price">{price}</div>
-			<div class="ph-discount">{discount}</div>
-			<button onClick={() => gotoEvent(id)}>Register</button>
+		<div class="ph-fold">
+			<div class="ph-features">{features}</div>
+			<button class="ph-footer">
+				<div class="ph-price">$102</div>
+				<div class="ph-discount">($75 for members)</div>
+			</button>
 		</div>
 	</div>);
 }
@@ -78,12 +86,31 @@ function imgFromDesc(desc) {
 	let doc = document.createElement('div');
 	doc.innerHTML = desc;
 	let img = doc.getElementsByTagName('img');
-	if (img.length !== 0) {
-		console.log("Found img!", img);
-		return  img[0].src;
-	}
-	return null;
+	return (img.length !== 0) ? img[0].src : null;
 }
+
+
+
+function trunc(inputStr, maxLength) {
+    let truncatedStr = '';
+    const sentences = inputStr.split(/(?<=[.!?])\s+/);
+    for (const sentence of sentences) {
+        if ((truncatedStr + sentence).length <= maxLength) {
+            truncatedStr += sentence + ' ';
+        } else {
+            break;
+        }
+    }
+    return truncatedStr.trim();
+}
+
+function descTeaser(desc) {
+	// TODO more efficient
+	let doc = document.createElement('div');
+	doc.innerHTML = desc;
+	return trunc(doc.innerText, 120);
+}
+
 
 export function App( { imgSize } ) {
 	const [state, setState] = useState([]);
@@ -107,6 +134,7 @@ export function App( { imgSize } ) {
 			price: null,
 			duration: null,
 			description: e.description,
+			shortDesc: null,
 			img: null,
 			times: [],
 		};
@@ -117,8 +145,11 @@ export function App( { imgSize } ) {
 				levels.add(c.extra.level);
 			}
 		}
-		if (c.img === null) {
+		if (!c.img) {
 			c.img = imgFromDesc(e.description);
+		}
+		if (!c.shortDesc) {
+			c.shortDesc = descTeaser(e.description);
 		}
 		c.times.push([new Date(e.startDate + ' ' + e.startTime), new Date(e.endDate + ' ' + e.endTime)]);
 		if (!classes[e.name]) {
@@ -136,7 +167,8 @@ export function App( { imgSize } ) {
 			price: '$TODO',
 			discount: '$TODO2',
 			img: c.img,
-			imgSize: imgSize
+			imgSize: imgSize,
+			shortDesc: c.shortDesc,
 		});
 	  })
 
