@@ -13,17 +13,14 @@ export function get_events(pagination) {
     return fetch('http://localhost:8080/?' + queryString).then(rep => rep.json());
 }
 
-function fetch_all_events(state, setState, cur=0, tot=1) {
+function fetch_all_events(cb, cur=0, tot=1) {
 	if (cur >= tot) {
 		return;
 	}
-	console.log('get_events', cur, tot);
 	get_events({currentPage: cur, pageSize: 50}).then((rep) => {
-		console.log(rep);
-		let newState = [...state, ...rep.events];
-		setState(newState);
-		// TODO finish
-		// return fetch_all_events(newState, setState, cur+1, Math.min(rep.pagination.totalPages, 20));
+		cb(rep.events);
+		// TODO uncomment
+		// return fetch_all_events(cb, cur+1, Math.min(rep.pagination.totalPages, 20));
 	});
 }
 
@@ -35,7 +32,36 @@ function gotoEvent(event_id){
 	window.open('https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=' + event_id, '_blank').focus();
 }
 
-export function renderItem({id, title, area, shortDesc, level, features, price, discount, img, imgSize}) {
+
+function ap(hours) {
+	return ((hours > 12) ? hours-12 : hours).toString() + ((hours > 11) ? 'pm' : 'am');
+}
+function dateStr(d1) {
+	return `${d1.toLocaleString('default', { month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
+}
+function fmtTimes(times, expanded, onExpand) {
+	times.sort((a, b) => a[0] - b[0]);
+	const [d1, d2] = times[0];
+	let hrs = <div>{d2.getHours() - d1.getHours()} hours</div>;
+	if (times.length > 1 && !expanded) {
+		return [<div>{dateStr(d1)}</div>,<div>(<a href="#" onClick={onExpand}>{times.length-1} more</a>)</div>, hrs];
+	} else if (times.length > 1 && expanded) {
+		return [...times.map((t) => <div>{dateStr(t[0])}</div>), hrs];
+	}
+	return [<div>{dateStr(d1)}</div>, hrs];
+}
+
+function fmtAges(features) {
+	if (features['Age Requirement']) {
+		let age = features['Age Requirement'].match(/\d+/);
+		if (age) {
+			return <div>Ages {age[0]}+</div>;
+		}
+	}
+	return <div>Ages 16+</div>;
+}
+
+export function renderItem({id, title, area, desc, level, features, price, discount, img, times, imgSize}, expanded, onExpand) {
 	let containerClass = "ph-item";
 	if (img) {
 		img = (<div class="ph-img">
@@ -47,20 +73,16 @@ export function renderItem({id, title, area, shortDesc, level, features, price, 
 		img = <div class="ph-tag">{area} {level || ""}</div>;
 		containerClass += " fullbleed";
 	}
-	features = [
-		<div>Oct 10, 6-9pm (<a href="#">3 more</a>)</div>,
-		<div>Ages 12+</div>,
-		<div>3 hours</div>,
-	];
+	let featList = [...fmtTimes(times, expanded, onExpand), fmtAges(features)];
 	return (<div class={containerClass} id={id}>
 		<div class="ph-content">
 			{img}
 			<	h3>{title}</h3>
 
-			<div class="ph-desc">{shortDesc} (<a href="#">more</a>)</div>
+			<div class="ph-desc">{desc} (<a href="#">more</a>)</div>
 		</div>
 		<div class="ph-fold">
-			<div class="ph-features">{features}</div>
+			<div class="ph-features">{featList}</div>
 			<button class="ph-footer">
 				<div class="ph-price">$102</div>
 				<div class="ph-discount">($75 for members)</div>
@@ -82,14 +104,6 @@ function extraFromName(name) {
 	return {area: m[1], level: m[2], shortName: m[3]};
 }
 
-function imgFromDesc(desc) {
-	let doc = document.createElement('div');
-	doc.innerHTML = desc;
-	let img = doc.getElementsByTagName('img');
-	return (img.length !== 0) ? img[0].src : null;
-}
-
-
 
 function trunc(inputStr, maxLength) {
     let truncatedStr = '';
@@ -104,52 +118,71 @@ function trunc(inputStr, maxLength) {
     return truncatedStr.trim();
 }
 
-function descTeaser(desc) {
-	// TODO more efficient
+function getFeatures(doc) {
+    const features = {};
+    const sections = doc.querySelectorAll('strong');
+    sections.forEach(strong => {
+        const sectionTitle = strong.textContent.trim();
+        const sectionContent = [];
+        let node = strong.parentElement.nextElementSibling; // <p class="neonBody"><strong>Header</strong></p>
+	if (node) {
+        	features[sectionTitle] = node.innerText;
+	}
+    });
+    return features;
+}
+
+function parseDesc(desc) {
 	let doc = document.createElement('div');
 	doc.innerHTML = desc;
-	return trunc(doc.innerText, 120);
+	let imgElem = doc.getElementsByTagName('img');
+	return {
+		img: (imgElem.length !== 0) ? imgElem[0].src : null,
+		desc: trunc(doc.innerText, 120),
+		features: getFeatures(doc),
+	};
 }
 
 
-export function App( { imgSize } ) {
-	const [state, setState] = useState([]);
-	const [filters, setFilters] = useState({areas: null, min_age: null, from_date: null, to_date: null, show_full: false});
-	useEffect(() => {
-		fetch_all_events(state, setState);
-	}, []);
-
-	// TODO put these in an effect block so they only run once
+function process(partial) {
 	let classes = {};
 	let areas = new Set();
 	let levels = new Set();
-	for (let e of state) {
+	for (let e of partial) {
 		if (e.name.startsWith("Private Instruction Session")) {
 			continue;
 		}
 		let c = classes[e.name] || {
 			id: e.id,
 			name: e.name,
-			extra: null,
+			title: null,
+			area: null,
+			level: null,
 			price: null,
+			discount: null,
 			duration: null,
 			description: e.description,
-			shortDesc: null,
+			features: null,
+			desc: null,
 			img: null,
 			times: [],
 		};
-		if (!c.extra) {
-			c.extra = extraFromName(c.name);
-			if (c.extra) {
-				areas.add(c.extra.area);
-				levels.add(c.extra.level);
+		if (!c.title || !c.area || !c.level) {
+			let extra = extraFromName(c.name);
+			if (extra) {
+				c.title = c.title || extra.title;
+				c.area = c.area || extra.area;
+				c.level = c.level || extra.level;
+				areas.add(extra.area);
+				levels.add(extra.level);
 			}
 		}
-		if (!c.img) {
-			c.img = imgFromDesc(e.description);
-		}
-		if (!c.shortDesc) {
-			c.shortDesc = descTeaser(e.description);
+		if (!c.img || !c.desc || !c.features) {
+			Object.entries(parseDesc(e.description)).forEach(([key, value]) => {
+			    if (value !== null) {
+				c[key] = value;
+			    }
+			});
 		}
 		c.times.push([new Date(e.startDate + ' ' + e.startTime), new Date(e.endDate + ' ' + e.endTime)]);
 		if (!classes[e.name]) {
@@ -157,20 +190,29 @@ export function App( { imgSize } ) {
 		}
 
 	}
-	let items = Object.values(classes).map((c) => {
-		return renderItem({
-			id: c.id,
-			title: (c.extra && c.extra.shortName) || c.name,
-			area: (c.extra && c.extra.area) || "Special Event",
-			level: (c.extra || {}).level || null,
-			features: ['TODO', 'TODO'],
-			price: '$TODO',
-			discount: '$TODO2',
-			img: c.img,
-			imgSize: imgSize,
-			shortDesc: c.shortDesc,
+	return [Object.values(classes), areas, levels];
+}
+
+export function App( { imgSize } ) {
+	const [classes, setClasses] = useState([]);
+	const [areas, setAreas] = useState(new Set());
+	const [levels, setLevels] = useState(new Set());
+	const [filters, setFilters] = useState({areas: null, min_age: null, from_date: null, to_date: null, show_full: false});
+	const [expansions, setExpansions] = useState({});
+	console.log("Classes now", classes);
+	useEffect(() => {
+		fetch_all_events((partial) => {
+			const [c2, a2, l2] = process(partial);
+			setClasses([...classes, ...c2]);
+			let newExp = {...expansions};
+			for (let c of c2) {
+				newExp[c.name] = false;
+			}
+			setExpansions(newExp);
+			setAreas(areas.add(...a2));
+			setLevels(levels.add(...l2));
 		});
-	  })
+	}, []);
 
 
 	return (<div>
@@ -187,8 +229,8 @@ export function App( { imgSize } ) {
 			</select>
 			<select onChange={console.log}>
 				<option>No Age Restriction</option>
-				<option>12-18 years</option>
-				<option>18+</option>
+				<option>12-16 years</option>
+				<option>16+</option>
 			</select>
 			<div>
 				<input type="date" id="ph-start"/> to <input type="date" id="ph-end"/>
@@ -197,6 +239,13 @@ export function App( { imgSize } ) {
 				<input type="checkbox" id="ph-show-all"/><label for="ph-show-all">Show Full Classes</label>
 			</div>
 		</div>
-		<div class="ph-grid">{items}</div>
+		<div class="ph-grid">{classes.map((e) => {
+			let expanded = expansions[e.name];
+			return renderItem(e, expanded, () => {
+				let newExp = {...expansions};
+				newExp[e.name] = !expanded;
+				setExpansions(newExp);
+			})
+		})}</div>
 	</div>);
 }
