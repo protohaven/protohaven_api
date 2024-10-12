@@ -1,5 +1,4 @@
 {% if subject %}Open purchase requests report:{% else %}{% for section in sections %}
 {{section.name}} ({{section.counts}} total open; showing up to 5 tasks older than {{section.threshold}}d):
-{% for t in section.tasks %}
-- [{{t.name}}](https://app.asana.com/0/1203839223519118/{{t.id}}) ({%if (t.modified_at - t.created_at).days > 1%}modified{% else %}created{% endif %} {{(now-t.modified_at).days}}d ago)
+{% for t in section.tasks %}- [{{t.name}}](https://app.asana.com/0/1203839223519118/{{t.id}}) ({%if (t.modified_at - t.created_at).days > 1%}modified{% else %}created{% endif %} {{(now-t.modified_at).days}}d ago)
 {% endfor %}{% endfor %}{% endif %}

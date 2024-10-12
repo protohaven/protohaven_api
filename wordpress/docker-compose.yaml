@@ -7,6 +7,7 @@ services:
      - ./wordpress:/var/www/html
      - ./protohaven-class-ticker:/var/www/html/wp-content/plugins/protohaven-class-ticker
      - ./protohaven-airtable-grid:/var/www/html/wp-content/plugins/protohaven-airtable-grid
+     - ./protohaven-events:/var/www/html/wp-content/plugins/protohaven-events
    environment:
      - WORDPRESS_DB_NAME=wordpress
      - WORDPRESS_TABLE_PREFIX=wp_
