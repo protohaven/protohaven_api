@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from '@wordpress/element';
+import { useEffect, useState, useMemo } from '@wordpress/element';
 
 export function get_events(pagination) {
     let q_params = {
@@ -42,9 +41,9 @@ function processTix() {
 			if (tix.queue.length && tix.cplt.length === 1) {
 				setTimeout(processTix, MS);
 			}
-			if (data[0].code == "9997") {
+			if (data === "Error" || data[0].code == "9997") {
 				let backoff = Math.random()*MS;
-				console.warn("Ratelimited; retrying with " + backoff + " backoff");
+				console.warn(data, "retrying with " + backoff + " backoff");
 				setTimeout(() => {
 					tix.queue.push({event_id, resolve, reject});
 					processTix();
@@ -64,6 +63,9 @@ function get_event_tickets(event_id) {
 		processTix();
 	});
 }
+function get_event_tickets_memo(event_id) {
+	return useMemo(get_event_tickets(event_id), [event_id]);
+}
 
 function gotoURL(url){
 	window.open(url, '_blank').focus();
@@ -81,30 +83,31 @@ function dateStr(d1) {
 function infoLink(eid) {
 	return `https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=${eid}`;
 }
-function fmtTimes(times, expanded, onExpand) {
+function FmtTimes( { times, expanded, onExpand } ) {
 	times.sort((a, b) => a[0] - b[0]);
-	const [tid, d1, d2] = times[0];
-	let hrs = <div key="hrs">{d2.getHours() - d1.getHours()} hours</div>;
-	if (times.length > 1 && !expanded) {
-		return [
-			<div key={tid}><a href={infoLink(tid)} target="_blank">{dateStr(d1)}</a></div>,
-			<div key="expand">(<a href="#" onClick={onExpand}>{times.length-1} more</a>)</div>,
-			hrs,
-		];
-	} else if (times.length > 1 && expanded) {
-		return [...times.map((t) => <div key={t[0]}><a href={infoLink(t[0])} target="_blank">{dateStr(t[1])}</a></div>), hrs];
-	}
-	return [<div key={tid}><a href={infoLink(tid)} target="_blank">{dateStr(d1)}</a></div>, hrs];
-}
-
-function fmtAges(features) {
-	if (features['Age Requirement']) {
-		let age = features['Age Requirement'].match(/\d+/);
-		if (age) {
-			return <div>Ages {age[0]}+</div>;
+	let hrs = <div key="hrs">{times[0][2].getHours() - times[0][1].getHours()} hours</div>;
+	let expand = [];
+	for (let [neon_id, d1, d2] of times) {
+		expand.push(<div key={neon_id}><a href={infoLink(neon_id)} target="_blank">{dateStr(d1)}</a></div>);
+		if (!expanded && expand.length >= 2) {
+			break;
 		}
 	}
-	return <div>Ages 16+</div>;
+
+	return (<>
+		{expand}
+		{!expanded && times.length > 2 && <div key="expand">(<a href="#" onClick={(e) => {onExpand(true); e.preventDefault();}}>{times.length-2} more</a>)</div>}
+		{hrs}
+	</>);
+}
+
+function FmtAges( { ageReq } ) {
+	let age = '16';
+	if (ageReq) {
+		let m = ageReq.match(/\d+/);
+		age = m[0] || age;
+	}
+	return <div>Ages {age}+</div>;
 }
 
 export function Item(props) {
@@ -131,29 +134,31 @@ export function Item(props) {
 	let containerClass = "ph-item";
 	let imgElem;
 	if (img) {
-		imgElem = (<div class="ph-img">
+		imgElem = (<div className="ph-img">
 			<h3>{area}</h3>
 			<img src={img}/>
 		</div>);
 		containerClass += " cell";
 	} else {
-		imgElem = <div class="ph-tag">{area}</div>;
+		imgElem = <div className="ph-tag">{area}</div>;
 		containerClass += " fullbleed";
 	}
-	let featList = [...fmtTimes(times, expanded, () => setExpanded(true)), fmtAges(features)];
-	return (<div class={containerClass} id={title}>
-		<div class="ph-content">
+	return (<div className={containerClass} id={title}>
+		<div className="ph-content">
 			{imgElem}
 			<h3>{title}</h3>
 
-			<div class="ph-desc">{desc} (<a href={times[0][0]} target="_blank">more</a>)</div>
+			<div className="ph-desc">{desc}... (<a href={infoLink(times[0][0])} target="_blank">more</a>)</div>
 		</div>
-		<div class="ph-fold">
-			<div class="ph-features">{featList}</div>
-			<button class="ph-footer" onClick={() => gotoURL(times[0][0])} disabled={!pricing.remaining}>
-				{pricing.price !== null && <div class="ph-price">${pricing.price}</div>}
-				{pricing.discount && <div class="ph-discount">(${pricing.discount} for members)</div>}
-				{pricing.remaining !== null && <div class="ph-discount">{pricing.remaining} left</div>}
+		<div className="ph-fold">
+			<div className="ph-features">
+				<FmtTimes times={times} expanded={expanded} onExpand={setExpanded}/>
+				<FmtAges ageReq={features['Age Requirement']}/>
+			</div>
+			<button className="ph-footer" onClick={() => gotoURL(infoLink(times[0][0]))} disabled={!pricing.remaining}>
+				{pricing.price !== null && <div className="ph-price">${pricing.price}</div>}
+				{pricing.discount && <div className="ph-discount">(${pricing.discount} for members)</div>}
+				{pricing.remaining !== null && <div className="ph-discount">{pricing.remaining} left</div>}
 			</button>
 		</div>
 	</div>);
@@ -180,7 +185,7 @@ function trunc(inputStr, maxLength) {
         if ((truncatedStr + sentence).length <= maxLength) {
             truncatedStr += sentence + ' ';
         } else if (truncatedStr.length == 0) {
-	    truncatedStr += sentence.substr(0, maxLength-3) + '...';
+	    truncatedStr += sentence.substr(0, maxLength);
 	} else {
             break;
         }
@@ -194,7 +199,7 @@ function getFeatures(doc) {
     sections.forEach(strong => {
         const sectionTitle = strong.textContent.trim();
         const sectionContent = [];
-        let node = strong.parentElement.nextElementSibling; // <p class="neonBody"><strong>Header</strong></p>
+        let node = strong.parentElement.nextElementSibling; // <p className="neonBody"><strong>Header</strong></p>
 	if (node) {
         	features[sectionTitle] = node.innerText;
 	}
@@ -208,7 +213,7 @@ function parseDesc(desc) {
 	let imgElem = doc.getElementsByTagName('img');
 	return {
 		img: (imgElem.length !== 0) ? imgElem[0].src : null,
-		desc: trunc(doc.innerText, 120),
+		desc: doc.innerText.substr(0,140),//trunc(doc.innerText, 120),
 		features: getFeatures(doc),
 	};
 }
@@ -240,7 +245,7 @@ function process(partial) {
 				c.title = c.title || x.title;
 				c.area = c.area || x.area;
 				c.level = c.level || x.level;
-				areas.add(x.area);
+				areas.add(<option value={x.area} key={x.area}>{x.area}</option>);
 				levels.add(x.level);
 			}
 		}
@@ -280,10 +285,10 @@ export function App( { imgSize } ) {
 
 
 	return (<div>
-		<div class="ph-filters">
+		<div className="ph-filters">
 			<select onChange={console.log}>
 				<option>All Areas</option>
-				{Array.from(areas).map((a) => <option value={a} key={a}>{a}</option>)}
+				{areas}
 			</select>
 			<select onChange={console.log}>
 				<option>Any Level</option>
@@ -296,13 +301,14 @@ export function App( { imgSize } ) {
 				<option>12-16 years</option>
 				<option>16+</option>
 			</select>
+			<select onChange={console.log}>
+				<option>Any Availability</option>
+				<option>Show Available Only</option>
+			</select>
 			<div>
 				<input type="date" id="ph-start"/> to <input type="date" id="ph-end"/>
 			</div>
-			<div>
-				<input type="checkbox" id="ph-show-all"/><label for="ph-show-all">Show Full Classes</label>
-			</div>
 		</div>
-		<div class="ph-grid">{classes}</div>
+		<div className="ph-grid">{classes}</div>
 	</div>);
 }
