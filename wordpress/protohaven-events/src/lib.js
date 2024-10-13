@@ -17,13 +17,14 @@ function fetch_all_events(cb, cur=0, tot=1) {
 	if (cur >= tot) {
 		return;
 	}
-	get_events({currentPage: cur, pageSize: 50}).then((rep) => {
+	get_events({currentPage: cur, pageSize: 30}).then((rep) => {
 		cb(rep.events);
-		// TODO uncomment
-		// return fetch_all_events(cb, cur+1, Math.min(rep.pagination.totalPages, 20));
+		return fetch_all_events(cb, cur+1, Math.min(rep.pagination.totalPages, 20));
 	});
 }
 
+
+// Inspired by https://github.com/rhashimoto/promise-throttle
 let tix = {queue: [], cplt: [], inflight: []};
 const MS = 1000;
 const MAXCALL = 5;
@@ -35,11 +36,21 @@ function processTix() {
 	while (tix.queue.length && tix.cplt.length + tix.inflight < MAXCALL) {
 		const {event_id, resolve, reject} = tix.queue.shift();
 		tix.inflight++;
-		fetch(`http://localhost:8080/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&neon_id=${event_id}`).then(rep => rep.json()).then(resolve).catch(reject).then(() => {
+		fetch(`http://localhost:8080/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&neon_id=${event_id}`).then(rep => rep.json()).catch(reject).then((data) => {
 			tix.inflight--;
 			tix.cplt.push(Date.now());
 			if (tix.queue.length && tix.cplt.length === 1) {
 				setTimeout(processTix, MS);
+			}
+			if (data[0].code == "9997") {
+				let backoff = Math.random()*MS;
+				console.warn("Ratelimited; retrying with " + backoff + " backoff");
+				setTimeout(() => {
+					tix.queue.push({event_id, resolve, reject});
+					processTix();
+				}, backoff);
+			} else {
+				resolve(data);
 			}
 		});
 	}
@@ -109,8 +120,8 @@ export function Item(props) {
 				if (p.name === 'Single Registration') {
 					price = p.fee;
 					remaining = p.numberRemaining;
-				} else if (p.name === 'FOO') {
-					// TODO
+				} else if (p.name === 'Member Rate') {
+					discount = p.fee;
 				}
 			});
 			setPricing({price, discount, remaining});
