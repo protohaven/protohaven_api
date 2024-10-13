@@ -10,7 +10,7 @@ import { TextControl, PanelBody } from '@wordpress/components';
 
 import './style.scss';
 import './editor.scss';
-import { get_events, render } from './lib';
+//import { get_events } from './lib';
 
 /**
  * The edit function describes the structure of your block in the context of the
@@ -24,7 +24,7 @@ export default function Edit( { attributes, setAttributes } ) {
 	const [state, setState] = useState([]);
 	const { token } = attributes;
 	useEffect(() => {
-		get_events(token).then(setState);
+		//get_events(token).then(setState);
 	}, []);
 
 	function mkTextControl(attr_name, label) {
@@ -48,7 +48,7 @@ export default function Edit( { attributes, setAttributes } ) {
 				</PanelBody>
 			</InspectorControls>
 		<p { ...useBlockProps() } id="protohaven-events">
-			{ render(state, attributes) }
+			<div>TODO</div>
 		</p>
 		</>
 	);

@@ -24,12 +24,38 @@ function fetch_all_events(cb, cur=0, tot=1) {
 	});
 }
 
-export function get_event_tickets(event_id) {
-	return fetch(`http://localhost:8080/?rest_route=/protohaven-events-plugin-api/v1/event_tickets?neon_id=${event_id}`).then(rep => rep.json());
+let tix = {queue: [], cplt: [], inflight: []};
+const MS = 1000;
+const MAXCALL = 5;
+function processTix() {
+	const now = Date.now();
+	while (tix.cplt.length && tix.cplt[0] < now - MS) {
+		tix.cplt.shift();
+	}
+	while (tix.queue.length && tix.cplt.length + tix.inflight < MAXCALL) {
+		const {event_id, resolve, reject} = tix.queue.shift();
+		tix.inflight++;
+		fetch(`http://localhost:8080/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&neon_id=${event_id}`).then(rep => rep.json()).then(resolve).catch(reject).then(() => {
+			tix.inflight--;
+			tix.cplt.push(Date.now());
+			if (tix.queue.length && tix.cplt.length === 1) {
+				setTimeout(processTix, MS);
+			}
+		});
+	}
+	if (tix.queue.length && tix.cplt.length) {
+		setTimeout(processTix, tix.cplt[0] + MS - now);
+	}
+}
+function get_event_tickets(event_id) {
+	return new Promise((resolve, reject) => {
+		tix.queue.push({event_id, resolve, reject});
+		processTix();
+	});
 }
 
-function gotoEvent(event_id){
-	window.open('https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=' + event_id, '_blank').focus();
+function gotoURL(url){
+	window.open(url, '_blank').focus();
 }
 
 
@@ -39,16 +65,25 @@ function ap(hours) {
 function dateStr(d1) {
 	return `${d1.toLocaleString('default', { month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
 }
+
+
+function infoLink(eid) {
+	return `https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=${eid}`;
+}
 function fmtTimes(times, expanded, onExpand) {
 	times.sort((a, b) => a[0] - b[0]);
-	const [d1, d2] = times[0];
-	let hrs = <div>{d2.getHours() - d1.getHours()} hours</div>;
+	const [tid, d1, d2] = times[0];
+	let hrs = <div key="hrs">{d2.getHours() - d1.getHours()} hours</div>;
 	if (times.length > 1 && !expanded) {
-		return [<div>{dateStr(d1)}</div>,<div>(<a href="#" onClick={onExpand}>{times.length-1} more</a>)</div>, hrs];
+		return [
+			<div key={tid}><a href={infoLink(tid)} target="_blank">{dateStr(d1)}</a></div>,
+			<div key="expand">(<a href="#" onClick={onExpand}>{times.length-1} more</a>)</div>,
+			hrs,
+		];
 	} else if (times.length > 1 && expanded) {
-		return [...times.map((t) => <div>{dateStr(t[0])}</div>), hrs];
+		return [...times.map((t) => <div key={t[0]}><a href={infoLink(t[0])} target="_blank">{dateStr(t[1])}</a></div>), hrs];
 	}
-	return [<div>{dateStr(d1)}</div>, hrs];
+	return [<div key={tid}><a href={infoLink(tid)} target="_blank">{dateStr(d1)}</a></div>, hrs];
 }
 
 function fmtAges(features) {
@@ -61,31 +96,53 @@ function fmtAges(features) {
 	return <div>Ages 16+</div>;
 }
 
-export function renderItem({id, title, area, desc, level, features, price, discount, img, times, imgSize}, expanded, onExpand) {
+export function Item(props) {
+	const {title, area, desc, level, features, discount, img, times} = props;
+	const [expanded, setExpanded] = useState(false);
+	const [pricing, setPricing] = useState({price: null, discount: null, remaining: null});
+	useEffect(() => {
+		get_event_tickets(times[0][0]).then((data) => {
+			let price = null;
+			let discount = null;
+			let remaining = null;
+			data.forEach((p) => {
+				if (p.name === 'Single Registration') {
+					price = p.fee;
+					remaining = p.numberRemaining;
+				} else if (p.name === 'FOO') {
+					// TODO
+				}
+			});
+			setPricing({price, discount, remaining});
+		});
+	}, []);
+
 	let containerClass = "ph-item";
+	let imgElem;
 	if (img) {
-		img = (<div class="ph-img">
-			<h3>{area}{level ? " " + level : ""}</h3>
+		imgElem = (<div class="ph-img">
+			<h3>{area}</h3>
 			<img src={img}/>
 		</div>);
 		containerClass += " cell";
 	} else {
-		img = <div class="ph-tag">{area} {level || ""}</div>;
+		imgElem = <div class="ph-tag">{area}</div>;
 		containerClass += " fullbleed";
 	}
-	let featList = [...fmtTimes(times, expanded, onExpand), fmtAges(features)];
-	return (<div class={containerClass} id={id}>
+	let featList = [...fmtTimes(times, expanded, () => setExpanded(true)), fmtAges(features)];
+	return (<div class={containerClass} id={title}>
 		<div class="ph-content">
-			{img}
-			<	h3>{title}</h3>
+			{imgElem}
+			<h3>{title}</h3>
 
-			<div class="ph-desc">{desc} (<a href="#">more</a>)</div>
+			<div class="ph-desc">{desc} (<a href={times[0][0]} target="_blank">more</a>)</div>
 		</div>
 		<div class="ph-fold">
 			<div class="ph-features">{featList}</div>
-			<button class="ph-footer">
-				<div class="ph-price">$102</div>
-				<div class="ph-discount">($75 for members)</div>
+			<button class="ph-footer" onClick={() => gotoURL(times[0][0])} disabled={!pricing.remaining}>
+				{pricing.price !== null && <div class="ph-price">${pricing.price}</div>}
+				{pricing.discount && <div class="ph-discount">(${pricing.discount} for members)</div>}
+				{pricing.remaining !== null && <div class="ph-discount">{pricing.remaining} left</div>}
 			</button>
 		</div>
 	</div>);
@@ -99,9 +156,9 @@ function extraFromName(name) {
 	const regex = /^(\w+)\s+(\d+):\s+(.+?)(?:\s+\((.+)\))?$/;
 	const m = name.match(regex);
 	if (!m) {
-		return null;
+		return {area: "Special Event", level: null, title: name};
 	}
-	return {area: m[1], level: m[2], shortName: m[3]};
+	return {area: m[1], level: m[2], title: m[3]};
 }
 
 
@@ -111,7 +168,9 @@ function trunc(inputStr, maxLength) {
     for (const sentence of sentences) {
         if ((truncatedStr + sentence).length <= maxLength) {
             truncatedStr += sentence + ' ';
-        } else {
+        } else if (truncatedStr.length == 0) {
+	    truncatedStr += sentence.substr(0, maxLength-3) + '...';
+	} else {
             break;
         }
     }
@@ -153,13 +212,10 @@ function process(partial) {
 			continue;
 		}
 		let c = classes[e.name] || {
-			id: e.id,
 			name: e.name,
 			title: null,
 			area: null,
 			level: null,
-			price: null,
-			discount: null,
 			duration: null,
 			description: e.description,
 			features: null,
@@ -168,13 +224,13 @@ function process(partial) {
 			times: [],
 		};
 		if (!c.title || !c.area || !c.level) {
-			let extra = extraFromName(c.name);
-			if (extra) {
-				c.title = c.title || extra.title;
-				c.area = c.area || extra.area;
-				c.level = c.level || extra.level;
-				areas.add(extra.area);
-				levels.add(extra.level);
+			let x = extraFromName(c.name);
+			if (x) {
+				c.title = c.title || x.title;
+				c.area = c.area || x.area;
+				c.level = c.level || x.level;
+				areas.add(x.area);
+				levels.add(x.level);
 			}
 		}
 		if (!c.img || !c.desc || !c.features) {
@@ -184,13 +240,17 @@ function process(partial) {
 			    }
 			});
 		}
-		c.times.push([new Date(e.startDate + ' ' + e.startTime), new Date(e.endDate + ' ' + e.endTime)]);
+
+		c.times.push([e.id, new Date(e.startDate + ' ' + e.startTime), new Date(e.endDate + ' ' + e.endTime)]);
 		if (!classes[e.name]) {
 			classes[e.name] = c;
 		}
 
 	}
-	return [Object.values(classes), areas, levels];
+	return [Object.values(classes).map((c) => <Item key={c.name} {...c} />),
+		areas,
+		levels
+	];
 }
 
 export function App( { imgSize } ) {
@@ -198,17 +258,10 @@ export function App( { imgSize } ) {
 	const [areas, setAreas] = useState(new Set());
 	const [levels, setLevels] = useState(new Set());
 	const [filters, setFilters] = useState({areas: null, min_age: null, from_date: null, to_date: null, show_full: false});
-	const [expansions, setExpansions] = useState({});
-	console.log("Classes now", classes);
 	useEffect(() => {
 		fetch_all_events((partial) => {
 			const [c2, a2, l2] = process(partial);
 			setClasses([...classes, ...c2]);
-			let newExp = {...expansions};
-			for (let c of c2) {
-				newExp[c.name] = false;
-			}
-			setExpansions(newExp);
 			setAreas(areas.add(...a2));
 			setLevels(levels.add(...l2));
 		});
@@ -219,7 +272,7 @@ export function App( { imgSize } ) {
 		<div class="ph-filters">
 			<select onChange={console.log}>
 				<option>All Areas</option>
-				{Array.from(areas).map((a) => <option value={a}>{a}</option>)}
+				{Array.from(areas).map((a) => <option value={a} key={a}>{a}</option>)}
 			</select>
 			<select onChange={console.log}>
 				<option>Any Level</option>
@@ -239,13 +292,6 @@ export function App( { imgSize } ) {
 				<input type="checkbox" id="ph-show-all"/><label for="ph-show-all">Show Full Classes</label>
 			</div>
 		</div>
-		<div class="ph-grid">{classes.map((e) => {
-			let expanded = expansions[e.name];
-			return renderItem(e, expanded, () => {
-				let newExp = {...expansions};
-				newExp[e.name] = !expanded;
-				setExpansions(newExp);
-			})
-		})}</div>
+		<div class="ph-grid">{classes}</div>
 	</div>);
 }
