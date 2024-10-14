@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
+require_once __DIR__ . '/settings.php';
+
 /**
  * Registers the block using the metadata loaded from the `block.json` file.
  * Behind the scenes, it registers also all assets so they can be enqueued
@@ -53,9 +55,12 @@ function ph_neon_register_routes() {
 }
 
 function ph_neon_events() {
-	$token = "d819576d3cbb9e4fabee8dd6e2a921e4";
+	return ph_neon_events_internal($_GET);
+}
+
+function ph_neon_events_internal($query_params) {
+	$token = get_option('ph_events_api_key');
 	$url = "https://protohaven:$token@api.neoncrm.com/v2/events";
-	$query_params = $_GET;
 	if (!empty($query_params)) {
 	    $url .= '?' . http_build_query($query_params);
 	}
@@ -68,7 +73,7 @@ function ph_neon_events() {
 }
 
 function ph_neon_event_tickets() {
-	$token = "d819576d3cbb9e4fabee8dd6e2a921e4";
+	$token = get_option('ph_events_api_key');
 	$neon_id = $_GET['neon_id'];
 	$url = "https://protohaven:$token@api.neoncrm.com/v2/events/$neon_id/tickets";
 	$query_params = $_GET;

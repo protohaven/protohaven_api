@@ -18,8 +18,19 @@ $bcol: #0693e3;
 	gap: 10px;
 	font-family: "Nunito";
 
+	.status-message {
+		font-size: 1.2em;
+		font-weight: bold;
+		grid-column: 1 / -1;
+		text-align: center;
+		max-width: 400px;
+	}
 
 	&> .ph-item {
+		&.hidden {
+			display: none !important;
+		}
+
 		&.cell {
 			order: 0;
 			margin: 10px;
@@ -28,6 +39,9 @@ $bcol: #0693e3;
 				text-align: center;
 			}
 
+			.ph-title {
+				margin: 0px 5px;
+			}
 			.ph-img {
 				position: relative;
 				text-align: center;
