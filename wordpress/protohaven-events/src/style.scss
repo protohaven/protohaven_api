@@ -43,6 +43,7 @@ $bcol: #0693e3;
 				margin: 0px 5px;
 			}
 			.ph-img {
+				overflow: hidden; // Hides area label when image hasn't yet loaded
 				position: relative;
 				text-align: center;
 				margin: 5px;

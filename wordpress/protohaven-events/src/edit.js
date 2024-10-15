@@ -48,7 +48,7 @@ export default function Edit( { attributes, setAttributes } ) {
 				</PanelBody>
 			</InspectorControls>
 		<p { ...useBlockProps() } id="protohaven-events">
-			<div>TODO</div>
+			<div>Event search page - rendered when viewing page</div>
 		</p>
 		</>
 	);
