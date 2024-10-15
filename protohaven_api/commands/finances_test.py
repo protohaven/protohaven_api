@@ -262,7 +262,7 @@ def test_validate_membership_employer_too_few_bad():
 def test_init_new_memberships(mocker, cli):
     """Test init_new_memberships"""
     mocker.patch.object(neon, "get_new_members_needing_setup", return_value=[])
-    got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
+    got = cli("init_new_memberships", ["--apply"])
     assert not got
 
 
@@ -285,8 +285,9 @@ def test_init_new_memberships_e2e(mocker, cli):
         "update_account_automation_run_status",
         return_value=mocker.MagicMock(status_code=200),
     )
+    mocker.patch.object(f.memauto, "get_config", return_value=None)
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
-    got = cli("init_new_memberships", ["--apply", "--created_after=2024-01-01"])
+    got = cli("init_new_memberships", ["--apply"])
     neon.set_membership_start_date.assert_called_with("123", Any())
     neon.create_coupon_code.assert_called_with(Any(), 75)
     neon.update_account_automation_run_status.assert_called_with("123", "deferred")

@@ -157,6 +157,39 @@ rm -r ~/protohaven_api/protohaven_api/static/svelte/* && \
 cp -r ~/staging_protohaven_api/protohaven_api/static/svelte/* ~/protohaven_api/protohaven_api/static/svelte/
 ```
 
+## Wordpress plugins
+
+Our main page https://protohaven.org uses custom plugins located in the wordpress/ directory. These were built following the [first block tutorial](https://developer.wordpress.org/block-editor/getting-started/tutorial/).
+
+To develop on them, open a local instance of wordpress:
+
+```shell
+cd wordpress/
+docker compose up
+```
+
+Then run the builder in a separate terminal:
+
+```
+cd wordpress/protohaven-class-ticker
+npm run start
+```
+
+When it's time to deploy, run
+
+```
+cd wordpress/protohaven-class-ticker
+npm run plugin-zip
+```
+
+Then switch in the new plugin:
+
+1. deactivate and uninstall the old plugin (via the [plugins page on the server](https://www.protohaven.org/wp-admin/plugins.php))
+1. Use the Upload Plugin button on the [Add Plugins page on the server](https://www.protohaven.org/wp-admin/plugin-install.php) to upload the .zip file created with `npm run plugin-zip`.
+1. Activate the plugin
+1. Confirm everything looks as expected
+
+
 # Common Actions
 
 ## Maintenance tasks

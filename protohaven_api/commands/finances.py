@@ -441,10 +441,10 @@ class Commands:
             default=memauto.DEFAULT_COUPON_AMOUNT,
         ),
         arg(
-            "--created_after",
-            help="Only apply to Neon accounts created after YYYY-MM-DD",
-            type=str,
-            required=True,
+            "--max_days_ago",
+            help="Only apply to Neon accounts created within this many days from present",
+            type=int,
+            default=30,
         ),
         arg(
             "--filter",
@@ -469,7 +469,7 @@ class Commands:
         )
         result = []
         for m in neon.get_new_members_needing_setup(
-            dateparser.parse(args.created_after), extra_fields=["Email 1"]
+            args.max_days_ago, extra_fields=["Email 1"]
         ):
             aid = m["Account ID"]
             if args.filter and aid not in args.filter:
@@ -478,6 +478,7 @@ class Commands:
             result.append(
                 memauto.init_membership(
                     m["Account ID"],
+                    m["Email 1"],
                     m["First Name"],
                     args.coupon_amount,
                     apply=args.apply,

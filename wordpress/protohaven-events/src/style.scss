@@ -1,0 +1,162 @@
+/**
+ * The following styles get applied both on the front of your site
+ * and in the editor.
+ *
+ * Replace them with your own styles or remove the file completely.
+ */
+
+$gray: #f0f0f0;
+$primary: #6ec6e1;
+$secondary: #5806e5;
+$bcol: #0693e3;
+
+.ph-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+	justify-items: center;
+	align-items: top;
+	gap: 10px;
+	font-family: "Nunito";
+
+	.status-message {
+		font-size: 1.2em;
+		font-weight: bold;
+		grid-column: 1 / -1;
+		text-align: center;
+		max-width: 400px;
+	}
+
+	&> .ph-item {
+		&.hidden {
+			display: none !important;
+		}
+
+		&.cell {
+			order: 0;
+			margin: 10px;
+			border: 2px $gray solid;
+			h3 {
+				text-align: center;
+			}
+
+			.ph-title {
+				margin: 0px 5px;
+			}
+			.ph-img {
+				overflow: hidden; // Hides area label when image hasn't yet loaded
+				position: relative;
+				text-align: center;
+				margin: 5px;
+				h3 {
+					position: absolute;
+					font-size: 20px;
+					bottom: 10px;
+					left: -5px !important;
+					color: white;
+					background-color: black;
+					border: 2px $gray solid;
+					padding: 5px;
+				}
+			}
+			.ph-footer {
+				width: 100%;
+				flex-direction: row;
+			}
+			.ph-desc {
+				padding: 20px;
+			}
+		}
+		&.fullbleed {
+				border-top: 2px $gray solid;
+				margin-bottom: 16px;
+				grid-column: 1 / -1;
+				width: 100%;
+				order: 1;
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+
+				&> * {
+					margin-top: 10px;
+				}
+
+				.ph-tag {
+					color: white;
+					background-color: black;
+					padding: 5px;
+					display: inline;
+				}
+				.ph-content {
+					flex-grow: 1;
+					max-width: 600px;
+				}
+			  .ph-footer {
+					flex-direction: column;
+			  }
+				.ph-desc {
+					padding-right: 20px;
+				}
+				.ph-fold {
+					min-width: 160px;
+					flex-align: right;
+					@media (min-width: 1024px) {
+							flex-direction: row;
+					}
+				}
+		}
+
+		.ph-fold {
+			display: flex;
+			flex-direction: column;
+		}
+
+		h3 {
+			font-size: 30px;
+			font-weight: bold;
+			color: black;
+			margin: 0;
+		}
+
+		.ph-footer {
+			background-color: darken($primary, 10);
+			color: white;
+			padding: 10px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+
+			.ph-discount {
+				font-weight: bold;
+			}
+			.ph-price {
+				font-size: 30px;
+				font-weight: bold;
+			}
+
+			&:hover {
+				background-color: $primary;
+			}
+		}
+
+		.ph-features {
+			padding: 12px;
+			background-color: $gray;
+
+		}
+	}
+}
+
+
+.ph-filters {
+	padding: 10px;
+	border: 2px $gray solid;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+
+	&> * {
+		padding: 5px;
+		margin: 5px;
+	}
+
+}

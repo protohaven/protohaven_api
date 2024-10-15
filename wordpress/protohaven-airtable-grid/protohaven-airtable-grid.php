@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name:       Protohaven Class Ticker
- * Description: 			A simple ticker showing upcoming classes at Protohaven - see https://github.com/protohaven/protohaven_api/
+ * Plugin Name:       Protohaven Airtable Grid
+ * Description: 			Load and render Airtable data without an iframe - see https://github.com/protohaven/protohaven_api/
  * Requires at least: 6.6
  * Requires PHP:      7.2
  * Version:           0.1.0
  * Author: 						Scott Martin (smartin015@gmail.com)
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html:
- * Text Domain:       protohaven-class-ticker
+ * Text Domain:       protohaven-airtable-grid
  *
  * @package CreateBlock
  */
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @see https://developer.wordpress.org/reference/functions/register_block_type/
  */
-function create_block_protohaven_class_ticker_block_init() {
+function create_block_protohaven_airtable_grid_block_init() {
 	register_block_type( __DIR__ . '/build' );
 }
-add_action( 'init', 'create_block_protohaven_class_ticker_block_init' );
+add_action( 'init', 'create_block_protohaven_airtable_grid_block_init' );

@@ -88,7 +88,11 @@ def search_upcoming_events(from_date, to_date, extra_fields):
             *extra_fields,
         ],
     }
-    return _paginated_search(data, typ="events")
+    return _paginated_search(
+        data,
+        typ="events",
+        pagination={"sortColumn": "Event Start Date", "sortDirection": "ASC"},
+    )
 
 
 def fetch_events(after=None, before=None, published=True):
@@ -382,12 +386,11 @@ def search_member_by_name(firstname, lastname):
     return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
 
 
-def _paginated_search(data, typ="accounts"):
+def _paginated_search(data, typ="accounts", pagination=None):
+    if pagination is None:
+        pagination = {}
     cur = 0
-    data["pagination"] = {
-        "currentPage": cur,
-        "pageSize": 50,
-    }
+    data["pagination"] = {"currentPage": cur, "pageSize": 50, **pagination}
     total = 1
     while cur < total:
         content = get_connector().neon_request(
@@ -467,7 +470,7 @@ def get_members_with_role(role, extra_fields):
     return _paginated_search(data)
 
 
-def get_new_members_needing_setup(created_after, extra_fields=None):
+def get_new_members_needing_setup(max_days_ago, extra_fields=None):
     """Fetch all members in need of automated setup; this includes
     all paying members past the start of the Onboarding V2 plan
     that haven't yet had automation applied to them."""
@@ -480,9 +483,11 @@ def get_new_members_needing_setup(created_after, extra_fields=None):
                 "operator": "BLANK",
             },
             {
-                "field": "Account Created Date",
+                "field": "First Membership Enrollment Date",
                 "operator": "GREATER_THAN",
-                "value": created_after.strftime("%Y-%m-%d"),
+                "value": (tznow() - datetime.timedelta(days=max_days_ago)).strftime(
+                    "%Y-%m-%d"
+                ),
             },
             {
                 "field": "Membership Cost",
@@ -559,11 +564,11 @@ def fetch_techs_list():
 
 
 @lru_cache(maxsize=1)
-def get_sample_classes(cache_bust):  # pylint: disable=unused-argument
+def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     """Fetch sample classes for advertisement on the homepage"""
     sample_classes = []
     now = tznow()
-    until = tznow() + datetime.timedelta(days=10)
+    until = tznow() + datetime.timedelta(days=until)
     for e in search_upcoming_events(
         from_date=now,
         to_date=until,

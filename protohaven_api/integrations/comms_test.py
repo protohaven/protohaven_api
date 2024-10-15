@@ -310,49 +310,49 @@ TESTED_TEMPLATES = [
     ),
 ]
 HASHES = {
-    "test_template": "b8a27190aa3ed922",
-    "test_html_template": "77606b5538c73e78",
-    "admin_create_suspension": "b43c46a0f86ee0d7",
-    "class_automation_summary": "866427c2de1c186f",
-    "class_proposals": "1d1bef17435d88da",
-    "class_scheduled": "d7638c67655ae1eb",
-    "daily_private_instruction": "ba81765c045917ee",
-    "discord_nick_change_summary": "88493fe928a1f0d4",
-    "discord_nick_changed": "8aeda50de8ef931c",
-    "discord_role_change_dm": "e36c6c70681a8804",
-    "discord_role_change_summary": "8a34d924f30d0625",
-    "enforcement_summary": "53728e884f150eec",
-    "init_membership": "44cc465d9fe6e95d",
-    "instruction_requests": "7e0902003add426d",
-    "instructor_applications": "282f1d709883f273",
-    "instructor_check_supplies": "73815da04e9f47cc",
-    "instructor_class_canceled": "57dc5ce8d4ec5317",
-    "instructor_class_confirmed": "51392e2fb41f37f8",
-    "instructor_log_reminder": "d00bf87676ad240e",
-    "instructor_low_attendance": "e7b4548a7a3f7fc2",
-    "instructor_schedule_classes": "39aea10c71fc8895",
-    "instructors_new_classes": "c3cbf1129a256abe",
-    "membership_activated": "8a27b2ff8900b48b",
-    "membership_validation_problems": "959c9f70f5ab648e",
-    "new_project_request": "4cffeae1816d93a2",
-    "not_associated": "4368092931234979",
-    "phone_message": "c17d7359c5ddace4",
-    "registrant_class_canceled": "a3b36f01fde3ee4c",
-    "registrant_class_confirmed": "38e0456bdb64d363",
-    "registrant_post_class_survey": "7f89d4a2a4211f67",
-    "schedule_push_notification": "78908794e790a632",
-    "shift_no_techs": "9a2c858ff7ac2456",
-    "shop_tech_applications": "cd77b6978d522da3",
-    "square_validation_action_needed": "3ed4e73c9efa37db",
-    "stale_purchase_requests": "09aad95e7c72afbf",
-    "suspension_ended": "d05255f2fcb8e992",
-    "suspension_started": "3b211a9a7c04be8a",
-    "tech_daily_tasks": "55af86e04ce2551c",
-    "tech_leads_maintenance_status": "e763f572fa0203a5",
-    "tech_openings": "f9bd7999e37d1ebd",
-    "tool_documentation": "30faa1dfb4e04a20",
-    "violation_ongoing": "1ff24f039d2d424a",
-    "violation_started": "12527581a8fbdd2d",
+    "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
+    "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
+    "admin_create_suspension": "b43c46a0f86ee0d7",  # pragma: allowlist secret
+    "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
+    "class_proposals": "1d1bef17435d88da",  # pragma: allowlist secret
+    "class_scheduled": "d7638c67655ae1eb",  # pragma: allowlist secret
+    "daily_private_instruction": "ba81765c045917ee",  # pragma: allowlist secret
+    "discord_nick_change_summary": "88493fe928a1f0d4",  # pragma: allowlist secret
+    "discord_nick_changed": "8aeda50de8ef931c",  # pragma: allowlist secret
+    "discord_role_change_dm": "e36c6c70681a8804",  # pragma: allowlist secret
+    "discord_role_change_summary": "8a34d924f30d0625",  # pragma: allowlist secret
+    "enforcement_summary": "53728e884f150eec",  # pragma: allowlist secret
+    "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
+    "instruction_requests": "7e0902003add426d",  # pragma: allowlist secret
+    "instructor_applications": "282f1d709883f273",  # pragma: allowlist secret
+    "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
+    "instructor_class_canceled": "57dc5ce8d4ec5317",  # pragma: allowlist secret
+    "instructor_class_confirmed": "51392e2fb41f37f8",  # pragma: allowlist secret
+    "instructor_log_reminder": "d00bf87676ad240e",  # pragma: allowlist secret
+    "instructor_low_attendance": "e7b4548a7a3f7fc2",  # pragma: allowlist secret
+    "instructor_schedule_classes": "39aea10c71fc8895",  # pragma: allowlist secret
+    "instructors_new_classes": "c3cbf1129a256abe",  # pragma: allowlist secret
+    "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
+    "membership_validation_problems": "959c9f70f5ab648e",  # pragma: allowlist secret
+    "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
+    "not_associated": "4368092931234979",  # pragma: allowlist secret
+    "phone_message": "c17d7359c5ddace4",  # pragma: allowlist secret
+    "registrant_class_canceled": "a3b36f01fde3ee4c",  # pragma: allowlist secret
+    "registrant_class_confirmed": "38e0456bdb64d363",  # pragma: allowlist secret
+    "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
+    "schedule_push_notification": "78908794e790a632",  # pragma: allowlist secret
+    "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
+    "shop_tech_applications": "cd77b6978d522da3",  # pragma: allowlist secret
+    "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
+    "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
+    "suspension_ended": "d05255f2fcb8e992",  # pragma: allowlist secret
+    "suspension_started": "3b211a9a7c04be8a",  # pragma: allowlist secret
+    "tech_daily_tasks": "55af86e04ce2551c",  # pragma: allowlist secret
+    "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
+    "tech_openings": "f9bd7999e37d1ebd",  # pragma: allowlist secret
+    "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
+    "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
+    "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
 }
 
 

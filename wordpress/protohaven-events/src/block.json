@@ -1,18 +1,22 @@
 {
 	"$schema": "https://schemas.wp.org/trunk/block.json",
 	"apiVersion": 3,
-	"name": "create-block/protohaven-class-ticker",
+	"name": "create-block/protohaven-events",
 	"version": "0.1.0",
-	"title": "Protohaven Class Ticker",
+	"title": "Protohaven Events",
 	"category": "widgets",
 	"attributes": {
-		"maxClassesShown": {
-			"type": "integer",
-			"default": 3
+		"token": {
+			"type": "string",
+			"default": "d819576d3cbb9e4fabee8dd6e2a921e4"
+		},
+		"imgSize": {
+				"type": "string",
+				"default": "207px"
 		}
 	},
 	"icon": "fluent:person-wrench-20-regular",
-	"description": "Show upcoming classes at Protohaven",
+	"description": "List Neon Events",
 	"example": {},
 	"supports": {
     "color": {
@@ -24,7 +28,7 @@
         "fontSize": true
     }
 	},
-	"textdomain": "protohaven-class-ticker",
+	"textdomain": "protohaven-events",
 	"editorScript": "file:./index.js",
 	"editorStyle": "file:./index.css",
 	"style": "file:./style-index.css",

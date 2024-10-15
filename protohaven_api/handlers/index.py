@@ -70,7 +70,7 @@ def whoami():
 @page.route("/event_ticker")
 def event_ticker():
     """Get upcoming events for advertisement purposes"""
-    return neon.get_sample_classes(int(time.time()) // 3600)
+    return neon.get_sample_classes(int(time.time()) // 3600, until=30)
 
 
 @page.route("/welcome/_app/immutable/<typ>/<path>")

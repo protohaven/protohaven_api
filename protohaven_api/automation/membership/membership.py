@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz
+from protohaven_api.config import get_config, tz
 from protohaven_api.integrations import neon
 from protohaven_api.integrations.comms import Msg
 
@@ -63,6 +63,7 @@ def event_is_suggestible(event_id, max_price):
 
 def init_membership(  # pylint: disable=too-many-arguments
     account_id,
+    email,
     fname,
     coupon_amount=DEFAULT_COUPON_AMOUNT,
     apply=True,
@@ -72,7 +73,14 @@ def init_membership(  # pylint: disable=too-many-arguments
     """
     This method initializes a membership by setting a start date,
     generating a coupon if applicable, and updating the automation run status.
+
+    Action is gated on email configured in in config.yaml
     """
+    include_filter = get_config("neon/webhooks/new_membership/include_filter", None)
+    if include_filter is not None and email not in include_filter:
+        log.info(f"Skipping init (no match in include_filter {include_filter})")
+        return None
+
     log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
 
     def _ok(rep, action):

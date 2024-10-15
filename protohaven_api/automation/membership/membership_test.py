@@ -1,4 +1,5 @@
 """Test methods for membership automation commands"""
+import pytest
 from dateutil import parser as dateparser
 
 from protohaven_api.automation.membership import membership as m
@@ -9,7 +10,16 @@ from protohaven_api.testing import d
 # pylint: skip-file
 
 
-def test_init_membership(mocker):
+@pytest.mark.parametrize(
+    "include_filter,initializes",
+    [
+        (None, True),
+        (["j@d.com"], True),
+        (["a@b.com"], False),
+        ([], False),
+    ],
+)
+def test_init_membership(mocker, include_filter, initializes):
     """Test init_membership"""
     mocker.patch.object(
         neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
@@ -30,11 +40,18 @@ def test_init_membership(mocker):
             {"date": d(1), "name": "class2", "id": 1, "remaining": 2},
         ],
     )
+    mocker.patch.object(m, "get_config", return_value=include_filter)
     # Test with coupon_amount > 0
-    msg = m.init_membership("123", "John Doe", 50, apply=True)
-    assert msg.subject == "John Doe: your first class is on us!"
-    assert "class1" in msg.body
-    neon.set_membership_start_date.assert_called_with("123", m.PLACEHOLDER_START_DATE)
+    msg = m.init_membership("123", "j@d.com", "John Doe", 50, apply=True)
+    if initializes:
+        assert msg.subject == "John Doe: your first class is on us!"
+        assert "class1" in msg.body
+        neon.set_membership_start_date.assert_called_with(
+            "123", m.PLACEHOLDER_START_DATE
+        )
+    else:
+        assert msg == None
+        neon.set_membership_start_date.assert_not_called()
 
 
 def test_init_membership_no_classes(mocker):
@@ -51,8 +68,9 @@ def test_init_membership_no_classes(mocker):
         return_value=mocker.Mock(status_code=200),
     )
     mocker.patch.object(m, "get_sample_classes", return_value=[])
+    mocker.patch.object(m, "get_config", return_value=None)
     # Test with coupon_amount > 0
-    msg = m.init_membership("123", "John Doe", 50, apply=True)
+    msg = m.init_membership("123", "j@d.com", "John Doe", 50, apply=True)
     assert msg.subject == "John Doe: your first class is on us!"
     assert "Here's a couple basic classes" not in msg.body
 

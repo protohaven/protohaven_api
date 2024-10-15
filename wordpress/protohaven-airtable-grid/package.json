@@ -1,7 +1,7 @@
 {
-	"name": "protohaven-class-ticker",
+	"name": "protohaven-airtable-grid",
 	"version": "0.1.0",
-	"description": "A simple ticker showing upcoming classes at Protohaven",
+	"description": "Display Airtable entries in a grid",
 	"author": "Scott Martin (smartin015@gmail.com)",
 	"license": "GPL-2.0-or-later",
 	"main": "build/index.js",
