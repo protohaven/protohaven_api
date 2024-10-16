@@ -22,10 +22,6 @@
 				"type": "string",
 				"default": "207px"
 		},
-		"numColumns": {
-				"type": "integer",
-				"default": 3
-		},
 		"titleField": {
 				"type": "string",
 				"default": "Instructor"

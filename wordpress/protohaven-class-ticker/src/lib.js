@@ -12,16 +12,7 @@ export function ph_events_to_elems(evts) {
 			seats = " 1 seat left!";
 		}
 		let fmt = `${shorten_class_name(e.name)} (${e.date}${seats})`;
-		result.push(<a href={e.url} target="_blank">{fmt}</a>);
+		result.push(<a key={e.url} href={e.url} target="_blank">{fmt}</a>);
 	}
 	return result;
 }
-
-export function get_ph_events() {
-	return fetch("https://staging.api.protohaven.org/event_ticker").then((rep) => {
-		if (rep.status != 200) {
-			throw Error(rep.status_text);
-		}
-		return rep.json();
-	});
-};

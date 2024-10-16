@@ -1,17 +1,10 @@
-import { get_ph_events, ph_events_to_elems } from './lib';
+import { ph_events_to_elems } from './lib';
 import { useEffect, useState } from '@wordpress/element';
 import { createRoot } from 'react-dom/client';
 
-function App( { attributes } ) {
-	const maxClassesShown = parseInt(attributes.maxClassesShown);
-	const [state, setState] = useState([]);
-
-	useEffect(() => {
-		get_ph_events(maxClassesShown).then((events) => {
-			events.splice(maxClassesShown);
-			setState(events);
-		});
-	}, [maxClassesShown]);
+function App( { initialData, attributes } ) {
+  const maxClassesShown = parseInt(attributes.maxClassesShown);
+  const [state, setState] = useState(initialData.slice(0, maxClassesShown));
   return (
     <>
       { ph_events_to_elems(state) }
@@ -22,5 +15,6 @@ function App( { attributes } ) {
 window.addEventListener("load", (event) => {
 	const elem = document.getElementById("protohaven-class-ticker");
 	const root = createRoot(elem);
-	root.render(<App attributes={elem.dataset}/>);
+	const data = JSON.parse(elem.children[0].innerHTML) || [];
+	root.render(<App initialData={data} attributes={elem.dataset}/>);
 });

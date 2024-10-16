@@ -5,7 +5,6 @@
  */
 
 import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
-import { useEffect, useState } from '@wordpress/element';
 import { RangeControl, TextControl, PanelBody } from '@wordpress/components';
 
 import './style.scss';
@@ -21,17 +20,6 @@ import { get_ph_data, render_grid } from './lib';
  * @return {Element} Element to render.
  */
 export default function Edit( { attributes, setAttributes } ) {
-	const [state, setState] = useState([]);
-	const { token, base, table } = attributes;
-	useEffect(() => {
-		if (state.length === 0) {
-			get_ph_data(token, base, table).then((data) => {
-				setState(data);
-				console.log(data);
-			});
-		}
-	}, []);
-
 	function mkTextControl(attr_name, label) {
 		return <TextControl __nextHasNoMarginBottom label={label} value={attributes[attr_name]} onChange={ (v) => {
 			let update = {};
@@ -43,6 +31,9 @@ export default function Edit( { attributes, setAttributes } ) {
 	return (
 		<>
 			<InspectorControls>
+				<PanelBody title={'Plugin Details'}>
+					<div>See <a href="https://github.com/protohaven/protohaven_api/tree/main/wordpress/protohaven-airtable-grid" target="_blank">protohaven_api github repository</a> for source code.</div>
+				</PanelBody>
 				<PanelBody title={'Airtable Settings'}>{[
 					mkTextControl('token', 'Access Token'),
 					mkTextControl('base', 'Base ID'),
@@ -58,21 +49,13 @@ export default function Edit( { attributes, setAttributes } ) {
 				]}
 				</PanelBody>
 				<PanelBody title={'Render Settings'}>{[
-					<RangeControl
-						    __nextHasNoMarginBottom
-						    label="Columns"
-						    value={ attributes['numColumns'] }
-						    onChange={ ( value ) => setAttributes({numColumns: value}) }
-						    min={ 1 }
-						    max={ 6 }
-						/>,
 					mkTextControl('imgSize', 'Image Width'),
 					mkTextControl('refText', 'Link Display Text'),
 				]}
 				</PanelBody>
 			</InspectorControls>
 		<p { ...useBlockProps() } id="protohaven-airtable-grid">
-			{ render_grid(state, attributes) }
+			Table visible on page view - see https://github.com/protohaven/protohaven_api/tree/main/wordpress/protohaven-airtable-grid for plugin source
 		</p>
 		</>
 	);

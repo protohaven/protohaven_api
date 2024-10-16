@@ -31,7 +31,7 @@ const MS = 1000;
 const MAXCALL = 5;
 function processTix() {
 	const now = Date.now();
-	while (tix.cplt.length && tix.cplt[0] < now - MS) {
+	while (tix.cplt.length && (tix.cplt[0] === null || tix.cplt[0] < now - MS)) {
 		tix.cplt.shift();
 	}
 	while (tix.queue.length && tix.cplt.length + tix.inflight < MAXCALL) {
@@ -39,11 +39,12 @@ function processTix() {
 		tix.inflight++;
 		fetch(`/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&neon_id=${event_id}`).then(rep => rep.json()).catch(reject).then((data) => {
 			tix.inflight--;
-			tix.cplt.push(Date.now());
+			console.log(data);
+			tix.cplt.push((data.cached) ? null : Date.now());
 			if (tix.queue.length && tix.cplt.length === 1) {
-				setTimeout(processTix, MS);
+				setTimeout(processTix, MS/10);
 			}
-			if (data === "Error" || data[0].code == "9997") {
+			if (data.data === "Error" || data.data[0].code == "9997") {
 				let backoff = Math.random()*MS;
 				console.warn(data, "retrying with " + backoff + " backoff");
 				setTimeout(() => {
@@ -51,7 +52,7 @@ function processTix() {
 					processTix();
 				}, backoff);
 			} else {
-				resolve(data);
+				resolve(data.data);
 			}
 		});
 	}

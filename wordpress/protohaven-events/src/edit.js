@@ -38,6 +38,9 @@ export default function Edit( { attributes, setAttributes } ) {
 	return (
 		<>
 			<InspectorControls>
+				<PanelBody title={'Plugin Details'}>
+					<div>See <a href="https://github.com/protohaven/protohaven_api/tree/main/wordpress/protohaven-events" target="_blank">protohaven_api github repository</a> for source code.</div>
+				</PanelBody>
 				<PanelBody title={'Neon Settings'}>{[
 					mkTextControl('token', 'Access Token'),
 				]}
@@ -48,7 +51,8 @@ export default function Edit( { attributes, setAttributes } ) {
 				</PanelBody>
 			</InspectorControls>
 		<p { ...useBlockProps() } id="protohaven-events">
-			<div>Event search page - rendered when viewing page</div>
+			<div>Event search page - rendered when viewing page. See https://github.com/protohaven/protohaven_api/tree/main/wordpress/protohaven-events for plugin source code.</div>
+			<div>Requires a user token configured in Settings > Protohaven Events on the left sidebar of the Wordpress admin page</div>
 		</p>
 		</>
 	);
