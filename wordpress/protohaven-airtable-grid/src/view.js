@@ -2,19 +2,15 @@ import { get_ph_data, render_grid } from './lib';
 import { useEffect, useState } from '@wordpress/element';
 import { createRoot } from 'react-dom/client';
 
-function App( { attributes } ) {
-	console.log("Attribs", attributes);
-	const [state, setState] = useState([]);
-
-	useEffect(() => {
-		const { token, base, table } = attributes;
-		get_ph_data(token, base, table).then(setState);
-	}, []);
+function App( { initialData, attributes } ) {
+	const [state, setState] = useState(initialData);
   	return render_grid(state, attributes);
 }
 
 window.addEventListener("load", (event) => {
-	const elem = document.getElementById("protohaven-airtable-grid");
-	const root = createRoot(elem);
-	root.render(<App attributes={elem.dataset}/>);
+	for (let elem of document.getElementsByClassName("protohaven-airtable-grid")) {
+		const root = createRoot(elem);
+		const data = JSON.parse(elem.children[0].innerHTML)['records'] || [];
+		root.render(<App initialData={data} attributes={elem.dataset}/>);
+	}
 });

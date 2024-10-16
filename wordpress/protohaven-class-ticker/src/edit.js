@@ -16,13 +16,13 @@ function get_test_ph_events() {
 	return new Promise((resolve, reject) => resolve([
 		{
 			"date": "Oct 15, 6PM",
-			"name": "Textiles 102: CNC Embroidery Clearance",
+			"name": "Textiles 102: CNC Testing Clearance",
 			"seats_left": 4,
 			"url": "https://protohaven.org/e/17881"
 		},
 		{
 			"date": "Oct 18, 6PM",
-			"name": "Wood 102: Millwork Clearance",
+			"name": "Wood 102: Test Clearance",
 			"seats_left": 2,
 			"url": "https://protohaven.org/e/17880"
 		},
@@ -30,7 +30,7 @@ function get_test_ph_events() {
 			"date": "Oct 18, 6PM",
 			"name": "Graphics 110: Vinyl Cut Signs (Vinyl Cutter Clearance)",
 			"seats_left": 1,
-			"url": "https://protohaven.org/e/17880"
+			"url": "https://protohaven.org/e/17882"
 		},
 	]));
 }
@@ -55,6 +55,9 @@ export default function Edit( { attributes, setAttributes } ) {
 	return (
 		<>
 			<InspectorControls>
+				<PanelBody title={'Plugin Details'}>
+					<div>See <a href="https://github.com/protohaven/protohaven_api/tree/main/wordpress/protohaven-class-ticker" target="_blank">protohaven_api github repository</a> for source code.</div>
+				</PanelBody>
 				<PanelBody title={'Settings'}>
 					<SelectControl
 						__nextHasNoMarginBottom

@@ -118,7 +118,7 @@ function ph_neon_register_routes() {
         '/event_tickets/',
         array(
             'methods'  => 'GET',
-            'callback' => 'ph_neon_event_tickets',
+            'callback' => 'ph_neon_event_tickets_cached',
             'permission_callback' => '__return_true'
         )
     );
@@ -143,19 +143,32 @@ function ph_neon_events_internal($query_params) {
 	return json_decode(wp_remote_retrieve_body($response), true);
 }
 
-function ph_neon_event_tickets() {
+function ph_neon_event_tickets($neon_id) {
 	global $PH_NEON_TOKEN_OPTION_ID;
 	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
-	$neon_id = $_GET['neon_id'];
 	$url = "https://protohaven:$token@api.neoncrm.com/v2/events/$neon_id/tickets";
-	$query_params = $_GET;
-	if (!empty($query_params)) {
-	    $url .= '?' . http_build_query($query_params);
-	}
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
 		return "Error";
 	}
 	// Wish we didn't have to do this decode step just to encode it again...
 	return json_decode(wp_remote_retrieve_body($response), true);
+}
+
+function ph_neon_event_tickets_cached() {
+	$neon_id = $_GET['neon_id'];
+	$CACHE_ID = "ph_neon_event_tickets_$neon_id";
+	$result = wp_cache_get($CACHE_ID);
+	// Here we cache at 30 mins since ticket information is volatile.
+	if ( false === $result || $result[1] < (time() - (30*60)) ) {
+		$result = array(ph_neon_event_tickets($neon_id), time());
+		if ($result[0] == 'Error') {
+			return $result[0];
+		}
+		wp_cache_set($CACHE_ID, $result);
+		$result = array("data" => $result[0], "cached" => false);
+	} else {
+		$result = array("data" => $result[0], "cached" => true);
+	}
+	return $result;
 }
