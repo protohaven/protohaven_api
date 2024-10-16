@@ -19,7 +19,9 @@
 	$table = $attributes['table'];
 	$CACHE_ID = "ph_airtable_grid_$base_$table";
 	$result = wp_cache_get($CACHE_ID);
-	if ( false === $result || $result[1] < (time() - (60*60*24)) ) {
+	// Image links in Airtable have a 2hr TTL, so we have to cache less than this as long
+	// as we're using Airtable as a source of truth for images.
+	if ( false === $result || $result[1] < (time() - (60*60*1.5)) ) {
 		$response = wp_remote_get("https://api.airtable.com/v0/$base/$table", array(
 			'headers' => array(
 			"Authorization" => "Bearer $token",
