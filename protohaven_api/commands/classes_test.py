@@ -131,6 +131,7 @@ def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
             "Confirmed": confirmed,
             "Instructor": "inst1",
             "Short Description (from Class)": ["testdesc"],
+            "Image Link (from Class)": "http://testimg",
             "Hours (from Class)": [3],
             "Days (from Class)": [1],
             "Capacity (from Class)": [6],
@@ -216,6 +217,10 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         registration=tc.register,
     )
     C.neon.create_event.mock_calls[0][0] == "Test Class"
+    assert (
+        '<p><img height="200" src="http://testimg"/></p>'
+        in C.neon.create_event.mock_calls[0][1][1]
+    )
     C.neon.assign_pricing.assert_called_with(
         "123", 90, 6, include_discounts=tc.discount, clear_existing=True
     )

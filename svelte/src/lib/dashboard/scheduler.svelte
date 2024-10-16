@@ -11,6 +11,7 @@
   let save_promise = Promise.resolve(null);
 
   let classes = {};
+  let notices = {};
   let candidates = {};
   let rejected = {};
 
@@ -65,6 +66,7 @@
           classes[cls.class_id] = {name: cls.name, checked: true};
         }
       }
+      notices = data.notices;
     });
   }
   $: {
@@ -95,8 +97,9 @@
       }
       for (let cls of output) {
       	console.log(cls);
-	cls[2] = (new Date(cls[2])).toLocaleString();
-	cls.push(true); // checked
+        cls[2] = (new Date(cls[2])).toLocaleString();
+        cls.push(true); // checked
+        cls.push(notices[cls[0]] || []); // Looped in from original env
       }
       return output;
     }).finally(()=>running = false);
@@ -196,6 +199,9 @@
 	    {:then p}
 	      {#each p as c}
 		<Input type="checkbox" label={`${c[2]}: ${c[1]}`} bind:checked={c[3]}/>
+        {#each c[4] as notice}
+          <Alert color="warning">{notice}</Alert>
+        {/each}
 	      {/each}
 
 	      {#if output}

@@ -239,7 +239,10 @@ class Commands:
             cancellation_policy,
             age_section_fmt,
         ) = self._fetch_boilerplate()
-        result = markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
+        result = ""
+        if cls["fields"].get("Image Link" + suf):
+            result += f"<p><img height=\"200\" src=\"{cls['fields']['Image Link' + suf]}\"/></p>\n"
+        result += markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
         sections = []
         for col in (
             "What you Will Create",
