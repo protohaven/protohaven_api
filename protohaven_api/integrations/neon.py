@@ -500,6 +500,20 @@ def get_new_members_needing_setup(max_days_ago, extra_fields=None):
     return _paginated_search(data)
 
 
+def get_all_accounts_with_discord_association(extra_fields):
+    """Lookup all accounts with discord users associated"""
+    data = {
+        "searchFields": [
+            {
+                "field": str(CustomField.DISCORD_USER),
+                "operator": "NOT_BLANK",
+            }
+        ],
+        "outputFields": ["Account ID", *extra_fields],
+    }
+    return _paginated_search(data)
+
+
 def get_members_with_discord_id(discord_id, extra_fields=None):
     """Fetch all members with a specific Discord ID"""
     data = {

@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import logging
+import re
 from collections import defaultdict
 
 from protohaven_api.automation.roles import roles
@@ -135,6 +136,11 @@ class Commands:  # pylint: disable=too-few-public-methods
             type=str,
         ),
         arg(
+            "--exclude",
+            help="Don't process this comma separated list of discord users",
+            type=str,
+        ),
+        arg(
             "--warn_not_associated",
             help="Send a DM to all users not associated in Neon",
             action=argparse.BooleanOptionalAction,
@@ -158,8 +164,13 @@ class Commands:  # pylint: disable=too-few-public-methods
         join_dates = {m[0]: m[2] for m in discord_members}
 
         if args.filter:
+            log.info(f"Applying filter {args.filter}")
             ff = {f.strip() for f in args.filter.split(",")}
             user_nick = {k: v for k, v in user_nick.items() if k in ff}
+        if args.exclude:
+            log.info(f"Applying exclusions {args.exclude}")
+            ee = {e.strip() for e in args.exclude.split(",")}
+            user_nick = {k: v for k, v in user_nick.items() if k not in ee}
 
         if not args.apply:
             log.warning(
@@ -170,7 +181,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         result = []
         changes = []
         not_associated = set(user_nick.keys())
-        for m in neon.get_active_members(
+        for m in neon.get_all_accounts_with_discord_association(
             [
                 neon.CustomField.DISCORD_USER,
                 neon.CustomField.PRONOUNS,
@@ -219,8 +230,15 @@ class Commands:  # pylint: disable=too-few-public-methods
                     )
 
         not_associated_final = []
+        i = 0
         if args.warn_not_associated:
             thresh = tznow() - datetime.timedelta(days=30)
+            notification_cache = {
+                k.replace("@", "")
+                for k, v in airtable.get_notifications_after(
+                    re.compile(r"^not_associated.*"), after_date=thresh
+                ).items()
+            }
             log.info(
                 f"Crawling {len(not_associated)} unassociated discord users, "
                 "starting with most recent to join"
@@ -228,19 +246,10 @@ class Commands:  # pylint: disable=too-few-public-methods
             not_associated = list(not_associated)
             not_associated.sort(key=join_dates.get, reverse=True)
             for discord_id in not_associated:
-                if len(result) >= 2 * args.limit:
+                if i >= args.limit:
                     log.info("Limit reached; stopping early")
                     break
-                if len(list(neon.get_members_with_discord_id(discord_id))) > 0:
-                    # Previous list was all *active* members, so inactive
-                    # members may still be associated even if not active.
-                    continue
-                tag = roles.not_associated_tag(discord_id)
-                log.info(
-                    f"Checking for past notifications for discord user {discord_id}"
-                )
-                notified = len(airtable.get_notifications_after(tag, after_date=thresh))
-                if notified:
+                if discord_id in notification_cache:
                     log.info(
                         f"Skipping association reminder for {discord_id} "
                         "(already notified in last 30 days)"
@@ -252,9 +261,10 @@ class Commands:  # pylint: disable=too-few-public-methods
                         "not_associated",
                         discord_id=discord_id,
                         target=f"@{discord_id}",
-                        id=tag,
+                        id=roles.NOT_ASSOCIATED_TAG,
                     )
                 )
+                i += 1
 
         if len(changes) > 0 or (
             len(not_associated_final) > 0 and args.warn_not_associated

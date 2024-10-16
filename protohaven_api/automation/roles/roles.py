@@ -28,10 +28,7 @@ def discord_role_change_dm(logs, discord_id, target=None, intents=None):
     )
 
 
-def not_associated_tag(discord_id):
-    """This is the tag used to dedupe comms regarding the user not being
-    associated with a neon account"""
-    return f"not_associated:{discord_id}"
+NOT_ASSOCIATED_TAG = "not_associated"
 
 
 @dataclass
@@ -402,9 +399,7 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
         log.info("Neon user not found; issuing association request")
         msg = Msg.tmpl("not_associated", target=f"@{discord_id}", discord_id=discord_id)
         yield "send_dm", discord_id, f"**{msg.subject}**\n\n{msg.body}"
-        airtable.log_comms(
-            not_associated_tag(discord_id), f"@{discord_id}", msg.subject, "Sent"
-        )
+        airtable.log_comms(NOT_ASSOCIATED_TAG, f"@{discord_id}", msg.subject, "Sent")
         return
 
     m = mm[0]

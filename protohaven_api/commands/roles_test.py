@@ -137,7 +137,10 @@ def test_update_role_intents_zero_comms(mocker, cli):
 def test_enforce_discord_nicknames_zero_comms(mocker, cli):
     """Ensure that no comms are sent if there were no problems"""
     mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=([], None))
-    mocker.patch.object(r.neon, "get_active_members", return_value=[])
+    mocker.patch.object(
+        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+    )
+    mocker.patch.object(r.airtable, "get_notifications_after", return_value={})
     assert not cli("enforce_discord_nicknames", ["--apply", "--warn_not_associated"])
 
 
@@ -156,20 +159,15 @@ def test_enforce_discord_nicknames(mocker, cli):
             None,
         ),
     )
-    mocker.patch.object(r.airtable, "get_notifications_after", return_value=[])
+    mocker.patch.object(r.airtable, "get_notifications_after", return_value={})
     mocker.patch.object(r.comms, "set_discord_nickname")
     mocker.patch.object(
         r.neon,
-        "get_active_members",
+        "get_all_accounts_with_discord_association",
         return_value=[
             {"Discord User": "usr1", "First Name": "first", "Last Name": "last"},
             {"Discord User": "usr2", "First Name": "a", "Last Name": "b"},
         ],
-    )
-    mocker.patch.object(
-        r.neon,
-        "get_members_with_discord_id",
-        side_effect=lambda discord_id: [1] if discord_id == "usr4" else [],
     )
 
     assert cli(
@@ -185,7 +183,7 @@ def test_enforce_discord_nicknames(mocker, cli):
             "body": MatchStr("discord_id=usr%203"),
             "subject": MatchStr("Associate"),
             "target": "@usr 3",
-            "id": "not_associated:usr 3",
+            "id": "not_associated",
         },
         {
             "body": MatchStr("1 nick"),
@@ -208,10 +206,13 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
             None,
         ),
     )
-    mocker.patch.object(r.airtable, "get_notifications_after", return_value=[1])
+    mocker.patch.object(
+        r.airtable, "get_notifications_after", return_value={"@usr3": [d(0)]}
+    )
     mocker.patch.object(r.comms, "set_discord_nickname")
-    mocker.patch.object(r.neon, "get_active_members", return_value=[])
-    mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
+    mocker.patch.object(
+        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+    )
 
     assert (
         cli(

@@ -1,6 +1,7 @@
 """Airtable integration (classes, tool state etc)"""
 import datetime
 import logging
+import re
 from collections import defaultdict
 from functools import lru_cache
 
@@ -24,12 +25,16 @@ def get_class_automation_schedule():
     return get_all_records("class_automation", "schedule")
 
 
-def get_notifications_after(tag: str, after_date):
+def get_notifications_after(tag, after_date):
     """Gets all logged targets that were sent after a specific date,
     including their date of ontification"""
     targets = defaultdict(list)
     for row in get_all_records_after("class_automation", "email_log", after_date):
-        if row["fields"].get("Neon ID", "") != str(tag):
+        row_tag = row["fields"].get("Neon ID", "").strip()
+        if isinstance(tag, re.Pattern):
+            if tag.match(row_tag) is None:
+                continue
+        elif row_tag != str(tag):
             continue
         targets[row["fields"]["To"].lower()].append(
             dateparser.parse(row["fields"]["Created"])

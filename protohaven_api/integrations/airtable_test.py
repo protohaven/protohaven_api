@@ -1,6 +1,7 @@
 # pylint: skip-file
 import datetime
 import json
+import re
 from collections import namedtuple
 
 import pytest
@@ -240,6 +241,41 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
 def test_expand_instructor_availability(mocker, tc):
     got = list(a.expand_instructor_availability(tc.records, tc.t0, tc.t1))
     assert got == tc.want
+
+
+Tc = namedtuple("TC", "desc,entries,tag,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("No results OK", [], "foo", {}),
+        Tc(
+            "Simple match",
+            [{"Neon ID": "a", "To": "a@a.com", "Created": d(0).isoformat()}],
+            "a",
+            {"a@a.com": [d(0)]},
+        ),
+        Tc(
+            "Simple non-match",
+            [{"Neon ID": "a", "To": "a@a.com", "Created": d(0).isoformat()}],
+            "b",
+            {},
+        ),
+        Tc(
+            "Regex match",
+            [{"Neon ID": "abcd", "To": "a@a.com", "Created": d(0).isoformat()}],
+            re.compile("ab.*"),
+            {"a@a.com": [d(0)]},
+        ),
+    ],
+    ids=idfn,
+)
+def test_get_notifications_after(mocker, tc):
+    mocker.patch.object(
+        a, "get_all_records_after", return_value=[{"fields": e} for e in tc.entries]
+    )
+    assert dict(a.get_notifications_after(tc.tag, d(0))) == tc.want
 
 
 # @pytest.mark.parametrize(
