@@ -154,9 +154,19 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
 
 
 def load_schedulable_classes(exclusions):
-    """Load all classes which are schedulable, as Class instances"""
+    """Load all classes which are schedulable, as Class instances.
+    If there's anything that requires the instructor's attention, it's
+    appended to a list of notes as part of the return value.
+    """
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
+            notes = []
+            if not c["fields"].get("Image Link"):
+                notes.append(
+                    "Class is missing a promo image - registrations will suffer. Reach out "
+                    "in the #instructors Discord channel or to "
+                    "education@protohaven.org."
+                )
             yield Class(
                 c["id"],
                 c["fields"]["Name"],
@@ -165,7 +175,7 @@ def load_schedulable_classes(exclusions):
                 areas=c["fields"]["Area"],
                 exclusions=exclusions[c["id"]],
                 score=compute_score(c),
-            )
+            ), notes
 
 
 def generate_env(
@@ -205,7 +215,7 @@ def generate_env(
 
     # Load classes from airtable
     classes = list(load_schedulable_classes(exclusions))
-    class_by_id = {cls.class_id: cls for cls in classes}
+    class_by_id = {c.class_id: c for c, _ in classes}
     log.info(f"Loaded {len(classes)} classes")
 
     instructors = []
@@ -258,7 +268,8 @@ def generate_env(
 
     log.info(f"All capabilities: {all_inst_caps}")
     return {
-        "classes": [c.as_dict() for c in classes if c.class_id in all_inst_caps],
+        "classes": [c.as_dict() for c, _ in classes if c.class_id in all_inst_caps],
+        "notices": {c[0].class_id: c[1] for c in classes},
         "instructors": [i.as_dict() for i in instructors],
         "area_occupancy": dict(
             area_occupancy.items()
