@@ -10,12 +10,10 @@ from flask_sock import Sock
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.booked import get_reservations
-from protohaven_api.integrations.comms import Msg, send_membership_automation_message
-from protohaven_api.integrations.data.models import SignInEvent
-from protohaven_api.integrations.forms import submit_google_form
 from protohaven_api.integrations.schedule import fetch_shop_events
+from protohaven_api.automation.membership import sign_in
 from protohaven_api.rbac import is_enabled as rbac_enabled
 from protohaven_api.rbac import require_login
 
@@ -85,185 +83,15 @@ def welcome_logo():
     return current_app.send_static_file("svelte/logo_color.svg")
 
 
-def get_or_activate_member(email, send_fn):
-    """Fetch the candidate account from Neon, preferring active memberships.
-    If automation deferred any particular membership, activate it now."""
-    # Only select individuals as members, not companies
-    mm = [
-        m
-        for m in neon.search_member(email)
-        if m.get("Account ID") != m.get("Company ID")
-    ]
-    if len(mm) > 1:
-        # Warn to membership automation channel that we have an account to deduplicate
-        urls = [
-            f"  https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
-            for m in mm
-        ]
-        send_membership_automation_message(
-            f"Sign-in with {email} returned multiple accounts "
-            f"in Neon with same email:\n" + "\n".join(urls) + "\n@Staff: please "
-            "[deduplicate](https://protohaven.org/wiki/software/membership_validation)"
-        )
-        log.info("Notified of multiple accounts")
-
-    m = None
-    for m in mm:
-        for acf in (m.get("individualAccount") or {}).get("accountCustomFields", []):
-            if acf["name"] == "Account Automation Ran" and acf["value"].startswith(
-                "deferred"
-            ):
-                send_fn("Activating membership...", 50)
-                rep = neon.set_membership_start_date(m["Account ID"], tznow())
-                if rep.status_code != 200:
-                    send_membership_automation_message(
-                        f"@Staff: Error {rep.status_code} activating membership for "
-                        f"#{m['Account ID']}: "
-                        f"\n{rep.content}\n"
-                        "Please sync with software folks to diagnose in protohaven_api. "
-                        "Allowing the member through anyways."
-                    )
-                else:
-                    neon.update_account_automation_run_status(
-                        m["Account ID"], "activated"
-                    )
-                    msg = Msg.tmpl(
-                        "membership_activated", fname=m.get("First Name"), target=email
-                    )
-                    comms.send_email(msg.subject, msg.body, email, msg.html)
-                return m
-        if (m.get("Account Current Membership Status") or "").upper() == "ACTIVE":
-            return m
-    return m
-
-
-def welcome_sock(ws):  # pylint: disable=too-many-branches,too-many-statements
+def welcome_sock(ws):
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
-    result = {
-        "notfound": False,
-        "status": False,
-        "violations": [],
-        "waiver_signed": False,
-        "announcements": [],
-        "firstname": "member",
-    }
-
     def _send(msg, pct):
         ws.send(json.dumps({"msg": msg, "pct": pct}))
-
     if data["person"] == "member":
-        _send("Searching member database...", 40)
-        m = get_or_activate_member(data["email"], ws.send)
-
-        log.info(f"Member {m}")
-        if not m:
-            result["notfound"] = True
-        else:
-            # Preferably select the Neon account with active membership.
-            # Note that the last `m` remains in context regardless of if we break.
-            result["status"] = m.get("Account Current Membership Status", "Unknown")
-            result["firstname"] = m.get("First Name")
-            data[
-                "url"
-            ] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
-
-            if "On Sign In" in (m.get("Notify Board & Staff") or ""):
-                log.warning(f"Member sign-in with notify bit set: {m}")
-                send_membership_automation_message(
-                    f"@Board and @Staff: [{result['firstname']} ({data['email']})]({data['url']}) "
-                    "just signed in at the front desk with `Notify Board & Staff = On Sign In`. "
-                    "This indicator suggests immediate followup with this member is needed. "
-                    "Click the name/email link for notes in Neon CRM."
-                )
-                log.info("Notified of member-of-interest sign in")
-
-            last_announcement_ack = m.get("Announcements Acknowledged", None)
-            if last_announcement_ack:
-                last_announcement_ack = dateparser.parse(
-                    last_announcement_ack
-                ).astimezone(tz)
-            else:
-                last_announcement_ack = tznow() - datetime.timedelta(30)
-
-            roles = [
-                r
-                for r in (m.get("API server role", "") or "").split("|")  # Can be None
-                if r.strip() != ""
-            ]
-            if data.get(
-                "testing"
-            ):  # Show testing announcements if ?testing=<anything> in URL
-                roles.append("Testing")
-            if result["status"] == "Active":
-                roles.append("Member")
-            _send("Fetching announcements...", 55)
-            clearances = [] if not m.get("Clearances") else m["Clearances"].split("|")
-            result["announcements"] = list(
-                airtable.get_announcements_after(
-                    last_announcement_ack, roles, set(clearances)
-                )
-            )
-            # Don't send others' survey responses to the frontend
-            for a in result["announcements"]:
-                if "Sign-In Survey Responses" in a:
-                    del a["Sign-In Survey Responses"]
-
-            _send("Checking storage...", 70)
-            for pv in airtable.get_policy_violations():
-                if str(pv["fields"].get("Neon ID")) != str(m["Account ID"]) or pv[
-                    "fields"
-                ].get("Closure"):
-                    continue
-                result["violations"].append(pv)
-
-            _send("Checking waiver...", 90)
-            result["waiver_signed"] = neon.update_waiver_status(
-                m["Account ID"],
-                m.get("Waiver Accepted"),
-                data.get("waiver_ack", False),
-            )
-
-            if result["status"] != "Active":
-                send_membership_automation_message(
-                    f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
-                    "at the front desk but has a non-Active membership status in Neon: "
-                    f"status is {result['status']} "
-                    "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
-                )
-                log.info("Notified of non-active member sign in")
-            elif len(result["violations"]) > 0:
-                send_membership_automation_message(
-                    f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
-                    f"at the front desk with violations: `{result['violations']}` "
-                    "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
-                )
-                log.info("Notified of sign-in with violations")
-    elif data["person"] == "guest":
-        result["waiver_signed"] = data.get("waiver_ack", False)
-        result["firstname"] = "Guest"
-
-    if (
-        data["person"] == "member"
-        and result["notfound"] is False
-        and result["waiver_signed"]
-    ) or (data["person"] == "guest" and data.get("referrer")):
-        # Note: setting `purpose` this way tricks the form into not requiring other fields
-        assert result["waiver_signed"] is True
-        form_data = SignInEvent(
-            email=data["email"],
-            dependent_info=data["dependent_info"],
-            waiver_ack=result["waiver_signed"],
-            referrer=data.get("referrer"),
-            purpose="I'm a member, just signing in!",
-            am_member=(data["person"] == "member"),
-        )
-        _send("Logging sign-in...", 95)
-        rep = submit_google_form("signin", form_data.to_google_form())
-        log.info(f"Google form submitted, response {rep}")
-        _send("Logging sign-in......", 97)
-        rep = airtable.insert_signin(form_data)
-        log.info(f"Airtable log submitted, response {rep}")
+        result = sign_in.as_member(data, _send)
+    else: # if data["person"] == "guest":
+        result = sign_in.as_guest(data, _send)
 
     ws.send(json.dumps(result))
     return result
