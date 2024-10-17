@@ -10,7 +10,10 @@ function App( { initialData, attributes } ) {
 window.addEventListener("load", (event) => {
 	for (let elem of document.getElementsByClassName("protohaven-airtable-grid")) {
 		const root = createRoot(elem);
-		const data = JSON.parse(elem.children[0].innerHTML)['records'] || [];
-		root.render(<App initialData={data} attributes={elem.dataset}/>);
+		const data = JSON.parse(elem.children[0].innerHTML);
+		if (data.error) {
+			console.error(data);
+		}
+		root.render(<App initialData={data['records'] || []} attributes={elem.dataset}/>);
 	}
 });

@@ -14,25 +14,25 @@
 	data-ref-field="<?php echo($attributes['refField']); ?>"
 	data-ref-text="<?php echo($attributes['refText']); ?>">
 	<script type="text/json"><?php
-	$token = $attributes['token'];
 	$base = $attributes['base'];
 	$table = $attributes['table'];
-	$CACHE_ID = "ph_airtable_grid_$base_$table";
+	$CACHE_ID = "protohaven_airtable_grid_" . $base . "_" . $table;
 	$result = wp_cache_get($CACHE_ID);
 	// Image links in Airtable have a 2hr TTL, so we have to cache less than this as long
 	// as we're using Airtable as a source of truth for images.
-	if ( false === $result || $result[1] < (time() - (60*60*1.5)) ) {
-		$response = wp_remote_get("https://api.airtable.com/v0/$base/$table", array(
-			'headers' => array(
-			"Authorization" => "Bearer $token",
-			)));
-		if (is_wp_error($response)) {
-			echo "Error $response";
-		} else {
-			$result = array(wp_remote_retrieve_body($response), time());
-			wp_cache_set($CACHE_ID, $result);
-		}
-	}
-	echo $result[0];
+	if ($result[1] < (time() - 3600) || !is_array($result[0]) || !array_key_exists('records', $result[0]) || count($result[0]['records']) === 0) {
+		$result = array(
+			do_airtable_fetch($attributes['token'], $base, $table), 
+			time()
+		);
+		wp_cache_set($CACHE_ID, $result);
+	} 
+	echo json_encode($result[0]);
 	?></script>
+</div>
+<div style="display: none;">
+cached <?php echo $result[1]; ?><br/>
+is_array <?php echo is_array($result[0]); ?><br/>
+has_records <?php echo array_key_exists('records', $result[0]); ?><br/>
+count <?php echo count($result[0]['records']); ?><br/>
 </div>

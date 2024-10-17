@@ -17,6 +17,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
+
+function do_airtable_fetch($token, $base, $table) {
+	$response = wp_remote_get("https://api.airtable.com/v0/$base/$table", array(
+		'headers' => array(
+		"Authorization" => "Bearer $token",
+		)));
+	if (is_wp_error($response)) {
+		return array("error" => "Fetch error: $response");
+	} else {
+		return json_decode(wp_remote_retrieve_body($response), true);
+	}
+}
+
 /**
  * Registers the block using the metadata loaded from the `block.json` file.
  * Behind the scenes, it registers also all assets so they can be enqueued
