@@ -1,16 +1,92 @@
 """Automation for handling people signing in at the front desk"""
-
-import logging
 import datetime
-from dateutil import parser as dateparser
+import logging
+import multiprocessing as mp
 from collections import defaultdict
-from protohaven_api.config import tznow, tz
-from protohaven_api.integrations import airtable, forms, neon, comms
-from protohaven_api.warm_cache import WarmCache
 
+from dateutil import parser as dateparser
+
+from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.integrations import airtable, comms, forms, neon
 from protohaven_api.integrations.data.models import SignInEvent
+from protohaven_api.warm_cache import WarmDict
 
 log = logging.getLogger("automation.membership.sign_in")
+
+WAIVER_FMT = "version {version} on {accepted}"
+WAIVER_REGEX = r"version (.+?) on (.*)"
+
+
+# Sign-ins need to be speedy; if it takes more than half a second, folks will
+# disengage.
+class AccountCache(WarmDict):
+    """Prefetches account information for faster lookup"""
+
+    NAME = "neon_accounts"
+    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
+    FIELDS = [
+        *neon.MEMBER_SEARCH_OUTPUT_FIELDS,
+        "Email 1",
+        neon.CustomField.ACCOUNT_AUTOMATION_RAN,
+    ]
+
+    def _update(self, a):
+        d = self.get(a["Email 1"], {})
+        d[a["Account ID"]] = a
+        self[a["Email 1"]] = d
+
+    def refresh(self):
+        """Refresh values; called every REFRESH_PD"""
+        n = 0
+        for a in neon.get_inactive_members(self.FIELDS):
+            self._update(a)
+            n += 1
+            if n % 100 == 0:
+                self.log.info(n)
+        for a in neon.get_active_members(self.FIELDS):
+            self._update(a)
+            n += 1
+            if n % 100 == 0:
+                self.log.info(n)
+        self.log.info(f"Fetched {n} total accounts")
+
+
+member_email_cache = AccountCache()
+
+
+class AirtableCache(WarmDict):
+    """Prefetches airtable data for faster lookup"""
+
+    NAME = "airtable"
+    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
+
+    def refresh(self):
+        """Refresh values; called every REFRESH_PD"""
+        self["announcements"] = airtable.get_all_announcements()
+        self["violations"] = airtable.get_policy_violations()
+
+
+table_cache = AirtableCache()
+
+pool = None  # pylint: disable=invalid-name
+
+
+def initialize(num_procs=2):
+    """Initialize caching & process pools for faster results"""
+    log.info("Initializing")
+    global pool  # pylint: disable=global-statement
+    pool = mp.Pool(num_procs)  # pylint: disable=consider-using-with
+    member_email_cache.start()
+    table_cache.start()
+
+
+def _pool_err_cb(exc):
+    log.error(f"Pool process errored: {exc}")
+
+
+def _apply_async(func, args):
+    pool.apply_async(func, args, error_callback=_pool_err_cb)
+
 
 def notify_async(content):
     """Sends message to membership automation channel.
@@ -29,40 +105,31 @@ def result_base():
         "firstname": "member",
     }
 
-# Sign-ins need to be speedy; if it takes more than half a second, folks will
-# disengage.
-def _cached_member_emails():
-    log.debug("Fetching member emails for cache")
-    result = defaultdict(list)
-    for a in neon.get_active_members(["Email 1", "Company ID"]):
-        result[a["Email 1"]].append(a)
-    log.debug(f"Fetched {len(result)} emails")
-    return dict(result)
-member_email_cache = WarmCache(
-    _cached_member_emails, datetime.timedelta(hours=12),
-    neon.search_member, datetime.timedelta(hours=4)
-)
 
-
-def activate_membership():
+def activate_membership(account_id, fname, email):
     """Activate a member's deferred membership"""
-    rep = neon.set_membership_start_date(m["Account ID"], tznow())
+    rep = neon.set_membership_start_date(account_id, tznow())
     if rep.status_code != 200:
         notify_async(
             f"@Staff: Error {rep.status_code} activating membership for "
-            f"#{m['Account ID']}: "
+            f"#{account_id}: "
             f"\n{rep.content}\n"
             "Please sync with software folks to diagnose in protohaven_api. "
             "Allowing the member through anyways."
         )
     else:
-        neon.update_account_automation_run_status(
-            m["Account ID"], "activated"
-        )
-        msg = comms.Msg.tmpl(
-            "membership_activated", fname=m.get("First Name"), target=email
-        )
+        neon.update_account_automation_run_status(account_id, "activated")
+        msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
         comms.send_email(msg.subject, msg.body, email, msg.html)
+        log.info(f"Sent email {msg}")
+
+
+def _submit_forms(form_data):
+    rep = forms.submit_google_form("signin", form_data.to_google_form())
+    log.info(f"Google form submitted, response {rep}")
+    rep = airtable.insert_signin(form_data.to_airtable())
+    log.info(f"Airtable log submitted, response {rep}")
+
 
 def log_sign_in(data, result, send):
     """Logs a sign-in based on form data. Sends both to Airtable and Google Forms"""
@@ -77,21 +144,20 @@ def log_sign_in(data, result, send):
         am_member=(data["person"] == "member"),
     )
     send("Logging sign-in...", 95)
+    _apply_async(_submit_forms, args=(form_data,))
 
-    rep = forms.submit_google_form("signin", form_data.to_google_form())
-    log.info(f"Google form submitted, response {rep}")
-    rep = airtable.insert_signin(form_data)
-    log.info(f"Airtable log submitted, response {rep}")
 
-def get_or_activate_member(email, send):
+def get_member_and_activation_state(email):
     """Fetch the candidate account from Neon, preferring active memberships.
-    If automation deferred any particular membership, activate it now."""
+    If automation deferred any particular membership, activate it now.
+    Returns (member info, is_deferred)
+    """
     # Only select individuals as members, not companies
-    mm = [
-        m
-        for m in member_email_cache[email]
-        if m.get("Account ID") != m.get("Company ID")
-    ]
+    mm = member_email_cache.get(email.strip(), {})
+    mm = [m for m in mm.values() if m.get("Account ID") != m.get("Company ID")]
+    if len(mm) == 0:
+        return None, False
+
     if len(mm) > 1:
         # Warn to membership automation channel that we have an account to deduplicate
         urls = [
@@ -107,69 +173,134 @@ def get_or_activate_member(email, send):
 
     m = None
     for m in mm:
-        for acf in (m.get("individualAccount") or {}).get("accountCustomFields", []):
-            if acf["name"] == "Account Automation Ran" and acf["value"].startswith(
-                "deferred"
-            ):
-                send("Activating membership...", 50)
-                # Do this all in a thread so we're not wasting time
-                Thread(target=activate_membership, args=(m,), daemon=True)
-                return m, True
+        if (m.get("Account Automation Ran") or "").startswith("deferred"):
+            return m, True
         if (m.get("Account Current Membership Status") or "").upper() == "ACTIVE":
             return m, False
     return m, False
 
-def handle_side_notifications(m, result):
+
+def handle_notify_board_and_staff(notify_str, fname, email, url):
     """Some accounts are marked as requiring notification when they sign in"""
-    if "On Sign In" in (m.get("Notify Board & Staff") or ""):
-        log.warning(f"Member sign-in with notify bit set: {m}")
+    if "On Sign In" in notify_str:
+        log.warning(f"Member sign-in with notify bit set: {fname} {email} {url}")
         notify_async(
-            f"@Board and @Staff: [{result['firstname']} ({data['email']})]({data['url']}) "
+            f"@Board and @Staff: [{fname} ({email})]({url}) "
             "just signed in at the front desk with `Notify Board & Staff = On Sign In`. "
             "This indicator suggests immediate followup with this member is needed. "
             "Click the name/email link for notes in Neon CRM."
         )
         log.info("Notified of member-of-interest sign in")
-    if result["status"] != "Active":
+
+
+def handle_notify_inactive(status_str, fname, email, url):
+    """Send a notification if an inactive member tries signing in"""
+    if status_str.lower() != "active":
         notify_async(
-            f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
+            f"[{fname} ({email})]({url}) just signed in "
             "at the front desk but has a non-Active membership status in Neon: "
-            f"status is {result['status']} "
+            f"status is {status_str} "
             "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
         )
         log.info("Notified of non-active member sign in")
-    elif len(result["violations"]) > 0:
+
+
+def handle_notify_violations(violations, fname, email, url):
+    """Send async alert when member signs in with active violations"""
+    if len(violations) > 0:
         notify_async(
-            f"[{result['firstname']} ({data['email']})]({data['url']}) just signed in "
-            f"at the front desk with violations: `{result['violations']}` "
+            f"[{fname} ({email})]({url}) just signed in "
+            f"at the front desk with violations: `{violations}` "
             "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
         )
         log.info("Notified of sign-in with violations")
 
-def handle_storage(account_id):
+
+def get_storage_violations(account_id):
     """Check member for storage violations"""
-    for pv in airtable.get_policy_violations():
-        if str(pv["fields"].get("Neon ID")) != str(account_id) or pv[
-            "fields"
-        ].get("Closure"):
+    for pv in table_cache["violations"]:
+        if str(pv["fields"].get("Neon ID")) != str(account_id) or pv["fields"].get(
+            "Closure"
+        ):
             continue
         yield pv
 
-def handle_waiver(account_id, prev_waiver_ack, waiver_ack):
-    """Check that the waiver has been acknowledged"""
-    return neon.update_waiver_status(
-        account_id,
-        prev_waiver_ack,
-        waiver_ack,
-    )
 
-def handle_announcements(last_ack, roles:str, clearances:list, is_active, testing):
-    """Handle fetching and display of announcements, plus updating
-       acknowledgement date"""
-    if last_ack:
-        last_ack = dateparser.parse(
-            last_ack
+def handle_waiver(  # pylint: disable=too-many-arguments
+    user_id,
+    waiver_status,
+    ack,
+    now=None,
+    current_version=None,
+    expiration_days=None,
+):
+    """Update the liability waiver status of a Neon account. Return True if
+    the account is bound by the waiver, False otherwise."""
+
+    # Lazy load config entries to prevent parsing errors on init
+    now = now or tznow()
+    current_version = current_version or get_config()["neon"]["waiver_published_date"]
+    expiration_days = expiration_days or get_config()["neon"]["waiver_expiration_days"]
+
+    if ack:
+        # Always overwrite existing signature data since re-acknowledged
+        # Done async to reduce login delay
+        new_status = WAIVER_FMT.format(
+            version=current_version, accepted=now.strftime("%Y-%m-%d")
+        )
+        _apply_async(neon.set_waiver_status, (user_id, new_status))
+        return True
+
+    # Precondition: ack = false
+    # Check if signature on file, version is current, and not expired
+    last_version = None
+    last_signed = None
+    if waiver_status is not None:
+        match = re.match(WAIVER_REGEX, waiver_status)
+        if match is not None:
+            log.debug(str(match))
+            last_version = match[1]
+            last_signed = dateparser.parse(match[2]).astimezone(tz)
+    if last_version is None:
+        return False
+    if last_version != current_version:
+        return False
+    expiry = last_signed + datetime.timedelta(days=expiration_days)
+    return now < expiry
+
+
+def get_announcements_after(d, roles, clearances):
+    """Gets all announcements, excluding those before `d`"""
+    now = tznow()
+    for row in table_cache["announcements"]:
+        adate = dateparser.parse(
+            row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)
+        if adate <= d or adate > now:
+            continue
+
+        tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
+        if len(tools) > 0:
+            cleared_for_tool = False
+            for c in clearances:
+                if c in tools:
+                    cleared_for_tool = True
+                    break
+            if not cleared_for_tool:
+                continue
+
+        for r in row["fields"]["Roles"]:
+            if r in roles:
+                row["fields"]["rec_id"] = row["id"]
+                yield row["fields"]
+                break
+
+
+def handle_announcements(last_ack, roles: str, clearances: list, is_active, testing):
+    """Handle fetching and display of announcements, plus updating
+    acknowledgement date"""
+    if last_ack:
+        last_ack = dateparser.parse(last_ack).astimezone(tz)
     else:
         last_ack = tznow() - datetime.timedelta(30)
 
@@ -177,69 +308,85 @@ def handle_announcements(last_ack, roles:str, clearances:list, is_active, testin
         roles.append("Testing")
     if is_active:
         roles.append("Member")
-    result = list(
-        airtable.get_announcements_after(
-            last_ack, roles, set(clearances)
-        )
-    )
+    result = list(get_announcements_after(last_ack, roles, set(clearances)))
     # Don't send others' survey responses to the frontend
     for a in result:
         if "Sign-In Survey Responses" in a:
             del a["Sign-In Survey Responses"]
     return result
 
+
 def as_member(data, send):
     """Sign in as a member (per Neon CRM)"""
     result = result_base()
     send("Searching member database...", 40)
-    m = get_or_activate_member(data["email"], send)
-
-    log.info(f"Member {m}")
+    m, should_activate = get_member_and_activation_state(data["email"])
     if not m:
         result["notfound"] = True
-    else:
-        # Preferably select the Neon account with active membership.
-        # Note that the last `m` remains in context regardless of if we break.
-        result["status"] = m.get("Account Current Membership Status", "Unknown")
-        result["firstname"] = m.get("First Name")
-        data[
-            "url"
-        ] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+        return result
 
-        send("Fetching announcements...", 55)
-        handle_announcements(
-            last_ack = m.get("Announcements Acknowledged", None),
-            roles = [
-                r
-                for r in (m.get("API server role", "") or "").split("|")  # Can be None
-                if r.strip() != ""
-            ],
-            is_active = result["status"] == "Active",
-            testing = data.get("testing"),
-            clearances = [] if not m.get("Clearances") else m["Clearances"].split("|"),
+    if should_activate:
+        send("Activating membership...", 50)
+        # Do this all in a thread so we're not wasting time
+        _apply_async(
+            activate_membership, args=(m["Account ID"], m["First Name"], data["email"])
         )
 
-        send("Checking storage...", 70)
-        result["violations"] = list(handle_storage(m["Account ID"]))
+    log.info(f"Member {m}")
 
-        handle_side_notifications(m, result)
+    # Preferably select the Neon account with active membership.
+    # Note that the last `m` remains in context regardless of if we break.
+    result["status"] = m.get("Account Current Membership Status", "Unknown")
+    result["firstname"] = m.get("First Name")
+    data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
 
-        send("Checking waiver...", 90)
-        result["waiver_signed"] = handle_waiver(
-            m["Account ID"],
-            m.get("Waiver Accepted"), 
-            data.get("waiver_ack", False),
-        )
+    send("Fetching announcements...", 55)
+    handle_announcements(
+        last_ack=m.get("Announcements Acknowledged", None),
+        roles=[
+            r
+            for r in (m.get("API server role", "") or "").split("|")  # Can be None
+            if r.strip() != ""
+        ],
+        is_active=result["status"] == "Active",
+        testing=data.get("testing"),
+        clearances=[] if not m.get("Clearances") else m["Clearances"].split("|"),
+    )
 
-    if (result["notfound"] is False and result["waiver_signed"]):
+    send("Checking storage...", 70)
+    result["violations"] = list(get_storage_violations(m["Account ID"]))
+
+    # These are sent out of band, no need to alert the sign-in member
+    handle_notify_board_and_staff(
+        m.get("Notify Board & Staff") or "",
+        result["firstname"],
+        data["email"],
+        data["url"],
+    )
+    handle_notify_inactive(
+        result["status"], result["firstname"], data["email"], data["url"]
+    )
+    handle_notify_violations(
+        result["violations"], result["firstname"], data["email"], data["url"]
+    )
+
+    send("Checking waiver...", 90)
+    result["waiver_signed"] = handle_waiver(
+        m["Account ID"],
+        m.get("Waiver Accepted"),
+        data.get("waiver_ack", False),
+    )
+
+    if result["waiver_signed"]:
         log_sign_in(data, result, send)
     return result
+
 
 def as_guest(data, send):
     """Sign in as a guest (no Neon info)"""
     result = result_base()
     result["waiver_signed"] = data.get("waiver_ack", False)
     result["firstname"] = "Guest"
-    if data.get("referrer"):
+    if data.get("referrer"):  # i.e. the survey was completed or passed
         log_sign_in(data, result, send)
     return result

@@ -5,6 +5,7 @@ import logging
 from flask import Flask  # pylint: disable=import-error
 from flask_cors import CORS
 
+from protohaven_api.automation.membership.sign_in import initialize as init_signin
 from protohaven_api.config import get_config
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
@@ -72,6 +73,9 @@ staff_ws_setup(app)
 server_mode = cfg["general"]["server_mode"].lower()
 run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"
 init_connector(Connector if server_mode == "prod" else DevConnector)
+
+init_signin()  # Must run after connector is initialized
+
 if run_discord_bot:
     import threading
 

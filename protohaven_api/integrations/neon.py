@@ -32,10 +32,6 @@ TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
 
 
-WAIVER_FMT = "version {version} on {accepted}"
-WAIVER_REGEX = r"version (.+?) on (.*)"
-
-
 def fetch_published_upcoming_events(back_days=7):
     """Load upcoming events from Neon CRM, with `back_days` of trailing event data.
     Note that querying is done based on the end date so multi-week intensives
@@ -409,6 +405,21 @@ def _paginated_search(data, typ="accounts", pagination=None):
         yield from content["searchResults"]
 
 
+def get_inactive_members(extra_fields):
+    """Lookup all accounts with active memberships"""
+    data = {
+        "searchFields": [
+            {
+                "field": "Account Current Membership Status",
+                "operator": "NOT_EQUAL",
+                "value": "Active",
+            }
+        ],
+        "outputFields": ["Account ID", *extra_fields],
+    }
+    return _paginated_search(data)
+
+
 def get_active_members(extra_fields):
     """Lookup all accounts with active memberships"""
     data = {
@@ -424,6 +435,23 @@ def get_active_members(extra_fields):
     return _paginated_search(data)
 
 
+MEMBER_SEARCH_OUTPUT_FIELDS = [
+    "Household ID",
+    "Company ID",
+    "First Name",
+    "Last Name",
+    "Account Current Membership Status",
+    "Membership Level",
+    "Membership Term",
+    CustomField.CLEARANCES,
+    CustomField.DISCORD_USER,
+    CustomField.WAIVER_ACCEPTED,
+    CustomField.ANNOUNCEMENTS_ACKNOWLEDGED,
+    CustomField.API_SERVER_ROLE,
+    CustomField.NOTIFY_BOARD_AND_STAFF,
+]
+
+
 def search_member(email, operator="EQUAL"):
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
@@ -437,19 +465,7 @@ def search_member(email, operator="EQUAL"):
         ],
         "outputFields": [
             "Account ID",
-            "Household ID",
-            "Company ID",
-            "First Name",
-            "Last Name",
-            "Account Current Membership Status",
-            "Membership Level",
-            "Membership Term",
-            CustomField.CLEARANCES,
-            CustomField.DISCORD_USER,
-            CustomField.WAIVER_ACCEPTED,
-            CustomField.ANNOUNCEMENTS_ACKNOWLEDGED,
-            CustomField.API_SERVER_ROLE,
-            CustomField.NOTIFY_BOARD_AND_STAFF,
+            *MEMBER_SEARCH_OUTPUT_FIELDS,
         ],
     }
     return _paginated_search(data)
@@ -1234,52 +1250,6 @@ def update_account_automation_run_status(user_id, status: str, now=None):
         user_id,
         {CustomField.ACCOUNT_AUTOMATION_RAN: status + " " + now.strftime("%Y-%m-%d")},
     )
-
-
-def update_waiver_status(  # pylint: disable=too-many-arguments
-    user_id,
-    waiver_status,
-    ack,
-    now=None,
-    current_version=None,
-    expiration_days=None,
-):
-    """Update the liability waiver status of a Neon account. Return True if
-    the account is bound by the waiver, False otherwise."""
-
-    # Lazy load config entries to prevent parsing errors on init
-    if now is None:
-        now = tznow()
-    if current_version is None:
-        current_version = cfg("waiver_published_date")
-    if expiration_days is None:
-        expiration_days = cfg("waiver_expiration_days")
-
-    if ack:  # Always overwrite existing signature data since re-acknowledged
-        new_status = WAIVER_FMT.format(
-            version=current_version, accepted=now.strftime("%Y-%m-%d")
-        )
-        log.debug(f"Calling {set_waiver_status}")
-        set_waiver_status(user_id, new_status)
-        log.debug("Called set_waiver_status")
-        return True
-
-    # Precondition: ack = false
-    # Check if signature on file, version is current, and not expired
-    last_version = None
-    last_signed = None
-    if waiver_status is not None:
-        match = re.match(WAIVER_REGEX, waiver_status)
-        if match is not None:
-            log.debug(str(match))
-            last_version = match[1]
-            last_signed = dateparser.parse(match[2]).astimezone(tz)
-    if last_version is None:
-        return False
-    if last_version != current_version:
-        return False
-    expiry = last_signed + datetime.timedelta(days=expiration_days)
-    return now < expiry
 
 
 def income_condition(income_name, income_value):
