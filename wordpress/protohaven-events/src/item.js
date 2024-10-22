@@ -39,9 +39,8 @@ export function Item( {title, area, desc, levelDesc, age, features, discount, im
 	}
 	let imgElem;
 	if (img) {
-		imgElem = (<div className="ph-img">
+		imgElem = (<div className="ph-img" style={{'backgroundImage': `url(${img})`}}>
 			<h3>{area}</h3>
-			<img src={img}/>
 		</div>);
 		containerClass += " cell";
 	} else {
