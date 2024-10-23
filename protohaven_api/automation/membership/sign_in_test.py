@@ -170,28 +170,11 @@ def test_handle_notify_violations(mocker):
     mock_notify_async.assert_called_once_with(MatchStr("Overdue fees"))
 
 
-def test_get_storage_violations(mocker):
-    """Test checking member for storage violations"""
-    account_id = "123"
-    mock_violations = [
-        {"fields": {"Neon ID": account_id, "Violation": "Excessive storage"}},
-        {"fields": {"Neon ID": "456", "Closure": "2023-10-01"}},
-        {"fields": {"Neon ID": account_id, "Closure": "2023-10-01"}},
-    ]
-    mocker.patch.object(s, "table_cache", {"violations": mock_violations})
-
-    violations = list(s.get_storage_violations(account_id))
-
-    assert len(violations) == 1
-    assert violations[0]["fields"]["Violation"] == "Excessive storage"
-    assert "Closure" not in violations[0]["fields"]
-
-
 def test_handle_announcements_recent_last_ack(mocker):
     """Test announcements handling with a recent last_ack. Also test that survey responses are stripped"""
     mocker.patch.object(
-        s,
-        "get_announcements_after",
+        s.table_cache,
+        "announcements_after",
         return_value=[
             {"name": "a", "Sign-In Survey Responses": [1, 2, 3]},
         ],
@@ -206,8 +189,8 @@ def test_handle_announcements_recent_last_ack(mocker):
 def test_handle_announcements_testing(mocker):
     """Test announcements handling with testing enabled"""
     mocker.patch.object(
-        s,
-        "get_announcements_after",
+        s.table_cache,
+        "announcements_after",
         return_value=[
             {"Title": "Testing Announcement"},
         ],
@@ -215,15 +198,15 @@ def test_handle_announcements_testing(mocker):
     result = s.handle_announcements(
         "2025-01-01T00:00:00Z", [], ["General"], False, True
     )
-    s.get_announcements_after.assert_called_with(Any(), ["Testing"], Any())
+    s.table_cache.announcements_after.assert_called_with(Any(), ["Testing"], Any())
     assert result == [{"Title": "Testing Announcement"}]
 
 
 def test_handle_announcements_is_active(mocker):
     """Test announcements handling for active members"""
     mocker.patch.object(
-        s,
-        "get_announcements_after",
+        s.table_cache,
+        "announcements_after",
         return_value=[
             {"Title": "Member Announcement"},
         ],
@@ -231,7 +214,7 @@ def test_handle_announcements_is_active(mocker):
     result = s.handle_announcements(
         "2025-01-01T00:00:00Z", [], ["General"], True, False
     )
-    s.get_announcements_after.assert_called_with(Any(), ["Member"], Any())
+    s.table_cache.announcements_after.assert_called_with(Any(), ["Member"], Any())
     assert result == [{"Title": "Member Announcement"}]
 
 
@@ -308,85 +291,6 @@ def test_handle_waiver_checks_expiration(mocker):
     )
 
 
-@pytest.mark.parametrize(
-    "desc, data, want",
-    [
-        (
-            "correct role & tool code",
-            {
-                "Published": "2024-04-01",
-                "Roles": ["role1"],
-                "Tool Name (from Tool Codes)": ["Sandblaster"],
-            },
-            True,
-        ),
-        (
-            "correct role, non cleared tool code",
-            {
-                "Published": "2024-04-01",
-                "Roles": ["role1"],
-                "Tool Name (from Tool Codes)": ["Planer"],
-            },
-            False,
-        ),
-        (
-            "wrong role, cleared tool",
-            {
-                "Published": "2024-04-01",
-                "Roles": ["badrole"],
-                "Tool Name (from Tool Codes)": ["Sandblaster"],
-            },
-            False,
-        ),
-        (
-            "Correct role, no tool",
-            {
-                "Published": "2024-04-01",
-                "Roles": ["role1"],
-                "Tool Name (from Tool Codes)": [],
-            },
-            True,
-        ),
-        (
-            "too old",
-            {
-                "Published": "2024-03-01",
-                "Roles": ["role1"],
-                "Tool Name (from Tool Codes)": [],
-            },
-            False,
-        ),
-        (
-            "too new (scheduled)",
-            {
-                "Published": "2024-05-05",
-                "Roles": ["role1"],
-                "Tool Name (from Tool Codes)": [],
-            },
-            False,
-        ),
-    ],
-)
-def test_get_announcements_after(desc, data, want, mocker):
-    mocker.patch.object(
-        s,
-        "table_cache",
-        {"announcements": [{"fields": data, "id": "123"}]},
-    )
-    mocker.patch.object(
-        s, "tznow", return_value=dateparser.parse("2024-04-02").astimezone(tz)
-    )
-    got = list(
-        s.get_announcements_after(
-            dateparser.parse("2024-03-14").astimezone(tz), ["role1"], ["Sandblaster"]
-        )
-    )
-    if want:
-        assert got
-    else:
-        assert not got
-
-
 def test_as_guest_no_referrer(mocker):
     """Guest data with no referrer is omitted from form submission"""
     m = mocker.patch.object(s, "_apply_async")
@@ -454,7 +358,8 @@ def test_as_member_expired(mocker):
             },
         },
     )
-    mocker.patch.object(s, "table_cache", {"announcements": [], "violations": []})
+    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
     mocker.patch.object(s, "tznow", return_value=d(0))
     rep = s.as_member(
         {
@@ -492,17 +397,13 @@ def test_as_member_violations(mocker):
             }
         },
     )
+    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
     mocker.patch.object(
-        s,
-        "table_cache",
-        {
-            "announcements": [],
-            "violations": [
-                {"fields": {"Neon ID": "Someone else"}},
-                {"fields": {"Neon ID": "12345", "Closure": "2024-04-01 00:00"}},
-                {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}},
-            ],
-        },
+        s.table_cache,
+        "violations_for",
+        return_value=[
+            {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}},
+        ],
     )
     rep = s.as_member(
         {
@@ -542,7 +443,8 @@ def test_as_member_duplicates(mocker):
             }
         },
     )
-    mocker.patch.object(s, "table_cache", {"announcements": [], "violations": []})
+    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -578,22 +480,17 @@ def test_as_member_announcements(mocker):
         },
     )
     mocker.patch.object(
-        s,
-        "table_cache",
-        {
-            "violations": [],
-            "announcements": [
-                {
-                    "id": 123,
-                    "fields": {
-                        "Published": d(0).isoformat(),
-                        "Roles": ["Shop Tech"],
-                        "Title": "test Announcement",
-                    },
-                }
-            ],
-        },
+        s.table_cache,
+        "announcements_after",
+        return_value=[
+            {
+                "Published": d(0).isoformat(),
+                "Roles": ["Shop Tech"],
+                "Title": "test Announcement",
+            },
+        ],
     )
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -609,7 +506,6 @@ def test_as_member_announcements(mocker):
             "Published": d(0).isoformat(),
             "Roles": ["Shop Tech"],
             "Title": "test Announcement",
-            "rec_id": 123,
         }
     ]
     m.assert_called_with(
@@ -650,7 +546,8 @@ def test_as_member_company_id(mocker):
             }
         },
     )
-    mocker.patch.object(s, "table_cache", {"announcements": [], "violations": []})
+    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -682,7 +579,8 @@ def test_as_member_notify_board_and_staff(mocker):
             }
         },
     )
-    mocker.patch.object(s, "table_cache", {"announcements": [], "violations": []})
+    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",

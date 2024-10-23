@@ -6,68 +6,23 @@ import re
 
 from dateutil import parser as dateparser
 
+from protohaven_api.automation.membership.warm_cache import AccountCache, AirtableCache
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, forms, neon
 from protohaven_api.integrations.data.models import SignInEvent
-from protohaven_api.warm_cache import WarmDict
 
 log = logging.getLogger("automation.membership.sign_in")
 
 WAIVER_FMT = "version {version} on {accepted}"
 WAIVER_REGEX = r"version (.+?) on (.*)"
 
-
-# Sign-ins need to be speedy; if it takes more than half a second, folks will
-# disengage.
-class AccountCache(WarmDict):
-    """Prefetches account information for faster lookup"""
-
-    NAME = "neon_accounts"
-    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
-    FIELDS = [
-        *neon.MEMBER_SEARCH_OUTPUT_FIELDS,
-        "Email 1",
-        neon.CustomField.ACCOUNT_AUTOMATION_RAN,
-    ]
-
-    def _update(self, a):
-        d = self.get(a["Email 1"], {})
-        d[a["Account ID"]] = a
-        self[a["Email 1"]] = d
-
-    def refresh(self):
-        """Refresh values; called every REFRESH_PD"""
-        n = 0
-        for a in neon.get_inactive_members(self.FIELDS):
-            self._update(a)
-            n += 1
-            if n % 100 == 0:
-                self.log.info(n)
-        for a in neon.get_active_members(self.FIELDS):
-            self._update(a)
-            n += 1
-            if n % 100 == 0:
-                self.log.info(n)
-        self.log.info(f"Fetched {n} total accounts")
-
-
+# Caches prefetch info used for sign-in to make it speedy.
+table_cache = AirtableCache()
 member_email_cache = AccountCache()
 
-
-class AirtableCache(WarmDict):
-    """Prefetches airtable data for faster lookup"""
-
-    NAME = "airtable"
-    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
-
-    def refresh(self):
-        """Refresh values; called every REFRESH_PD"""
-        self["announcements"] = airtable.get_all_announcements()
-        self["violations"] = airtable.get_policy_violations()
-
-
-table_cache = AirtableCache()
-
+# This is the process pool for async execution of long-running
+# commands produced during the sign-in process, e.g. membership
+# activation, sign in form submission, waiver ack updates.
 pool = None  # pylint: disable=invalid-name
 
 
@@ -150,8 +105,10 @@ def log_sign_in(data, result):
 
 def get_member_and_activation_state(email):
     """Fetch the candidate account from Neon, preferring active memberships.
-    If automation deferred any particular membership, activate it now.
     Returns (member info, is_deferred)
+
+    See Onboarding V2 proposal for deferral info at
+    https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies
     mm = member_email_cache.get(email.strip(), {})
@@ -173,6 +130,8 @@ def get_member_and_activation_state(email):
         log.info("Notified of multiple accounts")
 
     m = None
+    # Deferred memberships are returned first, followed by active membership accounts
+    # and then inactive ones.
     for m in mm:
         if (m.get("Account Automation Ran") or "").startswith("deferred"):
             return m, True
@@ -215,16 +174,6 @@ def handle_notify_violations(violations, fname, email, url):
             "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
         )
         log.info("Notified of sign-in with violations")
-
-
-def get_storage_violations(account_id):
-    """Check member for storage violations"""
-    for pv in table_cache["violations"]:
-        if str(pv["fields"].get("Neon ID")) != str(account_id) or pv["fields"].get(
-            "Closure"
-        ):
-            continue
-        yield pv
 
 
 def handle_waiver(  # pylint: disable=too-many-arguments
@@ -270,34 +219,6 @@ def handle_waiver(  # pylint: disable=too-many-arguments
     return now < expiry
 
 
-def get_announcements_after(d, roles, clearances):
-    """Gets all announcements, excluding those before `d`"""
-    now = tznow()
-    for row in table_cache["announcements"]:
-        log.info(row)
-        adate = dateparser.parse(
-            row["fields"].get("Published", "2024-01-01")
-        ).astimezone(tz)
-        if adate <= d or adate > now:
-            continue
-
-        tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
-        if len(tools) > 0:
-            cleared_for_tool = False
-            for c in clearances:
-                if c in tools:
-                    cleared_for_tool = True
-                    break
-            if not cleared_for_tool:
-                continue
-
-        for r in row["fields"]["Roles"]:
-            if r in roles:
-                row["fields"]["rec_id"] = row["id"]
-                yield row["fields"]
-                break
-
-
 def handle_announcements(last_ack, roles: str, clearances: list, is_active, testing):
     """Handle fetching and display of announcements, plus updating
     acknowledgement date"""
@@ -310,7 +231,7 @@ def handle_announcements(last_ack, roles: str, clearances: list, is_active, test
         roles.append("Testing")
     if is_active:
         roles.append("Member")
-    result = list(get_announcements_after(last_ack, roles, set(clearances)))
+    result = list(table_cache.announcements_after(last_ack, roles, set(clearances)))
     # Don't send others' survey responses to the frontend
     for a in result:
         if "Sign-In Survey Responses" in a:
@@ -356,7 +277,7 @@ def as_member(data, send):
     )
 
     send("Checking storage...", 70)
-    result["violations"] = list(get_storage_violations(m["Account ID"]))
+    result["violations"] = list(table_cache.violations_for(m["Account ID"]))
 
     # These are sent out of band, no need to alert the sign-in member
     handle_notify_board_and_staff(
