@@ -30,6 +30,9 @@ $bcol: #0693e3;
 		&.hidden {
 			display: none !important;
 		}
+		.ph-discount {
+			display: inline-block;
+		}
 
 		&.cell {
 			order: 0;
@@ -81,8 +84,11 @@ $bcol: #0693e3;
 				width: 100%;
 				order: 1;
 				display: flex;
-				flex-direction: row;
+				flex-direction: column;
 				justify-content: space-between;
+				@media (min-width: 500px) {
+					flex-direction: row;
+				}
 
 				&> * {
 					margin-top: 10px;
@@ -99,13 +105,16 @@ $bcol: #0693e3;
 					max-width: 600px;
 				}
 			  .ph-footer {
-					flex-direction: column;
+					flex-direction: row;
+					@media(min-width: 500px) {
+						flex-direction: column;
+					}
 			  }
 				.ph-desc {
 					padding-right: 20px;
 				}
 				.ph-fold {
-					min-width: 160px;
+					min-width: 208px;
 					flex-align: right;
 					@media (min-width: 1024px) {
 							flex-direction: row;
@@ -132,10 +141,6 @@ $bcol: #0693e3;
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-
-			.ph-discount {
-				font-weight: bold;
-			}
 			.ph-price {
 				font-size: 30px;
 				font-weight: bold;

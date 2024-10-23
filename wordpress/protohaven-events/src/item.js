@@ -8,18 +8,29 @@ function ap(hours) {
 	return ((hours > 12) ? hours-12 : hours).toString() + ((hours > 11) ? 'pm' : 'am');
 }
 function dateStr(d1) {
-	return `${d1.toLocaleString('default', { month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
+	return `${d1.toLocaleString('default', { weekday: 'short' })}, ${d1.toLocaleString('default', { month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
 }
 
 function infoLink(eid) {
 	return `https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=${eid}`;
 }
 function FmtTimes( { times, expanded, onExpand } ) {
-	times.sort((a, b) => a[1][0] - b[1][0]);
+	times.sort((a, b) => a[1].d0 - b[1].d0);
 	let expand = [];
 	const EXPAND_THRESH = 2;
 	for (let [neon_id, dd] of times) {
-		expand.push(<div key={neon_id}><a href={infoLink(neon_id)} target="_blank">{dateStr(dd[0])}</a></div>);
+		let left = "";
+		if (dd.capacity !== null && dd.sold != null) {
+			if (dd.capacity - dd.sold > 0) {
+				left = <span className="ph-discount">({dd.capacity - dd.sold} left)</span>;
+			} else {
+				left = <span className="ph-discount">(sold out)</span>;
+			}
+		}
+		expand.push(<div key={neon_id}>
+			<a href={infoLink(neon_id)} target="_blank">{dateStr(dd.d0)}</a>
+			&nbsp;{left}
+		</div>);
 		if (!expanded && expand.length >= EXPAND_THRESH) {
 			break;
 		}
@@ -31,7 +42,7 @@ function FmtTimes( { times, expanded, onExpand } ) {
 	</>);
 }
 
-export function Item( {title, area, desc, levelDesc, age, features, discount, img, times, visible, pricing} ) {
+export function Item( {title, area, desc, levelDesc, age, features, img, times, visible} ) {
 	const [expanded, setExpanded] = useState(false);
 	let containerClass = "ph-item";
 	if (!visible) {
@@ -48,7 +59,11 @@ export function Item( {title, area, desc, levelDesc, age, features, discount, im
 		containerClass += " fullbleed";
 	}
 	const link = (times.length > 0) ? infoLink(times[0][0]) : null;
-	const hours = (times.length > 0) ? `${times[0][1][1].getHours() - times[0][1][0].getHours()} hours` : null;
+	const hours = (times.length > 0) ? `${times[0][1].d1.getHours() - times[0][1].d0.getHours()} hours` : null;
+	const price = ((times.length > 0) ? times[0][1].price : null) || null;
+	const discount = ((times.length > 0) ? times[0][1].discount : null) || null;
+	const total_remaining = times.map((t) => (t[1].capacity - t[1].sold) || 0).reduce((acc, curr) => acc+curr, 0);
+
 	return (<div className={containerClass} id={title}>
 		<div className="ph-content">
 			{imgElem}
@@ -63,10 +78,9 @@ export function Item( {title, area, desc, levelDesc, age, features, discount, im
 				<div>Ages {age}+</div>
 				<div>{levelDesc}</div>
 			</div>
-			<button className="ph-footer" onClick={() => gotoURL(link)} disabled={!pricing.remaining}>
-				{pricing.price !== null && <div className="ph-price">${pricing.price}</div>}
-				{pricing.discount && <div className="ph-discount">(${pricing.discount} for members)</div>}
-				{pricing.remaining !== null && <div className="ph-discount">{pricing.remaining} left</div>}
+			<button className="ph-footer" onClick={() => gotoURL(link)} disabled={!total_remaining}>
+				{price !== null && <div className="ph-price">${price}</div>}
+				{discount && <div className="ph-discount">(${discount} for members)</div>}
 			</button>
 		</div>
 	</div>);
