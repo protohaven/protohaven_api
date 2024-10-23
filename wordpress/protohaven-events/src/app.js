@@ -11,37 +11,35 @@ export function App( { imgSize, initialData } ) {
 	useEffect(() => {
 		// Maintain a copy of loading vars so that
 		// callbacks have shared context
-		let tmpPricing = {};
 		let tmpClasses = {};
 		let tmpAreas = new Set();
 		let tmpLevels = new Set();
+		console.log(initialData);
 		function processPartial(partial) {
 			const [c2, a2, l2] = process(partial, tmpClasses, tmpAreas, tmpLevels);
-			setClasses(Object.values(tmpClasses));
+			setClasses(Object.values(c2));
 			setAreas(tmpAreas);
 			setLevels(tmpLevels);
 			Object.values(c2).forEach((c) => {
-				let earliest = Object.keys(c.times).reduce((earliest, key) => {
-				    return earliest === null || c.times[key][0] < c.times[earliest][0] ? key : earliest;
-				}, null);
-				get_event_tickets(earliest).then((data) => {
-					let price = null;
-					let discount = null;
-					let remaining = null;
-					data.forEach((p) => {
-						if (p.name === 'Single Registration') {
-							price = p.fee;
-							remaining = p.numberRemaining;
-						} else if (p.name === 'Member Rate') {
-							discount = p.fee;
-						}
+				Object.entries(c.times).forEach(([tid, t]) => {
+					get_event_tickets(tid).then((data) => {
+						let price = null;
+						let discount = null;
+						data.forEach((p) => {
+							if (p.name === 'Single Registration') {
+								t.price = p.fee;
+							} else if (p.name === 'Member Rate') {
+								t.discount = p.fee;
+							}
+							t.sold = (t.sold || 0) + (p.maxNumberAvailable - p.numberRemaining);
+						});
+						setClasses(Object.values(c2)); // Trigger rerender
 					});
-					tmpPricing[c.name] = {price, discount, remaining};
-					setPricing({...tmpPricing});
 				});
 			});
 		}
-		processPartial(initialData.events, tmpClasses, tmpAreas, tmpLevels);
+
+		processPartial(initialData.events);
 		if (initialData.pagination.totalResults > initialData.pagination.pageSize) {
 			fetch_remaining_events(initialData.pagination.pageSize, processPartial);
 		}
@@ -49,7 +47,7 @@ export function App( { imgSize, initialData } ) {
 	}, []);
 	const items = classes.map((c) => {
 		const p = pricing[c.name] || {remaining: null, price: null, discount: null};
-		let timesWithinRange = Object.entries(c.times).filter((t) => (!filters.from_date || t[1][0] >= filters.from_date) && (!filters.to_date || t[1][1] <= filters.to_date));
+		let timesWithinRange = Object.entries(c.times).filter((t) => (!filters.from_date || t[1].d0 >= filters.from_date) && (!filters.to_date || t[1].d1 <= filters.to_date));
 		const visible = (
 			(!filters.area || filters.area === c.area) &&
 			c.age <= filters.age &&

@@ -30,11 +30,17 @@ $bcol: #0693e3;
 		&.hidden {
 			display: none !important;
 		}
+		.ph-discount {
+			display: inline-block;
+		}
 
 		&.cell {
 			order: 0;
 			margin: 10px;
 			border: 2px $gray solid;
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
 			h3 {
 				text-align: center;
 			}
@@ -43,10 +49,15 @@ $bcol: #0693e3;
 				margin: 0px 5px;
 			}
 			.ph-img {
-				overflow: hidden; // Hides area label when image hasn't yet loaded
+				//overflow: hidden; // Hides area label when image hasn't yet loaded
 				position: relative;
 				text-align: center;
 				margin: 5px;
+				width: 100%;
+				height: 200px;
+				background-size: cover;
+				background-position: center center;
+				background-repeat: no-repeat;
 				h3 {
 					position: absolute;
 					font-size: 20px;
@@ -73,8 +84,11 @@ $bcol: #0693e3;
 				width: 100%;
 				order: 1;
 				display: flex;
-				flex-direction: row;
+				flex-direction: column;
 				justify-content: space-between;
+				@media (min-width: 500px) {
+					flex-direction: row;
+				}
 
 				&> * {
 					margin-top: 10px;
@@ -91,13 +105,16 @@ $bcol: #0693e3;
 					max-width: 600px;
 				}
 			  .ph-footer {
-					flex-direction: column;
+					flex-direction: row;
+					@media(min-width: 500px) {
+						flex-direction: column;
+					}
 			  }
 				.ph-desc {
 					padding-right: 20px;
 				}
 				.ph-fold {
-					min-width: 160px;
+					min-width: 208px;
 					flex-align: right;
 					@media (min-width: 1024px) {
 							flex-direction: row;
@@ -124,10 +141,6 @@ $bcol: #0693e3;
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-
-			.ph-discount {
-				font-weight: bold;
-			}
 			.ph-price {
 				font-size: 30px;
 				font-weight: bold;

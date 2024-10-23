@@ -218,42 +218,12 @@ def get_shop_tech_time_off():
 
 def insert_signin(evt):
     """Insert sign-in event into Airtable"""
-    return insert_records([evt.to_airtable()], "people", "sign_ins")
+    return insert_records([evt], "people", "sign_ins")
 
 
-@lru_cache(maxsize=1)
-def _get_announcements_cached_impl(i):  # pylint: disable=unused-argument
+def get_all_announcements():
+    """Fetches and returns all announcements in the table"""
     return list(get_all_records("people", "sign_in_announcements"))
-
-
-def get_announcements_after(d, roles, clearances):
-    """Gets all announcements, excluding those before `d`"""
-    cache_id = int(
-        datetime.datetime.now().timestamp() % 3600
-    )  # hourly arg change busts the cache
-    now = tznow()
-    for row in _get_announcements_cached_impl(cache_id):
-        adate = dateparser.parse(
-            row["fields"].get("Published", "2024-01-01")
-        ).astimezone(tz)
-        if adate <= d or adate > now:
-            continue
-
-        tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
-        if len(tools) > 0:
-            cleared_for_tool = False
-            for c in clearances:
-                if c in tools:
-                    cleared_for_tool = True
-                    break
-            if not cleared_for_tool:
-                continue
-
-        for r in row["fields"]["Roles"]:
-            if r in roles:
-                row["fields"]["rec_id"] = row["id"]
-                yield row["fields"]
-                break
 
 
 def insert_simple_survey_response(announcement_id, email, neon_id, response):

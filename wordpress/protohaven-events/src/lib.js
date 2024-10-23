@@ -164,7 +164,12 @@ export function process(partial, classes, areas, levels) {
 			}
 		}
 
-		c.times[e.id] = [new Date(e.startDate + ' ' + e.startTime), new Date(e.endDate + ' ' + e.endTime)];
+		c.times[e.id] = {
+			d0: new Date(e.startDate + ' ' + e.startTime),
+			d1: new Date(e.endDate + ' ' + e.endTime),
+			capacity: e.capacity,
+			sold: null,
+		};
 		if (!classes[e.name]) {
 			classes[e.name] = c;
 		}

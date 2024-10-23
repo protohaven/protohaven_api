@@ -11,8 +11,10 @@ export function ph_events_to_elems(evts) {
 		} else if (e.seats_left == 1) {
 			seats = " 1 seat left!";
 		}
-		let fmt = `${shorten_class_name(e.name)} (${e.date}${seats})`;
-		result.push(<a key={e.url} href={e.url} target="_blank">{fmt}</a>);
+		result.push(<a key={e.url} href={e.url} target="_blank">
+			<span style={{'display': 'inline-block', 'marginRight': '5px'}}>{shorten_class_name(e.name)}</span>
+			<span style={{'display': 'inline-block'}}>({e.date}{seats})</span>
+		</a>);
 	}
 	return result;
 }
