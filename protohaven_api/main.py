@@ -74,7 +74,7 @@ server_mode = cfg["general"]["server_mode"].lower()
 run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"
 init_connector(Connector if server_mode == "prod" else DevConnector)
 
-init_signin()  # Must run after connector is initialized
+init_signin()  # Must run after connector is initialized; prefetches from Neon/Airtable
 
 if run_discord_bot:
     import threading

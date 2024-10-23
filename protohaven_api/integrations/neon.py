@@ -406,7 +406,7 @@ def _paginated_search(data, typ="accounts", pagination=None):
 
 
 def get_inactive_members(extra_fields):
-    """Lookup all accounts with active memberships"""
+    """Lookup all accounts with inactive memberships"""
     data = {
         "searchFields": [
             {

@@ -255,8 +255,6 @@ def as_member(data, send):
             activate_membership, args=(m["Account ID"], m["First Name"], data["email"])
         )
 
-    log.info(f"Member {m}")
-
     # Preferably select the Neon account with active membership.
     # Note that the last `m` remains in context regardless of if we break.
     result["status"] = m.get("Account Current Membership Status", "Unknown")
