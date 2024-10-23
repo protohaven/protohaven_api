@@ -217,6 +217,7 @@ def insert_signin(evt):
 
 
 def get_all_announcements():
+    """Fetches and returns all announcements in the table"""
     return list(get_all_records("people", "sign_in_announcements"))
 
 

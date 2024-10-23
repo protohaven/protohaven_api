@@ -8,12 +8,12 @@ from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
 
+from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.schedule import fetch_shop_events
-from protohaven_api.automation.membership import sign_in
 from protohaven_api.rbac import is_enabled as rbac_enabled
 from protohaven_api.rbac import require_login
 
@@ -86,12 +86,14 @@ def welcome_logo():
 def welcome_sock(ws):
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
     data = json.loads(ws.receive())
+
     def _send(msg, pct):
         ws.send(json.dumps({"msg": msg, "pct": pct}))
+
     if data["person"] == "member":
         result = sign_in.as_member(data, _send)
-    else: # if data["person"] == "guest":
-        result = sign_in.as_guest(data, _send)
+    else:  # if data["person"] == "guest":
+        result = sign_in.as_guest(data)
 
     ws.send(json.dumps(result))
     return result
