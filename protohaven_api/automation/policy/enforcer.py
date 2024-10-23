@@ -33,7 +33,6 @@ def enforcement_summary(violations, fees, new_sus, target):
 
     # Condense violation and fee info into a list of updates
     vs = {}
-    outstanding = 0
     for v in violations:
         vs[v["id"]] = {
             "onset": dateparser.parse(v["fields"]["Onset"]),
@@ -49,8 +48,6 @@ def enforcement_summary(violations, fees, new_sus, target):
         vid = f["fields"].get("Violation", [None])[0]
         if vs.get(vid):
             vs[vid]["unpaid"] += amt
-        else:
-            outstanding += amt
 
     ss = {}
     for s in new_sus:
@@ -61,13 +58,12 @@ def enforcement_summary(violations, fees, new_sus, target):
             else "fees paid",
         }
 
-    if len(vs) == 0 and len(ss) == 0 and outstanding == 0:
+    if len(vs) == 0 and len(ss) == 0:
         return None
 
     return Msg.tmpl(
         "enforcement_summary",
         vs=vs.values(),
-        outstanding=outstanding,
         ss=ss.values(),
         target=target,
     )

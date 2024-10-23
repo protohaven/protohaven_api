@@ -2,7 +2,7 @@
 import datetime
 import logging
 import multiprocessing as mp
-from collections import defaultdict
+import re
 
 from dateutil import parser as dateparser
 
@@ -117,21 +117,23 @@ def activate_membership(account_id, fname, email):
             "Please sync with software folks to diagnose in protohaven_api. "
             "Allowing the member through anyways."
         )
-    else:
-        neon.update_account_automation_run_status(account_id, "activated")
-        msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
-        comms.send_email(msg.subject, msg.body, email, msg.html)
-        log.info(f"Sent email {msg}")
+        return
+
+    neon.update_account_automation_run_status(account_id, "activated")
+    msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
+    comms.send_email(msg.subject, msg.body, email, msg.html)
+    log.info(f"Sent email {msg}")
 
 
-def _submit_forms(form_data):
+def submit_forms(form_data):
+    """Submits sign in forms to log the event"""
     rep = forms.submit_google_form("signin", form_data.to_google_form())
     log.info(f"Google form submitted, response {rep}")
     rep = airtable.insert_signin(form_data.to_airtable())
     log.info(f"Airtable log submitted, response {rep}")
 
 
-def log_sign_in(data, result, send):
+def log_sign_in(data, result):
     """Logs a sign-in based on form data. Sends both to Airtable and Google Forms"""
     # Note: setting `purpose` this way tricks the form into not requiring other fields
     assert result["waiver_signed"] is True
@@ -143,8 +145,7 @@ def log_sign_in(data, result, send):
         purpose="I'm a member, just signing in!",
         am_member=(data["person"] == "member"),
     )
-    send("Logging sign-in...", 95)
-    _apply_async(_submit_forms, args=(form_data,))
+    _apply_async(submit_forms, args=(form_data,))
 
 
 def get_member_and_activation_state(email):
@@ -239,8 +240,8 @@ def handle_waiver(  # pylint: disable=too-many-arguments
 
     # Lazy load config entries to prevent parsing errors on init
     now = now or tznow()
-    current_version = current_version or get_config()["neon"]["waiver_published_date"]
-    expiration_days = expiration_days or get_config()["neon"]["waiver_expiration_days"]
+    current_version = current_version or get_config("neon/waiver_published_date")
+    expiration_days = expiration_days or get_config("neon/waiver_expiration_days")
 
     if ack:
         # Always overwrite existing signature data since re-acknowledged
@@ -273,6 +274,7 @@ def get_announcements_after(d, roles, clearances):
     """Gets all announcements, excluding those before `d`"""
     now = tznow()
     for row in table_cache["announcements"]:
+        log.info(row)
         adate = dateparser.parse(
             row["fields"].get("Published", "2024-01-01")
         ).astimezone(tz)
@@ -341,7 +343,7 @@ def as_member(data, send):
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
 
     send("Fetching announcements...", 55)
-    handle_announcements(
+    result["announcements"] = handle_announcements(
         last_ack=m.get("Announcements Acknowledged", None),
         roles=[
             r
@@ -378,15 +380,16 @@ def as_member(data, send):
     )
 
     if result["waiver_signed"]:
-        log_sign_in(data, result, send)
+        send("Logging sign-in...", 95)
+        log_sign_in(data, result)
     return result
 
 
-def as_guest(data, send):
+def as_guest(data):
     """Sign in as a guest (no Neon info)"""
     result = result_base()
     result["waiver_signed"] = data.get("waiver_ack", False)
     result["firstname"] = "Guest"
     if data.get("referrer"):  # i.e. the survey was completed or passed
-        log_sign_in(data, result, send)
+        log_sign_in(data, result)
     return result
