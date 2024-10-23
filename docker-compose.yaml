@@ -1,0 +1,14 @@
+version: "2"
+services:
+  protohaven_api:
+    image: protohaven_api:latest
+    entrypoint: ["sh", "-c", ". ./venv/bin/activate && gunicorn -w 1 --bind=0.0.0.0:4100 protohaven_api.main:app"]
+    container_name: protohaven_api
+    environment:
+      - PH_SERVER_MODE=prod
+      - DISCORD_BOT=true
+    volumes:
+      - "./:/app/"
+    ports:
+      - 4100:80
+    restart: unless-stopped
