@@ -2,8 +2,9 @@
 from collections import namedtuple
 
 import pytest
+from discord import HTTPException
 
-from protohaven_api.integrations.discord_bot import PHClient
+from protohaven_api.integrations import discord_bot as db
 from protohaven_api.testing import idfn
 
 Tc = namedtuple("tc", "desc,usr,enabled,include,exclude,want")
@@ -36,45 +37,82 @@ Tc = namedtuple("tc", "desc,usr,enabled,include,exclude,want")
 def test_hook_on_user_is_permitted(tc, mocker):
     """Test various cases of inclusion/exclusion"""
     mocker.patch.object(
-        PHClient,
-        "cfg",
-        new_callable=mocker.PropertyMock,
-        return_value={
-            "event_hooks": {
-                "enabled": tc.enabled,
-                "include_filter": tc.include,
-                "exclude_filter": tc.exclude,
-            }
-        },
+        db,
+        "get_config",
+        side_effect=lambda p, as_bool=None: {
+            "enabled": tc.enabled,
+            "include_filter": tc.include,
+            "exclude_filter": tc.exclude,
+        }.get(p.split("/")[-1]),
     )
     assert (
-        PHClient(  # pylint: disable=protected-access
+        db.PHClient(  # pylint: disable=protected-access
             intents=None
         )._hook_on_user_is_permitted(tc.usr)
         == tc.want
     )
 
 
-# async def test_role_edit_add(mocker):
-#     """Test adding a role to a user"""
-#
-# async def test_role_edit_remove(mocker, client):
-#     """Test removing a role from a user"""
-#     mock_mem = mocker.Mock()
-#     mock_mem.remove_roles = mocker.AsyncMock()
-#     mocker.patch.object(client.guild, "get_member_named", return_value=mock_mem)
-#     client.role_map = {"Members": mocker.MagicMock(id=123)}
-#
-#     result = await client._role_edit(self, "user1", "Members", "REMOVE")
-#     client.guild.get_member_named.assert_called_once_with("user1")
-#     mock_mem.remove_roles.assert_awaited_once_with(self.role_map["Members"])
-#     assert result is True
-#
-# async def test_role_edit_user_not_found(mocker):
-#     """Test user not found scenario"""
-#
-# async def test_role_edit_invalid_action(mocker):
-#     """Test invalid action scenario"""
-#
-# async def test_role_edit_http_exception(mocker):
-#     """Test HTTPException scenario"""
+@pytest.fixture(name="discord_bot")
+def fixture_discord_bot(mocker):
+    """Provide discord bot as fixture"""
+    bot = db.PHClient(intents=None)
+    bot.get_guild = mocker.MagicMock()
+    bot.role_map = {"Members": mocker.Mock()}
+    return bot
+
+
+@pytest.mark.asyncio
+async def test_grant_role_success(discord_bot, mocker):
+    """Test granting a role"""
+    member = mocker.AsyncMock()
+    discord_bot.guild.get_member_named.return_value = member
+    result = await discord_bot.grant_role("test_user", "Members")
+    member.add_roles.assert_awaited_once_with(discord_bot.role_map["Members"])
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_grant_role_user_not_found(discord_bot):
+    """Test when user not found to grant"""
+    discord_bot.guild.get_member_named.return_value = None
+    result = await discord_bot.grant_role("unknown_user", "Members")
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_grant_role_http_exception(discord_bot, mocker):
+    """Test when granting fails"""
+    member = mocker.AsyncMock()
+    discord_bot.guild.get_member_named.return_value = member
+    member.add_roles.side_effect = HTTPException(mocker.MagicMock(), "HTTP error")
+    result = await discord_bot.grant_role("test_user", "Members")
+    assert "HTTP error" in result
+
+
+@pytest.mark.asyncio
+async def test_revoke_role_success(discord_bot, mocker):
+    """Test success case when revoking role"""
+    member = mocker.AsyncMock()
+    discord_bot.guild.get_member_named.return_value = member
+    result = await discord_bot.revoke_role("test_user", "Members")
+    member.remove_roles.assert_awaited_once_with(discord_bot.role_map["Members"])
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_revoke_role_user_not_found(discord_bot):
+    """Test when user not found to revoke"""
+    discord_bot.guild.get_member_named.return_value = None
+    result = await discord_bot.revoke_role("unknown_user", "Members")
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_revoke_role_http_exception(discord_bot, mocker):
+    """Test when revocation fails"""
+    member = mocker.AsyncMock()
+    discord_bot.guild.get_member_named.return_value = member
+    member.remove_roles.side_effect = HTTPException(mocker.MagicMock(), "HTTP error")
+    result = await discord_bot.revoke_role("test_user", "Members")
+    assert "HTTP error" in result

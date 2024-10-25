@@ -58,7 +58,7 @@ def _find(rv: dict, path: str):
     return rv
 
 
-def get_config(path=None, default=None):
+def get_config(path=None, default=None, as_bool=False):
     """Fetches the config, defined either as PH_CONFIG env var or default config.yaml.
     If path is defined, returns the value located down the tree at that path, or
     the default if there was an error.
@@ -67,12 +67,16 @@ def get_config(path=None, default=None):
     if not cfg_path:
         cfg_path = os.path.join(os.path.dirname(__file__), f"../{CONFIG_YAML_PATH}")
     data = load_yaml_with_env_substitution(cfg_path)
-    if path is None:
-        return data
-    try:
-        return _find(data, path)
-    except (KeyError, TypeError):
-        return default
+    if path is not None:
+        try:
+            data = _find(data, path)
+        except (KeyError, TypeError):
+            return default
+    if as_bool:
+        return (
+            isinstance(data, str) and data.strip().lower() == "true"
+        ) or data is True
+    return data
 
 
 @lru_cache(maxsize=1)

@@ -21,15 +21,13 @@ from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
 
-cfg = get_config()
-logging.basicConfig(level=cfg["general"]["log_level"].upper())
+logging.basicConfig(level=get_config("general/log_level").upper())
 log = logging.getLogger("cli")
-server_mode = cfg["general"]["server_mode"].lower()
+server_mode = get_config("general/server_mode").lower()
 log.info(f"Mode is {server_mode}\n")
 init_connector(Connector if server_mode == "prod" else DevConnector)
 
-run_discord_bot = cfg["discord_bot"]["enabled"].lower() == "true"
-if run_discord_bot:
+if get_config("discord_bot/enabled", as_bool=True):
     import threading
     import time
 

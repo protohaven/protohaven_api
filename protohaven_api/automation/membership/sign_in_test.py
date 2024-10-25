@@ -18,6 +18,17 @@ def test_activate_membership_ok(mocker):
     mock_response = mocker.Mock()
     mock_response.status_code = 200
 
+    mocker.patch.object(
+        s.neon,
+        "fetch_account",
+        return_value={
+            "individualAccount": {
+                "accountCustomFields": [
+                    {"name": "Account Automation Ran", "value": "deferred"}
+                ]
+            },
+        },
+    )
     mocker.patch.object(s.neon, "set_membership_start_date", return_value=mock_response)
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(
@@ -42,6 +53,17 @@ def test_activate_membership_ok(mocker):
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
     mock_response = mocker.Mock(status_code=500, content="Internal Server Error")
+    mocker.patch.object(
+        s.neon,
+        "fetch_account",
+        return_value={
+            "individualAccount": {
+                "accountCustomFields": [
+                    {"name": "Account Automation Ran", "value": "deferred"}
+                ]
+            },
+        },
+    )
     mocker.patch.object(s.neon, "set_membership_start_date", return_value=mock_response)
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(s.comms, "send_email")
@@ -52,6 +74,32 @@ def test_activate_membership_fail(mocker):
     s.notify_async.assert_called_once_with(MatchStr("Error 500"))
     s.comms.send_email.assert_not_called()
     s.neon.update_account_automation_run_status.assert_not_called()
+
+
+def test_activate_membership_no_redo(mocker):
+    """Activation must query neon for the user and verify the membership should be
+    activated before sending emails; otherwise duplication may occur due to cached lookups.
+    This test confirms when "deferred" isn't in Account Automation Ran then
+    no activation is done."""
+    m0 = mocker.patch.object(s, "notify_async", return_value=None)
+    mocker.patch.object(
+        s.neon,
+        "fetch_account",
+        return_value={
+            "individualAccount": {
+                "accountCustomFields": [
+                    {"name": "Account Automation Ran", "value": "asdf"}
+                ]
+            },
+        },
+    )
+    mocker.patch.object(s.neon, "set_membership_start_date")
+    m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
+    m3 = mocker.patch.object(s.comms, "send_email")
+    s.activate_membership("123", "fname", "a@b.com")
+    m0.assert_not_called()
+    m2.assert_not_called()
+    m3.assert_not_called()
 
 
 def test_log_sign_in(mocker):
@@ -593,32 +641,3 @@ def test_as_member_notify_board_and_staff(mocker):
     s.notify_async.assert_called_with(
         "@Board and @Staff: [First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with `Notify Board & Staff = On Sign In`. This indicator suggests immediate followup with this member is needed. Click the name/email link for notes in Neon CRM."
     )
-
-
-def test_activate_membership(mocker):
-    mocker.patch.object(s, "notify_async", return_value=None)
-    m1 = mocker.patch.object(
-        s.neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
-    )
-    m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
-    m3 = mocker.patch.object(s.comms, "send_email")
-    s.activate_membership("123", "fname", "a@b.com")
-    m1.assert_called_once()
-    m2.assert_called_once_with("123", "activated")
-    m3.assert_called_once_with(MatchStr("active"), Any(), "a@b.com", Any())
-
-
-def test_activate_membership_failure(mocker):
-    m0 = mocker.patch.object(s, "notify_async", return_value=None)
-    mocker.patch.object(
-        s.neon,
-        "set_membership_start_date",
-        return_value=mocker.Mock(status_code=123, content="test"),
-    )
-    m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
-    m3 = mocker.patch.object(s.comms, "send_email")
-    s.activate_membership("123", "fname", "a@b.com")
-
-    m0.assert_called_with(MatchStr("Error 123 activating membership for #123"))
-    m2.assert_not_called()
-    m3.assert_not_called()

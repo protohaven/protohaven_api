@@ -12,8 +12,6 @@ from googleapiclient.discovery import build
 
 from protohaven_api.config import get_config
 
-cfg = get_config()["calendar"]
-
 log = logging.getLogger("integrations.schedule")
 
 
@@ -28,7 +26,7 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
     time_max = time_max.isoformat() + "Z"  # 'Z' indicates UTC time
 
     creds = service_account.Credentials.from_service_account_file(
-        "credentials.json", scopes=cfg["scopes"]
+        "credentials.json", scopes=get_config("calendar/scopes")
     )
     service = build("calendar", "v3", credentials=creds)
     # Call the Calendar API
@@ -70,4 +68,4 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
 
 def fetch_shop_events():
     """Fetches onboardings, tours etc. happening in the shop"""
-    return fetch_calendar(cfg["shop_events"])
+    return fetch_calendar(get_config("calendar/shop_events"))

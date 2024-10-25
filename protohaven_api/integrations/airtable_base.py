@@ -1,13 +1,7 @@
 """Airtable basic API commands"""
 import json
 
-from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
-
-
-def cfg(base):
-    """Get config for airtable stuff"""
-    return get_config()["airtable"][base]
 
 
 def get_record(base, tbl, rec):

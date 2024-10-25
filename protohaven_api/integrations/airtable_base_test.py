@@ -5,15 +5,6 @@ from protohaven_api.integrations import airtable_base as a
 
 
 def test_get_all_records(mocker):
-    mocker.patch.object(
-        a,
-        "cfg",
-        return_value={
-            "base_id": "test_base_id",
-            "token": "test_token",
-            "test_tbl": "test_tbl_id",
-        },
-    )
     mocker.patch.object(a, "get_connector")
     a.get_connector().airtable_request.side_effect = [
         (200, json.dumps({"records": ["foo", "bar", "baz"], "offset": 1})),

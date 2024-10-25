@@ -15,7 +15,7 @@ log = logging.getLogger("handlers.admin")
 
 
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
-@require_login_role(Role.ADMIN)
+@require_login_role(Role.AUTOMATION)
 def user_clearances():
     """CRUD operations for member clearances.
     used to update clearances when instructor submits logs"""
@@ -66,7 +66,7 @@ def user_clearances():
 
 
 @page.route("/admin/set_discord_nick")
-@require_login_role(Role.ADMIN)
+@require_login_role(Role.AUTOMATION)
 def set_discord_nick():
     """Set the nickname of a particular discord user"""
     name = request.args.get("name")
@@ -94,7 +94,7 @@ def _get_account_details(account_id):
     for cf in content.get("accountCustomFields", []):
         if cf["name"] == "Account Automation Ran":
             auto_field_present = True
-            auto_field_value = cf.get("optionValues")
+            auto_field_value = cf.get("value")
 
     return {
         "fname": content.get("First Name"),

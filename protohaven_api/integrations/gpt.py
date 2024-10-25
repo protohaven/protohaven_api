@@ -6,7 +6,7 @@ from protohaven_api.config import get_config
 
 def _act_on_content(directive, content):
     """Invoke GPT on sequential content and return the result"""
-    client = OpenAI(api_key=get_config()["openai"]["api_key"])
+    client = OpenAI(api_key=get_config("openai/api_key"))
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "system", "content": directive}]

@@ -8,7 +8,6 @@ from googleapiclient.discovery import build
 from protohaven_api.config import get_config, tz
 
 log = logging.getLogger("integrations.sheets")
-cfg = get_config()["sheets"]
 
 
 def get_sheet_range(sheet_id, range_name):
@@ -16,7 +15,7 @@ def get_sheet_range(sheet_id, range_name):
     Prints values from a sample spreadsheet.
     """
     creds = service_account.Credentials.from_service_account_file(
-        "credentials.json", scopes=cfg["scopes"]
+        "credentials.json", scopes=get_config("sheets/scopes")
     )
     service = build("sheets", "v4", credentials=creds)
     # Call the Sheets API
@@ -31,10 +30,9 @@ def get_sheet_range(sheet_id, range_name):
 
 def get_instructor_submissions(from_row=800):
     """Get log submissions from instructors"""
-    headers = get_sheet_range(cfg["instructor_hours"], "Form Responses 1!A1:M")[0]
-    for row in get_sheet_range(
-        cfg["instructor_hours"], f"Form Responses 1!A{from_row}:M"
-    ):
+    sheet_id = get_config("sheets/instructor_hours")
+    headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
+    for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
         data = dict(zip(headers, row))
         data["Timestamp"] = dateparser.parse(data["Timestamp"])
         yield data
@@ -42,8 +40,8 @@ def get_instructor_submissions(from_row=800):
 
 def get_sign_ins_between(start, end):
     """Returns sign-in events between start and end dates. Not very efficient."""
-    log.info(cfg["welcome_waiver_form"])
-    headers = get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A1:D")[0]
+    sheet_id = get_config("sheets/welcome_waiver_form")
+    headers = get_sheet_range(sheet_id, "Form Responses 1!A1:D")[0]
     # Remap long header names
     headers = [
         {
@@ -54,7 +52,7 @@ def get_sign_ins_between(start, end):
         }.get(h, h)
         for h in headers
     ]
-    for row in get_sheet_range(cfg["welcome_waiver_form"], "Form Responses 1!A12200:D"):
+    for row in get_sheet_range(sheet_id, "Form Responses 1!A12200:D"):
         data = dict(zip(headers, row))
         t = dateparser.parse(data["timestamp"]).astimezone(tz)
         if start <= t <= end:

@@ -29,13 +29,12 @@ class Connector:
     """Provides production access to dependencies."""
 
     def __init__(self):
-        self.cfg = get_config()
         self.neon_ratelimit = Lock()
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request, passing through to httplib2"""
         h = httplib2.Http(".cache")
-        h.add_credentials(self.cfg["neon"]["domain"], api_key)
+        h.add_credentials(get_config("neon/domain"), api_key)
 
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
@@ -72,7 +71,7 @@ class Connector:
         self, mode, base, tbl, rec=None, suffix=None, data=None
     ):  # pylint: disable=too-many-arguments
         """Make an airtable request using the requests module"""
-        cfg = self.cfg["airtable"][base]
+        cfg = get_config(f"airtable/{base}")
         url = f"{AIRTABLE_URL}/{cfg['base_id']}/{cfg[tbl]}"
         if rec:
             url += f"/{rec}"
@@ -103,15 +102,13 @@ class Connector:
 
     def email(self, subject, body, recipients, html):
         """Send an email via GMail SMTP"""
-        sender = self.cfg["comms"]["email_username"]
-        passwd = self.cfg["comms"]["email_password"]
         msg = MIMEText(body, "html" if html else "plain")
         msg["Subject"] = subject
-        msg["From"] = sender
+        msg["From"] = get_config("comms/email_username")
         msg["To"] = ", ".join(recipients)
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp_server:
-            smtp_server.login(sender, passwd)
-            smtp_server.sendmail(sender, recipients, msg.as_string())
+            smtp_server.login(msg["From"], get_config("comms/email_password"))
+            smtp_server.sendmail(msg["From"], recipients, msg.as_string())
 
     def discord_bot_fn(self, fn, *args, **kwargs):
         """Executes a function synchronously on the discord bot"""
@@ -128,8 +125,8 @@ class Connector:
     def booked_request(self, *args, **kwargs):
         """Make a request to the Booked reservation system"""
         headers = {
-            "X-Booked-ApiId": self.cfg["booked"]["id"],
-            "X-Booked-ApiKey": self.cfg["booked"]["key"],
+            "X-Booked-ApiId": get_config("booked/id"),
+            "X-Booked-ApiKey": get_config("booked/key"),
         }
         return requests.request(
             *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
@@ -138,7 +135,7 @@ class Connector:
     def square_client(self):
         """Create and return Square API client"""
         client = SquareClient(
-            access_token=self.cfg["square"]["token"],
+            access_token=get_config("square/token"),
             environment="production",
         )
         return client
@@ -146,7 +143,7 @@ class Connector:
     def asana_client(self):
         """Create and return an Asana API client"""
         acfg = asana.Configuration()
-        acfg.access_token = self.cfg["asana"]["token"]
+        acfg.access_token = get_config("asana/token")
         client = asana.ApiClient(acfg)
         client.default_headers["asana-enable"] = "new_goal_memberships"
         return client

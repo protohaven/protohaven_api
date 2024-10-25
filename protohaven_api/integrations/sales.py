@@ -5,9 +5,6 @@ from functools import lru_cache
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
-cfg = get_config()["square"]
-LOCATION = cfg["location"]
-
 
 @lru_cache(maxsize=1)
 def client():
@@ -105,7 +102,7 @@ def get_purchases():
     """Get all purchases - usually snacks and consumables from the front store"""
     result = client().orders.search_orders(
         body={
-            "location_ids": [LOCATION],
+            "location_ids": [get_config("square/location")],
             "query": {
                 "filter": {
                     "date_time_filter": {

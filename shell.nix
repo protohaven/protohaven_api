@@ -49,6 +49,7 @@ in pkgs.mkShell {
         pytest
         pytest-cov
         pytest-xdist
+        pytest-asyncio
         pylint
         black
         isort

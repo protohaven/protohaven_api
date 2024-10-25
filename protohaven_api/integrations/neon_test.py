@@ -8,7 +8,7 @@ import pytest
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon
 from protohaven_api.rbac import Role
-from protohaven_api.testing import d
+from protohaven_api.testing import Any, d
 
 TEST_USER = 1234
 
@@ -31,7 +31,6 @@ def test_patch_member_role(mocker):
         },
     )
     mocker.patch.object(neon, "get_connector")
-    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
     neon.patch_member_role("a@b.com", Role.INSTRUCTOR, True)
@@ -65,7 +64,6 @@ def test_patch_member_role_rm(mocker):
         },
     )
     mocker.patch.object(neon, "get_connector")
-    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
     neon.patch_member_role("a@b.com", Role.INSTRUCTOR, False)
@@ -80,7 +78,6 @@ def test_set_tech_custom_fields(mocker):
         neon, "fetch_account", return_value={"individualAccount": {"AccountId": 12345}}
     )
     mocker.patch.object(neon, "get_connector")
-    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
 
@@ -106,7 +103,6 @@ def test_set_clearances_some_non_matching(mocker):
         return_value={"individualAccount": {"id": TEST_USER}},
     )
     mocker.patch.object(neon, "get_connector")
-    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = mocker.MagicMock(), None
 
@@ -123,7 +119,6 @@ def test_set_clearances_some_non_matching(mocker):
 
 def test_set_event_scheduled_state(mocker):
     mocker.patch.object(neon, "get_connector")
-    mocker.patch.object(neon, "cfg")
     nrq = neon.get_connector().neon_request
     nrq.return_value = {"id": "12345"}
 
@@ -149,13 +144,12 @@ def test_set_membership_start_date(mocker):
         ],
     )
     mock_connector = mocker.patch.object(neon, "get_connector")
-    mock_cfg = mocker.patch.object(neon, "cfg", return_value="fake_api_key")
     user_id = "user_123"
     start_date = d(0)
     result = neon.set_membership_start_date(user_id, start_date)
     mock_fetch.assert_called_once_with(user_id)
     neon.get_connector().neon_request.assert_called_once_with(
-        "fake_api_key",
+        Any(),
         f"{neon.URL_BASE}/memberships/123",
         "PATCH",
         body=json.dumps({"termStartDate": d(0).strftime("%Y-%m-%d")}),

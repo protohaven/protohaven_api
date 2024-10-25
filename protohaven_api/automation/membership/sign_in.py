@@ -61,8 +61,24 @@ def result_base():
     }
 
 
+def _is_deferred_account(a):
+    a = a.get("individualAccount") or a.get("companyAccount") or {}
+    for cf in a.get("accountCustomFields", []):
+        if cf["name"] == "Account Automation Ran":
+            return "deferred" in cf.get("value", "")
+    return False
+
+
 def activate_membership(account_id, fname, email):
     """Activate a member's deferred membership"""
+    a = neon.fetch_account(account_id)
+    if a is None:
+        log.error(f"Account ID {account_id} not found in Neon; skipping activation")
+        return
+    if not _is_deferred_account(a):
+        log.error(f"activate_membership called on non-deferred account {account_id}")
+        return
+
     rep = neon.set_membership_start_date(account_id, tznow())
     if rep.status_code != 200:
         notify_async(

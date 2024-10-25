@@ -102,7 +102,7 @@ def send_email(subject, body, recipients, html):
 
 def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
-    cfg = get_config()["comms"]
+    cfg = get_config("comms")
     if channel is None:
         channel = cfg["techs-live"]
     elif channel.startswith("@"):  # Send to a user

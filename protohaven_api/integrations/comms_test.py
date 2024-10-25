@@ -4,25 +4,15 @@ import hashlib
 import pytest
 
 from protohaven_api.integrations import comms as c
-from protohaven_api.testing import d
+from protohaven_api.testing import Any, MatchStr, d
 
 
 def test_send_discord_message_with_role_embed(mocker):
     """Ensure that @role mentions are properly converted to role IDs"""
-    mocker.patch.object(
-        c,
-        "get_config",
-        return_value={
-            "comms": {
-                "test_channel": "https://test_channel_webhook",
-                "discord_roles": {"TestRole": "TEST_ROLE_ID"},
-            }
-        },
-    )
     mocker.patch.object(c, "get_connector")
-    c.send_discord_message("Hello @TestRole!", "#test_channel")
+    c.send_discord_message("Hello @Techs!", "#techs-live")
     c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
-        "https://test_channel_webhook", "Hello <@&TEST_ROLE_ID>!"
+        Any(), MatchStr("Hello <@&.+?>!")
     )
 
 

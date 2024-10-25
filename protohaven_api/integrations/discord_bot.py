@@ -19,25 +19,12 @@ class PHClient(discord.Client):
         self.member_join_hook_fn = lambda details: []
 
     @property
-    def cfg(self):
-        """Fetches the bot config"""
-        return get_config()["discord_bot"]
-
-    @property
     def guild(self):
         """Fetches the guild name for the Protohaven server"""
-        guild = self.get_guild(self.cfg["guild_id"])
+        guild = self.get_guild(get_config("discord_bot/guild_id"))
         if guild is None:
-            raise RuntimeError(f"Guild {self.cfg['guild_id']} not found")
+            raise RuntimeError(f"Guild {get_config('discord_bot/guild_id')} not found")
         return guild
-
-    @property
-    def onboarding_channel(self):
-        """Returns the onboarding channel ID"""
-        chan = self.guild.get_channel(self.cfg["onboarding_channel_id"])
-        if chan is None:
-            raise RuntimeError(f"Channel {self.cfg['onboarding_channel_id']} not found")
-        return chan
 
     async def on_ready(self):
         """Runs when the bot is connected and ready to go"""
@@ -185,15 +172,14 @@ class PHClient(discord.Client):
         await mem.send(msg)
 
     def _hook_on_user_is_permitted(self, discord_id):
-        ec = self.cfg["event_hooks"]
-        if not ec.get("enabled", False):
+        if not get_config("discord_bot/event_hooks/enabled", as_bool=True):
             return False
-        if ec.get("include_filter") is not None:
-            if discord_id not in ec["include_filter"]:
-                return False
-        if ec.get("exclude_filter") is not None:
-            if discord_id in ec["exclude_filter"]:
-                return False
+        include_filter = get_config("discord_bot/event_hooks/include_filter")
+        if include_filter is not None and discord_id not in include_filter:
+            return False
+        exclude_filter = get_config("discord_bot/event_hooks/exclude_filter")
+        if exclude_filter is not None and discord_id in exclude_filter:
+            return False
         return True
 
     async def on_message(self, msg):
@@ -234,7 +220,7 @@ def run(member_join_hook_fn=None):
     client = PHClient(intents=intents)
     if member_join_hook_fn:
         client.member_join_hook_fn = member_join_hook_fn
-    client.run(get_config()["discord_bot"]["token"])
+    client.run(get_config("discord_bot/token"))
 
 
 def get_client():

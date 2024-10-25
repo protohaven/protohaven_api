@@ -450,6 +450,8 @@ def setup_discord_user_sync(discord_id):
     """Synchronous version of `setup_discord_user`. Must be called outside of
     discord bot / coroutine flow to prevent deadlock"""
     details = comms.get_member_details(discord_id)
+    if details is None:
+        return False
     for a in setup_discord_user(details):
         if a[0] == "send_dm":
             comms.send_discord_message(a[2], f"@{a[1]}")
@@ -459,3 +461,4 @@ def setup_discord_user_sync(discord_id):
             comms.set_discord_role(a[1], a[2])
         else:
             raise RuntimeError(f"Unhandled uesr sync action: {a}")
+    return True
