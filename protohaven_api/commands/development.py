@@ -7,7 +7,11 @@ from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import get_config  # pylint: disable=import-error
-from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
+from protohaven_api.integrations import (  # pylint: disable=import-error
+    airtable,
+    neon,
+    neon_base,
+)
 
 log = logging.getLogger("cli.dev")
 
@@ -15,11 +19,8 @@ log = logging.getLogger("cli.dev")
 class Commands:  # pylint: disable=too-few-public-methods
     """Commands for development"""
 
-    def _sanitize_account(self, row):
+    def _sanitize_account(self, acc):
         """Remove sensitive demographic, financial, location and non-email contact information"""
-        acc = row.get("individualAccount", None)
-        if acc is None:
-            acc = row["companyAccount"]
         acc["accountCustomFields"] = [
             a
             for a in acc.get("accountCustomFields", [])
@@ -38,7 +39,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 {"addresses": [], "phone1": "", "phone2": "", "phone3": ""}
             )
         acc["generosityIndicator"] = None
-        return row
+        return acc
 
     @command(
         arg("--path", help="Path to destination file", type=str, required=True),
@@ -74,12 +75,17 @@ class Commands:  # pylint: disable=too-few-public-methods
             1727,  # Testing Nonmember
             1260,  # William Hart (Instructor, Tech Lead)
         ]:
-            acc = neon.fetch_account(acct_id)
+            acc, is_company = neon_base.fetch_account(acct_id)
             if acc is None:
                 log.warning(f"Unable to fetch account with id {acct_id}, skipping")
             else:
                 log.info(f"- Account #{acct_id}")
-                accounts[acct_id] = self._sanitize_account(acc)
+                acc = self._sanitize_account(acc)
+                accounts[acct_id] = (
+                    {"companyAccount": acc}
+                    if is_company
+                    else {"individualAccount": acc}
+                )
                 memberships[acct_id] = list(neon.fetch_memberships(acct_id))
 
         log.info("Fetching airtable data...")

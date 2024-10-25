@@ -11,7 +11,11 @@ from pathlib import Path
 from dateutil import parser as dateparser
 
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
+from protohaven_api.integrations import (  # pylint: disable=import-error
+    airtable,
+    neon,
+    neon_base,
+)
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.builder")
@@ -19,10 +23,8 @@ log = logging.getLogger("class_automation.builder")
 
 def get_account_email(account_id):
     """Gets the matching email for a Neon account, by ID"""
-    content = neon.fetch_account(account_id)
-    content = content.get("individualAccount", None) or content.get("companyAccount")
-    content = content.get("primaryContact", {})
-    return content.get("email1") or content.get("email2") or content.get("email3")
+    a = (neon_base.fetch_account(account_id) or {}).get("primaryContact", {})
+    return a.get("email1") or a.get("email2") or a.get("email3")
 
 
 def gen_scheduling_reminders(start, end):

@@ -18,17 +18,7 @@ def test_activate_membership_ok(mocker):
     mock_response = mocker.Mock()
     mock_response.status_code = 200
 
-    mocker.patch.object(
-        s.neon,
-        "fetch_account",
-        return_value={
-            "individualAccount": {
-                "accountCustomFields": [
-                    {"name": "Account Automation Ran", "value": "deferred"}
-                ]
-            },
-        },
-    )
+    mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
     mocker.patch.object(s.neon, "set_membership_start_date", return_value=mock_response)
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(
@@ -53,17 +43,7 @@ def test_activate_membership_ok(mocker):
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
     mock_response = mocker.Mock(status_code=500, content="Internal Server Error")
-    mocker.patch.object(
-        s.neon,
-        "fetch_account",
-        return_value={
-            "individualAccount": {
-                "accountCustomFields": [
-                    {"name": "Account Automation Ran", "value": "deferred"}
-                ]
-            },
-        },
-    )
+    mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
     mocker.patch.object(s.neon, "set_membership_start_date", return_value=mock_response)
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(s.comms, "send_email")
@@ -82,17 +62,7 @@ def test_activate_membership_no_redo(mocker):
     This test confirms when "deferred" isn't in Account Automation Ran then
     no activation is done."""
     m0 = mocker.patch.object(s, "notify_async", return_value=None)
-    mocker.patch.object(
-        s.neon,
-        "fetch_account",
-        return_value={
-            "individualAccount": {
-                "accountCustomFields": [
-                    {"name": "Account Automation Ran", "value": "asdf"}
-                ]
-            },
-        },
-    )
+    mocker.patch.object(s.neon_base, "get_custom_field", return_value="asdf")
     mocker.patch.object(s.neon, "set_membership_start_date")
     m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     m3 = mocker.patch.object(s.comms, "send_email")

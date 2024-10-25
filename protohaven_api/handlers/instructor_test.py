@@ -98,9 +98,9 @@ def test_instructor_class_attendees(client, mocker):
         instructor.neon, "fetch_attendees", return_value=[{"accountId": 123}]
     )
     mocker.patch.object(
-        instructor.neon,
+        instructor.neon.neon_base,
         "fetch_account",
-        return_value={"individualAccount": {"primaryContact": {"email1": "a@b.com"}}},
+        return_value=({"primaryContact": {"email1": "a@b.com"}}, False),
     )
     result = client.get("/instructor/class/attendees?id=12345")
     rep = json.loads(result.data.decode("utf8"))
@@ -254,7 +254,7 @@ def test_get_instructor_readiness_all_ok(mocker):
                 "Account ID": 12345,
                 "Account Current Membership Status": "Active",
                 "Discord User": "discord_user",
-                "First Name": "First     ", # Egregious space in the name doesn't cause lookup error
+                "First Name": "First     ",  # Egregious space in the name doesn't cause lookup error
                 "Last Name": "Last",
             }
         ]

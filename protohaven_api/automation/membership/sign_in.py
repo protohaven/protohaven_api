@@ -8,7 +8,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.automation.membership.warm_cache import AccountCache, AirtableCache
 from protohaven_api.config import get_config, tz, tznow
-from protohaven_api.integrations import airtable, comms, forms, neon
+from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
 log = logging.getLogger("automation.membership.sign_in")
@@ -61,21 +61,12 @@ def result_base():
     }
 
 
-def _is_deferred_account(a):
-    a = a.get("individualAccount") or a.get("companyAccount") or {}
-    for cf in a.get("accountCustomFields", []):
-        if cf["name"] == "Account Automation Ran":
-            return "deferred" in cf.get("value", "")
-    return False
-
-
 def activate_membership(account_id, fname, email):
     """Activate a member's deferred membership"""
-    a = neon.fetch_account(account_id)
-    if a is None:
-        log.error(f"Account ID {account_id} not found in Neon; skipping activation")
-        return
-    if not _is_deferred_account(a):
+    automation_ran = neon_base.get_custom_field(
+        account_id, neon.CustomField.ACCOUNT_AUTOMATION_RAN
+    )
+    if "deferred" not in automation_ran:
         log.error(f"activate_membership called on non-deferred account {account_id}")
         return
 

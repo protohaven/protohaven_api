@@ -11,7 +11,7 @@ from protohaven_api.automation.classes.scheduler import (
 from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, neon, neon_base
 from protohaven_api.rbac import Role, am_admin, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -144,11 +144,9 @@ def instructor_class_attendees():
     for a in result:
         if a["accountId"]:
             try:
-                acc = neon.fetch_account(a["accountId"])
+                acc, _ = neon_base.fetch_account(a["accountId"])
                 if acc is not None:
-                    a["email"] = acc.get(
-                        "individualAccount", acc.get("companyAccount")
-                    )["primaryContact"]["email1"]
+                    a["email"] = acc["primaryContact"]["email1"]
             except RuntimeError:
                 pass
 

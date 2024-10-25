@@ -13,7 +13,12 @@ from protohaven_api.automation.classes import builder, scheduler
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import airtable, neon  # pylint: disable=import-error
+from protohaven_api.integrations import (  # pylint: disable=import-error
+    airtable,
+    neon,
+    neon_base,
+)
+from protohaven_api.integrations.data.neon import Category
 
 log = logging.getLogger("cli.classes")
 
@@ -188,13 +193,13 @@ class Commands:
     def _neon_category_from_event_name(cls, name):
         """Parses the event name and returns a category matching what kind of event it is"""
         if name == "All Member Meeting":
-            return neon.Category.MEMBER_EVENT
+            return Category.MEMBER_EVENT
         m = re.search(r"\w+? (\d+):", name)
         if m is None:
-            return neon.Category.SOMETHING_ELSE_AMAZING
+            return Category.SOMETHING_ELSE_AMAZING
         if int(m[1]) >= 110:
-            return neon.Category.PROJECT_BASED_WORKSHOP
-        return neon.Category.SKILLS_AND_SAFETY_WORKSHOP
+            return Category.PROJECT_BASED_WORKSHOP
+        return Category.SKILLS_AND_SAFETY_WORKSHOP
 
     def _schedule_event(  # pylint: disable=too-many-arguments
         self, event, desc, published=True, registration=True, dry_run=True
@@ -206,7 +211,7 @@ class Commands:
             end += datetime.timedelta(days=days)
         name = event["fields"]["Name (from Class)"][0]
         capacity = event["fields"]["Capacity (from Class)"][0]
-        return neon.create_event(
+        return neon_base.create_event(
             name,
             desc,
             start,

@@ -7,7 +7,7 @@ from unittest.mock import call
 import pytest
 
 from protohaven_api.commands import classes as C
-from protohaven_api.integrations import neon
+from protohaven_api.integrations.data.neon import Category
 from protohaven_api.testing import Any, d, idfn, mkcli
 
 
@@ -15,19 +15,19 @@ def test_category_from_event_name():
     """Test a few cases to make sure categories are correctly applied"""
     assert (
         C.Commands._neon_category_from_event_name("Digital 113: 2D Vector Creation")
-        == neon.Category.PROJECT_BASED_WORKSHOP
+        == Category.PROJECT_BASED_WORKSHOP
     )
     assert (
         C.Commands._neon_category_from_event_name("Welding 101: MIG Welding Clearance")
-        == neon.Category.SKILLS_AND_SAFETY_WORKSHOP
+        == Category.SKILLS_AND_SAFETY_WORKSHOP
     )
     assert (
         C.Commands._neon_category_from_event_name("All Member Meeting")
-        == neon.Category.MEMBER_EVENT
+        == Category.MEMBER_EVENT
     )
     assert (
         C.Commands._neon_category_from_event_name("Valentine's Day Make & Take Party")
-        == neon.Category.SOMETHING_ELSE_AMAZING
+        == Category.SOMETHING_ELSE_AMAZING
     )
 
 
@@ -186,7 +186,7 @@ Tc = namedtuple("Tc", "desc,args,publish,register,discount")
 def test_post_classes_to_neon_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
     mocker.patch.object(C.neon, "assign_pricing")
-    mocker.patch.object(C.neon, "create_event", return_value="123")
+    mocker.patch.object(C.neon_base, "create_event", return_value="123")
     mocker.patch.object(C.airtable, "update_record")
     mocker.patch.object(
         C.Commands, "_reserve_equipment_for_class_internal", create=True
@@ -205,7 +205,7 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         "#instructors",
         "#class-automation",
     }
-    C.neon.create_event.assert_called_with(
+    C.neon_base.create_event.assert_called_with(
         Any(),
         Any(),
         d(30),
@@ -216,10 +216,10 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         published=tc.publish,
         registration=tc.register,
     )
-    C.neon.create_event.mock_calls[0][0] == "Test Class"
+    C.neon_base.create_event.mock_calls[0][0] == "Test Class"
     assert (
         '<p><img height="200" src="http://testimg"/></p>'
-        in C.neon.create_event.mock_calls[0][1][1]
+        in C.neon_base.create_event.mock_calls[0][1][1]
     )
     C.neon.assign_pricing.assert_called_with(
         "123", 90, 6, include_discounts=tc.discount, clear_existing=True
