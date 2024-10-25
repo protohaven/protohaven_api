@@ -16,7 +16,11 @@ from protohaven_api.config import (  # pylint: disable=import-error
     tz,
     tznow,
 )
-from protohaven_api.integrations import neon, sales  # pylint: disable=import-error
+from protohaven_api.integrations import (  # pylint: disable=import-error
+    neon,
+    neon_base,
+    sales,
+)
 from protohaven_api.integrations.comms import Msg
 from protohaven_api.rbac import Role
 
@@ -242,9 +246,9 @@ class Commands:
                     continue
                 hid = mem["Household ID"]
                 level = mem["Membership Level"]
-                acct = neon.fetch_account(mem["Account ID"])
-                if (acct.get("companyAccount") or {}).get("accountId"):
-                    continue  # Don't collect companies
+                acct, is_company = neon_base.fetch_account(mem["Account ID"])
+                if acct is None or is_company:
+                    continue
 
                 active_memberships = []
                 now = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -283,9 +287,7 @@ class Commands:
                     "term": mem["Membership Term"],
                     "active_memberships": active_memberships,
                 }
-                for acf in acct is not None and (
-                    acct.get("individualAccount") or {}
-                ).get("accountCustomFields", []):
+                for acf in acct.get("accountCustomFields", []):
                     if acf["name"] == "Zero-Cost Membership OK Until Date":
                         details["zero_cost_ok_until"] = dateparser.parse(
                             acf["value"]

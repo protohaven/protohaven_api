@@ -6,7 +6,7 @@ from flask import Blueprint, Response, request
 
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.integrations import airtable, comms, neon, neon_base
 from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 
 page = Blueprint("admin", __name__, template_folder="templates")
@@ -81,14 +81,7 @@ def set_discord_nick():
 
 def _get_account_details(account_id):
     """Gets the matching email for a Neon account, by ID"""
-    content = neon.fetch_account(
-        account_id,
-    )
-    if not content:
-        raise RuntimeError(f"Failed to fetch account id {account_id}")
-    content = content.get("individualAccount", None) or content.get("companyAccount")
-    content = content.get("primaryContact", {})
-
+    content, _ = neon_base.fetch_account(account_id, required=True)
     auto_field_present = False
     auto_field_value = None
     for cf in content.get("accountCustomFields", []):
@@ -96,6 +89,7 @@ def _get_account_details(account_id):
             auto_field_present = True
             auto_field_value = cf.get("value")
 
+    content = content.get("primaryContact", {})
     return {
         "fname": content.get("First Name"),
         "email": content.get("email1")

@@ -43,18 +43,14 @@ def whoami():
     if not session.get("neon_account"):
         return Response("You are not logged in", status=400)
 
-    neon_account = session.get("neon_account") or {
-        "individualAccount": {"accountCustomFields": []}
-    }
+    neon_account = session.get("neon_account")
     clearances = []
     roles = []
-    neon_account["custom_fields"] = {"Clearances": {"optionValues": []}}
-    for cf in neon_account["individualAccount"]["accountCustomFields"]:
+    for cf in neon_account.get("accountCustomFields", []):
         if cf["name"] == "Clearances":
             clearances = [v["name"] for v in cf["optionValues"]]
         if cf["name"] == "API server role":
             roles = [v["name"] for v in cf["optionValues"]]
-        neon_account["custom_fields"][cf["name"]] = cf
 
     return {
         "fullname": user_fullname(),

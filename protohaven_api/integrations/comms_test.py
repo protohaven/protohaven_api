@@ -68,10 +68,6 @@ TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}),
     ("test_html_template", {"val": "test_body"}),
     (
-        "admin_create_suspension",
-        {"neon_id": 12345, "end": d(0)},
-    ),
-    (
         "class_automation_summary",
         {
             "events": {
@@ -246,16 +242,6 @@ TESTED_TEMPLATES = [
             "now": d(14),
         },
     ),
-    ("suspension_ended", {"firstname": "Firstname"}),
-    (
-        "suspension_started",
-        {
-            "firstname": "Firstname",
-            "suffix": " for testing purposes",
-            "start": d(0),
-            "accrued": 100,
-        },
-    ),
     (
         "tech_daily_tasks",
         {
@@ -302,7 +288,6 @@ TESTED_TEMPLATES = [
 HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
-    "admin_create_suspension": "b43c46a0f86ee0d7",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_proposals": "1d1bef17435d88da",  # pragma: allowlist secret
     "class_scheduled": "d7638c67655ae1eb",  # pragma: allowlist secret
@@ -335,8 +320,6 @@ HASHES = {
     "shop_tech_applications": "cd77b6978d522da3",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
     "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
-    "suspension_ended": "d05255f2fcb8e992",  # pragma: allowlist secret
-    "suspension_started": "3b211a9a7c04be8a",  # pragma: allowlist secret
     "tech_daily_tasks": "55af86e04ce2551c",  # pragma: allowlist secret
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
     "tech_openings": "f9bd7999e37d1ebd",  # pragma: allowlist secret

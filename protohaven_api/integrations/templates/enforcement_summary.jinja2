@@ -1,12 +1,8 @@
-{% if subject %}Violations and Actions Summary{% else %}{% if vs|length > 0 %}
+{% if subject %}Violations and Actions Summary{% else %}
 {{vs|length}} active violation(s):{% for v in vs %}
 - Since {{v.onset.strftime("%Y-%m-%d")}}{% if v['fee'] != 0 %}
   Daily fee: ${{v['fee']}}
   Accrued: ${{v['unpaid']}}
   {% endif %}Notes: {{v['notes']}}{% endfor %}
-{% endif %}{% if ss|length > 0 %}
-There are {{ss|length}} new suspension(s).{% for s in ss %}
- - from {{s.start.strftime("%Y-%m-%d")}} until {% if s.end is string %}{{end}}{% else %}{{s.end.strftime("%Y-%m-%d")}}{% endif %}{% endfor %}
-{% endif %}
 See all active violations (with pictures) at https://protohaven.org/violations
 {% endif %}
