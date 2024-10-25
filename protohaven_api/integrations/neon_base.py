@@ -31,8 +31,6 @@ def paginated_fetch(api_key, path, params=None):
         )
         if isinstance(content, list):
             raise RuntimeError(content)
-        if content["pagination"]["totalResults"] == 0:
-            return  # basically an empty yield
         total_pages = content["pagination"]["totalPages"]
         yield from content[result_field]
         current_page += 1
@@ -73,9 +71,7 @@ def fetch_account(account_id, required=False):
     if the account is not found.
     Second return value is True if the account is for a company, False otherwise
     """
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/accounts/{account_id}"
-    )
+    content = get("api_key1", f"/accounts/{account_id}")
     if isinstance(content, list):
         raise RuntimeError(content)
     if content is None and required:
@@ -88,29 +84,30 @@ def fetch_account(account_id, required=False):
     )
 
 
-def get(api_key, url):
+def get(api_key, path):
     """Send an HTTP GET request"""
-    return get_connector().neon_request(
-        get_config(f"neon/{api_key}", f"{URL_BASE}/{url}")
-    )
+    assert path.startswith("/")
+    return get_connector().neon_request(get_config(f"neon/{api_key}"), URL_BASE + path)
 
 
-def patch(api_key, url, body):
+def patch(api_key, path, body):
     """Send an HTTP PATCH request"""
+    assert path.startswith("/")
     return get_connector().neon_request(
         get_config(f"neon{api_key}"),
-        f"{URL_BASE}/{url}",
+        URL_BASE + path,
         "PATCH",
         body=json.dumps(body),
         headers={"content-type": "application/json"},
     )
 
 
-def put(api_key, url, body):
+def put(api_key, path, body):
     """Send an HTTP PUT request"""
+    assert path.startswith("/")
     return get_connector().neon_request(
         get_config(f"neon{api_key}"),
-        f"{URL_BASE}/{url}",
+        URL_BASE + path,
         "PUT",
         body=json.dumps(body),
         headers={"content-type": "application/json"},
@@ -476,41 +473,6 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 f"?eventId={event_id}&id={deletable_packages[0]}"
             )
 
-    def set_thumbnail(self, event_id, thumbnail_path):
-        """Sets the thumbnail image for a neon event"""
-        r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
-        content = r.content.decode("utf8")
-        if "Upload Thumbnail" not in content:
-            log.debug(content)
-            raise RuntimeError("BAD get event page")
-
-        referer = (
-            f"{ADMIN_URL}/event/uploadPhoto.do?eventId={event_id}&staffUpload=true"
-        )
-        ag = self.s.get(referer)
-        content = ag.content.decode("utf8")
-        if "Event Photo" not in content:
-            raise RuntimeError("BAD get event photo upload page")
-
-        self.s.headers.update({"Referer": ag.url})
-        drt_i = self.drt.get()
-        with open(thumbnail_path, "rb") as fh:
-            multipart_form_data = {
-                "z2DuplicateRequestToken": (None, drt_i),
-                "eventImageForm": (thumbnail_path, fh),
-            }
-            rep = self.s.post(
-                f"{ADMIN_URL}/event/photoSave.do",
-                files=multipart_form_data,
-                allow_redirects=False,
-            )
-        log.debug(rep.request.headers)
-        log.debug(rep.request.body)
-        log.debug("=========Response:========")
-        log.debug(rep.status_code)
-        log.debug(rep.content.decode("utf8"))
-        return rep
-
 
 def create_event(  # pylint: disable=too-many-arguments
     name,
@@ -544,12 +506,6 @@ def create_event(  # pylint: disable=too-many-arguments
             "registrationCloseDate": (start - datetime.timedelta(hours=24)).isoformat(),
             "timeZone": {"id": "1"},
         },
-        # "financialSettings": {
-        #  "feeType": "SingleFee",
-        #  "admissionFee": {
-        #    "fee": price,
-        #  },
-        # },
         "financialSettings": {
             "feeType": "MT_OA",
             "admissionFee": None,
@@ -587,40 +543,32 @@ def create_event(  # pylint: disable=too-many-arguments
 
 def income_condition(income_name, income_value):
     """Generates an "income condition" for making specific pricing of tickets available"""
-    return [
-        [
-            {
-                "name": "account_custom_view.field78",
-                "displayName": "Income Based Rates",
-                "groupId": "220",
-                "savedGroup": "1",
-                "operator": "1",
-                "operatorName": "Equal",
-                "optionName": income_name,
-                "optionValue": str(income_value),
-            }
-        ]
-    ]
+    return {
+        "name": "account_custom_view.field78",
+        "displayName": "Income Based Rates",
+        "groupId": "220",
+        "savedGroup": "1",
+        "operator": "1",
+        "operatorName": "Equal",
+        "optionName": income_name,
+        "optionValue": str(income_value),
+    }
 
 
 def membership_condition(mem_names, mem_values):
     """Generates a "membership condition" for making specific ticket prices available"""
     stvals = [f"'{v}'" for v in mem_values]
     stvals = f"({','.join(stvals)})"
-    return [
-        [
-            {
-                "name": "membership_listing.membershipId",
-                "displayName": "Membership+Level",
-                "groupId": "55",
-                "savedGroup": "1",
-                "operator": "9",
-                "operatorName": "In Range Of",
-                "optionName": " or ".join(mem_names),
-                "optionValue": stvals,
-            }
-        ]
-    ]
+    return {
+        "name": "membership_listing.membershipId",
+        "displayName": "Membership+Level",
+        "groupId": "55",
+        "savedGroup": "1",
+        "operator": "9",
+        "operatorName": "In Range Of",
+        "optionName": " or ".join(mem_names),
+        "optionValue": stvals,
+    }
 
 
 pricing = [
@@ -634,7 +582,7 @@ pricing = [
     {
         "name": "ELI - Price",
         "desc": "70% Of",
-        "cond": income_condition("Extremely Low Income - 70%", 43),
+        "cond": [[income_condition("Extremely Low Income - 70%", 43)]],
         "price_ratio": 0.3,
         "qty_ratio": 0.25,
         "price_name": "AMP Rate",
@@ -642,7 +590,7 @@ pricing = [
     {
         "name": "VLI - Price",
         "desc": "50% Of",
-        "cond": income_condition("Very Low Income - 50%", 42),
+        "cond": [[income_condition("Very Low Income - 50%", 42)]],
         "price_ratio": 0.5,
         "qty_ratio": 0.25,
         "price_name": "AMP Rate",
@@ -650,7 +598,7 @@ pricing = [
     {
         "name": "LI - Price",
         "desc": "20% Of",
-        "cond": income_condition("Low Income - 20%", 41),
+        "cond": [[income_condition("Low Income - 20%", 41)]],
         "price_ratio": 0.8,
         "qty_ratio": 0.5,
         "price_name": "AMP Rate",
@@ -658,14 +606,18 @@ pricing = [
     {
         "name": "Member Discount",
         "desc": "20% Of",
-        "cond": membership_condition(
+        "cond": [
             [
-                "General+Membership",
-                "Primary+Family+Membership",
-                "Additional+Family+Membership",
-            ],
-            [1, 27, 26],
-        ),
+                membership_condition(
+                    [
+                        "General+Membership",
+                        "Primary+Family+Membership",
+                        "Additional+Family+Membership",
+                    ],
+                    [1, 27, 26],
+                )
+            ]
+        ],
         "price_ratio": 0.8,
         "qty_ratio": 1.0,
         "price_name": "Member Rate",
@@ -673,7 +625,7 @@ pricing = [
     {
         "name": "Instructor Discount",
         "desc": "50% Of",
-        "cond": membership_condition(["Instructor"], [9]),
+        "cond": [[membership_condition(["Instructor"], [9])]],
         "price_ratio": 0.5,
         "qty_ratio": 1.0,
         "price_name": "Instructor Rate",

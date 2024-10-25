@@ -423,11 +423,12 @@ def update_announcement_status(account_id, now=None):
 
 def update_account_automation_run_status(account_id, status: str, now=None):
     """Updates automation ran timestamp"""
-    if now is None:
-        now = tznow()
     return neon_base.set_custom_fields(
         account_id,
-        (CustomField.ACCOUNT_AUTOMATION_RAN, status + " " + now.strftime("%Y-%m-%d")),
+        (
+            CustomField.ACCOUNT_AUTOMATION_RAN,
+            status + " " + (now or tznow()).strftime("%Y-%m-%d"),
+        ),
     )
 
 
