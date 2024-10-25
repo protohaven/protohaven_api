@@ -1,15 +1,13 @@
 """ Neon CRM integration methods """  # pylint: disable=too-many-lines
 import datetime
-import json
 import logging
 from functools import lru_cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import neon_base
-from protohaven_api.integrations.data.connector import get as get_connector
-from protohaven_api.integrations.data.neon import URL_BASE, CustomField
+from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("integrations.neon")
@@ -26,7 +24,7 @@ def fetch_published_upcoming_events(back_days=7):
         "publishedEvent": True,
         "archived": False,
     }
-    return neon_base.paginated_fetch(get_config("neon/api_key1"), "/events", q_params)
+    return neon_base.paginated_fetch("api_key1", "/events", q_params)
 
 
 def fetch_events(after=None, before=None, published=True):
@@ -40,7 +38,7 @@ def fetch_events(after=None, before=None, published=True):
             else {}
         ),
     }
-    return neon_base.paginated_fetch(get_config("neon/api_key1"), "/events", q_params)
+    return neon_base.paginated_fetch("api_key1", "/events", q_params)
 
 
 def search_upcoming_events(from_date, to_date, extra_fields):
@@ -64,47 +62,37 @@ def search_upcoming_events(from_date, to_date, extra_fields):
 
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    return get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/events/{event_id}"
-    )
+    return neon_base.get("api_key1", f"events/{event_id}")
 
 
 def fetch_registrations(event_id):
     """Fetch registrations for a specific Neon event"""
     return neon_base.paginated_fetch(
-        get_config("neon/api_key1"), f"/events/{event_id}/eventRegistrations"
+        "api_key1", f"/events/{event_id}/eventRegistrations"
     )
 
 
 def fetch_tickets(event_id):
     """Fetch ticket information for a specific Neon event"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/events/{event_id}/tickets"
-    )
+    content = neon_base.get("api_key1", f"/events/{event_id}/tickets")
     assert isinstance(content, list)
     return content
 
 
 def fetch_memberships(account_id):
     """Fetch membership history of an account in Neon"""
-    return neon_base.paginated_fetch(
-        get_config("neon/api_key2"), f"/accounts/{account_id}/memberships"
-    )
+    return neon_base.paginated_fetch("api_key2", f"/accounts/{account_id}/memberships")
 
 
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
-    return neon_base.paginated_fetch(
-        get_config("neon/api_key1"), f"/events/{event_id}/attendees"
-    )
+    return neon_base.paginated_fetch("api_key1", f"/events/{event_id}/attendees")
 
 
 @lru_cache(maxsize=1)
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/customFields/{CustomField.CLEARANCES}"
-    )
+    content = neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")
     return content["optionValues"]
 
 
@@ -123,21 +111,18 @@ def set_clearance_codes(codes):
     DANGER: Get clearance codes and extend that list, otherwise
     you risk losing clearance data for users.
     """
-    data = {
-        "groupId": 1,  # Clearances group ID
-        "id": CustomField.CLEARANCES,
-        "displayType": "Checkbox",
-        "name": "Clearances",
-        "dataType": "Integer",
-        "component": "Account",
-        "optionValues": codes,
-    }
-    return get_connector().neon_request(
-        get_config("neon/api_key1"),
-        f"{URL_BASE}/customFields/{CustomField.CLEARANCES}",
-        "PUT",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+    return neon_base.put(
+        "api_key1",
+        f"/customFields/{CustomField.CLEARANCES}",
+        {
+            "groupId": 1,  # Clearances group ID
+            "id": CustomField.CLEARANCES,
+            "displayType": "Checkbox",
+            "name": "Clearances",
+            "dataType": "Integer",
+            "component": "Account",
+            "optionValues": codes,
+        },
     )
 
 
@@ -153,16 +138,10 @@ def set_membership_start_date(account_id, d):
 
     if not latest[0]:
         raise RuntimeError(f"No latest membership for member {account_id}")
-
-    data = {
-        "termStartDate": d.strftime("%Y-%m-%d"),
-    }
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/memberships/{latest[0]}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+    return neon_base.patch(
+        "api_key2",
+        f"/memberships/{latest[0]}",
+        {"termStartDate": d.strftime("%Y-%m-%d")},
     )
 
 
@@ -189,18 +168,14 @@ def set_clearances(account_id, codes):
 
 def fetch_search_fields():
     """Fetches possible search fields for member search"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key2"), f"{URL_BASE}/accounts/search/searchFields"
-    )
+    content = neon_base.get("api_key2", "/accounts/search/searchFields")
     assert isinstance(content, list)
     return content
 
 
 def fetch_output_fields():
     """Fetches possible output fields for member search"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key2"), f"{URL_BASE}/accounts/search/outputFields"
-    )
+    content = neon_base.get("api_key2", "/accounts/search/outputFields")
     assert isinstance(content, list)
     return content
 
@@ -383,14 +358,12 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
 
 def create_coupon_code(code, amt):
     """Creates a coupon code for a specific absolute amount"""
-    n = neon_base.NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
-    return n.create_single_use_abs_event_discount(code, amt)
+    return neon_base.NeonOne().create_single_use_abs_event_discount(code, amt)
 
 
 def soft_search(keyword):
     """Creates a coupon code for a specific absolute amount"""
-    n = neon_base.NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
-    return n.soft_search(keyword)
+    return neon_base.NeonOne().soft_search(keyword)
 
 
 def patch_member_role(email, role, enabled):
@@ -458,15 +431,25 @@ def update_account_automation_run_status(account_id, status: str, now=None):
     )
 
 
+def set_event_scheduled_state(neon_id, scheduled=True):
+    """Publishes or unpublishes an event in Neon"""
+    return neon_base.patch(
+        "api_key3",
+        f"/events/{neon_id}",
+        {
+            "publishEvent": scheduled,
+            "enableEventRegistrationForm": scheduled,
+            "archived": not scheduled,
+            "enableWaitListing": scheduled,
+        },
+    )["id"]
+
+
 def assign_pricing(  # pylint: disable=too-many-arguments
     event_id, price, seats, clear_existing=False, include_discounts=True, n=None
 ):
     """Assigns ticket pricing and quantities for a preexisting Neon event"""
-    if n is None:
-        n = neon_base.NeonOne(
-            get_config("neon/login_user"), get_config("neon/login_pass")
-        )
-
+    n = n or neon_base.NeonOne()
     if clear_existing:
         n.delete_all_prices_and_groups(event_id)
 

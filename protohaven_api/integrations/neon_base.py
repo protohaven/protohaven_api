@@ -26,7 +26,9 @@ def paginated_fetch(api_key, path, params=None):
         params["currentPage"] = current_page
         url = f"{URL_BASE}{path}?{urllib.parse.urlencode(params)}"
         log.debug(url)
-        content = get_connector().neon_request(api_key, url, "GET")
+        content = get_connector().neon_request(
+            get_config(f"neon/{api_key}"), url, "GET"
+        )
         if isinstance(content, list):
             raise RuntimeError(content)
         if content["pagination"]["totalResults"] == 0:
@@ -86,17 +88,42 @@ def fetch_account(account_id, required=False):
     )
 
 
+def get(api_key, url):
+    """Send an HTTP GET request"""
+    return get_connector().neon_request(
+        get_config(f"neon/{api_key}", f"{URL_BASE}/{url}")
+    )
+
+
+def patch(api_key, url, body):
+    """Send an HTTP PATCH request"""
+    return get_connector().neon_request(
+        get_config(f"neon{api_key}"),
+        f"{URL_BASE}/{url}",
+        "PATCH",
+        body=json.dumps(body),
+        headers={"content-type": "application/json"},
+    )
+
+
+def put(api_key, url, body):
+    """Send an HTTP PUT request"""
+    return get_connector().neon_request(
+        get_config(f"neon{api_key}"),
+        f"{URL_BASE}/{url}",
+        "PUT",
+        body=json.dumps(body),
+        headers={"content-type": "application/json"},
+    )
+
+
 def patch_account(account_id, data):
     """Patch an existing account via Neon V2 API"""
     _, is_company = fetch_account(account_id, required=True)
-    return get_connector().neon_request(
+    return patch(
         get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{account_id}",
-        "PATCH",
-        body=json.dumps(
-            {"companyAccount": data} if is_company else {"individualAccount": data}
-        ),
-        headers={"content-type": "application/json"},
+        {"companyAccount": data} if is_company else {"individualAccount": data},
     )
 
 
@@ -142,10 +169,10 @@ class NeonOne:  # pylint: disable=too-few-public-methods
     TYPE_MEMBERSHIP_DISCOUNT = 2
     TYPE_EVENT_DISCOUNT = 3
 
-    def __init__(self, user, passwd):
+    def __init__(self):
         self.s = get_connector().neon_session()
         self.drt = DuplicateRequestToken()
-        self._do_login(user, passwd)
+        self._do_login(get_config("neon/login_user"), get_config("neon/login_pass"))
 
     def _do_login(self, user, passwd):
         csrf = self._get_csrf()
@@ -483,24 +510,6 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         log.debug(rep.status_code)
         log.debug(rep.content.decode("utf8"))
         return rep
-
-
-def set_event_scheduled_state(neon_id, scheduled=True):
-    """Publishes or unpublishes an event in Neon"""
-    data = {
-        "publishEvent": scheduled,
-        "enableEventRegistrationForm": scheduled,
-        "archived": not scheduled,
-        "enableWaitListing": scheduled,
-    }
-    content = get_connector().neon_request(
-        get_config("neon/api_key3"),
-        f"{URL_BASE}/events/{neon_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
-    return content["id"]
 
 
 def create_event(  # pylint: disable=too-many-arguments

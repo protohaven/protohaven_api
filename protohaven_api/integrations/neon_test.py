@@ -17,78 +17,45 @@ def test_patch_member_role(mocker):
     """Member role patch adds to existing roles"""
     mocker.patch.object(neon, "search_member", return_value=[{"Account ID": 1324}])
     mocker.patch.object(
-        neon,
-        "fetch_account",
-        return_value={
-            "individualAccount": {
-                "accountCustomFields": [
-                    {
-                        "id": neon.CustomField.API_SERVER_ROLE,
-                        "optionValues": [{"name": "TEST", "id": "1234"}],
-                    }
-                ]
-            }
-        },
+        neon.neon_base,
+        "get_custom_field",
+        return_value=[{"name": "TEST", "id": "1234"}],
     )
-    mocker.patch.object(neon, "get_connector")
-    nrq = neon.get_connector().neon_request
-    nrq.return_value = mocker.MagicMock(), None
+    m = mocker.patch.object(neon.neon_base, "set_custom_fields")
     neon.patch_member_role("a@b.com", Role.INSTRUCTOR, True)
-    nrq.assert_called()
-    assert json.loads(nrq.call_args.kwargs["body"])["individualAccount"][
-        "accountCustomFields"
-    ][0]["optionValues"] == [
-        {"name": "TEST", "id": "1234"},
-        {"name": "Instructor", "id": "75"},
-    ]
+    m.assert_called_with(
+        1324,
+        (
+            Any(),
+            [
+                {"name": "TEST", "id": "1234"},
+                {"name": "Instructor", "id": "75"},
+            ],
+        ),
+    )
 
 
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
     mocker.patch.object(neon, "search_member", return_value=[{"Account ID": 1324}])
     mocker.patch.object(
-        neon,
-        "fetch_account",
-        return_value={
-            "individualAccount": {
-                "accountCustomFields": [
-                    {
-                        "id": neon.CustomField.API_SERVER_ROLE,
-                        "optionValues": [
-                            {"name": "TEST", "id": "1234"},
-                            {"name": "Instructor", "id": "75"},
-                        ],
-                    }
-                ]
-            }
-        },
+        neon.neon_base,
+        "get_custom_field",
+        return_value=[
+            {"name": "TEST", "id": "1234"},
+            {"name": "Instructor", "id": "75"},
+        ],
     )
     mocker.patch.object(neon, "get_connector")
-    nrq = neon.get_connector().neon_request
-    nrq.return_value = mocker.MagicMock(), None
+    m = mocker.patch.object(neon.neon_base, "set_custom_fields")
     neon.patch_member_role("a@b.com", Role.INSTRUCTOR, False)
-    nrq.assert_called()
-    assert json.loads(nrq.call_args.kwargs["body"])["individualAccount"][
-        "accountCustomFields"
-    ][0]["optionValues"] == [{"name": "TEST", "id": "1234"}]
+    m.assert_called_with(1324, (Any(), [{"name": "TEST", "id": "1234"}]))
 
 
 def test_set_tech_custom_fields(mocker):
-    mocker.patch.object(
-        neon, "fetch_account", return_value={"individualAccount": {"AccountId": 12345}}
-    )
-    mocker.patch.object(neon, "get_connector")
-    nrq = neon.get_connector().neon_request
-    nrq.return_value = mocker.MagicMock(), None
-
+    m = mocker.patch.object(neon.neon_base, "set_custom_fields")
     neon.set_tech_custom_fields("13245", interest="doing things")
-
-    nrq.assert_called()
-    assert json.loads(nrq.call_args.kwargs["body"]) == {
-        "individualAccount": {
-            "accountCustomFields": [{"id": 148, "value": "doing things"}]
-        }
-    }
+    m.assert_called_with("13245", (148, "doing things"))
 
 
 def test_set_clearances_some_non_matching(mocker):
@@ -97,24 +64,9 @@ def test_set_clearances_some_non_matching(mocker):
     mocker.patch.object(
         neon, "fetch_clearance_codes", return_value=[{"code": "T1", "id": "test_id"}]
     )
-    mocker.patch.object(
-        neon,
-        "fetch_account",
-        return_value={"individualAccount": {"id": TEST_USER}},
-    )
-    mocker.patch.object(neon, "get_connector")
-    nrq = neon.get_connector().neon_request
-    nrq.return_value = mocker.MagicMock(), None
-
+    m = mocker.patch.object(neon.neon_base, "set_custom_fields")
     neon.set_clearances(TEST_USER, ["T1", "T2"])
-    _, args, kwargs = nrq.mock_calls[0]
-    assert kwargs["body"] == json.dumps(
-        {
-            "individualAccount": {
-                "accountCustomFields": [{"id": 75, "optionValues": [{"id": "test_id"}]}]
-            }
-        }
-    )
+    m.assert_called_with(TEST_USER, (Any(), [{"id": "test_id"}]))
 
 
 def test_set_event_scheduled_state(mocker):
