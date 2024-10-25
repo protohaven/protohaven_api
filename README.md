@@ -85,6 +85,9 @@ pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '
 ## Server installation
 
 ```
+# Set server to EST; otherwise some date math will break
+sudo timedatectl set-timezone America/New_York
+
 sudo apt install python3.10-venv
 python3 -m venv venv
 source venv/bin/activate

@@ -14,15 +14,15 @@ app = Flask(__file__)
 @lru_cache(maxsize=128)
 def _base_lookup(_id):
     """Lookup base within config.yaml"""
-    cfg = get_config()["airtable"]
-    return {v["base_id"]: k for k, v in cfg.items()}[_id]
+    return {v["base_id"]: k for k, v in get_config("airtable").items()}[_id]
 
 
 @lru_cache(maxsize=128)
 def _tbl_lookup(_id):
     """Lookup table within config.yaml"""
-    cfg = get_config()["airtable"]
-    return {v: k for tbl in cfg.values() for k, v in tbl.items()}[_id]
+    return {v: k for tbl in get_config("airtable").values() for k, v in tbl.items()}[
+        _id
+    ]
 
 
 @app.route("/v0/<base>/<tbl>", methods=["GET", "POST"])

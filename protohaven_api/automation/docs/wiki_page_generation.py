@@ -8,18 +8,8 @@ import dokuwiki
 
 from protohaven_api.config import get_config
 
-cfg = get_config()["wiki"]
-
 URL = "https://protohaven.org/wiki/lib/exe/xmlrpc.php"
-wiki = dokuwiki.DokuWiki(URL, cfg["user"], cfg["password"])
-
-# print(wiki.pages.list())
-# Pass the credentials to the transport layer.
-# client.transport.set_basic_auth(cfg['user'], cfg['password'])
-
-# response = client.dokuwiki.login(cfg['user'], cfg['password'])
-# print(client.dokuwiki.getTitle())
-# print(client.dokuwiki.getPagelist())
+wiki = dokuwiki.DokuWiki(URL, get_config("wiki/user"), get_config("wiki/password"))
 
 
 def gen_stub_clearance_content(toolname):

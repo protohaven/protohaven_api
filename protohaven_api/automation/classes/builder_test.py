@@ -262,10 +262,10 @@ def test_builder_no_actionable_classes(mocker, caplog):
     assert not eb.actionable_classes
 
 
-def _gen_actionable_class(action):
+def _gen_actionable_class(action, cid=1234):
     return (
         {
-            "id": 1234,
+            "id": cid,
             "name": "Test Event",
             "python_date": parse_date("2024-02-20").astimezone(tz),
             "instructor_email": "inst@ructor.com",
@@ -431,14 +431,20 @@ def test_builder_techs():
     """Tests generation of class comms to techs"""
     eb = builder.ClassEmailBuilder()
     eb.fetch_and_aggregate_data = lambda now: None
-    eb.for_techs = [_gen_actionable_class(builder.Action.FOR_TECHS)[0]]
+    c3 = _gen_actionable_class(builder.Action.FOR_TECHS, cid=5678)
+    c3[0]["notifications"] = {"#techs": [TEST_NOW]}
+    eb.actionable_classes = [
+        _gen_actionable_class(builder.Action.FOR_TECHS, cid=1234),
+        _gen_actionable_class(builder.Action.FOR_TECHS, cid=5678),
+        c3,  # Gets ignored due to prior notification
+    ]
     got = [
         {k: v for k, v in dict(d).items() if k in ("id", "target", "subject")}
         for d in eb.build(TEST_NOW)
     ]
     assert got == [
         {
-            "id": "multiple",
+            "id": "1234,5678",
             "target": "#techs",
             "subject": "New classes for tech backfill:",
         },

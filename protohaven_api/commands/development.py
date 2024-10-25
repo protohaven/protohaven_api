@@ -83,9 +83,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                 memberships[acct_id] = list(neon.fetch_memberships(acct_id))
 
         log.info("Fetching airtable data...")
-        cfg = get_config()
         tables = defaultdict(dict)
-        for k, v in cfg["airtable"].items():
+        for k, v in get_config("airtable").items():
             for k2 in v.keys():
                 if k2 in ("base_id", "token"):
                     continue

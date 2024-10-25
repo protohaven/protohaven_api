@@ -3,6 +3,7 @@
 import datetime
 import logging
 import pickle
+import re
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
@@ -330,7 +331,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         evt["notifications"] = {
             k.lower(): v
             for k, v in airtable.get_notifications_after(
-                evt["id"], notify_thresh
+                re.compile(f".*{evt['id']}.*"), notify_thresh
             ).items()
         }
         return evt
@@ -522,7 +523,11 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 self._append(
                     str(Action.FOR_TECHS),
                     Msg.tmpl("tech_openings", events=self.for_techs, target="#techs"),
-                    {"id": "multiple", "name": "multiple", "events": self.for_techs},
+                    {
+                        "id": ",".join([str(e["id"]) for e in self.for_techs]),
+                        "name": "multiple",
+                        "events": self.for_techs,
+                    },
                 )
 
         self.log.info("Building summary notification")

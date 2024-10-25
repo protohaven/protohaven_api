@@ -1,5 +1,7 @@
 """Role based access control for logged in users using session data from Neon CRM"""
 
+import base64
+import logging
 from dataclasses import dataclass
 
 from flask import (  # pylint: disable=import-error
@@ -13,6 +15,8 @@ from flask import (  # pylint: disable=import-error
 from protohaven_api.config import get_config
 
 enabled = True  # pylint: disable=invalid-name
+
+log = logging.getLogger("rbac")
 
 
 def set_rbac(en):
@@ -39,6 +43,8 @@ class Role:
     EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
     ONBOARDING = {"name": "Onboarding", "id": "240"}
     ADMIN = {"name": "Admin", "id": "239"}
+
+    AUTOMATION = {"name": "Automation", "id": None}
 
     @classmethod
     def as_dict(cls):
@@ -73,8 +79,7 @@ def require_login(fn):
 def roles_from_api_key(api_key):
     """Gets roles from the passed API key"""
     if api_key is not None:
-        roles = get_config()["general"].get("external_access_codes").get(api_key)
-        return roles
+        return get_config("general/external_access_codes").get(api_key)
     return None
 
 
@@ -85,7 +90,9 @@ def get_roles():
     if not api_key:
         api_key = request.headers.get("X-Protohaven-APIKey", None)
     if api_key is not None:
-        return roles_from_api_key(api_key)
+        return roles_from_api_key(
+            base64.b64decode(api_key).decode("utf-8")
+        ) or roles_from_api_key(api_key)
 
     neon_acct = session.get("neon_account")
     if neon_acct is None:
@@ -109,15 +116,17 @@ def require_login_role(*role):
     def fn_setup(fn):
         def do_role_check(*args, **kwargs):
             if not enabled:
-                print("BYPASS for ", role)
+                log.warning(f"BYPASS for {role}")
                 return fn(*args, **kwargs)
             roles = get_roles()
+            log.info(f"Roles {roles}")
             if roles is None:
                 session["redirect_to_login_url"] = request.url
                 return redirect(url_for("auth.login_user_neon_oauth"))
             # Check for presence of role. Note that shop techs are a special case; leads can do
             # anything that a shop tech is allowed to do
             for r in role:
+                log.info(f"{r['name']} vs {roles}")
                 if r["name"] in roles or (
                     r == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles
                 ):

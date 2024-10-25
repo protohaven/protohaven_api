@@ -17,9 +17,6 @@ init_connector(False)  # prod
 log = logging.getLogger("scripts.transfer_gcal_to_airtable")
 
 
-cfg = get_config()["calendar"]
-
-
 def fetch_calendar(calendar_id, time_min=None, time_max=None):
     """Fetches calendar data - default to next 30 days"""
     if time_min is None:
@@ -30,7 +27,7 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
     time_max = time_max.isoformat() + "Z"  # 'Z' indicates UTC time
 
     creds = service_account.Credentials.from_service_account_file(
-        "credentials.json", scopes=cfg["scopes"]
+        "credentials.json", scopes=get_config("calendar/scopes")
     )
     service = build("calendar", "v3", credentials=creds)
     # Call the Calendar API
@@ -54,7 +51,7 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
 
 def get_all_gcal_events():
     return fetch_calendar(
-        cfg["instructor_schedules"],
+        get_config("calendar/instructor_schedules"),
         parser.parse("2024-06-30"),
         parser.parse("2025-01-01"),
     )

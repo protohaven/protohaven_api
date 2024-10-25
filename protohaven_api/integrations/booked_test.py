@@ -8,7 +8,6 @@ from protohaven_api.integrations import booked
 def test_get_resource_map(mocker):
     """Basic test of `get_resource_map`, that it calls out and returns mapped values"""
     mocker.patch.object(booked, "get_connector")
-    mocker.patch.object(booked, "_config_attribs", return_value={"tool_code": 3})
     booked.get_connector().booked_request().json.return_value = {
         "resources": [
             {"customAttributes": [{"id": 3, "value": "ABC"}], "resourceId": 123}
@@ -58,9 +57,6 @@ def test_apply_resource_custom_fields(mocker):
     """Test that custom fields are merged on existing fields"""
     mocker.patch.object(booked, "get_connector")
     mocker.patch.object(booked, "get_resource")
-    mocker.patch.object(
-        booked, "_config_attribs", return_value={"tool_code": 3, "area": 2}
-    )
     booked.get_resource.return_value = {
         "customAttributes": [{"id": 3, "value": "ABC"}],
         "resourceId": 123,

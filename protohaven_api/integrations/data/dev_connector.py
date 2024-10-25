@@ -27,7 +27,7 @@ class DevConnector(Connector):
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request, passing through to httplib2"""
-        if len(args) > 1 and args[2] != "GET":
+        if len(args) > 1 and args[1] != "GET":
             self.mutated = True
         resp = dev_neon.handle(*args, **kwargs)
         status = resp.status_code

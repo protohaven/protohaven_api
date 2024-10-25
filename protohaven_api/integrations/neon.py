@@ -23,11 +23,6 @@ from protohaven_api.rbac import Role
 log = logging.getLogger("integrations.neon")
 
 
-def cfg(param):
-    """Load neon configuration"""
-    return get_config()["neon"][param]
-
-
 TEST_MEMBER = 1727
 GROUP_ID_CLEARANCES = 1
 
@@ -52,7 +47,7 @@ def fetch_published_upcoming_events(back_days=7):
         q_params["pagination"]["currentPage"] = current_page
         encoded_params = urllib.parse.urlencode(q_params)
         content = get_connector().neon_request(
-            cfg("api_key1"),
+            get_config("neon/api_key1"),
             f"{URL_BASE}/events?" + encoded_params,
             "GET",
         )
@@ -100,7 +95,7 @@ def fetch_events(after=None, before=None, published=True):
         q_params["startDateBefore"] = before.strftime("%Y-%m-%d")
     encoded_params = urllib.parse.urlencode(q_params)
     content = get_connector().neon_request(
-        cfg("api_key1"), f"{URL_BASE}/events?" + encoded_params, "GET"
+        get_config("neon/api_key1"), f"{URL_BASE}/events?" + encoded_params, "GET"
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -110,14 +105,14 @@ def fetch_events(after=None, before=None, published=True):
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
     return get_connector().neon_request(
-        cfg("api_key1"), f"{URL_BASE}/events/{event_id}"
+        get_config("neon/api_key1"), f"{URL_BASE}/events/{event_id}"
     )
 
 
 def fetch_registrations(event_id):
     """Fetch registrations for a specific Neon event"""
     content = get_connector().neon_request(
-        cfg("api_key1"),
+        get_config("neon/api_key1"),
         f"{URL_BASE}/events/{event_id}/eventRegistrations",
     )
     if isinstance(content, list):
@@ -130,7 +125,7 @@ def fetch_registrations(event_id):
 def fetch_tickets(event_id):
     """Fetch ticket information for a specific Neon event"""
     content = get_connector().neon_request(
-        cfg("api_key1"), f"{URL_BASE}/events/{event_id}/tickets"
+        get_config("neon/api_key1"), f"{URL_BASE}/events/{event_id}/tickets"
     )
     if isinstance(content, list):
         return content
@@ -144,7 +139,7 @@ def fetch_memberships(account_id):
     while current_page < total_pages:
         url = f"{URL_BASE}/accounts/{account_id}/memberships?currentPage={current_page}"
         content = get_connector().neon_request(
-            cfg("api_key2"),
+            get_config("neon/api_key2"),
             url,
             "GET",
         )
@@ -165,7 +160,7 @@ def fetch_attendees(event_id):
         url = f"{URL_BASE}/events/{event_id}/attendees?currentPage={current_page}"
         log.debug(url)
         content = get_connector().neon_request(
-            cfg("api_key1"),
+            get_config("neon/api_key1"),
             url,
             "GET",
         )
@@ -183,7 +178,9 @@ def fetch_attendees(event_id):
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
     content = get_connector().neon_request(
-        cfg("api_key1"), f"{URL_BASE}/customFields/{CustomField.CLEARANCES}", "GET"
+        get_config("neon/api_key1"),
+        f"{URL_BASE}/customFields/{CustomField.CLEARANCES}",
+        "GET",
     )
     return content["optionValues"]
 
@@ -222,7 +219,7 @@ def set_clearance_codes(codes):
         "optionValues": codes,
     }
     return get_connector().neon_request(
-        cfg("api_key1"),
+        get_config("neon/api_key1"),
         f"{URL_BASE}/customFields/{CustomField.CLEARANCES}",
         "PUT",
         body=json.dumps(data),
@@ -238,7 +235,7 @@ def set_custom_field(user_id, data):
         }
     }
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -263,7 +260,7 @@ def set_membership_start_date(user_id, d):
         "termStartDate": d.strftime("%Y-%m-%d"),
     }
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/memberships/{latest[0]}",
         "PATCH",
         body=json.dumps(data),
@@ -307,7 +304,7 @@ def set_clearances(user_id, codes):
         raise RuntimeError("Unknown account type for " + str(user_id))
 
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -318,7 +315,7 @@ def set_clearances(user_id, codes):
 def fetch_search_fields():
     """Fetches possible search fields for member search"""
     content = get_connector().neon_request(
-        cfg("api_key2"), f"{URL_BASE}/accounts/search/searchFields"
+        get_config("neon/api_key2"), f"{URL_BASE}/accounts/search/searchFields"
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -328,7 +325,7 @@ def fetch_search_fields():
 def fetch_output_fields():
     """Fetches possible output fields for member search"""
     content = get_connector().neon_request(
-        cfg("api_key2"), f"{URL_BASE}/accounts/search/outputFields"
+        get_config("neon/api_key2"), f"{URL_BASE}/accounts/search/outputFields"
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -339,7 +336,7 @@ def fetch_account(account_id):
     """Fetches account information for a specific user in Neon.
     Raises RuntimeError if an error is returned from the server"""
     content = get_connector().neon_request(
-        cfg("api_key1"), f"{URL_BASE}/accounts/{account_id}"
+        get_config("neon/api_key1"), f"{URL_BASE}/accounts/{account_id}"
     )
     if isinstance(content, list):
         raise RuntimeError(content)
@@ -371,7 +368,7 @@ def search_member_by_name(firstname, lastname):
         },
     }
     content = get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/search",
         "POST",
         body=json.dumps(data),
@@ -390,7 +387,7 @@ def _paginated_search(data, typ="accounts", pagination=None):
     total = 1
     while cur < total:
         content = get_connector().neon_request(
-            cfg("api_key2"),
+            get_config("neon/api_key2"),
             f"{URL_BASE}/{typ}/search",
             "POST",
             body=json.dumps(data),
@@ -1004,7 +1001,7 @@ def set_event_scheduled_state(neon_id, scheduled=True):
         "enableWaitListing": scheduled,
     }
     content = get_connector().neon_request(
-        cfg("api_key3"),
+        get_config("neon/api_key3"),
         f"{URL_BASE}/events/{neon_id}",
         "PATCH",
         body=json.dumps(data),
@@ -1077,7 +1074,7 @@ def create_event(  # pylint: disable=too-many-arguments
         return None
 
     evt_request = get_connector().neon_request(
-        cfg("api_key3"),
+        get_config("neon/api_key3"),
         f"{URL_BASE}/events",
         "POST",
         body=json.dumps(event),
@@ -1088,13 +1085,13 @@ def create_event(  # pylint: disable=too-many-arguments
 
 def create_coupon_code(code, amt):
     """Creates a coupon code for a specific absolute amount"""
-    n = NeonOne(cfg("login_user"), cfg("login_pass"))
+    n = NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
     return n.create_single_use_abs_event_discount(code, amt)
 
 
 def soft_search(keyword):
     """Creates a coupon code for a specific absolute amount"""
-    n = NeonOne(cfg("login_user"), cfg("login_pass"))
+    n = NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
     return n.soft_search(keyword)
 
 
@@ -1139,7 +1136,7 @@ def patch_member_role(email, role, enabled):
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -1182,7 +1179,7 @@ def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     else:
         raise RuntimeError("Unknown account type for " + str(user_id))
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -1211,7 +1208,7 @@ def _set_custom_singleton_fields(user_id, field_id_to_value_map):
         raise RuntimeError("Unknown account type for " + str(user_id))
 
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -1239,7 +1236,7 @@ def set_waiver_status(user_id, new_status):
         raise RuntimeError("Unknown account type for " + str(user_id))
 
     return get_connector().neon_request(
-        cfg("api_key2"),
+        get_config("neon/api_key2"),
         f"{URL_BASE}/accounts/{user_id}",
         "PATCH",
         body=json.dumps(data),
@@ -1367,7 +1364,7 @@ def assign_pricing(  # pylint: disable=too-many-arguments
 ):
     """Assigns ticket pricing and quantities for a preexisting Neon event"""
     if n is None:
-        n = NeonOne(cfg("login_user"), cfg("login_pass"))
+        n = NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
 
     if clear_existing:
         n.delete_all_prices_and_groups(event_id)

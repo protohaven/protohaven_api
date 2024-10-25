@@ -20,10 +20,6 @@ def resource_url(resource_id):
     return f"{BASE_URL}/Web/Services/Resources/{resource_id}"
 
 
-def _config_attribs():
-    return get_config()["booked"]["resource_custom_attribute"]
-
-
 def get_resource_id_to_name_map():
     """Gets the mapping of resource IDs to the tool name"""
     resp = get_connector().booked_request("GET", f"{BASE_URL}/Web/Services/Resources/")
@@ -39,7 +35,7 @@ def get_resource_map():
     resp = get_connector().booked_request("GET", f"{BASE_URL}/Web/Services/Resources/")
     data = resp.json()
     result = {}
-    tool_code_id = _config_attribs()["tool_code"]
+    tool_code_id = get_config("booked/resource_custom_attribute/tool_code")
     for d in data["resources"]:
         for attr in d["customAttributes"]:
             if attr["id"] == tool_code_id and attr["value"]:
@@ -126,7 +122,7 @@ def update_resource(data):
 def stage_custom_attributes(resource, **kwargs):
     """Makes modifications to the customAttributes field of a resource dict.
     returns `True` for `changed` if any fields were actually modified"""
-    field_ids = _config_attribs()
+    field_ids = get_config("booked/resource_custom_attribute")
     changed = {}
     attrs = {a["id"]: a["value"] for a in resource["customAttributes"]}
     for k, v in kwargs.items():
@@ -150,7 +146,7 @@ def apply_resource_custom_fields(resource, **kwargs):
         assert str(data["resourceId"]) == str(resource)
 
     # Update the customAttributes field
-    field_ids = _config_attribs()
+    field_ids = get_config("booked/resource_custom_attribute")
     attrs = {a["id"]: a["value"] for a in data["customAttributes"]}
     for k, v in kwargs.items():
         attrs[field_ids[k]] = v

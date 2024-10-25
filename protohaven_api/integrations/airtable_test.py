@@ -15,15 +15,6 @@ from protohaven_api.testing import d, idfn
 
 def test_set_booked_resource_id(mocker):
     mocker.patch.object(ab, "get_connector")
-    mocker.patch.object(
-        ab,
-        "cfg",
-        return_value={
-            "base_id": "test_base_id",
-            "token": "test_token",
-            "tools": "tools_id",
-        },
-    )
     ab.get_connector().airtable_request.return_value = (200, "{}")
 
     a.set_booked_resource_id("airtable_id", "resource_id")
@@ -187,6 +178,18 @@ Tc = namedtuple("TC", "desc,entries,tag,want")
             "Regex match",
             [{"Neon ID": "abcd", "To": "a@a.com", "Created": d(0).isoformat()}],
             re.compile("ab.*"),
+            {"a@a.com": [d(0)]},
+        ),
+        Tc(
+            "Regex match on CSV of neon IDs",
+            [
+                {
+                    "Neon ID": "1234,5678,9012",
+                    "To": "a@a.com",
+                    "Created": d(0).isoformat(),
+                }
+            ],
+            re.compile(".*5678.*"),
             {"a@a.com": [d(0)]},
         ),
     ],

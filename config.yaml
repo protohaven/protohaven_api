@@ -6,8 +6,9 @@ general:
   unsafe_no_rbac: "${UNSAFE_NO_RBAC}"
   session_secret: "${SESSION_SECRET}"
   admin_users: ["1245"]
+  precache_sign_in: true
   external_access_codes:
-    "${EXTERNAL_ACCESS_CODES_ADMIN}": ["ADMIN"]
+    "${EXTERNAL_ACCESS_CODES_AUTOMATION}": ["Automation"]
 openai:
   api_key: "${OPENAI_API_KEY}"
 neon:
@@ -33,7 +34,6 @@ discord_bot:
     exclude_filter: None
   token: "${DISCORD_BOT_TOKEN}"
   guild_id: 791673872529358869
-  onboarding_channel_id: 1175450738596528279
 comms:
   email_username: "${EMAIL_USERNAME}"
   email_password: "${EMAIL_PASSWORD}"
