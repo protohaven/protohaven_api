@@ -296,7 +296,7 @@ HASHES = {
     "discord_nick_changed": "8aeda50de8ef931c",  # pragma: allowlist secret
     "discord_role_change_dm": "e36c6c70681a8804",  # pragma: allowlist secret
     "discord_role_change_summary": "8a34d924f30d0625",  # pragma: allowlist secret
-    "enforcement_summary": "53728e884f150eec",  # pragma: allowlist secret
+    "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
     "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
     "instruction_requests": "7e0902003add426d",  # pragma: allowlist secret
     "instructor_applications": "282f1d709883f273",  # pragma: allowlist secret

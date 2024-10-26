@@ -135,14 +135,12 @@ def test_get_dashboard_schedule_sorted(mocker):
 def test_instructor_about_from_session(client, mocker):
     with client.session_transaction() as session:
         session["neon_account"] = {
-            "individualAccount": {
-                "accountCustomFields": [],
-                "primaryContact": {
-                    "firstName": "First",
-                    "lastName": "Last",
-                    "email1": "foo@bar.com",
-                },
-            }
+            "accountCustomFields": [],
+            "primaryContact": {
+                "firstName": "First",
+                "lastName": "Last",
+                "email1": "foo@bar.com",
+            },
         }
     mocker.patch.object(instructor.neon, "search_member")
     mocker.patch.object(instructor, "get_instructor_readiness")
@@ -158,14 +156,12 @@ def test_instructor_about_both_email_and_session(mocker, client):
 
     with client.session_transaction() as session:
         session["neon_account"] = {
-            "individualAccount": {
-                "accountCustomFields": [],
-                "primaryContact": {
-                    "firstName": "First",
-                    "lastName": "Last",
-                    "email1": "foo@bar.com",
-                },
-            }
+            "accountCustomFields": [],
+            "primaryContact": {
+                "firstName": "First",
+                "lastName": "Last",
+                "email1": "foo@bar.com",
+            },
         }
     mocker.patch.object(instructor.neon, "search_member", return_value=["test"])
     mocker.patch.object(instructor, "get_instructor_readiness")
@@ -185,14 +181,12 @@ def test_class_details_both_email_and_session(mocker, client):
 
     with client.session_transaction() as session:
         session["neon_account"] = {
-            "individualAccount": {
-                "accountCustomFields": [],
-                "primaryContact": {
-                    "firstName": "First",
-                    "lastName": "Last",
-                    "email1": "foo@bar.com",
-                },
-            }
+            "accountCustomFields": [],
+            "primaryContact": {
+                "firstName": "First",
+                "lastName": "Last",
+                "email1": "foo@bar.com",
+            },
         }
     mocker.patch.object(instructor, "get_dashboard_schedule_sorted")
     mocker.patch.object(instructor.airtable, "get_instructor_email_map")
