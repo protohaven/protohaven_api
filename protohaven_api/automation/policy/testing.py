@@ -29,20 +29,6 @@ def violation(instance, onset, resolution=None, fee=TESTFEE, neon_id=TESTMEMBER[
     }
 
 
-def suspension(start, end=None, reinstated=None):
-    """Create test suspension"""
-    return {
-        "id": "12345",  # For testing, to simplify. Actually an airtable ID
-        "fields": {
-            "Neon ID": TESTMEMBER["id"],
-            "Start Date": start.isoformat(),
-            "End Date": end.isoformat() if end else None,
-            "Reinstated": reinstated,
-            "Instance #": 12345,
-        },
-    }
-
-
 def tfee(amt=5, created=now, vid="1234", paid=False):
     """Create a test fee"""
     return {

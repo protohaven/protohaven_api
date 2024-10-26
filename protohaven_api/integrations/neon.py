@@ -1,30 +1,16 @@
 """ Neon CRM integration methods """  # pylint: disable=too-many-lines
 import datetime
-import json
 import logging
-import re
-import time
-import urllib
 from functools import lru_cache
 
-from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tz, tznow
-from protohaven_api.integrations.data.connector import get as get_connector
-from protohaven_api.integrations.data.neon import (
-    ADMIN_URL,
-    URL_BASE,
-    Category,
-    CustomField,
-)
+from protohaven_api.config import tz, tznow
+from protohaven_api.integrations import neon_base
+from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("integrations.neon")
-
-
-TEST_MEMBER = 1727
-GROUP_ID_CLEARANCES = 1
 
 
 def fetch_published_upcoming_events(back_days=7):
@@ -37,151 +23,76 @@ def fetch_published_upcoming_events(back_days=7):
         ),
         "publishedEvent": True,
         "archived": False,
-        "pagination": {
-            "currentPage": 0,
-        },
     }
-    current_page = 0
-    total_pages = 1
-    while current_page < total_pages:
-        q_params["pagination"]["currentPage"] = current_page
-        encoded_params = urllib.parse.urlencode(q_params)
-        content = get_connector().neon_request(
-            get_config("neon/api_key1"),
-            f"{URL_BASE}/events?" + encoded_params,
-            "GET",
-        )
-        total_pages = content["pagination"]["totalPages"]
-        yield from content["events"]
-        current_page += 1
+    return neon_base.paginated_fetch("api_key1", "/events", q_params)
+
+
+def fetch_events(after=None, before=None, published=True):
+    """Load events from Neon CRM"""
+    q_params = {
+        "publishedEvent": published,
+        **({"startDateAfter": after.strftime("%Y-%m-%d")} if after is not None else {}),
+        **(
+            {"startDateBefore": before.strftime("%Y-%m-%d")}
+            if before is not None
+            else {}
+        ),
+    }
+    return neon_base.paginated_fetch("api_key1", "/events", q_params)
 
 
 def search_upcoming_events(from_date, to_date, extra_fields):
     """Lookup upcoming events"""
-    data = {
-        "searchFields": [
-            {
-                "field": "Event Start Date",
-                "operator": "GREATER_AND_EQUAL",
-                "value": from_date.strftime("%Y-%m-%d"),
-            },
-            {
-                "field": "Event Start Date",
-                "operator": "LESS_AND_EQUAL",
-                "value": to_date.strftime("%Y-%m-%d"),
-            },
+    return neon_base.paginated_search(
+        [
+            ("Event Start Date", "GREATER_AND_EQUAL", from_date.strftime("%Y-%m-%d")),
+            ("Event Start Date", "LESS_AND_EQUAL", to_date.strftime("%Y-%m-%d")),
         ],
-        "outputFields": [
+        [
             "Event ID",
             "Event Name",
             "Event Web Publish",
             "Event Web Register",
             *extra_fields,
         ],
-    }
-    return _paginated_search(
-        data,
         typ="events",
         pagination={"sortColumn": "Event Start Date", "sortDirection": "ASC"},
     )
 
 
-def fetch_events(after=None, before=None, published=True):
-    """Load events from Neon CRM"""
-    q_params = {"publishedEvent": published}
-    if after is not None:
-        q_params["startDateAfter"] = after.strftime("%Y-%m-%d")
-    if before is not None:
-        q_params["startDateBefore"] = before.strftime("%Y-%m-%d")
-    encoded_params = urllib.parse.urlencode(q_params)
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/events?" + encoded_params, "GET"
-    )
-    if isinstance(content, list):
-        raise RuntimeError(content)
-    return content["events"]
-
-
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    return get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/events/{event_id}"
-    )
+    return neon_base.get("api_key1", f"events/{event_id}")
 
 
 def fetch_registrations(event_id):
     """Fetch registrations for a specific Neon event"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"),
-        f"{URL_BASE}/events/{event_id}/eventRegistrations",
+    return neon_base.paginated_fetch(
+        "api_key1", f"/events/{event_id}/eventRegistrations"
     )
-    if isinstance(content, list):
-        raise RuntimeError(content)
-    if content["pagination"]["totalPages"] > 1:
-        raise RuntimeError("TODO implement pagination for fetch_attendees()")
-    return content["eventRegistrations"] or []
 
 
 def fetch_tickets(event_id):
     """Fetch ticket information for a specific Neon event"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/events/{event_id}/tickets"
-    )
-    if isinstance(content, list):
-        return content
-    raise RuntimeError(content)
+    content = neon_base.get("api_key1", f"/events/{event_id}/tickets")
+    assert isinstance(content, list)
+    return content
 
 
 def fetch_memberships(account_id):
     """Fetch membership history of an account in Neon"""
-    current_page = 0
-    total_pages = 1
-    while current_page < total_pages:
-        url = f"{URL_BASE}/accounts/{account_id}/memberships?currentPage={current_page}"
-        content = get_connector().neon_request(
-            get_config("neon/api_key2"),
-            url,
-            "GET",
-        )
-        if isinstance(content, list):
-            raise RuntimeError(content)
-        if content["pagination"]["totalResults"] == 0:
-            return  # basically an empty yield
-        total_pages = content["pagination"]["totalPages"]
-        yield from content["memberships"]
-        current_page += 1
+    return neon_base.paginated_fetch("api_key2", f"/accounts/{account_id}/memberships")
 
 
 def fetch_attendees(event_id):
     """Fetch attendee data on an individual (legacy) event in Neon"""
-    current_page = 0
-    total_pages = 1
-    while current_page < total_pages:
-        url = f"{URL_BASE}/events/{event_id}/attendees?currentPage={current_page}"
-        log.debug(url)
-        content = get_connector().neon_request(
-            get_config("neon/api_key1"),
-            url,
-            "GET",
-        )
-        if isinstance(content, list):
-            raise RuntimeError(content)
-        if content["pagination"]["totalResults"] == 0:
-            return  # basically an empty yield
-        total_pages = content["pagination"]["totalPages"]
-        log.debug(content)
-        yield from content["attendees"]
-        current_page += 1
+    return neon_base.paginated_fetch("api_key1", f"/events/{event_id}/attendees")
 
 
 @lru_cache(maxsize=1)
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"),
-        f"{URL_BASE}/customFields/{CustomField.CLEARANCES}",
-        "GET",
-    )
+    content = neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")
     return content["optionValues"]
 
 
@@ -189,19 +100,10 @@ def get_user_clearances(account_id):
     """Fetch clearances for an individual user in Neon"""
     # Should probably cache this a bit
     id_to_code = {c["id"]: c["code"] for c in fetch_clearance_codes()}
-    acc = fetch_account(account_id)
-    if acc is None:
-        raise RuntimeError("Account not found")
-    custom = acc.get("individualAccount")
-    if custom is None:
-        custom = acc.get("companyAccount")
-    if custom is None:
-        return []
-    custom = custom.get("accountCustomFields", [])
-    for cf in custom:
-        if cf["name"] == "Clearances":
-            return [id_to_code.get(v["id"]) for v in cf["optionValues"]]
-    return []
+    return [
+        id_to_code.get(v["id"])
+        for v in neon_base.get_custom_field(account_id, "Clearances")
+    ]
 
 
 def set_clearance_codes(codes):
@@ -209,227 +111,106 @@ def set_clearance_codes(codes):
     DANGER: Get clearance codes and extend that list, otherwise
     you risk losing clearance data for users.
     """
-    data = {
-        "groupId": GROUP_ID_CLEARANCES,
-        "id": CustomField.CLEARANCES,
-        "displayType": "Checkbox",
-        "name": "Clearances",
-        "dataType": "Integer",
-        "component": "Account",
-        "optionValues": codes,
-    }
-    return get_connector().neon_request(
-        get_config("neon/api_key1"),
-        f"{URL_BASE}/customFields/{CustomField.CLEARANCES}",
-        "PUT",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+    return neon_base.put(
+        "api_key1",
+        f"/customFields/{CustomField.CLEARANCES}",
+        {
+            "groupId": 1,  # Clearances group ID
+            "id": CustomField.CLEARANCES,
+            "displayType": "Checkbox",
+            "name": "Clearances",
+            "dataType": "Integer",
+            "component": "Account",
+            "optionValues": codes,
+        },
     )
 
 
-def set_custom_field(user_id, data):
-    """Set any custom field for a user in Neon"""
-    data = {
-        "individualAccount": {
-            "accountCustomFields": [data],
-        }
-    }
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
-
-
-def set_membership_start_date(user_id, d):
+def set_membership_start_date(account_id, d):
     """Sets the termStartDate of the most recent membership of a user.
     Recency is determined by its termStartDate."""
     latest = (None, None)
-    for m in fetch_memberships(user_id):
+    for m in fetch_memberships(account_id):
         log.info(str(m))
         tsd = dateparser.parse(m["Term Start Date"]).astimezone(tz)
         if not latest[1] or latest[1] < tsd:
             latest = (m["Membership ID"], tsd)
 
     if not latest[0]:
-        raise RuntimeError(f"No latest membership for member {user_id}")
-
-    data = {
-        "termStartDate": d.strftime("%Y-%m-%d"),
-    }
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/memberships/{latest[0]}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+        raise RuntimeError(f"No latest membership for member {account_id}")
+    return neon_base.patch(
+        "api_key2",
+        f"/memberships/{latest[0]}",
+        {"termStartDate": d.strftime("%Y-%m-%d")},
     )
 
 
-def set_interest(user_id, interest: str):
+def set_interest(account_id, interest: str):
     """Assign interest to user custom field"""
-    return set_custom_field(user_id, {"id": CustomField.INTEREST, "value": interest})
+    return neon_base.set_custom_fields(account_id, (CustomField.INTEREST, interest))
 
 
-def set_discord_user(user_id, discord_user: str):
+def set_discord_user(account_id, discord_user: str):
     """Sets the discord user used by this user"""
-    return set_custom_field(
-        user_id, {"id": CustomField.DISCORD_USER, "value": discord_user}
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.DISCORD_USER, discord_user)
     )
 
 
-def set_clearances(user_id, codes):
+def set_clearances(account_id, codes):
     """Sets all clearances for a specific user - company or individual"""
     code_to_id = {c["code"]: c["id"] for c in fetch_clearance_codes()}
     ids = [code_to_id[c] for c in codes if c in code_to_id.keys()]
-
-    # Need to confirm whether the user is an individual or company account
-    m = fetch_account(user_id)
-    if m is None:
-        return None
-
-    data = {
-        "accountCustomFields": [
-            {"id": CustomField.CLEARANCES, "optionValues": [{"id": i} for i in ids]}
-        ],
-    }
-
-    if m.get("individualAccount"):
-        data = {"individualAccount": data}
-    elif m.get("companyAccount"):
-        data = {"companyAccount": data}
-    else:
-        raise RuntimeError("Unknown account type for " + str(user_id))
-
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.CLEARANCES, [{"id": i} for i in ids])
     )
 
 
 def fetch_search_fields():
     """Fetches possible search fields for member search"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key2"), f"{URL_BASE}/accounts/search/searchFields"
-    )
-    if isinstance(content, list):
-        raise RuntimeError(content)
+    content = neon_base.get("api_key2", "/accounts/search/searchFields")
+    assert isinstance(content, list)
     return content
 
 
 def fetch_output_fields():
     """Fetches possible output fields for member search"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key2"), f"{URL_BASE}/accounts/search/outputFields"
-    )
-    if isinstance(content, list):
-        raise RuntimeError(content)
-    return content
-
-
-def fetch_account(account_id):
-    """Fetches account information for a specific user in Neon.
-    Raises RuntimeError if an error is returned from the server"""
-    content = get_connector().neon_request(
-        get_config("neon/api_key1"), f"{URL_BASE}/accounts/{account_id}"
-    )
-    if isinstance(content, list):
-        raise RuntimeError(content)
+    content = neon_base.get("api_key2", "/accounts/search/outputFields")
+    assert isinstance(content, list)
     return content
 
 
 def search_member_by_name(firstname, lastname):
     """Lookup a user by first and last name"""
-    data = {
-        "searchFields": [
-            {
-                "field": "First Name",
-                "operator": "EQUAL",
-                "value": firstname.strip(),
-            },
-            {
-                "field": "Last Name",
-                "operator": "EQUAL",
-                "value": lastname.strip(),
-            },
+    for result in neon_base.paginated_search(
+        [
+            ("First Name", "EQUAL", firstname.strip()),
+            ("Last Name", "EQUAL", lastname.strip()),
         ],
-        "outputFields": [
-            "Account ID",
-            "Email 1",
-        ],
-        "pagination": {
-            "currentPage": 0,
-            "pageSize": 1,
-        },
-    }
-    content = get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/search",
-        "POST",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
-    if content.get("searchResults") is None:
-        raise RuntimeError(f"Search for {firstname} {lastname} failed: {content}")
-    return content["searchResults"][0] if len(content["searchResults"]) > 0 else None
-
-
-def _paginated_search(data, typ="accounts", pagination=None):
-    if pagination is None:
-        pagination = {}
-    cur = 0
-    data["pagination"] = {"currentPage": cur, "pageSize": 50, **pagination}
-    total = 1
-    while cur < total:
-        content = get_connector().neon_request(
-            get_config("neon/api_key2"),
-            f"{URL_BASE}/{typ}/search",
-            "POST",
-            body=json.dumps(data),
-            headers={"content-type": "application/json"},
-        )
-        if content.get("searchResults") is None or content.get("pagination") is None:
-            raise RuntimeError(f"Search failed: {content}")
-
-        total = content["pagination"]["totalPages"]
-        cur += 1
-        data["pagination"]["currentPage"] = cur
-        yield from content["searchResults"]
+        ["Account ID", "Email 1"],
+        pagination={"pageSize": 1},
+    ):
+        return result
 
 
 def get_inactive_members(extra_fields):
     """Lookup all accounts with inactive memberships"""
-    data = {
-        "searchFields": [
-            {
-                "field": "Account Current Membership Status",
-                "operator": "NOT_EQUAL",
-                "value": "Active",
-            }
+    return neon_base.paginated_search(
+        [
+            ("Account Current Membership Status", "NOT_EQUAL", "Active"),
         ],
-        "outputFields": ["Account ID", *extra_fields],
-    }
-    return _paginated_search(data)
+        ["Account ID", *extra_fields],
+    )
 
 
 def get_active_members(extra_fields):
     """Lookup all accounts with active memberships"""
-    data = {
-        "searchFields": [
-            {
-                "field": "Account Current Membership Status",
-                "operator": "EQUAL",
-                "value": "Active",
-            }
+    return neon_base.paginated_search(
+        [
+            ("Account Current Membership Status", "EQUAL", "Active"),
         ],
-        "outputFields": ["Account ID", *extra_fields],
-    }
-    return _paginated_search(data)
+        ["Account ID", *extra_fields],
+    )
 
 
 MEMBER_SEARCH_OUTPUT_FIELDS = [
@@ -452,99 +233,48 @@ MEMBER_SEARCH_OUTPUT_FIELDS = [
 def search_member(email, operator="EQUAL"):
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
-    data = {
-        "searchFields": [
-            {
-                "field": "Email",
-                "operator": operator,
-                "value": email,
-            }
-        ],
-        "outputFields": [
-            "Account ID",
-            *MEMBER_SEARCH_OUTPUT_FIELDS,
-        ],
-    }
-    return _paginated_search(data)
+    return neon_base.paginated_search(
+        [("Email", operator, email)], ["Account ID", *MEMBER_SEARCH_OUTPUT_FIELDS]
+    )
 
 
 def get_members_with_role(role, extra_fields):
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
-    data = {
-        "searchFields": [
-            {
-                "field": str(CustomField.API_SERVER_ROLE),
-                "operator": "CONTAIN",
-                "value": role["id"],
-            }
-        ],
-        "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
-    }
-    return _paginated_search(data)
+    return neon_base.paginated_search(
+        [(str(CustomField.API_SERVER_ROLE), "CONTAIN", role["id"])],
+        ["Account ID", "First Name", "Last Name", *extra_fields],
+    )
 
 
 def get_new_members_needing_setup(max_days_ago, extra_fields=None):
     """Fetch all members in need of automated setup; this includes
     all paying members past the start of the Onboarding V2 plan
     that haven't yet had automation applied to them."""
-    if not extra_fields:
-        extra_fields = []
-    data = {
-        "searchFields": [
-            {
-                "field": str(CustomField.ACCOUNT_AUTOMATION_RAN),
-                "operator": "BLANK",
-            },
-            {
-                "field": "First Membership Enrollment Date",
-                "operator": "GREATER_THAN",
-                "value": (tznow() - datetime.timedelta(days=max_days_ago)).strftime(
-                    "%Y-%m-%d"
-                ),
-            },
-            {
-                "field": "Membership Cost",
-                "operator": "GREATER_THAN",
-                "value": 10,
-            },
+    enroll_date = (tznow() - datetime.timedelta(days=max_days_ago)).strftime("%Y-%m-%d")
+    return neon_base.paginated_search(
+        [
+            (str(CustomField.ACCOUNT_AUTOMATION_RAN), "BLANK", None),
+            ("First Membership Enrollment Date", "GREATER_THAN", enroll_date),
+            ("Membership Cost", "GREATER_THAN", 10),
         ],
-        "outputFields": ["Account ID", "First Name", "Last Name", *extra_fields],
-    }
-    return _paginated_search(data)
+        ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
+    )
 
 
 def get_all_accounts_with_discord_association(extra_fields):
     """Lookup all accounts with discord users associated"""
-    data = {
-        "searchFields": [
-            {
-                "field": str(CustomField.DISCORD_USER),
-                "operator": "NOT_BLANK",
-            }
-        ],
-        "outputFields": ["Account ID", *extra_fields],
-    }
-    return _paginated_search(data)
+    return neon_base.paginated_search(
+        [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)],
+        ["Account ID", *extra_fields],
+    )
 
 
 def get_members_with_discord_id(discord_id, extra_fields=None):
     """Fetch all members with a specific Discord ID"""
-    data = {
-        "searchFields": [
-            {
-                "field": str(CustomField.DISCORD_USER),
-                "operator": "EQUAL",
-                "value": discord_id,
-            }
-        ],
-        "outputFields": [
-            "Account ID",
-            "First Name",
-            "Last Name",
-            *(extra_fields or []),
-        ],
-    }
-    return _paginated_search(data)
+    return neon_base.paginated_search(
+        [(str(CustomField.DISCORD_USER), "EQUAL", discord_id)],
+        ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
+    )
 
 
 def fetch_techs_list():
@@ -563,27 +293,22 @@ def fetch_techs_list():
             CustomField.SHOP_TECH_LAST_DAY,
         ],
     ):
-        clr = []
-        if t.get("Clearances") is not None:
-            clr = t["Clearances"].split("|")
-        interest = t.get("Interest", "")
-        expertise = t.get("Expertise", "")
-        area_lead = t.get("Area Lead", "")
-        shift = t.get("Shop Tech Shift", "")
-        first_day = t.get("Shop Tech First Day", "")
-        last_day = t.get("Shop Tech Last Day", "")
         techs.append(
             {
                 "id": t["Account ID"],
                 "name": f"{t['First Name']} {t['Last Name']}",
                 "email": t["Email 1"],
-                "interest": interest,
-                "expertise": expertise,
-                "area_lead": area_lead,
-                "shift": shift,
-                "first_day": first_day,
-                "last_day": last_day,
-                "clearances": clr,
+                "interest": t.get("Interest", ""),
+                "expertise": t.get("Expertise", ""),
+                "area_lead": t.get("Area Lead", ""),
+                "shift": t.get("Shop Tech Shift", ""),
+                "first_day": t.get("Shop Tech First Day", ""),
+                "last_day": t.get("Shop Tech Last Day", ""),
+                "clearances": (
+                    t["Clearances"].split("|")
+                    if t.get("Clearances") is not None
+                    else []
+                ),
             }
         )
     techs.sort(key=lambda t: len(t["clearances"]))
@@ -631,483 +356,14 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     return sample_classes
 
 
-class DuplicateRequestToken:  # pylint: disable=too-few-public-methods
-    """A quick little emulator of the duplicat request token behavior on Neon's site"""
-
-    def __init__(self):
-        self.i = int(time.time())
-
-    def get(self):
-        """Gets a new dupe token"""
-        self.i += 1
-        return self.i
-
-
-class NeonOne:  # pylint: disable=too-few-public-methods
-    """Masquerade as a web user to perform various actions not available in the public API"""
-
-    TYPE_MEMBERSHIP_DISCOUNT = 2
-    TYPE_EVENT_DISCOUNT = 3
-
-    def __init__(self, user, passwd):
-        self.s = get_connector().neon_session()
-        self.drt = DuplicateRequestToken()
-        self._do_login(user, passwd)
-
-    def _do_login(self, user, passwd):
-        csrf = self._get_csrf()
-        log.debug(f"CSRF: {csrf}")
-
-        # Submit login info to initial login page
-        r = self.s.post(
-            "https://app.neonsso.com/login",
-            data={"_token": csrf, "email": user, "password": passwd},
-        )
-        assert r.status_code == 200
-
-        # Select Neon SSO and go through the series of SSO redirects to properly set cookies
-        r = self.s.get("https://app.neoncrm.com/np/ssoAuth")
-        dec = r.content.decode("utf8")
-        if "Mission Control Dashboard" not in dec:
-            raise RuntimeError(dec)
-
-    def _get_csrf(self):
-        rlogin = self.s.get("https://app.neonsso.com/login")
-        assert rlogin.status_code == 200
-        csrf = None
-        soup = BeautifulSoup(rlogin.content.decode("utf8"), features="html.parser")
-        for m in soup.head.find_all("meta"):
-            if m.get("name") == "csrf-token":
-                csrf = m["content"]
-        return csrf
-
-    def soft_search(self, keyword):
-        """Search based on a keyword - matches email, first/last names etc"""
-        r = self.s.get(
-            f"https://protohaven.app.neoncrm.com/nx/top-search/search?keyword={keyword}"
-        )
-        assert r.status_code == 200
-        content = json.loads(r.content.decode("utf8"))
-        return content
-
-    def create_single_use_abs_event_discount(self, code, amt):
-        """Creates an absolute discount, usable once"""
-        return self._post_discount(
-            self.TYPE_EVENT_DISCOUNT, code=code, pct=False, amt=amt
-        )
-
-    def _post_discount(  # pylint: disable=too-many-arguments
-        self,
-        typ,
-        code,
-        pct,
-        amt,
-        from_date="11/19/2023",
-        to_date="11/21/2024",
-        max_uses=1,
-    ):
-        # We must appear to be coming from the specific discount settings page (Event or Membership)
-        referer = (
-            f"{ADMIN_URL}/systemsetting/"
-            + f"newCouponCodeDiscount.do?sellingItemType={typ}&discountType=1"
-        )
-        rg = self.s.get(referer)
-        assert rg.status_code == 200
-
-        # Must set referer so the server knows which "selling item type" this POST is for
-        self.s.headers.update({"Referer": rg.url})
-        drt_i = self.drt.get()
-        data = {
-            "z2DuplicateRequestToken": drt_i,
-            "priceOff": "coupon",
-            "currentDiscount.couponCode": code,
-            "currentDiscount.sellingItemId": "",
-            "currentDiscount.maxUses": max_uses,
-            "currentDiscount.validFromDate": from_date,
-            "currentDiscount.validToDate": to_date,
-            "currentDiscount.percentageValue": 1 if pct else 0,
-            "submit": " Save ",
-        }
-        if typ == self.TYPE_EVENT_DISCOUNT:
-            data["currentDiscount.eventTicketPackageGroupId"] = ""
-
-        if pct:
-            data["currentDiscount.percentageDiscountAmount"] = amt
-        else:
-            data["currentDiscount.absoluteDiscountAmount"] = amt
-
-        r = self.s.post(
-            f"{ADMIN_URL}/systemsetting/couponCodeDiscountSave.do",
-            allow_redirects=False,
-            data=data,
-        )
-
-        log.debug(f"Response {r.status_code} {r.headers}")
-
-        if not "discountList.do" in r.headers.get("Location", ""):
-            raise RuntimeError(
-                "Failed to land on appropriate page - wanted discountList.do, got "
-                + r.headers.get("Location", "")
-            )
-        return code
-
-    def get_ticket_groups(self, event_id, content=None):
-        """Gets ticket groups for an event"""
-        if content is None:
-            r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
-            soup = BeautifulSoup(r.content.decode("utf8"), features="html.parser")
-        else:
-            soup = BeautifulSoup(content.decode("utf8"), features="html.parser")
-        ticketgroups = soup.find_all("td", class_="ticket-group")
-        results = {}
-        for tg in ticketgroups:
-            groupname = tg.find("font").text
-            m = re.search(r"ticketGroupId=(\d+)\&", str(tg))
-            results[groupname] = m[1]
-        return results
-
-    def create_ticket_group_req_(self, event_id, group_name, group_desc):
-        """Create a ticket group for an event"""
-        # We must appear to be coming from the package grup creation page
-        referer = f"{ADMIN_URL}/event/newPackageGroup.do?eventId={event_id}"
-        rg = self.s.get(referer)
-        assert rg.status_code == 200
-
-        # Must set referer so the server knows which event this POST is for
-        self.s.headers.update({"Referer": rg.url})
-        drt_i = self.drt.get()
-        data = {
-            "z2DuplicateRequestToken": drt_i,
-            "ticketPackageGroup.groupName": group_name,
-            "ticketPackageGroup.description": group_desc,
-            "ticketPackageGroup.startDate": "",
-            "ticketPackageGroup.endDate": "",
-        }
-        r = self.s.post(
-            f"{ADMIN_URL}/event/savePackageGroup.do",
-            allow_redirects=True,
-            data=data,
-        )
-        if r.status_code != 200:
-            raise RuntimeError(f"{r.status_code}: {r.content}")
-        return r
-
-    def assign_condition_to_group(self, event_id, group_id, cond):
-        """Assign a membership / income condition to a ticket group"""
-        # Load report setup page
-        referer = f"{ADMIN_URL}/v2report/validFieldsList.do"
-        referer += "?reportId=22"
-        referer += "&searchCriteriaId="
-        referer += f"&EventTicketPackageGroupId={group_id}&eventId={event_id}"
-        ag = self.s.get(referer)
-        content = ag.content.decode("utf8")
-
-        if "All Accounts Report" not in content:
-            raise RuntimeError("Bad GET report setup page:", content)
-
-        # Submit report / condition
-        # Must set referer so the server knows which event this POST is for
-        self.s.headers.update({"Referer": ag.url})
-        drt_i = self.drt.get()
-        data = {
-            "z2DuplicateRequestToken": drt_i,
-            "saveandsearchFlag": "search",
-            "actionFrom": "validColumn",
-            "savedSearchCriteria": json.dumps(cond),
-            "savedSearchFurtherCriteria": [],
-            "searchFurtherFlag": 0,
-            "searchFurtherType": 0,
-            "searchType": 0,
-            "savedSearchColumn": [
-                "65",
-                "377",
-                "19",
-                "117",
-                "26",
-                "27",
-                "28",
-                "9",
-                "429",
-                "439",
-                "443",
-                "437",
-            ],  # What's this??
-            "savedColumnToDefault": "",
-            "comeFrom": None,
-        }
-        r = self.s.post(
-            f"{ADMIN_URL}/report/reportFilterEdit.do",
-            allow_redirects=False,
-            data=data,
-        )
-        if r.status_code != 302:
-            raise RuntimeError(
-                "Report filter edit failed; expected code 302 FOUND, got "
-                + str(r.status_code)
-            )
-
-        # Do initial report execution
-        self.s.headers.update({"Referer": r.url})
-        r = self.s.get(
-            f"{ADMIN_URL}/report/searchCriteriaSearch.do"
-            "?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null"
-        )
-        content = r.content.decode("utf8")
-        if "Return to Event Detail Page" not in content:
-            raise RuntimeError("Bad GET report setup page:", content)
-
-        # Set the search details
-        self.s.headers.update({"Referer": r.url})
-        r = self.s.get(
-            f"{ADMIN_URL}/systemsetting/eventTicketGroupConditionSave.do?ticketGroupId={group_id}",
-            allow_redirects=False,
-        )
-        if r.status_code != 302:
-            raise RuntimeError(f"{r.status_code}: {r.content}")
-        return True
-
-    def assign_price_to_group(
-        self, event_id, group_id, price_name, amt, capacity
-    ):  # pylint: disable=too-many-arguments
-        """Assigns a specific price to a Neon ticket group"""
-        referer = f"{ADMIN_URL}/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
-        ag = self.s.get(referer)
-        content = ag.content.decode("utf8")
-        if "Event Price" not in content:
-            raise RuntimeError("BAD get group price creation page")
-
-        # Submit report / condition
-        # Must set referer so the server knows which event this POST is for
-        self.s.headers.update({"Referer": ag.url})
-        drt_i = self.drt.get()
-        data = {
-            "z2DuplicateRequestToken": drt_i,
-            "ticketPackage.sessionId": "",
-            "ticketPackage.name": price_name,
-            "ticketPackage.fee": str(amt),
-            "ticketPackage.ticketPackageGroupid": ""
-            if group_id == "default"
-            else str(group_id),
-            "ticketPackage.capacity": str(capacity),
-            "ticketPackage.advantageAmount": str(amt),
-            "ticketPackage.advantageDescription": "",
-            "ticketPackage.description": "",
-            "ticketPackage.webRegister": "on",
-            "save": " Submit ",
-        }
-        r = self.s.post(
-            f"{ADMIN_URL}/event/savePackage.do",
-            allow_redirects=False,
-            data=data,
-        )
-        if r.status_code != 302:
-            raise RuntimeError(
-                "Price creation failed; expected code 302 FOUND, got "
-                + str(r.status_code)
-            )
-        return True
-
-    def upsert_ticket_group(self, event_id, group_name, group_desc):
-        """Adds the ticket group to an event, if not already exists"""
-        if group_name.lower() == "default":
-            return "default"
-        groups = self.get_ticket_groups(event_id)
-        if group_name not in groups:
-            log.debug("Group does not yet exist; creating")
-            r = self.create_ticket_group_req_(event_id, group_name, group_desc)
-            groups = self.get_ticket_groups(event_id, r.content)
-        assert group_name in groups
-        group_id = groups[group_name]
-        return group_id
-
-    def delete_all_prices_and_groups(self, event_id):
-        """Deletes prices and groups belonging to a neon event"""
-        assert event_id != "" and event_id is not None
-
-        r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
-        content = r.content.decode("utf8")
-        deletable_packages = list(
-            set(re.findall(r"deletePackage\.do\?eventId=\d+\&id=(\d+)", content))
-        )
-        deletable_packages.sort()
-        log.debug(deletable_packages)
-        groups = set(re.findall(r"ticketGroupId=(\d+)", content))
-        log.debug(groups)
-
-        for pkg_id in deletable_packages:
-            log.debug(f"Delete pricing {pkg_id}")
-            self.s.get(
-                f"{ADMIN_URL}/event/deletePackage.do?eventId={event_id}&id={pkg_id}"
-            )
-
-        for group_id in groups:
-            log.debug(f"Delete group {group_id}")
-            self.s.get(
-                f"{ADMIN_URL}/event/deletePackageGroup.do"
-                f"?ticketGroupId={group_id}&eventId={event_id}"
-            )
-
-        # Re-run first price deletion as it's probably a default price
-        # that must exist if there are conditional pricing applied
-        if len(deletable_packages) > 0:
-            log.debug(f"Re-delete pricing {deletable_packages[0]}")
-            self.s.get(
-                f"{ADMIN_URL}/event/deletePackage.do"
-                f"?eventId={event_id}&id={deletable_packages[0]}"
-            )
-
-    def set_thumbnail(self, event_id, thumbnail_path):
-        """Sets the thumbnail image for a neon event"""
-        r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
-        content = r.content.decode("utf8")
-        if "Upload Thumbnail" not in content:
-            log.debug(content)
-            raise RuntimeError("BAD get event page")
-
-        referer = (
-            f"{ADMIN_URL}/event/uploadPhoto.do?eventId={event_id}&staffUpload=true"
-        )
-        ag = self.s.get(referer)
-        content = ag.content.decode("utf8")
-        if "Event Photo" not in content:
-            raise RuntimeError("BAD get event photo upload page")
-
-        self.s.headers.update({"Referer": ag.url})
-        drt_i = self.drt.get()
-        with open(thumbnail_path, "rb") as fh:
-            multipart_form_data = {
-                "z2DuplicateRequestToken": (None, drt_i),
-                "eventImageForm": (thumbnail_path, fh),
-            }
-            rep = self.s.post(
-                f"{ADMIN_URL}/event/photoSave.do",
-                files=multipart_form_data,
-                allow_redirects=False,
-            )
-        log.debug(rep.request.headers)
-        log.debug(rep.request.body)
-        log.debug("=========Response:========")
-        log.debug(rep.status_code)
-        log.debug(rep.content.decode("utf8"))
-        return rep
-
-
-def set_event_scheduled_state(neon_id, scheduled=True):
-    """Publishes or unpublishes an event in Neon"""
-    data = {
-        "publishEvent": scheduled,
-        "enableEventRegistrationForm": scheduled,
-        "archived": not scheduled,
-        "enableWaitListing": scheduled,
-    }
-    content = get_connector().neon_request(
-        get_config("neon/api_key3"),
-        f"{URL_BASE}/events/{neon_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
-    return content["id"]
-
-
-def create_event(  # pylint: disable=too-many-arguments
-    name,
-    desc,
-    start,
-    end,
-    category=Category.PROJECT_BASED_WORKSHOP,
-    max_attendees=6,
-    dry_run=True,
-    published=True,
-    registration=True,
-):
-    """Creates a new event in Neon CRM"""
-    event = {
-        "name": name,
-        "summary": name,
-        "maximumAttendees": max_attendees,
-        "category": {"id": category},
-        "publishEvent": published,
-        "enableEventRegistrationForm": registration,
-        "archived": False,
-        "enableWaitListing": False,
-        "createAccountsforAttendees": True,
-        "eventDescription": desc,
-        "eventDates": {
-            "startDate": start.strftime("%Y-%m-%d"),
-            "endDate": end.strftime("%Y-%m-%d"),
-            "startTime": start.strftime("%-I:%M %p"),
-            "endTime": end.strftime("%-I:%M %p"),
-            "registrationOpenDate": datetime.datetime.now().isoformat(),
-            "registrationCloseDate": (start - datetime.timedelta(hours=24)).isoformat(),
-            "timeZone": {"id": "1"},
-        },
-        # "financialSettings": {
-        #  "feeType": "SingleFee",
-        #  "admissionFee": {
-        #    "fee": price,
-        #  },
-        # },
-        "financialSettings": {
-            "feeType": "MT_OA",
-            "admissionFee": None,
-            "ticketsPerRegistration": None,
-            "fund": None,
-            "taxDeductiblePortion": None,
-        },
-        "location": {
-            "name": "Protohaven",
-            "address": "214 N Trenton Ave.",
-            "city": "Pittsburgh",
-            "stateProvince": {
-                "name": "Pennsylvania",
-            },
-            "zipCode": "15221",
-        },
-    }
-
-    if dry_run:
-        log.warning(
-            f"DRY RUN {event['eventDates']['startDate']} "
-            f"{event['eventDates']['startTime']} {event['name']}"
-        )
-        return None
-
-    evt_request = get_connector().neon_request(
-        get_config("neon/api_key3"),
-        f"{URL_BASE}/events",
-        "POST",
-        body=json.dumps(event),
-        headers={"content-type": "application/json"},
-    )
-    return evt_request["id"]
-
-
 def create_coupon_code(code, amt):
     """Creates a coupon code for a specific absolute amount"""
-    n = NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
-    return n.create_single_use_abs_event_discount(code, amt)
+    return neon_base.NeonOne().create_single_use_abs_event_discount(code, amt)
 
 
 def soft_search(keyword):
     """Creates a coupon code for a specific absolute amount"""
-    n = NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
-    return n.soft_search(keyword)
-
-
-def _patch_role(account, role, enabled):
-    acf = account.get("individualAccount", account.get("companyAccount"))[
-        "accountCustomFields"
-    ]
-    for cf in acf:
-        if str(cf["id"]) == str(CustomField.API_SERVER_ROLE):
-            vals = {v["id"]: v["name"] for v in cf["optionValues"]}
-            if enabled:
-                vals[role["id"]] = role["name"]
-            elif role["id"] in vals:
-                del vals[role["id"]]
-            return [{"id": k, "name": v} for k, v in vals.items()]
-    return [role] if enabled else []
+    return neon_base.NeonOne().soft_search(keyword)
 
 
 def patch_member_role(email, role, enabled):
@@ -1115,37 +371,21 @@ def patch_member_role(email, role, enabled):
     mem = list(search_member(email))
     if len(mem) == 0:
         raise KeyError()
-    user_id = mem[0]["Account ID"]
-    log.debug("patching account")
-    account = fetch_account(mem[0]["Account ID"])
-    roles = _patch_role(account, role, enabled)
-    log.debug(str(roles))
-    data = {
-        "accountCustomFields": [
-            {"id": CustomField.API_SERVER_ROLE, "optionValues": roles}
-        ],
-    }
-    # Need to confirm whether the user is an individual or company account
-    m = fetch_account(user_id)
-    if m is None:
-        raise RuntimeError("Failed to resolve account type for waiver application")
-    if m.get("individualAccount"):
-        data = {"individualAccount": data}
-    elif m.get("companyAccount"):
-        data = {"companyAccount": data}
-    else:
-        raise RuntimeError("Unknown account type for " + str(user_id))
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+    account_id = mem[0]["Account ID"]
+    roles = neon_base.get_custom_field(account_id, str(CustomField.API_SERVER_ROLE))
+    roles = {v["id"]: v["name"] for v in roles}
+    if enabled:
+        roles[role["id"]] = role["name"]
+    elif role["id"] in roles:
+        del roles[role["id"]]
+    return neon_base.set_custom_fields(
+        account_id,
+        (CustomField.API_SERVER_ROLE, [{"id": k, "name": v} for k, v in roles.items()]),
     )
 
 
 def set_tech_custom_fields(  # pylint: disable=too-many-arguments
-    user_id,
+    account_id,
     shift=None,
     first_day=None,
     last_day=None,
@@ -1154,222 +394,67 @@ def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     expertise=None,
 ):
     """Overwrites existing waiver status information on an account"""
-    cf = []
-    if shift is not None:
-        cf.append({"id": CustomField.SHOP_TECH_SHIFT, "value": shift})
-    if first_day is not None:
-        cf.append({"id": CustomField.SHOP_TECH_FIRST_DAY, "value": first_day})
-    if last_day is not None:
-        cf.append({"id": CustomField.SHOP_TECH_LAST_DAY, "value": last_day})
-    if area_lead is not None:
-        cf.append({"id": CustomField.AREA_LEAD, "value": area_lead})
-    if interest is not None:
-        cf.append({"id": CustomField.INTEREST, "value": interest})
-    if expertise is not None:
-        cf.append({"id": CustomField.EXPERTISE, "value": expertise})
-    data = {"accountCustomFields": cf}
-    # Need to confirm whether the user is an individual or company account
-    m = fetch_account(user_id)
-    if m is None:
-        raise RuntimeError("Failed to resolve account type for waiver application")
-    if m.get("individualAccount"):
-        data = {"individualAccount": data}
-    elif m.get("companyAccount"):
-        data = {"companyAccount": data}
-    else:
-        raise RuntimeError("Unknown account type for " + str(user_id))
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
+    cf = [
+        (CustomField.SHOP_TECH_SHIFT, shift),
+        (CustomField.SHOP_TECH_FIRST_DAY, first_day),
+        (CustomField.SHOP_TECH_LAST_DAY, last_day),
+        (CustomField.AREA_LEAD, area_lead),
+        (CustomField.INTEREST, interest),
+        (CustomField.EXPERTISE, expertise),
+    ]
+    return neon_base.set_custom_fields(account_id, *[v for v in cf if v[1] is not None])
 
 
-def _set_custom_singleton_fields(user_id, field_id_to_value_map):
-    data = {
-        "accountCustomFields": [
-            {"id": k, "value": v} for k, v in field_id_to_value_map.items()
-        ],
-    }
-    # Need to confirm whether the user is an individual or company account
-    m = fetch_account(user_id)
-    if m is None:
-        raise RuntimeError(
-            f"Failed to resolve account type for setting fields: {field_id_to_value_map}"
-        )
-
-    if m.get("individualAccount"):
-        data = {"individualAccount": data}
-    elif m.get("companyAccount"):
-        data = {"companyAccount": data}
-    else:
-        raise RuntimeError("Unknown account type for " + str(user_id))
-
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
-    )
-
-
-def set_waiver_status(user_id, new_status):
+def set_waiver_status(account_id, new_status):
     """Overwrites existing waiver status information on an account"""
-    data = {
-        "accountCustomFields": [
-            {"id": CustomField.WAIVER_ACCEPTED, "value": new_status}
-        ],
-    }
-    # Need to confirm whether the user is an individual or company account
-    m = fetch_account(user_id)
-    if m is None:
-        raise RuntimeError("Failed to resolve account type for waiver application")
-
-    if m.get("individualAccount"):
-        data = {"individualAccount": data}
-    elif m.get("companyAccount"):
-        data = {"companyAccount": data}
-    else:
-        raise RuntimeError("Unknown account type for " + str(user_id))
-
-    return get_connector().neon_request(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{user_id}",
-        "PATCH",
-        body=json.dumps(data),
-        headers={"content-type": "application/json"},
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.WAIVER_ACCEPTED, new_status)
     )
 
 
-def update_announcement_status(user_id, now=None):
+def update_announcement_status(account_id, now=None):
     """Updates announcement acknowledgement"""
     if now is None:
         now = tznow()
-    return _set_custom_singleton_fields(
-        user_id, {CustomField.ANNOUNCEMENTS_ACKNOWLEDGED: now.strftime("%Y-%m-%d")}
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.ANNOUNCEMENTS_ACKNOWLEDGED, now.strftime("%Y-%m-%d"))
     )
 
 
-def update_account_automation_run_status(user_id, status: str, now=None):
+def update_account_automation_run_status(account_id, status: str, now=None):
     """Updates automation ran timestamp"""
-    if now is None:
-        now = tznow()
-    return _set_custom_singleton_fields(
-        user_id,
-        {CustomField.ACCOUNT_AUTOMATION_RAN: status + " " + now.strftime("%Y-%m-%d")},
+    return neon_base.set_custom_fields(
+        account_id,
+        (
+            CustomField.ACCOUNT_AUTOMATION_RAN,
+            status + " " + (now or tznow()).strftime("%Y-%m-%d"),
+        ),
     )
 
 
-def income_condition(income_name, income_value):
-    """Generates an "income condition" for making specific pricing of tickets available"""
-    return [
-        [
-            {
-                "name": "account_custom_view.field78",
-                "displayName": "Income Based Rates",
-                "groupId": "220",
-                "savedGroup": "1",
-                "operator": "1",
-                "operatorName": "Equal",
-                "optionName": income_name,
-                "optionValue": str(income_value),
-            }
-        ]
-    ]
-
-
-def membership_condition(mem_names, mem_values):
-    """Generates a "membership condition" for making specific ticket prices available"""
-    stvals = [f"'{v}'" for v in mem_values]
-    stvals = f"({','.join(stvals)})"
-    return [
-        [
-            {
-                "name": "membership_listing.membershipId",
-                "displayName": "Membership+Level",
-                "groupId": "55",
-                "savedGroup": "1",
-                "operator": "9",
-                "operatorName": "In Range Of",
-                "optionName": " or ".join(mem_names),
-                "optionValue": stvals,
-            }
-        ]
-    ]
-
-
-pricing = [
-    {
-        "name": "default",
-        "desc": "",
-        "price_ratio": 1.0,
-        "qty_ratio": 1.0,
-        "price_name": "Single Registration",
-    },
-    {
-        "name": "ELI - Price",
-        "desc": "70% Of",
-        "cond": income_condition("Extremely Low Income - 70%", 43),
-        "price_ratio": 0.3,
-        "qty_ratio": 0.25,
-        "price_name": "AMP Rate",
-    },
-    {
-        "name": "VLI - Price",
-        "desc": "50% Of",
-        "cond": income_condition("Very Low Income - 50%", 42),
-        "price_ratio": 0.5,
-        "qty_ratio": 0.25,
-        "price_name": "AMP Rate",
-    },
-    {
-        "name": "LI - Price",
-        "desc": "20% Of",
-        "cond": income_condition("Low Income - 20%", 41),
-        "price_ratio": 0.8,
-        "qty_ratio": 0.5,
-        "price_name": "AMP Rate",
-    },
-    {
-        "name": "Member Discount",
-        "desc": "20% Of",
-        "cond": membership_condition(
-            [
-                "General+Membership",
-                "Primary+Family+Membership",
-                "Additional+Family+Membership",
-            ],
-            [1, 27, 26],
-        ),
-        "price_ratio": 0.8,
-        "qty_ratio": 1.0,
-        "price_name": "Member Rate",
-    },
-    {
-        "name": "Instructor Discount",
-        "desc": "50% Of",
-        "cond": membership_condition(["Instructor"], [9]),
-        "price_ratio": 0.5,
-        "qty_ratio": 1.0,
-        "price_name": "Instructor Rate",
-    },
-]
+def set_event_scheduled_state(neon_id, scheduled=True):
+    """Publishes or unpublishes an event in Neon"""
+    return neon_base.patch(
+        "api_key3",
+        f"/events/{neon_id}",
+        {
+            "publishEvent": scheduled,
+            "enableEventRegistrationForm": scheduled,
+            "archived": not scheduled,
+            "enableWaitListing": scheduled,
+        },
+    )["id"]
 
 
 def assign_pricing(  # pylint: disable=too-many-arguments
     event_id, price, seats, clear_existing=False, include_discounts=True, n=None
 ):
     """Assigns ticket pricing and quantities for a preexisting Neon event"""
-    if n is None:
-        n = NeonOne(get_config("neon/login_user"), get_config("neon/login_pass"))
-
+    n = n or neon_base.NeonOne()
     if clear_existing:
         n.delete_all_prices_and_groups(event_id)
 
-    for p in pricing if include_discounts else pricing[:1]:
+    for p in neon_base.pricing if include_discounts else neon_base.pricing[:1]:
         log.debug(f"Assign pricing: {p['name']}")
         group_id = n.upsert_ticket_group(
             event_id, group_name=p["name"], group_desc=p["desc"]

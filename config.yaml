@@ -84,7 +84,6 @@ airtable:
     base_id: "apppMbG0r1ZrluVMv"
     sections: "tblfCye5J6cS3rBGs"
     violations: "tblxivDVVxoARFkHC"
-    suspensions: "tblYrhew72MpILAjK"
     fees: "tblpM1KXai4koCgCV"
   people:
     token: "${AIRTABLE_TOKEN_PEOPLE}"

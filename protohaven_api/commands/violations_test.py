@@ -9,7 +9,6 @@ def test_enforce_policies_no_output(mocker, capsys):
     mocker.patch.object(v.airtable, "get_policy_fees", return_value=[])
     mocker.patch.object(e.airtable, "get_policy_sections", return_value=[])
     mocker.patch.object(v.enforcer, "gen_fees", return_value=[])
-    mocker.patch.object(v.enforcer, "gen_suspensions", return_value=[])
     v.Commands().enforce_policies(["--apply"])
     captured = capsys.readouterr()
     assert captured.out.strip() == "[]"

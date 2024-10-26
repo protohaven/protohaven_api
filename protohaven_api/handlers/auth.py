@@ -4,7 +4,7 @@ import logging
 from flask import Blueprint, redirect, request, session
 
 from protohaven_api import oauth
-from protohaven_api.integrations import neon
+from protohaven_api.integrations import neon_base
 
 page = Blueprint("auth", __name__, template_folder="templates")
 
@@ -14,8 +14,7 @@ log = logging.getLogger("handlers.auth")
 def user_email():
     """Get the logged in user's email"""
     try:
-        acct = session.get("neon_account")["individualAccount"]
-        return acct["primaryContact"]["email1"]
+        return session.get("neon_account")["primaryContact"]["email1"]
     except TypeError:
         return None
 
@@ -23,12 +22,8 @@ def user_email():
 def user_fullname():
     """Get the logged in user's full name"""
     try:
-        acct = session.get("neon_account")["individualAccount"]
-        return (
-            acct["primaryContact"]["firstName"]
-            + " "
-            + acct["primaryContact"]["lastName"]
-        )
+        c = session.get("neon_account")["primaryContact"]
+        return f"{c['firstName']} {c['lastName']}"
     except TypeError:
         return None
 
@@ -69,7 +64,7 @@ def neon_oauth_redirect():
     code = request.args.get("code")
     rep = oauth.retrieve_token(_redirect_uri(), code)
     session["neon_id"] = rep.get("access_token")
-    session["neon_account"] = neon.fetch_account(session["neon_id"])
+    session["neon_account"] = neon_base.fetch_account(session["neon_id"], required=True)
     referrer = session.get("login_referrer", "/")
     log.info(f"Login referrer redirect: {referrer}")
     return redirect(referrer)

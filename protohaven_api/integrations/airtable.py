@@ -256,7 +256,7 @@ def get_policy_violations():
 def open_violation(
     reporter, suspect, sections, evidence, onset, fee, notes
 ):  # pylint: disable=too-many-arguments
-    """Opens a new violation with a fee schedule and/or suspension"""
+    """Opens a new violation with a fee schedule"""
     section_map = {s["fields"]["id"]: s["id"] for s in get_policy_sections()}
     return insert_records(
         [
@@ -292,30 +292,6 @@ def close_violation(instance, closer, resolution, suspect, notes):
     if suspect is not None:
         data["Suspect"] = suspect
     return update_record(data, "policy_enforcement", "violations", match[0]["id"])
-
-
-def get_policy_suspensions():
-    """Gets all suspensions due to policy violation"""
-    rows = get_all_records("policy_enforcement", "suspensions")
-    return [s for s in rows if s["fields"].get("Start Date")]
-
-
-def create_suspension(neon_id, violations, start_date, end_date):
-    """Create a new suspension spanning `start_date` to `end_date`"""
-    data = [
-        {
-            "Neon ID": neon_id,
-            "Relevant Violations": violations,
-            "Start Date": start_date.isoformat(),
-            "End Date": end_date.isoformat(),
-        }
-    ]
-    return insert_records(data, "policy_enforcement", "suspensions")
-
-
-def get_lapsed_suspensions():
-    """Return all suspensions that have ended, but haven't yet been reinstated."""
-    raise NotImplementedError()
 
 
 def get_policy_fees():

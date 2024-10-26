@@ -9,31 +9,20 @@ from protohaven_api.config import tz  # pylint: disable=import-error
 TEST_NOW = parse_date("2024-02-22").astimezone(tz)
 
 
-def test_get_account_email_individual(mocker):
-    """Test email extraction from individual account"""
-    mocker.patch(
-        "protohaven_api.integrations.neon.fetch_account",
-        return_value={
-            "individualAccount": {"primaryContact": {"email2": "foo@bar.com"}}
-        },
-    )
-    assert builder.get_account_email("1234") == "foo@bar.com"
-
-
-def test_get_account_email_company(mocker):
-    """Test email extraction from company account"""
-    mocker.patch(
-        "protohaven_api.integrations.neon.fetch_account",
-        return_value={"companyAccount": {"primaryContact": {"email2": "foo@bar.com"}}},
+def test_get_account_email(mocker):
+    """Test email extraction"""
+    mocker.patch.object(
+        builder.neon_base,
+        "fetch_account",
+        return_value={"primaryContact": {"email2": "foo@bar.com"}},
     )
     assert builder.get_account_email("1234") == "foo@bar.com"
 
 
 def test_get_account_email_unset(mocker):
     """Test email extraction when there is no email to extract"""
-    mocker.patch(
-        "protohaven_api.integrations.neon.fetch_account",
-        return_value={"individualAccount": {"primaryContact": {}}},
+    mocker.patch.object(
+        builder.neon_base, "fetch_account", return_value={"primaryContact": {}}
     )
     assert not builder.get_account_email("1234")
 
