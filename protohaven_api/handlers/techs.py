@@ -1,10 +1,12 @@
 """Site for tech leads to manage shop techs"""
+import datetime
 import logging
 from collections import defaultdict
 
 from dateutil import parser as dateparser
-from flask import Blueprint, Response, current_app, redirect, request
+from flask import Blueprint, Response, current_app, redirect, request, session
 
+from protohaven_api.automation.classes import builder
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
@@ -185,3 +187,79 @@ def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
     return neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
+
+
+@page.route("/techs/events")
+def techs_backfill_events():
+    """Returns the list of available events for tech backfill.
+    Logic matches automation.classes.builder.Action.FOR_TECHS
+    """
+    supply_cost_map = {
+        str(s["fields"].get("Neon ID", "")): int(
+            s["fields"].get("Supply Cost (from Class)", [0])[0]
+        )
+        for s in airtable.get_class_automation_schedule()
+    }
+    log.info(f"Fetched {len(supply_cost_map)} class supply costs")
+    for_techs = []
+    now = tznow()
+    # TODO dedupe logic with builder.py
+    for evt in neon.fetch_published_upcoming_events():
+        if str(evt["id"]) == "17631":  # Private instruction
+            continue
+        start = dateparser.parse(evt["startDate"] + " " + evt["startTime"]).astimezone(
+            tz
+        )
+        if start - datetime.timedelta(days=1) > now or now > start:
+            continue
+        attendees = {
+            a["accountId"]
+            for a in neon.fetch_attendees(evt["id"])
+            if a["registrationStatus"] == "SUCCEEDED"
+        }
+
+        if len(attendees) < evt["capacity"]:
+            tid = None
+            for t in neon.fetch_tickets(evt["id"]):
+                tid = t["id"]
+                if t["name"] == "Single Registration":
+                    log.info(f"Found single registration ticket id {tid}")
+                    break
+            if not tid:
+                raise RuntimeError(
+                    f"Failed to get ticket IDs from event {event_id} for registration"
+                )
+
+            for_techs.append(
+                {
+                    "id": evt["id"],
+                    "ticket_id": tid,
+                    "name": evt["name"],
+                    "attendees": list(attendees),
+                    "capacity": evt["capacity"],
+                    "start": start,
+                    "supply_cost": supply_cost_map.get(str(evt["id"]), 0),
+                }
+            )
+    return for_techs
+
+
+@page.route("/techs/event", methods=["POST"])
+@require_login_role(Role.SHOP_TECH)
+def techs_event_registration():
+    """Enroll a Neon account in the shop tech program, via email"""
+    account_id = session["neon_id"]
+    data = request.json
+    event_id = data.get("event_id")
+    ticket_id = data.get("ticket_id")
+    action = data.get("action")
+    if not account_id:
+        return Response("Not logged in", status=401)
+    if not event_id or not ticket_id or not action in ("register", "unregister"):
+        return Response("Invalid argument", status=400)
+
+    if action == "register":
+        return neon.register_for_event(account_id, event_id, ticket_id)
+    return neon.delete_single_ticket_registration(account_id, event_id) or {
+        "status": "ok"
+    }

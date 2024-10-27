@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { TabPane, Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get} from '$lib/api.ts';
 
 let promise = new Promise((resolve) => {});
@@ -11,7 +11,6 @@ function refresh() {
 onMount(refresh);
 </script>
 
-<TabPane tabId="area_leads" tab="Areas">
 <Card>
 <CardHeader>
   <CardTitle>Areas &amp; Leads</CardTitle>
@@ -36,4 +35,3 @@ onMount(refresh);
 {/await}
 </CardBody>
 </Card>
-</TabPane>

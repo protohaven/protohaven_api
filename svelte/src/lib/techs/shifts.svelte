@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { TabPane, Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import Editor from './forecast_override.svelte';
 import FetchError from '../fetch_error.svelte';
 import {get, post} from '$lib/api.ts';
@@ -25,7 +25,6 @@ function start_edit(s) {
 
 </script>
 
-<TabPane tabId="schedule" tab="Cal" active>
 <Card>
   <CardHeader>
   <CardTitle>Calendar</CardTitle>
@@ -72,6 +71,5 @@ function start_edit(s) {
   <p><em>* indicates overridden shift info</em></p>
 </CardFooter>
 </Card>
-</TabPane>
 
 <Editor {edit} on_update={refresh}/>

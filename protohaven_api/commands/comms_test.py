@@ -18,6 +18,8 @@ Tc = namedtuple(
 @pytest.mark.parametrize(
     "tc",
     [
+        Tc("None data", None, []),
+        Tc("Empty data", [], []),
         Tc(
             "No ID",
             {
@@ -125,7 +127,9 @@ def test_send_comms(mocker, tc):
     mocker.patch.object(
         c.Commands,
         "_load_comms_data",
-        return_value=tc.data if isinstance(tc.data, list) else [tc.data],
+        return_value=tc.data
+        if isinstance(tc.data, list) or tc.data is None
+        else [tc.data],
     )
     c.Commands().send_comms(["--path", "/asdf/ghsdf", "--confirm", *tc.args])
     for fn, tcall in [

@@ -94,13 +94,9 @@ def get_roles():
             base64.b64decode(api_key).decode("utf-8")
         ) or roles_from_api_key(api_key)
 
-    neon_acct = session.get("neon_account")
-    if neon_acct is None:
-        return None
-    acct = neon_acct.get("individualAccount") or neon_acct.get("companyAccount")
+    acct = session.get("neon_account")
     if acct is None:
         return None
-
     result = []
     for cf in acct.get("accountCustomFields", []):
         if cf["name"] == "API server role":

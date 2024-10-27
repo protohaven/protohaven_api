@@ -25,6 +25,11 @@ CONFIG_YAML_ENV = "PH_CONFIG"
 JOB_ID_ENV = "JOB_ID"
 
 
+def utcnow():
+    """Returns current time in UTC"""
+    return datetime.datetime.now(dtz.UTC)
+
+
 def tznow():
     """Return current time bound to time zone; prevents datetime skew due to different
     location of server"""

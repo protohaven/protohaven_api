@@ -65,7 +65,6 @@ in pkgs.mkShell {
         google-api-python-client google-auth-httplib2 google-auth-oauthlib
         python-dotenv
         asana
-        httplib2
         requests
         beautifulsoup4
         pulp

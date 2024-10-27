@@ -37,3 +37,49 @@ def test_techs_enroll(client, mocker):
     )
     client.post("/techs/enroll", json={"email": "a@b.com", "enroll": True})
     tl.neon.patch_member_role.assert_called_with("a@b.com", Role.SHOP_TECH, True)
+
+
+def test_techs_event_registration_success_register(mocker):
+    """Test successful registration"""
+    mocker.patch.object(tl.session, "__getitem__", return_value="test_account_id")
+    mock_data = {
+        "event_id": "test_event",
+        "ticket_id": "test_ticket",
+        "action": "register",
+    }
+    mocker.patch.object(tl.request, "json", mock_data)
+    mocker.patch.object(
+        tl.neon, "register_for_event", return_value=Response("Registered", status=200)
+    )
+
+    response = tl.techs_event_registration()
+    assert response.status_code == 200
+    assert response.data.decode() == "Registered"
+
+
+def test_techs_event_registration_success_unregister(mocker):
+    """Test successful unregistration"""
+    mocker.patch.object(tl.session, "__getitem__", return_value="test_account_id")
+    mock_data = {
+        "event_id": "test_event",
+        "ticket_id": "test_ticket",
+        "action": "unregister",
+    }
+    mocker.patch.object(tl.request, "json", mock_data)
+    mocker.patch.object(
+        tl.neon, "delete_single_ticket_registration", return_value={"status": "ok"}
+    )
+
+    response = tl.techs_event_registration()
+    assert response["status"] == "ok"
+
+
+def test_techs_event_registration_missing_args(mocker):
+    """Test registration with missing arguments"""
+    mocker.patch.object(tl.session, "__getitem__", return_value="test_account_id")
+    mock_data = {"event_id": "test_event", "action": "register"}  # Missing ticket_id
+    mocker.patch.object(tl.request, "json", mock_data)
+
+    response = tl.techs_event_registration()
+    assert response.status_code == 400
+    assert response.data.decode() == "Invalid argument"

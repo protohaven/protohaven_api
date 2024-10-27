@@ -26,7 +26,7 @@ class DevConnector(Connector):
         log.warning("DevConnector in use; mutations will not reach production")
 
     def neon_request(self, api_key, *args, **kwargs):
-        """Make a neon request, passing through to httplib2"""
+        """Make a neon request"""
         if len(args) > 1 and args[1] != "GET":
             self.mutated = True
         resp = dev_neon.handle(*args, **kwargs)

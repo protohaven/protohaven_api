@@ -52,7 +52,7 @@ def login_user_neon_oauth():
 
 @page.route("/logout")
 def logout():
-    """Log out the curernt user and destroy the session data"""
+    """Log out the current user and destroy the session data"""
     session["neon_id"] = None
     session["neon_account"] = None
     return "You've been logged out"
@@ -64,7 +64,9 @@ def neon_oauth_redirect():
     code = request.args.get("code")
     rep = oauth.retrieve_token(_redirect_uri(), code)
     session["neon_id"] = rep.get("access_token")
-    session["neon_account"] = neon_base.fetch_account(session["neon_id"], required=True)
+    session["neon_account"], _ = neon_base.fetch_account(
+        session["neon_id"], required=True
+    )
     referrer = session.get("login_referrer", "/")
     log.info(f"Login referrer redirect: {referrer}")
     return redirect(referrer)

@@ -27,12 +27,13 @@ def paginated_fetch(api_key, path, params=None):
         url = f"{URL_BASE}{path}?{urllib.parse.urlencode(params)}"
         log.debug(url)
         content = get_connector().neon_request(
-            get_config(f"neon/{api_key}"), url, "GET"
+            get_config(f"neon/{api_key}"), "GET", url
         )
         if isinstance(content, list):
             raise RuntimeError(content)
         total_pages = content["pagination"]["totalPages"]
-        yield from content[result_field]
+        if content[result_field]:
+            yield from content[result_field]
         current_page += 1
 
 
@@ -51,9 +52,9 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
     while cur < total:
         content = get_connector().neon_request(
             get_config("neon/api_key2"),
-            f"{URL_BASE}/{typ}/search",
             "POST",
-            body=json.dumps(data),
+            f"{URL_BASE}/{typ}/search",
+            data=json.dumps(data),
             headers={"content-type": "application/json"},
         )
         if content.get("searchResults") is None or content.get("pagination") is None:
@@ -87,30 +88,41 @@ def fetch_account(account_id, required=False):
 def get(api_key, path):
     """Send an HTTP GET request"""
     assert path.startswith("/")
-    return get_connector().neon_request(get_config(f"neon/{api_key}"), URL_BASE + path)
+    return get_connector().neon_request(
+        get_config(f"neon/{api_key}"), "GET", URL_BASE + path
+    )
 
 
-def patch(api_key, path, body):
-    """Send an HTTP PATCH request"""
+def _req(api_key, path, method, body):
     assert path.startswith("/")
     return get_connector().neon_request(
-        get_config(f"neon{api_key}"),
+        get_config(f"neon/{api_key}"),
+        method,
         URL_BASE + path,
-        "PATCH",
-        body=json.dumps(body),
+        data=json.dumps(body),
         headers={"content-type": "application/json"},
     )
 
 
+def patch(api_key, path, body):
+    """Send an HTTP PATCH request"""
+    return _req(api_key, path, "PATCH", body)
+
+
 def put(api_key, path, body):
     """Send an HTTP PUT request"""
-    assert path.startswith("/")
+    return _req(api_key, path, "PUT", body)
+
+
+def post(api_key, path, body):
+    """Send an HTTP POST request"""
+    return _req(api_key, path, "POST", body)
+
+
+def delete(api_key, path):
+    """Send an HTTP DELETE request"""
     return get_connector().neon_request(
-        get_config(f"neon{api_key}"),
-        URL_BASE + path,
-        "PUT",
-        body=json.dumps(body),
-        headers={"content-type": "application/json"},
+        get_config(f"neon/{api_key}"), "DELETE", URL_BASE + path
     )
 
 
@@ -533,9 +545,9 @@ def create_event(  # pylint: disable=too-many-arguments
 
     evt_request = get_connector().neon_request(
         get_config("neon/api_key3"),
-        f"{URL_BASE}/events",
         "POST",
-        body=json.dumps(event),
+        f"{URL_BASE}/events",
+        data=json.dumps(event),
         headers={"content-type": "application/json"},
     )
     return evt_request["id"]

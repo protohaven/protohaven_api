@@ -2,7 +2,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { TabPane, Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import FetchError from '../fetch_error.svelte';
 import {get, post} from '$lib/api.ts';
 
@@ -13,7 +13,6 @@ function refresh() {
 onMount(refresh);
 </script>
 
-<TabPane tabId="assignments" tab="Shifts" active>
 <Card>
   <CardHeader>
     <CardTitle>Shifts Assigned</CardTitle>
@@ -49,4 +48,3 @@ onMount(refresh);
 {/await}
 </CardBody>
 </Card>
-</TabPane>

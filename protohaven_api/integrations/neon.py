@@ -4,8 +4,9 @@ import logging
 from functools import lru_cache
 
 from dateutil import parser as dateparser
+from flask import Response
 
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import tz, tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.rbac import Role
@@ -69,6 +70,49 @@ def fetch_registrations(event_id):
     """Fetch registrations for a specific Neon event"""
     return neon_base.paginated_fetch(
         "api_key1", f"/events/{event_id}/eventRegistrations"
+    )
+
+
+def register_for_event(account_id, event_id, ticket_id):
+    """Register for `event_id` with `account_id`"""
+    return neon_base.post(
+        "api_key3",
+        "/eventRegistrations",
+        {
+            "eventId": event_id,
+            "registrationAmount": 0,
+            "ignoreCapacity": False,
+            "sendSystemEmail": True,
+            "registrantAccountId": account_id,
+            "totalCharge": 0,
+            "registrationDateTime": utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "tickets": [
+                {
+                    "ticketId": ticket_id,
+                    "attendees": [{"accountId": account_id}],
+                }
+            ],
+        },
+    )
+
+
+def delete_single_ticket_registration(account_id, event_id):
+    """Deletes single-ticket, single-attendee registrations
+    for event with `event_id` made by `account_id`. This
+    works for registrations created with `register_for_event()`."""
+    for reg in fetch_registrations(event_id):
+        tickets = reg.get("tickets", [])
+        if len(tickets) != 1:
+            continue
+        attendees = tickets[0].get("attendees", {})
+        if len(attendees) != 1:
+            continue
+
+        if attendees[0]["accountId"] == account_id:
+            return neon_base.delete("api_key3", f"/eventRegistrations/{reg['id']}")
+    return Response(
+        f"Registration not found for account {account_id} in event {event_id}",
+        status=404,
     )
 
 
