@@ -6,7 +6,6 @@ from collections import defaultdict
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 
-from protohaven_api.automation.classes import builder
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, neon
@@ -203,7 +202,7 @@ def techs_backfill_events():
     log.info(f"Fetched {len(supply_cost_map)} class supply costs")
     for_techs = []
     now = tznow()
-    # TODO dedupe logic with builder.py
+    # Should dedupe logic with builder.py eventually
     for evt in neon.fetch_published_upcoming_events():
         if str(evt["id"]) == "17631":  # Private instruction
             continue
@@ -227,7 +226,7 @@ def techs_backfill_events():
                     break
             if not tid:
                 raise RuntimeError(
-                    f"Failed to get ticket IDs from event {event_id} for registration"
+                    f"Failed to get ticket IDs from event {evt['id']} for registration"
                 )
 
             for_techs.append(
