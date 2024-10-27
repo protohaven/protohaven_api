@@ -3,9 +3,11 @@
 import datetime
 import re
 
+import pytest
 import yaml
 
 from protohaven_api.config import tz
+from protohaven_api.main import app
 
 
 class Any:  # pylint: disable=too-few-public-methods
@@ -62,3 +64,32 @@ def mkcli(capsys, module):
         return yaml.safe_load(captured.out) if parse_yaml else captured.out.strip()
 
     return run
+
+
+@pytest.fixture(name="client")
+def fixture_client():
+    """Provide a test client for making requests"""
+    return app.test_client()
+
+
+def setup_session(client, roles=None):
+    """Add session details to client fixture"""
+    with client.session_transaction() as session:
+        session["neon_id"] = 1234
+        session["neon_account"] = {
+            "accountCustomFields": [
+                {
+                    "name": "Clearances",
+                    "optionValues": [{"name": "C1"}, {"name": "C2"}],
+                },
+                {
+                    "name": "API server role",
+                    "optionValues": roles or [{"name": "test role"}],
+                },
+            ],
+            "primaryContact": {
+                "firstName": "First",
+                "lastName": "Last",
+                "email1": "foo@bar.com",
+            },
+        }

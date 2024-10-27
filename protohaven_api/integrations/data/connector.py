@@ -1,6 +1,5 @@
 """ Connects to various dependencies, or serves mock data depending on the
 configured state of the server"""
-import json
 import logging
 import random
 import smtplib
@@ -9,8 +8,8 @@ from email.mime.text import MIMEText
 from threading import Lock
 
 import asana
-import httplib2
 import requests
+from requests.auth import HTTPBasicAuth
 from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
@@ -32,26 +31,29 @@ class Connector:
         self.neon_ratelimit = Lock()
 
     def neon_request(self, api_key, *args, **kwargs):
-        """Make a neon request, passing through to httplib2"""
-        h = httplib2.Http(".cache")
-        h.add_credentials(get_config("neon/domain"), api_key)
+        """Make a neon request"""
+        auth = HTTPBasicAuth(get_config("neon/domain"), api_key)
 
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
         # include a sleep timer to prevent us from overrunning
         if "/attendees" in args[0]:
             with self.neon_ratelimit:
-                resp, content = h.request(*args, **kwargs)
+                r = requests.request(
+                    *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
+                )
                 time.sleep(0.25)
         else:
-            resp, content = h.request(*args, **kwargs)
-        status = resp.status
+            r = requests.request(*args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT)
 
-        if status != 200:
+        if r.status_code != 200:
             raise RuntimeError(
-                f"neon_request(args={args}, kwargs={kwargs}) returned {status}: {content}"
+                f"neon_request(args={args}, kwargs={kwargs}) returned {r.status_code}: {r.content}"
             )
-        return json.loads(content)
+        try:
+            return r.json()
+        except requests.exceptions.JSONDecodeError:
+            return r.content
 
     def neon_session(self):
         """Create a new session using the requests lib"""

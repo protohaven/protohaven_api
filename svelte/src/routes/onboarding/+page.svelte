@@ -123,7 +123,7 @@
 		<ListGroupItem><strong>Full Name:</strong> {m.first} {m.last}</ListGroupItem>
 		<ListGroupItem><strong>Membership:</strong> {m.level}</ListGroupItem>
 		<ListGroupItem><strong>Status:</strong> {m.status}</ListGroupItem>
-		<ListGroupItem><strong>Roles:</strong> {Object.keys(m.roles)}</ListGroupItem>
+		<ListGroupItem><strong>Roles:</strong> {Object.keys(m.roles).filter((r) => m.roles[r])}</ListGroupItem>
 	</ListGroup>
 	{/each}
 </Card>

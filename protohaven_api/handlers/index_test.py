@@ -8,39 +8,12 @@ from protohaven_api.handlers import index
 from protohaven_api.integrations import neon
 from protohaven_api.main import app
 from protohaven_api.rbac import set_rbac
-from protohaven_api.testing import Any, MatchStr, d
-
-
-@pytest.fixture()
-def client():
-    return app.test_client()
-
-
-def _setup_session(client):
-    with client.session_transaction() as session:
-        session["neon_id"] = 1234
-        session["neon_account"] = {
-            "accountCustomFields": [
-                {
-                    "name": "Clearances",
-                    "optionValues": [{"name": "C1"}, {"name": "C2"}],
-                },
-                {
-                    "name": "API server role",
-                    "optionValues": [{"name": "test role"}],
-                },
-            ],
-            "primaryContact": {
-                "firstName": "First",
-                "lastName": "Last",
-                "email1": "foo@bar.com",
-            },
-        }
+from protohaven_api.testing import Any, MatchStr, d, fixture_client, setup_session
 
 
 def test_index(client):
     """Test behavior of index page"""
-    _setup_session(client)
+    setup_session(client)
     response = client.get("/")
     assert response.status_code == 302
     assert response.location == "/member"
@@ -48,7 +21,7 @@ def test_index(client):
 
 def test_whoami(client):
     """test /whoami returns session info"""
-    _setup_session(client)
+    setup_session(client)
     response = client.get("/whoami")
     assert json.loads(response.data.decode("utf8")) == {
         "fullname": "First Last",

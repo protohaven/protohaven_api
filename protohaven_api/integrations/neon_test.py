@@ -4,6 +4,7 @@ import datetime
 import json
 
 import pytest
+from flask import Response
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon as n
@@ -126,3 +127,28 @@ def test_get_sample_classes_neon(mocker):
             "seats_left": 5,
         }
     ]
+
+
+def test_delete_single_ticket_registration(mocker):
+    """Test deleting a single ticket registration."""
+    fetch_registrations_mock = mocker.patch.object(
+        n,
+        "fetch_registrations",
+        return_value=[
+            {"id": "reg1", "tickets": [{"attendees": [{"accountId": "acc123"}]}]},
+            {"id": "reg2", "tickets": [{"attendees": [{"accountId": "acc456"}]}]},
+        ],
+    )
+    delete_mock = mocker.patch.object(
+        n.neon_base, "delete", return_value=Response("Deleted", status=200)
+    )
+
+    # Test successful deletion
+    response = n.delete_single_ticket_registration("acc123", "event1")
+    assert response.status_code == 200
+    delete_mock.assert_called_once_with("api_key3", "/eventRegistrations/reg1")
+
+    # Test registration not found
+    response = n.delete_single_ticket_registration("acc789", "event1")
+    assert response.status_code == 404
+    assert response.data == b"Registration not found for account acc789 in event event1"

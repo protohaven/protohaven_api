@@ -3,12 +3,16 @@
 import { Alert, Modal, ModalBody, ModalFooter, Button, ListGroup, ListGroupItem, Input, Spinner } from '@sveltestrap/sveltestrap';
 import {get, post, del} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
+import { onMount } from 'svelte';
 
 export let edit = null; // obj with `date`, `ap`, `techs`, `orig`, `email`, `fullname`
-export let all_techs = get("/techs/list").then((data) => {
-  let tt = data.techs.map((t) => { return {name: t.name, shift: t.shift}});
-  tt.sort((a,b) => a.name > b.name);
-  return tt;
+let all_techs = new Promise((re, rj) => {});
+onMount(() => {
+  all_techs = get("/techs/list").then((data) => {
+    let tt = data.techs.map((t) => { return {name: t.name, shift: t.shift}});
+    tt.sort((a,b) => a.name > b.name);
+    return tt;
+  });
 });
 export let on_update;
 

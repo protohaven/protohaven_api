@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { TabPane, Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Popover, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Popover, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get} from '$lib/api.ts';
 
 let promise = new Promise((resolve) => {});
@@ -23,7 +23,6 @@ onMount(refresh);
 </script>
 
 
-<TabPane tabId="tools" tab="Tools">
 <Card>
     <CardHeader><CardTitle>Tool Maintenance State</CardTitle>
     <CardSubtitle>Click on a tool to see details and make reports</CardSubtitle>
@@ -54,4 +53,3 @@ onMount(refresh);
       Looking for a task? Check the <a href="https://app.asana.com/0/1202469740885594/1204138662113052" target="_blank">Shop & Maintenance Tasks<a/> Asana project.
   </CardFooter>
 </Card>
-</TabPane>

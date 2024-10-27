@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { TabPane, ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
+import { ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
 
 import FetchError from '../fetch_error.svelte';
 import {post} from '$lib/api.ts';
@@ -16,7 +16,6 @@ function search_member() {
 
 </script>
 
-<TabPane tabId="storage" tab="Storage">
 <Card>
 <CardHeader>
   <CardTitle>Storage Violations</CardTitle>
@@ -47,4 +46,3 @@ function search_member() {
     {/await}
 </CardBody>
 </Card>
-</TabPane>

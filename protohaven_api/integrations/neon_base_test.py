@@ -44,8 +44,8 @@ def test_paginated_fetch(mocker):
     assert results == [{"id": 1}, {"id": 2}]
     m.assert_has_calls(
         [
-            call(Any(), "https://api.neoncrm.com/v2/foo?a=1&currentPage=0", "GET"),
-            call(Any(), "https://api.neoncrm.com/v2/foo?a=1&currentPage=1", "GET"),
+            call(Any(), "GET", "https://api.neoncrm.com/v2/foo?a=1&currentPage=0"),
+            call(Any(), "GET", "https://api.neoncrm.com/v2/foo?a=1&currentPage=1"),
         ]
     )
 
