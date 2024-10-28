@@ -13,6 +13,9 @@ log = logging.getLogger("integrations.sheets")
 def get_sheet_range(sheet_id, range_name):
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
+    The usual credentials.json uses protohaven-cli@
+    protohaven-api.iam.gserviceaccount.com service account;
+    this account must have read access for the call to succeed.
     """
     creds = service_account.Credentials.from_service_account_file(
         "credentials.json", scopes=get_config("sheets/scopes")

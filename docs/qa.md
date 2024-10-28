@@ -45,11 +45,25 @@ After deployment, verify that:
 
 See `protohaven_api/scripts/test_webhooks.py` for implementation details
 
-* Membership creation webhook
-  * [ ] `python3 -m protohaven_api.scripts.test_webhooks new_member` runs successfully
-* Clearance webhook
-  * [ ] `python3 -m protohaven_api.scripts.test_webhooks clearance` runs successfully
+#### Membership creation webhook
+
+```shell
+python3 -m protohaven_api.scripts.test_webhooks new_member
+```
+* [ ] runs successfully
+
+#### Clearance webhook
+
+```shell
+python3 -m protohaven_api.scripts.test_webhooks clearance
+```
+* [ ] runs successfully
 
 ## CLI commands
 
-* Ensure cronicle is running: su to root then use control.sh
+* [ ] Ensure cronicle is running: su to root then use control.sh
+
+```shell
+python3 -m protohaven_api.scripts.test_cronicle all
+```
+* [ ] runs successfully

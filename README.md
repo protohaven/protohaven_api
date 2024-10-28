@@ -148,7 +148,7 @@ sudo systemctl restart staging_protohaven_api.service
 sudo systemctl status staging_protohaven_api.service
 ```
 
-Follow the QA check steps in the section at the end of this doc (testing at https://staging.protohaven.api), then turn the staging instance off again to conserve on host RAM:
+Follow the [QA check steps](docs/qa.md) (testing with https://staging.protohaven.api), then turn the staging instance off again to conserve on host RAM:
 
 ```
 sudo systemctl stop staging_protohaven_api.service
@@ -241,43 +241,4 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id
 
 # QA check
 
-After deployment, verify that:
-
-* https://api.protohaven.org/
-  * [x] Page loads and displays clearances
-* https://api.protohaven.org/welcome
-  * [x] Member sign in fails with hello+testnonmember@protohaven.org
-  * [x] Member sign in with notice to board/staff sends the notice
-  * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [x] Guest sign in presents waiver and completes
-* https://api.protohaven.org/events
-  * [x] Displays upcoming calendar events
-  * [x] Shows reservations
-  * [x] Shows classes including attendee data
-* https://api.protohaven.org/onboarding
-  * [x] can check membership (e.g. hello+testmember@protohaven.org)
-  * [x] can generate a coupon
-  * [x] can setup a discord user
-  * [x] can assign roles
-  * [x] can view list of onboarding people (bottom of page)
-* https://api.protohaven.org/techs
-  * [x] Tool states load, clicking a tool shows info
-  * [x] Tech shifts load
-  * [x] Shift swaps load, individual shifts can be clicked and overridden
-  * [x] Areas have some leads assigned to them
-  * [x] Shop techs list can set interest, expertise, shift and can view clearances
-  * [x] In incognito window (not logged in) cannot make edits to tech data, shift data
-* https://api.protohaven.org/instructor/class
-  * [x] Loads classes for instructor, including attendance data
-  * [x] Adding, editing, and deleting availability in calendar works
-  * [x] Scheduler runs and proposes classes
-  * [x] Can confirm/unconfirm a class
-  * [x] Log submission button works
-* https://api.protohaven.org/member
-  * [x] Discord association form correctly sets discord ID on Neon account
-* https://api.protohaven.org/event_ticker
-  * [x] Returns JSON of sample classes
-* https://api.protohaven.org/staff
-  * [x] Can summarize one or more discord channels, and view photos
-* TODO script that sends POST requests to /admin/user_clearances, /admin/neon_membership_created_callback
-* Ensure cronicle is running: su to root then use control.sh
+See [docs/qa.md](docs/qa.md)

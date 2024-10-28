@@ -4,6 +4,7 @@ import logging
 import re
 import sys
 from collections import defaultdict
+from os import getenv
 
 import yaml
 
@@ -33,6 +34,11 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         target = None
         if e["target"][0] in ("#", "@"):  # channels or users
+            chan_ovr = getenv("CHAN_OVERRIDE")
+            dm_ovr = getenv("DM_OVERRIDE")
+            t = e["target"].strip()
+            t = chan_ovr if chan_ovr and t.startswith("#") else t
+            t = dm_ovr if dm_ovr and t.startswith("@") else t
             content = f"{e['subject']}\n\n{e['body']}"
             if not apply:
                 log.info(f"DRY RUN to discord {e['target']}")
@@ -51,6 +57,9 @@ class Commands:  # pylint: disable=too-few-public-methods
                 e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
                 for e in emails
             ]
+            email_ovr = getenv("EMAIL_OVERRIDE")
+            if len(emails) > 0 and email_ovr:
+                emails = [email_ovr]
 
             if not apply:
                 log.info(f"\nDRY RUN to {', '.join(emails)}")
