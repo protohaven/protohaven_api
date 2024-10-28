@@ -24,10 +24,10 @@ def paginated_fetch(api_key, path, params=None):
     params = params or {}
     while current_page < total_pages:
         params["currentPage"] = current_page
-        url = f"{URL_BASE}{path}?{urllib.parse.urlencode(params)}"
-        log.debug(url)
         content = get_connector().neon_request(
-            get_config(f"neon/{api_key}"), "GET", url
+            get_config(f"neon/{api_key}"),
+            "GET",
+            f"{URL_BASE}{path}?{urllib.parse.urlencode(params)}",
         )
         if isinstance(content, list):
             raise RuntimeError(content)
@@ -79,10 +79,11 @@ def fetch_account(account_id, required=False):
         raise RuntimeError(f"Account not found: {account_id}")
     if content is None and not required:
         return None
-    return (
-        (content.get("individualAccount") or content.get("companyAccount") or None),
-        ("companyAccount" in content),
-    )
+    if content.get("individualAccount"):
+        return content["individualAccount"], False
+    if content.get("companyAccount"):
+        return content["companyAccount"], True
+    return None, None
 
 
 def get(api_key, path):
@@ -95,6 +96,7 @@ def get(api_key, path):
 
 def _req(api_key, path, method, body):
     assert path.startswith("/")
+    log.info(f"{api_key} {path} {method}")
     return get_connector().neon_request(
         get_config(f"neon/{api_key}"),
         method,
@@ -126,12 +128,13 @@ def delete(api_key, path):
     )
 
 
-def patch_account(account_id, data):
+def patch_account(account_id, data, is_company=None):
     """Patch an existing account via Neon V2 API"""
-    _, is_company = fetch_account(account_id, required=True)
+    if is_company is None:
+        _, is_company = fetch_account(account_id, required=True)
     return patch(
-        get_config("neon/api_key2"),
-        f"{URL_BASE}/accounts/{account_id}",
+        "api_key2",
+        f"/accounts/{account_id}",
         {"companyAccount": data} if is_company else {"individualAccount": data},
     )
 
@@ -139,13 +142,14 @@ def patch_account(account_id, data):
 def get_custom_field(account_id, field_id):
     """Get the value of a single custom field from Neon"""
     acc, _ = fetch_account(account_id, required=True)
+    field_id = str(field_id)
     for cf in acc.get("accountCustomFields", []):
-        if cf["name"] == field_id:
+        if cf["id"] == field_id:
             return cf.get("value") or cf.get("optionValues")
     return []
 
 
-def set_custom_fields(account_id, *fields):
+def set_custom_fields(account_id, *fields, is_company=None):
     """Set any custom field for a user in Neon"""
     return patch_account(
         account_id,
@@ -157,6 +161,7 @@ def set_custom_fields(account_id, *fields):
                 for field_id, value in fields
             ]
         },
+        is_company,
     )
 
 
