@@ -41,13 +41,14 @@ class Commands:  # pylint: disable=too-few-public-methods
             t = dm_ovr if dm_ovr and t.startswith("@") else t
             content = f"{e['subject']}\n\n{e['body']}"
             if not apply:
-                log.info(f"DRY RUN to discord {e['target']}")
+                log.info(f"DRY RUN to discord {t}")
                 log.info(content)
             else:
-                target = [e["target"]]
+                target = [t]
                 comms.send_discord_message(content, target[0])
                 log.info(f"Sent to Discord {target[0]}: {e['subject']}")
         else:
+            email_ovr = getenv("EMAIL_OVERRIDE")
             email_validate_pattern = r"\S+@\S+\.\S+"
             emails = re.findall(
                 email_validate_pattern,
@@ -57,7 +58,6 @@ class Commands:  # pylint: disable=too-few-public-methods
                 e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
                 for e in emails
             ]
-            email_ovr = getenv("EMAIL_OVERRIDE")
             if len(emails) > 0 and email_ovr:
                 emails = [email_ovr]
 
