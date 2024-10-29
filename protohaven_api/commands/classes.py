@@ -96,7 +96,7 @@ class Commands:
         """Reads schedule of classes from Neon and Airtable and outputs
         a list of emails to send to instructors, techs, and students.
         This does not actually send the emails; for that, see send_comms."""
-        b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"), use_cache=args.use_cache)
+        b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"), use_cache=args.cache)
         b.ignore_ovr = args.ignore or []
         b.cancel_ovr = args.cancel or []
         b.confirm_ovr = args.confirm or []
