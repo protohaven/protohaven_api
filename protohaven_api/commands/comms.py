@@ -83,7 +83,7 @@ class Commands:  # pylint: disable=too-few-public-methods
     def _load_comms_data(self, path):
         """Fetch and parse a YAML file for use in comms"""
         with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f.read())
+            data = yaml.safe_load(f.read()) or []
         log.info(f"Loaded {len(data)} notifications:")
         for e in data:
             log.info(f" - {e['target']}: {e['subject']}")

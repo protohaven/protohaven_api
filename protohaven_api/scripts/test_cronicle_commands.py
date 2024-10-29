@@ -193,6 +193,7 @@ def test_shop_tech_applications(evt_id):
     input("Confirm message; Enter to continue:")
 
 def test_square_transactions(evt_id):
+    """Ensure square transactions are reported"""
     assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
     print(f"\n-Notice should've been sent to {COVR}")
     input("Confirm message; Enter to continue:")
@@ -235,7 +236,7 @@ if __name__ == "__main__":
         ("private_instruction_daily", test_private_instruction_daily, 'elziy4cxkp4'),
         ("class_proposals", test_class_proposals, 'elx994dfv2o'),
         ("shop_tech_apps", test_shop_tech_applications, 'elw7tf3bg4s'),
-        # ("square_txns", test_square_transactions, 'elw7tp2fs4x'),
+        ("square_txns", test_square_transactions, 'elw7tp2fs4x'),
         # ("membership_val", test_validate_memberships, 'elxbtcrmq3d'),
         # ("instructor_sched", test_gen_instructor_schedule_reminder, 'em1zpa3989p'),
         # ("purchase_requests", test_purchase_request_alerts, 'em1zphtib9s'),

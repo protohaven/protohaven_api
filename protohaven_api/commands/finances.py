@@ -83,8 +83,9 @@ class Commands:
         log.info(
             f"Processed {n} active subscriptions - {len(unpaid)} unpaid, {len(untaxed)} untaxed"
         )
+        result = []
         if len(unpaid) > 0 or len(untaxed) > 0:
-            print_yaml(
+            result = [
                 Msg.tmpl(
                     "square_validation_action_needed",
                     unpaid=unpaid,
@@ -92,7 +93,8 @@ class Commands:
                     footer=exec_details_footer(),
                     target="#finance-automation",
                 )
-            )
+            ]
+        print_yaml(result)
         log.info("Done")
 
     def _validate_role_membership(self, details, role):
