@@ -84,7 +84,7 @@ def _mock_builder(  # pylint: disable=too-many-arguments
         return_value=airtable_schedule,
     )
     mocker.patch(
-        "protohaven_api.integrations.neon.fetch_published_upcoming_events",
+        "protohaven_api.integrations.neon.fetch_upcoming_events",
         return_value=neon_events,
     )
     mocker.patch(

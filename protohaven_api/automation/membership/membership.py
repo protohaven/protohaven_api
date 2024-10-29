@@ -29,7 +29,7 @@ def generate_coupon_id(n=8):
 def get_sample_classes(coupon_amount):
     """Fetch sample classes within the coupon amount for advertising in the welcome email"""
     sample_classes = []
-    for e in neon.fetch_published_upcoming_events(back_days=-1):
+    for e in neon.fetch_upcoming_events(back_days=-1):
         ok, num_remaining = event_is_suggestible(e["id"], coupon_amount)
         if not ok:
             continue

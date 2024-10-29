@@ -14,7 +14,7 @@ from protohaven_api.rbac import Role
 log = logging.getLogger("integrations.neon")
 
 
-def fetch_published_upcoming_events(back_days=7):
+def fetch_upcoming_events(back_days=7, published=True):
     """Load upcoming events from Neon CRM, with `back_days` of trailing event data.
     Note that querying is done based on the end date so multi-week intensives
     can still appear even if they started earlier than `back_days`."""
@@ -22,7 +22,7 @@ def fetch_published_upcoming_events(back_days=7):
         "endDateAfter": (tznow() - datetime.timedelta(days=back_days)).strftime(
             "%Y-%m-%d"
         ),
-        "publishedEvent": True,
+        "publishedEvent": published,
         "archived": False,
     }
     return neon_base.paginated_fetch("api_key1", "/events", q_params)

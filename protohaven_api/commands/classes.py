@@ -79,6 +79,12 @@ class Commands:
             type=int,
             nargs="+",
         ),
+        arg(
+            "--published_only",
+            help="Only consider published classes when building emails",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
     )
     def gen_class_emails(self, args):
         """Reads schedule of classes from Neon and Airtable and outputs
@@ -89,6 +95,7 @@ class Commands:
         b.cancel_ovr = args.cancel or []
         b.confirm_ovr = args.confirm or []
         b.filter_ovr = args.filter or []
+        b.published = args.published_only
         log.info(
             f"Configured email builder: ignore_ovr {b.ignore_ovr} cancel_ovr {b.cancel_ovr} "
             f"confirm_ovr {b.confirm_ovr} filter_ovr {b.filter_ovr}"

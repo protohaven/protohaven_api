@@ -311,7 +311,10 @@ def push_schedule(sched, autoconfirm=False):
                 }
             )
     for p in payload:
-        airtable.append_classes_to_schedule([p])
+        log.info(f"Append classes to schedule: {p}")
+        status, content = airtable.append_classes_to_schedule([p])
+        if status != 200:
+            raise RuntimeError(content)
 
 
 def gen_schedule_push_notifications(sched):

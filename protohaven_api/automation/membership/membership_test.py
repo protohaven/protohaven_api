@@ -110,7 +110,7 @@ def test_get_sample_classes(mocker):
     """Test fetching of sample classes"""
     mocker.patch.object(
         neon,
-        "fetch_published_upcoming_events",
+        "fetch_upcoming_events",
         return_value=[
             {
                 "id": 1,

@@ -203,7 +203,7 @@ def techs_backfill_events():
     for_techs = []
     now = tznow()
     # Should dedupe logic with builder.py eventually
-    for evt in neon.fetch_published_upcoming_events():
+    for evt in neon.fetch_upcoming_events():
         if str(evt["id"]) == "17631":  # Private instruction
             continue
         start = dateparser.parse(evt["startDate"] + " " + evt["startTime"]).astimezone(

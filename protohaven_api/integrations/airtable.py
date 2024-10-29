@@ -82,10 +82,8 @@ def get_all_class_templates():
 
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
-    log.info(f"Append classes to schedule: {payload}")
-    status, content = insert_records(payload, "class_automation", "schedule")
-    if status != 200:
-        raise RuntimeError(content)
+    assert isinstance(payload, list)
+    return insert_records(payload, "class_automation", "schedule")
 
 
 def get_role_intents():

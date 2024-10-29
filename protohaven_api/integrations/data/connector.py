@@ -32,7 +32,7 @@ class Connector:
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request"""
         auth = (get_config("neon/domain"), api_key)
-        log.info(f"{auth} {args} {kwargs}")
+        # log.info(f"{auth} {args} {kwargs}")
 
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and

@@ -43,7 +43,7 @@ def test_class_listing(mocker):
     """Test class_listing function returns sorted class list with airtable data"""
     mocker.patch.object(
         index.neon,
-        "fetch_published_upcoming_events",
+        "fetch_upcoming_events",
         return_value=[
             {"id": 1, "startDate": "2025-01-01", "startTime": "10:00 AM"},
             {"id": 2, "startDate": "2025-01-01", "startTime": "9:00 AM"},

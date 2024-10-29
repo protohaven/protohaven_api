@@ -194,6 +194,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.events = []
         self.airtable_schedule = {}
         self.cache_loaded = False
+        self.published = True
 
     def fetch_and_aggregate_data(self, now):
         """Fetches and aggregates data from Neon and Airtable to use in notifying
@@ -216,7 +217,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 f"Skipping cache; more than {self.CACHE_EXPIRY_HOURS} hour(s) old"
             )
 
-        self.events = list(neon.fetch_published_upcoming_events())
+        self.events = list(neon.fetch_upcoming_events(published=self.published))
         self.log.info(f"Fetched {len(self.events)} event(s) fron Neon")
         self.log.debug(" - ".join([e["name"] for e in self.events]))
         if len(self.events) > 0:

@@ -1,8 +1,14 @@
 """Integration tests for Cronicle jobs/events"""
+import datetime
 import logging
 import time
 
 import requests
+
+from protohaven_api.config import tznow
+from protohaven_api.integrations import airtable, airtable_base, neon_base
+from protohaven_api.integrations.data.connector import Connector
+from protohaven_api.integrations.data.connector import init as init_connector
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("main")
@@ -11,9 +17,9 @@ base_url = None  # pylint: disable=invalid-name
 api_key = None  # pylint: disable=invalid-name
 TIMEOUT = 60 * 5
 
-covr = "#cronicle-automation"
-eovr = "scott@protohaven.org"
-dmovr = "@pwacata"
+COVR = "#cronicle-automation"
+EOVR = "scott@protohaven.org"
+DMOVR = "@pwacata"
 
 
 def run_cronicle_sync(event_id, params):
@@ -26,6 +32,8 @@ def run_cronicle_sync(event_id, params):
         json={"id": event_id, "retries": 0, "timeout": TIMEOUT, "params": params},
         verify=False,
     ).json()
+    if "ids" not in rep:
+        raise RuntimeError(rep)
     running = {rid: False for rid in rep["ids"]}
     # log.info(str(rep))
     for rid in running.keys():
@@ -61,12 +69,12 @@ def test_tech_sign_ins(evt_id):
             evt_id,
             {
                 "ARGS": "--now=2024-10-28T16:30:00",
-                "CHAN_OVERRIDE": covr,
+                "CHAN_OVERRIDE": COVR,
             },
         )
         == 0
     )
-    input(f"\nCheck {covr} and confirm no messages sent; Enter to continue: ")
+    input(f"\nCheck {COVR} and confirm no messages sent; Enter to continue: ")
 
     log.info("Testing invalid sign-in")
     assert (
@@ -74,29 +82,79 @@ def test_tech_sign_ins(evt_id):
             evt_id,
             {
                 "ARGS": "--now=3000-01-01T12:30:00",
-                "CHAN_OVERRIDE": covr,
+                "CHAN_OVERRIDE": COVR,
             },
         )
         == 0
     )
-    input(f"\nCheck {covr} and confirm a message was sent; Enter to continue: ")
+    input(f"\nCheck {COVR} and confirm a message was sent; Enter to continue: ")
 
 
-def test_send_class_emails(evt_id):
+def _setup_test_event():
+    start = tznow() + datetime.timedelta(hours=20)
+    end = start + datetime.timedelta(hours=3)
+    evt_id = neon_base.create_event(
+        "Test event",
+        "An event for integration testing use of Cronicle",
+        start,
+        end,
+        dry_run=False,
+        published=False,  # Doesn't show up in public listing
+        registration=True,
+    )
+    log.info(f"Created dummy unpublished event #{evt_id}")
+    try:
+        status, content = airtable.append_classes_to_schedule(
+            [
+                {
+                    "Instructor": "Cronicle",
+                    "Email": "hello@protohaven.org",
+                    "Start Time": start.isoformat(),
+                    "Class": [],
+                    "Confirmed": tznow().isoformat(),
+                    "Neon ID": evt_id,
+                }
+            ]
+        )
+        rec = content["records"][0]["id"]
+        log.info(f"Created schedule record {rec}: {status} {content}")
+    except Exception:
+        log.error("Exception encountered; cleaning up prod data before raising")
+        _cleanup_test_event(evt_id, rec)
+        raise
+    return evt_id, rec
+
+
+def _cleanup_test_event(evt_id, rec):
+    if rec:
+        log.info(f"Cleaning up class schedule record {rec}")
+        print(airtable_base.delete_record("class_automation", "schedule", rec))
+    if evt_id:
+        log.info(f"Cleaning up Neon event {evt_id}")
+        print(neon_base.delete("api_key3", f"/events/{evt_id}"))
+
+
+def test_send_class_emails(cronicle_evt_id):
     """Test sending email updates"""
     # Note: this does not test tech backfill nor instructor readiness emails
-    assert (
-        run_cronicle_sync(
-            evt_id,
-            {
-                "ARGS": "--filter=0001",  # Choose a bogus testing ID
-                "CHAN_OVERRIDE": covr,
-                "EMAIL_OVERRIDE": eovr,
-            },
+    # It could be done by moving the class start date around.
+    evt_id, rec = _setup_test_event()
+    try:
+        assert (
+            run_cronicle_sync(
+                cronicle_evt_id,
+                {
+                    # Only act on the event we created; it's unpublished.
+                    "ARGS": f"--filter={evt_id} --no-published_only",
+                    "CHAN_OVERRIDE": COVR,
+                    "EMAIL_OVERRIDE": EOVR,
+                },
+            )
+            == 0
         )
-        == 0
-    )
-    input(f"\nCheck the completed job and ensure that no emails were sent")
+        input("\nCheck the completed job and verify instructor cancellation ran")
+    finally:
+        _cleanup_test_event(evt_id, rec)
 
 
 #     pass
@@ -184,6 +242,8 @@ if __name__ == "__main__":
         "--command", default=None, help="command to run (leave empty to run all)"
     )
     args = parser.parse_args()
+    init_connector(Connector)
+
     base_url = args.base_url
     api_key = args.api_key
 

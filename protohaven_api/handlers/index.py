@@ -140,7 +140,7 @@ def survey_response():
 @page.route("/class_listing", methods=["GET"])
 def class_listing():
     """Returns a list of classes that are upcoming"""
-    result = list(neon.fetch_published_upcoming_events(back_days=0))
+    result = list(neon.fetch_upcoming_events(back_days=0))
     sched = {
         str(s["fields"]["Neon ID"]): s
         for s in airtable.get_class_automation_schedule()
@@ -215,7 +215,7 @@ def upcoming_events():
         log.error("Failed to fetch instructor map, proceeding anyways")
         instructors_map = {}
 
-    for e in neon.fetch_published_upcoming_events():
+    for e in neon.fetch_upcoming_events():
         if not e.get("startDate"):
             continue
         if e["id"] == 17631:
