@@ -22,9 +22,10 @@ def fetch_upcoming_events(back_days=7, published=True):
         "endDateAfter": (tznow() - datetime.timedelta(days=back_days)).strftime(
             "%Y-%m-%d"
         ),
-        "publishedEvent": published,
         "archived": False,
     }
+    if published:
+        q_params["publishedEvent"] = published
     return neon_base.paginated_fetch("api_key1", "/events", q_params)
 
 
