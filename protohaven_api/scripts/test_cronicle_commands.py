@@ -56,11 +56,6 @@ def run_cronicle_sync(event_id, params):
         time.sleep(5)
 
 
-def test_test_event(evt_id):
-    """Test event to see if it all works"""
-    run_cronicle_sync(evt_id, {})
-
-
 def test_tech_sign_ins(evt_id):
     """Test alerting on tech sign ins"""
     log.info("Testing prior known sign-in")
@@ -175,7 +170,6 @@ def test_simple(evt_id: str, params: dict):
 if __name__ == "__main__":
     readonly_commands = [
         # Readonly commands
-        ("test_event", test_test_event, "em2tf2cey60"),
         ("sign_ins", test_tech_sign_ins, "elzn07uwhqg"),
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
         ("instructor_apps", test_simple, "elwnqdz2o8j", {"CHAN_OVERRIDE": COVR}),
@@ -285,13 +279,18 @@ if __name__ == "__main__":
             }),
     ]
     destructive_commands = [
+        # Need to modify a test user to properly exercise this command
         ("discord_nick", test_simple, 'elzx3nvdvu4', {
             "CHAN_OVERRIDE": COVR,
             "DM_OVERRIDE": DOVR,
             "ARGS": "--no-apply --filter=pwacata --warn_not_associated",
         }),
-        # ("discord_role", test_update_role_intents, 'elzsp1fmpsk'),
-        # ("init_memberships", test_init_new_membersihps, 'em1zpg3sc9r'),
+        ("discord_role", test_simple, 'elzsp1fmpsk', {
+            "CHAN_OVERRIDE": COVR,
+            "DM_OVERRIDE": DOVR,
+            "ARGS": "--no-apply_records --no-apply_discord --no-destructive --filter=pwacata",
+        }),
+        ("init_memberships", test_simple, 'em2zpg3sc9r'),
     ]
 
     import argparse

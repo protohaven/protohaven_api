@@ -79,23 +79,13 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
 
     Action is gated on email configured in in config.yaml
     """
+    assert account_id and membership_id
     include_filter = get_config("neon/webhooks/new_membership/include_filter", None)
     if include_filter is not None and email not in include_filter:
         log.info(f"Skipping init (no match in include_filter {include_filter})")
         return None
 
     log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
-
-    if not membership_id:
-        latest = (None, None)
-        for m in neon.fetch_memberships(account_id):
-            log.info(str(m))
-            tsd = dateparser.parse(m["termStartDate"]).astimezone(tz)
-            if not latest[1] or latest[1] < tsd:
-                latest = (m["id"], tsd)
-        if not latest[0]:
-            raise RuntimeError(f"No latest membership for member {account_id}")
-        membership_id = latest[0]
 
     if apply:
         neon.set_membership_date_range(

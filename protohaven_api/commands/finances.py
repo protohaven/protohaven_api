@@ -472,6 +472,7 @@ class Commands:
             "Looping through new members to defer their start date and provide coupons"
         )
         result = []
+        summary = []
         for m in neon.get_new_members_needing_setup(
             args.max_days_ago, extra_fields=["Email 1"]
         ):
@@ -479,17 +480,33 @@ class Commands:
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
-            result.append(
-                memauto.init_membership(
-                    m["Account ID"],
-                    m["Email 1"],
-                    m["First Name"],
-                    args.coupon_amount,
-                    apply=args.apply,
-                    target=m["Email 1"],
-                    _id=f"init member {m['Account ID']}",
-                )
-            )
+
+            latest = (None, None)
+            for mem in neon.fetch_memberships(aid):
+                tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
+                if not latest[1] or latest[1] < tsd:
+                    latest = (mem["id"], tsd)
+            if not latest[0]:
+                raise RuntimeError(f"No latest membership for member {aid}")
+            kwargs = {
+                    "account_id": aid, 
+                    "membership_id": latest[0],
+                    "email": m["Email 1"], 
+                    "fname": m["First Name"], 
+                    "coupon_amount": args.coupon_amount, 
+                    "apply": args.apply, 
+                    "target": m["Email 1"],
+                    "_id": f"init member {aid}",
+            }
+            summary.append(kwargs)
+            result.append(memauto.init_membership(**kwargs))
+
         result = [r for r in result if r is not None]
         if len(result) > 0:
-            print_yaml(result)
+            result.append(Msg.tmpl(
+                "membership_init_summary",
+                summary=summary,
+                target="#membership-automation",
+                footer=exec_details_footer(),
+            ))
+        print_yaml(result)
