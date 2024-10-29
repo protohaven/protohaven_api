@@ -160,12 +160,14 @@ def test_send_class_emails(cronicle_evt_id):
         _cleanup_test_event(evt_id, rec)
 
 def test_instructor_applications(evt_id):
+    """Ensure open applications are notified"""
     log.info("Testing instructor applications")
     assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
     print(f"\n-Notice should've been sent to {COVR}")
     input("Confirm message was sent; Enter to continue:")
 
 def test_private_instruction(evt_id):
+    """Ensure private instructions are notified"""
     log.info("Testing instructor applications")
     assert run_cronicle_sync(evt_id, {
         "CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR
@@ -173,10 +175,21 @@ def test_private_instruction(evt_id):
     print(f"\n-Notice should've been sent to {COVR} and {EOVR}")
     input("Confirm messages; Enter to continue:")
 
-#     pass
-# def test_private_instruction_daily(evt_id):
-#     pass
-# def test_class_proposals(evt_id):
+def test_private_instruction_daily(evt_id):
+    """Check the daily notification for private instruction"""
+    # Note: A more complete test would create an instruction request for demoing
+    log.info("Testing instructor applications")
+    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
+    print(f"\n-Notice should've been sent to {COVR}")
+    input("Confirm message; Enter to continue:")
+
+def test_class_proposals(evt_id):
+    """Verify class proposals get sent to the leads"""
+    log.info("Testing class proposals sends to the leads")
+    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
+    print(f"\n-Notice should've been sent to {COVR}")
+    input("Confirm message; Enter to continue:")
+
 #     pass
 # def test_shop_tech_applications(evt_id):
 #     pass
@@ -217,8 +230,8 @@ if __name__ == "__main__":
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
         ("instructor_apps", test_instructor_applications, 'elwnqdz2o8j'),
         ("private_instruction", test_private_instruction, 'elzadpyaqmj'),
-        # ("private_instruction_daily", test_private_instruction_daily, 'elziy4cxkp4'),
-        # ("class_proposals", test_class_proposals, 'elx994dfv2o'),
+        ("private_instruction_daily", test_private_instruction_daily, 'elziy4cxkp4'),
+        ("class_proposals", test_class_proposals, 'elx994dfv2o'),
         # ("shop_tech_apps", test_shop_tech_applications, 'elw7tf3bg4s'),
         # ("square_txns", test_square_transactions, 'elw7tp2fs4x'),
         # ("membership_val", test_validate_memberships, 'elxbtcrmq3d'),

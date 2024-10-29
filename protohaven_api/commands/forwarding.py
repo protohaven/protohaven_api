@@ -134,7 +134,8 @@ class Commands:
             print_yaml(
                 Msg.tmpl(
                     "class_proposals",
-                    unapproved=unapproved_classes,
+                    num=len(unapproved_classes),
+                    unapproved=unapproved_classes[:8],
                     target="#education-leads",
                 )
             )
