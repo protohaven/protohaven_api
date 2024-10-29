@@ -8,7 +8,7 @@ from protohaven_api.handlers import index
 from protohaven_api.integrations import neon
 from protohaven_api.main import app
 from protohaven_api.rbac import set_rbac
-from protohaven_api.testing import Any, MatchStr, d, fixture_client, setup_session
+from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
 
 def test_index(client):

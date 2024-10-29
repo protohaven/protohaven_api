@@ -9,7 +9,7 @@ from flask import Response
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon as n
 from protohaven_api.rbac import Role
-from protohaven_api.testing import Any, d
+from protohaven_api.testing import d
 
 TEST_USER = 1234
 
@@ -27,7 +27,7 @@ def test_patch_member_role(mocker):
     m.assert_called_with(
         1324,
         (
-            Any(),
+            mocker.ANY,
             [
                 {"name": "TEST", "id": "1234"},
                 {"name": "Instructor", "id": "75"},
@@ -50,54 +50,13 @@ def test_patch_member_role_rm(mocker):
     mocker.patch.object(n.neon_base, "get_connector")
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
     n.patch_member_role("a@b.com", Role.INSTRUCTOR, False)
-    m.assert_called_with(1324, (Any(), [{"name": "TEST", "id": "1234"}]))
+    m.assert_called_with(1324, (mocker.ANY, [{"name": "TEST", "id": "1234"}]))
 
 
 def test_set_tech_custom_fields(mocker):
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
     n.set_tech_custom_fields("13245", interest="doing things")
     m.assert_called_with("13245", (148, "doing things"))
-
-
-def test_set_clearances_some_non_matching(mocker):
-    """Ensure that if some clearances don't fully resolve into codes, the remaining
-    clearances are still applied"""
-    mocker.patch.object(
-        n, "fetch_clearance_codes", return_value=[{"code": "T1", "id": "test_id"}]
-    )
-    m = mocker.patch.object(n.neon_base, "set_custom_fields")
-    n.set_clearances(TEST_USER, ["T1", "T2"])
-    m.assert_called_with(TEST_USER, (Any(), [{"id": "test_id"}]))
-
-
-def test_set_membership_start_date(mocker):
-    """Test setting the membership start date for a user"""
-    mock_fetch = mocker.patch.object(
-        n,
-        "fetch_memberships",
-        return_value=[
-            {"Term Start Date": "2022-01-01T00:00:00Z", "Membership ID": "123"}
-        ],
-    )
-    m = mocker.patch.object(n.neon_base, "patch")
-    account_id = "user_123"
-    start_date = d(0)
-    result = n.set_membership_start_date(account_id, start_date)
-    mock_fetch.assert_called_once_with(account_id)
-    m.assert_called_once_with(
-        Any(), "/memberships/123", {"termStartDate": d(0).strftime("%Y-%m-%d")}
-    )
-
-
-def test_set_membership_start_date_no_latest(mocker):
-    """Test setting the membership start date when no latest membership found"""
-    mock_fetch = mocker.patch.object(n, "fetch_memberships", return_value=[])
-    account_id = "user_123"
-    start_date = d(0)
-    with pytest.raises(
-        RuntimeError, match=f"No latest membership for member {account_id}"
-    ):
-        n.set_membership_start_date(account_id, start_date)
 
 
 def test_get_sample_classes_neon(mocker):

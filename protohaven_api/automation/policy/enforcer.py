@@ -110,7 +110,9 @@ def update_accruals(fees=None):
 NEW_VIOLATION_THRESH_HOURS = 18
 
 
-def gen_comms_for_violation(v, old_accrued, new_accrued, sections, fname, email):
+def gen_comms_for_violation(
+    v, old_accrued, new_accrued, sections, fname, email
+):  # pylint: disable=too-many-arguments
     """Notify members of new violations and update them on active violations"""
     fields = v["fields"]
     if fields.get("Closure"):

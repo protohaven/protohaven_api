@@ -1,4 +1,6 @@
 """Test methods for membership automation commands"""
+import datetime
+
 import pytest
 from dateutil import parser as dateparser
 
@@ -21,13 +23,13 @@ from protohaven_api.testing import d
 )
 def test_init_membership(mocker, include_filter, initializes):
     """Test init_membership"""
-    mocker.patch.object(
-        neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
+    m1 = mocker.patch.object(
+        neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
     mocker.patch.object(
         neon, "create_coupon_code", return_value=mocker.Mock(status_code=200)
     )
-    mocker.patch.object(
+    m2 = mocker.patch.object(
         neon,
         "update_account_automation_run_status",
         return_value=mocker.Mock(status_code=200),
@@ -42,22 +44,26 @@ def test_init_membership(mocker, include_filter, initializes):
     )
     mocker.patch.object(m, "get_config", return_value=include_filter)
     # Test with coupon_amount > 0
-    msg = m.init_membership("123", "j@d.com", "John Doe", 50, apply=True)
+    msg = m.init_membership("123", "456", "j@d.com", "John Doe", 50, apply=True)
     if initializes:
         assert msg.subject == "John Doe: your first class is on us!"
         assert "class1" in msg.body
-        neon.set_membership_start_date.assert_called_with(
-            "123", m.PLACEHOLDER_START_DATE
+        m1.assert_called_with(
+            "456",
+            m.PLACEHOLDER_START_DATE,
+            m.PLACEHOLDER_START_DATE + datetime.timedelta(days=30),
         )
+        m2.assert_called_with("123", m.DEFERRED_STATUS)
     else:
         assert msg == None
-        neon.set_membership_start_date.assert_not_called()
+        m1.assert_not_called()
+        m2.assert_not_called()
 
 
 def test_init_membership_no_classes(mocker):
     """Test init_membership without list of classes"""
     mocker.patch.object(
-        neon, "set_membership_start_date", return_value=mocker.Mock(status_code=200)
+        neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
     mocker.patch.object(
         neon, "create_coupon_code", return_value=mocker.Mock(status_code=200)
@@ -70,7 +76,7 @@ def test_init_membership_no_classes(mocker):
     mocker.patch.object(m, "get_sample_classes", return_value=[])
     mocker.patch.object(m, "get_config", return_value=None)
     # Test with coupon_amount > 0
-    msg = m.init_membership("123", "j@d.com", "John Doe", 50, apply=True)
+    msg = m.init_membership("123", "456", "j@d.com", "John Doe", 50, apply=True)
     assert msg.subject == "John Doe: your first class is on us!"
     assert "Here's a couple basic classes" not in msg.body
 

@@ -70,7 +70,9 @@ def activate_membership(account_id, fname, email):
         log.error(f"activate_membership called on non-deferred account {account_id}")
         return
 
-    rep = neon.set_membership_start_date(account_id, tznow())
+    rep = neon.set_membership_date_range(
+        account_id, tznow(), tznow() + datetime.timedelta(days=30)
+    )
     if rep.status_code != 200:
         notify_async(
             f"@Staff: Error {rep.status_code} activating membership for "

@@ -14,7 +14,7 @@ def test_get_account_email(mocker):
     mocker.patch.object(
         builder.neon_base,
         "fetch_account",
-        return_value={"primaryContact": {"email2": "foo@bar.com"}},
+        return_value=({"primaryContact": {"email2": "foo@bar.com"}}, False),
     )
     assert builder.get_account_email("1234") == "foo@bar.com"
 
@@ -22,12 +22,12 @@ def test_get_account_email(mocker):
 def test_get_account_email_unset(mocker):
     """Test email extraction when there is no email to extract"""
     mocker.patch.object(
-        builder.neon_base, "fetch_account", return_value={"primaryContact": {}}
+        builder.neon_base, "fetch_account", return_value=({"primaryContact": {}}, False)
     )
     assert not builder.get_account_email("1234")
 
 
-def test_gen_scheduling_reminders_not_scheduled(mocker):
+def test_get_unscheduled_instructors(mocker):
     """Test calendar reminder generation. This mostly replicates an equivalent test of the comms
     module but I'm including it here anyways."""
     mocker.patch(
@@ -38,15 +38,15 @@ def test_gen_scheduling_reminders_not_scheduled(mocker):
         builder.airtable, "get_class_automation_schedule", return_value=[]
     )
 
-    got = builder.gen_scheduling_reminders(
-        parse_date("2024-02-20"), parse_date("2024-03-30")
+    got = list(
+        builder.get_unscheduled_instructors(
+            parse_date("2024-02-20"), parse_date("2024-03-30")
+        )
     )
-    assert len(got) == 2  # Email and summary
-    assert got[0].subject == "Test: please schedule your classes!"
-    assert "February 20 through March 30" in got[0].body
+    assert got[0] == ("Test Name", "test@email.com")
 
 
-def test_gen_scheduling_reminders_already_scheduled(mocker):
+def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
     """Test calendar reminder generation doesn't notify if already scheduled"""
     mocker.patch(
         "protohaven_api.integrations.airtable.get_instructor_email_map",
@@ -65,8 +65,10 @@ def test_gen_scheduling_reminders_already_scheduled(mocker):
         ],
     )
 
-    got = builder.gen_scheduling_reminders(
-        parse_date("2024-02-20"), parse_date("2024-03-30")
+    got = list(
+        builder.get_unscheduled_instructors(
+            parse_date("2024-02-20"), parse_date("2024-03-30")
+        )
     )
     assert len(got) == 0  # No emails, so no summary
 

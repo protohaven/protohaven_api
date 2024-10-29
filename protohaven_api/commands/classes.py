@@ -49,7 +49,7 @@ class Commands:
             help="Only send reminders to active instructors (checkbox in Airtable)",
             action=argparse.BooleanOptionalAction,
             default=True,
-        )
+        ),
     )
     def gen_instructor_schedule_reminder(self, args):
         """Reads the list of instructors from Airtable and generates
@@ -68,7 +68,9 @@ class Commands:
         results = []
         summary = {"name": "Scheduling reminder", "actions": ["SEND"], "targets": set()}
         filt = [f.strip() for f in args.filter.split(",")] if args.filter else None
-        for name, email in builder.get_unscheduled_instructors(start, end, require_active=args.require_active):
+        for name, email in builder.get_unscheduled_instructors(
+            start, end, require_active=args.require_active
+        ):
             if filt and name not in filt and email not in filt:
                 continue
             results.append(
@@ -87,7 +89,7 @@ class Commands:
             results.append(
                 Msg.tmpl(
                     "class_automation_summary",
-                    events={'': summary},
+                    events={"": summary},
                     target="#class-automation",
                 )
             )

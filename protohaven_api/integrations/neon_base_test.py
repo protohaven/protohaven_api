@@ -1,10 +1,7 @@
 """Test base methods for neon integration"""
-from unittest.mock import call
-
 import pytest
 
 from protohaven_api.integrations import neon_base as nb
-from protohaven_api.testing import Any
 
 
 def test_paginated_search(mocker):
@@ -44,8 +41,12 @@ def test_paginated_fetch(mocker):
     assert results == [{"id": 1}, {"id": 2}]
     m.assert_has_calls(
         [
-            call(Any(), "GET", "https://api.neoncrm.com/v2/foo?a=1&currentPage=0"),
-            call(Any(), "GET", "https://api.neoncrm.com/v2/foo?a=1&currentPage=1"),
+            mocker.call(
+                mocker.ANY, "GET", "https://api.neoncrm.com/v2/foo?a=1&currentPage=0"
+            ),
+            mocker.call(
+                mocker.ANY, "GET", "https://api.neoncrm.com/v2/foo?a=1&currentPage=1"
+            ),
         ]
     )
 

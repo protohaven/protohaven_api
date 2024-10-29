@@ -187,7 +187,9 @@ class Commands:
             default=False,
         )
     )
-    def sync_reservable_tools(self, args):  # pylint: disable=too-many-locals
+    def sync_reservable_tools(
+        self, args
+    ):  # pylint: disable=too-many-locals, too-many-branches
         """Sync metadata of tools in Airtable with their entries in Booked. Create new
         resources in Booked if none exist, and back-propagate Booked IDs.
         After the sync, resources that exist in Booked and not in Airtable will
@@ -330,14 +332,14 @@ class Commands:
             )
         log.info("Done - all resources in Booked exist in Airtable")
 
-        if len(changes) > 0:
+        if len(summary) > 0:
             print_yaml(
                 [
                     Msg.tmpl(
                         "tool_sync_summary",
                         target="#tool-automation",
-                        changes=changes,
-                        n=len(changes),
+                        changes=summary,
+                        n=len(summary),
                         footer=exec_details_footer(),
                     )
                 ]

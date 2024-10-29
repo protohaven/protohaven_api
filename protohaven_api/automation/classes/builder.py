@@ -28,7 +28,7 @@ def get_account_email(account_id):
     return a.get("email1") or a.get("email2") or a.get("email3")
 
 
-def get_unscheduled_instructors(start, end, require_active):
+def get_unscheduled_instructors(start, end, require_active=True):
     """Builds a set of instructors that do not have classes proposed or scheduled
     between `start` and `end`."""
     already_scheduled = defaultdict(bool)

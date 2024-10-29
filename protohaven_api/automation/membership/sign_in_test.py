@@ -9,7 +9,7 @@ from dateutil import parser as dateparser
 from protohaven_api.automation.membership import sign_in as s
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations.data.models import SignInEvent
-from protohaven_api.testing import Any, MatchStr, d
+from protohaven_api.testing import MatchStr, d
 
 
 def test_activate_membership_ok(mocker):
@@ -19,32 +19,32 @@ def test_activate_membership_ok(mocker):
     mock_response.status_code = 200
 
     mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(s.neon, "set_membership_start_date", return_value=mock_response)
-    mocker.patch.object(s.neon, "update_account_automation_run_status")
+    m1 = mocker.patch.object(
+        s.neon, "set_membership_date_range", return_value=mock_response
+    )
+    m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(
         s.comms.Msg,
         "tmpl",
         return_value=mocker.MagicMock(subject="Subject", body="Body", html=True),
     )
-    mocker.patch.object(s.comms, "send_email")
+    m3 = mocker.patch.object(s.comms, "send_email")
 
     s.activate_membership("12345", "John", email)
 
-    s.neon.set_membership_start_date.assert_called_once_with("12345", mocker.ANY)
-    s.neon.update_account_automation_run_status.assert_called_once_with(
-        "12345", "activated"
-    )
+    m1.assert_called_once_with("12345", mocker.ANY, mocker.ANY)
+    m2.assert_called_once_with("12345", "activated")
     s.comms.Msg.tmpl.assert_called_once_with(
         "membership_activated", fname="John", target=email
     )
-    s.comms.send_email.assert_called_once_with("Subject", "Body", email, True)
+    m3.assert_called_once_with("Subject", "Body", email, True)
 
 
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
     mock_response = mocker.Mock(status_code=500, content="Internal Server Error")
     mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(s.neon, "set_membership_start_date", return_value=mock_response)
+    mocker.patch.object(s.neon, "set_membership_date_range", return_value=mock_response)
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(s.comms, "send_email")
     mocker.patch.object(s, "notify_async")
@@ -62,14 +62,16 @@ def test_activate_membership_no_redo(mocker):
     This test confirms when "deferred" isn't in Account Automation Ran then
     no activation is done."""
     m0 = mocker.patch.object(s, "notify_async", return_value=None)
-    mocker.patch.object(s.neon_base, "get_custom_field", return_value="asdf")
-    mocker.patch.object(s.neon, "set_membership_start_date")
-    m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
-    m3 = mocker.patch.object(s.comms, "send_email")
+    m1 = mocker.patch.object(s.neon_base, "get_custom_field", return_value="asdf")
+    m2 = mocker.patch.object(s.neon, "set_membership_date_range")
+    m3 = mocker.patch.object(s.neon, "update_account_automation_run_status")
+    m4 = mocker.patch.object(s.comms, "send_email")
     s.activate_membership("123", "fname", "a@b.com")
     m0.assert_not_called()
+    m1.assert_called()
     m2.assert_not_called()
     m3.assert_not_called()
+    m4.assert_not_called()
 
 
 def test_log_sign_in(mocker):
@@ -216,7 +218,9 @@ def test_handle_announcements_testing(mocker):
     result = s.handle_announcements(
         "2025-01-01T00:00:00Z", [], ["General"], False, True
     )
-    s.table_cache.announcements_after.assert_called_with(Any(), ["Testing"], Any())
+    s.table_cache.announcements_after.assert_called_with(
+        mocker.ANY, ["Testing"], mocker.ANY
+    )
     assert result == [{"Title": "Testing Announcement"}]
 
 
@@ -232,7 +236,9 @@ def test_handle_announcements_is_active(mocker):
     result = s.handle_announcements(
         "2025-01-01T00:00:00Z", [], ["General"], True, False
     )
-    s.table_cache.announcements_after.assert_called_with(Any(), ["Member"], Any())
+    s.table_cache.announcements_after.assert_called_with(
+        mocker.ANY, ["Member"], mocker.ANY
+    )
     assert result == [{"Title": "Member Announcement"}]
 
 
