@@ -11,6 +11,10 @@ base_url = None  # pylint: disable=invalid-name
 api_key = None  # pylint: disable=invalid-name
 TIMEOUT = 60 * 5
 
+covr = "#cronicle-automation"
+eovr = "scott@protohaven.org"
+dmovr = "@pwacata"
+
 
 def run_cronicle_sync(event_id, params):
     """Starts a job on Cronicle"""
@@ -20,9 +24,10 @@ def run_cronicle_sync(event_id, params):
         headers={"X-API-Key": api_key},
         timeout=TIMEOUT,
         json={"id": event_id, "retries": 0, "timeout": TIMEOUT, "params": params},
-    ).json
-    log.info(str(rep))
+        verify=False,
+    ).json()
     running = {rid: False for rid in rep["ids"]}
+    # log.info(str(rep))
     for rid in running.keys():
         log.info(f"{base_url}#JobDetails?id={rid}")
     while True:
@@ -31,21 +36,69 @@ def run_cronicle_sync(event_id, params):
                 f"{base_url}/api/app/get_job_status/v1?id={rid}",
                 headers={"X-API-Key": api_key},
                 timeout=TIMEOUT,
-            )
-            running[rid] = rep.json["job"]["complete"] != 1
+                verify=False,
+            ).json()
+            # log.info(str(rep))
+            running[rid] = rep["job"].get("complete") != 1
         log.info(f"Running: {running}")
+        code = rep["job"].get("code")
         if True not in running.values():
-            log.info("Complete!")
-            return
+            log.info(rep["job"].get("description", f"job completed with code {code}"))
+            return code
         time.sleep(5)
+
+
+def test_test_event(evt_id):
+    """Test event to see if it all works"""
+    run_cronicle_sync(evt_id, {})
 
 
 def test_tech_sign_ins(evt_id):
     """Test alerting on tech sign ins"""
-    run_cronicle_sync(evt_id, {})
+    log.info("Testing prior known sign-in")
+    assert (
+        run_cronicle_sync(
+            evt_id,
+            {
+                "ARGS": "--now=2024-10-28T16:30:00",
+                "CHAN_OVERRIDE": covr,
+            },
+        )
+        == 0
+    )
+    input(f"\nCheck {covr} and confirm no messages sent; Enter to continue: ")
+
+    log.info("Testing invalid sign-in")
+    assert (
+        run_cronicle_sync(
+            evt_id,
+            {
+                "ARGS": "--now=3000-01-01T12:30:00",
+                "CHAN_OVERRIDE": covr,
+            },
+        )
+        == 0
+    )
+    input(f"\nCheck {covr} and confirm a message was sent; Enter to continue: ")
 
 
-# def test_send_class_emails(evt_id):
+def test_send_class_emails(evt_id):
+    """Test sending email updates"""
+    # Note: this does not test tech backfill nor instructor readiness emails
+    assert (
+        run_cronicle_sync(
+            evt_id,
+            {
+                "ARGS": "--filter=0001",  # Choose a bogus testing ID
+                "CHAN_OVERRIDE": covr,
+                "EMAIL_OVERRIDE": eovr,
+            },
+        )
+        == 0
+    )
+    input(f"\nCheck the completed job and ensure that no emails were sent")
+
+
 #     pass
 # def test_instructor_applications(evt_id):
 #     pass
@@ -89,8 +142,9 @@ def test_tech_sign_ins(evt_id):
 if __name__ == "__main__":
     test_commands = [
         # Readonly commands
+        ("test_event", test_test_event, "em2tf2cey60"),
         ("sign_ins", test_tech_sign_ins, "elzn07uwhqg"),
-        # ("class_emails", test_send_class_emails, 'elwnkuoqf8g'),
+        ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
         # ("instructor_apps", test_instructor_applications, 'elwnqdz2o8j'),
         # ("private_instruction", test_private_instruction, 'elzadpyaqmj'),
         # ("private_instruction_daily", test_private_instruction_daily, 'elziy4cxkp4'),
@@ -137,7 +191,7 @@ if __name__ == "__main__":
     print(
         "DO NOT PROCEED if you plan to test any events scheduled to execute within 10 minutes!"
     )
-    assert input('Type "none upcoming" and press Enter to proceed') == "none upcoming"
+    assert input('Type "none upcoming" and press Enter to proceed: ') == "none upcoming"
 
     for name, fn, eid in test_commands:
         if args.command and args.command != name:

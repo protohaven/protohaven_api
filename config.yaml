@@ -52,6 +52,7 @@ comms:
   finance-automation: "${WEBHOOK_FINANCE_AUTOMATION}"
   docs-automation: "${WEBHOOK_DOCS_AUTOMATION}"
   discord-automation: "${WEBHOOK_DISCORD_AUTOMATION}"
+  cronicle-automation: "${WEBHOOK_CRONICLE_AUTOMATION}"
   software: "${WEBHOOK_SOFTWARE}"
   discord_roles:
     Staff: 1130895854769807520

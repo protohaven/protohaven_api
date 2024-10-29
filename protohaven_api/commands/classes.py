@@ -89,8 +89,10 @@ class Commands:
         b.cancel_ovr = args.cancel or []
         b.confirm_ovr = args.confirm or []
         b.filter_ovr = args.filter or []
-        # Add the rest here as needed
-
+        log.info(
+            f"Configured email builder: ignore_ovr {b.ignore_ovr} cancel_ovr {b.cancel_ovr} "
+            f"confirm_ovr {b.confirm_ovr} filter_ovr {b.filter_ovr}"
+        )
         result = b.build()
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")

@@ -23,7 +23,8 @@ log = logging.getLogger("class_automation.builder")
 
 def get_account_email(account_id):
     """Gets the matching email for a Neon account, by ID"""
-    a = (neon_base.fetch_account(account_id) or {}).get("primaryContact", {})
+    a, _ = neon_base.fetch_account(account_id)
+    a = (a or {}).get("primaryContact", {})
     return a.get("email1") or a.get("email2") or a.get("email3")
 
 
