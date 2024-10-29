@@ -94,7 +94,8 @@ class Commands:
             print_yaml(
                 Msg.tmpl(
                     "shop_tech_applications",
-                    open_applicants=open_applicants,
+                    num=len(open_applicants),
+                    open_applicants=open_applicants[:10],
                     target="#tech-leads",
                 )
             )
