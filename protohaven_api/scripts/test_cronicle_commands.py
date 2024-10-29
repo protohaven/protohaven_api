@@ -159,11 +159,20 @@ def test_send_class_emails(cronicle_evt_id):
     finally:
         _cleanup_test_event(evt_id, rec)
 
+def test_instructor_applications(evt_id):
+    log.info("Testing instructor applications")
+    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
+    print(f"\n-Notice should've been sent to {COVR}")
+    input("Confirm message was sent; Enter to continue:")
 
-#     pass
-# def test_instructor_applications(evt_id):
-#     pass
-# def test_private_instruction(evt_id):
+def test_private_instruction(evt_id):
+    log.info("Testing instructor applications")
+    assert run_cronicle_sync(evt_id, {
+        "CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR
+    }) == 0
+    print(f"\n-Notice should've been sent to {COVR} and {EOVR}")
+    input("Confirm messages; Enter to continue:")
+
 #     pass
 # def test_private_instruction_daily(evt_id):
 #     pass
@@ -206,8 +215,8 @@ if __name__ == "__main__":
         ("test_event", test_test_event, "em2tf2cey60"),
         ("sign_ins", test_tech_sign_ins, "elzn07uwhqg"),
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
-        # ("instructor_apps", test_instructor_applications, 'elwnqdz2o8j'),
-        # ("private_instruction", test_private_instruction, 'elzadpyaqmj'),
+        ("instructor_apps", test_instructor_applications, 'elwnqdz2o8j'),
+        ("private_instruction", test_private_instruction, 'elzadpyaqmj'),
         # ("private_instruction_daily", test_private_instruction_daily, 'elziy4cxkp4'),
         # ("class_proposals", test_class_proposals, 'elx994dfv2o'),
         # ("shop_tech_apps", test_shop_tech_applications, 'elw7tf3bg4s'),
@@ -217,7 +226,8 @@ if __name__ == "__main__":
         # ("purchase_requests", test_purchase_request_alerts, 'em1zphtib9s'),
         # ("leads_maintenance", test_gen_tech_leads_maintenance_summary, 'em1zpe87a9q'),
         # ("validate_docs", test_validate_docs, 'elzx3r1hlu5'),
-        # Asana task completing commands
+
+        # Asana task-completing commands
         # ("phone_msgs", test_phone_messages, 'elw7tkk5n4v'),
         # ("project_requests", test_project_requests, "elth9zp5g01"),
         # Additive commands

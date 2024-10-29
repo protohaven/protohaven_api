@@ -217,14 +217,16 @@ class Commands:
             results.append(
                 Msg.tmpl(
                     "instruction_requests",
-                    formatted=formatted,
+                    num=len(formatted),
+                    formatted=formatted[:5],
                     target="membership@protohaven.org",
                 )
             )
             results.append(
                 Msg.tmpl(
                     "instruction_requests",
-                    formatted=formatted,
+                    num=len(formatted),
+                    formatted=formatted[:5],
                     target="#education-leads",
                 )
             )
@@ -233,7 +235,7 @@ class Commands:
             results.append(
                 Msg.tmpl(
                     "daily_private_instruction",
-                    formatted=formatted_past_day,
+                    formatted=formatted_past_day[:5],
                     target="#private-instructors",
                 )
             )
