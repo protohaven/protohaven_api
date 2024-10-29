@@ -91,7 +91,8 @@ def test_tech_sign_ins(evt_id):
 
 
 def _setup_test_event():
-    start = tznow() + datetime.timedelta(hours=48)
+    # Start time is chosen to trigger the LOW_ATTENDANCE_7DAYS condition
+    start = tznow() + datetime.timedelta(days=5)
     end = start + datetime.timedelta(hours=3)
     evt_id = neon_base.create_event(
         "Test event",
@@ -110,7 +111,7 @@ def _setup_test_event():
                     "Instructor": "Cronicle",
                     "Email": "hello@protohaven.org",
                     "Start Time": start.isoformat(),
-                    "Class": [],
+                    "Class": ['recyvKjNGHHCuHeFw'], # wood 101
                     "Confirmed": tznow().isoformat(),
                     "Neon ID": evt_id,
                 }
@@ -152,7 +153,9 @@ def test_send_class_emails(cronicle_evt_id):
             )
             == 0
         )
-        input("\nCheck the completed job and verify instructor cancellation ran")
+        print(f"\n- Notice should have been sent to {COVR}")
+        print(f"- Email re: low attendence should have been sent to {EOVR}")
+        input("Verify these two notifications; Enter to continue:")
     finally:
         _cleanup_test_event(evt_id, rec)
 
