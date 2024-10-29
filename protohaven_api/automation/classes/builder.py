@@ -177,6 +177,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     ignore_ovr = []  # @param {type:'raw'}
     filter_ovr = []
     confirm_ovr = []  # @param {type:'raw'}
+    published = True 
     pro_bono_classes = []  # @param {type:'raw'}
     ignore_email = []  # List of email destinations to ignore
     ignore_all_survey = False  # @param {type: 'boolean'}
