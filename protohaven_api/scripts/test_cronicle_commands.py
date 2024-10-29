@@ -1,4 +1,5 @@
 """Integration tests for Cronicle jobs/events"""
+import argparse
 import datetime
 import logging
 import time
@@ -20,6 +21,16 @@ TIMEOUT = 60 * 5
 COVR = "#cronicle-automation"
 EOVR = "scott@protohaven.org"
 DOVR = "@pwacata"
+
+
+def cronicle_event_schedule():
+    """Fetch schedule of events configured in Cronicle"""
+    return requests.get(
+        f"{base_url}/api/app/get_schedule/v1",
+        headers={"X-API-Key": api_key},
+        timeout=TIMEOUT,
+        verify=False,
+    ).json()
 
 
 def run_cronicle_sync(event_id, params):
@@ -167,6 +178,7 @@ def test_simple(evt_id: str, params: dict):
         print(f"-Notice sent to {params['EMAIL_OVERRIDE']}")
     input("Confirm message was sent; Enter to continue:")
 
+
 if __name__ == "__main__":
     readonly_commands = [
         # Readonly commands
@@ -266,34 +278,72 @@ if __name__ == "__main__":
         ),
         # Note: need to create a test class to post and ensure all good
         (
-            "post_classes", test_simple, 'elzk399t7ph', {
+            "post_classes",
+            test_simple,
+            "elzk399t7ph",
+            {
                 "CHAN_OVERRIDE": COVR,
                 "EMAIL_OVERRIDE": EOVR,
                 "ARGS": "--no-apply",
-            }),
+            },
+        ),
         # Note: should inject a task that's ready for maintenance
         (
-            "maint_tasks", test_simple, 'eltiobjj002', {
+            "maint_tasks",
+            test_simple,
+            "eltiobjj002",
+            {
                 "CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
-            }),
+            },
+        ),
+        # Note: should inject a storage violation
+        (
+            "policy_enforcement",
+            test_simple,
+            "elzd1jx39n8",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "EMAIL_OVERRIDE": EOVR,
+                "ARGS": "--no-apply",
+            },
+        ),
     ]
     destructive_commands = [
         # Need to modify a test user to properly exercise this command
-        ("discord_nick", test_simple, 'elzx3nvdvu4', {
-            "CHAN_OVERRIDE": COVR,
-            "DM_OVERRIDE": DOVR,
-            "ARGS": "--no-apply --filter=pwacata --warn_not_associated",
-        }),
-        ("discord_role", test_simple, 'elzsp1fmpsk', {
-            "CHAN_OVERRIDE": COVR,
-            "DM_OVERRIDE": DOVR,
-            "ARGS": "--no-apply_records --no-apply_discord --no-destructive --filter=pwacata",
-        }),
-        ("init_memberships", test_simple, 'em2zpg3sc9r'),
+        (
+            "discord_nick",
+            test_simple,
+            "elzx3nvdvu4",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "DM_OVERRIDE": DOVR,
+                "ARGS": "--no-apply --filter=pwacata --warn_not_associated",
+            },
+        ),
+        # Need to modify a test discord user to exercise this
+        (
+            "discord_role",
+            test_simple,
+            "elzsp1fmpsk",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "DM_OVERRIDE": DOVR,
+                "ARGS": "--no-apply_records --no-apply_discord --no-destructive --filter=pwacata",
+            },
+        ),
+        # Need to test-initialize a member, see test_membership.py
+        (
+            "init_memberships",
+            test_simple,
+            "em1zpg3sc9r",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "EMAIL_OVERRIDE": EOVR,
+                "ARGS": "--no-apply --filter=1245",
+            },
+        ),
     ]
-
-    import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -320,13 +370,19 @@ if __name__ == "__main__":
     assert input('Type "none upcoming" and press Enter to proceed: ') == "none upcoming"
 
     # TODO assert all cronicle jobs have matching tests
-
-    for tc in (
+    tests = (
         readonly_commands
         + asana_task_completing_commands
         + additive_commands
         + destructive_commands
-    ):
+    )
+    events = cronicle_event_schedule()
+    all_ids = {e["id"] for e in events["rows"]}
+    tested_ids = {e[2] for e in tests}
+    if len(all_ids - tested_ids):
+        raise RuntimeError(f"Some IDs in Cronicle are not tested: {all_ids-tested_ids}")
+
+    for tc in tests:
         name, fn, eid = tc[:3]
         if args.command and args.command != name:
             continue
