@@ -91,7 +91,7 @@ def test_tech_sign_ins(evt_id):
 
 
 def _setup_test_event():
-    start = tznow() + datetime.timedelta(hours=20)
+    start = tznow() + datetime.timedelta(hours=48)
     end = start + datetime.timedelta(hours=3)
     evt_id = neon_base.create_event(
         "Test event",
@@ -145,7 +145,7 @@ def test_send_class_emails(cronicle_evt_id):
                 cronicle_evt_id,
                 {
                     # Only act on the event we created; it's unpublished.
-                    "ARGS": f"--filter={evt_id} --no-published_only",
+                    "ARGS": f"--filter={evt_id} --no-published_only --no-cache",
                     "CHAN_OVERRIDE": COVR,
                     "EMAIL_OVERRIDE": EOVR,
                 },
