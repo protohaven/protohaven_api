@@ -208,6 +208,7 @@ def test_square_transactions(evt_id):
 
 
 def test_validate_memberships(evt_id):
+    """Confirm membership validation is properly sent"""
     # Note: we should ideally filter to specific memberships that we've
     # intentionally created as invalid.
     assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
@@ -215,8 +216,16 @@ def test_validate_memberships(evt_id):
     input("Confirm message; Enter to continue:")
 
 
-# def test_gen_instructor_schedule_reminder(evt_id):
-#     pass
+def test_gen_instructor_schedule_reminder(evt_id):
+    """Confirm schedule reminders and summary are sent"""
+    assert run_cronicle_sync(evt_id, {
+        "CHAN_OVERRIDE": COVR,
+        "EMAIL_OVERRIDE": EOVR,
+        "ARGS": "--start=2000-01-01 --end=2000-01-30 --no-require_active --filter=test@test.com",
+    }) == 0
+    print(f"\n-Notice should've been sent to {EOVR} and {COVR}")
+    input("Confirm message; Enter to continue:")
+    
 # def test_purchase_request_alerts(evt_id):
 #     pass
 # def test_gen_tech_leads_maintenance_summary(evt_id):
@@ -253,7 +262,7 @@ if __name__ == "__main__":
         ("shop_tech_apps", test_shop_tech_applications, "elw7tf3bg4s"),
         ("square_txns", test_square_transactions, "elw7tp2fs4x"),
         ("membership_val", test_validate_memberships, "elxbtcrmq3d"),
-        # ("instructor_sched", test_gen_instructor_schedule_reminder, 'em1zpa3989p'),
+        ("instructor_sched", test_gen_instructor_schedule_reminder, 'em1zpa3989p'),
         # ("purchase_requests", test_purchase_request_alerts, 'em1zphtib9s'),
         # ("leads_maintenance", test_gen_tech_leads_maintenance_summary, 'em1zpe87a9q'),
         # ("validate_docs", test_validate_docs, 'elzx3r1hlu5'),

@@ -28,7 +28,7 @@ def get_account_email(account_id):
     return a.get("email1") or a.get("email2") or a.get("email3")
 
 
-def get_unscheduled_instructors(start, end):
+def get_unscheduled_instructors(start, end, require_active):
     """Builds a set of instructors that do not have classes proposed or scheduled
     between `start` and `end`."""
     already_scheduled = defaultdict(bool)
@@ -40,7 +40,8 @@ def get_unscheduled_instructors(start, end):
         f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
     )
     for name, email in airtable.get_instructor_email_map(
-        require_teachable_classes=True
+        require_teachable_classes=True,
+        require_active=require_active,
     ).items():
         if already_scheduled[email.lower()]:
             continue  # Don't nag folks that already have their classes set up
