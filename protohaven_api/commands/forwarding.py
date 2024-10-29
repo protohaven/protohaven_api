@@ -253,6 +253,11 @@ class Commands:
     )
     def phone_messages(self, args):
         """Check on phone messages and forward to email"""
+        if not args.apply:
+            log.info(
+                "\n***   --apply is not set, so tasks will not be "
+                + "checked off   ***\n"
+            )
         num = 0
         results = []
         for req in tasks.get_phone_messages():

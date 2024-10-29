@@ -53,6 +53,7 @@ comms:
   docs-automation: "${WEBHOOK_DOCS_AUTOMATION}"
   discord-automation: "${WEBHOOK_DISCORD_AUTOMATION}"
   cronicle-automation: "${WEBHOOK_CRONICLE_AUTOMATION}"
+  tool-automation: "${WEBHOOK_TOOL_AUTOMATION}"
   software: "${WEBHOOK_SOFTWARE}"
   discord_roles:
     Staff: 1130895854769807520

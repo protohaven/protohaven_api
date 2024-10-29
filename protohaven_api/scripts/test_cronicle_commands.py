@@ -160,79 +160,19 @@ def test_send_class_emails(cronicle_evt_id):
         _cleanup_test_event(evt_id, rec)
 
 
-def test_instructor_applications(evt_id):
-    """Ensure open applications are notified"""
-    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}")
+def test_simple(evt_id: str, params: dict):
+    """Simple test of Cronicle job without any setup/teardown"""
+    assert run_cronicle_sync(evt_id, params) == 0
+    print("\n")
+    if "CHAN_OVERRIDE" in params:
+        print(f"-Notice sent to {params['CHAN_OVERRIDE']}")
+    if "DM_OVERRIDE" in params:
+        print(f"-Notice sent to {params['DM_OVERRIDE']}")
+    if "EMAIL_OVERRIDE" in params:
+        print(f"-Notice sent to {params['EMAIL_OVERRIDE']}")
     input("Confirm message was sent; Enter to continue:")
 
 
-def test_private_instruction(evt_id):
-    """Ensure private instructions are notified"""
-    assert (
-        run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR}) == 0
-    )
-    print(f"\n-Notice should've been sent to {COVR} and {EOVR}")
-    input("Confirm messages; Enter to continue:")
-
-
-def test_private_instruction_daily(evt_id):
-    """Check the daily notification for private instruction"""
-    # Note: A more complete test would create an instruction request for demoing
-    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}")
-    input("Confirm message; Enter to continue:")
-
-
-def test_class_proposals(evt_id):
-    """Verify class proposals get sent to the leads"""
-    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}")
-    input("Confirm message; Enter to continue:")
-
-
-def test_shop_tech_applications(evt_id):
-    """Test shop tech apps get sent to the leads"""
-    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}")
-    input("Confirm message; Enter to continue:")
-
-
-def test_square_transactions(evt_id):
-    """Ensure square transactions are reported"""
-    # Note: this should really create some transaction violation problem for
-    # reporting purposes
-    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}, if outstanding txn probs")
-    input("Confirm message; Enter to continue:")
-
-
-def test_validate_memberships(evt_id):
-    """Confirm membership validation is properly sent"""
-    # Note: we should ideally filter to specific memberships that we've
-    # intentionally created as invalid.
-    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}, if validation issues.")
-    input("Confirm message; Enter to continue:")
-
-
-def test_gen_instructor_schedule_reminder(evt_id):
-    """Confirm schedule reminders and summary are sent"""
-    assert run_cronicle_sync(evt_id, {
-        "CHAN_OVERRIDE": COVR,
-        "EMAIL_OVERRIDE": EOVR,
-        "ARGS": "--start=2000-01-01 --end=2000-01-30 --no-require_active --filter=test@test.com",
-    }) == 0
-    print(f"\n-Notice should've been sent to {EOVR} and {COVR}")
-    input("Confirm message; Enter to continue:")
-    
-# def test_purchase_request_alerts(evt_id):
-#     pass
-# def test_gen_tech_leads_maintenance_summary(evt_id):
-#     pass
-# def test_validate_docs(evt_id):
-#     pass
-# def test_phone_messages(evt_id):
 #     pass
 # def test_project_requests(evt_id):
 #     pass
@@ -250,29 +190,107 @@ def test_gen_instructor_schedule_reminder(evt_id):
 #     pass
 
 if __name__ == "__main__":
-    test_commands = [
+    readonly_commands = [
         # Readonly commands
         ("test_event", test_test_event, "em2tf2cey60"),
         ("sign_ins", test_tech_sign_ins, "elzn07uwhqg"),
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
-        ("instructor_apps", test_instructor_applications, "elwnqdz2o8j"),
-        ("private_instruction", test_private_instruction, "elzadpyaqmj"),
-        ("private_instruction_daily", test_private_instruction_daily, "elziy4cxkp4"),
-        ("class_proposals", test_class_proposals, "elx994dfv2o"),
-        ("shop_tech_apps", test_shop_tech_applications, "elw7tf3bg4s"),
-        ("square_txns", test_square_transactions, "elw7tp2fs4x"),
-        ("membership_val", test_validate_memberships, "elxbtcrmq3d"),
-        ("instructor_sched", test_gen_instructor_schedule_reminder, 'em1zpa3989p'),
-        # ("purchase_requests", test_purchase_request_alerts, 'em1zphtib9s'),
-        # ("leads_maintenance", test_gen_tech_leads_maintenance_summary, 'em1zpe87a9q'),
-        # ("validate_docs", test_validate_docs, 'elzx3r1hlu5'),
-        # Asana task-completing commands
-        # ("phone_msgs", test_phone_messages, 'elw7tkk5n4v'),
-        # ("project_requests", test_project_requests, "elth9zp5g01"),
-        # Additive commands
+        ("instructor_apps", test_simple, "elwnqdz2o8j", {"CHAN_OVERRIDE": COVR}),
+        (
+            "private_instruction",
+            test_simple,
+            "elzadpyaqmj",
+            {"CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR},
+        ),
+        (
+            "private_instruction_daily",
+            test_simple,
+            "elziy4cxkp4",
+            {"CHAN_OVERRIDE": COVR},
+        ),
+        ("class_proposals", test_simple, "elx994dfv2o", {"CHAN_OVERRIDE": COVR}),
+        ("shop_tech_apps", test_simple, "elw7tf3bg4s", {"CHAN_OVERRIDE": COVR}),
+        # Note: this should really create some transaction violation problem for
+        # reporting purposes
+        ("square_txns", test_simple, "elw7tp2fs4x", {"CHAN_OVERRIDE": COVR}),
+        # Note: we should ideally filter to specific memberships that we've
+        # intentionally created as invalid.
+        ("membership_val", test_simple, "elxbtcrmq3d", {"CHAN_OVERRIDE": COVR}),
+        (
+            "instructor_sched",
+            test_simple,
+            "em1zpa3989p",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "EMAIL_OVERRIDE": EOVR,
+                "ARGS": "--start=2000-01-01 --end=2000-01-30 --no-require_active --filter=test@test.com",
+            },
+        ),
+        # Note: should change this to always produce a stale alert
+        (
+            "purchase_requests",
+            test_simple,
+            "em1zphtib9s",
+            {
+                "CHAN_OVERRIDE": COVR,
+            },
+        ),
+        # Note: should change this to always produce a stale alert
+        (
+            "leads_maintenance",
+            test_simple,
+            "em1zpe87a9q",
+            {
+                "CHAN_OVERRIDE": COVR,
+            },
+        ),
+        # Note: should change this to always produce a stale alert
+        (
+            "validate_docs",
+            test_simple,
+            "elzx3r1hlu5",
+            {
+                "CHAN_OVERRIDE": COVR,
+            },
+        ),
+    ]
+    asana_task_completing_commands = [
+        # Note: need to submit a fake phone message here
+        (
+            "phone_msgs",
+            test_simple,
+            "elw7tkk5n4v",
+            {
+                "EMAIL_OVERRIDE": EOVR,
+                "ARGS": "--no-apply",
+            },
+        ),
+        # Note: need to submit a fake project request here
+        (
+            "project_requests",
+            test_simple,
+            "elth9zp5g01",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
+    ]
+    additive_commands = [
+        # Note: need to affect a tool state in order to properly test
+        (
+            "sync_tools",
+            test_simple,
+            "elvv9mdlx2j",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
         # ("post_classes", test_post_classes_to_neon, 'elzk399t7ph'),
         # ("maint_tasks", test_gen_maintenance_tasks, 'eltiobjj002'),
-        # ("sync_tools", test_sync_reservable_tools, 'elvv9mdlx2j'),
+    ]
+    destructive_commands = [
         # Destructive / mutation commands
         # ("discord_nick", test_enforce_discord_nicknames, 'elzx3nvdvu4'),
         # ("discord_role", test_update_role_intents, 'elzsp1fmpsk'),
@@ -307,7 +325,16 @@ if __name__ == "__main__":
 
     # TODO assert all cronicle jobs have matching tests
 
-    for name, fn, eid in test_commands:
+    for tc in (
+        readonly_commands
+        + asana_task_completing_commands
+        + additive_commands
+        + destructive_commands
+    ):
+        name, fn, eid = tc[:3]
         if args.command and args.command != name:
             continue
-        fn(eid)
+        if len(tc) == 4:
+            fn(eid, tc[3])
+        else:
+            fn(eid)

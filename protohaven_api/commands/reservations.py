@@ -6,9 +6,13 @@ import logging
 
 from dateutil import parser as dateparser
 
-from protohaven_api.commands.decorator import arg, command
-from protohaven_api.config import tz  # pylint: disable=import-error
+from protohaven_api.commands.decorator import arg, command, print_yaml
+from protohaven_api.config import (  # pylint: disable=import-error
+    exec_details_footer,
+    tz,
+)
 from protohaven_api.integrations import airtable, booked  # pylint: disable=import-error
+from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.reservation")
 
@@ -159,18 +163,21 @@ class Commands:
                         )
 
     def _stage_booked_record_update(self, r, custom_attributes, **kwargs):
+        changes = []
         r, changed_attrs = booked.stage_custom_attributes(r, **custom_attributes)
         if True in changed_attrs.values():
+            changes.append(
+                f"custom attributes ({changed_attrs} -> {custom_attributes})"
+            )
             log.warning(
                 f"Changed custom attributes: {changed_attrs} -> {custom_attributes}"
             )
-        changed = False
         for k, v in kwargs.items():
             if str(r[k]) != str(v):
                 log.warning(f"Changing {k} from {r[k]} to {v}")
                 r[k] = v
-                changed = True
-        return r, True in changed_attrs.values() or changed
+                changes.append(f"{k} ({r[k]}->{v})")
+        return r, changes
 
     @command(
         arg(
@@ -245,6 +252,7 @@ class Commands:
         # for k,v in groups.items():
         #    print(f"- {k} = {v}")
         airtable_booked_ids = set()
+        summary = []
         for t in airtable.get_tools():
             if not t["fields"].get("Reservable", False):
                 continue
@@ -269,10 +277,11 @@ class Commands:
             if not d[
                 "resourceId"
             ]:  # New tool! Create the record. We'll update it in a second step
+                log.warning(f"Creating new resource {d['name']}")
+                summary.append(f"Create new Booked resource {d['name']}")
                 if not args.apply:
                     log.warning(f"Skipping creation of new resource {d['name']}")
                     continue
-                log.warning(f"Creating new resource {d['name']}")
                 rep = booked.create_resource(d["name"])
                 log.debug(str(rep))
                 log.debug("Updating airtable record")
@@ -283,7 +292,7 @@ class Commands:
 
             log.info(f"#{d['resourceId']} \"{d['name']}\"")
             r = booked.get_resource(d["resourceId"])
-            r, changed = self._stage_booked_record_update(
+            r, changes = self._stage_booked_record_update(
                 r,
                 {
                     "area": d["area"],
@@ -301,8 +310,9 @@ class Commands:
                 allowMultiday=d.get("area")
                 == "3D Printing",  # 3D printers allow reservations across days
             )
-            if args.apply:
-                if changed:
+            if changes:
+                summary.append(f"Change {d['name']}: {', '.join(changes)}")
+                if args.apply:
                     log.info(booked.update_resource(r))
 
         # Note 2024-04-15: groupIds don't seem to be editable via standard
@@ -319,3 +329,17 @@ class Commands:
                 f"These resources exist in Booked, but not in Airtable: {extra_booked_resources}"
             )
         log.info("Done - all resources in Booked exist in Airtable")
+
+        if len(changes) > 0:
+            print_yaml(
+                [
+                    Msg.tmpl(
+                        "tool_sync_summary",
+                        target="#tool-automation",
+                        changes=changes,
+                        n=len(changes),
+                        footer=exec_details_footer(),
+                    )
+                ]
+            )
+        print_yaml([])

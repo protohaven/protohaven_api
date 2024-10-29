@@ -630,8 +630,17 @@ pricing = [
                         "General+Membership",
                         "Primary+Family+Membership",
                         "Additional+Family+Membership",
+                        "Company Membership",
+                        "Corporate Membership",
+                        "Weekend Membership",
+                        "Weeknight Membership",
+                        "Non-profit Membership",
                     ],
-                    [1, 27, 26],
+                    # These are IDs of the membership types. For reference, see
+                    # https://protohaven.app.neoncrm.com/np/admin/systemsetting/membershipHome.do
+                    # And look at the suffix of the `Edit` urls.
+                    # These must be listed in order with the strings above.
+                    [1, 27, 26, 6, 24, 2, 25, 3],
                 )
             ]
         ],
