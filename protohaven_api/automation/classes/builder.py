@@ -28,15 +28,9 @@ def get_account_email(account_id):
     return a.get("email1") or a.get("email2") or a.get("email3")
 
 
-def gen_scheduling_reminders(start, end):
-    """Builds a set of reminder emails for all instructors, plus #instructors notification
-    to schedule additional classes"""
-    results = []
-    summary = defaultdict(lambda: {"action": set(), "targets": set()})
-
-    summary[""]["name"] = "Scheduling reminder"
-    summary[""]["action"].add("SEND")
-
+def get_unscheduled_instructors(start, end):
+    """Builds a set of instructors that do not have classes proposed or scheduled
+    between `start` and `end`."""
     already_scheduled = defaultdict(bool)
     for cls in airtable.get_class_automation_schedule():
         d = dateparser.parse(cls["fields"]["Start Time"])
@@ -45,35 +39,12 @@ def gen_scheduling_reminders(start, end):
     log.info(
         f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
     )
-
     for name, email in airtable.get_instructor_email_map(
         require_teachable_classes=True
     ).items():
         if already_scheduled[email.lower()]:
             continue  # Don't nag folks that already have their classes set up
-
-        firstname = name.split(" ")[0]
-        results.append(
-            Msg.tmpl(
-                "instructor_schedule_classes",
-                name=name,
-                firstname=firstname,
-                start=start,
-                end=end,
-                target=email,
-            )
-        )
-        summary[""]["targets"].add(email)
-
-    if len(results) > 0:
-        results.append(
-            Msg.tmpl(
-                "class_automation_summary",
-                events=summary["events"],
-                target="#class-automation",
-            )
-        )
-    return results
+        yield (name, email)
 
 
 def gen_class_scheduled_alerts(scheduled_by_instructor):
@@ -177,7 +148,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     ignore_ovr = []  # @param {type:'raw'}
     filter_ovr = []
     confirm_ovr = []  # @param {type:'raw'}
-    published = True 
+    published = True
     pro_bono_classes = []  # @param {type:'raw'}
     ignore_email = []  # List of email destinations to ignore
     ignore_all_survey = False  # @param {type: 'boolean'}

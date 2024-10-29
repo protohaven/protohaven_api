@@ -198,8 +198,10 @@ class Commands:
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
-        problems = self._validate_memberships_internal(
-            args.write_cache, args.read_cache, args.member_ids
+        problems = list(
+            self._validate_memberships_internal(
+                args.write_cache, args.read_cache, args.member_ids
+            )
         )
         if len(problems) > 0:
             print_yaml(
@@ -215,8 +217,6 @@ class Commands:
         self, write_cache=None, read_cache=None, member_ids=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
-        results = []
-
         household_paying_member_count = defaultdict(int)
         household_num_addl_members = defaultdict(int)
         company_member_count = defaultdict(int)
@@ -350,12 +350,12 @@ class Commands:
                 details["cid"], 0
             )
             result = self._validate_membership_singleton(details)
-            results += [
-                f"{details['name']}: {r} - "
-                f"https://protohaven.app.neoncrm.com/admin/accounts/{details['aid']}"
-                for r in result
-            ]
-        return results
+            for r in result:
+                yield {
+                    "name": details["name"],
+                    "result": r,
+                    "account_id": details["aid"],
+                }
 
     def _validate_membership_singleton(
         self, details, now=None

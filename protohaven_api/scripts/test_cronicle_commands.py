@@ -111,7 +111,7 @@ def _setup_test_event():
                     "Instructor": "Cronicle",
                     "Email": "hello@protohaven.org",
                     "Start Time": start.isoformat(),
-                    "Class": ['recyvKjNGHHCuHeFw'], # wood 101
+                    "Class": ["recyvKjNGHHCuHeFw"],  # wood 101
                     "Confirmed": tznow().isoformat(),
                     "Neon ID": evt_id,
                 }
@@ -159,19 +159,22 @@ def test_send_class_emails(cronicle_evt_id):
     finally:
         _cleanup_test_event(evt_id, rec)
 
+
 def test_instructor_applications(evt_id):
     """Ensure open applications are notified"""
     assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
     print(f"\n-Notice should've been sent to {COVR}")
     input("Confirm message was sent; Enter to continue:")
 
+
 def test_private_instruction(evt_id):
     """Ensure private instructions are notified"""
-    assert run_cronicle_sync(evt_id, {
-        "CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR
-    }) == 0
+    assert (
+        run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR}) == 0
+    )
     print(f"\n-Notice should've been sent to {COVR} and {EOVR}")
     input("Confirm messages; Enter to continue:")
+
 
 def test_private_instruction_daily(evt_id):
     """Check the daily notification for private instruction"""
@@ -180,11 +183,13 @@ def test_private_instruction_daily(evt_id):
     print(f"\n-Notice should've been sent to {COVR}")
     input("Confirm message; Enter to continue:")
 
+
 def test_class_proposals(evt_id):
     """Verify class proposals get sent to the leads"""
     assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
     print(f"\n-Notice should've been sent to {COVR}")
     input("Confirm message; Enter to continue:")
+
 
 def test_shop_tech_applications(evt_id):
     """Test shop tech apps get sent to the leads"""
@@ -192,14 +197,24 @@ def test_shop_tech_applications(evt_id):
     print(f"\n-Notice should've been sent to {COVR}")
     input("Confirm message; Enter to continue:")
 
+
 def test_square_transactions(evt_id):
     """Ensure square transactions are reported"""
+    # Note: this should really create some transaction violation problem for
+    # reporting purposes
     assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
-    print(f"\n-Notice should've been sent to {COVR}")
+    print(f"\n-Notice should've been sent to {COVR}, if outstanding txn probs")
     input("Confirm message; Enter to continue:")
 
-# def test_validate_memberships(evt_id):
-#     pass
+
+def test_validate_memberships(evt_id):
+    # Note: we should ideally filter to specific memberships that we've
+    # intentionally created as invalid.
+    assert run_cronicle_sync(evt_id, {"CHAN_OVERRIDE": COVR}) == 0
+    print(f"\n-Notice should've been sent to {COVR}, if validation issues.")
+    input("Confirm message; Enter to continue:")
+
+
 # def test_gen_instructor_schedule_reminder(evt_id):
 #     pass
 # def test_purchase_request_alerts(evt_id):
@@ -231,18 +246,17 @@ if __name__ == "__main__":
         ("test_event", test_test_event, "em2tf2cey60"),
         ("sign_ins", test_tech_sign_ins, "elzn07uwhqg"),
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
-        ("instructor_apps", test_instructor_applications, 'elwnqdz2o8j'),
-        ("private_instruction", test_private_instruction, 'elzadpyaqmj'),
-        ("private_instruction_daily", test_private_instruction_daily, 'elziy4cxkp4'),
-        ("class_proposals", test_class_proposals, 'elx994dfv2o'),
-        ("shop_tech_apps", test_shop_tech_applications, 'elw7tf3bg4s'),
-        ("square_txns", test_square_transactions, 'elw7tp2fs4x'),
-        # ("membership_val", test_validate_memberships, 'elxbtcrmq3d'),
+        ("instructor_apps", test_instructor_applications, "elwnqdz2o8j"),
+        ("private_instruction", test_private_instruction, "elzadpyaqmj"),
+        ("private_instruction_daily", test_private_instruction_daily, "elziy4cxkp4"),
+        ("class_proposals", test_class_proposals, "elx994dfv2o"),
+        ("shop_tech_apps", test_shop_tech_applications, "elw7tf3bg4s"),
+        ("square_txns", test_square_transactions, "elw7tp2fs4x"),
+        ("membership_val", test_validate_memberships, "elxbtcrmq3d"),
         # ("instructor_sched", test_gen_instructor_schedule_reminder, 'em1zpa3989p'),
         # ("purchase_requests", test_purchase_request_alerts, 'em1zphtib9s'),
         # ("leads_maintenance", test_gen_tech_leads_maintenance_summary, 'em1zpe87a9q'),
         # ("validate_docs", test_validate_docs, 'elzx3r1hlu5'),
-
         # Asana task-completing commands
         # ("phone_msgs", test_phone_messages, 'elw7tkk5n4v'),
         # ("project_requests", test_project_requests, "elth9zp5g01"),
