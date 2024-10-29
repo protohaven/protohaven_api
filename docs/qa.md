@@ -41,18 +41,27 @@ After deployment, verify that:
 * https://api.protohaven.org/staff
   * [ ] Can summarize one or more discord channels, and view photos
 
+## Discord events
+
+Send `TEST_MEMBER_JOIN` in a DM to the Protohaven discord bot; this will
+run the `on_member_join` hook which is configured by `main.py` to run
+`setup_discord_user` from `protohaven_api.automation.roles.roles`.
+
+* [ ] When called with an unregistered Dicsord user, directs to register with Neon
+* [ ] When called with registered user with missing roles, adds them & notifies
+* [ ] When called with registered user with invalid nickname, changes & notifies
+* [ ] When called with registered user with extra roles, notifies of pending removal
+
 ## Webhooks
 
-See `protohaven_api/scripts/test_webhooks.py` for implementation details
-
-#### Membership creation webhook
+Membership creation webhook
 
 ```shell
 python3 -m protohaven_api.scripts.test_webhooks new_member
 ```
 * [ ] runs successfully
 
-#### Clearance webhook
+Clearance webhook
 
 ```shell
 python3 -m protohaven_api.scripts.test_webhooks clearance
@@ -61,7 +70,7 @@ python3 -m protohaven_api.scripts.test_webhooks clearance
 
 ## CLI commands
 
-* [ ] Ensure cronicle is running: su to root then use control.sh
+* [ ] Ensure cronicle is running: `su root` then use `control.sh`
 
 ```shell
 python3 -m protohaven_api.scripts.test_cronicle all

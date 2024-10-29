@@ -176,6 +176,9 @@ def test_simple(evt_id: str, params: dict):
         print(f"-Notice sent to {params['DM_OVERRIDE']}")
     if "EMAIL_OVERRIDE" in params:
         print(f"-Notice sent to {params['EMAIL_OVERRIDE']}")
+    # In the future, may be able to fetch the job log and check
+    # for specific substrings, e.g.
+    # https://cronicle.api.protohaven.org/api/app/get_job_log?id=<job_id>
     input("Confirm message was sent; Enter to continue:")
 
 
@@ -212,7 +215,10 @@ if __name__ == "__main__":
             {
                 "CHAN_OVERRIDE": COVR,
                 "EMAIL_OVERRIDE": EOVR,
-                "ARGS": "--start=2000-01-01 --end=2000-01-30 --no-require_active --filter=test@test.com",
+                "ARGS": (
+                    "--start=2000-01-01 --end=2000-01-30 "
+                    "--no-require_active --filter=test@test.com"
+                ),
             },
         ),
         # Note: should change this to always produce a stale alert
@@ -369,7 +375,6 @@ if __name__ == "__main__":
     )
     assert input('Type "none upcoming" and press Enter to proceed: ') == "none upcoming"
 
-    # TODO assert all cronicle jobs have matching tests
     tests = (
         readonly_commands
         + asana_task_completing_commands
