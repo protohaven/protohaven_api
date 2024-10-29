@@ -19,7 +19,7 @@ TIMEOUT = 60 * 5
 
 COVR = "#cronicle-automation"
 EOVR = "scott@protohaven.org"
-DMOVR = "@pwacata"
+DOVR = "@pwacata"
 
 
 def run_cronicle_sync(event_id, params):
@@ -172,23 +172,6 @@ def test_simple(evt_id: str, params: dict):
         print(f"-Notice sent to {params['EMAIL_OVERRIDE']}")
     input("Confirm message was sent; Enter to continue:")
 
-
-#     pass
-# def test_project_requests(evt_id):
-#     pass
-# def test_post_classes(evt_id):
-#     pass
-# def test_gen_maintenance_tasks(evt_id):
-#     pass
-# def test_sync_tools(evt_id):
-#     pass
-# def test_enforce_discord_nicknames(evt_id):
-#     pass
-# def test_update_role_intents(evt_id):
-#     pass
-# def test_init_new_membersihps(evt_id):
-#     pass
-
 if __name__ == "__main__":
     readonly_commands = [
         # Readonly commands
@@ -287,12 +270,26 @@ if __name__ == "__main__":
                 "ARGS": "--no-apply",
             },
         ),
-        # ("post_classes", test_post_classes_to_neon, 'elzk399t7ph'),
-        # ("maint_tasks", test_gen_maintenance_tasks, 'eltiobjj002'),
+        # Note: need to create a test class to post and ensure all good
+        (
+            "post_classes", test_simple, 'elzk399t7ph', {
+                "CHAN_OVERRIDE": COVR,
+                "EMAIL_OVERRIDE": EOVR,
+                "ARGS": "--no-apply",
+            }),
+        # Note: should inject a task that's ready for maintenance
+        (
+            "maint_tasks", test_simple, 'eltiobjj002', {
+                "CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            }),
     ]
     destructive_commands = [
-        # Destructive / mutation commands
-        # ("discord_nick", test_enforce_discord_nicknames, 'elzx3nvdvu4'),
+        ("discord_nick", test_simple, 'elzx3nvdvu4', {
+            "CHAN_OVERRIDE": COVR,
+            "DM_OVERRIDE": DOVR,
+            "ARGS": "--no-apply --filter=pwacata --warn_not_associated",
+        }),
         # ("discord_role", test_update_role_intents, 'elzsp1fmpsk'),
         # ("init_memberships", test_init_new_membersihps, 'em1zpg3sc9r'),
     ]

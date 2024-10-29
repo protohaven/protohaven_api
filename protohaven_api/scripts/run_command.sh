@@ -4,9 +4,10 @@
 set -Eeuo pipefail
 
 source ./venv/bin/activate
-echo "DM override: $DM_OVERRIDE"
-echo "Channel override: $CHAN_OVERRIDE"
-echo "Email override: $EMAIL_OVERRIDE"
+echo "DM_OVERRIDE=$DM_OVERRIDE"
+echo "CHAN_OVERRIDE=$CHAN_OVERRIDE"
+echo "EMAIL_OVERRIDE=$EMAIL_OVERRIDE"
+echo "DISCORD_BOT=$DISCORD_BOT"
 python3 -m protohaven_api.cli $CMD $ARGS > $OUTFILE
 cat $OUTFILE
 if [ "$SEND_COMMS" = "1" ]; then

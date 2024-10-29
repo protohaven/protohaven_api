@@ -79,7 +79,7 @@ def get_config(path=None, default=None, as_bool=False):
             return default
     if as_bool:
         return (
-            isinstance(data, str) and data.strip().lower() == "true"
+            isinstance(data, str) and data.strip().lower() in ("1", "true")
         ) or data is True
     return data
 
