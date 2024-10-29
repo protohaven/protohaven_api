@@ -2,13 +2,12 @@
 # pylint: skip-file
 import datetime
 from collections import namedtuple
-from unittest.mock import call
 
 import pytest
 
 from protohaven_api.commands import classes as C
 from protohaven_api.integrations.data.neon import Category
-from protohaven_api.testing import Any, d, idfn, mkcli
+from protohaven_api.testing import d, idfn, mkcli
 
 
 def test_category_from_event_name():
@@ -51,15 +50,24 @@ TESTVAL = [{"a": "b"}]
 
 
 def test_gen_instructor_schedule_reminder(mocker, cli):
-    mocker.patch.object(C.builder, "gen_scheduling_reminders", return_value=TESTVAL)
-    assert (
-        cli(
-            "gen_instructor_schedule_reminder",
-            ["--start", d(0).isoformat(), "--end", d(1).isoformat()],
-        )
-        == TESTVAL
+    mocker.patch.object(
+        C.builder, "get_unscheduled_instructors", return_value=[("Foo", "a@b.com")]
     )
-    C.builder.gen_scheduling_reminders.assert_called_with(d(0), d(1))
+    assert cli(
+        "gen_instructor_schedule_reminder",
+        ["--start", d(0).isoformat(), "--end", d(1).isoformat()],
+    ) == [
+        {
+            "body": mocker.ANY,
+            "subject": "Foo: please schedule your classes!",
+            "target": "a@b.com",
+        },
+        {
+            "body": mocker.ANY,
+            "subject": "Automation notification summary",
+            "target": "#class-automation",
+        },
+    ]
 
 
 def test_gen_class_emails(cli, mocker):
@@ -116,7 +124,7 @@ def test_cancel_classes(cli, mocker):
     eb = mocker.patch.object(C.neon, "set_event_scheduled_state")
     cli("cancel_classes", ["--id", "1", "2"])
     C.neon.set_event_scheduled_state.assert_has_calls(
-        [call("1", scheduled=False), call("2", scheduled=False)]
+        [mocker.call("1", scheduled=False), mocker.call("2", scheduled=False)]
     )
 
 
@@ -206,8 +214,8 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         "#class-automation",
     }
     C.neon_base.create_event.assert_called_with(
-        Any(),
-        Any(),
+        mocker.ANY,
+        mocker.ANY,
         d(30),
         d(30) + datetime.timedelta(hours=3),
         category="27",

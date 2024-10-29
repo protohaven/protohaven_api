@@ -14,7 +14,7 @@ from protohaven_api.rbac import Role
 log = logging.getLogger("integrations.neon")
 
 
-def fetch_published_upcoming_events(back_days=7):
+def fetch_upcoming_events(back_days=7, published=True):
     """Load upcoming events from Neon CRM, with `back_days` of trailing event data.
     Note that querying is done based on the end date so multi-week intensives
     can still appear even if they started earlier than `back_days`."""
@@ -22,9 +22,10 @@ def fetch_published_upcoming_events(back_days=7):
         "endDateAfter": (tznow() - datetime.timedelta(days=back_days)).strftime(
             "%Y-%m-%d"
         ),
-        "publishedEvent": True,
         "archived": False,
     }
+    if published:
+        q_params["publishedEvent"] = published
     return neon_base.paginated_fetch("api_key1", "/events", q_params)
 
 
@@ -140,16 +141,6 @@ def fetch_clearance_codes():
     return content["optionValues"]
 
 
-def get_user_clearances(account_id):
-    """Fetch clearances for an individual user in Neon"""
-    # Should probably cache this a bit
-    id_to_code = {c["id"]: c["code"] for c in fetch_clearance_codes()}
-    return [
-        id_to_code.get(v["id"])
-        for v in neon_base.get_custom_field(account_id, "Clearances")
-    ]
-
-
 def set_clearance_codes(codes):
     """Set all the possible clearance codes that can be used in Neon
     DANGER: Get clearance codes and extend that list, otherwise
@@ -170,22 +161,37 @@ def set_clearance_codes(codes):
     )
 
 
-def set_membership_start_date(account_id, d):
-    """Sets the termStartDate of the most recent membership of a user.
-    Recency is determined by its termStartDate."""
-    latest = (None, None)
-    for m in fetch_memberships(account_id):
-        log.info(str(m))
-        tsd = dateparser.parse(m["Term Start Date"]).astimezone(tz)
-        if not latest[1] or latest[1] < tsd:
-            latest = (m["Membership ID"], tsd)
+def create_zero_cost_membership(account_id, start, end, level=None, term=None):
+    """Creates a $0 membership attached to a neon account"""
+    return neon_base.post(
+        "api_key2",
+        "/memberships",
+        {
+            "accountId": account_id,
+            "membershipLevel": level or {"id": 1, "name": "General Membership"},
+            "membershipTerm": term or {"id": 1, "name": "General - $115/mo (Join)"},
+            "termStartDate": start.strftime("%Y-%m-%d"),
+            "termEndDate": end.strftime("%Y-%m-%d"),
+            "termUnit": "MONTH",
+            "transactionDate": tznow().strftime("%Y-%m-%d"),
+            "autoRenewal": False,
+            "enrollType": "JOIN",
+            "fee": 0,
+            "totalCharge": 0,  # Zero fees are normally not auto-deferred on prod; allows us to test
+            "status": "SUCCEEDED",
+        },
+    )
 
-    if not latest[0]:
-        raise RuntimeError(f"No latest membership for member {account_id}")
+
+def set_membership_date_range(membership_id, start, end):
+    """Sets the termStartDate of the membership with id `membership_id`."""
     return neon_base.patch(
         "api_key2",
-        f"/memberships/{latest[0]}",
-        {"termStartDate": d.strftime("%Y-%m-%d")},
+        f"/memberships/{membership_id}",
+        {
+            "termStartDate": start.strftime("%Y-%m-%d"),
+            "termEndDate": end.strftime("%Y-%m-%d"),
+        },
     )
 
 
@@ -201,12 +207,12 @@ def set_discord_user(account_id, discord_user: str):
     )
 
 
-def set_clearances(account_id, codes):
+def set_clearances(account_id, code_ids, is_company=None):
     """Sets all clearances for a specific user - company or individual"""
-    code_to_id = {c["code"]: c["id"] for c in fetch_clearance_codes()}
-    ids = [code_to_id[c] for c in codes if c in code_to_id.keys()]
     return neon_base.set_custom_fields(
-        account_id, (CustomField.CLEARANCES, [{"id": i} for i in ids])
+        account_id,
+        (CustomField.CLEARANCES, [{"id": i} for i in code_ids]),
+        is_company=is_company,
     )
 
 
@@ -244,6 +250,7 @@ def get_inactive_members(extra_fields):
             ("Account Current Membership Status", "NOT_EQUAL", "Active"),
         ],
         ["Account ID", *extra_fields],
+        pagination={"pageSize": 100},
     )
 
 
@@ -254,6 +261,7 @@ def get_active_members(extra_fields):
             ("Account Current Membership Status", "EQUAL", "Active"),
         ],
         ["Account ID", *extra_fields],
+        pagination={"pageSize": 100},
     )
 
 
@@ -416,7 +424,7 @@ def patch_member_role(email, role, enabled):
     if len(mem) == 0:
         raise KeyError()
     account_id = mem[0]["Account ID"]
-    roles = neon_base.get_custom_field(account_id, str(CustomField.API_SERVER_ROLE))
+    roles = neon_base.get_custom_field(account_id, CustomField.API_SERVER_ROLE)
     roles = {v["id"]: v["name"] for v in roles}
     if enabled:
         roles[role["id"]] = role["name"]

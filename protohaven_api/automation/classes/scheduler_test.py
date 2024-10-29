@@ -131,7 +131,9 @@ def test_build_instructor_no_caps():
 
 
 def test_push_schedule(mocker):
-    mocker.patch.object(s.airtable, "append_classes_to_schedule")
+    mocker.patch.object(
+        s.airtable, "append_classes_to_schedule", return_value=(200, None)
+    )
     mocker.patch.object(
         s.airtable,
         "get_instructor_email_map",

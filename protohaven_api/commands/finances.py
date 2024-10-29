@@ -83,8 +83,9 @@ class Commands:
         log.info(
             f"Processed {n} active subscriptions - {len(unpaid)} unpaid, {len(untaxed)} untaxed"
         )
+        result = []
         if len(unpaid) > 0 or len(untaxed) > 0:
-            print_yaml(
+            result = [
                 Msg.tmpl(
                     "square_validation_action_needed",
                     unpaid=unpaid,
@@ -92,7 +93,8 @@ class Commands:
                     footer=exec_details_footer(),
                     target="#finance-automation",
                 )
-            )
+            ]
+        print_yaml(result)
         log.info("Done")
 
     def _validate_role_membership(self, details, role):
@@ -196,8 +198,10 @@ class Commands:
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
-        problems = self._validate_memberships_internal(
-            args.write_cache, args.read_cache, args.member_ids
+        problems = list(
+            self._validate_memberships_internal(
+                args.write_cache, args.read_cache, args.member_ids
+            )
         )
         if len(problems) > 0:
             print_yaml(
@@ -213,8 +217,6 @@ class Commands:
         self, write_cache=None, read_cache=None, member_ids=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
-        results = []
-
         household_paying_member_count = defaultdict(int)
         household_num_addl_members = defaultdict(int)
         company_member_count = defaultdict(int)
@@ -348,12 +350,12 @@ class Commands:
                 details["cid"], 0
             )
             result = self._validate_membership_singleton(details)
-            results += [
-                f"{details['name']}: {r} - "
-                f"https://protohaven.app.neoncrm.com/admin/accounts/{details['aid']}"
-                for r in result
-            ]
-        return results
+            for r in result:
+                yield {
+                    "name": details["name"],
+                    "result": r,
+                    "account_id": details["aid"],
+                }
 
     def _validate_membership_singleton(
         self, details, now=None
@@ -470,6 +472,7 @@ class Commands:
             "Looping through new members to defer their start date and provide coupons"
         )
         result = []
+        summary = []
         for m in neon.get_new_members_needing_setup(
             args.max_days_ago, extra_fields=["Email 1"]
         ):
@@ -477,17 +480,33 @@ class Commands:
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
-            result.append(
-                memauto.init_membership(
-                    m["Account ID"],
-                    m["Email 1"],
-                    m["First Name"],
-                    args.coupon_amount,
-                    apply=args.apply,
-                    target=m["Email 1"],
-                    _id=f"init member {m['Account ID']}",
-                )
-            )
+
+            latest = (None, None)
+            for mem in neon.fetch_memberships(aid):
+                tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
+                if not latest[1] or latest[1] < tsd:
+                    latest = (mem["id"], tsd)
+            if not latest[0]:
+                raise RuntimeError(f"No latest membership for member {aid}")
+            kwargs = {
+                    "account_id": aid, 
+                    "membership_id": latest[0],
+                    "email": m["Email 1"], 
+                    "fname": m["First Name"], 
+                    "coupon_amount": args.coupon_amount, 
+                    "apply": args.apply, 
+                    "target": m["Email 1"],
+                    "_id": f"init member {aid}",
+            }
+            summary.append(kwargs)
+            result.append(memauto.init_membership(**kwargs))
+
         result = [r for r in result if r is not None]
         if len(result) > 0:
-            print_yaml(result)
+            result.append(Msg.tmpl(
+                "membership_init_summary",
+                summary=summary,
+                target="#membership-automation",
+                footer=exec_details_footer(),
+            ))
+        print_yaml(result)

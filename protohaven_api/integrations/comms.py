@@ -132,22 +132,6 @@ def send_discord_message(content, channel=None, blocking=True):
         return result
 
 
-def send_help_wanted(content):
-    """Sends a message to the help-wanted channel"""
-    return send_discord_message(content, "#help-wanted")
-
-
-def send_board_message(content):
-    """Sends a message to the board-private channel"""
-    return send_discord_message(content, "#board-private")
-
-
-def send_membership_automation_message(content):
-    """Sends message to membership automation channel.
-    Messages are sent asynchronously and not awaited"""
-    return send_discord_message(content, "#membership-automation", blocking=False)
-
-
 def set_discord_nickname(name, nick):
     """Sets the nickname of a discord user"""
     return get_connector().discord_bot_fn("set_nickname", name, nick)

@@ -4,7 +4,7 @@ import hashlib
 import pytest
 
 from protohaven_api.integrations import comms as c
-from protohaven_api.testing import Any, MatchStr, d
+from protohaven_api.testing import MatchStr, d
 
 
 def test_send_discord_message_with_role_embed(mocker):
@@ -12,7 +12,7 @@ def test_send_discord_message_with_role_embed(mocker):
     mocker.patch.object(c, "get_connector")
     c.send_discord_message("Hello @Techs!", "#techs-live")
     c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
-        Any(), MatchStr("Hello <@&.+?>!")
+        mocker.ANY, MatchStr("Hello <@&.+?>!")
     )
 
 
@@ -159,8 +159,27 @@ TESTED_TEMPLATES = [
         {"fname": "First"},
     ),
     (
+        "membership_init_summary",
+        {
+            "summary": [
+                {
+                    "fname": "Fname",
+                    "account_id": "123",
+                    "email": "a@b.com",
+                    "membership_id": "456",
+                    "coupon_amount": 1000000,
+                    "apply": "oh yeah",
+                }
+            ]
+        },
+    ),
+    (
         "membership_validation_problems",
-        {"problems": ["Problem 1", "Problem 2"]},
+        {
+            "problems": [
+                {"name": "Test Name", "account_id": "123", "result": "Problem 1"}
+            ]
+        },
     ),
     ("new_project_request", {"notes": "test_notes"}),
     ("not_associated", {"discord_id": "testid"}),
@@ -264,6 +283,7 @@ TESTED_TEMPLATES = [
         "tool_documentation",
         {"n": 1, "tool_tutorials": "tutorial info", "clearance_docs": "clearance info"},
     ),
+    ("tool_sync_summary", {"n": 1, "changes": ["change 1", "change 2"]}),
     (
         "violation_ongoing",
         {
@@ -289,7 +309,7 @@ HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
-    "class_proposals": "1d1bef17435d88da",  # pragma: allowlist secret
+    "class_proposals": "09aa7102c43e69e6",  # pragma: allowlist secret
     "class_scheduled": "d7638c67655ae1eb",  # pragma: allowlist secret
     "daily_private_instruction": "ba81765c045917ee",  # pragma: allowlist secret
     "discord_nick_change_summary": "88493fe928a1f0d4",  # pragma: allowlist secret
@@ -298,7 +318,7 @@ HASHES = {
     "discord_role_change_summary": "8a34d924f30d0625",  # pragma: allowlist secret
     "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
     "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
-    "instruction_requests": "7e0902003add426d",  # pragma: allowlist secret
+    "instruction_requests": "1ae4746c79bc5b54",  # pragma: allowlist secret
     "instructor_applications": "282f1d709883f273",  # pragma: allowlist secret
     "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
     "instructor_class_canceled": "57dc5ce8d4ec5317",  # pragma: allowlist secret
@@ -308,7 +328,8 @@ HASHES = {
     "instructor_schedule_classes": "39aea10c71fc8895",  # pragma: allowlist secret
     "instructors_new_classes": "c3cbf1129a256abe",  # pragma: allowlist secret
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
-    "membership_validation_problems": "959c9f70f5ab648e",  # pragma: allowlist secret
+    "membership_init_summary": "40ebdf94a4ada4af",  # pragma: allowlist secret
+    "membership_validation_problems": "e9b4740d33220373",  # pragma: allowlist secret
     "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
     "not_associated": "4368092931234979",  # pragma: allowlist secret
     "phone_message": "c17d7359c5ddace4",  # pragma: allowlist secret
@@ -317,13 +338,14 @@ HASHES = {
     "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
     "schedule_push_notification": "78908794e790a632",  # pragma: allowlist secret
     "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
-    "shop_tech_applications": "cd77b6978d522da3",  # pragma: allowlist secret
+    "shop_tech_applications": "e7d46ad4baa42673",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
     "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
     "tech_daily_tasks": "55af86e04ce2551c",  # pragma: allowlist secret
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
     "tech_openings": "f9bd7999e37d1ebd",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
+    "tool_sync_summary": "762670ac5feeddf3",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
 }

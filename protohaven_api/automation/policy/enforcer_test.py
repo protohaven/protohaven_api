@@ -10,7 +10,6 @@ from protohaven_api.automation.policy.testing import (
     now,
     violation,
 )
-from protohaven_api.testing import Any
 
 
 def test_gen_fees_closed_violation_subday():
@@ -22,10 +21,10 @@ def test_gen_fees_closed_violation_subday():
     assert not got
 
 
-def test_gen_fees_closed_violation_backfills():
+def test_gen_fees_closed_violation_backfills(mocker):
     """Fees accumulate on any prior days that have no record"""
     got = enforcer.gen_fees([violation(1, dt(-3), dt(-1))], {}, now)
-    assert got == [(1, TESTFEE, Any()), (1, TESTFEE, Any())]
+    assert got == [(1, TESTFEE, mocker.ANY), (1, TESTFEE, mocker.ANY)]
 
 
 def test_gen_fees_closed_violation_no_action():
@@ -40,7 +39,7 @@ def test_gen_fees_new_violation():
     assert not got
 
 
-def test_gen_fees_applied_by_day():
+def test_gen_fees_applied_by_day(mocker):
     """Application boundary for fees is the turnover of the day, not
     actually 24 hours"""
     t1 = dateparser.parse("2024-03-01 12:30pm")
@@ -50,7 +49,7 @@ def test_gen_fees_applied_by_day():
     print(t2 - t1)
     assert (t2 - t1).days == 0
     got = enforcer.gen_fees([violation(1, t1, None)], {}, t2)
-    assert got == [(1, TESTFEE, Any())]
+    assert got == [(1, TESTFEE, mocker.ANY)]
 
 
 def test_gen_fees_ongoing_violation():
@@ -69,7 +68,7 @@ def test_gen_comms_for_violation_new():
     """Violation comms render properly for a new violation"""
     v = violation(1, dt(0), None)
     msg = enforcer.gen_comms_for_violation(
-        v, 0, 0, ["section1", "section2"], TESTMEMBER
+        v, 0, 0, ["section1", "section2"], TESTMEMBER["firstName"], TESTMEMBER["email1"]
     )
     assert "new Protohaven violation issued" in msg.subject
     assert "$5 per day" in msg.body
@@ -83,7 +82,12 @@ def test_gen_comms_for_violation_existing():
     """Violation comms render properly for an ongoing violation"""
     v = violation(1, dt(-1), None)
     msg = enforcer.gen_comms_for_violation(
-        v, 50, 15, ["section1", "section2"], TESTMEMBER
+        v,
+        50,
+        15,
+        ["section1", "section2"],
+        TESTMEMBER["firstName"],
+        TESTMEMBER["email1"],
     )
     assert "ongoing" in msg.subject
     assert "$65" in msg.subject
@@ -98,7 +102,12 @@ def test_gen_comms_for_violation_resolved():
     """Resolved violations do not result in comms"""
     v = violation(1, dt(-1), now)
     got = enforcer.gen_comms_for_violation(
-        v, 50, 15, ["section1", "section2"], TESTMEMBER
+        v,
+        50,
+        15,
+        ["section1", "section2"],
+        TESTMEMBER["firstName"],
+        TESTMEMBER["email1"],
     )
     assert not got
 
@@ -106,14 +115,16 @@ def test_gen_comms_for_violation_resolved():
 def test_gen_comms_for_violation_incomplete():
     """Violations missing start date aren't given comms"""
     v = violation(1, None, None)
-    got = enforcer.gen_comms_for_violation(v, 50, 15, [], TESTMEMBER)
+    got = enforcer.gen_comms_for_violation(
+        v, 50, 15, [], TESTMEMBER["firstName"], TESTMEMBER["email1"]
+    )
     assert not got
 
 
 def test_gen_comms_for_violation_unknown_member():
     """If member is unknown, don't generate comms to the violation member"""
     v = violation(1, None, None)
-    got = enforcer.gen_comms_for_violation(v, 0, 0, [], None)
+    got = enforcer.gen_comms_for_violation(v, 0, 0, [], None, None)
     assert not got
 
 
@@ -123,7 +134,7 @@ def test_gen_comms_for_violation_no_fee():
     v["fields"]["Daily Fee"] = 0
 
     msg = enforcer.gen_comms_for_violation(
-        v, 0, 0, ["section1", "section2"], TESTMEMBER
+        v, 0, 0, ["section1", "section2"], TESTMEMBER["firstName"], TESTMEMBER["email1"]
     )
     assert "violation" in msg.subject
     assert "have accrued" not in msg.body

@@ -1,0 +1,3 @@
+{% if subject %}Tool Sync Summary{% else %}Made {{n}} change(s) in [Booked Scheduler](https://reserve.protohaven.org):
+{% for c in changes %}- {{c}}
+{% endfor %}{{footer}}{% endif %}

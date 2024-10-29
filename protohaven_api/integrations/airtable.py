@@ -42,7 +42,7 @@ def get_notifications_after(tag, after_date):
     return targets
 
 
-def get_instructor_email_map(require_teachable_classes=False):
+def get_instructor_email_map(require_teachable_classes=False, require_active=False):
     """Get a mapping of the instructor's full name to
     their email address, from the Capabilities automation table"""
     result = {}
@@ -50,6 +50,8 @@ def get_instructor_email_map(require_teachable_classes=False):
         if row["fields"].get("Email") is None:
             continue
         if require_teachable_classes and len(row["fields"].get("Class", [])) == 0:
+            continue
+        if require_active and not row["fields"].get("Active"):
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
     return result
@@ -82,10 +84,8 @@ def get_all_class_templates():
 
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
-    log.info(f"Append classes to schedule: {payload}")
-    status, content = insert_records(payload, "class_automation", "schedule")
-    if status != 200:
-        raise RuntimeError(content)
+    assert isinstance(payload, list)
+    return insert_records(payload, "class_automation", "schedule")
 
 
 def get_role_intents():

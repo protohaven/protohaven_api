@@ -2,6 +2,7 @@
 
 import base64
 import logging
+from binascii import Error as B64Error
 from dataclasses import dataclass
 
 from flask import (  # pylint: disable=import-error
@@ -78,9 +79,14 @@ def require_login(fn):
 
 def roles_from_api_key(api_key):
     """Gets roles from the passed API key"""
-    if api_key is not None:
-        return get_config("general/external_access_codes").get(api_key)
-    return None
+    if api_key is None:
+        return None
+    codes = get_config("general/external_access_codes")
+    try:
+        api_key = base64.b64decode(api_key).decode("utf8")
+    except (B64Error, UnicodeDecodeError):
+        pass
+    return codes.get(api_key)
 
 
 def get_roles():
@@ -90,9 +96,7 @@ def get_roles():
     if not api_key:
         api_key = request.headers.get("X-Protohaven-APIKey", None)
     if api_key is not None:
-        return roles_from_api_key(
-            base64.b64decode(api_key).decode("utf-8")
-        ) or roles_from_api_key(api_key)
+        return roles_from_api_key(api_key)
 
     acct = session.get("neon_account")
     if acct is None:
@@ -115,14 +119,12 @@ def require_login_role(*role):
                 log.warning(f"BYPASS for {role}")
                 return fn(*args, **kwargs)
             roles = get_roles()
-            log.info(f"Roles {roles}")
             if roles is None:
                 session["redirect_to_login_url"] = request.url
                 return redirect(url_for("auth.login_user_neon_oauth"))
             # Check for presence of role. Note that shop techs are a special case; leads can do
             # anything that a shop tech is allowed to do
             for r in role:
-                log.info(f"{r['name']} vs {roles}")
                 if r["name"] in roles or (
                     r == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles
                 ):

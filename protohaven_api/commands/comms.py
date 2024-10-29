@@ -4,6 +4,7 @@ import logging
 import re
 import sys
 from collections import defaultdict
+from os import getenv
 
 import yaml
 
@@ -33,15 +34,21 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         target = None
         if e["target"][0] in ("#", "@"):  # channels or users
+            chan_ovr = getenv("CHAN_OVERRIDE")
+            dm_ovr = getenv("DM_OVERRIDE")
+            t = e["target"].strip()
+            t = chan_ovr if chan_ovr and t.startswith("#") else t
+            t = dm_ovr if dm_ovr and t.startswith("@") else t
             content = f"{e['subject']}\n\n{e['body']}"
             if not apply:
-                log.info(f"DRY RUN to discord {e['target']}")
+                log.info(f"DRY RUN to discord {t}")
                 log.info(content)
             else:
-                target = [e["target"]]
+                target = [t]
                 comms.send_discord_message(content, target[0])
                 log.info(f"Sent to Discord {target[0]}: {e['subject']}")
         else:
+            email_ovr = getenv("EMAIL_OVERRIDE")
             email_validate_pattern = r"\S+@\S+\.\S+"
             emails = re.findall(
                 email_validate_pattern,
@@ -51,6 +58,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                 e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
                 for e in emails
             ]
+            if len(emails) > 0 and email_ovr:
+                emails = [email_ovr]
 
             if not apply:
                 log.info(f"\nDRY RUN to {', '.join(emails)}")
@@ -74,7 +83,7 @@ class Commands:  # pylint: disable=too-few-public-methods
     def _load_comms_data(self, path):
         """Fetch and parse a YAML file for use in comms"""
         with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f.read())
+            data = yaml.safe_load(f.read()) or []
         log.info(f"Loaded {len(data)} notifications:")
         for e in data:
             log.info(f" - {e['target']}: {e['subject']}")

@@ -110,7 +110,9 @@ def update_accruals(fees=None):
 NEW_VIOLATION_THRESH_HOURS = 18
 
 
-def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
+def gen_comms_for_violation(
+    v, old_accrued, new_accrued, sections, fname, email
+):  # pylint: disable=too-many-arguments
     """Notify members of new violations and update them on active violations"""
     fields = v["fields"]
     if fields.get("Closure"):
@@ -124,13 +126,13 @@ def gen_comms_for_violation(v, old_accrued, new_accrued, sections, member):
     )
     return Msg.tmpl(
         "violation_started" if is_new_violation else "violation_ongoing",
-        firstname=member["firstName"],
+        firstname=fname,
         start=onset,
         sections=sections,
         accrued=old_accrued + new_accrued,
         notes=fields["Notes"],
         fee=fields["Daily Fee"],
-        target=member["email1"],
+        target=[email],
         id=f"violation#{v['id']}",
     )
 
@@ -148,9 +150,16 @@ def gen_comms(violations, old_fees, new_fees):
         sections = [section_map[s] for s in v["fields"]["Relevant Sections"]]
         neon_id = v["fields"].get("Neon ID")
         if neon_id is not None:
-            member = neon_base.fetch_account(neon_id, required=True)["primaryContact"]
+            member, _ = neon_base.fetch_account(neon_id, required=True)
             result.append(
-                gen_comms_for_violation(v, old_accrued, new_accrued, sections, member)
+                gen_comms_for_violation(
+                    v,
+                    old_accrued,
+                    new_accrued,
+                    sections,
+                    fname=member["primaryContact"]["firstName"],
+                    email=member["primaryContact"]["email1"],
+                )
             )
 
     # Also send a summary of violations/fees to Discord #storage

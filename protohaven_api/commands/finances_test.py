@@ -9,7 +9,7 @@ from dateutil import parser as dateparser
 from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-from protohaven_api.testing import Any, d, mkcli
+from protohaven_api.testing import d, mkcli
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def test_transaction_alerts_ok(mocker, cli):
 def test_validate_memberships_empty(mocker):
     """Empty search shoud pass by default"""
     mocker.patch.object(neon, "search_member", return_value=[])
-    got = f.Commands()._validate_memberships_internal()
+    got = list(f.Commands()._validate_memberships_internal())
     assert not got
 
 
@@ -272,15 +272,21 @@ def test_init_new_memberships_e2e(mocker, cli):
         "get_new_members_needing_setup",
         return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}],
     )
-    mocker.patch.object(
+    m1 = mocker.patch.object(
         neon, "create_coupon_code", return_value=mocker.MagicMock(status_code=200)
     )
-    mocker.patch.object(
+    m2 = mocker.patch.object(
         neon,
-        "set_membership_start_date",
+        "set_membership_date_range",
         return_value=mocker.MagicMock(status_code=200),
     )
     mocker.patch.object(
+        neon,
+        "fetch_memberships",
+        return_value=[{"termStartDate": d(0).isoformat(), "id": "456"}],
+    )
+
+    m3 = mocker.patch.object(
         neon,
         "update_account_automation_run_status",
         return_value=mocker.MagicMock(status_code=200),
@@ -288,6 +294,6 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(f.memauto, "get_config", return_value=None)
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
-    neon.set_membership_start_date.assert_called_with("123", Any())
-    neon.create_coupon_code.assert_called_with(Any(), 75)
-    neon.update_account_automation_run_status.assert_called_with("123", "deferred")
+    m1.assert_called_with(mocker.ANY, 75)
+    m2.assert_called_with("456", mocker.ANY, mocker.ANY)
+    m3.assert_called_with("123", "deferred")

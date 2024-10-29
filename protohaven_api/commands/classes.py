@@ -18,6 +18,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     neon,
     neon_base,
 )
+from protohaven_api.integrations.comms import Msg
 from protohaven_api.integrations.data.neon import Category
 
 log = logging.getLogger("cli.classes")
@@ -37,22 +38,63 @@ class Commands:
             help="end date for calendar reminder window",
             type=str,
         ),
+        arg(
+            "--filter",
+            help="CSV of instructor names/emails to restrict to; all others will be skipped",
+            type=str,
+            default=None,
+        ),
+        arg(
+            "--require_active",
+            help="Only send reminders to active instructors (checkbox in Airtable)",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
     )
     def gen_instructor_schedule_reminder(self, args):
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
-        if args.start:
-            start = dateparser.parse(args.start).astimezone(tz)
-        else:
-            start = tznow() + datetime.timedelta(days=30)
-        if args.end:
-            end = dateparser.parse(args.end).astimezone(tz)
-        else:
-            end = start + datetime.timedelta(days=60)
-        result = builder.gen_scheduling_reminders(start, end)
-        print_yaml(result)
-        log.info(f"Generated {len(result)} notification(s)")
+        start = (
+            dateparser.parse(args.start).astimezone(tz)
+            if args.start
+            else tznow() + datetime.timedelta(days=30)
+        )
+        end = (
+            dateparser.parse(args.end).astimezone(tz)
+            if args.end
+            else start + datetime.timedelta(days=30)
+        )
+        results = []
+        summary = {"name": "Scheduling reminder", "actions": ["SEND"], "targets": set()}
+        filt = [f.strip() for f in args.filter.split(",")] if args.filter else None
+        for name, email in builder.get_unscheduled_instructors(
+            start, end, require_active=args.require_active
+        ):
+            if filt and name not in filt and email not in filt:
+                continue
+            results.append(
+                Msg.tmpl(
+                    "instructor_schedule_classes",
+                    name=name,
+                    firstname=name.split(" ")[0],
+                    start=start,
+                    end=end,
+                    target=email,
+                )
+            )
+            summary["targets"].add(email)
+
+        if len(results) > 0:
+            results.append(
+                Msg.tmpl(
+                    "class_automation_summary",
+                    events={"": summary},
+                    target="#class-automation",
+                )
+            )
+        print_yaml(results)
+        log.info(f"Generated {len(results)} notification(s)")
 
     @command(
         arg(
@@ -79,18 +121,35 @@ class Commands:
             type=int,
             nargs="+",
         ),
+        arg(
+            "--published_only",
+            help="Only consider published classes when building emails",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+        arg(
+            "--cache",
+            help="Cache event data for faster execution",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
     )
     def gen_class_emails(self, args):
         """Reads schedule of classes from Neon and Airtable and outputs
         a list of emails to send to instructors, techs, and students.
         This does not actually send the emails; for that, see send_comms."""
-        b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"))
+        b = builder.ClassEmailBuilder(
+            logging.getLogger("cli.email_builder"), use_cache=args.cache
+        )
         b.ignore_ovr = args.ignore or []
         b.cancel_ovr = args.cancel or []
         b.confirm_ovr = args.confirm or []
         b.filter_ovr = args.filter or []
-        # Add the rest here as needed
-
+        b.published = args.published_only
+        log.info(
+            f"Configured email builder: ignore_ovr {b.ignore_ovr} cancel_ovr {b.cancel_ovr} "
+            f"confirm_ovr {b.confirm_ovr} filter_ovr {b.filter_ovr} published_only {b.published}"
+        )
         result = b.build()
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")

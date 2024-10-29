@@ -94,7 +94,8 @@ class Commands:
             print_yaml(
                 Msg.tmpl(
                     "shop_tech_applications",
-                    open_applicants=open_applicants,
+                    num=len(open_applicants),
+                    open_applicants=open_applicants[:10],
                     target="#tech-leads",
                 )
             )
@@ -134,7 +135,8 @@ class Commands:
             print_yaml(
                 Msg.tmpl(
                     "class_proposals",
-                    unapproved=unapproved_classes,
+                    num=len(unapproved_classes),
+                    unapproved=unapproved_classes[:8],
                     target="#education-leads",
                 )
             )
@@ -217,14 +219,16 @@ class Commands:
             results.append(
                 Msg.tmpl(
                     "instruction_requests",
-                    formatted=formatted,
+                    num=len(formatted),
+                    formatted=formatted[:5],
                     target="membership@protohaven.org",
                 )
             )
             results.append(
                 Msg.tmpl(
                     "instruction_requests",
-                    formatted=formatted,
+                    num=len(formatted),
+                    formatted=formatted[:5],
                     target="#education-leads",
                 )
             )
@@ -233,7 +237,7 @@ class Commands:
             results.append(
                 Msg.tmpl(
                     "daily_private_instruction",
-                    formatted=formatted_past_day,
+                    formatted=formatted_past_day[:5],
                     target="#private-instructors",
                 )
             )
@@ -249,6 +253,11 @@ class Commands:
     )
     def phone_messages(self, args):
         """Check on phone messages and forward to email"""
+        if not args.apply:
+            log.info(
+                "\n***   --apply is not set, so tasks will not be "
+                + "checked off   ***\n"
+            )
         num = 0
         results = []
         for req in tasks.get_phone_messages():

@@ -1,4 +1,5 @@
 """Automation for Neon memberships"""
+import datetime
 import logging
 import random
 import string
@@ -16,6 +17,7 @@ log = logging.getLogger("membership_automation")
 # activated via logging in at the front desk
 PLACEHOLDER_START_DATE = dateparser.parse("9001-01-01")
 DEFAULT_COUPON_AMOUNT = 75  # USD
+DEFERRED_STATUS = "deferred"
 
 
 def generate_coupon_id(n=8):
@@ -27,7 +29,7 @@ def generate_coupon_id(n=8):
 def get_sample_classes(coupon_amount):
     """Fetch sample classes within the coupon amount for advertising in the welcome email"""
     sample_classes = []
-    for e in neon.fetch_published_upcoming_events(back_days=-1):
+    for e in neon.fetch_upcoming_events(back_days=-1):
         ok, num_remaining = event_is_suggestible(e["id"], coupon_amount)
         if not ok:
             continue
@@ -61,8 +63,9 @@ def event_is_suggestible(event_id, max_price):
     return False, 0
 
 
-def init_membership(  # pylint: disable=too-many-arguments
+def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements
     account_id,
+    membership_id,
     email,
     fname,
     coupon_amount=DEFAULT_COUPON_AMOUNT,
@@ -76,6 +79,7 @@ def init_membership(  # pylint: disable=too-many-arguments
 
     Action is gated on email configured in in config.yaml
     """
+    assert account_id and membership_id
     include_filter = get_config("neon/webhooks/new_membership/include_filter", None)
     if include_filter is not None and email not in include_filter:
         log.info(f"Skipping init (no match in include_filter {include_filter})")
@@ -83,31 +87,21 @@ def init_membership(  # pylint: disable=too-many-arguments
 
     log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
 
-    def _ok(rep, action):
-        if rep.status_code != 200:
-            log.error(f"Error {rep.status_code} {action}: {rep.content}")
-            return False
-        return True
-
-    if apply and not _ok(
-        neon.set_membership_start_date(account_id, PLACEHOLDER_START_DATE),
-        "setting start date",
-    ):
-        return None
+    if apply:
+        neon.set_membership_date_range(
+            membership_id,
+            PLACEHOLDER_START_DATE,
+            PLACEHOLDER_START_DATE + datetime.timedelta(days=30),
+        )
 
     cid = None
     if coupon_amount > 0:
         cid = generate_coupon_id()
-        if apply and not _ok(
-            neon.create_coupon_code(cid, coupon_amount), "generating coupon"
-        ):
-            return None
+        if apply:
+            neon.create_coupon_code(cid, coupon_amount)
 
-    if apply and not _ok(
-        neon.update_account_automation_run_status(account_id, "deferred"),
-        "logging automation run",
-    ):
-        return None
+    if apply:
+        neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)
 
     if cid:
         return Msg.tmpl(

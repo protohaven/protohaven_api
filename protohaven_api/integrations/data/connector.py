@@ -9,7 +9,6 @@ from threading import Lock
 
 import asana
 import requests
-from requests.auth import HTTPBasicAuth
 from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
@@ -17,7 +16,7 @@ from protohaven_api.integrations import discord_bot
 
 log = logging.getLogger("integrations.data.connector")
 
-DEFAULT_TIMEOUT = 5.0
+DEFAULT_TIMEOUT = 20.0
 NUM_READ_ATTEMPTS = 3
 RETRY_MAX_DELAY_SEC = 3.0
 
@@ -32,7 +31,8 @@ class Connector:
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request"""
-        auth = HTTPBasicAuth(get_config("neon/domain"), api_key)
+        auth = (get_config("neon/domain"), api_key)
+        # log.info(f"{auth} {args} {kwargs}")
 
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
