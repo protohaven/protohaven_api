@@ -27,7 +27,7 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
     time_max = time_max.isoformat() + "Z"  # 'Z' indicates UTC time
 
     creds = service_account.Credentials.from_service_account_file(
-        "credentials.json", scopes=get_config("calendar/scopes")
+        get_config("calendar/credentials_path"), scopes=get_config("calendar/scopes")
     )
     service = build("calendar", "v3", credentials=creds)
     # Call the Calendar API

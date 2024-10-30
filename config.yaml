@@ -97,10 +97,13 @@ airtable:
     sign_ins: "tblVBhzeE3k9yYRn9"
     automation_intents: "tblBgXQlOFjNqvBVm"
 calendar:
-  # Access to calendars requires `credentials.json`
+  credentials_path: "credentials.json"
   instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"
   shop_events: "workshop@protohaven.org"
   scopes: ["https://www.googleapis.com/auth/calendar.readonly"]
+gmail: # See protohaven_api.integrations.data.connector, Connector.email() for details
+  credentials_path: "credentials.json"
+  scopes: ["https://www.googleapis.com/auth/gmail.send"]
 square:
   sandbox_app_id: "sandbox-sq0idb-sUaoKt-N2lB7_geQO-cgjg"
   sandbox_token: "EAAAEGKUuR67gUfi0Hmfq5dfn8nSiuhibpB2HSDQTlAzQbaCQCEcJ6uPUJjcyAcm" # pragma: allowlist secret
@@ -134,7 +137,7 @@ asana:
   tech_ready_tag: "1205552792690050"
   custom_field_airtable_id: "1206525862874335"
 sheets:
-  # Access to sheets requires `credentials.json`
+  credentials_path: "credentials.json"
   instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
   welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]

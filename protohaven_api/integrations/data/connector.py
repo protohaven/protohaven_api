@@ -1,14 +1,17 @@
 """ Connects to various dependencies, or serves mock data depending on the
 configured state of the server"""
+import base64
 import logging
 import random
-import smtplib
 import time
 from email.mime.text import MIMEText
 from threading import Lock
 
 import asana
 import requests
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from square.client import Client as SquareClient
 
 from protohaven_api.config import get_config
@@ -102,15 +105,44 @@ class Connector:
             webhook, json={"content": content}, timeout=DEFAULT_TIMEOUT
         )
 
-    def email(self, subject, body, recipients, html):
-        """Send an email via GMail SMTP"""
-        msg = MIMEText(body, "html" if html else "plain")
-        msg["Subject"] = subject
-        msg["From"] = get_config("comms/email_username")
-        msg["To"] = ", ".join(recipients)
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp_server:
-            smtp_server.login(msg["From"], get_config("comms/email_password"))
-            smtp_server.sendmail(msg["From"], recipients, msg.as_string())
+    def email(self, subject: str, body: str, recipients: list, html: bool):
+        """Send an email via GMail SMTP.
+        Service account is granted domain-wide delegation with this scope, so it's
+        able to send emails as anyone with an @protohaven.org suffix.
+
+        Delegation setting:
+        https://admin.google.com/ac/owl/domainwidedelegation
+
+        Service account:
+        https://console.cloud.google.com/iam-admin/serviceaccounts/details/116847738113181289731
+        (workshop@ user is service account admin)
+
+        Docs:
+        https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority
+        """
+        try:
+            from_addr = get_config("comms/email_username")
+            creds = service_account.Credentials.from_service_account_file(
+                get_config("gmail/credentials_path"), scopes=get_config("gmail/scopes")
+            ).with_subject(from_addr)
+            service = build("gmail", "v1", credentials=creds)
+            msg = MIMEText(body, "html" if html else "plain")
+            msg["Subject"] = subject
+            msg["From"] = from_addr
+            msg["To"] = ", ".join(recipients)
+            result = (
+                service.users()  # pylint: disable=no-member
+                .messages()
+                .send(
+                    userId=from_addr,
+                    body={"raw": base64.urlsafe_b64encode(msg.as_bytes()).decode()},
+                )
+                .execute()
+            )
+            return result
+        except HttpError as e:
+            log.error(f"Failed to send email to {recipients}: {e}")
+            return None
 
     def discord_bot_fn(self, fn, *args, **kwargs):
         """Executes a function synchronously on the discord bot"""
