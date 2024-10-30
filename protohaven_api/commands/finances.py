@@ -4,7 +4,6 @@ import datetime
 import logging
 import pickle
 import re
-import sys
 from collections import defaultdict
 
 from dateutil import parser as dateparser
@@ -238,9 +237,7 @@ class Commands:
             for mem in neon.search_member(
                 "noreply@protohaven.org", operator="NOT_EQUAL"
             ):
-                if n % 10 == 0:
-                    sys.stderr.write(".")
-                    sys.stderr.flush()
+                log.info(f"#{mem['Account ID']}")
                 if mem["Account Current Membership Status"].lower() != "active":
                     continue
                 aid = mem["Account ID"]
@@ -291,9 +288,14 @@ class Commands:
                 }
                 for acf in acct.get("accountCustomFields", []):
                     if acf["name"] == "Zero-Cost Membership OK Until Date":
-                        details["zero_cost_ok_until"] = dateparser.parse(
-                            acf["value"]
-                        ).astimezone(tz)
+                        try:
+                            details["zero_cost_ok_until"] = dateparser.parse(
+                                acf["value"]
+                            ).astimezone(tz)
+                        except dateparser.ParserError as e:
+                            log.error(e)
+                            details["zero_cost_ok_until"] = None
+
                     if acf["name"] == "Income Based Rate":
                         details["amp"] = acf["optionValues"][0]["name"]
                     elif acf["name"] == "Proof of Income":
@@ -309,7 +311,6 @@ class Commands:
                     household_paying_member_count[hid] += 1
                 company_member_count[mem["Company ID"]] += 1
                 n += 1
-            sys.stderr.write("\n")
             if write_cache:
                 with open(write_cache, "wb") as f:
                     pickle.dump(
@@ -385,7 +386,10 @@ class Commands:
                     details.get("zero_cost_ok_until") is None
                     or details["zero_cost_ok_until"] < tznow()
                 ):
-                    result.append(f"Abnormal zero-cost membership {am['level']}")
+                    result.append(
+                        f"Abnormal zero-cost membership {am['level']} "
+                        "('Zero Cost OK Until' is missing, expired, or not YYYY-MM-DD format)"
+                    )
                     log.info(f"Abnormal zero-cost: {details} - active membership {am}")
             if am.get("end_date") is None:
                 result.append(
@@ -489,24 +493,26 @@ class Commands:
             if not latest[0]:
                 raise RuntimeError(f"No latest membership for member {aid}")
             kwargs = {
-                    "account_id": aid, 
-                    "membership_id": latest[0],
-                    "email": m["Email 1"], 
-                    "fname": m["First Name"], 
-                    "coupon_amount": args.coupon_amount, 
-                    "apply": args.apply, 
-                    "target": m["Email 1"],
-                    "_id": f"init member {aid}",
+                "account_id": aid,
+                "membership_id": latest[0],
+                "email": m["Email 1"],
+                "fname": m["First Name"],
+                "coupon_amount": args.coupon_amount,
+                "apply": args.apply,
+                "target": m["Email 1"],
+                "_id": f"init member {aid}",
             }
             summary.append(kwargs)
             result.append(memauto.init_membership(**kwargs))
 
         result = [r for r in result if r is not None]
         if len(result) > 0:
-            result.append(Msg.tmpl(
-                "membership_init_summary",
-                summary=summary,
-                target="#membership-automation",
-                footer=exec_details_footer(),
-            ))
+            result.append(
+                Msg.tmpl(
+                    "membership_init_summary",
+                    summary=summary,
+                    target="#membership-automation",
+                    footer=exec_details_footer(),
+                )
+            )
         print_yaml(result)

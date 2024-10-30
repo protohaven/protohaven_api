@@ -23,6 +23,10 @@ EOVR = "scott@protohaven.org"
 DOVR = "@pwacata"
 
 
+# Disables InsecureRequestWarning spam due to use of `verify=false` in requests
+requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
+
+
 def cronicle_event_schedule():
     """Fetch schedule of events configured in Cronicle"""
     return requests.get(
@@ -282,7 +286,7 @@ if __name__ == "__main__":
                 "ARGS": "--no-apply",
             },
         ),
-        # Note: need to create a test class to post and ensure all good
+        # Note: need to create a test class to post and ensure all good.
         (
             "post_classes",
             test_simple,
