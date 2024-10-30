@@ -25,7 +25,7 @@ def paginated_fetch(api_key, path, params=None):
     while current_page < total_pages:
         params["currentPage"] = current_page
         content = get_connector().neon_request(
-            get_config(f"neon/{api_key}"),
+            get_config("neon")[api_key],
             "GET",
             f"{URL_BASE}{path}?{urllib.parse.urlencode(params)}",
         )
@@ -90,7 +90,7 @@ def get(api_key, path):
     """Send an HTTP GET request"""
     assert path.startswith("/")
     return get_connector().neon_request(
-        get_config(f"neon/{api_key}"), "GET", URL_BASE + path
+        get_config("neon")[api_key], "GET", URL_BASE + path
     )
 
 
@@ -98,7 +98,7 @@ def _req(api_key, path, method, body):
     assert path.startswith("/")
     log.info(f"{api_key} {path} {method}")
     return get_connector().neon_request(
-        get_config(f"neon/{api_key}"),
+        get_config("neon")[api_key],
         method,
         URL_BASE + path,
         data=json.dumps(body),
@@ -124,7 +124,7 @@ def post(api_key, path, body):
 def delete(api_key, path):
     """Send an HTTP DELETE request"""
     return get_connector().neon_request(
-        get_config(f"neon/{api_key}"), "DELETE", URL_BASE + path
+        get_config("neon")[api_key], "DELETE", URL_BASE + path
     )
 
 

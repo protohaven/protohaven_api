@@ -72,16 +72,16 @@ def get_private_instruction_requests():
 
 
 def _get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=False):
-    onhold_id = get_config(f"asana/{project}/on_hold_section")
+    cfg = get_config("asana")[project]
     for req in _tasks().get_tasks_for_project(
-        get_config(f"asana/{project}/gid"),
+        cfg["gid"],
         {
             "opt_fields": ",".join(["completed", "name", "memberships.section"]),
         },
     ):
         if exclude_complete and req.get("completed"):
             continue
-        if exclude_on_hold and onhold_id in [
+        if exclude_on_hold and cfg["on_hold_section"] in [
             m.get("section", {}).get("gid") for m in req.get("memberships", [])
         ]:
             continue
