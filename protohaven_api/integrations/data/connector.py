@@ -73,7 +73,7 @@ class Connector:
         self, mode, base, tbl, rec=None, suffix=None, data=None
     ):  # pylint: disable=too-many-arguments
         """Make an airtable request using the requests module"""
-        cfg = get_config(f"airtable/{base}")
+        cfg = get_config("airtable")[base]
         url = f"{AIRTABLE_URL}/{cfg['base_id']}/{cfg[tbl]}"
         if rec:
             url += f"/{rec}"

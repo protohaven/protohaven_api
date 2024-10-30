@@ -6,7 +6,7 @@ from protohaven_api.integrations.data.connector import get as get_connector
 def submit_google_form(form_name, data):
     """Submit a google form; see config.yaml for form names"""
 
-    cfg = get_config(f"forms/{form_name}")
+    cfg = get_config("forms")[form_name]
     params = {cfg["keys"][k]: v for k, v in data.items()}
     # Included by default on all google forms
     params["submit"] = "Submit"
