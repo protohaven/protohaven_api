@@ -139,7 +139,7 @@ def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
             "Confirmed": confirmed,
             "Instructor": "inst1",
             "Short Description (from Class)": ["testdesc"],
-            "Image Link (from Class)": "http://testimg",
+            "Image Link (from Class)": ["http://testimg"],
             "Hours (from Class)": [3],
             "Days (from Class)": [1],
             "Capacity (from Class)": [6],
