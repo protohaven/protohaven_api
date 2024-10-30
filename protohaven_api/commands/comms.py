@@ -24,6 +24,48 @@ class Commands:  # pylint: disable=too-few-public-methods
     Note that this does perform side effects e.g. cancelling a class
     """
 
+    def _handle_discord(self, e: dict, apply: bool, chan_ovr, dm_ovr):
+        t = e["target"].strip()
+        t = chan_ovr if chan_ovr and t.startswith("#") else t
+        t = dm_ovr if dm_ovr and t.startswith("@") else t
+        content = f"{e['subject']}\n\n{e['body']}"
+        if not apply:
+            log.info(f"DRY RUN to discord {t}")
+            log.info(content)
+            return None
+
+        comms.send_discord_message(content, t)
+        log.info(f"Sent to Discord {t}: {e['subject']}")
+        return [t]
+
+    def _handle_email(self, e, apply, email_ovr):
+        email_validate_pattern = r"\S+@\S+\.\S+"
+        emails = re.findall(
+            email_validate_pattern,
+            e["target"].replace(";", " ").replace(",", " ").lower(),
+        )
+        emails = [
+            e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
+            for e in emails
+        ]
+        if len(emails) > 0 and email_ovr:
+            emails = [email_ovr]
+
+        if not apply:
+            log.info(f"\nDRY RUN to {', '.join(emails)}")
+            log.info(f"Subject: {e['subject']}")
+            log.info(e["body"])
+            return None
+
+        result = comms.send_email(
+            e["subject"], e["body"], emails, e.get("html") or False
+        )
+        if result:
+            log.info(f"Sent msg {result['id']} to {emails}: {e['subject']}")
+            return emails
+
+        return None
+
     def _handle_comms_event(self, e, apply):
         """Handle a single entry in a comms YAML file"""
         for k, v in e.get("side_effect", {}).items():
@@ -32,53 +74,25 @@ class Commands:  # pylint: disable=too-few-public-methods
                 if apply:
                     neon.set_event_scheduled_state(str(v), scheduled=False)
 
-        target = None
         if e["target"][0] in ("#", "@"):  # channels or users
-            chan_ovr = getenv("CHAN_OVERRIDE")
-            dm_ovr = getenv("DM_OVERRIDE")
-            t = e["target"].strip()
-            t = chan_ovr if chan_ovr and t.startswith("#") else t
-            t = dm_ovr if dm_ovr and t.startswith("@") else t
-            content = f"{e['subject']}\n\n{e['body']}"
-            if not apply:
-                log.info(f"DRY RUN to discord {t}")
-                log.info(content)
-            else:
-                target = [t]
-                comms.send_discord_message(content, target[0])
-                log.info(f"Sent to Discord {target[0]}: {e['subject']}")
-        else:
-            email_ovr = getenv("EMAIL_OVERRIDE")
-            email_validate_pattern = r"\S+@\S+\.\S+"
-            emails = re.findall(
-                email_validate_pattern,
-                e["target"].replace(";", " ").replace(",", " ").lower(),
+            target = self._handle_discord(
+                e, apply, getenv("CHAN_OVERRIDE"), getenv("DM_OVERRIDE")
             )
-            emails = [
-                e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
-                for e in emails
-            ]
-            if len(emails) > 0 and email_ovr:
-                emails = [email_ovr]
+        else:
+            target = self._handle_email(e, apply, getenv("EMAIL_OVERRIDE"))
 
-            if not apply:
-                log.info(f"\nDRY RUN to {', '.join(emails)}")
-                log.info(f"Subject: {e['subject']}")
-                log.info(e["body"])
-            else:
-                target = emails
-                comms.send_email(
-                    e["subject"], e["body"], target, e.get("html") or False
-                )
-                log.info(f"Sent to {target}: '{e['subject']}'")
+        if (
+            not target
+        ):  # Only set when the action made a change; ignore apply=False and failure
+            return
+
+        airtable.log_comms(e.get("id", ""), ", ".join(target), e["subject"], "Sent")
+        log.info("Logged to airtable")
 
         intents = e.get("intents")
         if intents and apply:
             airtable.log_intents_notified(intents)
             log.info(f"Intents updated in airtable: {intents}")
-        if target:  # Only set when not dry run
-            airtable.log_comms(e.get("id", ""), ", ".join(target), e["subject"], "Sent")
-            log.info("Logged to airtable")
 
     def _load_comms_data(self, path):
         """Fetch and parse a YAML file for use in comms"""
