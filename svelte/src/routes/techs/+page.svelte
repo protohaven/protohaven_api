@@ -42,7 +42,7 @@
       <Spinner/>
     {:then}
       {#if !user || !user.fullname}
-        <a href="/login?referrer=/techs">Login</a>
+        <a href="http://api.protohaven.org/login?referrer=/techs">Login</a>
       {:else}
         {user.fullname} (<a href="/logout">Logout</a>)
       {/if}

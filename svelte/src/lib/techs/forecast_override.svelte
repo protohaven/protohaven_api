@@ -101,7 +101,7 @@ function revert() {
 <ModalFooter>
   <div style="width: 100%">
     {#if !loggedin}
-      <Alert color="warning">You must be <a href="/login">logged in</a> to modify the shift schedule</Alert>
+      <Alert color="warning">You must be <a href="https://api.protohaven.org/login">logged in</a> to modify the shift schedule</Alert>
     {/if}
     {#if edit.id}
       Original:

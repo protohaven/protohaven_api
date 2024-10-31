@@ -151,8 +151,8 @@ def run_neon_membership_created_callback_test(params):
             f"wanted 'deferred' prefix"
         )
     print(
-        "\n**Test passed - account has deferred status set and membership start \
-        date set appropriately**"
+        "\n**Test passed - account has deferred status set and membership start "
+        "date set appropriately**"
     )
 
 
