@@ -28,7 +28,7 @@ from protohaven_api.rbac import set_rbac
 
 logging.basicConfig(level=get_config("general/log_level").upper())
 log = logging.getLogger("main")
-
+log.info("Creating flask server")
 app = Flask(__name__)
 if get_config("general/behind_proxy", as_bool=True):
     from werkzeug.middleware.proxy_fix import ProxyFix
@@ -50,7 +50,7 @@ if get_config("general/unsafe_no_rbac", as_bool=True):
     )
     set_rbac(False)
 
-
+log.info("Registering routes")
 application = app  # our hosting requires application in passenger_wsgi
 app.secret_key = get_config("general/session_secret")
 assert app.secret_key
@@ -72,18 +72,22 @@ index_ws_setup(app)
 staff_ws_setup(app)
 
 server_mode = get_config("general/server_mode").lower()
+
+log.info(f"Initializing connector ({server_mode})")
 init_connector(Connector if server_mode == "prod" else DevConnector)
 
+log.info("Initializing sign-in precaching")
+# Must run after connector is initialized; prefetches from Neon/Airtable
+if get_config("general/precache_sign_in", as_bool=True):
+    init_signin()
+
+if get_config("discord_bot/enabled", as_bool=True):
+    log.info("Starting discord bot")
+    t = threading.Thread(target=run_bot, daemon=True, args=(setup_discord_user,))
+    t.start()
+else:
+    log.warning("Skipping startup of discord bot")
+
 if __name__ == "__main__":
+    log.info("Entering run loop")
     app.run()
-
-    # Must run after connector is initialized; prefetches from Neon/Airtable
-    if get_config("general/precache_sign_in", as_bool=True):
-        init_signin()
-
-    if get_config("discord_bot/enabled", as_bool=True):
-        t = threading.Thread(target=run_bot, daemon=True, args=(setup_discord_user,))
-        t.start()
-
-    else:
-        log.warning("Skipping startup of discord bot")

@@ -35,7 +35,7 @@ function action(event_id, ticket_id, action) {
     <p>Note: you will need to pay the cost of materials when you show up.</p>
     <p>You can pay at the front desk via Square (select "Walk-In (3 Hr Class / add price)", set to the cost listed above, charge as normal)</p>
     {#if !user }
-      <p><strong>You must <a href="/login">login</a> to register.</strong></p>
+      <p><strong>You must <a href="http://api.protohaven.org/login">login</a> to register.</strong></p>
     {:else}
       <p>Click Register on events below to register as <br/><strong>{user.fullname}</strong> ({user.email})</p>
     {/if}

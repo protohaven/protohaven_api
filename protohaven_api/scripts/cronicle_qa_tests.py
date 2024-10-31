@@ -16,11 +16,16 @@ log = logging.getLogger("main")
 
 base_url = None  # pylint: disable=invalid-name
 api_key = None  # pylint: disable=invalid-name
-TIMEOUT = 60 * 5
+REQ_TIMEOUT = 30
+JOB_TIMEOUT = 60 * 10
 
 COVR = "#cronicle-automation"
 EOVR = "scott@protohaven.org"
 DOVR = "@pwacata"
+
+
+# Disables InsecureRequestWarning spam due to use of `verify=false` in requests
+requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
 
 
 def cronicle_event_schedule():
@@ -28,19 +33,19 @@ def cronicle_event_schedule():
     return requests.get(
         f"{base_url}/api/app/get_schedule/v1",
         headers={"X-API-Key": api_key},
-        timeout=TIMEOUT,
+        timeout=REQ_TIMEOUT,
         verify=False,
     ).json()
 
 
 def run_cronicle_sync(event_id, params):
     """Starts a job on Cronicle"""
-    log.info(f"{base_url} START {event_id} PARAMS {params}")
+    log.info(f"Start {event_id}, params {params}")
     rep = requests.post(
         f"{base_url}/api/app/run_event/v2",
         headers={"X-API-Key": api_key},
-        timeout=TIMEOUT,
-        json={"id": event_id, "retries": 0, "timeout": TIMEOUT, "params": params},
+        timeout=REQ_TIMEOUT,
+        json={"id": event_id, "retries": 0, "timeout": JOB_TIMEOUT, "params": params},
         verify=False,
     ).json()
     if "ids" not in rep:
@@ -54,7 +59,7 @@ def run_cronicle_sync(event_id, params):
             rep = requests.get(
                 f"{base_url}/api/app/get_job_status/v1?id={rid}",
                 headers={"X-API-Key": api_key},
-                timeout=TIMEOUT,
+                timeout=REQ_TIMEOUT,
                 verify=False,
             ).json()
             # log.info(str(rep))
@@ -282,7 +287,7 @@ if __name__ == "__main__":
                 "ARGS": "--no-apply",
             },
         ),
-        # Note: need to create a test class to post and ensure all good
+        # Note: need to create a test class to post and ensure all good.
         (
             "post_classes",
             test_simple,
@@ -363,6 +368,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--command", default=None, help="command to run (leave empty to run all)"
     )
+    parser.add_argument(
+        "--after", default=None, help="run all commands after this one in sequence"
+    )
     args = parser.parse_args()
     init_connector(Connector)
 
@@ -391,6 +399,11 @@ if __name__ == "__main__":
         name, fn, eid = tc[:3]
         if args.command and args.command != name:
             continue
+        if args.after:
+            if name == args.after:
+                args.after = None
+            continue
+
         if len(tc) == 4:
             fn(eid, tc[3])
         else:

@@ -9,7 +9,7 @@ from dateutil import parser as dateparser
 from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
-from protohaven_api.testing import d, mkcli
+from protohaven_api.testing import MatchStr, d, mkcli
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ def test_validate_membership_general_zero_cost_bad():
         },
         d(0),
     )
-    assert got == ["Abnormal zero-cost membership General Membership"]
+    assert got == [MatchStr("Abnormal zero-cost membership General Membership")]
 
     got = f.Commands()._validate_membership_singleton(
         {

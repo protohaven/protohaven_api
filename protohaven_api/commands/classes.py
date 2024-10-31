@@ -304,8 +304,9 @@ class Commands:
             age_section_fmt,
         ) = self._fetch_boilerplate()
         result = ""
-        if cls["fields"].get("Image Link" + suf):
-            result += f"<p><img height=\"200\" src=\"{cls['fields']['Image Link' + suf]}\"/></p>\n"
+        img = cls["fields"].get("Image Link" + suf)
+        if isinstance(img, list) and len(img) > 0:
+            result += f'<p><img height="200" src="{img[0]}"/></p>\n'
         result += markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
         sections = []
         for col in (
@@ -402,6 +403,12 @@ class Commands:
             default=True,
         ),
         arg(
+            "--reserve",
+            help="Pre-reserve equipment in the areas when the class is sheduled",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+        arg(
             "--registration",
             help="Publish the classes so people can register to take them",
             action=argparse.BooleanOptionalAction,
@@ -458,7 +465,7 @@ class Commands:
                 log.info("- Neon ID updated in Airtable")
                 to_reserve[event["cid"]] = reservation_dict_from_record(event)
 
-        if num > 0:
+        if args.reserve and num > 0:
             log.info("Reserving equipment for scheduled classes")
             self._reserve_equipment_for_class_internal(  # pylint: disable=no-member
                 to_reserve, args.apply
