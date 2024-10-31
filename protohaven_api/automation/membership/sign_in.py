@@ -23,8 +23,6 @@ member_email_cache = AccountCache()
 # This is the process pool for async execution of long-running
 # commands produced during the sign-in process, e.g. membership
 # activation, sign in form submission, waiver ack updates.
-# https://stackoverflow.com/a/68110298 for spawn reason
-# mp =  multiprocessing.get_context('spawn') 
 pool = None  # pylint: disable=invalid-name
 
 
