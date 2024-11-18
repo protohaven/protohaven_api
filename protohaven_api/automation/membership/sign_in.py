@@ -252,13 +252,16 @@ def as_member(data, send):
     """Sign in as a member (per Neon CRM)"""
     result = result_base()
     send("Searching member database...", 40)
+    log.info(f"Received sign in request '{data['email']}'")
     m, should_activate = get_member_and_activation_state(data["email"])
     if not m:
         result["notfound"] = True
+        log.warning(f"Email {data['email']} not in cached accounts")
         return result
 
     if should_activate:
         send("Activating membership...", 50)
+        log.info(f"Activating membership on account {m['Account ID']}")
         # Do this all in a thread so we're not wasting time
         _apply_async(
             activate_membership, args=(m["Account ID"], m["First Name"], data["email"])
@@ -310,6 +313,7 @@ def as_member(data, send):
     if result["waiver_signed"]:
         send("Logging sign-in...", 95)
         log_sign_in(data, result)
+    log.info(f"Sign in result for {data['email']}: {result}")
     return result
 
 

@@ -101,8 +101,9 @@ def get_execution_log_link():
     This was confirmed via a call to `printenv` inside of a Cronicle job.
     """
     job_id = os.getenv(JOB_ID_ENV, None)
+    base = get_config("cronicle/base_url")
     if job_id:
-        return f"https://www.api.protohaven.org:3013/#JobDetails?id={job_id}"
+        return f"{base}/#JobDetails?id={job_id}"
     return None
 
 

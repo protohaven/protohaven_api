@@ -64,7 +64,7 @@ def search_upcoming_events(from_date, to_date, extra_fields):
 
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    return neon_base.get("api_key1", f"events/{event_id}")
+    return neon_base.get("api_key1", f"/events/{event_id}")
 
 
 def fetch_registrations(event_id):

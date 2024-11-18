@@ -2,6 +2,7 @@ version: "2"
 services:
   protohaven_api:
     image: protohaven_api:latest
+    user: protohaven:protohaven
     build: .
     command: "gunicorn -w 1 --bind=0.0.0.0:80 protohaven_api.main:app"
     container_name: protohaven_api

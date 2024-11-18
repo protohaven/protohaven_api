@@ -84,27 +84,29 @@ pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '
 
 ## Server installation
 
-```
-# Set server to EST; otherwise some date math will break
-sudo timedatectl set-timezone America/New_York
+Set server to EST; otherwise some date math will break
 
+```
+sudo timedatectl set-timezone America/New_York
+```
+
+Install venv if you're running via Cronicle, otherwise the docker container will include all deps
+
+```
 sudo apt install python3.10-venv
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
-
-# Create the static build file destination for frontend assets
-mkdir -p protohaven_api/static/svelte
-# Then follow the steps at "Pushing updates" below.
-
-# Having a separate socket config allows us to bind to privileged ports (i.e. 80) without root access
-sudo cp ./protohaven_api.service /lib/systemd/system/protohaven_api.service
-sudo cp ./protohaven_api.socket /lib/systemd/system/protohaven_api.socket
-sudo systemctl daemon-reload
-sudo systemctl start protohaven_api.socket
-sudo systemctl start protohaven_api.service
 ```
+
+Create the static build file destination for frontend assets
+
+```
+mkdir -p protohaven_api/static/svelte
+```
+
+Then follow the steps at "Pushing updates" below.
 
 # Pushing updates
 
