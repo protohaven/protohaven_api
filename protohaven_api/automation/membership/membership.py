@@ -82,7 +82,9 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     assert account_id and membership_id
     include_filter = get_config("neon/webhooks/new_membership/include_filter", None)
     if include_filter is not None and email not in include_filter:
-        log.info(f"Skipping init (no match in include_filter {include_filter})")
+        log.info(
+            f"Skipping membership init (no match in include_filter {include_filter})"
+        )
         return None
 
     log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
