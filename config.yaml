@@ -9,6 +9,10 @@ general:
   precache_sign_in: true
   external_access_codes:
     "${EXTERNAL_ACCESS_CODES_AUTOMATION}": ["Automation"]
+cronicle:
+  # Used as a base for links to execution log when
+  # CLI commands are issued via Cronicle
+  base_url: "https://cron.protohaven.org"
 openai:
   api_key: "${OPENAI_API_KEY}"
 neon:

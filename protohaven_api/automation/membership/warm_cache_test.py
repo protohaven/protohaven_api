@@ -118,3 +118,19 @@ def test_get_storage_violations():
     assert len(violations) == 1
     assert violations[0]["fields"]["Violation"] == "Excessive storage"
     assert "Closure" not in violations[0]["fields"]
+
+
+def test_account_cache_case_insensitive(mocker):
+    """Confirm that lookups are case insensitive, and that non-string
+    types are handled safely"""
+    mocker.patch.object(w.neon, "get_inactive_members", return_value=[])
+    want1 = {"Email 1": "aSdF", "Account ID": 123}
+    mocker.patch.object(w.neon, "get_active_members", return_value=[want1])
+    c = w.AccountCache()
+    c.refresh()
+    c["gHjK"] = "test"
+    c[None] = "foo"
+    assert c["AsDf"][123] == want1
+    assert c["GhJk"] == "test"
+    assert c.get("GhJk") == "test"
+    assert c["nonE"] == "foo"

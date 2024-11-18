@@ -65,7 +65,8 @@ class WarmDict:
 # Sign-ins need to be speedy; if it takes more than half a second, folks will
 # disengage.
 class AccountCache(WarmDict):
-    """Prefetches account information for faster lookup"""
+    """Prefetches account information for faster lookup.
+    Lookups are case-insensitive (to match email spec)"""
 
     NAME = "neon_accounts"
     REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
@@ -75,6 +76,15 @@ class AccountCache(WarmDict):
         neon.CustomField.ACCOUNT_AUTOMATION_RAN,
     ]
 
+    def get(self, k, default=None):
+        return super().get(str(k).lower(), default)
+
+    def __setitem__(self, k, v):
+        return super().__setitem__(str(k).lower(), v)
+
+    def __getitem__(self, k):
+        return super().__getitem__(str(k).lower())
+
     def _update(self, a):
         d = self.get(a["Email 1"], {})
         d[a["Account ID"]] = a
@@ -82,6 +92,7 @@ class AccountCache(WarmDict):
 
     def refresh(self):
         """Refresh values; called every REFRESH_PD"""
+        self.log.info("Beginning AccountCache refresh")
         n = 0
         for a in neon.get_inactive_members(self.FIELDS):
             self._update(a)
@@ -104,8 +115,10 @@ class AirtableCache(WarmDict):
 
     def refresh(self):
         """Refresh values; called every REFRESH_PD"""
+        self.log.info("Beginning AirtableCache refresh")
         self["announcements"] = airtable.get_all_announcements()
         self["violations"] = airtable.get_policy_violations()
+        self.log.info("AirtableCache refresh complete")
 
     def violations_for(self, account_id):
         """Check member for storage violations"""

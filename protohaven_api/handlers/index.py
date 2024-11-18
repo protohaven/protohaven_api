@@ -43,7 +43,6 @@ def whoami():
     neon_account = session.get("neon_account")
     if not neon_account:
         return Response("You are not logged in", status=400)
-    log.info(f"Session neon account {neon_account}")
     clearances = []
     roles = []
     for cf in neon_account.get("accountCustomFields", []):
