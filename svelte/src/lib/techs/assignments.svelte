@@ -6,13 +6,20 @@ import { Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, Car
 import FetchError from '../fetch_error.svelte';
 import {get, post} from '$lib/api.ts';
 
+export let visible;
+let loaded = false;
 let promise = new Promise((resolve) => {});
 function refresh() {
-  promise = get("/techs/shifts");
+  promise = get("/techs/shifts").then((data) => {loaded = true; return data;});
 }
-onMount(refresh);
+$: {
+  if (visible && !loaded) {
+    refresh();
+  }
+}
 </script>
 
+{#if visible}
 <Card>
   <CardHeader>
     <CardTitle>Shifts Assigned</CardTitle>
@@ -48,3 +55,4 @@ onMount(refresh);
 {/await}
 </CardBody>
 </Card>
+{/if}
