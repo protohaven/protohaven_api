@@ -485,16 +485,12 @@ class Commands:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
 
-            latest = (None, None)
-            for mem in neon.fetch_memberships(aid):
-                tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
-                if not latest[1] or latest[1] < tsd:
-                    latest = (mem["id"], tsd)
-            if not latest[0]:
+            membership_id = neon.get_latest_membership_id(aid)
+            if not membership_id:
                 raise RuntimeError(f"No latest membership for member {aid}")
             kwargs = {
                 "account_id": aid,
-                "membership_id": latest[0],
+                "membership_id": membership_id,
                 "email": m["Email 1"],
                 "fname": m["First Name"],
                 "coupon_amount": args.coupon_amount,

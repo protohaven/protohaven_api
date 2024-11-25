@@ -363,6 +363,43 @@ def test_as_member_notfound(mocker):
     m.assert_not_called()
 
 
+def test_as_member_activate_deferred(mocker):
+    """Ensure deferred membership activation is treated as Active membership"""
+    m = mocker.patch.object(s, "_apply_async")
+    l = mocker.patch.object(s, "log_sign_in")
+    mocker.patch.object(s, "notify_async")
+    mocker.patch.object(
+        s,
+        "member_email_cache",
+        {
+            "a@b.com": {
+                12345: {
+                    "Account ID": 12345,
+                    "Account Current Membership Status": "Future",
+                    "Account Automation Ran": "deferred FOO",
+                    "First Name": "First",
+                }
+            },
+        },
+    )
+    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s, "tznow", return_value=d(0))
+    rep = s.as_member(
+        {
+            "person": "member",
+            "waiver_ack": True,
+            "email": "a@b.com",
+            "dependent_info": "DEP_INFO",
+        },
+        mocker.MagicMock(),
+    )
+    assert rep["status"] == "Active"
+    m.assert_has_calls(
+        [mocker.call(s.activate_membership, args=(12345, "First", "a@b.com"))]
+    )
+
+
 def test_as_member_expired(mocker):
     """Ensure form submits and proper status returns on expired membership"""
     m = mocker.patch.object(s, "_apply_async")

@@ -83,9 +83,9 @@ def roles_from_api_key(api_key):
         return None
     codes = get_config("general/external_access_codes")
     try:
-        api_key = base64.b64decode(api_key).decode("utf8")
-    except (B64Error, UnicodeDecodeError) as e:
-        log.warning(str(e))
+        api_key = base64.b64decode(api_key).decode("utf8").strip()
+    except (B64Error, UnicodeDecodeError):
+        pass
     return codes.get(api_key)
 
 
