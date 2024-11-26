@@ -152,6 +152,24 @@ booked:
     area: 2
     tool_code: 3
     clearance_code: 4
+  members_group_id: 12
+  tool_type_id: 8
+  schedule_id: 1
+  base_url: "https://reserve.protohaven.org/Web/Services/" # Must end in slash to be appended to
+  exclude_areas:
+  - "Class Supplies"
+  - "Maintenance"
+  - "Staff Room"
+  - "Back Yard"
+  - "Fishbowl"
+  - "Maker Market"
+  - "Rack Storage"
+  - "Restroom 1"
+  - "Restroom 2"
+  - "Kitchen"
+  - "Gallery"
+  - "Custodial Room"
+  - "All"
 wiki:
   user: "${WIKI_USER}"
   password: "${WIKI_PASSWORD}"

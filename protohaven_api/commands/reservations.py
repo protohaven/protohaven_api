@@ -3,12 +3,14 @@
 import argparse
 import datetime
 import logging
+from functools import lru_cache
 
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import (  # pylint: disable=import-error
     exec_details_footer,
+    get_config,
     tz,
 )
 from protohaven_api.integrations import airtable, booked  # pylint: disable=import-error
@@ -162,22 +164,68 @@ class Commands:
                             )
                         )
 
-    def _stage_booked_record_update(self, r, custom_attributes, **kwargs):
-        changes = []
-        r, changed_attrs = booked.stage_custom_attributes(r, **custom_attributes)
-        if True in changed_attrs.values():
-            changes.append(
-                f"custom attributes ({changed_attrs} -> {custom_attributes})"
+    @lru_cache(maxsize=1)
+    def _area_colors(self):
+        ac = {}
+        for a in airtable.get_areas():
+            if not a["fields"].get("Name"):
+                continue
+            ac[a["fields"]["Name"]] = a["fields"].get("Color")
+        return ac
+
+    def _sync_reservable_tool(self, r, t):
+        name = t["fields"].get("Tool Name")
+        area = t["fields"].get("Name (from Shop Area)", [None])[0]
+        if not area:
+            raise RuntimeError(
+                f"Airtable tool record {t['id']} missing name and/or area: {name} {area}"
             )
-            log.warning(
-                f"Changed custom attributes: {changed_attrs} -> {custom_attributes}"
+
+        resource_id = t["fields"].get("BookedResourceId")
+        clearance_code = (
+            t["fields"].get("Clearance Code (from Clearance Required)", [None])[0] or ""
+        )
+        tool_code = t["fields"].get("Tool Code")
+
+        log.info(f'{tool_code} #{resource_id} "{name}"')
+        r = booked.get_resource(resource_id)
+        return booked.stage_tool_update(
+            r,
+            {
+                "area": area,
+                "tool_code": tool_code,
+                "clearance_code": clearance_code,
+            },
+            reservable=True,
+            name=f"{area} - {name}",
+            color=self._area_colors().get(area) or "",
+            # 3D printers allow reservations across days
+            allowMultiday=(area == "3D Printing"),
+        )
+
+    def _sync_booked_permissions(
+        self, airtable_booked_ids, all_resources, summary, apply
+    ):
+        perms = set(booked.get_members_group_tool_permissions())
+        perms_delta = airtable_booked_ids - perms
+        if len(perms_delta) > 0:
+            log.info(
+                "The following tool IDs aren't part of the Members group in Booked:"
             )
-        for k, v in kwargs.items():
-            if str(r[k]) != str(v):
-                log.warning(f"Changing {k} from {r[k]} to {v}")
-                r[k] = v
-                changes.append(f"{k} ({r[k]}->{v})")
-        return r, changes
+            for missing in [
+                f"#{v['resourceId']} {v['name']}"
+                for r, v in all_resources.items()
+                if r in perms_delta
+            ]:
+                log.info(missing)
+                summary.append(f"Add to Members group: {missing}")
+            if apply:
+                log.info("Updating Members group tool permissions...")
+                # Note that `airtable_booked_ids` is populated such that all entries
+                # are known to exist in Booked.
+                log.info(
+                    str(booked.set_members_group_tool_permissions(airtable_booked_ids))
+                )
 
     @command(
         arg(
@@ -185,7 +233,12 @@ class Commands:
             help="If false, don't perform changes",
             action=argparse.BooleanOptionalAction,
             default=False,
-        )
+        ),
+        arg(
+            "--filter",
+            help="CSV of Airtable tool codes to constrain sync to",
+            default=None,
+        ),
     )
     def sync_reservable_tools(
         self, args
@@ -204,35 +257,17 @@ class Commands:
         """
         if not args.apply:
             log.warning("==== --apply NOT SET, NO CHANGES WILL BE MADE ====")
+        if args.filter is not None:
+            args.filter = {a.strip() for a in args.filter.split(",")}
+            log.warning(f"Filtering to tools by tool code: {args.filter}")
 
-        # Some areas we don't care about in the reservation system; these are excluded
-        exclude_areas = {
-            "Class Supplies",
-            "Maintenance",
-            "Staff Room",
-            "Back Yard",
-            "Fishbowl",
-            "Maker Market",
-            "Rack Storage",
-            "Restroom 1",
-            "Restroom 2",
-            "Kitchen",
-            "Gallery",
-            "Custodial Room",
-            "All",
-        }
-
-        area_colors = {}
-        for a in airtable.get_areas():
-            if not a["fields"].get("Name"):
-                continue
-            area_colors[a["fields"]["Name"]] = a["fields"].get("Color")
-
+        exclude_areas = set(get_config("booked/exclude_areas"))
+        log.info(f"Will exclude syncing areas: {exclude_areas}")
         groups = {
             k.replace("&amp;", "&"): v
             for k, v in booked.get_resource_group_map().items()
         }
-        in_airtable = set(area_colors.keys()) - exclude_areas
+        in_airtable = set(self._area_colors().keys()) - exclude_areas
         in_booked = set(groups.keys()) - exclude_areas
 
         log.info(
@@ -250,76 +285,39 @@ class Commands:
                 "https://reserve.protohaven.org/Web/admin/resources/#/groups"
             )
 
-        # print("Resource Group ID map:")
-        # for k,v in groups.items():
-        #    print(f"- {k} = {v}")
         airtable_booked_ids = set()
         summary = []
+        all_resources = {r["resourceId"]: r for r in booked.get_resources()}
         for t in airtable.get_tools():
             if not t["fields"].get("Reservable", False):
                 continue
-            d = {
-                "name": t["fields"].get("Tool Name"),
-                "resourceId": t["fields"].get("BookedResourceId"),
-                "reservable": t["fields"]
-                .get("Current Status", "Unknown")
-                .split()[0]
-                .lower()
-                in ("green", "yellow"),
-                "area": t["fields"].get("Name (from Shop Area)", [None])[0],
-                "clearance_code": t["fields"].get(
-                    "Clearance Code (from Clearance Required)", [None]
-                )[0]
-                or "",
-                "tool_code": t["fields"].get("Tool Code"),
-            }
-            if not d["name"] or not d["area"]:
-                log.warning(f"Record {t['id']} missing name or area: {d}")
+            r = all_resources.get(t["fields"].get("BookedResourceId"))
+            if not r:
+                summary.append(f"Create placeholder resource for {t['fields']['Name']}")
+                log.info(summary[-1])
+                if args.apply:
+                    r = booked.create_resource("placeholder")
+                    airtable.set_booked_resource_id(t["id"], r["resourceId"])
 
-            if not d[
-                "resourceId"
-            ]:  # New tool! Create the record. We'll update it in a second step
-                log.warning(f"Creating new resource {d['name']}")
-                summary.append(f"Create new Booked resource {d['name']}")
-                if not args.apply:
-                    log.warning(f"Skipping creation of new resource {d['name']}")
-                    continue
-                rep = booked.create_resource(d["name"])
-                log.debug(str(rep))
-                log.debug("Updating airtable record")
-                d["resourceId"] = rep["resourceId"]
-                rep = airtable.set_booked_resource_id(t["id"], d["resourceId"])
-                log.debug(str(rep))
-            airtable_booked_ids.add(d["resourceId"])
+            if not r:  # Note: args.apply == False or insert failure results in r = None
+                continue
 
-            log.info(f"#{d['resourceId']} \"{d['name']}\"")
-            r = booked.get_resource(d["resourceId"])
-            r, changes = self._stage_booked_record_update(
-                r,
-                {
-                    "area": d["area"],
-                    "tool_code": d["tool_code"],
-                    "clearance_code": d["clearance_code"],
-                },
-                name=f"{d['area']} - {d['name']}",
-                statusId=(
-                    booked.STATUS_AVAILABLE
-                    if d["reservable"]
-                    else booked.STATUS_UNAVAILABLE
-                ),
-                typeId=booked.TYPE_TOOL,
-                color=area_colors.get(d.get("area")) or "",
-                allowMultiday=d.get("area")
-                == "3D Printing",  # 3D printers allow reservations across days
-            )
+            airtable_booked_ids.add(int(r["resourceId"]))
+            if (
+                args.filter is not None
+                and t["fields"].get("Tool Code").strip().upper() not in args.filter
+            ):
+                continue
+
+            r, changes = self._sync_reservable_tool(r, t)
             if changes:
-                summary.append(f"Change {d['name']}: {', '.join(changes)}")
+                summary.append(f"Change {r['name']}: {', '.join(changes)}")
                 if args.apply:
                     log.info(booked.update_resource(r))
 
-        # Note 2024-04-15: groupIds don't seem to be editable via standard
-        # update. We'd have to mock admin panel behavior
-        # groupIds=[groups[a] for a in d.get("area", []) if a is not None],
+        self._sync_booked_permissions(
+            airtable_booked_ids, all_resources, summary, args.apply
+        )
 
         extra_booked_resources = {
             k: v
