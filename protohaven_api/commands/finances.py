@@ -30,7 +30,7 @@ class Commands:
     """Commands for managing classes in Airtable and Neon"""
 
     @command()
-    def transaction_alerts(self, _):  # pylint: disable=too-many-locals
+    def transaction_alerts(self, _1, _2):  # pylint: disable=too-many-locals
         """Send alerts about recent/unresolved transaction issues"""
         log.info("Fetching customer mapping")
         cust_map = sales.get_customer_name_map()
@@ -192,7 +192,7 @@ class Commands:
             type=str,
         ),
     )
-    def validate_memberships(self, args):
+    def validate_memberships(self, args, _):
         """Loops through all accounts and verifies that memberships are correctly set"""
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
@@ -461,7 +461,7 @@ class Commands:
             default="",
         ),
     )
-    def init_new_memberships(self, args):
+    def init_new_memberships(self, args, _):
         """Perform initialization steps for new members: deferring membership until first
         sign-in and creation of a coupon for their first class.
 

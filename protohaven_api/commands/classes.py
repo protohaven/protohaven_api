@@ -51,7 +51,7 @@ class Commands:
             default=True,
         ),
     )
-    def gen_instructor_schedule_reminder(self, args):
+    def gen_instructor_schedule_reminder(self, args, _):
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
@@ -134,7 +134,7 @@ class Commands:
             default=True,
         ),
     )
-    def gen_class_emails(self, args):
+    def gen_class_emails(self, args, _):
         """Reads schedule of classes from Neon and Airtable and outputs
         a list of emails to send to instructors, techs, and students.
         This does not actually send the emails; for that, see send_comms."""
@@ -174,7 +174,7 @@ class Commands:
             required=True,
         ),
     )
-    def build_scheduler_env(self, args):
+    def build_scheduler_env(self, args, _):
         """Construct an environment for assigning classes at times to instructors"""
         start = dateparser.parse(args.start).astimezone(tz)
         end = dateparser.parse(args.end).astimezone(tz)
@@ -190,7 +190,7 @@ class Commands:
             required=True,
         )
     )
-    def run_scheduler(self, args):
+    def run_scheduler(self, args, _):
         """Run the class scheduler on a provided env"""
         env = load_yaml(args.path)
         instructor_classes, final_score = scheduler.solve_with_env(env[0])
@@ -211,7 +211,7 @@ class Commands:
             default=False,
         ),
     )
-    def append_schedule(self, args):
+    def append_schedule(self, args, _):
         """Adds a schedule (created with `run_scheduler`) to Airtable for
         instructor confirmation."""
         sched = load_yaml(args.path)[0]
@@ -228,7 +228,7 @@ class Commands:
             nargs="+",
         )
     )
-    def cancel_classes(self, args):
+    def cancel_classes(self, args, _):
         """cancel passed classes by unpublishing and disabling registration"""
         for i in args.id:
             i = i.strip()

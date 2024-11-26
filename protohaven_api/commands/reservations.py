@@ -65,7 +65,7 @@ class Commands:
             default=False,
         ),
     )
-    def reserve_equipment_from_template(self, args):
+    def reserve_equipment_from_template(self, args, _):
         """Resolves template info to a list of equipment that should be reserved,
         then reserves it"""
         cls = [
@@ -100,7 +100,7 @@ class Commands:
             default=False,
         ),
     )
-    def reserve_equipment_for_class(self, args):
+    def reserve_equipment_for_class(self, args, _):
         """Resolves class info to a list of equipment that should be reserved,
         then reserves it by calling out to Booked"""
         # Resolve areas from class ID. We track the area name and not
@@ -236,7 +236,9 @@ class Commands:
             default=None,
         ),
     )
-    def sync_reservable_tools(self, args):  # pylint: disable=too-many-branches
+    def sync_reservable_tools(  # pylint: disable=too-many-branches, too-many-statements, too-many-locals
+        self, args, pct
+    ):
         """Sync metadata of tools in Airtable with their entries in Booked. Create new
         resources in Booked if none exist, and back-propagate Booked IDs.
         After the sync, resources that exist in Booked and not in Airtable will
@@ -249,6 +251,7 @@ class Commands:
         group - it can only be done via the web interface.
 
         """
+        pct.set_stages(4)
         if not args.apply:
             log.warning("==== --apply NOT SET, NO CHANGES WILL BE MADE ====")
         if args.filter is not None:
@@ -261,6 +264,7 @@ class Commands:
             k.replace("&amp;", "&"): v
             for k, v in booked.get_resource_group_map().items()
         }
+        pct[0] = 1
         in_airtable = set(self._area_colors().keys()) - exclude_areas
         in_booked = set(groups.keys()) - exclude_areas
 
@@ -278,11 +282,14 @@ class Commands:
                 "\n\nTo remedy, add missing groups at "
                 "https://reserve.protohaven.org/Web/admin/resources/#/groups"
             )
+        pct[1] = 1
 
         airtable_booked_ids = set()
         summary = []
         all_resources = {r["resourceId"]: r for r in booked.get_resources()}
-        for t in airtable.get_tools():
+        tools = list(airtable.get_tools())
+        for i, t in enumerate(tools):
+            pct[2] = i / len(tools)
             if not t["fields"].get("Reservable", False):
                 continue
             r = all_resources.get(t["fields"].get("BookedResourceId"))
@@ -312,6 +319,7 @@ class Commands:
         self._sync_booked_permissions(
             airtable_booked_ids, all_resources, summary, args.apply
         )
+        pct[3] = 0.5
 
         extra_booked_resources = {
             k: v
@@ -338,7 +346,7 @@ class Commands:
             )
         print_yaml([])
 
-    def _fetch_neon_and_booked_sources(self):
+    def _fetch_neon_sources(self):
         neon_members = {}
         for m in neon.get_active_members(
             [
@@ -359,12 +367,15 @@ class Commands:
             )
             neon_members[k] = (m["Account ID"], bid)
         log.info(f"Fetched {len(neon_members)} neon members")
+        return neon_members
+
+    def _fetch_booked_sources(self):
         booked_users = {
             int(u["id"]): (u["firstName"], u["lastName"], u["emailAddress"].lower())
             for u in booked.get_all_users()
         }
         log.info(f"Fetched {len(booked_users)} booked users")
-        return neon_members, booked_users
+        return booked_users
 
     @command(
         arg(
@@ -379,18 +390,26 @@ class Commands:
             default=None,
         ),
     )
-    def sync_booked_members(self, args):
+    def sync_booked_members(
+        self, args, pct
+    ):  # pylint: disable=too-many-statements, too-many-locals
         """Ensures that members are able to reserve tools, and non-members are not.
 
         Members are authed to Booked using their first name, last name, and email address.
         See https://www.bookedscheduler.com/help/oauth/oauth-configuration/
         We must make sure these fields match between Neon and Booked.
         """
-        neon_members, booked_users = self._fetch_neon_and_booked_sources()
+        pct.set_stages(4)
+        neon_members = self._fetch_neon_sources()
+        pct[0] = 1
+        booked_users = self._fetch_booked_sources()
+        pct[1] = 1
 
         summary = []
         booked_members = set()
-        for k, v in neon_members.items():
+        for i, kv in enumerate(neon_members.items()):
+            pct[2] = i / len(neon_members)
+            k, v = kv
             aid, bid = v
             if not bid:
                 log.info(f"Active member {k} with no Booked User ID")
@@ -427,7 +446,36 @@ class Commands:
                         rep = booked.update_user(bid, data)
                         log.info(f"Response {rep}")
 
-        assert len(booked_members) > 0
-        summary.append(f"Assigning Members group to {len(booked_members)} booked users")
-        log.info(summary[-1])
-        log.info(str(booked.assign_members_group_users(booked_members)))
+        pct[3] = 0.5
+        cur_member_users = {
+            int(u.split("/")[-1]) for u in booked.get_members_group()["users"]
+        }
+        added = [
+            f"#{bid} {booked_users.get(bid)}"
+            for bid in booked_members - cur_member_users
+        ]
+        removed = [
+            f"#{bid} {booked_users.get(bid)}"
+            for bid in cur_member_users - booked_members
+        ]
+        if len(added) + len(removed) > 0:
+            summary.append(
+                f"Assigning Members group to {len(booked_members)} "
+                + f"booked users (added {added}, removed {removed})"
+            )
+            log.info(summary[-1])
+            log.info(str(booked.assign_members_group_users(booked_members)))
+
+        if len(summary) > 0:
+            print_yaml(
+                [
+                    Msg.tmpl(
+                        "booked_member_sync_summary",
+                        target="#tool-automation",
+                        changes=summary,
+                        n=len(summary),
+                        footer=exec_details_footer(),
+                    )
+                ]
+            )
+        print_yaml([])

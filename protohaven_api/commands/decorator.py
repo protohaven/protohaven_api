@@ -4,6 +4,8 @@ import functools
 
 import yaml
 
+from protohaven_api.config import get_config
+
 
 def command(*parser_args):
     """Returns a configured decorator that provides help info based on the function comment
@@ -18,7 +20,7 @@ def command(*parser_args):
             for cmd, pkwarg in parser_args:
                 parser.add_argument(cmd, **pkwarg)
             parsed_args = parser.parse_args(args[1])  # argv
-            return func(args[0], parsed_args)
+            return func(args[0], parsed_args, *args[2:])
 
         wrapper.is_command = True
         return wrapper
@@ -52,5 +54,10 @@ def dump_yaml(data):
 
 
 def print_yaml(data):
-    """Prints yaml to stdout"""
-    print(dump_yaml(data))
+    """Prints yaml to config defined path, or to stdout if not set"""
+    path = get_config("general/yaml_out").strip()
+    if path:
+        with open(path, "w", encoding="utf8") as f:
+            f.write(dump_yaml(data))
+    else:
+        print(dump_yaml(data))

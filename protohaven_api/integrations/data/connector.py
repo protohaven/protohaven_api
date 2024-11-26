@@ -167,7 +167,6 @@ class Connector:
         r = requests.request(
             mode, url, *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
         )
-        log.info(f"Response {r}, code {r.status_code}")
         if r.status_code != 200:
             raise RuntimeError(
                 f"booked_request(mode={mode}, url={url}, args={args}, "

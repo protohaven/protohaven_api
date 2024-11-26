@@ -65,7 +65,7 @@ def set_resource_status(resource_id, status):
     )
 
 
-def _get_members_group():
+def get_members_group():
     """Fetches group info by ID"""
     group_id = get_config("booked/members_group_id")
     g = get_connector().booked_request("GET", f"/Groups/{group_id}")
@@ -76,7 +76,7 @@ def _get_members_group():
 
 def get_members_group_tool_permissions():
     """Fetches the IDs of all tools that users in the Members group are permitted to use"""
-    for p in _get_members_group()["permissions"]:
+    for p in get_members_group()["permissions"]:
         yield int(p.split("/")[-1])  # Form of '/Web/Services/Resources/1'
 
 
@@ -142,6 +142,12 @@ def stage_custom_attributes(resource, **kwargs):
     return resource, changed
 
 
+def _fmt_update(k, v):
+    if k != "statusId":
+        return v
+    return "AVAILABLE" if v == STATUS_AVAILABLE else "NOT_AVAILABLE"
+
+
 def stage_tool_update(r, custom_attributes, reservable=True, **kwargs):
     """Computes changes and an updated record object based on the custom
     attrs and kwargs applied"""
@@ -157,9 +163,11 @@ def stage_tool_update(r, custom_attributes, reservable=True, **kwargs):
         )
     for k, v in kwargs.items():
         if str(r[k]) != str(v):
-            log.warning(f"Changing {k} from {r[k]} to {v}")
-            r[k] = v
+            log.warning(
+                f"Changing {k} from {_fmt_update(k,r[k])} to {_fmt_update(k,v)}"
+            )
             changes.append(f"{k} ({r[k]}->{v})")
+            r[k] = v
     return r, changes
 
 

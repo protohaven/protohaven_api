@@ -53,7 +53,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=False,
         ),
     )
-    def update_role_intents(self, args):  # pylint: disable=too-many-locals
+    def update_role_intents(self, args, _):  # pylint: disable=too-many-locals
         """Syncs the roles in discord with the state of membership and custom fields in Neon.
         Role revocations are delayed and users DM'd in advance of the change, so they
         have time to remedy the cause of the revocation.
@@ -154,7 +154,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         ),
     )
     def enforce_discord_nicknames(
-        self, args
+        self, args, _
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Ensure nicknames of all associated Discord users are properly set.
         This only targets active members, as inactive members shouldn't

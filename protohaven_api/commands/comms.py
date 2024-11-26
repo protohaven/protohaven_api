@@ -128,7 +128,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=True,
         ),
     )
-    def send_comms(self, args):
+    def send_comms(self, args, _):
         """Reads a list of emails/discord messages and sends them to their recipients"""
         data = self._load_comms_data(args.path)
         if not data:

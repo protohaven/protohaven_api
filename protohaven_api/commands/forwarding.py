@@ -41,7 +41,7 @@ class Commands:
             default=False,
         ),
     )
-    def project_requests(self, args):
+    def project_requests(self, args, _):
         """Send alerts when new project requests fall into Asana"""
         if not args.apply:
             log.info(
@@ -80,7 +80,7 @@ class Commands:
         print_yaml(results)
 
     @command()
-    def shop_tech_applications(self, _):
+    def shop_tech_applications(self, _1, _2):
         """Send reminders to check shop tech applicants"""
         num = 0
         open_applicants = []
@@ -101,7 +101,7 @@ class Commands:
             )
 
     @command()
-    def instructor_applications(self, _):
+    def instructor_applications(self, _1, _2):
         """Send reminders to check for instructor applications"""
         num = 0
         open_applicants = []
@@ -194,7 +194,7 @@ class Commands:
             default=False,
         ),
     )
-    def private_instruction(self, args):  # pylint: disable=
+    def private_instruction(self, args, _):  # pylint: disable=
         """Generate reminders to take action on private instruction.
         This targets membership@ email and Discord's #instructors/#education-leads channels
         """
@@ -251,7 +251,7 @@ class Commands:
             default=False,
         ),
     )
-    def phone_messages(self, args):
+    def phone_messages(self, args, _):
         """Check on phone messages and forward to email"""
         if not args.apply:
             log.info(
@@ -288,7 +288,7 @@ class Commands:
     @command(
         arg("--now", help="Override current time", type=str, default=None),
     )
-    def tech_sign_ins(self, args):
+    def tech_sign_ins(self, args, _):
         """Craft a notification to indicate whether the scheduled techs have signed in
         for their shift"""
         now = tznow() if not args.now else dateparser.parse(args.now).astimezone(tz)
@@ -342,7 +342,7 @@ class Commands:
         print_yaml(result)
 
     @command()
-    def purchase_request_alerts(self, _):
+    def purchase_request_alerts(self, _1, _2):
         """Send alerts when there's purchase requests that haven't been acted upon for some time"""
         sections = defaultdict(list)
         counts = defaultdict(int)

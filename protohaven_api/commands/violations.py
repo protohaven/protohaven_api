@@ -20,7 +20,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=False,
         )
     )
-    def enforce_policies(self, args):
+    def enforce_policies(self, args, _):
         """Follows violation logic for any ongoing violations.
         For any violation tagged with a user, generate comms.
         For any action needed to suspend users, generate comms.
