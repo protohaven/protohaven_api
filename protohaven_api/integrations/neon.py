@@ -218,6 +218,13 @@ def set_discord_user(account_id, discord_user: str):
     )
 
 
+def set_booked_user_id(account_id, booked_id: str):
+    """Sets the Booked Scheduler ID for this user"""
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.BOOKED_USER_ID, booked_id)
+    )
+
+
 def set_clearances(account_id, code_ids, is_company=None):
     """Sets all clearances for a specific user - company or individual"""
     return neon_base.set_custom_fields(

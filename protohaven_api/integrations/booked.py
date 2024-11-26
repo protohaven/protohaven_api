@@ -1,5 +1,6 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
 import logging
+import secrets
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -206,5 +207,51 @@ def create_resource(name):
             "maxConcurrentReservations": 1,
             "extendIfMissedCheckout": False,
             "autoAssignPermissions": True,
+        },
+    )
+
+
+def create_user_as_member(fname, lname, email):
+    """Creates a new user in Booked, with the Members group added"""
+    return get_connector().booked_request(
+        "POST",
+        "/Users/",
+        json={
+            "firstName": fname,
+            "lastName": lname,
+            "emailAddress": email,
+            "userName": email,
+            "timezone": "America/New_York",
+            "password": secrets.token_urlsafe(32),  # required, but not used (OAuth)
+            "language": "en_us",
+            "groups": [int(get_config("booked/members_group_id"))],
+        },
+    )
+
+
+def get_all_users():
+    """Gets all users in Booked"""
+    return get_connector().booked_request("GET", "/Users/")["users"]
+
+
+def get_user(user_id):
+    """Fetches an individual user from Booked"""
+    return get_connector().booked_request("GET", f"/Users/{user_id}")
+
+
+def update_user(user_id, data):
+    """Updates a user in Booked (see `get_user` for data)"""
+    return get_connector().booked_request("POST", f"/Users/{user_id}", json=data)
+
+
+def assign_members_group_users(user_ids: list):
+    """Given a list of Booked User IDs, set them as belonging to
+    the Members group so they can access Member tools."""
+    gid = get_config("booked/members_group_id")
+    return get_connector().booked_request(
+        "POST",
+        f"/Groups/{gid}/Users",
+        json={
+            "userIds": [int(uid) for uid in user_ids],
         },
     )

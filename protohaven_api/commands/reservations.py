@@ -8,12 +8,8 @@ from functools import lru_cache
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import (  # pylint: disable=import-error
-    exec_details_footer,
-    get_config,
-    tz,
-)
-from protohaven_api.integrations import airtable, booked  # pylint: disable=import-error
+from protohaven_api.config import exec_details_footer, get_config, tz
+from protohaven_api.integrations import airtable, booked, neon
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.reservation")
@@ -240,9 +236,7 @@ class Commands:
             default=None,
         ),
     )
-    def sync_reservable_tools(
-        self, args
-    ):  # pylint: disable=too-many-locals, too-many-branches
+    def sync_reservable_tools(self, args):  # pylint: disable=too-many-branches
         """Sync metadata of tools in Airtable with their entries in Booked. Create new
         resources in Booked if none exist, and back-propagate Booked IDs.
         After the sync, resources that exist in Booked and not in Airtable will
@@ -343,3 +337,97 @@ class Commands:
                 ]
             )
         print_yaml([])
+
+    def _fetch_neon_and_booked_sources(self):
+        neon_members = {}
+        for m in neon.get_active_members(
+            [
+                "Company ID",
+                "First Name",
+                "Last Name",
+                "Email 1",
+                neon.CustomField.BOOKED_USER_ID,
+            ]
+        ):
+            if m["Account ID"] == m["Company ID"]:
+                continue
+            bid = int(m["Booked User ID"]) if m.get("Booked User ID") else None
+            k = (
+                m["First Name"].strip(),
+                m["Last Name"].strip(),
+                (m["Email 1"] or "").lower(),
+            )
+            neon_members[k] = (m["Account ID"], bid)
+        log.info(f"Fetched {len(neon_members)} neon members")
+        booked_users = {
+            int(u["id"]): (u["firstName"], u["lastName"], u["emailAddress"].lower())
+            for u in booked.get_all_users()
+        }
+        log.info(f"Fetched {len(booked_users)} booked users")
+        return neon_members, booked_users
+
+    @command(
+        arg(
+            "--apply",
+            help="If false, don't perform changes",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--filter",
+            help="CSV of Airtable tool codes to constrain sync to",
+            default=None,
+        ),
+    )
+    def sync_booked_members(self, args):
+        """Ensures that members are able to reserve tools, and non-members are not.
+
+        Members are authed to Booked using their first name, last name, and email address.
+        See https://www.bookedscheduler.com/help/oauth/oauth-configuration/
+        We must make sure these fields match between Neon and Booked.
+        """
+        neon_members, booked_users = self._fetch_neon_and_booked_sources()
+
+        summary = []
+        booked_members = set()
+        for k, v in neon_members.items():
+            aid, bid = v
+            if not bid:
+                log.info(f"Active member {k} with no Booked User ID")
+                if args.apply:
+                    u = booked.create_user_as_member(k[0], k[1], k[2])
+                    if u.get("errors"):
+                        for e in u["errors"]:
+                            log.error(e)
+                        continue
+                    bid = u["userId"]
+                    booked_members.add(int(bid))
+                    neon.set_booked_user_id(aid, bid)
+                    summary.append(f"Created {bid}, associated with neon #{aid} {k}")
+                    log.info(summary[-1])
+            else:
+                bk = booked_users.get(bid)
+                if not bk:
+                    raise RuntimeError(
+                        f"Neon user {k} has invalid booked user ID {bid}"
+                    )
+                booked_members.add(bid)
+                if bk != k:
+                    summary.append(f"Update booked #{bid}: {bk} -> {k}")
+                    log.info(summary[-1])
+                    if args.apply:
+                        data = booked.get_user(bid)
+                        if not data or not data.get("id"):
+                            raise RuntimeError(
+                                f"Failed to get user data for {bid}: {data}"
+                            )
+                        data["firstName"] = k[0]
+                        data["lastName"] = k[1]
+                        data["emailAddress"] = k[2]
+                        rep = booked.update_user(bid, data)
+                        log.info(f"Response {rep}")
+
+        assert len(booked_members) > 0
+        summary.append(f"Assigning Members group to {len(booked_members)} booked users")
+        log.info(summary[-1])
+        log.info(str(booked.assign_members_group_users(booked_members)))
