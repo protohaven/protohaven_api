@@ -66,7 +66,7 @@ class Commands:
             default=True,
         ),
     )
-    def gen_maintenance_tasks(self, args):
+    def gen_maintenance_tasks(self, args, _):
         """Check recurring tasks list in Airtable, add new tasks to asana
         And notify techs about new and stale tasks that are tech_ready."""
         tt = manager.run_daily_maintenance(args.apply)
@@ -83,7 +83,7 @@ class Commands:
         )
 
     @command()
-    def gen_tech_leads_maintenance_summary(self, _):
+    def gen_tech_leads_maintenance_summary(self, _1, _2):
         """Report on status of equipment maintenance & stale tasks"""
         stale = manager.get_stale_tech_ready_tasks()
         if len(stale) > 0:

@@ -8,11 +8,12 @@ from protohaven_api.integrations import booked
 def test_get_resource_map(mocker):
     """Basic test of `get_resource_map`, that it calls out and returns mapped values"""
     mocker.patch.object(booked, "get_connector")
-    booked.get_connector().booked_request().json.return_value = {
+    booked.get_connector().booked_request.return_value = {
         "resources": [
             {"customAttributes": [{"id": 3, "value": "ABC"}], "resourceId": 123}
         ]
     }
+    mocker.patch.object(booked, "get_config", return_value=3)
     assert booked.get_resource_map() == {"ABC": 123}
 
 
@@ -21,7 +22,7 @@ def test_get_resource_singleton(mocker):
     mocker.patch.object(booked, "get_connector")
     booked.get_resource("test_id")
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
-        "GET", "https://reserve.protohaven.org/Web/Services/Resources/test_id"
+        "GET", "/Resources/test_id"
     )
 
 
@@ -31,7 +32,7 @@ def test_get_reservations(mocker):
     booked.get_reservations(parse_date("2024-01-01"), parse_date("2024-02-02"))
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
         "GET",
-        "https://reserve.protohaven.org/Web/Services/Reservations/?startDateTime=2024-01-01T00:00:00&endDateTime=2024-02-02T00:00:00",  # pylint: disable=line-too-long
+        "/Reservations/?startDateTime=2024-01-01T00:00:00&endDateTime=2024-02-02T00:00:00",  # pylint: disable=line-too-long
     )
 
 
@@ -41,7 +42,7 @@ def test_reserve_resource(mocker):
     booked.reserve_resource(123, parse_date("2024-01-01"), parse_date("2024-01-02"))
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
         "POST",
-        "https://reserve.protohaven.org/Web/Services/Reservations/",
+        "/Reservations/",
         json={
             "description": "api.protohaven.org reservation",
             "endDateTime": "2024-01-02T00:00:00",
@@ -64,7 +65,7 @@ def test_apply_resource_custom_fields(mocker):
     booked.apply_resource_custom_fields(123, area="Foo")
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
         "POST",
-        "https://reserve.protohaven.org/Web/Services/Resources/123",
+        "/Resources/123",
         json={
             "customAttributes": [
                 {"attributeId": 3, "attributeValue": "ABC"},

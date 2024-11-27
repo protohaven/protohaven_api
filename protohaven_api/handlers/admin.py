@@ -107,21 +107,22 @@ def neon_membership_created_callback():
         "neon/webhooks/new_membership/enabled", default=False, as_bool=True
     )
     if not is_enabled:
+        log.info("Skipping new membership callback - not initialized")
         return Response("Membership initializer disabled via config", status=200)
     api_key = request.json.get("customParameters", {}).get("api_key")
-    log.info(f"api key is {api_key}")
+    log.info("New membership callback received")
     roles = roles_from_api_key(api_key) or []
-    log.info(f"roles are {roles}")
     if Role.AUTOMATION["name"] not in roles:
+        log.warning("Membership callback not authorized; ignoring")
         return Response("Not authorized", status=400)
 
-    data = request.json["data"]["membership"]
+    data = request.json["data"]["membershipEnrollment"]
     account_id = data.get("accountId")
     membership_id = data.get("membershipId")
     membership_name = data.get("membershipName")
     fee = float(data.get("fee"))
     enrollment = data.get("enrollmentType")
-    txn_status = data.get("status")
+    txn_status = request.json["data"]["transaction"].get("transactionStatus")
     log.info(
         f"NeonCRM new_membership callback: #{membership_id} (account #{account_id}) "
         f"{membership_name} for ${fee} ({enrollment} {txn_status})"
@@ -143,7 +144,7 @@ def neon_membership_created_callback():
         log.info(
             f"Skipping init of membership with auto_field_value={details['auto_field_value']}"
         )
-        return Response("Field error", status=400)
+        return Response("Account already deferred", status=400)
     msg = memauto.init_membership(
         account_id=account_id,
         membership_id=membership_id,

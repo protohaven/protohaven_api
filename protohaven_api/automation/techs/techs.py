@@ -35,17 +35,15 @@ def _calendar_badge_color(num_people):
 
 
 def _create_calendar_view(
-    start_date, shift_map, shift_term_map, time_off, forecast_len
+    start_date, shift_map, shift_term_map, forecast_len
 ):  # pylint: disable=too-many-locals, too-many-nested-blocks
-    # This can be simplified after overrides have been rolled out; we can
-    # remove the time_off lookup
     calendar_view = []
     overrides = dict(airtable.get_forecast_overrides())
     for i in range(forecast_len):
-        day_view = []
         d = start_date + datetime.timedelta(days=i)
+        dstr = d.strftime("%Y-%m-%d")
+        day = {"date": dstr}
         for ap in ["AM", "PM"]:
-            dstr = d.strftime("%Y-%m-%d")
             s = f"{d.strftime('%A')} {ap}"
 
             ovr, ovr_people, ovr_editor = overrides.get(
@@ -53,11 +51,6 @@ def _create_calendar_view(
             )
 
             people = shift_map.get(s, [])
-            for cov in time_off:
-                if cov["fields"]["Date"] == dstr and cov["fields"]["Shift"] == ap:
-                    people = [p for p in people if p != cov["fields"]["Shop Tech"]]
-                    if cov["fields"].get("Covered By"):
-                        people.append(cov["fields"]["Covered By"])
             final_people = []
             for p in people:  # remove if outside of the tech's tenure
                 first_day, last_day = shift_term_map.get(p, (None, None))
@@ -66,18 +59,16 @@ def _create_calendar_view(
                 ):
                     final_people.append(p)
 
-            day = {
-                "ap": ap,
-                "date": dstr,
+            shift = {
                 "title": f"{d.strftime('%a %m/%d')} {ap}",
                 "people": ovr_people or final_people,
                 "id": f"Badge{i}{ap}",
             }
-            day["color"] = _calendar_badge_color(len(day["people"]))
+            shift["color"] = _calendar_badge_color(len(shift["people"]))
             if ovr:
-                day["ovr"] = {"id": ovr, "orig": final_people, "editor": ovr_editor}
-            day_view.append(day)
-        calendar_view.append(day_view)
+                shift["ovr"] = {"id": ovr, "orig": final_people, "editor": ovr_editor}
+            day[ap] = shift
+        calendar_view.append(day)
     return calendar_view
 
 
@@ -101,27 +92,7 @@ def generate(date, forecast_len):
     }
     shift_map = get_shift_map()
 
-    time_off = [
-        t
-        for t in airtable.get_shop_tech_time_off()
-        if t["fields"].get("Date")
-        and dateparser.parse(t["fields"]["Date"]).astimezone(tz) >= date
-    ]
-    time_off.sort(key=lambda t: dateparser.parse(t["fields"]["Date"]))
-
-    coverage_missing = []
-    coverage_ok = []
-    for cov in time_off:
-        if cov["fields"].get("Covered By", None) is not None:
-            coverage_ok.append(cov)
-        else:
-            coverage_missing.append(cov)
-
-    calendar_view = _create_calendar_view(
-        date, shift_map, shift_term_map, time_off, forecast_len
-    )
+    calendar_view = _create_calendar_view(date, shift_map, shift_term_map, forecast_len)
     return {
         "calendar_view": calendar_view,
-        "coverage_missing": coverage_missing,
-        "coverage_ok": coverage_ok,
     }

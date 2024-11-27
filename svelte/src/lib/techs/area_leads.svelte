@@ -4,13 +4,20 @@ import {onMount} from 'svelte';
 import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get} from '$lib/api.ts';
 
+export let visible;
+let loaded = false;
 let promise = new Promise((resolve) => {});
 function refresh() {
-  promise = get("/techs/area_leads")
+  promise = get("/techs/area_leads").then((data) => {loaded = true; return data;});
 }
-onMount(refresh);
+$: {
+  if (visible && !loaded) {
+    refresh();
+  }
+}
 </script>
 
+{#if visible}
 <Card>
 <CardHeader>
   <CardTitle>Areas &amp; Leads</CardTitle>
@@ -35,3 +42,4 @@ onMount(refresh);
 {/await}
 </CardBody>
 </Card>
+{/if}

@@ -6,6 +6,7 @@ import { ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubt
 import FetchError from '../fetch_error.svelte';
 import {post} from '$lib/api.ts';
 
+export let visible;
 let search = "";
 let searching = false;
 let promise = new Promise((r,_)=>{r([])});
@@ -16,6 +17,7 @@ function search_member() {
 
 </script>
 
+{#if visible}
 <Card>
 <CardHeader>
   <CardTitle>Storage Violations</CardTitle>
@@ -46,3 +48,4 @@ function search_member() {
     {/await}
 </CardBody>
 </Card>
+{/if}

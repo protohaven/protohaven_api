@@ -1,8 +1,13 @@
 """Basic decorator for argparse commands that wraps functions so they can be executed in cli."""
 import argparse
 import functools
+import logging
 
 import yaml
+
+from protohaven_api.config import get_config
+
+log = logging.getLogger("decorator")
 
 
 def command(*parser_args):
@@ -18,7 +23,7 @@ def command(*parser_args):
             for cmd, pkwarg in parser_args:
                 parser.add_argument(cmd, **pkwarg)
             parsed_args = parser.parse_args(args[1])  # argv
-            return func(args[0], parsed_args)
+            return func(args[0], parsed_args, *args[2:])
 
         wrapper.is_command = True
         return wrapper
@@ -52,5 +57,11 @@ def dump_yaml(data):
 
 
 def print_yaml(data):
-    """Prints yaml to stdout"""
-    print(dump_yaml(data))
+    """Prints yaml to config defined path, or to stdout if not set"""
+    path = get_config("general/yaml_out").strip()
+    if path and path != "${YAML_OUT}":
+        log.info(f"Writing yaml file to '{path}'")
+        with open(path, "w", encoding="utf8") as f:
+            f.write(dump_yaml(data))
+    else:
+        print(dump_yaml(data))

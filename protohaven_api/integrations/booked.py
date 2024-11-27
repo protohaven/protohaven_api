@@ -1,42 +1,32 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
+import logging
+import secrets
+
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
-# https://github.com/protohaven/systems-integration/blob/main/airtable-automations/UpdateBookedStatus.js
+log = logging.getLogger("booked")
 
+# https://github.com/protohaven/systems-integration/blob/main/airtable-automations/UpdateBookedStatus.js
 STATUS_UNAVAILABLE = 2
 STATUS_AVAILABLE = 1
 
-TYPE_TOOL = 8
-# TYPE_AREA =
 
-SCHEDULE_ID = 1  # We only have one schedule
-
-BASE_URL = "https://reserve.protohaven.org"
-
-
-def resource_url(resource_id):
-    """Prefill the resource URL"""
-    return f"{BASE_URL}/Web/Services/Resources/{resource_id}"
+def get_resources():
+    """Fetches all resources"""
+    return get_connector().booked_request("GET", "/Resources/")["resources"]
 
 
 def get_resource_id_to_name_map():
     """Gets the mapping of resource IDs to the tool name"""
-    resp = get_connector().booked_request("GET", f"{BASE_URL}/Web/Services/Resources/")
-    data = resp.json()
-    result = {}
-    for d in data["resources"]:
-        result[d["resourceId"]] = d["name"]
-    return result
+    return {d["resourceId"]: d["name"] for d in get_resources()}
 
 
 def get_resource_map():
     """Fetches a map from a resource tool code to its ID"""
-    resp = get_connector().booked_request("GET", f"{BASE_URL}/Web/Services/Resources/")
-    data = resp.json()
     result = {}
     tool_code_id = get_config("booked/resource_custom_attribute/tool_code")
-    for d in data["resources"]:
+    for d in get_resources():
         for attr in d["customAttributes"]:
             if attr["id"] == tool_code_id and attr["value"]:
                 result[attr["value"]] = d["resourceId"]
@@ -46,10 +36,7 @@ def get_resource_map():
 
 def get_resource_group_map():
     """Gets the map of resource name to its Booked `resourceId`"""
-    resp = get_connector().booked_request(
-        "GET", f"{BASE_URL}/Web/Services/Resources/Groups"
-    )
-    data = resp.json()
+    data = get_connector().booked_request("GET", "/Resources/Groups")
     result = {}
     for d in data["groups"]:
         result[d["name"]] = d["id"]
@@ -58,8 +45,7 @@ def get_resource_group_map():
 
 def get_resource(resource_id):
     """Get the current info about a tool or equipment"""
-    resp = get_connector().booked_request("GET", resource_url(resource_id))
-    return resp.json()
+    return get_connector().booked_request("GET", f"/Resources/{resource_id}")
 
 
 def set_resource_status(resource_id, status):
@@ -68,23 +54,48 @@ def set_resource_status(resource_id, status):
     data = get_resource(resource_id)
     assert data.get("name", None) is not None
 
-    resp = get_connector().booked_request(
+    return get_connector().booked_request(
         "POST",
-        resource_url(resource_id),
+        f"/Resources/{resource_id}",
         json={
             "statusId": status,
             "name": data["name"],
-            "scheduleId": SCHEDULE_ID,
+            "scheduleId": get_config("booked/schedule_id"),
         },
     )
-    return resp.json()
+
+
+def get_members_group():
+    """Fetches group info by ID"""
+    group_id = get_config("booked/members_group_id")
+    g = get_connector().booked_request("GET", f"/Groups/{group_id}")
+    if not g:
+        raise RuntimeError(f"Members group not found - ID {group_id}")
+    return g
+
+
+def get_members_group_tool_permissions():
+    """Fetches the IDs of all tools that users in the Members group are permitted to use"""
+    for p in get_members_group()["permissions"]:
+        yield int(p.split("/")[-1])  # Form of '/Web/Services/Resources/1'
+
+
+def set_members_group_tool_permissions(tool_ids):
+    """Sets the list of permitted tools for the Members group"""
+    gid = get_config("booked/members_group_id")
+    return get_connector().booked_request(
+        "POST",
+        f"/Groups/{gid}/Permissions",
+        json={
+            "permissions": [int(t) for t in tool_ids],
+        },
+    )
 
 
 def get_reservations(start, end):
     """Get all reservations within the start and end times"""
-    url = f"{BASE_URL}/Web/Services/Reservations/?startDateTime={start.isoformat()}&endDateTime={end.isoformat()}"  # pylint: disable=line-too-long
-    resp = get_connector().booked_request("GET", url)
-    return resp.json()
+    url = f"/Reservations/?startDateTime={start.isoformat()}&endDateTime={end.isoformat()}"
+    return get_connector().booked_request("GET", url)
 
 
 def reserve_resource(
@@ -95,10 +106,9 @@ def reserve_resource(
     desc="api.protohaven.org reservation",
 ):
     """Reserve a tool or equipment for a time"""
-    url = f"{BASE_URL}/Web/Services/Reservations/"
-    resp = get_connector().booked_request(
+    return get_connector().booked_request(
         "POST",
-        url,
+        "/Reservations/",
         json={
             "description": desc,
             "endDateTime": end_time.isoformat(),
@@ -108,15 +118,13 @@ def reserve_resource(
             "userId": 103,  # system@protohaven.org
         },
     )
-    return resp.json()
 
 
 def update_resource(data):
     """Updates a resource given a dict of data"""
-    resp = get_connector().booked_request(
-        "POST", resource_url(data["resourceId"]), json=data
+    return get_connector().booked_request(
+        "POST", f"/Resources/{data['resourceId']}", json=data
     )
-    return resp.json()
 
 
 def stage_custom_attributes(resource, **kwargs):
@@ -132,6 +140,33 @@ def stage_custom_attributes(resource, **kwargs):
         {"attributeId": k, "attributeValue": v} for k, v in attrs.items()
     ]
     return resource, changed
+
+
+def _fmt_update(k, v):
+    if k != "statusId":
+        return v
+    return "AVAILABLE" if v == STATUS_AVAILABLE else "NOT_AVAILABLE"
+
+
+def stage_tool_update(r, custom_attributes, reservable=True, **kwargs):
+    """Computes changes and an updated record object based on the custom
+    attrs and kwargs applied"""
+    kwargs["statusId"] = STATUS_AVAILABLE if reservable else STATUS_UNAVAILABLE
+    kwargs["typeId"] = str(get_config("booked/tool_type_id"))
+
+    changes = []
+    r, changed_attrs = stage_custom_attributes(r, **custom_attributes)
+    if True in changed_attrs.values():
+        changes.append(f"custom attributes ({changed_attrs} -> {custom_attributes})")
+        log.warning(
+            f"Changed custom attributes: {changed_attrs} -> {custom_attributes}"
+        )
+    for k, v in kwargs.items():
+        if str(r[k]) != str(v):
+            changes.append(f"{k} ({_fmt_update(k,r[k])}->{_fmt_update(k,v)})")
+            log.warning(changes[-1])
+            r[k] = v
+    return r, changes
 
 
 def apply_resource_custom_fields(resource, **kwargs):
@@ -155,29 +190,74 @@ def apply_resource_custom_fields(resource, **kwargs):
     data["customAttributes"] = [
         {"attributeId": k, "attributeValue": v} for k, v in attrs.items()
     ]
-    resp = get_connector().booked_request(
-        "POST", resource_url(data["resourceId"]), json=data
+    return get_connector().booked_request(
+        "POST", f"/Resources/{data['resourceId']}", json=data
     )
-    return resp.json()
 
 
 def create_resource(name):
     """Creates a named resource and returns the creation result"""
     # Not sure how many of these fields are needed - there are more as well.
-    resp = get_connector().booked_request(
+    return get_connector().booked_request(
         "POST",
-        f"{BASE_URL}/Web/Services/Resources/",
+        "/Resources/",
         json={
             "name": name,
             "requiresApproval": False,
             "allowMultiday": False,
-            "scheduleId": 1,
-            "statusId": "1",
-            "typeId": "8",
+            "scheduleId": get_config("booked/schedule_id"),
+            "statusId": str(STATUS_AVAILABLE),
+            "typeId": str(get_config("booked/tool_type_id")),
             "autoReleaseMinutes": None,
             "requiresCheckIn": False,
             "maxConcurrentReservations": 1,
             "extendIfMissedCheckout": False,
+            "autoAssignPermissions": True,
         },
     )
-    return resp.json()
+
+
+def create_user_as_member(fname, lname, email):
+    """Creates a new user in Booked, with the Members group added"""
+    return get_connector().booked_request(
+        "POST",
+        "/Users/",
+        json={
+            "firstName": fname,
+            "lastName": lname,
+            "emailAddress": email,
+            "userName": email,
+            "timezone": "America/New_York",
+            "password": secrets.token_urlsafe(32),  # required, but not used (OAuth)
+            "language": "en_us",
+            "groups": [int(get_config("booked/members_group_id"))],
+        },
+    )
+
+
+def get_all_users():
+    """Gets all users in Booked"""
+    return get_connector().booked_request("GET", "/Users/")["users"]
+
+
+def get_user(user_id):
+    """Fetches an individual user from Booked"""
+    return get_connector().booked_request("GET", f"/Users/{user_id}")
+
+
+def update_user(user_id, data):
+    """Updates a user in Booked (see `get_user` for data)"""
+    return get_connector().booked_request("POST", f"/Users/{user_id}", json=data)
+
+
+def assign_members_group_users(user_ids: list):
+    """Given a list of Booked User IDs, set them as belonging to
+    the Members group so they can access Member tools."""
+    gid = get_config("booked/members_group_id")
+    return get_connector().booked_request(
+        "POST",
+        f"/Groups/{gid}/Users",
+        json={
+            "userIds": [int(uid) for uid in user_ids],
+        },
+    )

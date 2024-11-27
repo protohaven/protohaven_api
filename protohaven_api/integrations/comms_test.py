@@ -79,6 +79,7 @@ TESTED_TEMPLATES = [
             }
         },
     ),
+    ("booked_member_sync_summary", {"n": 5, "changes": [1, 2, 3]}),
     ("class_proposals", {"unapproved": ["Unap1", "Unap2"]}),
     (
         "class_scheduled",
@@ -152,7 +153,13 @@ TESTED_TEMPLATES = [
     ),
     (
         "instructors_new_classes",
-        {"formatted": ["a", "b", "c"], "n": 3},
+        {
+            "classes": [
+                {"start": "YYYY-MM-DD", "name": "Test Class", "inst": "Instructor"},
+                {"start": "YYYY-MM-DD", "name": "Test class without instructor info"},
+            ],
+            "n": 3,
+        },
     ),
     (
         "membership_activated",
@@ -308,6 +315,7 @@ TESTED_TEMPLATES = [
 HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
+    "booked_member_sync_summary": "9a2589742196885e",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_proposals": "09aa7102c43e69e6",  # pragma: allowlist secret
     "class_scheduled": "d7638c67655ae1eb",  # pragma: allowlist secret
@@ -326,7 +334,7 @@ HASHES = {
     "instructor_log_reminder": "d00bf87676ad240e",  # pragma: allowlist secret
     "instructor_low_attendance": "e7b4548a7a3f7fc2",  # pragma: allowlist secret
     "instructor_schedule_classes": "39aea10c71fc8895",  # pragma: allowlist secret
-    "instructors_new_classes": "c3cbf1129a256abe",  # pragma: allowlist secret
+    "instructors_new_classes": "43f58a36632acefb",  # pragma: allowlist secret
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
     "membership_init_summary": "40ebdf94a4ada4af",  # pragma: allowlist secret
     "membership_validation_problems": "e9b4740d33220373",  # pragma: allowlist secret
@@ -345,7 +353,7 @@ HASHES = {
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
     "tech_openings": "f9bd7999e37d1ebd",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
-    "tool_sync_summary": "762670ac5feeddf3",  # pragma: allowlist secret
+    "tool_sync_summary": "82ba40ec440803d4",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
 }

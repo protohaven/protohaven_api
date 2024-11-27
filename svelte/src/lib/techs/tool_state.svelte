@@ -4,9 +4,11 @@ import {onMount} from 'svelte';
 import { Table, Button, Row, Col, Card, CardHeader, Badge, CardTitle, Popover, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get} from '$lib/api.ts';
 
+export let visible;
+let loaded = false;
 let promise = new Promise((resolve) => {});
 function refresh() {
-  promise = get("/techs/tool_state");
+  promise = get("/techs/tool_state").then((data) => {loaded = true; return data;});
 }
 function get_color(status) {
   if (status.startsWith('Blue')) {
@@ -19,10 +21,14 @@ function get_color(status) {
   return 'light';
 }
 
-onMount(refresh);
+$: {
+  if (visible && !loaded) {
+    refresh();
+  }
+}
 </script>
 
-
+{#if visible}
 <Card>
     <CardHeader><CardTitle>Tool Maintenance State</CardTitle>
     <CardSubtitle>Click on a tool to see details and make reports</CardSubtitle>
@@ -53,3 +59,4 @@ onMount(refresh);
       Looking for a task? Check the <a href="https://app.asana.com/0/1202469740885594/1204138662113052" target="_blank">Shop & Maintenance Tasks<a/> Asana project.
   </CardFooter>
 </Card>
+{/if}

@@ -10,11 +10,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import (  # pylint: disable=import-error
-    exec_details_footer,
-    tz,
-    tznow,
-)
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
@@ -41,7 +37,7 @@ class Commands:
             default=False,
         ),
     )
-    def project_requests(self, args):
+    def project_requests(self, args, _):
         """Send alerts when new project requests fall into Asana"""
         if not args.apply:
             log.info(
@@ -80,7 +76,7 @@ class Commands:
         print_yaml(results)
 
     @command()
-    def shop_tech_applications(self, _):
+    def shop_tech_applications(self, _1, _2):
         """Send reminders to check shop tech applicants"""
         num = 0
         open_applicants = []
@@ -101,7 +97,7 @@ class Commands:
             )
 
     @command()
-    def instructor_applications(self, _):
+    def instructor_applications(self, _1, _2):
         """Send reminders to check for instructor applications"""
         num = 0
         open_applicants = []
@@ -121,7 +117,7 @@ class Commands:
             )
 
     @command()
-    def class_proposals(self, _):
+    def class_proposals(self, _1, _2):
         """Send reminders to take action on proposed classes"""
         num = 0
         unapproved_classes = []
@@ -194,7 +190,7 @@ class Commands:
             default=False,
         ),
     )
-    def private_instruction(self, args):  # pylint: disable=
+    def private_instruction(self, args, _):  # pylint: disable=
         """Generate reminders to take action on private instruction.
         This targets membership@ email and Discord's #instructors/#education-leads channels
         """
@@ -251,7 +247,7 @@ class Commands:
             default=False,
         ),
     )
-    def phone_messages(self, args):
+    def phone_messages(self, args, _):
         """Check on phone messages and forward to email"""
         if not args.apply:
             log.info(
@@ -288,7 +284,7 @@ class Commands:
     @command(
         arg("--now", help="Override current time", type=str, default=None),
     )
-    def tech_sign_ins(self, args):
+    def tech_sign_ins(self, args, _):
         """Craft a notification to indicate whether the scheduled techs have signed in
         for their shift"""
         now = tznow() if not args.now else dateparser.parse(args.now).astimezone(tz)
@@ -301,8 +297,9 @@ class Commands:
 
         # Current day from calendar
         techs_on_duty = forecast.generate(now, 1)["calendar_view"][0]
+        log.info(f"Forecast: {techs_on_duty}")
         # Pick AM vs PM shift
-        techs_on_duty = techs_on_duty[0 if shift.endswith("AM") else 1]["people"]
+        techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {
             t["email"]: t["name"]
@@ -335,14 +332,13 @@ class Commands:
                         (v, rev_email_map.get(v, "unknown email"))
                         for v in techs_on_duty
                     ],
-                    footer=exec_details_footer(),
                 )
             )
 
         print_yaml(result)
 
     @command()
-    def purchase_request_alerts(self, _):
+    def purchase_request_alerts(self, _1, _2):
         """Send alerts when there's purchase requests that haven't been acted upon for some time"""
         sections = defaultdict(list)
         counts = defaultdict(int)

@@ -6,14 +6,20 @@ import { ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubt
 import FetchError from '../fetch_error.svelte';
 import {post, get} from '$lib/api.ts';
 
+export let visible;
+let loaded = false;
 export let user;
 let loading = false;
 let promise = new Promise((r,_)=>{r([])});
 function reload() {
   loading = true;
-  promise = get('/techs/events').finally(() => loading = false);
+  promise = get('/techs/events').then((data) => {loaded=true; return data;}).finally(() => loading = false);
 }
-onMount(reload);
+$: {
+  if (visible && !loaded) {
+    reload();
+  }
+}
 
 let submitting = false;
 let submission = new Promise((r, _) => r(null));
@@ -26,6 +32,7 @@ function action(event_id, ticket_id, action) {
 }
 </script>
 
+{#if visible}
 <Card>
 <CardHeader>
   <CardTitle>Events for Backfill</CardTitle>
@@ -76,3 +83,4 @@ function action(event_id, ticket_id, action) {
     {/await}
 </CardBody>
 </Card>
+{/if}

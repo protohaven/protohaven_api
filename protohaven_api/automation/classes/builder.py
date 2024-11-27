@@ -55,11 +55,11 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
     def format_class(cls, inst=False):
         start = dateparser.parse(cls["fields"]["Start Time"])
         start = start.astimezone(tz)
-        # print(cls)
-        result = f"- {start.strftime('%b %d %Y, %-I%P')}: {cls['fields']['Name (from Class)'][0]}"
-        if inst:
-            result += f" ({cls['fields']['Instructor']})"
-        return result
+        return {
+            "start": start.strftime("%b %d %Y, %-I%P"),
+            "name": cls["fields"]["Name (from Class)"][0],
+            "inst": cls["fields"]["Instructor"] if inst else None,
+        }
 
     details = {"action": ["SCHEDULE"], "targets": []}
     channel_class_list = []
@@ -86,7 +86,8 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         results.append(
             Msg.tmpl(
                 "instructors_new_classes",
-                formatted=[format_class(c, inst=True) for c in channel_class_list],
+                n=len(channel_class_list),
+                classes=[format_class(c, inst=True) for c in channel_class_list],
                 target="#instructors",
             )
         )

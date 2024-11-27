@@ -7,6 +7,8 @@ import FetchError from '../fetch_error.svelte';
 
 import EditCell from './editable_td.svelte';
 
+export let visible;
+let loaded = false;
 let promise = new Promise((resolve) => {});
 
 let new_tech_email = "";
@@ -14,9 +16,13 @@ let toast_msg = null;
 let enrolling = false;
 
 function refresh() {
-  promise = get("/techs/list");
+  promise = get("/techs/list").then((data) => {loaded = true; return data;});
 }
-onMount(refresh);
+$: {
+  if (visible && !loaded) {
+    refresh();
+  }
+}
 
 let show_proposed = true;
 
@@ -50,7 +56,7 @@ function clearance_click(id) {
 }
 </script>
 
-
+{#if visible}
 <Card>
     <CardHeader>
       <CardTitle>Tech Roster</CardTitle>
@@ -108,3 +114,4 @@ function clearance_click(id) {
 {/await}
 </CardBody>
 </Card>
+{/if}

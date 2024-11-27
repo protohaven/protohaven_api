@@ -1,7 +1,7 @@
 <script type="typescript">
   import '../../app.scss';
   import FetchError from '$lib/fetch_error.svelte';
-  import { TabContent, TabPane, Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
+  import { Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
   import {get} from '$lib/api.ts';
   import TechsList from '$lib/techs/techs_list.svelte';
   import ToolState from '$lib/techs/tool_state.svelte';
@@ -14,7 +14,10 @@
 
   let promise;
   let user;
+  let activeTab;
   onMount(() => {
+    activeTab = (window.location.hash || "#cal").substring(1).trim();
+    console.log("active", activeTab);
     const urlParams = new URLSearchParams(window.location.search);
     let e= urlParams.get("email");
     if (!e) {
@@ -31,6 +34,11 @@
       promise = Promise.resolve(user);
     }
   });
+  function on_tab(e) {
+    activeTab = e.target.href.split("#")[1] || "cal";
+    window.location.hash = activeTab;
+    console.log("activeTab", activeTab);
+  }
 
 </script>
 
@@ -50,33 +58,25 @@
     </NavItem>
   </Nav>
 </Navbar>
-<TabContent>
-  <!--Note: TabPanes are listed here instead of within the sub-components because
-      they are rendered twice inside of TabContent - once for the tab and once for
-      the body. This would cause multiple onMount() executions and double the number
-      of requests to the server.-->
-  <TabPane tabId="schedule" tab="Cal" active>
-  <Shifts {user}/>
-  </TabPane>
-  <TabPane tabId="assignments" tab="Shifts" active>
-    <Assignments/>
-  </TabPane>
-  <TabPane tabId="tools" tab="Tools">
-    <ToolState/>
-  </TabPane>
-  <TabPane tabId="storage" tab="Storage">
-    <Storage/>
-  </TabPane>
-  <TabPane tabId="area_leads" tab="Areas">
-    <AreaLeads/>
-  </TabPane>
-  <TabPane tabId="techs" tab="Techs">
-    <TechsList/>
-  </TabPane>
-  <TabPane tabId="events" tab="Events">
-    <Events {user}/>
-  </TabPane>
-</TabContent>
+<!-- Note: Nav is used here instead of Tabs directly because Tabs does not
+     support URL anchor based routing - see
+     https://github.com/sveltestrap/sveltestrap/issues/82 -->
+<Nav tabs>
+  <NavItem><NavLink href="#cal" on:click={on_tab}>Cal</NavLink></NavItem>
+  <NavItem><NavLink href="#shifts" on:click={on_tab}>Shifts</NavLink></NavItem>
+  <NavItem><NavLink href="#tools" on:click={on_tab}>Tools</NavLink></NavItem>
+  <NavItem><NavLink href="#storage" on:click={on_tab}>Storage</NavLink></NavItem>
+  <NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
+  <NavItem><NavLink href="#techs" on:click={on_tab}>Techs</NavLink></NavItem>
+  <NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
+</Nav>
+<Shifts {user} visible={activeTab == 'cal'}/>
+<Assignments visible={activeTab == 'shifts'}/>
+<ToolState visible={activeTab == 'tools'}/>
+<Storage visible={activeTab == 'storage'}/>
+<AreaLeads visible={activeTab == 'areas'}/>
+<TechsList visible={activeTab === 'techs'}/>
+<Events {user} visible={activeTab === 'events'}/>
 {#await promise}
   <span></span>
 {:catch error}

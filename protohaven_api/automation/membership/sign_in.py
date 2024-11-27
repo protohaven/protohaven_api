@@ -70,14 +70,21 @@ def activate_membership(account_id, fname, email):
         log.error(f"activate_membership called on non-deferred account {account_id}")
         return
 
-    rep = neon.set_membership_date_range(
-        account_id, tznow(), tznow() + datetime.timedelta(days=30)
-    )
-    if rep.status_code != 200:
+    try:
+        membership_id = neon.get_latest_membership_id(account_id)
+        if not membership_id:
+            raise RuntimeError(
+                f"Could not fetch latest membership for account {account_id}"
+            )
+        log.info(f"Resolved account {account_id} latest membership ID {membership_id}")
+        neon.set_membership_date_range(
+            membership_id, tznow(), tznow() + datetime.timedelta(days=30)
+        )
+    except RuntimeError as e:
         notify_async(
-            f"@Staff: Error {rep.status_code} activating membership for "
+            f"@Staff: Error activating membership for "
             f"#{account_id}: "
-            f"\n{rep.content}\n"
+            f"\n{e}\n"
             "Please sync with software folks to diagnose in protohaven_api. "
             "Allowing the member through anyways."
         )
@@ -85,8 +92,12 @@ def activate_membership(account_id, fname, email):
 
     neon.update_account_automation_run_status(account_id, "activated")
     msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
-    comms.send_email(msg.subject, msg.body, email, msg.html)
+    comms.send_email(msg.subject, msg.body, [email], msg.html)
     log.info(f"Sent email {msg}")
+    notify_async(
+        f"Activated deferred membership for {fname} ({email}, "
+        f"#{account_id}) as they've just signed in at the front desk"
+    )
 
 
 def submit_forms(form_data):
@@ -128,7 +139,9 @@ def get_member_and_activation_state(email):
     if len(mm) > 1:
         # Warn to membership automation channel that we have an account to deduplicate
         urls = [
-            f"  https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+            f"  [#{m['Account ID']}]"
+            + f"(https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}) "
+            + f"{m.get('First Name')} {m.get('Last Name')} ({m.get('Email 1')})"
             for m in mm
         ]
         notify_async(
@@ -266,10 +279,10 @@ def as_member(data, send):
         _apply_async(
             activate_membership, args=(m["Account ID"], m["First Name"], data["email"])
         )
+        result["status"] = "Active"  # Assume the activation went through
+    else:
+        result["status"] = m.get("Account Current Membership Status", "Unknown")
 
-    # Preferably select the Neon account with active membership.
-    # Note that the last `m` remains in context regardless of if we break.
-    result["status"] = m.get("Account Current Membership Status", "Unknown")
     result["firstname"] = m.get("First Name")
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
 

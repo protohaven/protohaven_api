@@ -61,9 +61,10 @@ function revert() {
 
 <Modal isOpen={edit} header="{edit && edit.date} {edit && edit.ap}">
 <ModalBody>
+{#if edit}
   Current shift:
   <ListGroup>
-  {#if edit && edit.techs.length == 0}
+  {#if edit.techs.length == 0}
     No techs on shift
   {/if}
   {#each edit.techs as t}
@@ -96,7 +97,7 @@ function revert() {
     </ListGroupItem>
     {/if}
   </ListGroup>
-
+{/if}
 </ModalBody>
 <ModalFooter>
   <div style="width: 100%">

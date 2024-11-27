@@ -8,8 +8,8 @@ from protohaven_api.commands import reservations as r
 from protohaven_api.testing import d, mkcli
 
 
-@pytest.fixture
-def cli(capsys):
+@pytest.fixture(name="cli")
+def fixture_cli(capsys):
     return mkcli(capsys, r)
 
 
@@ -24,7 +24,7 @@ def test_command_decorator():
     assert fn(None, []) == "no"
 
 
-def test_sync_reservable_tools_empty(mocker):
+def test_sync_reservable_tools_empty(mocker, cli):
     """Behavior is OK when no data"""
     mocker.patch.object(r, "airtable")
     mocker.patch.object(r, "booked")
@@ -35,17 +35,21 @@ def test_sync_reservable_tools_empty(mocker):
     r.booked.get_resource.return_value = {}
     r.booked.get_resource_id_to_name_map.return_value = {}
 
-    r.Commands().sync_reservable_tools([])
+    cli("sync_reservable_tools", ["--apply"])
     r.booked.update_resource.assert_not_called()
     r.booked.create_resource.assert_not_called()
 
 
-def test_sync_reservable_tools_nodiffs(mocker):
+def test_sync_reservable_tools_nodiffs(mocker, cli):
     mocker.patch.object(r, "airtable")
     mocker.patch.object(r, "booked")
     r.airtable.get_areas.return_value = [
         {"fields": {"Name": "Test Area", "Color": "#ffffff"}}
     ]
+    mocker.patch.object(
+        r.Commands, "_sync_reservable_tool", side_effect=lambda r, t: (r, [])
+    )
+
     r.airtable.get_tools.return_value = [
         {
             "id": "rec12345",
@@ -58,28 +62,27 @@ def test_sync_reservable_tools_nodiffs(mocker):
         }
     ]
     r.booked.get_resource_group_map.return_value = {"Test Area": 123}
-    r.booked.stage_custom_attributes.side_effect = lambda r, **c: (r, {})
-    r.booked.get_resource.return_value = {
-        "name": "Test Area - Test Tool",
-        "statusId": r.booked.STATUS_UNAVAILABLE,
-        "typeId": r.booked.TYPE_TOOL,
-        "color": "#ffffff",
-        "allowMultiday": False,
-    }
-    r.booked.get_resource_id_to_name_map.return_value = {1: "Test Tool"}
+    r.booked.get_resources.return_value = [
+        {"resourceId": 1, "name": "Test Area - Test Tool"}
+    ]
 
-    r.Commands().sync_reservable_tools(["--apply"])
+    cli("sync_reservable_tools", ["--apply"])
 
     r.booked.update_resource.assert_not_called()
     r.booked.create_resource.assert_not_called()
 
 
-def test_sync_reservable_tools_diff(mocker):
+def test_sync_reservable_tools_diff(mocker, cli):
     mocker.patch.object(r, "airtable")
     mocker.patch.object(r, "booked")
     r.airtable.get_areas.return_value = [
         {"fields": {"Name": "Test Area", "Color": "#ffffff"}}
     ]
+    mocker.patch.object(
+        r.Commands,
+        "_sync_reservable_tool",
+        side_effect=lambda r, t: ({**r, "statusId": 3}, ["test change"]),
+    )
     r.airtable.get_tools.return_value = [
         {
             "id": "rec12345",
@@ -92,26 +95,19 @@ def test_sync_reservable_tools_diff(mocker):
         }
     ]
     r.booked.get_resource_group_map.return_value = {"Test Area": 123}
-    r.booked.stage_custom_attributes.side_effect = lambda r, **c: (r, {})
-    r.booked.get_resource.return_value = {
-        "name": "Incorrect",
-        "statusId": r.booked.STATUS_AVAILABLE,
-        "typeId": "whatever",
-        "color": "wrong",
-        "allowMultiday": False,
-    }
+    r.booked.get_resources.return_value = [
+        {"resourceId": 1, "name": "Test Area - Test Tool"}
+    ]
     r.booked.get_resource_id_to_name_map.return_value = {1: "Test Tool"}
 
-    r.Commands().sync_reservable_tools(["--apply"])
+    cli("sync_reservable_tools", ["--apply"])
 
     r.booked.create_resource.assert_not_called()
     r.booked.update_resource.assert_called_with(
         {
+            "resourceId": 1,
             "name": "Test Area - Test Tool",
-            "statusId": r.booked.STATUS_UNAVAILABLE,
-            "typeId": r.booked.TYPE_TOOL,
-            "color": "#ffffff",
-            "allowMultiday": False,
+            "statusId": 3,
         }
     )
 

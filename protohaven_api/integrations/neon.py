@@ -183,6 +183,17 @@ def create_zero_cost_membership(account_id, start, end, level=None, term=None):
     )
 
 
+def get_latest_membership_id(account_id):
+    """Returns the ID of the membership with the latest start date, or None
+    if there are no memberships for the account under `account_id`."""
+    latest = (None, None)
+    for mem in fetch_memberships(account_id):
+        tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
+        if not latest[1] or latest[1] < tsd:
+            latest = (mem["id"], tsd)
+    return latest[0]
+
+
 def set_membership_date_range(membership_id, start, end):
     """Sets the termStartDate of the membership with id `membership_id`."""
     return neon_base.patch(
@@ -204,6 +215,13 @@ def set_discord_user(account_id, discord_user: str):
     """Sets the discord user used by this user"""
     return neon_base.set_custom_fields(
         account_id, (CustomField.DISCORD_USER, discord_user)
+    )
+
+
+def set_booked_user_id(account_id, booked_id: str):
+    """Sets the Booked Scheduler ID for this user"""
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.BOOKED_USER_ID, booked_id)
     )
 
 

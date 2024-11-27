@@ -30,8 +30,8 @@ def test_category_from_event_name():
     )
 
 
-@pytest.fixture
-def e(mocker):
+@pytest.fixture(name="e")
+def fixture_e(mocker):
     mocker.patch.object(C.airtable, "update_record")
     mocker.patch.object(C.neon, "set_event_scheduled_state")
     mocker.patch.object(C.neon, "assign_pricing")
@@ -40,8 +40,8 @@ def e(mocker):
     return C
 
 
-@pytest.fixture
-def cli(capsys):
+@pytest.fixture(name="cli")
+def fixture_cli(capsys):
     return mkcli(capsys, C)
 
 

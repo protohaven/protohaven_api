@@ -6,13 +6,19 @@ from unittest.mock import call
 import pytest
 
 from protohaven_api.commands import comms as c
-from protohaven_api.testing import idfn
+from protohaven_api.testing import idfn, mkcli
 
 Tc = namedtuple(
     "Tc",
     "desc,data,args,email,log,discord,intents_notified,scheduled_state",
     defaults=[None for _ in range(7)],
 )
+
+
+@pytest.fixture(name="cli")
+def fixture_cli(capsys):
+    """Create CLI fixture"""
+    return mkcli(capsys, c)
 
 
 @pytest.mark.parametrize(
@@ -117,7 +123,7 @@ Tc = namedtuple(
     ],
     ids=idfn,
 )
-def test_send_comms(mocker, tc):
+def test_send_comms(mocker, tc, cli):
     """Tes comms sent without an id (most basic)"""
     mocker.patch.object(c.comms, "send_discord_message")
     mocker.patch.object(c.comms, "send_email")
@@ -131,7 +137,7 @@ def test_send_comms(mocker, tc):
         if isinstance(tc.data, list) or tc.data is None
         else [tc.data],
     )
-    c.Commands().send_comms(["--path", "/asdf/ghsdf", "--confirm", *tc.args])
+    cli("send_comms", ["--path", "/asdf/ghsdf", "--confirm", *tc.args])
     for fn, tcall in [
         (c.comms.send_email, tc.email),
         (c.airtable.log_comms, tc.log),

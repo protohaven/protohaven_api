@@ -17,6 +17,7 @@ from protohaven_api.commands import (
     violations,
 )
 from protohaven_api.config import get_config
+from protohaven_api.integrations.cronicle import Progress
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
@@ -75,7 +76,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
             parser.print_help()
             sys.exit(1)
         getattr(self, args.command)(
-            sys.argv[2:]
+            sys.argv[2:], Progress()
         )  # Ignore first two argvs - already parsed
 
 

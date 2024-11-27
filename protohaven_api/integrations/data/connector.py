@@ -6,6 +6,7 @@ import random
 import time
 from email.mime.text import MIMEText
 from threading import Lock
+from urllib.parse import urljoin
 
 import asana
 import requests
@@ -156,15 +157,25 @@ class Connector:
         """Executes a function synchronously on the discord bot"""
         return getattr(discord_bot.get_client(), fn)(*args, **kwargs)
 
-    def booked_request(self, *args, **kwargs):
+    def booked_request(self, mode, api_suffix, *args, **kwargs):
         """Make a request to the Booked reservation system"""
+        url = urljoin(get_config("booked/base_url"), api_suffix.lstrip("/"))
         headers = {
             "X-Booked-ApiId": get_config("booked/id"),
             "X-Booked-ApiKey": get_config("booked/key"),
         }
-        return requests.request(
-            *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+        r = requests.request(
+            mode, url, *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
         )
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"booked_request(mode={mode}, url={url}, args={args}, "
+                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+            )
+        try:
+            return r.json()
+        except requests.exceptions.JSONDecodeError:
+            return r.content
 
     def square_client(self):
         """Create and return Square API client"""
