@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from protohaven_api.config import tz
+from protohaven_api.integrations.cronicle import Progress
 from protohaven_api.main import app
 
 
@@ -51,7 +52,7 @@ def mkcli(capsys, module):
     """Invoke CLI, read stdout, and return yaml-ized result text."""
 
     def run(cmd: str, args: list, parse_yaml=True):
-        getattr(module.Commands(), cmd)(args)
+        getattr(module.Commands(), cmd)(args, Progress())
         captured = capsys.readouterr()
         return yaml.safe_load(captured.out) if parse_yaml else captured.out.strip()
 

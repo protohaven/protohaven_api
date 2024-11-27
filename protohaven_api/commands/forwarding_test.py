@@ -49,7 +49,10 @@ def test_tech_sign_ins(mocker, tc, cli):
         "generate",
         return_value={
             "calendar_view": [
-                [{"people": [AM_TECH["name"]]}, {"people": [PM_TECH["name"]]}]
+                {
+                    "AM": {"people": [AM_TECH["name"]]},
+                    "PM": {"people": [PM_TECH["name"]]},
+                }
             ]
         },
     )

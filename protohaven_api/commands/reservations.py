@@ -8,7 +8,7 @@ from functools import lru_cache
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import exec_details_footer, get_config, tz
+from protohaven_api.config import get_config, tz
 from protohaven_api.integrations import airtable, booked, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -185,6 +185,9 @@ class Commands:
 
         log.info(f'{tool_code} #{resource_id} "{name}"')
         r = booked.get_resource(resource_id)
+        reservable = t["fields"].get("Current Status", "Unknown").split()[
+            0
+        ].lower() in ("green", "yellow")
         return booked.stage_tool_update(
             r,
             {
@@ -192,7 +195,7 @@ class Commands:
                 "tool_code": tool_code,
                 "clearance_code": clearance_code,
             },
-            reservable=True,
+            reservable=reservable,
             name=f"{area} - {name}",
             color=self._area_colors().get(area) or "",
             # 3D printers allow reservations across days
@@ -294,7 +297,9 @@ class Commands:
                 continue
             r = all_resources.get(t["fields"].get("BookedResourceId"))
             if not r:
-                summary.append(f"Create placeholder resource for {t['fields']['Name']}")
+                summary.append(
+                    f"Create placeholder resource for {t['fields'].get('Tool Name')}"
+                )
                 log.info(summary[-1])
                 if args.apply:
                     r = booked.create_resource("placeholder")
@@ -340,11 +345,11 @@ class Commands:
                         target="#tool-automation",
                         changes=summary,
                         n=len(summary),
-                        footer=exec_details_footer(),
                     )
                 ]
             )
-        print_yaml([])
+        else:
+            print_yaml([])
 
     def _fetch_neon_sources(self):
         neon_members = {}
@@ -392,7 +397,7 @@ class Commands:
     )
     def sync_booked_members(
         self, args, pct
-    ):  # pylint: disable=too-many-statements, too-many-locals
+    ):  # pylint: disable=too-many-statements, too-many-locals, too-many-branches
         """Ensures that members are able to reserve tools, and non-members are not.
 
         Members are authed to Booked using their first name, last name, and email address.
@@ -418,6 +423,9 @@ class Commands:
                     if u.get("errors"):
                         for e in u["errors"]:
                             log.error(e)
+                        summary.append(
+                            f"Error(s) setting up Booked user for {k}: {u.get('errors')}"
+                        )
                         continue
                     bid = u["userId"]
                     booked_members.add(int(bid))
@@ -474,8 +482,8 @@ class Commands:
                         target="#tool-automation",
                         changes=summary,
                         n=len(summary),
-                        footer=exec_details_footer(),
                     )
                 ]
             )
-        print_yaml([])
+        else:
+            print_yaml([])

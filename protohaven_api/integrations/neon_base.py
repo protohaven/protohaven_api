@@ -10,9 +10,12 @@ from bs4 import BeautifulSoup
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
-from protohaven_api.integrations.data.neon import ADMIN_URL, URL_BASE, Category
+from protohaven_api.integrations.data.neon import Category
 
 log = logging.getLogger("integrations.neon_base")
+
+BASE_URL = get_config("neon/base_url")
+ADMIN_URL = get_config("neon/admin_url")
 
 
 def paginated_fetch(api_key, path, params=None):
@@ -27,7 +30,8 @@ def paginated_fetch(api_key, path, params=None):
         content = get_connector().neon_request(
             get_config("neon")[api_key],
             "GET",
-            f"{URL_BASE}{path}?{urllib.parse.urlencode(params)}",
+            urllib.parse.urljoin(BASE_URL, path.lstrip("/"))
+            + f"?{urllib.parse.urlencode(params)}",
         )
         if isinstance(content, list):
             raise RuntimeError(content)
@@ -53,7 +57,7 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
         content = get_connector().neon_request(
             get_config("neon/api_key2"),
             "POST",
-            f"{URL_BASE}/{typ}/search",
+            urllib.parse.urljoin(BASE_URL, f"{typ}/search"),
             data=json.dumps(data),
             headers={"content-type": "application/json"},
         )
@@ -88,19 +92,19 @@ def fetch_account(account_id, required=False):
 
 def get(api_key, path):
     """Send an HTTP GET request"""
-    assert path.startswith("/")
     return get_connector().neon_request(
-        get_config("neon")[api_key], "GET", URL_BASE + path
+        get_config("neon")[api_key],
+        "GET",
+        urllib.parse.urljoin(BASE_URL, path.lstrip("/")),
     )
 
 
 def _req(api_key, path, method, body):
-    assert path.startswith("/")
     log.info(f"{api_key} {path} {method}")
     return get_connector().neon_request(
         get_config("neon")[api_key],
         method,
-        URL_BASE + path,
+        urllib.parse.urljoin(BASE_URL, path.lstrip("/")),
         data=json.dumps(body),
         headers={"content-type": "application/json"},
     )
@@ -124,7 +128,9 @@ def post(api_key, path, body):
 def delete(api_key, path):
     """Send an HTTP DELETE request"""
     return get_connector().neon_request(
-        get_config("neon")[api_key], "DELETE", URL_BASE + path
+        get_config("neon")[api_key],
+        "DELETE",
+        urllib.parse.urljoin(BASE_URL, path.lstrip("/")),
     )
 
 
@@ -551,7 +557,7 @@ def create_event(  # pylint: disable=too-many-arguments
     evt_request = get_connector().neon_request(
         get_config("neon/api_key3"),
         "POST",
-        f"{URL_BASE}/events",
+        urllib.parse.urljoin(BASE_URL, "events"),
         data=json.dumps(event),
         headers={"content-type": "application/json"},
     )

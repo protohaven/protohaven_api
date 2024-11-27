@@ -15,7 +15,7 @@ def fixture_client():
 
 NEW_MEMBERSHIP_WEBHOOK_DATA = {
     "data": {
-        "membership": {
+        "membershipEnrollment": {
             "membershipId": 134,
             "accountId": 123958,
             "membershipTerm": {
@@ -32,8 +32,10 @@ NEW_MEMBERSHIP_WEBHOOK_DATA = {
             "termEndDate": "2024-08-31-05:00",
             "enrollmentType": "JOIN",
             "status": "Succeed",
-            "transaction": {},
-        }
+        },
+        "transaction": {
+            "transactionStatus": "SUCCESS",
+        },
     },
     "customParameters": {
         "api_key": "TEST KEY",  # pragma: allowlist secret
@@ -44,7 +46,7 @@ NEW_MEMBERSHIP_WEBHOOK_DATA = {
 @pytest.mark.parametrize(
     "field_value,does_init",
     [
-        (None, True),
+        (None, True),  # If not initialized, do so
         ("asdf", False),  # Bail if setup is already done
     ],
 )

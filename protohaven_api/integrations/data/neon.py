@@ -1,9 +1,6 @@
 """Constants and other datatypes for Neon integration"""
 from dataclasses import dataclass
 
-URL_BASE = "https://api.neoncrm.com/v2"
-ADMIN_URL = "https://protohaven.app.neoncrm.com/np/admin"
-
 
 class CustomFieldNotFoundError(RuntimeError):
     """Raised when the custom field is not found by an ID"""

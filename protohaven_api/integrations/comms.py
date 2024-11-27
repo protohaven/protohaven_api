@@ -11,6 +11,7 @@ from functools import lru_cache
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations.cronicle import exec_details_footer
 from protohaven_api.integrations.data.connector import get as get_connector
 
 
@@ -72,6 +73,8 @@ class Msg:
     @classmethod
     def tmpl(cls, tmpl, **kwargs):
         """Construct a `Msg` object via a template."""
+        if "footer" not in kwargs:
+            kwargs["footer"] = exec_details_footer()
         subject, body, is_html = render(tmpl, **kwargs)
         self_args = {k: v for k, v in kwargs.items() if k in cls.EXTRA_FIELDS}
         return cls(**self_args, subject=subject, body=body, html=is_html)

@@ -16,7 +16,8 @@ from protohaven_api.commands import (
     roles,
     violations,
 )
-from protohaven_api.config import get_config, get_execution_log_link
+from protohaven_api.config import get_config
+from protohaven_api.integrations.cronicle import Progress
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
@@ -39,25 +40,6 @@ if get_config("discord_bot/enabled", as_bool=True):
     )  # Hacky - should use `wait_until_ready` but there's threading problems
 else:
     log.debug("Skipping startup of discord bot")
-
-
-class Progress:
-    """A simple progress reporter that allows for multiple stages/loops"""
-
-    def __init__(self, n=1, on=None):
-        self.on = on or (get_execution_log_link() is not None)
-        self.n = n
-
-    def set_stages(self, n):
-        """Set the number of stages of progress"""
-        self.n = n
-
-    def __setitem__(self, i, v):
-        """Writes progress to stdout for reading by Cronicle.
-        This is omitted if we're not running as a cronicle job."""
-        pct = f"{(v + i) / self.n:.2f}"
-        if self.on:
-            print('{ "progress": ' + pct + " }")
 
 
 class ProtohavenCLI(  # pylint: disable=too-many-ancestors

@@ -10,11 +10,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import (  # pylint: disable=import-error
-    exec_details_footer,
-    tz,
-    tznow,
-)
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     neon,
     neon_base,
@@ -89,7 +85,6 @@ class Commands:
                     "square_validation_action_needed",
                     unpaid=unpaid,
                     untaxed=untaxed,
-                    footer=exec_details_footer(),
                     target="#finance-automation",
                 )
             ]
@@ -192,14 +187,14 @@ class Commands:
             type=str,
         ),
     )
-    def validate_memberships(self, args, _):
+    def validate_memberships(self, args, pct):
         """Loops through all accounts and verifies that memberships are correctly set"""
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
         problems = list(
             self._validate_memberships_internal(
-                args.write_cache, args.read_cache, args.member_ids
+                args.write_cache, args.read_cache, args.member_ids, pct
             )
         )
         if len(problems) > 0:
@@ -213,13 +208,17 @@ class Commands:
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def _validate_memberships_internal(
-        self, write_cache=None, read_cache=None, member_ids=None
+        self, write_cache=None, read_cache=None, member_ids=None, pct=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
         household_paying_member_count = defaultdict(int)
         household_num_addl_members = defaultdict(int)
         company_member_count = defaultdict(int)
         member_data = {}
+        if pct:
+            pct.set_stages(2)
+        else:
+            pct = {}
 
         if read_cache:
             with open(read_cache, "rb") as f:
@@ -229,14 +228,17 @@ class Commands:
                     household_num_addl_members,
                     company_member_count,
                 ) = pickle.load(f)
+            pct[0] = 1.0
         else:
-            # We search for NOT a bogus email to get all members, then collect
+            # We search for NOT a bogus email to get all accounts, then collect
             # data before analysis in order to count paying household & company members
             log.info("Collecting member details")
             n = 0
-            for mem in neon.search_member(
-                "noreply@protohaven.org", operator="NOT_EQUAL"
+            for i, mem in enumerate(
+                neon.search_member("noreply@protohaven.org", operator="NOT_EQUAL")
             ):
+                # This should really pull total from paginated_search
+                pct[0] = max(0.5, i / 6000)
                 log.info(f"#{mem['Account ID']}")
                 if mem["Account Current Membership Status"].lower() != "active":
                     continue
@@ -331,7 +333,9 @@ class Commands:
 
         log.info("Validating member details")
 
-        for aid, details in member_data.items():
+        for i, md in enumerate(member_data.items()):
+            aid, details = md
+            pct[1] = i / len(member_data)
             if member_ids is not None and aid not in member_ids:
                 continue
 
@@ -388,7 +392,7 @@ class Commands:
                 ):
                     result.append(
                         f"Abnormal zero-cost membership {am['level']} "
-                        "('Zero Cost OK Until' is missing, expired, or not YYYY-MM-DD format)"
+                        "('Zero Cost OK Until' date missing, expired, invalid, or not YYYY-MM-DD)"
                     )
                     log.info(f"Abnormal zero-cost: {details} - active membership {am}")
             if am.get("end_date") is None:
@@ -508,7 +512,6 @@ class Commands:
                     "membership_init_summary",
                     summary=summary,
                     target="#membership-automation",
-                    footer=exec_details_footer(),
                 )
             )
         print_yaml(result)

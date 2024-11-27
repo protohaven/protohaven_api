@@ -18,6 +18,8 @@ openai:
   api_key: "${OPENAI_API_KEY}"
 neon:
   domain: "protohaven"
+  base_url: "https://api.neoncrm.com/v2/"
+  admin_url: "https://protohaven.app.neoncrm.com/np/admin/"
   oauth_client_id: "${NEON_OAUTH_CLIENT_ID}"
   oauth_client_secret: "${NEON_OAUTH_CLIENT_SECRET}"
   api_key1: "${NEON_API_KEY1}"

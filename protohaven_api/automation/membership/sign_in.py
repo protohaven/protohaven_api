@@ -139,7 +139,9 @@ def get_member_and_activation_state(email):
     if len(mm) > 1:
         # Warn to membership automation channel that we have an account to deduplicate
         urls = [
-            f"  https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+            f"  [#{m['Account ID']}]"
+            + f"(https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}) "
+            + f"{m.get('First Name')} {m.get('Last Name')} ({m.get('Email 1')})"
             for m in mm
         ]
         notify_async(

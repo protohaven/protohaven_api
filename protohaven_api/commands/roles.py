@@ -7,7 +7,7 @@ from collections import defaultdict
 
 from protohaven_api.automation.roles import roles
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import exec_details_footer, tznow
+from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -281,7 +281,6 @@ class Commands:  # pylint: disable=too-few-public-methods
                     n=len(changes),
                     notified=notified,
                     m=m,
-                    footer=exec_details_footer(),
                 )
             )
 

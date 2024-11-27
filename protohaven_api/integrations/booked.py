@@ -163,10 +163,8 @@ def stage_tool_update(r, custom_attributes, reservable=True, **kwargs):
         )
     for k, v in kwargs.items():
         if str(r[k]) != str(v):
-            log.warning(
-                f"Changing {k} from {_fmt_update(k,r[k])} to {_fmt_update(k,v)}"
-            )
-            changes.append(f"{k} ({r[k]}->{v})")
+            changes.append(f"{k} ({_fmt_update(k,r[k])}->{_fmt_update(k,v)})")
+            log.warning(changes[-1])
             r[k] = v
     return r, changes
 

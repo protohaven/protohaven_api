@@ -10,11 +10,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import (  # pylint: disable=import-error
-    exec_details_footer,
-    tz,
-    tznow,
-)
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
@@ -121,7 +117,7 @@ class Commands:
             )
 
     @command()
-    def class_proposals(self, _):
+    def class_proposals(self, _1, _2):
         """Send reminders to take action on proposed classes"""
         num = 0
         unapproved_classes = []
@@ -301,8 +297,9 @@ class Commands:
 
         # Current day from calendar
         techs_on_duty = forecast.generate(now, 1)["calendar_view"][0]
+        log.info(f"Forecast: {techs_on_duty}")
         # Pick AM vs PM shift
-        techs_on_duty = techs_on_duty[0 if shift.endswith("AM") else 1]["people"]
+        techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {
             t["email"]: t["name"]
@@ -335,7 +332,6 @@ class Commands:
                         (v, rev_email_map.get(v, "unknown email"))
                         for v in techs_on_duty
                     ],
-                    footer=exec_details_footer(),
                 )
             )
 

@@ -19,6 +19,7 @@ def test_activate_membership_ok(mocker):
     mock_response.status_code = 200
 
     mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
+    mocker.patch.object(s.neon, "get_latest_membership_id", return_value="5678")
     m1 = mocker.patch.object(
         s.neon, "set_membership_date_range", return_value=mock_response
     )
@@ -32,19 +33,21 @@ def test_activate_membership_ok(mocker):
 
     s.activate_membership("12345", "John", email)
 
-    m1.assert_called_once_with("12345", mocker.ANY, mocker.ANY)
+    m1.assert_called_once_with("5678", mocker.ANY, mocker.ANY)
     m2.assert_called_once_with("12345", "activated")
     s.comms.Msg.tmpl.assert_called_once_with(
         "membership_activated", fname="John", target=email
     )
-    m3.assert_called_once_with("Subject", "Body", email, True)
+    m3.assert_called_once_with("Subject", "Body", [email], True)
 
 
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
-    mock_response = mocker.Mock(status_code=500, content="Internal Server Error")
     mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(s.neon, "set_membership_date_range", return_value=mock_response)
+    mocker.patch.object(s.neon, "get_latest_membership_id", return_value="5678")
+    mocker.patch.object(
+        s.neon, "set_membership_date_range", side_effect=RuntimeError("Error 500")
+    )
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(s.comms, "send_email")
     mocker.patch.object(s, "notify_async")
