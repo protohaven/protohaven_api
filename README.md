@@ -141,25 +141,33 @@ rm -r ./protohaven_api/static/svelte/*
 
 And push the new files to the static svelte directory.
 ```
-scp -r build <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/protohaven_api/static/svelte/
+scp -r build <USER>@<ADDRESS>:/home/<USER>/server_config/api/api_staging/protohaven_api/protohaven_api/static/svelte/
 ```
 
 Finally, restart the service and check its status
 ```
-sudo systemctl restart staging_protohaven_api.service
-sudo systemctl status staging_protohaven_api.service
+cd path/to/staging
+docker compose restart
 ```
 
 Follow the [QA check steps](docs/qa.md) (testing with https://staging.protohaven.api), then turn the staging instance off again to conserve on host RAM:
 
 ```
-sudo systemctl stop staging_protohaven_api.service
+cd path/to/staging
+docker compose stop
 ```
 
 When staging is observed to work properly, do the same for prod (just remove all references to `staging_` in the above instructions). The SCP command can be replaced with
 ```
-rm -r ~/protohaven_api/protohaven_api/static/svelte/* && \
-cp -r ~/staging_protohaven_api/protohaven_api/static/svelte/* ~/protohaven_api/protohaven_api/static/svelte/
+rm -r ~/server_config/api/api_prod/protohaven_api/protohaven_api/static/svelte/* && \
+cp -r ~/server_config/api/api_staging/protohaven_api/protohaven_api/static/svelte/* ~/server_config/api/api_prod/protohaven_api/protohaven_api/static/svelte/
+```
+
+Then restart the prod server:
+
+```
+cd path/to/prod/
+docker compose restart
 ```
 
 ## Wordpress plugins
