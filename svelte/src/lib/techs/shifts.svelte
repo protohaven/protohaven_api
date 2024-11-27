@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Table, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Label, Accordion, AccordionItem, Button, Row, Container, Col, Card, CardHeader, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import Editor from './forecast_override.svelte';
 import Calendar from './calendar.svelte';
 import FetchError from '../fetch_error.svelte';
@@ -9,6 +9,19 @@ import {get, post, isodate} from '$lib/api.ts';
 
 export let user;
 export let visible;
+
+const DEFAULT_DURATION = 14;
+
+let start_date = isodate(new Date());
+let end_date = new Date(start_date);
+end_date.setDate(end_date.getDate() + DEFAULT_DURATION);
+end_date = isodate(end_date);
+
+function days_between(d1, d2) {
+  // https://stackoverflow.com/a/2627493
+  return Math.round(Math.abs((new Date(end_date) - new Date(start_date)) / (24*60*60*1000)));
+}
+
 let loaded = false;
 let promise = new Promise((resolve) => {calendar_view: [{
   filler: false,
@@ -17,7 +30,8 @@ let promise = new Promise((resolve) => {calendar_view: [{
   edited: false,
 }]});
 function refresh() {
-  promise = get("/techs/forecast").then((data) => {
+  const diff_days = days_between(start_date, end_date) + 1; // Inclusive
+  promise = get(`/techs/forecast?date=${isodate(start_date)}&days=${diff_days}`).then((data) => {
     loaded = true;
 
     // Left pad data until we hit a Sunday
@@ -38,6 +52,31 @@ function refresh() {
     return cal;
   });
 }
+function date_changed(was_start) {
+  console.log("date_changed");
+  let fix = null;
+  let start = new Date(start_date);
+  let end = new Date(end_date);
+  if (!end || end < start) {
+    fix = DEFAULT_DURATION;
+  } else if (days_between(start_date, end_date) > 60) {
+    fix = 60;
+  }
+
+  if (fix) {
+    console.log("fix", fix);
+    if (was_start) {
+      end_date = new Date(start_date);
+      end_date.setDate(end_date.getDate() + fix);
+      end_date = isodate(end_date);
+    } else {
+      start_date = new Date(end_date);
+      start_date.setDate(start_date.getDate() - fix);
+      start_date = isodate(start_date);
+    }
+  }
+  refresh();
+}
 $: {
   if (visible && !loaded) {
     refresh();
@@ -47,11 +86,12 @@ $: {
 let edit = null;
 
 function start_edit(s, ap) {
- let e = {ap: ap, date: s.date, techs: s.people, ...user};
- if (s.ovr) {
-   e = {...e, id: s.ovr.id, orig: s.ovr.orig, editor: s.ovr.editor};
+  console.log(s, ap);
+ let e = {ap: ap, date: s.date, techs: s[ap].people, ...user};
+ if (s[ap].ovr) {
+   e = {...e, id: s[ap].ovr.id, orig: s[ap].ovr.orig, editor: s[ap].ovr.editor};
  }
-  edit = e;
+ edit = e;
 }
 
 </script>
@@ -59,10 +99,17 @@ function start_edit(s, ap) {
 <style>
 .calendar {
   display: grid;
+  gap: 5px;
   grid-template-columns: repeat(7, 1fr);
+  @media (max-width: 920px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 .header {
   text-align: center;
+  @media (max-width: 920px) {
+    display: none;
+  }
 }
 .filler {
   background-color: #EEE;
@@ -76,6 +123,15 @@ function start_edit(s, ap) {
   <p>An editable forecast of upcoming shifts.</p>
   </CardHeader>
 <CardBody>
+  <FormGroup>
+    <Label>Start Date</Label>
+    <Input type="date" bind:value={start_date} on:change={() => date_changed(true)}/>
+  </FormGroup>
+  <FormGroup>
+    <Label>End Date</Label>
+    <Input type="date" bind:value={end_date} on:change={() => date_changed(false)}/>
+  </FormGroup>
+
 {#await promise}
 	<Spinner/>Loading...
 {:then p}
@@ -92,20 +148,19 @@ function start_edit(s, ap) {
     <div class="filler"></div>
   {:else}
     <Card class="day">
-      <CardHeader><CardTitle>{v.date}</CardTitle></CardHeader>
-      <CardBody>
+      <div>{v.date}</div>
+      <div class="my-2">
       {#each ["AM", "PM"] as ap}
-      <h5>{ap}</h5>
+      <div>{#if v[ap].ovr}*{/if}{ap}</div>
       <Button id={v[ap].id} class="p-2 mx-2" color={v[ap].color} on:click={() => start_edit(v, ap)}>
-      {#if v[ap].ovr}*{/if}
       {#if v[ap].people.length === 0}
         Nobody on shift!
       {:else}
-        {#each v[ap].people as ppl}<div>{ppl}</div>{/each}
+        {#each v[ap].people as ppl}<div class="my-2">{ppl}</div>{/each}
       {/if}
       </Button>
       {/each}
-      </CardBody>
+      </div>
     </Card>
   {/if}
   {/each}
