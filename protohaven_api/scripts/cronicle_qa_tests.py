@@ -355,11 +355,15 @@ if __name__ == "__main__":
             },
         ),
     ]
+    prober_commands = [
+        ("probe_events", test_simple, "em3xcyglgdj", {}),
+        ("probe_homepage", test_simple, "em403g0czew", {}),
+    ]
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--base_url",
-        default="https://cronicle.api.protohaven.org/",
+        default="https://cron.protohaven.org/",
         help="Base URL for Cronicle commands",
     )
     parser.add_argument(
@@ -384,7 +388,8 @@ if __name__ == "__main__":
     assert input('Type "none upcoming" and press Enter to proceed: ') == "none upcoming"
 
     tests = (
-        readonly_commands
+        prober_commands
+        + readonly_commands
         + asana_task_completing_commands
         + additive_commands
         + destructive_commands
@@ -404,6 +409,7 @@ if __name__ == "__main__":
                 args.after = None
             continue
 
+        log.info(f"Run test: {tc}")
         if len(tc) == 4:
             fn(eid, tc[3])
         else:

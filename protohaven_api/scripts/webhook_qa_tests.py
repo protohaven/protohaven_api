@@ -117,13 +117,15 @@ def run_neon_membership_created_callback_test(params):
                 "api_key": params.api_key.decode("utf8"),
             },
             "data": {
-                "membership": {
+                "membershipEnrollment": {
                     "accountId": m["Account ID"],
                     "membershipId": mem["id"],
                     "membershipName": "Test Membership",
                     "fee": 115,  # We lie about the fee to trigger execution
                     "enrollmentType": "JOIN",
-                    "status": "SUCCEEDED",
+                },
+                "transaction": {
+                    "transactionStatus": "SUCCEEDED",
                 },
             },
         },
@@ -155,11 +157,19 @@ def run_neon_membership_created_callback_test(params):
         "date set appropriately**"
     )
 
+    print(f"Cleaning up membership {mem['id']}")
+    # Note: this is a `neon_base` call and not a function in `neon` as it feels
+    # pretty risky to have a "delete this normally archival data" function just
+    # laying around to be used elsewhere.
+    print(neon_base.delete("api_key2", f"/memberships/{mem['id']}"))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--base_url", default="https://staging.protohaven.org", help="base URL to test"
+        "--base_url",
+        default="https://staging.api.protohaven.org",
+        help="base URL to test",
     )
     parser.add_argument(
         "--user",
@@ -174,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--verify_ssl",
         action=argparse.BooleanOptionalAction,
-        default=False,
+        default=True,
         help="if True, prevent web request if SSL cert is invalid",
     )
     parser.add_argument(

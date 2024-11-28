@@ -16,7 +16,12 @@ const config = {
 			fallback: undefined,
 			precompress: false,
 			strict: true
-		})
+		}),
+    prerender: {
+      // we manually map HTTP anchor tags to elements in /techs; suppress
+      // warnings where anchors don't map directly to elements
+      handleMissingId: 'ignore',
+    }
 	}
 };
 
