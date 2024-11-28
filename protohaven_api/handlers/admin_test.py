@@ -34,7 +34,7 @@ NEW_MEMBERSHIP_WEBHOOK_DATA = {
             "status": "Succeed",
         },
         "transaction": {
-            "transactionStatus": "SUCCESS",
+            "transactionStatus": "SUCCEEDED",
         },
     },
     "customParameters": {
