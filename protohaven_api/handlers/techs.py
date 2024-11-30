@@ -129,11 +129,11 @@ def techs_forecast():
     return forecast.generate(date, forecast_len)
 
 
-def _notify_override(name, shift, people):
+def _notify_override(name, shift, techs):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
     msg = (
-        f"**Shift Override by {name}**:\n\n**On duty for {shift}**: {', '.join(people)}"
+        f"**Shift Override by {name}**:\n\n**On duty for {shift}**: {', '.join(techs)}"
         "\n\n*Make additional changes to the shift schedule "
         "[here](https://api.protohaven.org/techs#cal) (requires login)*"
     )
@@ -162,7 +162,7 @@ def techs_forecast_override():
         )
         if status != 200:
             return Response(content, status=status)
-        _notify_override(fullname, f"{date} {ap}", orig)
+        _notify_override(fullname, f"{date} {ap}", techs)
         return content
     if request.method == "DELETE":
         ret = airtable.delete_forecast_override(data["id"])

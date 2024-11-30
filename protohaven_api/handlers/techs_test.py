@@ -9,6 +9,22 @@ from protohaven_api.rbac import Role, set_rbac
 from protohaven_api.testing import MatchStr, fixture_client, setup_session
 
 
+@pytest.fixture()
+def tech_client(client):
+    with client.session_transaction() as session:
+        session["neon_account"] = {
+            "accountCustomFields": [
+                {"name": "API server role", "optionValues": [{"name": "Shop Tech"}]},
+            ],
+            "primaryContact": {
+                "firstName": "First",
+                "lastName": "Last",
+                "email1": "foo@bar.com",
+            },
+        }
+    return client
+
+
 def test_techs_all_status(client, mocker):
     setup_session(client, [Role.SHOP_TECH_LEAD])
     mocker.patch.object(tl.neon, "fetch_techs_list", return_value=[])
@@ -122,3 +138,47 @@ def test_techs_event_registration_missing_args(client, mocker):
     assert client.post("/techs/event", json={}).status_code == 400
     tl.neon.register_for_event.assert_not_called()
     tl.neon.delete_single_ticket_registration.assert_not_called()
+
+
+def test_techs_forecast_override_post(mocker, tech_client):
+    mocker.patch.object(
+        tl.airtable, "set_forecast_override", return_value=(200, "Success")
+    )
+    mocker.patch.object(tl.comms, "send_discord_message")
+    response = tech_client.post(
+        "/techs/forecast/override",
+        json={
+            "id": "123",
+            "fullname": "John Doe",
+            "date": "2023-10-01",
+            "ap": "AM",
+            "techs": ["Tech1", "Tech2"],
+            "email": "john.doe@example.com",
+        },
+    )
+    assert response.status_code == 200
+    assert response.data.decode() == "Success"
+    tl.comms.send_discord_message.assert_called_once_with(
+        MatchStr("Tech1, Tech2"), "#techs", blocking=False
+    )
+
+
+def test_techs_forecast_override_delete(mocker, tech_client):
+    mocker.patch.object(tl.airtable, "delete_forecast_override", return_value="Deleted")
+    mocker.patch.object(tl.comms, "send_discord_message")
+    response = tech_client.delete(
+        "/techs/forecast/override",
+        json={
+            "id": "123",
+            "fullname": "John Doe",
+            "date": "2023-10-01",
+            "ap": "AM",
+            "techs": ["Tech3"],
+            "orig": ["Tech1", "Tech2"],
+        },
+    )
+    assert response.status_code == 200
+    assert response.data.decode() == "Deleted"
+    tl.comms.send_discord_message.assert_called_once_with(
+        MatchStr("Tech1, Tech2"), "#techs", blocking=False
+    )
