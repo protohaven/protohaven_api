@@ -8,7 +8,7 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, comms, neon, neon_base
 from protohaven_api.rbac import Role, get_roles
 from protohaven_api.rbac import is_enabled as is_rbac_enabled
 from protohaven_api.rbac import require_login_role
@@ -129,25 +129,46 @@ def techs_forecast():
     return forecast.generate(date, forecast_len)
 
 
+def _notify_override(name, shift, people):
+    """Sends notification of state of class to the techs and instructors channels
+    when a tech (un)registers to backfill a class."""
+    msg = (
+        f"**Shift Override by {name}**:\n\n**On duty for {shift}**: {', '.join(people)}"
+        "\n\n*Make additional changes to the shift schedule "
+        "[here](https://api.protohaven.org/techs#cal) (requires login)*"
+    )
+    comms.send_discord_message(msg, "#techs", blocking=False)
+
+
 @page.route("/techs/forecast/override", methods=["POST", "DELETE"])
 @require_login_role(Role.SHOP_TECH)
 def techs_forecast_override():
     """Update/remove forecast overrides on shop tech forecast"""
     data = request.json
+    _id = data.get("id")
+    fullname = data.get("fullname")
+    date = data.get("date")
+    ap = data.get("ap")
+    techs = data.get("techs")
+    orig = data.get("orig")
     if request.method == "POST":
         status, content = airtable.set_forecast_override(
-            data.get("id"),
-            data["date"],
-            data["ap"],
-            data["techs"],
+            _id,
+            date,
+            ap,
+            techs,
             data.get("email"),
-            data.get("fullname"),
+            fullname,
         )
         if status != 200:
             return Response(content, status=status)
+        _notify_override(fullname, f"{date} {ap}", orig)
         return content
     if request.method == "DELETE":
-        return airtable.delete_forecast_override(data["id"])
+        ret = airtable.delete_forecast_override(data["id"])
+        if ret:
+            _notify_override(fullname, f"{date} {ap}", orig)
+        return ret
 
     return Response(f"Method {request.method} not supported", status=400)
 
@@ -243,6 +264,29 @@ def techs_backfill_events():
     return for_techs
 
 
+def _notify_registration(account_id, event_id, action):
+    """Sends notification of state of class to the techs and instructors channels
+    when a tech (un)registers to backfill a class."""
+    acc = neon_base.fetch_account(account_id, required=True)
+    evt = neon.fetch_event(event_id)
+    attendees = {
+        a["accountId"]
+        for a in neon.fetch_attendees(event_id)
+        if a["registrationStatus"] == "SUCCEEDED"
+    }
+    action = "registered for" if action == "register" else "unregistered from"
+    msg = (
+        f"**{acc['firstName']} {acc['lastName']} {action} {evt['name']} on {evt['startDate']}**"
+        f"\n\nSeats remaining: {evt['capacity'] - len(attendees)}"
+    )
+    comms.send_discord_message(msg, "#instructors", blocking=False)
+    msg += (
+        "\n\n*Make registration changes [here](https://api.protohaven.org/techs#events "
+        "(login required)"
+    )
+    comms.send_discord_message(msg, "#techs", blocking=False)
+
+
 @page.route("/techs/event", methods=["POST"])
 @require_login_role(Role.SHOP_TECH)
 def techs_event_registration():
@@ -258,7 +302,12 @@ def techs_event_registration():
         return Response("Invalid argument", status=400)
 
     if action == "register":
-        return neon.register_for_event(account_id, event_id, ticket_id)
-    return neon.delete_single_ticket_registration(account_id, event_id) or {
-        "status": "ok"
-    }
+        ret = neon.register_for_event(account_id, event_id, ticket_id)
+    else:
+        ret = neon.delete_single_ticket_registration(account_id, event_id) or {
+            "status": "ok"
+        }
+    if ret:
+        _notify_registration(account_id, event_id, action)
+        return ret
+    raise RuntimeError("Unknown error handling event registration state")

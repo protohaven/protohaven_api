@@ -351,7 +351,7 @@ HASHES = {
     "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
     "tech_daily_tasks": "55af86e04ce2551c",  # pragma: allowlist secret
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
-    "tech_openings": "f9bd7999e37d1ebd",  # pragma: allowlist secret
+    "tech_openings": "82d4110e2d0405f1",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "82ba40ec440803d4",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret

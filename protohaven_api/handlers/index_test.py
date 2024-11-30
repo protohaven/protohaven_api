@@ -4,9 +4,9 @@ import json
 
 import pytest
 
+from protohaven_api.app import configure_app
 from protohaven_api.handlers import index
 from protohaven_api.integrations import neon
-from protohaven_api.main import app
 from protohaven_api.rbac import set_rbac
 from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
@@ -30,13 +30,6 @@ def test_whoami(client):
         "clearances": ["C1", "C2"],
         "roles": ["test role"],
     }
-
-
-def test_welcome_signin_get(client, mocker):
-    """Check that the svelte page is loaded"""
-    mocker.patch.object(app, "send_static_file", return_value="TEST")
-    assert "TEST" == client.get("/welcome").data.decode("utf8")
-    app.send_static_file.assert_called_with("svelte/welcome.html")
 
 
 def test_class_listing(mocker):

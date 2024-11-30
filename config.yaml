@@ -7,7 +7,7 @@ general:
   unsafe_no_rbac: "${UNSAFE_NO_RBAC}"
   session_secret: "${SESSION_SECRET}"
   admin_users: ["1245"]
-  precache_sign_in: true
+  precache_sign_in: "${PRECACHE_SIGN_IN}"
   external_access_codes:
     "${EXTERNAL_ACCESS_CODES_AUTOMATION}": ["Automation"]
 cronicle:

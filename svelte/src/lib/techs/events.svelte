@@ -59,6 +59,9 @@ function action(event_id, ticket_id, action) {
     <FetchError {error}/>
     {/await}
     <ListGroup>
+    {#if p.length === 0}
+      <em>No event available for backfill - please check back later.</em>
+    {/if}
     {#each p as r}
       <ListGroupItem>
             <div><strong>{r.name}</strong></div>
