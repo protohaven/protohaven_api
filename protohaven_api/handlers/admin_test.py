@@ -3,15 +3,8 @@
 import pytest
 
 from protohaven_api.handlers import admin as a
-from protohaven_api.main import app
 from protohaven_api.rbac import Role
-
-
-@pytest.fixture(name="client")
-def fixture_client():
-    """Provide a test client"""
-    return app.test_client()
-
+from protohaven_api.testing import fixture_client  # pylint: disable=unused-import
 
 NEW_MEMBERSHIP_WEBHOOK_DATA = {
     "data": {

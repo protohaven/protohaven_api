@@ -1,3 +1,3 @@
 {% if subject %}{{num}} proposed classes awaiting approval:{% else %}{{num}} class(es) are [proposed, but not yet approved](https://airtable.com/applultHGJxHNg69H/tblBHGwrU8cwVwbHI/) for scheduling - showing {{unapproved|length}}:
 {% for u in unapproved %}{{u}}
-{% endfor %}{% endif %}
+{% endfor %}{{footer}}{% endif %}

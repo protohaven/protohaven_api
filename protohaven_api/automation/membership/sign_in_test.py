@@ -30,6 +30,7 @@ def test_activate_membership_ok(mocker):
         return_value=mocker.MagicMock(subject="Subject", body="Body", html=True),
     )
     m3 = mocker.patch.object(s.comms, "send_email")
+    mocker.patch.object(s, "notify_async")
 
     s.activate_membership("12345", "John", email)
 
@@ -39,6 +40,7 @@ def test_activate_membership_ok(mocker):
         "membership_activated", fname="John", target=email
     )
     m3.assert_called_once_with("Subject", "Body", [email], True)
+    s.notify_async.assert_called_once_with(MatchStr("Activated deferred membership"))
 
 
 def test_activate_membership_fail(mocker):

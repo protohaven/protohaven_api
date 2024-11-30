@@ -6,9 +6,9 @@ import re
 import pytest
 import yaml
 
+from protohaven_api.app import configure_app
 from protohaven_api.config import tz
 from protohaven_api.integrations.cronicle import Progress
-from protohaven_api.main import app
 
 
 class MatchStr:  # pylint: disable=too-few-public-methods
@@ -62,7 +62,9 @@ def mkcli(capsys, module):
 @pytest.fixture(name="client")
 def fixture_client():
     """Provide a test client for making requests"""
-    return app.test_client()
+    return configure_app(
+        session_secret="asdf"  # pragma: allowlist secret
+    ).test_client()
 
 
 def setup_session(client, roles=None):
