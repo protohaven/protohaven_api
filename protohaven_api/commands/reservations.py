@@ -408,6 +408,7 @@ class Commands:
         neon_members = self._fetch_neon_sources()
         pct[0] = 1
         booked_users = self._fetch_booked_sources()
+        email_to_booked_user_id = {v[2].lower(): k for k, v in booked_users.items()}
         pct[1] = 1
 
         summary = []
@@ -418,7 +419,12 @@ class Commands:
             aid, bid = v
             if not bid:
                 log.info(f"Active member {k} with no Booked User ID")
-                if args.apply:
+                if email_to_booked_user_id.get(k[2].lower()):
+                    log.info(
+                        f"Existing booked user with email {k[2]}; associating that"
+                    )
+                    bid = email_to_booked_user_id[k[2].lower()]
+                elif args.apply:
                     u = booked.create_user_as_member(k[0], k[1], k[2])
                     if u.get("errors"):
                         for e in u["errors"]:
@@ -428,9 +434,11 @@ class Commands:
                         )
                         continue
                     bid = u["userId"]
+
+                if bid and args.apply:
                     booked_members.add(int(bid))
                     neon.set_booked_user_id(aid, bid)
-                    summary.append(f"Created {bid}, associated with neon #{aid} {k}")
+                    summary.append(f"Booked #{bid} associated with neon #{aid} {k}")
                     log.info(summary[-1])
             else:
                 bk = booked_users.get(bid)
