@@ -180,7 +180,7 @@ class AirtableCache(WarmDict):
                 if not cleared_for_tool:
                     continue
 
-            for r in row["fields"]["Roles"]:
+            for r in row["fields"].get("Roles", []):
                 if r in roles:
                     row["fields"]["rec_id"] = row["id"]
                     yield row["fields"]

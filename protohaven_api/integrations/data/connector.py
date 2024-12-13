@@ -22,6 +22,7 @@ log = logging.getLogger("integrations.data.connector")
 
 DEFAULT_TIMEOUT = 20.0
 NUM_READ_ATTEMPTS = 3
+NUM_NEON_ATTEMPTS = 3
 RETRY_MAX_DELAY_SEC = 3.0
 
 AIRTABLE_URL = "https://api.airtable.com/v0"
@@ -41,23 +42,34 @@ class Connector:
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
         # include a sleep timer to prevent us from overrunning
-        if "/attendees" in args[0]:
-            with self.neon_ratelimit:
+        for i in range(NUM_NEON_ATTEMPTS):
+            if "/attendees" in args[0]:
+                with self.neon_ratelimit:
+                    r = requests.request(
+                        *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
+                    )
+                    time.sleep(0.25)
+            else:
                 r = requests.request(
                     *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
                 )
-                time.sleep(0.25)
-        else:
-            r = requests.request(*args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT)
 
-        if r.status_code != 200:
-            raise RuntimeError(
-                f"neon_request(args={args}, kwargs={kwargs}) returned {r.status_code}: {r.content}"
+            if r.status_code == 200:
+                try:
+                    return r.json()
+                except requests.exceptions.JSONDecodeError:
+                    return r.content
+
+            log.warning(
+                f"status code {r.status_code} on neon request {args} {kwargs};"
+                f" retry #{i+1}"
             )
-        try:
-            return r.json()
-        except requests.exceptions.JSONDecodeError:
-            return r.content
+            time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
+
+        raise RuntimeError(
+            f"neon_request(args={args}, kwargs={kwargs}) "
+            + f"returned {r.status_code}: {r.content}"
+        )
 
     def neon_session(self):
         """Create a new session using the requests lib"""
