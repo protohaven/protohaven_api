@@ -222,8 +222,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                     result.append(
                         Msg.tmpl(
                             "discord_nick_changed",
-                            prev=cur,
-                            next=nick,
+                            prev_nick=cur,
+                            next_nick=nick,
                             target=f"@{discord_id}",
                             id=f"{discord_id}_nick_change",
                         )

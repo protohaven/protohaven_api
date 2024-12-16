@@ -186,3 +186,13 @@ forms:
       referrer: "entry.366779110"
       purpose: "entry.131288088"
       am_member: "entry.1823004694"
+wyze:
+  key_id: "${WYZE_KEY_ID}"
+  api_key: "${WYZE_API_KEY}"
+  email: "hello@protohaven.org"
+  password: "${WYZE_PASSWORD}"
+  expiration: "12-16-2025 08:18:28"
+  door_names:
+    - "Wood Shop Exit Door"
+    - "Loading Dock Entry Door"
+  camera_names: ["industrial metals/ powder coat", "Grinding Wheels/ metal shop", "Front Studio", "Exterior Front", "Plastics", "Wood shop", "Welding & Powder Coating", "Forge", "Front desk / 3d studio", "Jewelry/Vestibule", "Woodshop 2", "Exterior Fire Pit", "Wood shop 3", "Gallery/ front entrance", "Jewelry/Shop Corridor", "Metal Shop", "Basic Metals / Laser", "Back Yard", "Studio", "Exterior Loading Dock", "Maintenance Closet/Rear Exit"]

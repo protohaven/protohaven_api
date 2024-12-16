@@ -192,7 +192,7 @@ class Commands:
             r,
             {
                 "area": area,
-                "tool_code": tool_code,
+                "tool_code": tool_code or "",
                 "clearance_code": clearance_code,
             },
             reservable=reservable,
@@ -390,8 +390,8 @@ class Commands:
             default=False,
         ),
         arg(
-            "--filter",
-            help="CSV of Airtable tool codes to constrain sync to",
+            "--exclude",
+            help="CSV of email addresses of users to exclude from syncing",
             default=None,
         ),
     )
@@ -404,6 +404,11 @@ class Commands:
         See https://www.bookedscheduler.com/help/oauth/oauth-configuration/
         We must make sure these fields match between Neon and Booked.
         """
+
+        if args.exclude is not None:
+            args.exclude = {a.strip().lower() for a in args.exclude.split(",")}
+            log.warning(f"excluding users by email: {args.exclude}")
+
         pct.set_stages(4)
         neon_members = self._fetch_neon_sources()
         pct[0] = 1
@@ -416,6 +421,10 @@ class Commands:
         for i, kv in enumerate(neon_members.items()):
             pct[2] = i / len(neon_members)
             k, v = kv
+            if k[2].lower() in args.exclude:
+                log.info(f"Skipping excluded {k[2]}")
+                continue
+
             aid, bid = v
             if not bid:
                 log.info(f"Active member {k} with no Booked User ID")

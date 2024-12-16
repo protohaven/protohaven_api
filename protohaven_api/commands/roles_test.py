@@ -221,3 +221,7 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
         )
         == []
     )
+
+
+def test_setup_discord_user_nick_change_notifies():
+    raise RuntimeError("TODO")

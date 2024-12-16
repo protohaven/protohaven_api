@@ -5,6 +5,8 @@ import random
 
 from protohaven_api.automation.maintenance import manager
 from protohaven_api.commands.decorator import arg, command, print_yaml
+from protohaven_api.config import get_config
+from protohaven_api.integrations import wyze
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
@@ -96,6 +98,84 @@ class Commands:
                     stale_thresh=manager.DEFAULT_STALE_DAYS,
                     stale_tasks=stale[:MAX_STALE_TASKS],
                     id="daily_maintenance",
+                    target="#tech-leads",
+                )
+            )
+        else:
+            print_yaml([])
+
+    @command()
+    def check_door_sensors(self, _1, _2):
+        """Check the door sensors to make sure they're configured and the doors are closed"""
+        wyze.init()
+        expected = set(get_config("wyze/door_names"))
+        door_states = list(wyze.get_door_states())
+        doors = {d["name"] for d in door_states}
+        warnings = []
+
+        not_in_config = doors - expected
+        if len(not_in_config) > 0:
+            warnings.append(
+                f"Door(s) {not_in_config} configured in Wyze, "
+                + "but not in protohaven_api config.yaml"
+            )
+
+        not_in_wyze = expected - doors
+        if len(not_in_wyze) > 0:
+            warnings.append(
+                f"Door(s) {not_in_wyze} expected per protohaven_api "
+                + "config.yaml, but not present in Wyze"
+            )
+        for d in door_states:
+            if not d.get("is_online"):
+                warnings.append(
+                    f"Door {d['name']} offline; check battery and/or "
+                    + "[Wyze Sense Hub](https://www.wyze.com/products/wyze-hms-bundle)"
+                )
+            elif not d.get("open_close_state"):
+                warnings.append(f"**IMPORTANT**: Door {d['name']} is open")
+        if len(warnings) > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "door_sensor_warnings",
+                    warnings=warnings,
+                    target="#tech-leads",
+                )
+            )
+        else:
+            print_yaml([])
+
+    @command()
+    def check_cameras(self, _1, _2):
+        """Check wyze cameras to make sure they're connected and working"""
+        wyze.init()
+        expected = set(get_config("wyze/camera_names"))
+        camera_states = list(wyze.get_camera_states())
+        cameras = {c["name"].strip() for c in camera_states}
+        warnings = []
+        not_in_config = cameras - expected
+        if len(not_in_config) > 0:
+            warnings.append(
+                f"Camera(s) {not_in_config} configured in Wyze, "
+                + "but not in protohaven_api config.yaml"
+            )
+        not_in_wyze = expected - cameras
+        if len(not_in_wyze) > 0:
+            warnings.append(
+                f"Camera {not_in_wyze} expected per protohaven_api "
+                + "config.yaml, but not present in Wyze"
+            )
+        for c in camera_states:
+            if not c.get("is_online"):
+                warnings.append(
+                    f"camera {c['name']} offline "
+                    + "(check power cable/network connection)"
+                )
+        if len(warnings) > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "camera_check_warnings",
+                    warnings=warnings,
                     target="#tech-leads",
                 )
             )
