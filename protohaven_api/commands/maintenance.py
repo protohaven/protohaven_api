@@ -211,7 +211,7 @@ class Commands:
 
         # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
         stats = []
-        with tempfile.TemporaryDirectory(delete=True) as d:
+        with tempfile.TemporaryDirectory() as d:
             stats.append(
                 self._do_backup(
                     wiki.fetch_db_backup,
