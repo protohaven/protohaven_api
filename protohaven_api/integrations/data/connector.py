@@ -85,9 +85,9 @@ class Connector:
         )
         return rep.status_code, rep.content
 
-    def airtable_request(
+    def airtable_request(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, mode, base, tbl, rec=None, suffix=None, data=None
-    ):  # pylint: disable=too-many-arguments
+    ):
         """Make an airtable request using the requests module"""
         cfg = get_config("airtable")[base]
         url = f"{AIRTABLE_URL}/{cfg['base_id']}/{cfg[tbl]}"
@@ -190,6 +190,7 @@ class Connector:
             return r.content
 
     def bookstack_download(self, api_suffix, dest):
+        """Download a file from the Bookstack wiki"""
         url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))
         headers = {
             "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),

@@ -1,3 +1,5 @@
+"""Test of methods in wyze integration"""
+
 from protohaven_api.integrations import wyze as w
 
 

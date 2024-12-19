@@ -110,7 +110,7 @@ def update_accruals(fees=None):
 NEW_VIOLATION_THRESH_HOURS = 18
 
 
-def gen_comms_for_violation(  # pylint: disable=too-many-arguments
+def gen_comms_for_violation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     v, old_accrued, new_accrued, sections, fname, email
 ):
     """Notify members of new violations and update them on active violations"""

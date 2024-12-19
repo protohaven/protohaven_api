@@ -1,3 +1,5 @@
+"""Test for Asana task integration"""
+
 from dateutil import parser as dateparser
 
 from protohaven_api.integrations import tasks as t
@@ -122,7 +124,7 @@ def test_add_maintenance_task_if_not_exists(mocker):
     mocker.patch.object(
         t,
         "get_config",
-        side_effect=lambda k: {
+        side_effect=lambda k: {  # pylint: disable=unnecessary-lambda
             "asana/gid": "workspace_gid",
             "asana/custom_field_airtable_id": "airtable_custom_field_id",
             "asana/techs_project/gid": "techs_project_gid",

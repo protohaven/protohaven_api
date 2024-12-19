@@ -199,7 +199,7 @@ def handle_notify_violations(violations, fname, email, url):
         log.info("Notified of sign-in with violations")
 
 
-def handle_waiver(  # pylint: disable=too-many-arguments
+def handle_waiver(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     user_id,
     waiver_status,
     ack,
