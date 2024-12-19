@@ -190,13 +190,14 @@ def get_areas():
     return get_all_records("tools_and_equipment", "areas")
 
 
-def get_tool_id(tool_code):
+def get_tool_id_and_name(tool_code):
+    """Fetches the name and ID of a tool in Airtable, based on its tool code"""
     for t in get_tools():
         if (
             t["fields"].get("Tool Code", "").strip().lower()
             == tool_code.strip().lower()
         ):
-            return t["id"]
+            return (t["id"], t["fields"].get("Tool Name"))
     return None
 
 

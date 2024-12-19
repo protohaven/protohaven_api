@@ -319,6 +319,16 @@ TESTED_TEMPLATES = [
             "fee": 5,
         },
     ),
+    (
+        "wiki_backup_summary",
+        {
+            "stats": [
+                {"name": "db.ext", "drive_id": "CDE", "size_kb": 123},
+                {"name": "files.ext", "drive_id": "ABC", "size_kb": 456},
+            ],
+            "parent_id": "PAR",
+        },
+    ),
 ]
 HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
@@ -366,6 +376,7 @@ HASHES = {
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
+    "wiki_backup_summary": "887a6b9db2867f9e",  # pragma: allowlist secret
 }
 
 

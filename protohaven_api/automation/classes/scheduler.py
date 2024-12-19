@@ -37,7 +37,10 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
 def slice_date_range(start_date: datetime, end_date: datetime, class_duration: int):
     """Convert all time between two datetime values into a set of
     discrete datetimes marking the potential onset of a class"""
-    day_class_hours = [10, 13, 14, 18]
+    # Would be best to switch to time-bucketed scheduling that would allow for
+    # more variety of classes without hard-constraiing start times to prevent
+    # overlaps.
+    day_class_hours = [10, 14, 18]
     evening_threshold = 17
     evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
     ret = []
@@ -60,9 +63,9 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def build_instructor(
+def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
     name, avail, caps, instructor_occupancy, area_occupancy, class_by_id
-):  # pylint: disable=too-many-locals,too-many-arguments
+):
     """Create and return an Instructor object for use in the solver"""
     candidates = defaultdict(list)
     rejected = defaultdict(list)

@@ -14,8 +14,11 @@ def fixture_cli(capsys):
     return mkcli(capsys, F)
 
 
-AM_TECH = {"email": "a@b.com", "name": "A B", "shift": "Monday AM"}
-PM_TECH = {"email": "c@d.com", "name": "C D", "shift": "Monday PM"}
+# Note: space and weird capitalizations here stress test the email matching
+# since both the tech emails (from Neon) and the sign ins (from Sheets) are
+# user inputs and can be arbitrarily cased, while emails are case-insensitive.
+AM_TECH = {"email": "  a@b.CoM", "name": "A B", "shift": "Monday AM"}
+PM_TECH = {"email": "c@d.CoM  ", "name": "C D", "shift": "Monday PM"}
 
 Tc = namedtuple("TC", "desc,now,signins,want")
 
@@ -27,17 +30,18 @@ Tc = namedtuple("TC", "desc,now,signins,want")
             "AM shift without signin",
             t(11, 0),
             [],
-            [AM_TECH["email"], "no techs assigned for Monday AM"],
+            [AM_TECH["email"].strip().lower(), "no techs assigned for Monday AM"],
         ),
         Tc("AM shift with signin", t(11, 0), [AM_TECH], []),
         Tc(
             "PM shift without signin",
             t(17, 0),
             [],
-            [PM_TECH["email"], "no techs assigned for Monday PM"],
+            [PM_TECH["email"].strip().lower(), "no techs assigned for Monday PM"],
         ),
         Tc("PM shift with signin", t(17, 0), [PM_TECH], []),
         Tc("No techs", t(11, 0), [], ["no techs assigned"]),
+        Tc("Case & space insensitive", t(17, 0), [{"email": "   C@D.COM    "}], []),
     ],
     ids=idfn,
 )

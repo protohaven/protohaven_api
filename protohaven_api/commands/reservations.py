@@ -130,7 +130,7 @@ class Commands:
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
             cid = None
             for cid in results:
-                for a in row["fields"]["Name (from Shop Area)"]:
+                for a in row["fields"].get("Name (from Shop Area)", []):
                     if a in results[cid]["areas"] and row["fields"].get(
                         "BookedResourceId"
                     ):

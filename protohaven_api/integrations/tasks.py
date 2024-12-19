@@ -72,7 +72,9 @@ def get_private_instruction_requests():
     )
 
 
-def _get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=False):
+def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=False):
+    """Gets a list of tasks in the project, optionally filtering by completion state
+    or presence in an "On Hold" section"""
     cfg = get_config("asana")[project]
     for req in _tasks().get_tasks_for_project(
         cfg["gid"],
@@ -91,14 +93,14 @@ def _get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fa
 
 def get_instructor_applicants(exclude_on_hold=False, exclude_complete=False):
     """Get applications for instructor position that aren't completed"""
-    return _get_with_onhold_section(
+    return get_with_onhold_section(
         "instructor_applicants", exclude_on_hold, exclude_complete
     )
 
 
 def get_shop_tech_applicants(exclude_on_hold=False, exclude_complete=False):
     """Get applications for shop tech position that aren't completed"""
-    return _get_with_onhold_section(
+    return get_with_onhold_section(
         "instructor_applicants", exclude_on_hold, exclude_complete
     )
 
