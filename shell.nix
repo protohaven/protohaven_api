@@ -98,7 +98,7 @@ in pkgs.mkShell {
 
         # Wyze & deps
         wyze-sdk
-        distutils
+        setuptools
         pycryptodomex
         mintotp
 
