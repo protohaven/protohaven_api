@@ -526,7 +526,7 @@ def test_as_member_duplicates(mocker):
     )
 
 
-def test_as_member_announcements(mocker):
+def test_as_member_announcements_ok(mocker):
     """Test that form submission triggers and announcements are returned when OK member logs in"""
     m = mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
@@ -587,6 +587,44 @@ def test_as_member_announcements(mocker):
             ),
         ),
     )
+
+
+def test_as_member_announcements_exception(mocker):
+    """Test that form submission triggers even if announcement gathering
+    raises an exception"""
+    m = mocker.patch.object(s, "_apply_async")
+    mocker.patch.object(s, "notify_async")
+    mocker.patch.object(s, "tznow", return_value=d(0))
+    mocker.patch.object(
+        s,
+        "member_email_cache",
+        {
+            "a@b.com": {
+                12346: {
+                    "Account ID": 12345,
+                    "Account Current Membership Status": "Active",
+                    "First Name": "First",
+                    "API server role": "Shop Tech",
+                }
+            }
+        },
+    )
+    mocker.patch.object(
+        s.table_cache, "announcements_after", side_effect=RuntimeError("Boo!")
+    )
+    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    rep = s.as_member(
+        {
+            "person": "member",
+            "waiver_ack": True,
+            "email": "a@b.com",
+            "dependent_info": "DEP_INFO",
+        },
+        mocker.MagicMock(),
+    )
+    assert rep["status"] == "Active"
+    assert rep["announcements"] == []
+    m.assert_called_with(s.submit_forms, args=mocker.ANY)
 
 
 def test_as_member_company_id(mocker):

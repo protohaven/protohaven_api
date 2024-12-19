@@ -42,6 +42,7 @@ class PHClient(discord.Client):
 
     async def on_member_join(self, member):
         """Runs when a new member joins the server"""
+        log.info(f"New member joined: {member.name}")
         if not self._hook_on_user_is_permitted(member.name):
             return
         if member.guild != self.guild:

@@ -1,8 +1,9 @@
 """Asana task integration methods"""
+import datetime
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 
 
@@ -34,7 +35,7 @@ def get_tech_ready_tasks(modified_before):
     return _tasks().search_tasks_for_workspace(
         get_config("asana/gid"),
         {
-            "projects.all": get_config("asana/techs_project"),
+            "projects.all": get_config("asana/techs_project/gid"),
             "completed": False,
             "modified_on.before": modified_before.strftime("%Y-%m-%d"),
             "tags.all": get_config("asana/tech_ready_tag"),
@@ -160,8 +161,78 @@ def complete(gid):
 
 def get_shop_tech_maintenance_section_map():
     """Gets a mapping of Asana section names to their ID's"""
-    result = _sections().get_sections_for_project(get_config("asana/techs_project"), {})
+    result = _sections().get_sections_for_project(
+        get_config("asana/techs_project/gid"), {}
+    )
     return {r["name"]: r["gid"] for r in result}
+
+
+def get_all_open_maintenance_tasks():
+    """Fetches all uncompleted tasks matching a tool record in Airtable"""
+    return _tasks().search_tasks_for_workspace(
+        get_config("asana/gid"),
+        {
+            "completed": False,
+            "limit": 1000,
+            "opt_fields": ",".join(
+                [
+                    "name",
+                    "modified_at",
+                    "uri",
+                    "custom_fields.name",
+                    "custom_fields.number_value",
+                    "custom_fields.text_value",
+                ]
+            ),
+        },
+    )
+
+
+def get_airtable_id(t):
+    """Extracts the airtable ID custom field from a task"""
+    for cf in t["custom_fields"]:
+        if cf["name"] == "Airtable Record":
+            return cf["text_value"]
+    return None
+
+
+def last_maintenance_completion_map():
+    """Builds a map of origin IDs to the last completion date.
+    Returns the current time for all incomplete tasks.
+
+    Tasks completed earlier than 400 days ago are excluded.
+    """
+    result = {}
+    now = tznow()
+    for t in _tasks().get_tasks_for_project(
+        get_config("asana/techs_project/gid"),
+        {
+            # Python Asana lib is auto-paginated
+            # See https://forum.asana.com/t/pagination-using-python/38930
+            # We use completed_since to prevent excessive loading of super old tasks
+            # since there's no way to order fetch by time data
+            "completed_since": (now - datetime.timedelta(days=400)).isoformat(),
+            "opt_fields": ",".join(
+                [
+                    "completed",
+                    "name",
+                    "modified_at",
+                    "uri",
+                    "custom_fields.name",
+                    "custom_fields.number_value",
+                    "custom_fields.text_value",
+                ]
+            ),
+        },
+    ):
+        aid = get_airtable_id(t)
+        if not t["completed"]:
+            result[aid] = now
+            continue
+        mod = dateparser.parse(t["modified_at"])
+        if aid not in result or mod > result[aid]:
+            result[aid] = mod
+    return result
 
 
 # Could also create tech task for maintenance here
@@ -183,7 +254,7 @@ def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None
     result = _tasks().create_task(
         {
             "data": {
-                "projects": [get_config("asana/techs_project")],
+                "projects": [get_config("asana/techs_project/gid")],
                 "section": section_gid,
                 "tags": [get_config("asana/tech_ready_tag")],
                 "custom_fields": {

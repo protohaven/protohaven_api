@@ -13,8 +13,19 @@ from protohaven_api.rbac import Role
 log = logging.getLogger("role_automation.roles")
 
 
+def discord_nick_change_dm(prev_nick, next_nick, discord_id):
+    """Generate direct message notifying of nickname change"""
+    return Msg.tmpl(
+        "discord_nick_changed",
+        prev_nick=prev_nick,
+        next_nick=next_nick,
+        target=f"@{discord_id}",
+        id=f"{discord_id}_nick_change",
+    )
+
+
 def discord_role_change_dm(logs, discord_id, target=None, intents=None):
-    """Generate message for techs about classes with open seats"""
+    """Generate direct message for summary of role changes"""
     not_associated = True in ["not associated with a Neon account" in l for l in logs]
     return Msg.tmpl(
         "discord_role_change_dm",
@@ -208,7 +219,7 @@ def gen_role_intents(
             yield replace(intent, action=action, role=role, reason=reason)
 
 
-def handle_delayed_revocation(
+def handle_delayed_revocation(  # pylint: disable=too-many-positional-arguments
     vi, va, now, user_log, apply_records, apply_discord
 ):  # pylint: disable=too-many-arguments
     """Update airtable and apply role revocations based on elapsed time after comms"""
@@ -380,7 +391,7 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     # Now we need to fetch the neon roles and membership state.
     # At this point we may bail out and ask them to associate.
     rev_roles = {v: k for k, v in SYNC_ROLES.items()}
-    log.info("Searching for discord user in Neon")
+    log.info(f"Setting up discord user '{discord_id}'; checking for Neon assoc")
     mm = list(
         neon.get_members_with_discord_id(
             discord_id,
@@ -425,6 +436,8 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     if nick != display_name:
         log.info(f"{discord_id} display name: {display_name} -> {nick}")
         yield "set_nickname", discord_id, nick
+        msg = discord_nick_change_dm(display_name, nick, discord_id)
+        yield "send_dm", discord_id, f"**{msg.subject}**\n\n{msg.body}"
 
     # Go through intents and apply any that are additive.
     log.info(f"singleton_role_sync({neon_member}, {neon_roles}, {discord_roles})")

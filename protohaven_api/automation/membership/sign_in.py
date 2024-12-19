@@ -3,6 +3,7 @@ import datetime
 import logging
 import multiprocessing as mp
 import re
+import traceback
 
 from dateutil import parser as dateparser
 
@@ -286,35 +287,49 @@ def as_member(data, send):
     result["firstname"] = m.get("First Name")
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
 
-    send("Fetching announcements...", 55)
-    result["announcements"] = handle_announcements(
-        last_ack=m.get("Announcements Acknowledged", None),
-        roles=[
-            r
-            for r in (m.get("API server role", "") or "").split("|")  # Can be None
-            if r.strip() != ""
-        ],
-        is_active=result["status"] == "Active",
-        testing=data.get("testing"),
-        clearances=[] if not m.get("Clearances") else m["Clearances"].split("|"),
-    )
+    try:
+        send("Fetching announcements...", 55)
+        result["announcements"] = handle_announcements(
+            last_ack=m.get("Announcements Acknowledged", None),
+            roles=[
+                r
+                for r in (m.get("API server role", "") or "").split("|")  # Can be None
+                if r.strip() != ""
+            ],
+            is_active=result["status"] == "Active",
+            testing=data.get("testing"),
+            clearances=[] if not m.get("Clearances") else m["Clearances"].split("|"),
+        )
+    except Exception:  # pylint: disable=broad-exception-caught
+        traceback.print_exc()
+        notify_async(
+            f"Error fetching announcements (member #{data['email']}) - see log"
+        )
 
-    send("Checking storage...", 70)
-    result["violations"] = list(table_cache.violations_for(m["Account ID"]))
+    try:
+        send("Checking storage...", 70)
+        result["violations"] = list(table_cache.violations_for(m["Account ID"]))
+    except Exception:  # pylint: disable=broad-exception-caught
+        traceback.print_exc()
+        notify_async(f"Error checking storage (member #{data['email']}) - see log")
 
-    # These are sent out of band, no need to alert the sign-in member
-    handle_notify_board_and_staff(
-        m.get("Notify Board & Staff") or "",
-        result["firstname"],
-        data["email"],
-        data["url"],
-    )
-    handle_notify_inactive(
-        result["status"], result["firstname"], data["email"], data["url"]
-    )
-    handle_notify_violations(
-        result["violations"], result["firstname"], data["email"], data["url"]
-    )
+    try:
+        # These are sent out of band, no need to alert the sign-in member
+        handle_notify_board_and_staff(
+            m.get("Notify Board & Staff") or "",
+            result["firstname"],
+            data["email"],
+            data["url"],
+        )
+        handle_notify_inactive(
+            result["status"], result["firstname"], data["email"], data["url"]
+        )
+        handle_notify_violations(
+            result["violations"], result["firstname"], data["email"], data["url"]
+        )
+    except Exception:  # pylint: disable=broad-exception-caught
+        traceback.print_exc()
+        notify_async(f"Error routing notifications (member #{data['email']}) - see log")
 
     send("Checking waiver...", 90)
     result["waiver_signed"] = handle_waiver(

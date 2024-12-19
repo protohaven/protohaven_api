@@ -192,7 +192,7 @@ class Commands:
             r,
             {
                 "area": area,
-                "tool_code": tool_code,
+                "tool_code": tool_code or "",
                 "clearance_code": clearance_code,
             },
             reservable=reservable,
@@ -390,8 +390,8 @@ class Commands:
             default=False,
         ),
         arg(
-            "--filter",
-            help="CSV of Airtable tool codes to constrain sync to",
+            "--exclude",
+            help="CSV of email addresses of users to exclude from syncing",
             default=None,
         ),
     )
@@ -404,10 +404,16 @@ class Commands:
         See https://www.bookedscheduler.com/help/oauth/oauth-configuration/
         We must make sure these fields match between Neon and Booked.
         """
+
+        if args.exclude is not None:
+            args.exclude = {a.strip().lower() for a in args.exclude.split(",")}
+            log.warning(f"excluding users by email: {args.exclude}")
+
         pct.set_stages(4)
         neon_members = self._fetch_neon_sources()
         pct[0] = 1
         booked_users = self._fetch_booked_sources()
+        email_to_booked_user_id = {v[2].lower(): k for k, v in booked_users.items()}
         pct[1] = 1
 
         summary = []
@@ -415,10 +421,19 @@ class Commands:
         for i, kv in enumerate(neon_members.items()):
             pct[2] = i / len(neon_members)
             k, v = kv
+            if k[2].lower() in args.exclude:
+                log.info(f"Skipping excluded {k[2]}")
+                continue
+
             aid, bid = v
             if not bid:
                 log.info(f"Active member {k} with no Booked User ID")
-                if args.apply:
+                if email_to_booked_user_id.get(k[2].lower()):
+                    log.info(
+                        f"Existing booked user with email {k[2]}; associating that"
+                    )
+                    bid = email_to_booked_user_id[k[2].lower()]
+                elif args.apply:
                     u = booked.create_user_as_member(k[0], k[1], k[2])
                     if u.get("errors"):
                         for e in u["errors"]:
@@ -428,9 +443,11 @@ class Commands:
                         )
                         continue
                     bid = u["userId"]
+
+                if bid and args.apply:
                     booked_members.add(int(bid))
                     neon.set_booked_user_id(aid, bid)
-                    summary.append(f"Created {bid}, associated with neon #{aid} {k}")
+                    summary.append(f"Booked #{bid} associated with neon #{aid} {k}")
                     log.info(summary[-1])
             else:
                 bk = booked_users.get(bid)

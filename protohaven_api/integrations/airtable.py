@@ -170,9 +170,34 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
+def get_reports_for_tool(airtable_id):
+    """Fetches all tool reports tagged with a particular tool record in Airtable"""
+    for r in get_all_records("tools_and_equipment", "tool_reports"):
+        if airtable_id not in r["fields"].get("Equipment Record", []):
+            continue
+        yield {
+            "date": r["fields"].get("Created"),
+            "name": r["fields"].get("Name"),
+            "email": r["fields"].get("Email"),
+            "message": r["fields"].get("What's the problem?"),
+            "summary": r["fields"].get("Actions taken"),
+            "asana": r["fields"].get("Asana Link"),
+        }
+
+
 def get_areas():
     """Get all areas in the Area table"""
     return get_all_records("tools_and_equipment", "areas")
+
+
+def get_tool_id(tool_code):
+    for t in get_tools():
+        if (
+            t["fields"].get("Tool Code", "").strip().lower()
+            == tool_code.strip().lower()
+        ):
+            return t["id"]
+    return None
 
 
 def get_all_maintenance_tasks():

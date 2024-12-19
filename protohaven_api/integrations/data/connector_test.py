@@ -58,10 +58,20 @@ def test_neon_request_non_attendees_endpoint(mocker, c):
     con.time.sleep.assert_not_called()
 
 
-def test_neon_request_non_200_response(mocker, c):
+def test_neon_request_retry_limit(mocker, c):
     """Test endpoint returning a non-ok response"""
     con.requests.request.return_value = mocker.Mock(
         status_code=404, content=b"Not Found"
     )
     with pytest.raises(RuntimeError, match="neon_request"):
         c.neon_request("api_key", "/other_endpoint")
+
+
+def test_neon_request_retry_success(mocker, c):
+    """Test endpoint returning a non-ok response"""
+    con.requests.request.side_effect = [
+        mocker.Mock(status_code=404, content=b"Not Found"),
+        mocker.Mock(status_code=200, json=lambda: "ok"),
+    ]
+    assert c.neon_request("api_key", "/other_endpoint") == "ok"
+    con.time.sleep.assert_called()

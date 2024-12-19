@@ -95,7 +95,7 @@ TESTED_TEMPLATES = [
     ),
     (
         "discord_nick_changed",
-        {"prev": "foo", "next": "bar"},
+        {"prev_nick": "foo", "next_nick": "bar"},
     ),
     (
         "discord_role_change_dm",
@@ -114,6 +114,14 @@ TESTED_TEMPLATES = [
             "roles_revoked": 3,
             "footer": "Test Footer",
         },
+    ),
+    (
+        "door_sensor_warnings",
+        {"warnings": ["warning1", "warning2"]},
+    ),
+    (
+        "camera_check_warnings",
+        {"warnings": ["warning1", "warning2"]},
     ),
     (
         "enforcement_summary",
@@ -315,7 +323,7 @@ TESTED_TEMPLATES = [
 HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
-    "booked_member_sync_summary": "9a2589742196885e",  # pragma: allowlist secret
+    "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_proposals": "09aa7102c43e69e6",  # pragma: allowlist secret
     "class_scheduled": "d7638c67655ae1eb",  # pragma: allowlist secret
@@ -324,6 +332,8 @@ HASHES = {
     "discord_nick_changed": "8aeda50de8ef931c",  # pragma: allowlist secret
     "discord_role_change_dm": "e36c6c70681a8804",  # pragma: allowlist secret
     "discord_role_change_summary": "8a34d924f30d0625",  # pragma: allowlist secret
+    "door_sensor_warnings": "4203149c4b940078",  # pragma: allowlist secret
+    "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
     "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
     "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
     "instruction_requests": "1ae4746c79bc5b54",  # pragma: allowlist secret
@@ -353,7 +363,7 @@ HASHES = {
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
     "tech_openings": "ccb2aaf7f6284036",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
-    "tool_sync_summary": "82ba40ec440803d4",  # pragma: allowlist secret
+    "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
 }

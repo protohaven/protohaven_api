@@ -41,6 +41,20 @@ in let
     rev = "38.1.0.20240919";
     hash="sha256-zE7L8dkA2mtdXq1qmwpasjL5B9i2X05E1jPOW8Isovo="; # pragma: allowlist secret
   };
+  wyze-sdk = bpp {
+    name = "wyze-sdk";
+    owner = "shauntarves";
+    repo = "wyze-sdk";
+    rev = "v2.2.0";
+    hash="sha256-5JNnLWsuqy7dCkEvDnac6DAStzBSazr2jo775KWkOKQ="; # pragma: allowlist secret
+  };
+  mintotp = bpp {
+    name = "mintotp";
+    owner = "susam";
+    repo = "mintotp";
+    rev = "0.3.0";
+    hash = "sha256-J5a1FjDsi37uBZtkx5LyWHG2klRjUtDBYyangfR4Pnc="; # pragma: allowlist secret
+  };
 in pkgs.mkShell {
   packages = [
     (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
@@ -81,6 +95,12 @@ in pkgs.mkShell {
         jsonpickle
         jsonpointer
         deprecation
+
+        # Wyze & deps
+        wyze-sdk
+        distutils
+        pycryptodomex
+        mintotp
 
         discordpy
 
