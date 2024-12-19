@@ -2,11 +2,13 @@
 import argparse
 import logging
 import random
+import tempfile
+from pathlib import Path
 
 from protohaven_api.automation.maintenance import manager
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import get_config
-from protohaven_api.integrations import wyze
+from protohaven_api.config import get_config, tznow
+from protohaven_api.integrations import drive, wiki, wyze
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
@@ -181,3 +183,59 @@ class Commands:
             )
         else:
             print_yaml([])
+
+    def _do_backup(self, fn, backup_path, upload_path, parent_id):
+        file_sz = fn(backup_path)
+        log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")
+        file_id = drive.upload_file(
+            upload_path,
+            "application/x-gzip-compressed",
+            db_backup_name,
+            args.parent_id,
+        )
+        log.info(f"Uploaded, id {file_id}")
+        return {"drive_id": file_id, "size_kb": file_sz // 1024, "name": upload_path}
+
+    @command(
+        arg(
+            "--parent_id",
+            help="destination folder ID",
+            type=str,
+            required=True,
+        ),
+    )
+    def backup_wiki(self, args, pct):
+        """Fetch and back up wiki data to google drive"""
+        pct.set_stages(2)
+        now = tznow()
+
+        # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
+        stats = []
+        with tempfile.TemporaryDirectory(delete=True) as d:
+            stats.append(
+                self._do_backup(
+                    wiki.fetch_db_backup,
+                    Path(d) / "db_backup.sql.gz",
+                    f"db_backup_{now.isoformat()}.sql.gz",
+                    args.parent_id,
+                )
+            )
+            pct[0] = 1.0
+            stats.append(
+                self._do_backup(
+                    wiki.fetch_files_backup,
+                    Path(d) / "files_backup.tar.gz",
+                    f"files_backup_{now.isoformat()}.tar.gz",
+                    args.parent_id,
+                )
+            )
+            pct[1] = 1.0
+
+        print_yaml(
+            Msg.tmpl(
+                "wiki_backup_summary",
+                parent_id=args.parent_id,
+                stats=stats,
+                target="#docs-automation",
+            )
+        )

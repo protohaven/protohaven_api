@@ -113,5 +113,6 @@ uritemplate==4.1.1
 urllib3==2.2.2
 Werkzeug==3.0.1
 wsproto==1.2.0
+wyze_sdk==2.2.0
 yarl==1.9.4
 zipp==3.17.0

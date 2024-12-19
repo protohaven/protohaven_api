@@ -189,6 +189,44 @@ class Connector:
         except requests.exceptions.JSONDecodeError:
             return r.content
 
+    def bookstack_download(self, api_suffix, dest):
+        url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))
+        headers = {
+            "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
+        }
+        response = requests.get(
+            url, headers=headers, timeout=DEFAULT_TIMEOUT * 5, stream=True
+        )
+        response.raise_for_status()
+
+        with open(dest, "wb") as file:
+            for chunk in response.raw.stream(1024, decode_content=False):
+                if chunk:
+                    file.write(chunk)
+
+            if file.tell() == 0:
+                raise ValueError("Downloaded file is empty")
+            return file.tell()
+
+    def bookstack_request(self, mode, api_suffix, *args, **kwargs):
+        """Make a request to the Booked reservation system"""
+        url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))
+        headers = {
+            "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
+        }
+        r = requests.request(
+            mode, url, *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+        )
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"bookstack_request(mode={mode}, url={url}, args={args}, "
+                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+            )
+        try:
+            return r.json()
+        except requests.exceptions.JSONDecodeError:
+            return r.content
+
     def square_client(self):
         """Create and return Square API client"""
         client = SquareClient(

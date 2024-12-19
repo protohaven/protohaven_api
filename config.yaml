@@ -78,6 +78,7 @@ airtable:
     tools: "tblalZYdLVoTICzE6"
     clearances: "tblsDjiWCOQLgDCHd"
     recurring_tasks: "tbl2934K2YxSVnZMC"
+    tool_reports: "tblZbQcalfrvUiNM6"
   class_automation:
     token: "${AIRTABLE_TOKEN_CLASS_AUTOMATION}"
     base_id: "applultHGJxHNg69H"
@@ -120,7 +121,8 @@ square:
 asana:
   token: "${ASANA_TOKEN}"
   gid: "1199692158232291"
-  techs_project: "1202469740885594"
+  techs_project:
+    gid: "1202469740885594"
   shop_tech_applicants:
     gid: "1203664351777333"
     on_hold_section: "1208278245183318"
@@ -196,3 +198,10 @@ wyze:
     - "Wood Shop Exit Door"
     - "Loading Dock Entry Door"
   camera_names: ["industrial metals/ powder coat", "Grinding Wheels/ metal shop", "Front Studio", "Exterior Front", "Plastics", "Wood shop", "Welding & Powder Coating", "Forge", "Front desk / 3d studio", "Jewelry/Vestibule", "Woodshop 2", "Exterior Fire Pit", "Wood shop 3", "Gallery/ front entrance", "Jewelry/Shop Corridor", "Metal Shop", "Basic Metals / Laser", "Back Yard", "Studio", "Exterior Loading Dock", "Maintenance Closet/Rear Exit"]
+bookstack:
+  api_key: "${PH_BOOKSTACK_API_KEY}"
+  base_url: "https://wiki.protohaven.org"
+  basic_maint_slug: "basic-maintenance"
+drive:
+  credentials_path: "credentials.json"
+  scopes: ["https://www.googleapis.com/auth/drive"]

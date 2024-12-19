@@ -1,0 +1,5 @@
+{% if subject %}Bookstack wiki backup summary{% else %}Successfully snapshotted wiki state and pushed to Google Drive:
+{% for s in stats %}- [{{s.name}}](https://drive.google.com/file/d/{{s.drive_id}}/view) ({{s.size_kb}}KB)
+{% endfor %}
+See all backups at https://drive.google.com/drive/u/0/folders/{{parent_id}}
+{{footer}}{% endif %}
