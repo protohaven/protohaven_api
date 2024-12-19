@@ -362,7 +362,7 @@ class Commands:
                 neon.CustomField.BOOKED_USER_ID,
             ]
         ):
-            if m["Account ID"] == m["Company ID"]:
+            if m.get("Account ID") == m.get("Company ID"):
                 continue
             bid = int(m["Booked User ID"]) if m.get("Booked User ID") else None
             k = (
@@ -408,6 +408,8 @@ class Commands:
         if args.exclude is not None:
             args.exclude = {a.strip().lower() for a in args.exclude.split(",")}
             log.warning(f"excluding users by email: {args.exclude}")
+        else:
+            args.exclude = set()
 
         pct.set_stages(4)
         neon_members = self._fetch_neon_sources()

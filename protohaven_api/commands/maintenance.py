@@ -188,10 +188,10 @@ class Commands:
         file_sz = fn(backup_path)
         log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")
         file_id = drive.upload_file(
-            upload_path,
+            backup_path,
             "application/x-gzip-compressed",
-            db_backup_name,
-            args.parent_id,
+            upload_path,
+            parent_id,
         )
         log.info(f"Uploaded, id {file_id}")
         return {"drive_id": file_id, "size_kb": file_sz // 1024, "name": upload_path}
@@ -239,3 +239,4 @@ class Commands:
                 target="#docs-automation",
             )
         )
+        log.info("Done")

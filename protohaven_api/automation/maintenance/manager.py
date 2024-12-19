@@ -36,7 +36,10 @@ def get_maintenance_needed_tasks(now=None):
             "id": m["maint_ref"],
             "origin": "Bookstack",
             "name": m["maint_task"],
-            "detail": f"See https://wiki.protohaven.org/books/{m['book_slug']}/pages/{m['page_slug']}/{m['approval_state']['approved_id']}",
+            "detail": (
+                f"See https://wiki.protohaven.org/books/{m['book_slug']}/pages/"
+                f"{m['page_slug']}/{m['approval_state']['approved_id']}"
+            ),
             "freq": m["maint_freq_days"],
             "section": section_map.get(m.get("maint_asana_section")),
         }
@@ -57,18 +60,19 @@ def get_maintenance_needed_tasks(now=None):
     for c in candidates:
         log.debug(f"{c['origin']} Task {c['id']}: {c['name']}")
         last_scheduled = last_completions.get(c["id"])
+        log.info(f"{c['id']} las scheduled {last_scheduled}")
         next_schedule = (
             last_scheduled + datetime.timedelta(days=c["freq"])
-            if last_scheduled
+            if last_scheduled is not None
             else now
         )
         if next_schedule <= now:
             needed.append(
                 {**c, "last_scheduled": last_scheduled, "next_schedule": next_schedule}
             )
-            log.debug(f"APPEND\t{c['name']}")
+            log.info(f"Append {c}")
         else:
-            log.debug(f"SKIP_TOO_EARLY\t{c['name']}")
+            log.info(f"Skip (too early)\t{c}")
     return needed
 
 

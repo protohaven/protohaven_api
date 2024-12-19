@@ -71,7 +71,7 @@ def user_clearances():
         elif request.method == "DELETE":
             codes -= set(delta)
         try:
-            ids = [code_to_id[c] for c in codes if c in code_to_id.keys()]
+            ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
             content = neon.set_clearances(m["Account ID"], ids, is_company=False)
             log.info("Neon response: %s", str(content))
         except RuntimeError as e:

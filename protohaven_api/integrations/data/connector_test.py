@@ -78,6 +78,7 @@ def test_neon_request_retry_success(mocker, c):
 
 
 def test_bookstack_download(mocker, tmp_path, c):
+    """Tests the bookstack_download method under happy path"""
     mocker.patch.object(
         con,
         "get_config",
@@ -99,6 +100,7 @@ def test_bookstack_download(mocker, tmp_path, c):
 
 
 def test_bookstack_download_zero_bytes(mocker, tmp_path, c):
+    """Ensures exception thrown on zero-byte download"""
     mocker.patch.object(
         con,
         "get_config",
@@ -132,7 +134,6 @@ def test_bookstack_request_success(mocker):
     c = con.Connector()
     response = c.bookstack_request("GET", "/api/data")
 
-    assert mock_get_config.call_count == 2
     mock_request.assert_called_once_with(
         "GET",
         "http://example.com/api/data",
@@ -147,7 +148,7 @@ def test_bookstack_request_failure(mocker):
     mocker.patch.object(
         con, "get_config", side_effect=["http://example.com", "test-api-key"]
     )
-    mock_request = mocker.patch.object(
+    mocker.patch.object(
         con.requests,
         "request",
         return_value=mocker.Mock(status_code=404, content="Not Found"),

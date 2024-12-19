@@ -50,36 +50,40 @@ class WarmDict:
         with self.mu:
             return len(self.cache)
 
-    def run(self):
+    def run_once(self):
         """Periodically repopulate keys, refresh values"""
+        try:
+            self.refresh()
+            if self.failures > 0:
+                comms.send_discord_message(
+                    f"Successfully updated cache after {self.failures} failures",
+                    "#membership-automation",
+                    blocking=False,
+                )
+                self.failures = 0
+
+            if self.REFRESH_PD_SEC:
+                self.log.info(f"Next refresh in {self.RETRY_PD_SEC}s")
+                time.sleep(self.REFRESH_PD_SEC)
+        except Exception:  # pylint: disable=broad-exception-caught
+            traceback.print_exc()
+            self.failures += 1
+            if self.failures == self.NOTIFY_AFTER_FAILURES:
+                comms.send_discord_message(
+                    f"Failed to update cache {self.failures} times so far "
+                    + f"- retry interval {self.RETRY_PD_SEC}s",
+                    "#membership-automation",
+                    blocking=False,
+                )
+
+            if self.RETRY_PD_SEC:
+                self.log.warning(f"Retrying cache refresh in {self.RETRY_PD_SEC}s")
+                time.sleep(self.RETRY_PD_SEC)
+
+    def run(self):
+        """Continuously run the cache"""
         while True:
-            try:
-                self.refresh()
-                if self.failures > 0:
-                    comms.send_discord_message(
-                        f"Successfully updated cache after {self.failures} failures",
-                        "#membership-automation",
-                        blocking=False,
-                    )
-                    self.failures = 0
-
-                if self.REFRESH_PD_SEC:
-                    self.log.info(f"Next refresh in {self.RETRY_PD_SEC}s")
-                    time.sleep(self.REFRESH_PD_SEC)
-            except Exception:  # pylint: disable=broad-exception-caught
-                traceback.print_exc()
-                self.failures += 1
-                if self.failures == self.NOTIFY_AFTER_FAILURES:
-                    comms.send_discord_message(
-                        f"Failed to update cache {self.failures} times so far "
-                        + f"- retry interval {self.RETRY_PD_SEC}s",
-                        "#membership-automation",
-                        blocking=False,
-                    )
-
-                if self.RETRY_PD_SEC:
-                    self.log.warning(f"Retrying cache refresh in {self.RETRY_PD_SEC}s")
-                    time.sleep(self.RETRY_PD_SEC)
+            self.run_once()
 
     def get(self, k, default=None):
         """ "Matches dict.get"""
