@@ -63,7 +63,7 @@ def compute_score(cls):  # pylint: disable=unused-argument
     return 1.0  # Improve this later
 
 
-def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
+def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
     name, avail, caps, instructor_occupancy, area_occupancy, class_by_id
 ):
     """Create and return an Instructor object for use in the solver"""

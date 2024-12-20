@@ -85,7 +85,7 @@ class Connector:
         )
         return rep.status_code, rep.content
 
-    def airtable_request(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def airtable_request(  # pylint: disable=too-many-arguments
         self, mode, base, tbl, rec=None, suffix=None, data=None
     ):
         """Make an airtable request using the requests module"""

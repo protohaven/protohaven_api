@@ -43,10 +43,10 @@ in let
   };
   wyze-sdk = bpp {
     name = "wyze-sdk";
-    owner = "shauntarves";
+    owner = "smartin015"; # was "shauntarves";
     repo = "wyze-sdk";
-    rev = "v2.2.0";
-    hash="sha256-5JNnLWsuqy7dCkEvDnac6DAStzBSazr2jo775KWkOKQ="; # pragma: allowlist secret
+    rev = "0277653e3286d539a1e861059a6f98ed9224ac3a";
+    hash="sha256-ICfByXLJ4aNTJhajZTiX8LhVf5imkaMUqSHagUzr25g="; # pragma: allowlist secret
   };
   mintotp = bpp {
     name = "mintotp";

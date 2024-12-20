@@ -73,7 +73,7 @@ def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
     assert len(got) == 0  # No emails, so no summary
 
 
-def _mock_builder(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+def _mock_builder(  # pylint: disable=too-many-arguments
     mocker,
     airtable_schedule,
     neon_events,

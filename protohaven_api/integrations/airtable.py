@@ -279,7 +279,7 @@ def get_policy_violations():
     return [v for v in rows if v["fields"].get("Onset")]
 
 
-def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def open_violation(  # pylint: disable=too-many-arguments
     reporter, suspect, sections, evidence, onset, fee, notes
 ):
     """Opens a new violation with a fee schedule"""
@@ -496,7 +496,7 @@ def delete_forecast_override(rec):
     return content
 
 
-def set_forecast_override(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def set_forecast_override(  # pylint: disable=too-many-arguments
     rec, date, ap, techs, editor_email, editor_name
 ):
     """Upserts a shop tech shift override"""

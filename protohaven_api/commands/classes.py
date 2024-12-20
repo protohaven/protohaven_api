@@ -260,7 +260,7 @@ class Commands:
             return Category.PROJECT_BASED_WORKSHOP
         return Category.SKILLS_AND_SAFETY_WORKSHOP
 
-    def _schedule_event(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _schedule_event(  # pylint: disable=too-many-arguments
         self, event, desc, published=True, registration=True, dry_run=True
     ):
         start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)

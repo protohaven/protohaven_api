@@ -219,7 +219,7 @@ def gen_role_intents(
             yield replace(intent, action=action, role=role, reason=reason)
 
 
-def handle_delayed_revocation(  # pylint: disable=too-many-positional-arguments
+def handle_delayed_revocation(
     vi, va, now, user_log, apply_records, apply_discord
 ):  # pylint: disable=too-many-arguments
     """Update airtable and apply role revocations based on elapsed time after comms"""
