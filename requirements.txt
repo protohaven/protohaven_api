@@ -11,7 +11,6 @@ astroid==3.0.2
 async-timeout==4.0.3
 attrs==23.1.0
 beautifulsoup4==4.12.2
-blackboxprotobuf==1.0.1
 blinker==1.7.0
 CacheControl==0.12.14
 cachetools==5.3.2
@@ -67,7 +66,6 @@ marshmallow-dataclass==8.5.14
 matplotlib==3.9.2
 mccabe==0.7.0
 memory-profiler==0.61.0
-mintotp==0.3.0
 msgpack==1.0.7
 multidict==6.0.4
 mypy-extensions==1.0.0
@@ -78,13 +76,12 @@ packaging==23.2
 pillow==10.4.0
 platformdirs==3.0.0
 pluggy==1.5.0
-protobuf==3.10.0
+protobuf==4.25.1
 psutil==6.0.0
 PuLP==2.8.0
 pyasn1==0.5.1
 pyasn1-modules==0.3.0
 pycparser==2.22
-pycryptodomex==3.21.0
 pydantic==2.9.2
 pydantic_core==2.23.4
 Pygments==2.18.0
@@ -101,7 +98,6 @@ requests==2.32.3
 requests-oauthlib==1.3.1
 rich==12.5.1
 rsa==4.9
-setuptools==66.0.0
 simple-websocket==1.0.0
 simplejson==3.19.2
 six==1.16.0
@@ -117,6 +113,6 @@ uritemplate==4.1.1
 urllib3==2.2.2
 Werkzeug==3.0.1
 wsproto==1.2.0
-wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@734b90595c5d6f07440460dbad5cfe8d0a46d55e
 yarl==1.9.4
 zipp==3.17.0
+wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@0277653e3286d539a1e861059a6f98ed9224ac3a
