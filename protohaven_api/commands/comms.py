@@ -7,6 +7,7 @@ from collections import defaultdict
 from os import getenv
 
 import yaml
+from discord.errors import Forbidden as ForbiddenError
 
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.integrations import (  # pylint: disable=import-error
@@ -33,10 +34,15 @@ class Commands:  # pylint: disable=too-few-public-methods
             log.info(f"DRY RUN to discord {t}")
             log.info(content)
             return None
-
-        comms.send_discord_message(content, t)
-        log.info(f"Sent to Discord {t}: {e['subject']}")
-        return [t]
+        try:
+            comms.send_discord_message(content, t)
+            log.info(f"Sent to Discord {t}: {e['subject']}")
+            return [t]
+        except ForbiddenError:
+            # If a user has blocked our comms, that's on them. Consider it a
+            # success from our end.
+            log.warning(f"Failed to send to {t} (forbidden): {e['subject']}")
+            return [t]
 
     def _handle_email(self, e, apply, email_ovr):
         email_validate_pattern = r"\S+@\S+\.\S+"

@@ -115,3 +115,4 @@ Werkzeug==3.0.1
 wsproto==1.2.0
 yarl==1.9.4
 zipp==3.17.0
+wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@0277653e3286d539a1e861059a6f98ed9224ac3a

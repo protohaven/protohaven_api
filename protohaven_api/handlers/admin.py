@@ -4,6 +4,7 @@ import logging
 
 from flask import Blueprint, Response, request
 
+from protohaven_api.automation.maintenance import tasks as mtask
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon, neon_base
@@ -70,7 +71,7 @@ def user_clearances():
         elif request.method == "DELETE":
             codes -= set(delta)
         try:
-            ids = [code_to_id[c] for c in codes if c in code_to_id.keys()]
+            ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
             content = neon.set_clearances(m["Account ID"], ids, is_company=False)
             log.info("Neon response: %s", str(content))
         except RuntimeError as e:
@@ -159,3 +160,18 @@ def neon_membership_created_callback():
         )
         log.info("Logged to airtable")
     return Response("ok", status=200)
+
+
+@page.route("/admin/get_maintenance_data", methods=["GET"])
+@require_login_role(Role.AUTOMATION)
+def get_maintenance_data():
+    """Used by Bookstack wiki to populate a widget on tool wiki pages"""
+    tc = request.values.get("tool_code")
+    airtable_id, name = airtable.get_tool_id_and_name(tc)
+    log.info(f"Resolved {tc} -> {airtable_id}")
+    if not airtable_id:
+        return Response(f"Couldn't resolve airtable ID for tool code {tc}", 400)
+    return {
+        "history": list(airtable.get_reports_for_tool(airtable_id)),
+        "active_tasks": list(mtask.get_open_tasks_matching_tool(airtable_id, name)),
+    }

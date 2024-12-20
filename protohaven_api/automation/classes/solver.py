@@ -17,9 +17,9 @@ log = logging.getLogger("class_automation.solver")
 class Class:
     """Represents a class template schedulable, in one or more areas, with score"""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self, class_id, name, hours, days, areas, exclusions, score
-    ):  # pylint: disable=too-many-arguments
+    ):
         self.class_id = class_id  # The ID in airtable
         self.name = name
         self.hours = hours

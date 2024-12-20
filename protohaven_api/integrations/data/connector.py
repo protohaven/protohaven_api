@@ -22,6 +22,7 @@ log = logging.getLogger("integrations.data.connector")
 
 DEFAULT_TIMEOUT = 20.0
 NUM_READ_ATTEMPTS = 3
+NUM_NEON_ATTEMPTS = 3
 RETRY_MAX_DELAY_SEC = 3.0
 
 AIRTABLE_URL = "https://api.airtable.com/v0"
@@ -41,23 +42,34 @@ class Connector:
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
         # include a sleep timer to prevent us from overrunning
-        if "/attendees" in args[0]:
-            with self.neon_ratelimit:
+        for i in range(NUM_NEON_ATTEMPTS):
+            if "/attendees" in args[0]:
+                with self.neon_ratelimit:
+                    r = requests.request(
+                        *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
+                    )
+                    time.sleep(0.25)
+            else:
                 r = requests.request(
                     *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
                 )
-                time.sleep(0.25)
-        else:
-            r = requests.request(*args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT)
 
-        if r.status_code != 200:
-            raise RuntimeError(
-                f"neon_request(args={args}, kwargs={kwargs}) returned {r.status_code}: {r.content}"
+            if r.status_code == 200:
+                try:
+                    return r.json()
+                except requests.exceptions.JSONDecodeError:
+                    return r.content
+
+            log.warning(
+                f"status code {r.status_code} on neon request {args} {kwargs};"
+                f" retry #{i+1}"
             )
-        try:
-            return r.json()
-        except requests.exceptions.JSONDecodeError:
-            return r.content
+            time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
+
+        raise RuntimeError(
+            f"neon_request(args={args}, kwargs={kwargs}) "
+            + f"returned {r.status_code}: {r.content}"
+        )
 
     def neon_session(self):
         """Create a new session using the requests lib"""
@@ -73,9 +85,9 @@ class Connector:
         )
         return rep.status_code, rep.content
 
-    def airtable_request(
+    def airtable_request(  # pylint: disable=too-many-arguments
         self, mode, base, tbl, rec=None, suffix=None, data=None
-    ):  # pylint: disable=too-many-arguments
+    ):
         """Make an airtable request using the requests module"""
         cfg = get_config("airtable")[base]
         url = f"{AIRTABLE_URL}/{cfg['base_id']}/{cfg[tbl]}"
@@ -170,6 +182,45 @@ class Connector:
         if r.status_code != 200:
             raise RuntimeError(
                 f"booked_request(mode={mode}, url={url}, args={args}, "
+                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+            )
+        try:
+            return r.json()
+        except requests.exceptions.JSONDecodeError:
+            return r.content
+
+    def bookstack_download(self, api_suffix, dest):
+        """Download a file from the Bookstack wiki"""
+        url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))
+        headers = {
+            "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
+        }
+        response = requests.get(
+            url, headers=headers, timeout=DEFAULT_TIMEOUT * 5, stream=True
+        )
+        response.raise_for_status()
+
+        with open(dest, "wb") as file:
+            for chunk in response.raw.stream(1024, decode_content=False):
+                if chunk:
+                    file.write(chunk)
+
+            if file.tell() == 0:
+                raise ValueError("Downloaded file is empty")
+            return file.tell()
+
+    def bookstack_request(self, mode, api_suffix, *args, **kwargs):
+        """Make a request to the Booked reservation system"""
+        url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))
+        headers = {
+            "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
+        }
+        r = requests.request(
+            mode, url, *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+        )
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"bookstack_request(mode={mode}, url={url}, args={args}, "
                 + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
             )
         try:

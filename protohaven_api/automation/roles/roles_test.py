@@ -301,7 +301,7 @@ def test_setup_discord_user_nickname_change(mocker):
         ],
     )
     got = list(r.setup_discord_user(("a", "a", None, [("Members", 123)])))
-    assert len(got) == 1
+    assert len(got) == 2
     assert got[0] == ("set_nickname", "a", "b")
 
 

@@ -406,9 +406,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             raise RuntimeError(f"{r.status_code}: {r.content}")
         return True
 
-    def assign_price_to_group(
+    def assign_price_to_group(  # pylint: disable=too-many-arguments
         self, event_id, group_id, price_name, amt, capacity
-    ):  # pylint: disable=too-many-arguments
+    ):
         """Assigns a specific price to a Neon ticket group"""
         referer = f"{ADMIN_URL}/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
         ag = self.s.get(referer)

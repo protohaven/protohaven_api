@@ -170,9 +170,35 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
+def get_reports_for_tool(airtable_id):
+    """Fetches all tool reports tagged with a particular tool record in Airtable"""
+    for r in get_all_records("tools_and_equipment", "tool_reports"):
+        if airtable_id not in r["fields"].get("Equipment Record", []):
+            continue
+        yield {
+            "date": r["fields"].get("Created"),
+            "name": r["fields"].get("Name"),
+            "email": r["fields"].get("Email"),
+            "message": r["fields"].get("What's the problem?"),
+            "summary": r["fields"].get("Actions taken"),
+            "asana": r["fields"].get("Asana Link"),
+        }
+
+
 def get_areas():
     """Get all areas in the Area table"""
     return get_all_records("tools_and_equipment", "areas")
+
+
+def get_tool_id_and_name(tool_code):
+    """Fetches the name and ID of a tool in Airtable, based on its tool code"""
+    for t in get_tools():
+        if (
+            t["fields"].get("Tool Code", "").strip().lower()
+            == tool_code.strip().lower()
+        ):
+            return (t["id"], t["fields"].get("Tool Name"))
+    return None
 
 
 def get_all_maintenance_tasks():
@@ -253,9 +279,9 @@ def get_policy_violations():
     return [v for v in rows if v["fields"].get("Onset")]
 
 
-def open_violation(
+def open_violation(  # pylint: disable=too-many-arguments
     reporter, suspect, sections, evidence, onset, fee, notes
-):  # pylint: disable=too-many-arguments
+):
     """Opens a new violation with a fee schedule"""
     section_map = {s["fields"]["id"]: s["id"] for s in get_policy_sections()}
     return insert_records(
@@ -470,9 +496,9 @@ def delete_forecast_override(rec):
     return content
 
 
-def set_forecast_override(
+def set_forecast_override(  # pylint: disable=too-many-arguments
     rec, date, ap, techs, editor_email, editor_name
-):  # pylint: disable=too-many-arguments
+):
     """Upserts a shop tech shift override"""
     ap = ap.lower()
     date = (

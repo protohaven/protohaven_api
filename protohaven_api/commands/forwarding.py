@@ -302,7 +302,7 @@ class Commands:
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {
-            t["email"]: t["name"]
+            t["email"].strip().lower(): t["name"]
             for t in neon.fetch_techs_list()
             if t["name"] in techs_on_duty
         }
@@ -311,7 +311,7 @@ class Commands:
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(sheets.get_sign_ins_between(start, end)):
-            email = s["email"].lower()
+            email = s["email"].strip().lower()
             name = email_map.get(email)
             if name in techs_on_duty:
                 on_duty_ok = True

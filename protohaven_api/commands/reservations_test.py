@@ -186,3 +186,148 @@ def test_reserve_equipment_from_template(mocker, cli):
     r.booked.reserve_resource.assert_called_with(
         "1", d(0), d(0) + datetime.timedelta(hours=3), title="Test Class"
     )
+
+
+def test_sync_booked_members_not_in_booked(mocker, cli):
+    """Test sync_booked_members command function."""
+    mocker.patch.object(
+        r.neon,
+        "get_active_members",
+        return_value=[
+            {
+                "Account ID": 12345,
+                "Booked User ID": None,
+                "First Name": "John",
+                "Last Name": "Doe",
+                "Email 1": "john@example.com",
+            }
+        ],
+    )
+    mocker.patch.object(r.booked, "get_all_users", return_value=[])
+    mocker.patch.object(
+        r.booked, "create_user_as_member", return_value={"userId": 456, "errors": []}
+    )
+    mocker.patch.object(r.neon, "set_booked_user_id")
+    mocker.patch.object(r.booked, "update_user")
+    mocker.patch.object(r.booked, "get_members_group", return_value={"users": []})
+    mocker.patch.object(r.booked, "assign_members_group_users", return_value={})
+
+    args = mocker.Mock()
+    args.exclude = None
+    args.apply = True
+
+    got = cli("sync_booked_members", ["--apply"])
+    assert len(got) == 1
+    r.neon.set_booked_user_id.assert_called_with(12345, 456)
+    r.booked.update_user.assert_not_called()
+    r.booked.assign_members_group_users.assert_called_with({456})
+
+
+def test_sync_booked_members_associate_existing(mocker, cli):
+    """Test sync_booked_members command function with existing account"""
+    mocker.patch.object(
+        r.neon,
+        "get_active_members",
+        return_value=[
+            {
+                "Account ID": 12345,
+                "Booked User ID": None,
+                "First Name": "John",
+                "Last Name": "Doe",
+                "Email 1": "john@example.com",
+            }
+        ],
+    )
+    mocker.patch.object(
+        r.booked,
+        "get_all_users",
+        return_value=[
+            {
+                "id": 456,
+                "firstName": "John",
+                "lastName": "Doe",
+                "emailAddress": "john@example.com",
+            }
+        ],
+    )
+    mocker.patch.object(r.booked, "create_user_as_member")
+    mocker.patch.object(r.neon, "set_booked_user_id")
+    mocker.patch.object(r.booked, "get_user")
+    mocker.patch.object(r.booked, "update_user", return_value={})
+    mocker.patch.object(r.booked, "get_members_group", return_value={"users": []})
+    mocker.patch.object(r.booked, "assign_members_group_users", return_value={})
+
+    args = mocker.Mock()
+    args.exclude = None
+    args.apply = True
+
+    got = cli("sync_booked_members", ["--apply"])
+    assert len(got) == 1
+    r.neon.set_booked_user_id.assert_called_with(12345, 456)
+    r.booked.create_user_as_member.assert_not_called()
+    r.booked.assign_members_group_users.assert_called_with({456})
+
+
+def test_sync_booked_members_update_associated(mocker, cli):
+    """Test sync_booked_members command syncing with associated account"""
+
+    # Note the addition of booked user ID
+    mocker.patch.object(
+        r.neon,
+        "get_active_members",
+        return_value=[
+            {
+                "Account ID": 12345,
+                "Booked User ID": 456,
+                "First Name": "John",
+                "Last Name": "Doe",
+                "Email 1": "john@example.com",
+            }
+        ],
+    )
+
+    # Note that no fields except the ID properly match the Neon values
+    mocker.patch.object(
+        r.booked,
+        "get_all_users",
+        return_value=[
+            {"id": 456, "firstName": "A", "lastName": "B", "emailAddress": "c@d.com"}
+        ],
+    )
+    mocker.patch.object(r.booked, "create_user_as_member")
+    mocker.patch.object(r.neon, "set_booked_user_id")
+    mocker.patch.object(
+        r.booked,
+        "get_user",
+        return_value={
+            "id": 456,
+            "firstName": "A",
+            "lastName": "B",
+            "emailAddress": "c@d.com",
+        },
+    )
+    mocker.patch.object(r.booked, "update_user", return_value={})
+    mocker.patch.object(r.booked, "get_members_group", return_value={"users": []})
+    mocker.patch.object(r.booked, "assign_members_group_users", return_value={})
+
+    args = mocker.Mock()
+    args.exclude = None
+    args.apply = True
+
+    got = cli("sync_booked_members", ["--apply"])
+    assert len(got) == 1
+    r.neon.set_booked_user_id.assert_not_called()
+    r.booked.create_user_as_member.assert_not_called()
+    r.neon.set_booked_user_id.assert_not_called()
+
+    # Values are synced from Neon
+    r.booked.update_user.assert_called_with(
+        456,
+        {
+            "id": 456,
+            "firstName": "John",
+            "lastName": "Doe",
+            "emailAddress": "john@example.com",
+        },
+    )
+    r.booked.assign_members_group_users.assert_called_with({456})

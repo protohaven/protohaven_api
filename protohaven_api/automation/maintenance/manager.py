@@ -4,42 +4,75 @@ import logging
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, tasks
+from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.integrations import airtable, tasks, wiki
 
 log = logging.getLogger("maintenance.manager")
 
 
 def get_maintenance_needed_tasks(now=None):
-    """Fetches a list of recurring tasks from Airtable that are due to be scheduled
-    into asana for action"""
+    """Fetches a list of recurring tasks from Airtable and Bookstack that are due to be
+    scheduled into asana for action.
+
+    "Due"-ness is determined by the last completion of an Asana task with the same
+    reference to the origin of that task.
+    """
     if not now:
         now = tznow()
-    needed = []
-    section_map = tasks.get_shop_tech_maintenance_section_map()
 
-    for task in airtable.get_all_maintenance_tasks():
-        log.debug(f"Task {task['id']}: {task['fields']['Task Name']}")
-        last_scheduled = dateparser.parse(task["fields"]["Last Scheduled"]).astimezone(
-            tz
+    log.info("Loading maintenance sections")
+    section_map = tasks.get_shop_tech_maintenance_section_map()
+    log.info(f"{len(section_map.keys())} sections loaded")
+
+    log.info("Loading maintenance completions")
+    last_completions = tasks.last_maintenance_completion_map()
+    log.info(f"{len(last_completions.keys())} completion(s) loaded")
+    for k, v in last_completions.items():
+        print(k, v)
+
+    log.info("Loading candidates from wiki & airtable")
+    candidates = [
+        {
+            "id": m["maint_ref"],
+            "origin": "Bookstack",
+            "name": m["maint_task"],
+            "detail": (
+                f"See https://wiki.protohaven.org/books/{m['book_slug']}/pages/"
+                f"{m['page_slug']}/{m['approval_state']['approved_id']}"
+            ),
+            "freq": m["maint_freq_days"],
+            "section": section_map.get(m.get("maint_asana_section")),
+        }
+        for m in wiki.get_maintenance_data(get_config("bookstack/basic_maint_slug"))
+        if m["approval_state"].get("approved_revision")
+    ] + [
+        {
+            "id": t["id"],
+            "origin": "Airtable",
+            "name": t["fields"]["Task Name"],
+            "freq": t["fields"]["Frequency"],
+            "section": section_map.get(t["fields"]["Asana Section"]),
+        }
+        for t in airtable.get_all_maintenance_tasks()
+    ]
+
+    needed = []
+    for c in candidates:
+        log.debug(f"{c['origin']} Task {c['id']}: {c['name']}")
+        last_scheduled = last_completions.get(c["id"])
+        log.info(f"{c['id']} las scheduled {last_scheduled}")
+        next_schedule = (
+            last_scheduled + datetime.timedelta(days=c["freq"])
+            if last_scheduled is not None
+            else now
         )
-        next_schedule = dateparser.parse(
-            task["fields"]["Next Schedule Date"]
-        ).astimezone(tz)
         if next_schedule <= now:
             needed.append(
-                {
-                    "id": task["id"],
-                    "last_scheduled": last_scheduled,
-                    "next_schedule": next_schedule,
-                    "name": task["fields"]["Task Name"],
-                    "detail": task["fields"]["Task Detail"],
-                    "section": section_map.get(task["fields"]["Asana Section"]),
-                }
+                {**c, "last_scheduled": last_scheduled, "next_schedule": next_schedule}
             )
-            log.debug(f"APPEND\t{task['fields']['Task Name']}")
+            log.info(f"Append {c}")
         else:
-            log.debug(f"SKIP_TOO_EARLY\t{task['fields']['Task Name']}")
+            log.info(f"Skip (too early)\t{c}")
     return needed
 
 
