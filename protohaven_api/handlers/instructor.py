@@ -23,7 +23,7 @@ HIDE_UNCONFIRMED_DAYS_AHEAD = 10
 HIDE_CONFIRMED_DAYS_AFTER = 10
 
 
-def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
+def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
     instructor,
     start_date,
     hours,

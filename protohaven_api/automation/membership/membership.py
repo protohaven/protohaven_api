@@ -63,7 +63,7 @@ def event_is_suggestible(event_id, max_price):
     return False, 0
 
 
-def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements
+def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements,too-many-positional-arguments
     account_id,
     membership_id,
     email,

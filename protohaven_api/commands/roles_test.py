@@ -221,3 +221,35 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
         )
         == []
     )
+
+
+def test_setup_discord_user_nickname_change(mocker):
+    """Test notification is sent when the nickname is changed"""
+    mocker.patch.object(
+        ra.neon,
+        "get_members_with_discord_id",
+        return_value=[
+            {
+                "Account ID": "123",
+                "Account Current Membership Status": "Active",
+                "API server role": "",
+                "First Name": "John",
+                "Preferred Name": "Johnny",
+                "Last Name": "Doe",
+                "Pronouns": "he/him",
+            }
+        ],
+    )
+    mocker.patch.object(ra.airtable, "log_comms")
+    mocker.patch.object(ra, "resolve_nickname", return_value="Johnny Doe")
+
+    discord_details = ("discord_user_id", "Old Nickname", None, [])
+    actions = list(ra.setup_discord_user(discord_details))
+
+    assert any(
+        action == "set_nickname" and args[1] == "Johnny Doe"
+        for action, *args in actions
+    )
+    sent_dm_actions = [args for action, *args in actions if action == "send_dm"]
+    assert len(sent_dm_actions) == 2
+    assert sent_dm_actions[0] == ["discord_user_id", MatchStr("Johnny Doe")]

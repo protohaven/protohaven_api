@@ -6,12 +6,13 @@ import pytest
 
 from protohaven_api.handlers import techs as tl
 from protohaven_api.rbac import Role, set_rbac
-from protohaven_api.testing import MatchStr, fixture_client, setup_session
+from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
 
 @pytest.fixture()
 def tech_client(client):
     with client.session_transaction() as session:
+        session["neon_id"] = "12345"
         session["neon_account"] = {
             "accountCustomFields": [
                 {"name": "API server role", "optionValues": [{"name": "Shop Tech"}]},
@@ -182,3 +183,105 @@ def test_techs_forecast_override_delete(mocker, tech_client):
     tl.comms.send_discord_message.assert_called_once_with(
         MatchStr("Tech1, Tech2"), "#techs", blocking=False
     )
+
+
+def test_techs_backfill_events(mocker, tech_client):
+    """Test the techs_backfill_events handler for expected output."""
+    mocker.patch.object(
+        tl.airtable,
+        "get_class_automation_schedule",
+        return_value=[
+            {"fields": {"Neon ID": "123", "Supply Cost (from Class)": [10]}},
+            {"fields": {"Neon ID": "17631", "Supply Cost (from Class)": [15]}},
+            {"fields": {"Neon ID": "124"}},
+        ],
+    )
+    mocker.patch.object(
+        tl.neon,
+        "fetch_upcoming_events",
+        return_value=[
+            {
+                "id": "123",
+                "startDate": d(0).strftime("%Y-%m-%d"),
+                "startTime": "10:00",
+                "capacity": 10,
+                "name": "Event A",
+            },
+            {
+                "id": "17631",
+                "startDate": d(0).strftime("%Y-%m-%d"),
+                "startTime": "10:00",
+                "capacity": 10,
+                "name": "Private Event",
+            },
+            {
+                "id": "124",
+                "startDate": d(-5).strftime("%Y-%m-%d"),
+                "startTime": "10:00",
+                "capacity": 10,
+                "name": "Event B, too early",
+            },
+        ],
+    )
+    mocker.patch.object(
+        tl.neon,
+        "fetch_attendees",
+        side_effect=[[{"accountId": "1", "registrationStatus": "SUCCEEDED"}], []],
+    )
+    mocker.patch.object(
+        tl.neon,
+        "fetch_tickets",
+        return_value=[
+            {"id": "t1", "name": "Single Registration"},
+            {"id": "t2", "name": "Other Ticket"},
+        ],
+    )
+    mocker.patch.object(tl, "tznow", return_value=d(0))
+
+    response = tech_client.get("/techs/events")
+    assert response.status_code == 200
+    assert response.json == [
+        {
+            "attendees": ["1"],
+            "capacity": 10,
+            "id": "123",
+            "name": "Event A",
+            "start": "Wed, 01 Jan 2025 15:00:00 GMT",
+            "supply_cost": 10,
+            "ticket_id": "t1",
+        },
+    ]
+
+
+def test_techs_event_registration_register(mocker, tech_client):
+    """Test techs_event_registration for registering"""
+    mocker.patch.object(tl.neon, "register_for_event", return_value={"status": "ok"})
+    mocker.patch.object(tl.comms, "send_discord_message")
+    mocker.patch.object(tl, "_notify_registration")
+    mocker.patch.object(tl.neon, "delete_single_ticket_registration")
+
+    rep = tech_client.post(
+        "/techs/event", json={"event_id": 123, "ticket_id": 456, "action": "register"}
+    )
+    assert rep.json == {"status": "ok"}
+    tl.neon.register_for_event.assert_called_once_with("12345", 123, 456)
+    tl._notify_registration.assert_called_once_with("12345", 123, "register")
+    tl.neon.delete_single_ticket_registration.assert_not_called()
+
+
+def test_techs_event_registration_unregister(mocker, tech_client):
+    """Test techs_event_registration for registering"""
+    mocker.patch.object(tl.neon, "register_for_event")
+    mocker.patch.object(tl.comms, "send_discord_message")
+    mocker.patch.object(tl, "_notify_registration")
+    mocker.patch.object(
+        tl.neon, "delete_single_ticket_registration", return_value={"status": "ok"}
+    )
+
+    rep = tech_client.post(
+        "/techs/event", json={"event_id": 123, "ticket_id": 456, "action": "unregister"}
+    )
+    assert rep.json == {"status": "ok"}
+    tl.neon.register_for_event.assert_not_called()
+    tl.neon.delete_single_ticket_registration.assert_called_once_with("12345", 123)
+    tl._notify_registration.assert_called_once_with("12345", 123, "unregister")

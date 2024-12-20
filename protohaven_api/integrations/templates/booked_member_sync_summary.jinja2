@@ -1,3 +1,2 @@
-{% if subject %}Booked Member Sync Summary{% else %}Made {{n}} user change(s) in [Booked Scheduler](https://reserve.protohaven.org):
-{% for c in changes %}* {{c}}
+{% if subject %}Made {{n}} user change(s) in [Booked Scheduler](https://reserve.protohaven.org){% else %}{% for c in changes %}* {{c}}
 {% endfor %}{{footer}}{% endif %}

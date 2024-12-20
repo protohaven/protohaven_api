@@ -236,7 +236,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             self.TYPE_EVENT_DISCOUNT, code=code, pct=False, amt=amt
         )
 
-    def _post_discount(  # pylint: disable=too-many-arguments
+    def _post_discount(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         typ,
         code,
@@ -406,9 +406,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             raise RuntimeError(f"{r.status_code}: {r.content}")
         return True
 
-    def assign_price_to_group(
+    def assign_price_to_group(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, event_id, group_id, price_name, amt, capacity
-    ):  # pylint: disable=too-many-arguments
+    ):
         """Assigns a specific price to a Neon ticket group"""
         referer = f"{ADMIN_URL}/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
         ag = self.s.get(referer)
@@ -497,7 +497,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             )
 
 
-def create_event(  # pylint: disable=too-many-arguments
+def create_event(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     name,
     desc,
     start,

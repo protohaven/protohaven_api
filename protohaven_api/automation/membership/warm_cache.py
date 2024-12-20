@@ -3,26 +3,34 @@ keeps it fresh"""
 import datetime
 import logging
 import time
+import traceback
 from threading import Lock, Thread
 
 from dateutil import parser as dateparser
 
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, comms, neon
 
 BATCH_SZ = 5
 
 
 class WarmDict:
-    """Resolves keys to values and keeps the values fresh."""
+    """Resolves keys to values and keeps the values fresh.
+    Retries failures on a tighter loop, and notifies to
+    Discord if there are many consecutive failures.
+    """
 
     NAME = ""
     REFRESH_PD_SEC = None
+    RETRY_PD_SEC = None
+    NOTIFY_AFTER_FAILURES = 3
+    NOTIFY_CHANNEL = None
 
     def __init__(self):
         self.log = logging.getLogger(f"WarmCache({self.NAME})")
         self.mu = Lock()
         self.cache = {}
+        self.failures = 0
 
     def refresh(self):
         """To be implemented by inheritor"""
@@ -42,15 +50,40 @@ class WarmDict:
         with self.mu:
             return len(self.cache)
 
-    def run(self):
+    def run_once(self):
         """Periodically repopulate keys, refresh values"""
-        while True:
-            # try:
+        try:
             self.refresh()
-            # except Exception as e:
-            #    self.log.error(str(e))
+            if self.failures > 0:
+                comms.send_discord_message(
+                    f"Successfully updated cache after {self.failures} failures",
+                    "#membership-automation",
+                    blocking=False,
+                )
+                self.failures = 0
+
             if self.REFRESH_PD_SEC:
+                self.log.info(f"Next refresh in {self.RETRY_PD_SEC}s")
                 time.sleep(self.REFRESH_PD_SEC)
+        except Exception:  # pylint: disable=broad-exception-caught
+            traceback.print_exc()
+            self.failures += 1
+            if self.failures == self.NOTIFY_AFTER_FAILURES:
+                comms.send_discord_message(
+                    f"Failed to update cache {self.failures} times so far "
+                    + f"- retry interval {self.RETRY_PD_SEC}s",
+                    "#membership-automation",
+                    blocking=False,
+                )
+
+            if self.RETRY_PD_SEC:
+                self.log.warning(f"Retrying cache refresh in {self.RETRY_PD_SEC}s")
+                time.sleep(self.RETRY_PD_SEC)
+
+    def run(self):
+        """Continuously run the cache"""
+        while True:
+            self.run_once()
 
     def get(self, k, default=None):
         """ "Matches dict.get"""
@@ -70,6 +103,7 @@ class AccountCache(WarmDict):
 
     NAME = "neon_accounts"
     REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
+    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
     FIELDS = [
         *neon.MEMBER_SEARCH_OUTPUT_FIELDS,
         "Email 1",
@@ -112,6 +146,7 @@ class AirtableCache(WarmDict):
 
     NAME = "airtable"
     REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
+    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
 
     def refresh(self):
         """Refresh values; called every REFRESH_PD"""
@@ -149,7 +184,7 @@ class AirtableCache(WarmDict):
                 if not cleared_for_tool:
                     continue
 
-            for r in row["fields"]["Roles"]:
+            for r in row["fields"].get("Roles", []):
                 if r in roles:
                     row["fields"]["rec_id"] = row["id"]
                     yield row["fields"]

@@ -2,9 +2,46 @@
 
 import pytest
 
+from protohaven_api import rbac
 from protohaven_api.handlers import admin as a
-from protohaven_api.rbac import Role
 from protohaven_api.testing import fixture_client  # pylint: disable=unused-import
+
+
+def test_user_clearances(mocker, client):
+    """Test the user_clearances function"""
+    mocker.patch.object(
+        rbac, "is_enabled", return_value=False
+    )  # Disable to allow testing
+    mocker.patch.object(
+        a.neon,
+        "fetch_clearance_codes",
+        return_value=[
+            {"name": "CLEAR1", "code": "C1", "id": 1},
+            {"name": "CLEAR2", "code": "C2", "id": 2},
+        ],
+    )
+    mocker.patch.object(
+        a.neon,
+        "search_member",
+        return_value=[
+            {"Account ID": "123", "Company ID": "456", "Clearances": "CLEAR1|CLEAR2"}
+        ],
+    )
+    mocker.patch.object(
+        a.airtable, "get_clearance_to_tool_map", return_value={"MWB": ["ABG", "RBP"]}
+    )
+    mocker.patch.object(a.neon, "set_clearances", return_value="Success")
+
+    rep = client.patch(
+        "/user/clearances",
+        data={"emails": "test@example.com", "codes": "CLEAR1,CLEAR2"},
+    )
+
+    assert rep.status_code == 200
+    a.neon.set_clearances.assert_called_with(  # pylint: disable=no-member
+        "123", {2, 1}, is_company=False
+    )
+
 
 NEW_MEMBERSHIP_WEBHOOK_DATA = {
     "data": {
@@ -50,7 +87,9 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
         "get_config",
         return_value={"neon": {"webhooks": {"new_membership": {"enabled": False}}}},
     )
-    mocker.patch.object(a, "roles_from_api_key", return_value=[Role.AUTOMATION["name"]])
+    mocker.patch.object(
+        a, "roles_from_api_key", return_value=[rbac.Role.AUTOMATION["name"]]
+    )
     mock_fetch_memberships = mocker.patch.object(
         a.neon, "fetch_memberships", return_value=[{"membershipId": 1}]
     )
@@ -89,3 +128,30 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
         mock_init_membership.assert_not_called()
         mock_send_email.assert_not_called()
         mock_log_comms.assert_not_called()
+
+
+def test_get_maintenance_data(mocker, client):
+    """Test the get_maintenance_data function"""
+    tool_code = "test_tool_code"
+    airtable_id = "test_airtable_id"
+    tool_name = "Test Tool Name"
+    history_data = [{"id": "history1"}, {"id": "history2"}]
+    active_tasks_data = [{"id": "task1"}, {"id": "task2"}]
+
+    mocker.patch.object(
+        rbac, "is_enabled", return_value=False
+    )  # Disable to allow testing
+    mocker.patch.object(
+        a.airtable, "get_tool_id_and_name", return_value=(airtable_id, tool_name)
+    )
+    mocker.patch.object(a.airtable, "get_reports_for_tool", return_value=history_data)
+    mocker.patch.object(
+        a.mtask, "get_open_tasks_matching_tool", return_value=active_tasks_data
+    )
+
+    response = client.get(f"/admin/get_maintenance_data?tool_code={tool_code}")
+    assert response.status_code == 200
+    assert response.json == {
+        "history": history_data,
+        "active_tasks": active_tasks_data,
+    }

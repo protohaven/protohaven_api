@@ -67,7 +67,7 @@ def require_login(fn):
     """Decorator that requires the user to be logged in"""
 
     def do_login_check(*args, **kwargs):
-        if enabled:
+        if is_enabled():
             if session.get("neon_id") is None:
                 session["redirect_to_login_url"] = request.url
                 return redirect(url_for("auth.login_user_neon_oauth"))
@@ -115,7 +115,7 @@ def require_login_role(*role):
 
     def fn_setup(fn):
         def do_role_check(*args, **kwargs):
-            if not enabled:
+            if not is_enabled():
                 log.warning(f"BYPASS for {role}")
                 return fn(*args, **kwargs)
             roles = get_roles()

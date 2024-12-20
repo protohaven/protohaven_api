@@ -454,7 +454,7 @@ def patch_member_role(email, role, enabled):
     )
 
 
-def set_tech_custom_fields(  # pylint: disable=too-many-arguments
+def set_tech_custom_fields(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     account_id,
     shift=None,
     first_day=None,
@@ -516,7 +516,7 @@ def set_event_scheduled_state(neon_id, scheduled=True):
     )["id"]
 
 
-def assign_pricing(  # pylint: disable=too-many-arguments
+def assign_pricing(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     event_id, price, seats, clear_existing=False, include_discounts=True, n=None
 ):
     """Assigns ticket pricing and quantities for a preexisting Neon event"""

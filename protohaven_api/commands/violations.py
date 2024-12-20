@@ -37,8 +37,8 @@ class Commands:  # pylint: disable=too-few-public-methods
             for f in new_fees:
                 log.info(f" - {f[2]} {f[0]} ${f[1]}")
             if args.apply:
-                rep = airtable.create_fees(new_fees)
-                log.debug(f"{rep.status_code}: {rep.content}")
+                status, content = airtable.create_fees(new_fees)
+                log.debug(f"{status}: {content}")
                 log.info(f"Applied {len(new_fees)} fee(s) into Airtable")
             else:
                 log.warning("--apply not set; no fee(s) will be added")

@@ -202,57 +202,38 @@ def test_get_notifications_after(mocker, tc):
     assert dict(a.get_notifications_after(tc.tag, d(0))) == tc.want
 
 
-# @pytest.mark.parametrize(
-#     "desc,rec,cut_start,cut_end,want",
-#     [
-#         (
-#             "Delete",
-#             _arec("a", d(0, 18), d(0, 21), 1),
-#             None,
-#             None,
-#             (None, None),
-#         ),
-#         (
-#             "Truncate",
-#             _arec("a", d(0, 18), d(0, 21), 1),
-#             d(3),
-#             None,
-#             ({"Interval End": d(3)}, None),
-#         ),
-#         (
-#             "Slice",
-#             _arec("a", d(0, 18), d(0, 21), "RRULE:FREQ=DAILY;COUNT=5"),
-#             d(2),
-#             d(4),
-#             (
-#                 {"Interval End": d(2)},
-#                 _arec("a", d(4, 18), d(4, 21), "RRULE:FREQ=DAILY;COUNT=5"),
-#             ),
-#         ),
-#     ],
-# )
-# def test_trim_availability(mocker, desc, rec, cut_start, cut_end, want):
-#     mocker.patch.object(a, "get_record", return_value=rec)
-#     mocker.patch.object(a, "update_record", side_effect=lambda data, _0, _1, _2: data)
-#     mocker.patch.object(a, "delete_record", side_effect=lambda _0, _1, _2: None)
-#     mocker.patch.object(
-#         a,
-#         "insert_records",
-#         side_effect=lambda data, _0, _1: mocker.MagicMock(
-#             content=json.dumps(
-#                 {
-#                     "records": [
-#                         {
-#                             "fields": {
-#                                 **data[0],
-#                                 "Email (from Instructor)": "a",
-#                             },  # Indirect field requires override for testing
-#                             "id": 123,
-#                         }
-#                     ]
-#                 }
-#             )
-#         ),
-#     )
-#     got = a.trim_availability("rec_id", cut_start, cut_end)
-#     assert got == want
+def test_get_reports_for_tool(mocker):
+    """Test fetching tool reports for a specific airtable_id"""
+    mocker.patch.object(
+        a,
+        "get_all_records",
+        return_value=[
+            {
+                "fields": {
+                    "Equipment Record": ["valid_id"],
+                    "Created": "2023-10-01",
+                    "Name": "Test User",
+                    "Email": "testuser@example.com",
+                    "What's the problem?": "Tool not working",
+                    "Actions taken": "Checked settings",
+                    "Asana Link": "http://asana.com/task/1",
+                }
+            },
+            {
+                "fields": {
+                    "Equipment Record": ["nonmatching_id"],
+                }
+            },
+        ],
+    )
+
+    reports = list(a.get_reports_for_tool("valid_id"))
+    assert len(reports) == 1
+    assert reports[0] == {
+        "date": "2023-10-01",
+        "name": "Test User",
+        "email": "testuser@example.com",
+        "message": "Tool not working",
+        "summary": "Checked settings",
+        "asana": "http://asana.com/task/1",
+    }
