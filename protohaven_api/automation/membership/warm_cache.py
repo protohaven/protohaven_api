@@ -167,6 +167,11 @@ class AirtableCache(WarmDict):
     def announcements_after(self, d, roles, clearances):
         """Gets all announcements, excluding those before `d`"""
         now = tznow()
+
+        # Neon clearance data is of the format `<TOOL_CODE>: <TOOL_NAME>`.
+        # announcements_after expects a set of tool names.
+        clearances = [n.split(":")[1].strip() for n in clearances]
+
         for row in self["announcements"]:
             adate = dateparser.parse(
                 row["fields"].get("Published", "2024-01-01")

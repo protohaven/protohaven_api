@@ -29,7 +29,7 @@ def user_clearances():
     if len(emails) == 0:
         return Response("Missing required param 'emails'", status=400)
     results = {}
-    all_codes = list(neon.fetch_clearance_codes())
+    all_codes = neon.fetch_clearance_codes()
     name_to_code = {c["name"]: c["code"] for c in all_codes}
     code_to_id = {c["code"]: c["id"] for c in all_codes}
     for e in emails:
@@ -72,6 +72,7 @@ def user_clearances():
             codes -= set(delta)
         try:
             ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
+            log.info(f"Setting clearances for {m['Account ID']} to {ids}")
             content = neon.set_clearances(m["Account ID"], ids, is_company=False)
             log.info("Neon response: %s", str(content))
         except RuntimeError as e:
