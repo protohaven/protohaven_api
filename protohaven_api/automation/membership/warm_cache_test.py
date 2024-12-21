@@ -94,7 +94,9 @@ def test_get_announcements_after(
     )
     got = list(
         tc.announcements_after(
-            dateparser.parse("2024-03-14").astimezone(tz), ["role1"], ["Sandblaster"]
+            dateparser.parse("2024-03-14").astimezone(tz),
+            ["role1"],
+            ["SBL: Sandblaster"],
         )
     )
     if want:
