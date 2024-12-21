@@ -184,9 +184,9 @@ class Commands:
         else:
             print_yaml([])
 
-    def _do_backup(
+    def _do_backup(  # pylint: disable=too-many-arguments
         self, fn, backup_path, upload_path, parent_id, apply
-    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    ):
         file_sz = fn(backup_path)
         log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")
         if apply:

@@ -30,7 +30,7 @@ repos:
           "-sn", # Don't display the score
           # integrations/tasks.py false positives
           "--generated-members=client.tasks,client.projects",
-          "--disable=logging-fstring-interpolation,import-error",
+          "--disable=logging-fstring-interpolation,import-error,too-many-positional-arguments",
         ]
 -   repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
