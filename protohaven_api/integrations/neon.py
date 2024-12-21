@@ -138,7 +138,6 @@ def fetch_attendees(event_id):
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
     rep = neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")
-    log.info(f"fetch_clearance_codes: {rep}")
     result = []
     for c in rep["optionValues"]:
         code, _ = c["name"].split(":")
