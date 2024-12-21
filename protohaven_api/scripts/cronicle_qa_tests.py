@@ -319,6 +319,17 @@ if __name__ == "__main__":
                 "ARGS": "--no-apply",
             },
         ),
+        (
+            "backup_wiki",
+            test_simple,
+            "em4u369ldgl",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply --parent_id=\"\"",
+            }
+        ),
+        # TODO check wyze cameras
+        # TODO check wyze locks
     ]
     destructive_commands = [
         # Need to modify a test user to properly exercise this command
@@ -400,7 +411,7 @@ if __name__ == "__main__":
     if len(all_ids - tested_ids):
         raise RuntimeError(f"Some IDs in Cronicle are not tested: {all_ids-tested_ids}")
 
-    for tc in tests:
+    for i, tc in enumerate(tests):
         name, fn, eid = tc[:3]
         if args.command and args.command != name:
             continue
@@ -409,7 +420,7 @@ if __name__ == "__main__":
                 args.after = None
             continue
 
-        log.info(f"Run test: {tc}")
+        log.info(f"\n\nRun test {i}/{len(tests)}: {tc}")
         if len(tc) == 4:
             fn(eid, tc[3])
         else:

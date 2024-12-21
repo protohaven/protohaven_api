@@ -163,6 +163,44 @@ def run_neon_membership_created_callback_test(params):
     # laying around to be used elsewhere.
     print(neon_base.delete("api_key2", f"/memberships/{mem['id']}"))
 
+    print("\nResetting Automation Ran custom field again")
+    print(
+        neon_base.set_custom_fields(
+            m["Account ID"],
+            (neon.CustomField.ACCOUNT_AUTOMATION_RAN, ""),
+            is_company=False,
+        )
+    )
+
+
+
+def run_get_maintenance_data_webhook_test(params):
+    """Test /admin/get_maintenance_data for use with the Bookstack wiki custom widget."""
+
+    def _do_req(method, data):
+        """Makes a request against the protohaven_api server"""
+        url = f"{params.base_url}/admin/get_maintenance_data?"
+        rep = requests.request(
+            method,
+            url + urlencode(data) if data else url,
+            headers={"X-Protohaven-APIKey": params.api_key},
+            verify=params.verify_ssl,
+            allow_redirects=False,
+            timeout=30,
+        )
+        print(rep.status_code, rep.content)
+        assert rep.status_code == 200
+        return rep
+
+    test_tool="DRL"
+    print(f"\nGetting maintenance data for {test_tool}", params.user)
+    rep = _do_req("GET", {'tool_code': test_tool})
+    print(rep)
+
+    raise NotImplementedError("TODO check reply")
+    print("\n**Test passed - maintenance data fetched and looks good.**")
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -220,3 +258,7 @@ if __name__ == "__main__":
         print("\n====== THIS AFFECTS PROD DATA =====\n")
         input("Press enter to continue, or Ctrl+C to quit.")
         run_user_clearances_webhook_test(args)
+    if args.test in ("maintenance", "all"):
+        print("\nRunning test: maintenance")
+        input("Press enter to continue, or Ctrl+C to quit.")
+        run_get_maintenance_data_webhook_test(args)

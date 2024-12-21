@@ -137,28 +137,9 @@ def fetch_attendees(event_id):
 @lru_cache(maxsize=1)
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
-    content = neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")
-    return content["optionValues"]
-
-
-def set_clearance_codes(codes):
-    """Set all the possible clearance codes that can be used in Neon
-    DANGER: Get clearance codes and extend that list, otherwise
-    you risk losing clearance data for users.
-    """
-    return neon_base.put(
-        "api_key1",
-        f"/customFields/{CustomField.CLEARANCES}",
-        {
-            "groupId": 1,  # Clearances group ID
-            "id": CustomField.CLEARANCES,
-            "displayType": "Checkbox",
-            "name": "Clearances",
-            "dataType": "Integer",
-            "component": "Account",
-            "optionValues": codes,
-        },
-    )
+    for c in neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")['optionValues']:
+        code, name = c['name'].split(':')
+        yield {**c, 'code': code.strip().upper(), 'name': name.strip()}
 
 
 def create_zero_cost_membership(account_id, start, end, level=None, term=None):
