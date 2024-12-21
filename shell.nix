@@ -45,7 +45,7 @@ in let
     name = "wyze-sdk";
     owner = "smartin015"; # was "shauntarves";
     repo = "wyze-sdk";
-    rev = "0277653e3286d539a1e861059a6f98ed9224ac3a";
+    rev = "0277653e3286d539a1e861059a6f98ed9224ac3a"; # pragma: allowlist secret
     hash="sha256-ICfByXLJ4aNTJhajZTiX8LhVf5imkaMUqSHagUzr25g="; # pragma: allowlist secret
   };
   mintotp = bpp {

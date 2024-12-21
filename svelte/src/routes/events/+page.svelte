@@ -8,5 +8,3 @@
 <Gcal/>
 <Reservations/>
 <Classes/>
-
-

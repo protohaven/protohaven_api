@@ -22,11 +22,11 @@
 	// as we're using Airtable as a source of truth for images.
 	if ($result[1] < (time() - 3600) || !is_array($result[0]) || !array_key_exists('records', $result[0]) || count($result[0]['records']) === 0) {
 		$result = array(
-			do_airtable_fetch($attributes['token'], $base, $table), 
+			do_airtable_fetch($attributes['token'], $base, $table),
 			time()
 		);
 		wp_cache_set($CACHE_ID, $result);
-	} 
+	}
 	echo json_encode($result[0]);
 	?></script>
 </div>

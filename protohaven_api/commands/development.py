@@ -60,7 +60,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             attendees[e] = list(neon.fetch_attendees(e))
 
         log.info("Fetching clearance codes from neon...")
-        clearance_codes = neon.fetch_clearance_codes()
+        clearance_codes = list(neon.fetch_clearance_codes())
 
         log.info("Fetching accounts from neon...")
         accounts = {}

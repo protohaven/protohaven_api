@@ -29,7 +29,7 @@ def user_clearances():
     if len(emails) == 0:
         return Response("Missing required param 'emails'", status=400)
     results = {}
-    all_codes = neon.fetch_clearance_codes()
+    all_codes = list(neon.fetch_clearance_codes())
     name_to_code = {c["name"]: c["code"] for c in all_codes}
     code_to_id = {c["code"]: c["id"] for c in all_codes}
     for e in emails:

@@ -60,6 +60,10 @@ pip install -e .
 python3 -m protohaven_api.cli project_requests
 ```
 
+Alternatively if you're using NixOS, create a `.envrc` file with the text `use nix`, then execute `direnv allow`
+in the `protohaven_api` directory to automatically load the environment specified in `shell.nix`. This requires
+the `direnv` utility to be installed.
+
 ## Running tests and full lint
 
 # These commands are close copies of the ones run by GitHub workflows as pre-submission checks
@@ -82,7 +86,7 @@ Linter check, all files:
 pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error
 ```
 
-## Server installation
+## Bare server installation (deprecated)
 
 Set server to EST; otherwise some date math will break
 
@@ -107,6 +111,10 @@ mkdir -p protohaven_api/static/svelte
 ```
 
 Then follow the steps at "Pushing updates" below.
+
+## Docker container setup
+
+`cd` to `protohaven_api`, then `docker compose build`. You may need to ensure the `ARG release` is set to the current release of `protohaven_api` for the cronicle docker container.
 
 # Pushing updates
 
@@ -146,8 +154,9 @@ scp -r build <USER>@<ADDRESS>:/home/<USER>/staging_protohaven_api/protohaven_api
 
 Finally, restart the service and check its status
 ```
-sudo systemctl restart staging_protohaven_api.service
-sudo systemctl status staging_protohaven_api.service
+cd path/to/docker-compose-yaml-file
+docker compose restart
+docker compose logs -t --follow --tail 50
 ```
 
 Follow the [QA check steps](docs/qa.md) (testing with https://staging.protohaven.api), then turn the staging instance off again to conserve on host RAM:

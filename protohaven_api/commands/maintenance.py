@@ -184,16 +184,22 @@ class Commands:
         else:
             print_yaml([])
 
-    def _do_backup(self, fn, backup_path, upload_path, parent_id):
+    def _do_backup(  # pylint: disable=too-many-arguments
+        self, fn, backup_path, upload_path, parent_id, apply
+    ):
         file_sz = fn(backup_path)
         log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")
-        file_id = drive.upload_file(
-            backup_path,
-            "application/x-gzip-compressed",
-            upload_path,
-            parent_id,
-        )
-        log.info(f"Uploaded, id {file_id}")
+        if apply:
+            file_id = drive.upload_file(
+                backup_path,
+                "application/x-gzip-compressed",
+                upload_path,
+                parent_id,
+            )
+            log.info(f"Uploaded, id {file_id}")
+        else:
+            file_id = "DRY_RUN"
+            file_sz = 0
         return {"drive_id": file_id, "size_kb": file_sz // 1024, "name": upload_path}
 
     @command(
@@ -202,6 +208,12 @@ class Commands:
             help="destination folder ID",
             type=str,
             required=True,
+        ),
+        arg(
+            "--apply",
+            help="actually create the backup",
+            action=argparse.BooleanOptionalAction,
+            default=True,
         ),
     )
     def backup_wiki(self, args, pct):
@@ -218,6 +230,7 @@ class Commands:
                     Path(d) / "db_backup.sql.gz",
                     f"db_backup_{now.isoformat()}.sql.gz",
                     args.parent_id,
+                    apply=args.apply,
                 )
             )
             pct[0] = 1.0
@@ -227,6 +240,7 @@ class Commands:
                     Path(d) / "files_backup.tar.gz",
                     f"files_backup_{now.isoformat()}.tar.gz",
                     args.parent_id,
+                    apply=args.apply,
                 )
             )
             pct[1] = 1.0
