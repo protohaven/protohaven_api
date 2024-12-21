@@ -325,11 +325,9 @@ if __name__ == "__main__":
             "em4u369ldgl",
             {
                 "CHAN_OVERRIDE": COVR,
-                "ARGS": "--no-apply --parent_id=\"\"",
-            }
+                "ARGS": '--no-apply --parent_id=""',
+            },
         ),
-        # TODO check wyze cameras
-        # TODO check wyze locks
     ]
     destructive_commands = [
         # Need to modify a test user to properly exercise this command

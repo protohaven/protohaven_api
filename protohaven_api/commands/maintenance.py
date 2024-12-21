@@ -184,7 +184,9 @@ class Commands:
         else:
             print_yaml([])
 
-    def _do_backup(self, fn, backup_path, upload_path, parent_id, apply):
+    def _do_backup(
+        self, fn, backup_path, upload_path, parent_id, apply
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         file_sz = fn(backup_path)
         log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")
         if apply:
@@ -228,7 +230,7 @@ class Commands:
                     Path(d) / "db_backup.sql.gz",
                     f"db_backup_{now.isoformat()}.sql.gz",
                     args.parent_id,
-                    apply=args.apply
+                    apply=args.apply,
                 )
             )
             pct[0] = 1.0
@@ -238,7 +240,7 @@ class Commands:
                     Path(d) / "files_backup.tar.gz",
                     f"files_backup_{now.isoformat()}.tar.gz",
                     args.parent_id,
-                    apply=args.apply
+                    apply=args.apply,
                 )
             )
             pct[1] = 1.0

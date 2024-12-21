@@ -137,9 +137,11 @@ def fetch_attendees(event_id):
 @lru_cache(maxsize=1)
 def fetch_clearance_codes():
     """Fetch all the possible clearance codes that can be used in Neon"""
-    for c in neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")['optionValues']:
-        code, name = c['name'].split(':')
-        yield {**c, 'code': code.strip().upper(), 'name': name.strip()}
+    for c in neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")[
+        "optionValues"
+    ]:
+        code, name = c["name"].split(":")
+        yield {**c, "code": code.strip().upper(), "name": name.strip()}
 
 
 def create_zero_cost_membership(account_id, start, end, level=None, term=None):
@@ -435,7 +437,7 @@ def patch_member_role(email, role, enabled):
     )
 
 
-def set_tech_custom_fields(  # pylint: disable=too-many-arguments
+def set_tech_custom_fields(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     account_id,
     shift=None,
     first_day=None,
@@ -497,7 +499,7 @@ def set_event_scheduled_state(neon_id, scheduled=True):
     )["id"]
 
 
-def assign_pricing(  # pylint: disable=too-many-arguments
+def assign_pricing(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     event_id, price, seats, clear_existing=False, include_discounts=True, n=None
 ):
     """Assigns ticket pricing and quantities for a preexisting Neon event"""

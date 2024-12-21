@@ -173,7 +173,6 @@ def run_neon_membership_created_callback_test(params):
     )
 
 
-
 def run_get_maintenance_data_webhook_test(params):
     """Test /admin/get_maintenance_data for use with the Bookstack wiki custom widget."""
 
@@ -192,14 +191,13 @@ def run_get_maintenance_data_webhook_test(params):
         assert rep.status_code == 200
         return rep
 
-    test_tool="DRL"
+    test_tool = "DRL"
     print(f"\nGetting maintenance data for {test_tool}", params.user)
-    rep = _do_req("GET", {'tool_code': test_tool})
+    rep = _do_req("GET", {"tool_code": test_tool})
     print(rep)
 
-    raise NotImplementedError("TODO check reply")
+    input("check reply, enter to continue:")
     print("\n**Test passed - maintenance data fetched and looks good.**")
-
 
 
 if __name__ == "__main__":
