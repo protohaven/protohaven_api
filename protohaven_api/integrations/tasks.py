@@ -1,5 +1,7 @@
 """Asana task integration methods"""
+
 import datetime
+import json
 
 from dateutil import parser as dateparser
 
@@ -237,10 +239,17 @@ def last_maintenance_completion_map():
     return result
 
 
-def add_tool_report_task(tools, summary, status, images, reporter, urgent=False):
-    name = f"{', '.join(tools)} - {summary.replace('\n',' ')}"
+def add_tool_report_task(  # pylint: disable=too-many-arguments
+    tools, summary, status, images, reporter, urgent=False
+):
+    """Adds a tool report to the asana maintenance project"""
+    s = summary.replace("\n", " ")
+    name = f"{', '.join(tools)} - {s}"
     name = name.replace("<", "&lt;").replace(">", "&gt;")
-    notes = f"{status}\nImages: {json.dumps(images)}\nReport created by {reporter} via Airtable form"
+    notes = (
+        f"{status}\nImages: {json.dumps(images)}\n"
+        f"Report created by {reporter} via Airtable form"
+    )
     notes = notes.replace("<", "&lt;").replace(">", "&gt;")
 
     custom_fields = {}
