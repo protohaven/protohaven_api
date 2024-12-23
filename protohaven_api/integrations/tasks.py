@@ -237,6 +237,33 @@ def last_maintenance_completion_map():
     return result
 
 
+def add_tool_report_task(tools, summary, status, images, reporter, urgent=False):
+    name = f"{', '.join(tools)} - {summary.replace('\n',' ')}"
+    name = name.replace("<", "&lt;").replace(">", "&gt;")
+    notes = f"{status}\nImages: {json.dumps(images)}\nReport created by {reporter} via Airtable form"
+    notes = notes.replace("<", "&lt;").replace(">", "&gt;")
+
+    custom_fields = {}
+    if urgent:
+        custom_fields[get_config("asana/custom_field_priority_id")] = get_config(
+            "asana/custom_field_p0_id"
+        )
+
+    result = _tasks().create_task(
+        {
+            "data": {
+                "projects": [get_config("asana/techs_project/gid")],
+                "tags": [get_config("asana/tool_report_tag")],
+                "custom_fields": custom_fields,
+                "name": name,
+                "html_notes": f"<body>{notes}</body>",
+            }
+        },
+        {},
+    )
+    return result.get("gid")
+
+
 # Could also create tech task for maintenance here
 def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None):
     """Add a task to the shop tech asana project if it doesn't already exist"""

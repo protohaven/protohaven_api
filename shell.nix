@@ -85,6 +85,7 @@ in pkgs.mkShell {
         holidays
         markdown
         openai
+        paho-mqtt_2
 
         # Square & deps
         squareup

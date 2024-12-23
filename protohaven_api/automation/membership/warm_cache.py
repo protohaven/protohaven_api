@@ -4,12 +4,13 @@ import datetime
 import logging
 import time
 import traceback
+from collections import defaultdict
 from threading import Lock, Thread
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.integrations import airtable, booked, comms, neon
 
 BATCH_SZ = 5
 
@@ -194,3 +195,41 @@ class AirtableCache(WarmDict):
                     row["fields"]["rec_id"] = row["id"]
                     yield row["fields"]
                     break
+
+
+class ReservationCache(WarmDict):
+    """Fetches tool reservation info"""
+
+    NAME = "reservations"
+    REFRESH_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+
+    def __init__(self, update_cb):
+        self.cb = update_cb
+        super().__init__()
+
+    def refresh(self):
+        start = tznow()
+        end = start.replace(hour=23, minute=59, second=59)
+        self["reservations"] = booked.get_reservations(start, end)["reservations"]
+        self.log.debug("Reservation cache updated")
+        self.cb(self)
+
+    def get_today_reservations_by_resource(self):
+        tool_code_attr = get_config("booked/resource_custom_attribute/tool_code")
+        result = defaultdict(list)
+        for r in self["reservations"]:
+            self.log.info(r)
+            tool_code = [
+                a["value"] for a in r["customAttributes"] if a["id"] == tool_code_attr
+            ]
+            if len(tool_code) == 1:
+                result[tool_code[0]].append(
+                    {
+                        "ref": r["referenceNumber"],
+                        "user": r["userId"],
+                        "start": r["startDate"],
+                        "end": r["endDate"],
+                    }
+                )
+        return result

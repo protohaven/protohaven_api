@@ -70,20 +70,21 @@ Membership creation webhook
 ```shell
 python3 -m protohaven_api.scripts.webhook_qa_tests new_member
 ```
-* [ ] runs successfully
+* [x] runs successfully
 
 Clearance webhook
 
 ```shell
 python3 -m protohaven_api.scripts.webhook_qa_tests clearance
 ```
-* [ ] runs successfully
+* [x] runs successfully
 
 Maintenance data webhook
 
 ```shell
-python3 -m protohaven_api.scripts.webhook
+python3 -m protohaven_api.scripts.webhook maintenance
 ```
+* [ ] runs successfully
 
 ## Cronicle jobs
 

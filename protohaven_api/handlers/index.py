@@ -11,7 +11,7 @@ from flask_sock import Sock
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations import airtable, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import is_enabled as rbac_enabled
@@ -90,6 +90,8 @@ def welcome_sock(ws):
     else:  # if data["person"] == "guest":
         result = sign_in.as_guest(data)
 
+    if result.get("status") == "Active":
+        mqtt.notify_member_signed_in(result.get("neon_id"))
     ws.send(json.dumps(result))
     return result
 

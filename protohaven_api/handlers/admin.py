@@ -7,7 +7,7 @@ from flask import Blueprint, Response, request
 from protohaven_api.automation.maintenance import tasks as mtask
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, comms, neon, neon_base
+from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
 from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 
 page = Blueprint("admin", __name__, template_folder="templates")
@@ -75,9 +75,14 @@ def user_clearances():
             log.info(f"Setting clearances for {m['Account ID']} to {ids}")
             content = neon.set_clearances(m["Account ID"], ids, is_company=False)
             log.info("Neon response: %s", str(content))
+            for d in delta:
+                mqtt.notify_clearance(
+                    m["Account ID"], d, added=request.method == "PATCH"
+                )
         except RuntimeError as e:
             return Response(str(e), status=500)
         results[e] = "OK"
+
     return results
 
 
@@ -176,3 +181,32 @@ def get_maintenance_data():
         "history": list(airtable.get_reports_for_tool(airtable_id)),
         "active_tasks": list(mtask.get_open_tasks_matching_tool(airtable_id, name)),
     }
+
+
+@page.route("/admin/maintenance", methods=["POST"])
+@require_login_role(Role.AUTOMATION)
+def tool_maintenance_submission():
+    """Handle maintenance changes due to user submission"""
+    data = request.json
+    reporter = data["reporter"]
+    tools = data["tools"]
+    status = data["status"]
+    summary = data["summary"]
+    detail = data["detail"]
+    urgent = data["urgent"]
+    images = data["images"]
+    create_task = data["create_task"]
+
+    if create_task is True:
+        tasks.add_tool_report_task(tools, summary, status, images, reporter, urgent)
+
+    msg = (
+        f"New Tool Report by {reporter}:\n"
+        f"Tool(s): {', '.join(tools)}\n"
+        f"Status: {status} {'(URGENT) ' if urgent else ''}- {summary}\n\n"
+        f"{detail}\n\n"
+        "See [all history](https://airtable.com/appbIlORlmbIxNU1L/shrb58zUuDBmcmTNQ/tblZbQcalfrvUiNM6)"
+    )
+    comms.send_discord_message(msg, "#maintenance", blocking=False)
+    for tool in tools:
+        mqtt.notify_maintenance(tool, status, summary)

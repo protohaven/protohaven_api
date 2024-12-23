@@ -192,7 +192,7 @@ def run_get_maintenance_data_webhook_test(params):
         return rep
 
     test_tool = "DRL"
-    print(f"\nGetting maintenance data for {test_tool}", params.user)
+    print(f"\nGetting maintenance data for {test_tool}")
     rep = _do_req("GET", {"tool_code": test_tool})
     print(rep)
 

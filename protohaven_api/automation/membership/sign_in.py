@@ -53,6 +53,7 @@ def notify_async(content):
 def result_base():
     """Baseline result structure"""
     return {
+        "neon_id": "",
         "notfound": False,
         "status": False,
         "violations": [],
@@ -284,6 +285,7 @@ def as_member(data, send):
     else:
         result["status"] = m.get("Account Current Membership Status", "Unknown")
 
+    result["neon_id"] = m.get("Account ID")
     result["firstname"] = m.get("First Name")
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
 
