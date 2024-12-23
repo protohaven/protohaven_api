@@ -1,4 +1,5 @@
 """ Neon CRM integration methods """  # pylint: disable=too-many-lines
+
 import datetime
 import logging
 from functools import lru_cache
