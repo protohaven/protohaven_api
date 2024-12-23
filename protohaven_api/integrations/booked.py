@@ -1,9 +1,12 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
+import datetime
 import logging
 import secrets
+from collections import defaultdict
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
+from protohaven_api.integrations.data.warm_cache import WarmDict
 
 log = logging.getLogger("booked")
 
@@ -261,3 +264,45 @@ def assign_members_group_users(user_ids: list):
             "userIds": [int(uid) for uid in user_ids],
         },
     )
+
+
+class ReservationCache(WarmDict):
+    """Fetches tool reservation info"""
+
+    NAME = "reservations"
+    REFRESH_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+
+    def __init__(self, update_cb):
+        self.cb = update_cb
+        super().__init__()
+
+    def refresh(self):
+        start = tznow()
+        end = start.replace(hour=23, minute=59, second=59)
+        self["reservations"] = get_reservations(start, end)["reservations"]
+        self.log.debug("Reservation cache updated")
+        self.cb(self)
+        # We can be less aggressive outside of normal business hours
+        self.REFRESH_PD_SEC = datetime.timedelta(  # pylint: disable=invalid-name
+            minutes=15 if 10 <= start.hour <= 22 else 60
+        ).total_seconds()
+
+    def get_today_reservations_by_tool(self):
+        """Fetches today's reservations, keyed by tool code"""
+        tool_code_attr = get_config("booked/resource_custom_attribute/tool_code")
+        result = defaultdict(list)
+        for r in self["reservations"]:
+            tool_code = [
+                a["value"] for a in r["customAttributes"] if a["id"] == tool_code_attr
+            ]
+            if len(tool_code) == 1:
+                result[tool_code[0]].append(
+                    {
+                        "ref": r["referenceNumber"],
+                        "user": r["userId"],
+                        "start": r["startDate"],
+                        "end": r["endDate"],
+                    }
+                )
+        return result

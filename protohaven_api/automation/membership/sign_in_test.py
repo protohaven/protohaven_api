@@ -107,7 +107,7 @@ def test_get_member_multiple_accounts(mocker):
             "3": {"Account ID": "3", "Company ID": "4"},
         }
     }
-    mocker.patch.object(s, "member_email_cache", member_email_cache)
+    mocker.patch.object(s.neon, "cache", member_email_cache)
     mock_notify_async = mocker.patch.object(s, "notify_async")
 
     result = s.get_member_and_activation_state(email)
@@ -119,13 +119,14 @@ def test_get_member_multiple_accounts(mocker):
 def test_get_member_deferred_account(mocker):
     email = "a@b.com"
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             email: {
                 "1": {
                     "Account ID": "1",
                     "Account Automation Ran": "deferred_do_something",
+                    "Account Current Membership Status": "Future",
                 },
             }
         },
@@ -137,11 +138,61 @@ def test_get_member_deferred_account(mocker):
     assert is_deferred
 
 
+def test_get_member_deferred_amp_verified(mocker):
+    email = "a@b.com"
+    mocker.patch.object(
+        s.neon,
+        "cache",
+        {
+            email: {
+                "1": {
+                    "Account ID": "1",
+                    "Account Automation Ran": "deferred_do_something",
+                    "Account Current Membership Status": "Future",
+                    "Membership Level": "General Membership - AMP",
+                    "Income Based Rate": "Low Income - 20%",  # presence indicates verification
+                },
+            }
+        },
+    )
+
+    member, is_deferred = s.get_member_and_activation_state(email)
+
+    assert member is not None
+    assert is_deferred
+
+
+def test_get_member_deferred_amp_unverified(mocker):
+    email = "a@b.com"
+    mock_notify_async = mocker.patch.object(s, "notify_async")
+    mocker.patch.object(
+        s.neon,
+        "cache",
+        {
+            email: {
+                "1": {
+                    "Account ID": "1",
+                    "Account Automation Ran": "deferred_do_something",
+                    "Account Current Membership Status": "Future",
+                    "Membership Level": "General Membership - AMP",
+                    # No Income Based Rate => unverified
+                },
+            }
+        },
+    )
+
+    member, is_deferred = s.get_member_and_activation_state(email)
+
+    assert member is not None
+    assert not is_deferred
+    mock_notify_async.assert_called_with(MatchStr("@Staff: please meet"))
+
+
 def test_get_member_active_membership(mocker):
     email = "a@b.com"
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             email: {
                 "1": {"Account ID": "1", "Account Current Membership Status": "ACTIVE"},
@@ -157,7 +208,7 @@ def test_get_member_active_membership(mocker):
 
 def test_get_member_no_account_found(mocker):
     email = "a@b.com"
-    mocker.patch.object(s, "member_email_cache", {email: {}})
+    mocker.patch.object(s.neon, "cache", {email: {}})
 
     member, is_deferred = s.get_member_and_activation_state(email)
 
@@ -198,7 +249,7 @@ def test_handle_notify_violations(mocker):
 def test_handle_announcements_recent_last_ack(mocker):
     """Test announcements handling with a recent last_ack. Also test that survey responses are stripped"""
     mocker.patch.object(
-        s.table_cache,
+        s.airtable.cache,
         "announcements_after",
         return_value=[
             {"name": "a", "Sign-In Survey Responses": [1, 2, 3]},
@@ -214,7 +265,7 @@ def test_handle_announcements_recent_last_ack(mocker):
 def test_handle_announcements_testing(mocker):
     """Test announcements handling with testing enabled"""
     mocker.patch.object(
-        s.table_cache,
+        s.airtable.cache,
         "announcements_after",
         return_value=[
             {"Title": "Testing Announcement"},
@@ -223,7 +274,7 @@ def test_handle_announcements_testing(mocker):
     result = s.handle_announcements(
         "2025-01-01T00:00:00Z", [], ["General"], False, True
     )
-    s.table_cache.announcements_after.assert_called_with(
+    s.airtable.cache.announcements_after.assert_called_with(
         mocker.ANY, ["Testing"], mocker.ANY
     )
     assert result == [{"Title": "Testing Announcement"}]
@@ -232,7 +283,7 @@ def test_handle_announcements_testing(mocker):
 def test_handle_announcements_is_active(mocker):
     """Test announcements handling for active members"""
     mocker.patch.object(
-        s.table_cache,
+        s.airtable.cache,
         "announcements_after",
         return_value=[
             {"Title": "Member Announcement"},
@@ -241,7 +292,7 @@ def test_handle_announcements_is_active(mocker):
     result = s.handle_announcements(
         "2025-01-01T00:00:00Z", [], ["General"], True, False
     )
-    s.table_cache.announcements_after.assert_called_with(
+    s.airtable.cache.announcements_after.assert_called_with(
         mocker.ANY, ["Member"], mocker.ANY
     )
     assert result == [{"Title": "Member Announcement"}]
@@ -364,6 +415,7 @@ def test_as_member_notfound(mocker):
         "status": False,
         "violations": [],
         "waiver_signed": False,
+        "neon_id": "",
     }
     m.assert_not_called()
 
@@ -374,8 +426,8 @@ def test_as_member_activate_deferred(mocker):
     l = mocker.patch.object(s, "log_sign_in")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12345: {
@@ -387,8 +439,8 @@ def test_as_member_activate_deferred(mocker):
             },
         },
     )
-    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     mocker.patch.object(s, "tznow", return_value=d(0))
     rep = s.as_member(
         {
@@ -411,8 +463,8 @@ def test_as_member_expired(mocker):
     l = mocker.patch.object(s, "log_sign_in")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12345: {
@@ -424,8 +476,8 @@ def test_as_member_expired(mocker):
             },
         },
     )
-    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     mocker.patch.object(s, "tznow", return_value=d(0))
     rep = s.as_member(
         {
@@ -451,8 +503,8 @@ def test_as_member_violations(mocker):
     m = mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12345: {
@@ -463,9 +515,9 @@ def test_as_member_violations(mocker):
             }
         },
     )
-    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
     mocker.patch.object(
-        s.table_cache,
+        s.airtable.cache,
         "violations_for",
         return_value=[
             {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}},
@@ -493,8 +545,8 @@ def test_as_member_duplicates(mocker):
     m = mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12346: {
@@ -509,8 +561,8 @@ def test_as_member_duplicates(mocker):
             }
         },
     )
-    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -532,8 +584,8 @@ def test_as_member_announcements_ok(mocker):
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(s, "tznow", return_value=d(0))
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12346: {
@@ -546,7 +598,7 @@ def test_as_member_announcements_ok(mocker):
         },
     )
     mocker.patch.object(
-        s.table_cache,
+        s.airtable.cache,
         "announcements_after",
         return_value=[
             {
@@ -556,7 +608,7 @@ def test_as_member_announcements_ok(mocker):
             },
         ],
     )
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -596,8 +648,8 @@ def test_as_member_announcements_exception(mocker):
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(s, "tznow", return_value=d(0))
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12346: {
@@ -610,9 +662,9 @@ def test_as_member_announcements_exception(mocker):
         },
     )
     mocker.patch.object(
-        s.table_cache, "announcements_after", side_effect=RuntimeError("Boo!")
+        s.airtable.cache, "announcements_after", side_effect=RuntimeError("Boo!")
     )
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -632,8 +684,8 @@ def test_as_member_company_id(mocker):
     mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12346: {
@@ -650,8 +702,8 @@ def test_as_member_company_id(mocker):
             }
         },
     )
-    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",
@@ -670,8 +722,8 @@ def test_as_member_notify_board_and_staff(mocker):
     mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(
-        s,
-        "member_email_cache",
+        s.neon,
+        "cache",
         {
             "a@b.com": {
                 12345: {
@@ -683,8 +735,8 @@ def test_as_member_notify_board_and_staff(mocker):
             }
         },
     )
-    mocker.patch.object(s.table_cache, "announcements_after", return_value=[])
-    mocker.patch.object(s.table_cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
     rep = s.as_member(
         {
             "person": "member",

@@ -31,6 +31,7 @@ def test_user_clearances(mocker, client):
         a.airtable, "get_clearance_to_tool_map", return_value={"MWB": ["ABG", "RBP"]}
     )
     mocker.patch.object(a.neon, "set_clearances", return_value="Success")
+    mock_notify = mocker.patch.object(a.mqtt, "notify_clearance")
 
     rep = client.patch(
         "/user/clearances",
@@ -40,6 +41,12 @@ def test_user_clearances(mocker, client):
     assert rep.status_code == 200
     a.neon.set_clearances.assert_called_with(  # pylint: disable=no-member
         "123", {2, 1}, is_company=False
+    )
+    mock_notify.assert_has_calls(
+        [
+            mocker.call("123", "CLEAR1", added=True),
+            mocker.call("123", "CLEAR2", added=True),
+        ]
     )
 
 
@@ -155,3 +162,40 @@ def test_get_maintenance_data(mocker, client):
         "history": history_data,
         "active_tasks": active_tasks_data,
     }
+
+
+def test_tool_maintenance_submission(mocker, client):
+    """Verify behavior of maintenance submissions"""
+    data = {
+        "reporter": "abc@def.com",
+        "tools": ["IRN", "3D1"],
+        "status": "GREEN",
+        "summary": "Working Normally",
+        "detail": "Nothing wrong here",
+        "urgent": False,
+        "images": ["https://url/image1.png"],
+        "create_task": True,
+    }
+
+    mocker.patch.object(
+        rbac, "is_enabled", return_value=False
+    )  # Disable to allow testing
+    mocker.patch.object(a.tasks, "add_tool_report_task")
+    mocker.patch.object(a.comms, "send_discord_message")
+    mocker.patch.object(a.mqtt, "notify_maintenance")
+
+    response = client.post("/admin/maintenance", json=data)
+    assert response.status_code == 200
+    a.tasks.add_tool_report_task.assert_called_once_with(  # pylint: disable=no-member
+        data["tools"],
+        data["summary"],
+        data["status"],
+        data["images"],
+        data["reporter"],
+        data["urgent"],
+    )
+    a.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
+    for tool in data["tools"]:
+        a.mqtt.notify_maintenance.assert_any_call(  # pylint: disable=no-member
+            tool, data["status"], data["summary"]
+        )

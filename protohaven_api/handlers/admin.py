@@ -15,6 +15,34 @@ page = Blueprint("admin", __name__, template_folder="templates")
 log = logging.getLogger("handlers.admin")
 
 
+def _update_clearance(e, method, delta, name_to_code, code_to_id):
+    m = list(neon.search_member(e))
+    if len(m) == 0:
+        return "NotFound"
+    m = m[0]
+    if m["Account ID"] == m["Company ID"]:
+        return Response(
+            f"Account with email {e} is a company; request invalid", status=400
+        )
+    codes = {
+        name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
+    }
+    if method == "GET":
+        return [c for c in codes if c is not None]
+    if method == "PATCH":
+        codes.update(delta)
+    elif method == "DELETE":
+        codes -= set(delta)
+
+    ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
+    log.info(f"Setting clearances for {m['Account ID']} to {ids}")
+    content = neon.set_clearances(m["Account ID"], ids, is_company=False)
+    log.info("Neon response: %s", str(content))
+    for d in delta:
+        mqtt.notify_clearance(m["Account ID"], d, added=method == "PATCH")
+    return "OK"
+
+
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.AUTOMATION)
 def user_clearances():
@@ -32,57 +60,28 @@ def user_clearances():
     all_codes = neon.fetch_clearance_codes()
     name_to_code = {c["name"]: c["code"] for c in all_codes}
     code_to_id = {c["code"]: c["id"] for c in all_codes}
-    for e in emails:
-        m = list(neon.search_member(e))
-        if len(m) == 0:
-            results[e] = "NotFound"
-            continue
-        m = m[0]
-        if m["Account ID"] == m["Company ID"]:
-            return Response(
-                f"Account with email {e} is a company; request invalid", status=400
-            )
-        print(m)
 
-        codes = {
-            name_to_code.get(n)
-            for n in (m.get("Clearances") or "").split("|")
-            if n != ""
-        }
-        if request.method == "GET":
-            results[e] = [c for c in codes if c is not None]
-            continue
-
+    delta = []
+    if request.method != "GET":
         initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
             return Response("Missing required param 'codes'", status=400)
 
         # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP...)
         mapping = airtable.get_clearance_to_tool_map()
-        delta = []
         for c in initial:
             if c in mapping:
                 delta += list(mapping[c])
             else:
                 delta.append(c)
 
-        if request.method == "PATCH":
-            codes.update(delta)
-        elif request.method == "DELETE":
-            codes -= set(delta)
+    for e in emails:
         try:
-            ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
-            log.info(f"Setting clearances for {m['Account ID']} to {ids}")
-            content = neon.set_clearances(m["Account ID"], ids, is_company=False)
-            log.info("Neon response: %s", str(content))
-            for d in delta:
-                mqtt.notify_clearance(
-                    m["Account ID"], d, added=request.method == "PATCH"
-                )
-        except RuntimeError as e:
-            return Response(str(e), status=500)
-        results[e] = "OK"
-
+            results[e] = _update_clearance(
+                e, request.method, delta, name_to_code, code_to_id
+            )
+        except RuntimeError as exc:
+            return Response(str(exc), status=500)
     return results
 
 
@@ -205,8 +204,11 @@ def tool_maintenance_submission():
         f"Tool(s): {', '.join(tools)}\n"
         f"Status: {status} {'(URGENT) ' if urgent else ''}- {summary}\n\n"
         f"{detail}\n\n"
-        "See [all history](https://airtable.com/appbIlORlmbIxNU1L/shrb58zUuDBmcmTNQ/tblZbQcalfrvUiNM6)"
+        "See [all history](https://airtable.com/appbIlORlmbIxNU1L"
+        "/shrb58zUuDBmcmTNQ/tblZbQcalfrvUiNM6)"
     )
     comms.send_discord_message(msg, "#maintenance", blocking=False)
     for tool in tools:
         mqtt.notify_maintenance(tool, status, summary)
+
+    return "OK"

@@ -76,21 +76,18 @@ class Client:
         """Receive messages from MQTT"""
         prefix, minder, topic = [m.strip() for m in msg.topic.split("/")]
         log.info(f"RECV {prefix} {minder} {topic}: {msg.payload}")
-        # TODO when device comes online, verify its state and sync any changes since its last connection
         if topic == "ALIVE":
             self._on_shopminder_alive(minder, msg.payload == "1")
 
     def _on_shopminder_alive(self, name: str, alive: bool):
         self.shopminders[name]["alive"] = alive
-
-    def _on_shopminder_update(self, name: str, attr: str, value):
-        pass  # TODO
+        raise NotImplementedError("TODO interrogate state of shopminder")
 
     def _fmt_topic(self, resource, resource_id, attribute):
         """Constructs topic name based on the type of message being sent"""
         return f"protohaven_api/v1/{resource}/{resource_id}/{attribute}"
 
-    def _pub(self, resource, resource_id, attribute, payload):
+    def pub(self, resource, resource_id, attribute, payload):
         """Publish a message using standard topic formatting"""
         if not isinstance(payload, str):
             payload = json.dumps(payload)
@@ -98,40 +95,9 @@ class Client:
             self._fmt_topic(resource, resource_id, attribute), payload
         )
 
-    def notify_reservation(self, tool_code, ref, start_time, end_time, user_id):
-        """Notify that equipment is being reserved"""
-        return self._pub(
-            TopicResource.TOOL,
-            tool_code,
-            TopicAttribute.RESERVATION,
-            {"ref": ref, "start": start_time, "end": end_time, "uid": user_id},
-        )
-
-    def notify_maintenance(self, tool_code, status, reason):
-        """Notify that equipment maintenance status is changing"""
-        return self._pub(
-            TopicResource.TOOL,
-            tool_code,
-            TopicAttribute.MAINTENANCE,
-            {"status": status, "reason": reason},
-        )
-
-    def notify_member_signed_in(self, user_id):
-        """Notify that a user has signed in at the front desk"""
-        return self._pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
-
-    def notify_clearance(self, user_id: str, tool_code: str, added: bool = True):
-        """Notify that a user's clearance has been added or removed"""
-        return self._pub(
-            Topicresource.USER,
-            user_id,
-            TopicAttribute.CLEARANCE,
-            {"tool_code": tool_code, "added": added},
-        )
-
     def _notify_heartbeat(self):
         """A periodic message published to reassure listeners that the server is operational"""
-        return self._pub(TopicResource.SELF, "", TopicAttribute.HEARTBEAT, "1")
+        return self.pub(TopicResource.SELF, "", TopicAttribute.HEARTBEAT, "1")
 
     def run_forever(self):
         """Starts up dependent threads and loops forever"""
@@ -155,3 +121,38 @@ def run():
 def get():
     """Gets the client"""
     return client
+
+
+def notify_reservation(tool_code, ref, start_time, end_time, user_id):
+    """Notify that equipment is being reserved"""
+    return client.pub(
+        TopicResource.TOOL,
+        tool_code,
+        TopicAttribute.RESERVATION,
+        {"ref": ref, "start": start_time, "end": end_time, "uid": user_id},
+    )
+
+
+def notify_maintenance(tool_code, status, reason):
+    """Notify that equipment maintenance status is changing"""
+    return client.pub(
+        TopicResource.TOOL,
+        tool_code,
+        TopicAttribute.MAINTENANCE,
+        {"status": status, "reason": reason},
+    )
+
+
+def notify_member_signed_in(user_id):
+    """Notify that a user has signed in at the front desk"""
+    return client.pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
+
+
+def notify_clearance(user_id: str, tool_code: str, added: bool = True):
+    """Notify that a user's clearance has been added or removed"""
+    return client.pub(
+        TopicResource.USER,
+        user_id,
+        TopicAttribute.CLEARANCE,
+        {"tool_code": tool_code, "added": added},
+    )

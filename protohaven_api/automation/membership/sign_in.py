@@ -7,7 +7,6 @@ import traceback
 
 from dateutil import parser as dateparser
 
-from protohaven_api.automation.membership.warm_cache import AccountCache, AirtableCache
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
@@ -16,10 +15,6 @@ log = logging.getLogger("automation.membership.sign_in")
 
 WAIVER_FMT = "version {version} on {accepted}"
 WAIVER_REGEX = r"version (.+?) on (.*)"
-
-# Caches prefetch info used for sign-in to make it speedy.
-table_cache = AirtableCache()
-member_email_cache = AccountCache()
 
 # This is the process pool for async execution of long-running
 # commands produced during the sign-in process, e.g. membership
@@ -32,8 +27,6 @@ def initialize(num_procs=2):
     log.info("Initializing")
     global pool  # pylint: disable=global-statement
     pool = mp.Pool(num_procs)  # pylint: disable=consider-using-with
-    member_email_cache.start()
-    table_cache.start()
 
 
 def _pool_err_cb(exc):
@@ -133,7 +126,7 @@ def get_member_and_activation_state(email):
     https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies
-    mm = member_email_cache.get(email.strip(), {})
+    mm = neon.cache.get(email.strip(), {})
     mm = [m for m in mm.values() if m.get("Account ID") != m.get("Company ID")]
     if len(mm) == 0:
         return None, False
@@ -157,8 +150,20 @@ def get_member_and_activation_state(email):
     # Deferred memberships are returned first, followed by active membership accounts
     # and then inactive ones.
     for m in mm:
+        unverified_amp = "AMP" in m.get("Membership Level", "") and not m.get(
+            "Income Based Rate"
+        )
         if (m.get("Account Automation Ran") or "").startswith("deferred"):
-            return m, True
+            if unverified_amp:
+                notify_async(
+                    f"Sign-in attempt by {email} with missing `Income Based Rate` field in Neon "
+                    f"CRM.\nThe AMP member is not considered active until their income has been "
+                    f"verified.\n@Staff: please meet with the member and verify their income, so "
+                    f"they can use the shop."
+                )
+                log.info("Notified of unverified AMP status")
+            else:
+                return m, True
         if (m.get("Account Current Membership Status") or "").upper() == "ACTIVE":
             return m, False
     return m, False
@@ -255,7 +260,7 @@ def handle_announcements(last_ack, roles: str, clearances: list, is_active, test
         roles.append("Testing")
     if is_active:
         roles.append("Member")
-    result = list(table_cache.announcements_after(last_ack, roles, set(clearances)))
+    result = list(airtable.cache.announcements_after(last_ack, roles, set(clearances)))
     # Don't send others' survey responses to the frontend
     for a in result:
         if "Sign-In Survey Responses" in a:
@@ -310,7 +315,7 @@ def as_member(data, send):
 
     try:
         send("Checking storage...", 70)
-        result["violations"] = list(table_cache.violations_for(m["Account ID"]))
+        result["violations"] = list(airtable.cache.violations_for(m["Account ID"]))
     except Exception:  # pylint: disable=broad-exception-caught
         traceback.print_exc()
         notify_async(f"Error checking storage (member #{data['email']}) - see log")

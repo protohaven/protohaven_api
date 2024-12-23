@@ -26,6 +26,7 @@ class CustomField:
     NOTIFY_BOARD_AND_STAFF = 162
     ACCOUNT_AUTOMATION_RAN = 163
     BOOKED_USER_ID = 165
+    INCOME_BASED_RATE = 78
 
     @classmethod
     def from_id(cls, v):

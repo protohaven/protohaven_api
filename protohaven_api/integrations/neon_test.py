@@ -111,3 +111,19 @@ def test_delete_single_ticket_registration(mocker):
     response = n.delete_single_ticket_registration("acc789", "event1")
     assert response.status_code == 404
     assert response.data == b"Registration not found for account acc789 in event event1"
+
+
+def test_account_cache_case_insensitive(mocker):
+    """Confirm that lookups are case insensitive, and that non-string
+    types are handled safely"""
+    mocker.patch.object(n, "get_inactive_members", return_value=[])
+    want1 = {"Email 1": "aSdF", "Account ID": 123}
+    mocker.patch.object(n, "get_active_members", return_value=[want1])
+    c = n.AccountCache()
+    c.refresh()
+    c["gHjK"] = "test"
+    c[None] = "foo"
+    assert c["AsDf"][123] == want1
+    assert c["GhJk"] == "test"
+    assert c.get("GhJk") == "test"
+    assert c["nonE"] == "foo"
