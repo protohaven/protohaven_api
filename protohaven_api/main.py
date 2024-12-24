@@ -71,7 +71,7 @@ def _on_reservations(cache):
 
 rc = ReservationCache(_on_reservations)
 if get_config("booked/notify_mqtt", as_bool=True):
-    rc.start(delay=120.0)
+    rc.start(delay=60.0)
 else:
     log.warning("Skipping periodic post of tool reservations to MQTT")
 

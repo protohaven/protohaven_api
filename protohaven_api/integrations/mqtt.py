@@ -1,4 +1,5 @@
 """A controller/driver for MQTT communications to `protohaven_embedded` devices."""
+
 import json
 import logging
 import threading
@@ -51,6 +52,9 @@ class Client:
 
     def __init__(self):
         self.c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        self.shopminders = defaultdict(dict)
+
+    def _start(self):
         self.c.on_connect = self.on_connect
         self.c.on_message = self.on_message
         self.c.tls_set(get_config("mqtt/ca_cert_path"))
@@ -60,7 +64,6 @@ class Client:
             get_config("mqtt/port"),
             get_config("mqtt/keepalive_sec"),
         )
-        self.shopminders = defaultdict(dict)
 
     def on_connect(
         self, _, userdata, flags, reason_code, properties
@@ -81,7 +84,6 @@ class Client:
 
     def _on_shopminder_alive(self, name: str, alive: bool):
         self.shopminders[name]["alive"] = alive
-        raise NotImplementedError("TODO interrogate state of shopminder")
 
     def _fmt_topic(self, resource, resource_id, attribute):
         """Constructs topic name based on the type of message being sent"""
@@ -101,6 +103,7 @@ class Client:
 
     def run_forever(self):
         """Starts up dependent threads and loops forever"""
+        self._start()
         threading.Thread(target=client.c.loop_forever, daemon=True).start()
         while True:
             time.sleep(self.HEARTBEAT_PD_SEC)

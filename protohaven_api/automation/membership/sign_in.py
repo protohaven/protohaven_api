@@ -1,4 +1,5 @@
 """Automation for handling people signing in at the front desk"""
+
 import datetime
 import logging
 import multiprocessing as mp
@@ -156,7 +157,8 @@ def get_member_and_activation_state(email):
         if (m.get("Account Automation Ran") or "").startswith("deferred"):
             if unverified_amp:
                 notify_async(
-                    f"Sign-in attempt by {email} with missing `Income Based Rate` field in Neon "
+                    f"Sign-in attempt by {email} with missing `Income Based Rate` "
+                    "and/or `Proof of Income` field in Neon "
                     f"CRM.\nThe AMP member is not considered active until their income has been "
                     f"verified.\n@Staff: please meet with the member and verify their income, so "
                     f"they can use the shop."

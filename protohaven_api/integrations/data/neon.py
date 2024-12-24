@@ -1,4 +1,5 @@
 """Constants and other datatypes for Neon integration"""
+
 from dataclasses import dataclass
 
 
@@ -27,6 +28,8 @@ class CustomField:
     ACCOUNT_AUTOMATION_RAN = 163
     BOOKED_USER_ID = 165
     INCOME_BASED_RATE = 78
+    # PROOF_OF_INCOME doesn't exist in the output fields, likely because
+    # it's a file attachment and not a "primitive" field type.
 
     @classmethod
     def from_id(cls, v):

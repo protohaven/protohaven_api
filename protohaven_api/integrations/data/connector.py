@@ -1,5 +1,6 @@
 """ Connects to various dependencies, or serves mock data depending on the
 configured state of the server"""
+
 import base64
 import logging
 import random
@@ -62,7 +63,8 @@ class Connector:
 
             log.warning(
                 f"status code {r.status_code} on neon request {args} {kwargs};"
-                f" retry #{i+1}"
+                f"\ncontent: {r.content}"
+                f"\nretry #{i+1}"
             )
             time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
 

@@ -230,7 +230,7 @@ def fetch_search_fields():
 def fetch_output_fields():
     """Fetches possible output fields for member search"""
     content = neon_base.get("api_key2", "/accounts/search/outputFields")
-    assert isinstance(content, list)
+    assert isinstance(content, dict)
     return content
 
 
