@@ -1,14 +1,16 @@
 """Commands related to facility and equipment maintenance"""
+
 import argparse
 import logging
 import random
 import tempfile
+import traceback
 from pathlib import Path
 
 from protohaven_api.automation.maintenance import manager
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import get_config, tznow
-from protohaven_api.integrations import drive, wiki, wyze
+from protohaven_api.integrations import comms, drive, tasks, wiki, wyze
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
@@ -69,18 +71,55 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=True,
         ),
+        arg(
+            "--num",
+            help="Max tasks to create",
+            type=int,
+            default=4,
+        ),
     )
     def gen_maintenance_tasks(self, args, _):
         """Check recurring tasks list in Airtable, add new tasks to asana
         And notify techs about new and stale tasks that are tech_ready."""
-        tt = manager.run_daily_maintenance(args.apply)
+        assert args.num > 0
+        tt = manager.get_maintenance_needed_tasks()
+        log.info(f"Found {len(tt)} needed maintenance tasks")
+        tt.sort(key=lambda t: t["next_schedule"])
+        errs = []
+        scheduled = []
+        if args.apply:
+            for t in tt:
+                try:
+                    log.info(f"Applying {t['id']} {t['name']} section {t['section']}")
+                    t["gid"] = tasks.add_maintenance_task_if_not_exists(
+                        t["name"], t["detail"], t["id"], section_gid=t["section"]
+                    )
+                    scheduled.append(t)
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    traceback.print_exc()
+                    errs.append(e)
+
+                if len(scheduled) >= args.num:
+                    break
+        else:
+            log.warning("skipping application of tasks (apply=False)")
+
+        if len(errs) > 0:
+            tasks_str = "\n".join([str(e) for e in errs])
+            comms.send_discord_message(
+                f"Errors when scheduling maintenance tasks:\n\n"
+                f"{tasks_str}\nCheck Cronicle logs for details",
+                "#tool-automation",
+                blocking=False,
+            )
+
         print_yaml(
             Msg.tmpl(
                 "tech_daily_tasks",
                 salutation=random.choice(SALUTATIONS),
                 closing=random.choice(CLOSINGS),
-                new_count=len(tt),
-                new_tasks=tt,
+                new_count=len(scheduled),
+                new_tasks=scheduled,
                 id="daily_maintenance",
                 target="#techs-live",
             )

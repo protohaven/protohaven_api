@@ -29,6 +29,7 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
                 "fields": {
                     "Task Name": "Task 1",
                     "Frequency": 7,
+                    "Task Detail": "Details, details",
                     "Asana Section": "123",
                 },
             },
@@ -37,6 +38,7 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
                 "fields": {
                     "Task Name": "Task 2",
                     "Frequency": 7,
+                    "Task Detail": "More Details",
                     "Asana Section": "123",
                 },
             },
@@ -49,6 +51,7 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
     assert needed_tasks[0]["id"] == "airtask2"
     assert needed_tasks[0]["name"] == "Task 2"
     assert needed_tasks[0]["origin"] == "Airtable"
+    assert needed_tasks[0]["detail"] == "More Details"
     assert needed_tasks[0]["next_schedule"] == d(2)
 
 
