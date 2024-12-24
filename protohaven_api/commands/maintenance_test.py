@@ -1,4 +1,5 @@
 """Testing of maintenance commands"""
+
 import pytest
 
 from protohaven_api.commands import maintenance as m
@@ -15,12 +16,50 @@ def test_gen_maintenance_tasks(mocker, cli):
     """Confirm generation of maintenance tasks summary"""
     mocker.patch.object(
         m.manager,
-        "run_daily_maintenance",
-        return_value=[{"gid": "123", "name": "test task"}],
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec345",
+                "section": "foo",
+                "name": "test task",
+                "detail": "detalis",
+                "next_schedule": d(1),
+            }
+        ],
     )
+    mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
     got = cli("gen_maintenance_tasks", ["--apply"])
     assert len(got) == 1
     assert "[test task](https://app.asana.com/0/1202469740885594/123)" in got[0]["body"]
+    m.comms.send_discord_message.assert_not_called()  # pylint: disable=no-member
+
+
+def test_gen_maintenance_tasks_corrupted(mocker, cli):
+    """Confirm generation of maintenance tasks even if one has bad data"""
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec345",
+                "section": "foo",
+                "name": "test task",
+                # Note no details section
+                "next_schedule": d(1),
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+    got = cli("gen_maintenance_tasks", ["--apply"])
+    assert len(got) == 1
+    assert "no new tasks" in got[0]["body"]
+    m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
 
 
 def test_tech_leads_maintenance_none(mocker, cli):

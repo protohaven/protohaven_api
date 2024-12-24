@@ -1,4 +1,5 @@
 """Testing comms integration methods"""
+
 import hashlib
 
 import pytest
@@ -281,6 +282,7 @@ TESTED_TEMPLATES = [
         {
             "salutation": "Whattup!",
             "new_count": 1,
+            "errs": [ValueError("value or something")],
             "new_tasks": [{"name": "Test Task", "gid": "123"}],
             "closing": "Stay tested!",
         },

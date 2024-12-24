@@ -1,4 +1,5 @@
 """Manages maintenance tasks - scheduling new ones, notifying techs etc."""
+
 import datetime
 import logging
 
@@ -26,9 +27,7 @@ def get_maintenance_needed_tasks(now=None):
 
     log.info("Loading maintenance completions")
     last_completions = tasks.last_maintenance_completion_map()
-    log.info(f"{len(last_completions.keys())} completion(s) loaded")
-    for k, v in last_completions.items():
-        print(k, v)
+    log.info(f"{len(last_completions.keys())} tasks with known last completion dates")
 
     log.info("Loading candidates from wiki & airtable")
     candidates = [
@@ -50,6 +49,7 @@ def get_maintenance_needed_tasks(now=None):
             "id": t["id"],
             "origin": "Airtable",
             "name": t["fields"]["Task Name"],
+            "detail": t["fields"]["Task Detail"],
             "freq": t["fields"]["Frequency"],
             "section": section_map.get(t["fields"]["Asana Section"]),
         }
@@ -76,21 +76,6 @@ def get_maintenance_needed_tasks(now=None):
     return needed
 
 
-def apply_maintenance_tasks(tt, now=None):
-    """Applies tasks with data generated from `get_maintenance_needed_tasks`"""
-    if not now:
-        now = tznow()
-    for t in tt:
-        log.info(f"Applying {t['id']} {t['name']} section {t['section']}")
-        t["gid"] = tasks.add_maintenance_task_if_not_exists(
-            t["name"], t["detail"], t["id"], section_gid=t["section"]
-        )
-        log.info(f"Asana task gid {t.get('gid')} for task {t['id']}")
-        status, content = airtable.update_recurring_task_date(t["id"], now)
-        if status != 200:
-            raise RuntimeError(content)
-
-
 DEFAULT_STALE_DAYS = 14
 
 
@@ -104,17 +89,3 @@ def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
         mod = dateparser.parse(t["modified_at"]).astimezone(tz)
         result.append({"name": t["name"], "days_ago": (now - mod).days})
     return result
-
-
-def run_daily_maintenance(apply=False, num_to_generate=4):
-    """Generates a bounded number of new maintenance tasks per day,
-    also looks up stale tasks and creates a summary message for Techs"""
-    tt = get_maintenance_needed_tasks()
-    log.info(f"Found {len(tt)} needed maintenance tasks")
-    tt.sort(key=lambda t: t["next_schedule"])
-    tt = tt[:num_to_generate]
-    if apply:
-        apply_maintenance_tasks(tt)
-    else:
-        log.warning("skipping application of tasks (apply=False)")
-    return tt
