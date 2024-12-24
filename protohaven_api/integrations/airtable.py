@@ -16,6 +16,7 @@ from protohaven_api.integrations.airtable_base import (
     insert_records,
     update_record,
 )
+from protohaven_api.integrations.data.warm_cache import WarmDict
 
 log = logging.getLogger("integrations.airtable")
 
@@ -514,3 +515,63 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
     if rec is not None:
         return update_record(data, "people", "shop_tech_forecast_overrides", rec)
     return insert_records([data], "people", "shop_tech_forecast_overrides")
+
+
+class AirtableCache(WarmDict):
+    """Prefetches airtable data for faster lookup"""
+
+    NAME = "airtable"
+    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
+    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+
+    def refresh(self):
+        """Refresh values; called every REFRESH_PD"""
+        self.log.info("Beginning AirtableCache refresh")
+        self["announcements"] = get_all_announcements()
+        self["violations"] = get_policy_violations()
+        self.log.info(
+            f"AirtableCache refresh complete; next update in {self.REFRESH_PD_SEC} seconds"
+        )
+
+    def violations_for(self, account_id):
+        """Check member for storage violations"""
+        for pv in self["violations"]:
+            if str(pv["fields"].get("Neon ID")) != str(account_id) or pv["fields"].get(
+                "Closure"
+            ):
+                continue
+            yield pv
+
+    def announcements_after(self, d, roles, clearances):
+        """Gets all announcements, excluding those before `d`"""
+        now = tznow()
+
+        # Neon clearance data is of the format `<TOOL_CODE>: <TOOL_NAME>`.
+        # announcements_after expects a set of tool names.
+        clearances = [n.split(":")[1].strip() for n in clearances]
+
+        for row in self["announcements"]:
+            adate = dateparser.parse(
+                row["fields"].get("Published", "2024-01-01")
+            ).astimezone(tz)
+            if adate <= d or adate > now:
+                continue
+
+            tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
+            if len(tools) > 0:
+                cleared_for_tool = False
+                for c in clearances:
+                    if c in tools:
+                        cleared_for_tool = True
+                        break
+                if not cleared_for_tool:
+                    continue
+
+            for r in row["fields"].get("Roles", []):
+                if r in roles:
+                    row["fields"]["rec_id"] = row["id"]
+                    yield row["fields"]
+                    break
+
+
+cache = AirtableCache()

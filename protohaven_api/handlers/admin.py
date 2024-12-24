@@ -7,12 +7,40 @@ from flask import Blueprint, Response, request
 from protohaven_api.automation.maintenance import tasks as mtask
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, comms, neon, neon_base
+from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
 from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 
 page = Blueprint("admin", __name__, template_folder="templates")
 
 log = logging.getLogger("handlers.admin")
+
+
+def _update_clearance(e, method, delta, name_to_code, code_to_id):
+    m = list(neon.search_member(e))
+    if len(m) == 0:
+        return "NotFound"
+    m = m[0]
+    if m["Account ID"] == m["Company ID"]:
+        return Response(
+            f"Account with email {e} is a company; request invalid", status=400
+        )
+    codes = {
+        name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
+    }
+    if method == "GET":
+        return [c for c in codes if c is not None]
+    if method == "PATCH":
+        codes.update(delta)
+    elif method == "DELETE":
+        codes -= set(delta)
+
+    ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
+    log.info(f"Setting clearances for {m['Account ID']} to {ids}")
+    content = neon.set_clearances(m["Account ID"], ids, is_company=False)
+    log.info("Neon response: %s", str(content))
+    for d in delta:
+        mqtt.notify_clearance(m["Account ID"], d, added=method == "PATCH")
+    return "OK"
 
 
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
@@ -32,52 +60,28 @@ def user_clearances():
     all_codes = neon.fetch_clearance_codes()
     name_to_code = {c["name"]: c["code"] for c in all_codes}
     code_to_id = {c["code"]: c["id"] for c in all_codes}
-    for e in emails:
-        m = list(neon.search_member(e))
-        if len(m) == 0:
-            results[e] = "NotFound"
-            continue
-        m = m[0]
-        if m["Account ID"] == m["Company ID"]:
-            return Response(
-                f"Account with email {e} is a company; request invalid", status=400
-            )
-        print(m)
 
-        codes = {
-            name_to_code.get(n)
-            for n in (m.get("Clearances") or "").split("|")
-            if n != ""
-        }
-        if request.method == "GET":
-            results[e] = [c for c in codes if c is not None]
-            continue
-
+    delta = []
+    if request.method != "GET":
         initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
             return Response("Missing required param 'codes'", status=400)
 
         # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP...)
         mapping = airtable.get_clearance_to_tool_map()
-        delta = []
         for c in initial:
             if c in mapping:
                 delta += list(mapping[c])
             else:
                 delta.append(c)
 
-        if request.method == "PATCH":
-            codes.update(delta)
-        elif request.method == "DELETE":
-            codes -= set(delta)
+    for e in emails:
         try:
-            ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
-            log.info(f"Setting clearances for {m['Account ID']} to {ids}")
-            content = neon.set_clearances(m["Account ID"], ids, is_company=False)
-            log.info("Neon response: %s", str(content))
-        except RuntimeError as e:
-            return Response(str(e), status=500)
-        results[e] = "OK"
+            results[e] = _update_clearance(
+                e, request.method, delta, name_to_code, code_to_id
+            )
+        except RuntimeError as exc:
+            return Response(str(exc), status=500)
     return results
 
 
@@ -176,3 +180,35 @@ def get_maintenance_data():
         "history": list(airtable.get_reports_for_tool(airtable_id)),
         "active_tasks": list(mtask.get_open_tasks_matching_tool(airtable_id, name)),
     }
+
+
+@page.route("/admin/maintenance", methods=["POST"])
+@require_login_role(Role.AUTOMATION)
+def tool_maintenance_submission():
+    """Handle maintenance changes due to user submission"""
+    data = request.json
+    reporter = data["reporter"]
+    tools = data["tools"]
+    status = data["status"]
+    summary = data["summary"]
+    detail = data["detail"]
+    urgent = data["urgent"]
+    images = data["images"]
+    create_task = data["create_task"]
+
+    if create_task is True:
+        tasks.add_tool_report_task(tools, summary, status, images, reporter, urgent)
+
+    msg = (
+        f"New Tool Report by {reporter}:\n"
+        f"Tool(s): {', '.join(tools)}\n"
+        f"Status: {status} {'(URGENT) ' if urgent else ''}- {summary}\n\n"
+        f"{detail}\n\n"
+        "See [all history](https://airtable.com/appbIlORlmbIxNU1L"
+        "/shrb58zUuDBmcmTNQ/tblZbQcalfrvUiNM6)"
+    )
+    comms.send_discord_message(msg, "#maintenance", blocking=False)
+    for tool in tools:
+        mqtt.notify_maintenance(tool, status, summary)
+
+    return "OK"

@@ -145,14 +145,19 @@ def patch_account(account_id, data, is_company=None):
     )
 
 
-def get_custom_field(account_id, field_id):
-    """Get the value of a single custom field from Neon"""
-    acc, _ = fetch_account(account_id, required=True)
+def extract_custom_field(acc, field_id):
+    """Extracts a custom field's value from a fetched account"""
     field_id = str(field_id)
     for cf in acc.get("accountCustomFields", []):
         if cf["id"] == field_id:
             return cf.get("value") or cf.get("optionValues")
     return []
+
+
+def get_custom_field(account_id, field_id):
+    """Get the value of a single custom field from Neon"""
+    acc, _ = fetch_account(account_id, required=True)
+    return extract_custom_field(acc, field_id)
 
 
 def set_custom_fields(account_id, *fields, is_company=None):

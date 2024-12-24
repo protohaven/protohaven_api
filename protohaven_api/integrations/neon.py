@@ -1,4 +1,5 @@
 """ Neon CRM integration methods """  # pylint: disable=too-many-lines
+
 import datetime
 import logging
 from functools import lru_cache
@@ -9,6 +10,7 @@ from flask import Response
 from protohaven_api.config import tz, tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
+from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.rbac import Role
 
 log = logging.getLogger("integrations.neon")
@@ -228,7 +230,7 @@ def fetch_search_fields():
 def fetch_output_fields():
     """Fetches possible output fields for member search"""
     content = neon_base.get("api_key2", "/accounts/search/outputFields")
-    assert isinstance(content, list)
+    assert isinstance(content, dict)
     return content
 
 
@@ -522,3 +524,68 @@ def assign_pricing(  # pylint: disable=too-many-arguments
             round(price * p["price_ratio"]),
             round(seats * p["qty_ratio"]),
         )
+
+
+# Sign-ins need to be speedy; if it takes more than half a second, folks will
+# disengage.
+class AccountCache(WarmDict):
+    """Prefetches account information for faster lookup.
+    Lookups are case-insensitive (to match email spec)"""
+
+    NAME = "neon_accounts"
+    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
+    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+    FIELDS = [
+        *MEMBER_SEARCH_OUTPUT_FIELDS,
+        "Email 1",
+        CustomField.ACCOUNT_AUTOMATION_RAN,
+        CustomField.BOOKED_USER_ID,
+        CustomField.INCOME_BASED_RATE,
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
+
+    def get(self, k, default=None):
+        return super().get(str(k).lower(), default)
+
+    def __setitem__(self, k, v):
+        return super().__setitem__(str(k).lower(), v)
+
+    def __getitem__(self, k):
+        return super().__getitem__(str(k).lower())
+
+    def _update(self, a):
+        d = self.get(a["Email 1"], {})
+        d[a["Account ID"]] = a
+        self[a["Email 1"]] = d
+        if a.get("Booked User ID"):
+            self.by_booked_id[a["Booked User ID"]] = a
+
+    def refresh(self):
+        """Refresh values; called every REFRESH_PD"""
+        self.log.info("Beginning AccountCache refresh")
+        n = 0
+        for a in get_inactive_members(self.FIELDS):
+            self._update(a)
+            n += 1
+            if n % 100 == 0:
+                self.log.info(n)
+        for a in get_active_members(self.FIELDS):
+            self._update(a)
+            n += 1
+            if n % 100 == 0:
+                self.log.info(n)
+
+        self.log.info(
+            f"Fetched {n} total accounts / {len(self.by_booked_id.keys())} total mapped "
+            f"booked IDs; next refresh in {self.REFRESH_PD_SEC} seconds"
+        )
+
+    def neon_id_from_booked_id(self, booked_id):
+        """Fetches the Neon ID associated with a Booked user ID"""
+        return self.by_booked_id[booked_id]["Account ID"]
+
+
+cache = AccountCache()

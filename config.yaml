@@ -145,6 +145,8 @@ asana:
   tool_report_tag: "1206437193319065"
   tech_ready_tag: "1205552792690050"
   custom_field_airtable_id: "1206525862874335"
+  custom_field_p0_id: "1204138662113048"
+  custom_field_priority_id: "1204138662113047"
 sheets:
   credentials_path: "credentials.json"
   instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
@@ -175,6 +177,7 @@ booked:
   - "Gallery"
   - "Custodial Room"
   - "All"
+  notify_mqtt: true
 wiki:
   user: "${WIKI_USER}"
   password: "${WIKI_PASSWORD}"
@@ -205,3 +208,11 @@ bookstack:
 drive:
   credentials_path: "credentials.json"
   scopes: ["https://www.googleapis.com/auth/drive"]
+mqtt:
+  enabled: "${MQTT}"
+  host: "mqtt.cron.protohaven.org"
+  port: 8883
+  keepalive_sec: 60
+  username: "${MQTT_USERNAME}"
+  password: "${MQTT_PASSWORD}"
+  ca_cert_path: "./ISRGRootX1.crt"
