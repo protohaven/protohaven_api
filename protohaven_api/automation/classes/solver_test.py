@@ -18,7 +18,7 @@ TEST_CLASSES = [
     ]
 ]
 TEST_TIMES = [d(0), d(7), d(14)]
-Tc = namedtuple("tc", "desc,c,t,times,want")
+Tc = namedtuple("tc", "desc,c,t,classes,times,want")
 
 
 @pytest.mark.parametrize(
@@ -28,6 +28,7 @@ Tc = namedtuple("tc", "desc,c,t,times,want")
             "basic",
             TEST_CLASSES[0],
             TEST_TIMES[0],
+            TEST_CLASSES,
             TEST_TIMES,
             [
                 ("SB", d(0)),
@@ -38,6 +39,7 @@ Tc = namedtuple("tc", "desc,c,t,times,want")
             "prev runs also included",
             TEST_CLASSES[0],
             TEST_TIMES[-1],
+            TEST_CLASSES,
             TEST_TIMES,
             [
                 ("SB", d(14)),
@@ -50,6 +52,7 @@ Tc = namedtuple("tc", "desc,c,t,times,want")
             "self-overlapping multi-day class with offset",
             TEST_CLASSES[2],
             d(7, 3),
+            TEST_CLASSES,
             [d(0), d(7, 3)],
             [
                 ("BW", d(0)),
@@ -60,17 +63,40 @@ Tc = namedtuple("tc", "desc,c,t,times,want")
             "non-overlap multi-day class",
             TEST_CLASSES[2],
             d(4),
+            TEST_CLASSES,
             [d(0), d(4)],
             [
                 ("BW", d(4)),
             ],
         ),
+        Tc(
+            "slightly shifted same-class overlap",
+            TEST_CLASSES[0],
+            d(0),
+            TEST_CLASSES[0:1],
+            [d(0, 1)],
+            [
+                ("SB", d(0, 1)),
+            ],
+        ),
+        Tc(
+            "slightly shifted diff-class overlap",
+            TEST_CLASSES[0],
+            d(0),
+            TEST_CLASSES[1:2],
+            [d(0, 1)],
+            [
+                ("AE", d(0, 1)),
+            ],
+        ),
     ],
     ids=idfn,
 )
-def test_get_overlapping(tc):
+def test_get_overlapping_by_area(tc):
     """Testing various scenarios of classes overlapping one another"""
-    assert set(s.get_overlapping(tc.c, tc.t, TEST_CLASSES, tc.times)) == set(tc.want)
+    assert set(s.get_overlapping_by_area(tc.c, tc.t, tc.classes, tc.times)) == set(
+        tc.want
+    )
 
 
 def test_solve_simple():
@@ -174,6 +200,22 @@ def test_solve_no_double_booking():
         ],
     )
     assert got == {"A": [[2, "Lasers", d(0).isoformat()]]}
+    assert score == 0.8
+
+
+def test_solve_no_overlap():
+    """Ensure that not-totally-overlapping classes on the same day
+    do not both get scheduled"""
+    got, score = s.solve(
+        classes=[
+            s.Class(1, "Embroidery", 3, 1, ["textiles"], [], 0.7),
+            s.Class(2, "Lasers", 3, 1, ["lasers"], [], 0.8),
+        ],
+        instructors=[
+            s.Instructor("A", {1: [d(0)], 2: [d(0, 2)]}),
+        ],
+    )
+    assert got == {"A": [[2, "Lasers", d(0, 2).isoformat()]]}
     assert score == 0.8
 
 

@@ -1,4 +1,5 @@
 """ Methods for scheduling new classes """
+
 import datetime
 import logging
 from collections import defaultdict
@@ -40,7 +41,7 @@ def slice_date_range(start_date: datetime, end_date: datetime, class_duration: i
     # Would be best to switch to time-bucketed scheduling that would allow for
     # more variety of classes without hard-constraiing start times to prevent
     # overlaps.
-    day_class_hours = [10, 14, 18]
+    day_class_hours = [10, 13, 14, 18]
     evening_threshold = 17
     evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
     ret = []
