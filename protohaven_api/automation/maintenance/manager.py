@@ -25,11 +25,11 @@ def get_maintenance_needed_tasks(now=None):
     section_map = tasks.get_shop_tech_maintenance_section_map()
     log.info(f"{len(section_map.keys())} sections loaded")
 
-    log.info("Loading maintenance completions")
+    log.info("Loading maintenance completion dates")
     last_completions = tasks.last_maintenance_completion_map()
     log.info(f"{len(last_completions.keys())} tasks with known last completion dates")
 
-    log.info("Loading candidates from wiki & airtable")
+    log.info("Loading candidate tasks from Bookstack wiki")
     candidates = [
         {
             "id": m["maint_ref"],
@@ -39,28 +39,34 @@ def get_maintenance_needed_tasks(now=None):
                 f"See https://wiki.protohaven.org/books/{m['book_slug']}/pages/"
                 f"{m['page_slug']}/{m['approval_state']['approved_id']}"
             ),
+            "tags": [m["maint_level"]],
             "freq": m["maint_freq_days"],
             "section": section_map.get(m.get("maint_asana_section")),
         }
         for m in wiki.get_maintenance_data(get_config("bookstack/basic_maint_slug"))
         if m["approval_state"].get("approved_revision")
-    ] + [
+    ]
+    log.info(f"Loaded {len(candidates)} task(s)")
+    log.info("Loading candidate tasks from Airtable recurring tasks table")
+    candidates += [
         {
             "id": t["id"],
             "origin": "Airtable",
             "name": t["fields"]["Task Name"],
             "detail": t["fields"]["Task Detail"],
             "freq": t["fields"]["Frequency"],
+            "tags": [t["fields"]["Skill Level"]],
             "section": section_map.get(t["fields"]["Asana Section"]),
         }
         for t in airtable.get_all_maintenance_tasks()
     ]
+    log.info(f"Loaded {len(candidates)} total task(s)")
 
     needed = []
     for c in candidates:
         log.debug(f"{c['origin']} Task {c['id']}: {c['name']}")
         last_scheduled = last_completions.get(c["id"])
-        log.info(f"{c['id']} las scheduled {last_scheduled}")
+        log.debug(f"{c['id']} last scheduled: {last_scheduled}")
         next_schedule = (
             last_scheduled + datetime.timedelta(days=c["freq"])
             if last_scheduled is not None
@@ -70,9 +76,9 @@ def get_maintenance_needed_tasks(now=None):
             needed.append(
                 {**c, "last_scheduled": last_scheduled, "next_schedule": next_schedule}
             )
-            log.info(f"Append {c}")
+            log.debug(f"Append {c}")
         else:
-            log.info(f"Skip (too early)\t{c}")
+            log.debug(f"Skip (too early)\t{c}")
     return needed
 
 

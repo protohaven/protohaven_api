@@ -126,9 +126,12 @@ def test_add_maintenance_task_if_not_exists(mocker):
         "get_config",
         side_effect=lambda k: {  # pylint: disable=unnecessary-lambda
             "asana/gid": "workspace_gid",
-            "asana/custom_field_airtable_id": "airtable_custom_field_id",
-            "asana/techs_project/gid": "techs_project_gid",
-            "asana/tech_ready_tag": "tech_ready_tag",
+            "asana/shop_and_maintenance_tasks/custom_fields/"
+            "airtable_id/gid": "airtable_custom_field_id",
+            "asana/shop_and_maintenance_tasks/gid": "shop_and_maintenance_tasks_gid",
+            "asana/shop_and_maintenance_tasks/tags": {
+                "training_needed": "training_needed_gid",
+            },
         }.get(k),
     )
 
@@ -137,7 +140,9 @@ def test_add_maintenance_task_if_not_exists(mocker):
 
     # Test when the task already exists
     mock_tasks().search_tasks_for_workspace.return_value = [{"gid": "existing_gid"}]
-    task_gid = t.add_maintenance_task_if_not_exists("Task Name", "Task Desc", "12345")
+    task_gid = t.add_maintenance_task_if_not_exists(
+        "Task Name", "Task Desc", "rec12345", ["training_needed"]
+    )
     assert task_gid == "existing_gid"
     mock_tasks().create_task.assert_not_called()
     mock_sections().add_task_for_section.assert_not_called()
@@ -146,17 +151,17 @@ def test_add_maintenance_task_if_not_exists(mocker):
     mock_tasks().search_tasks_for_workspace.return_value = []
     mock_tasks().create_task.return_value = {"gid": "new_gid"}
     task_gid = t.add_maintenance_task_if_not_exists(
-        "Task Name", "Task Desc", "12345", "section_gid"
+        "Task Name", "Task Desc", "rec12345", ["training_needed"], "section_gid"
     )
     assert task_gid == "new_gid"
     mock_tasks().create_task.assert_called_once_with(
         {
             "data": {
-                "projects": ["techs_project_gid"],
+                "projects": ["shop_and_maintenance_tasks_gid"],
                 "section": "section_gid",
-                "tags": ["tech_ready_tag"],
+                "tags": ["training_needed_gid"],
                 "custom_fields": {
-                    "airtable_custom_field_id": "12345",
+                    "airtable_custom_field_id": "rec12345",
                 },
                 "name": "Task Name",
                 "notes": "Task Desc",

@@ -121,8 +121,20 @@ square:
 asana:
   token: "${ASANA_TOKEN}"
   gid: "1199692158232291"
-  techs_project:
+  shop_and_maintenance_tasks:
     gid: "1202469740885594"
+    tags:
+      tool_report: "1206437193319065"
+      tech_ready: "1205552792690050"
+      training_required: "1209057318074849"
+      admin_required: "1209057318074853"
+    custom_fields:
+      priority:
+        gid: "1204138662113047"
+        values:
+          p0: "1204138662113048"
+      airtable_id:
+        gid: "1206525862874335"
   shop_tech_applicants:
     gid: "1203664351777333"
     on_hold_section: "1208278245183318"
@@ -139,14 +151,8 @@ asana:
       approved: "1205427182922331"
       ordered: "1206330510308500"
       on_hold: "1203723178286283"
-
   class_supply_requests: "1202392844192314"
   class_supply_default_section: "1202392844192315"
-  tool_report_tag: "1206437193319065"
-  tech_ready_tag: "1205552792690050"
-  custom_field_airtable_id: "1206525862874335"
-  custom_field_p0_id: "1204138662113048"
-  custom_field_priority_id: "1204138662113047"
 sheets:
   credentials_path: "credentials.json"
   instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret

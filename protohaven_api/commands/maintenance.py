@@ -81,28 +81,40 @@ class Commands:
     def gen_maintenance_tasks(self, args, _):
         """Check recurring tasks list in Airtable, add new tasks to asana
         And notify techs about new and stale tasks that are tech_ready."""
+        if not args.apply:
+            log.warning("===========================================")
+            log.warning("--no-apply is set; no tasks will be created")
+            log.warning("===========================================")
+
         assert args.num > 0
         tt = manager.get_maintenance_needed_tasks()
         log.info(f"Found {len(tt)} needed maintenance tasks")
         tt.sort(key=lambda t: t["next_schedule"])
         errs = []
         scheduled = []
-        if args.apply:
-            for t in tt:
+
+        for t in tt:
+            log.info(
+                f"Applying {t['id']} {t['name']} (section={t['section']}, tags={t['tags']})"
+            )
+            if args.apply:
                 try:
-                    log.info(f"Applying {t['id']} {t['name']} section {t['section']}")
                     t["gid"] = tasks.add_maintenance_task_if_not_exists(
-                        t["name"], t["detail"], t["id"], section_gid=t["section"]
+                        t["name"],
+                        t["detail"],
+                        t["id"],
+                        t["tags"],
+                        section_gid=t["section"],
                     )
                     scheduled.append(t)
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     traceback.print_exc()
                     errs.append(e)
+            else:
+                scheduled.append(t)
 
-                if len(scheduled) >= args.num:
-                    break
-        else:
-            log.warning("skipping application of tasks (apply=False)")
+            if len(scheduled) >= args.num:
+                break
 
         if len(errs) > 0:
             tasks_str = "\n".join([str(e) for e in errs])
