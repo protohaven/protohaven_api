@@ -29,6 +29,7 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
                 "fields": {
                     "Task Name": "Task 1",
                     "Frequency": 7,
+                    "Skill Level": "tech_ready",
                     "Task Detail": "Details, details",
                     "Asana Section": "123",
                 },
@@ -38,6 +39,7 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
                 "fields": {
                     "Task Name": "Task 2",
                     "Frequency": 7,
+                    "Skill Level": "admin_required",
                     "Task Detail": "More Details",
                     "Asana Section": "123",
                 },
@@ -53,6 +55,7 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
     assert needed_tasks[0]["origin"] == "Airtable"
     assert needed_tasks[0]["detail"] == "More Details"
     assert needed_tasks[0]["next_schedule"] == d(2)
+    assert needed_tasks[0]["tags"] == ["admin_required"]
 
 
 def test_get_maintenance_needed_tasks_wiki_only(mocker):
@@ -78,6 +81,7 @@ def test_get_maintenance_needed_tasks_wiki_only(mocker):
                 "page_slug": "inventory-check",
                 "approval_state": {"approved_revision": True, "approved_id": "rev_1"},
                 "maint_freq_days": 7,
+                "maint_level": "admin_required",
                 "maint_asana_section": "section_1",
             }
         ],
@@ -95,6 +99,7 @@ def test_get_maintenance_needed_tasks_wiki_only(mocker):
     assert needed_tasks[0]["origin"] == "Bookstack"
     assert needed_tasks[0]["name"] == "Check Inventory"
     assert needed_tasks[0]["section"] == "Shop Section"
+    assert needed_tasks[0]["tags"] == ["admin_required"]
 
 
 def test_unapproved_wiki_tasks_not_returned(mocker):
@@ -115,6 +120,7 @@ def test_unapproved_wiki_tasks_not_returned(mocker):
                 "maint_task": "Unapproved Task",
                 "book_slug": "book1",
                 "page_slug": "page1",
+                "maint_level": "training_required",
                 "approval_state": {},
                 "maint_freq_days": 10,
             },
@@ -123,6 +129,7 @@ def test_unapproved_wiki_tasks_not_returned(mocker):
                 "maint_task": "Approved Task",
                 "book_slug": "book2",
                 "page_slug": "page2",
+                "maint_level": "admin_required",
                 "approval_state": {"approved_revision": "rev1", "approved_id": "123"},
                 "maint_freq_days": 5,
             },

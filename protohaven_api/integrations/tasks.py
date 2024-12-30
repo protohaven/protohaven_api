@@ -37,10 +37,10 @@ def get_tech_ready_tasks(modified_before):
     return _tasks().search_tasks_for_workspace(
         get_config("asana/gid"),
         {
-            "projects.all": get_config("asana/techs_project/gid"),
+            "projects.all": get_config("asana/shop_and_maintenance_tasks/gid"),
             "completed": False,
             "modified_on.before": modified_before.strftime("%Y-%m-%d"),
-            "tags.all": get_config("asana/tech_ready_tag"),
+            "tags.all": get_config("asana/shop_and_maintenance_tasks/tags/tech_ready"),
             "opt_fields": ",".join(
                 [
                     "name",
@@ -166,7 +166,7 @@ def complete(gid):
 def get_shop_tech_maintenance_section_map():
     """Gets a mapping of Asana section names to their ID's"""
     result = _sections().get_sections_for_project(
-        get_config("asana/techs_project/gid"), {}
+        get_config("asana/shop_and_maintenance_tasks/gid"), {}
     )
     return {r["name"]: r["gid"] for r in result}
 
@@ -209,7 +209,7 @@ def last_maintenance_completion_map():
     result = {}
     now = tznow()
     for t in _tasks().get_tasks_for_project(
-        get_config("asana/techs_project/gid"),
+        get_config("asana/shop_and_maintenance_tasks/gid"),
         {
             # Python Asana lib is auto-paginated
             # See https://forum.asana.com/t/pagination-using-python/38930
@@ -254,15 +254,19 @@ def add_tool_report_task(  # pylint: disable=too-many-arguments
 
     custom_fields = {}
     if urgent:
-        custom_fields[get_config("asana/custom_field_priority_id")] = get_config(
-            "asana/custom_field_p0_id"
+        custom_fields[
+            get_config("asana/shop_and_maintenance_tasks/custom_fields/priority/gid")
+        ] = get_config(
+            "asana/shop_and_maintenance_tasks/custom_fields/priority/values/p0"
         )
 
     result = _tasks().create_task(
         {
             "data": {
-                "projects": [get_config("asana/techs_project/gid")],
-                "tags": [get_config("asana/tool_report_tag")],
+                "projects": [get_config("asana/shop_and_maintenance_tasks/gid")],
+                "tags": [
+                    get_config("asana/shop_and_maintenance_tasks/tags/tool_report")
+                ],
                 "custom_fields": custom_fields,
                 "name": name,
                 "html_notes": f"<body>{notes}</body>",
@@ -274,13 +278,13 @@ def add_tool_report_task(  # pylint: disable=too-many-arguments
 
 
 # Could also create tech task for maintenance here
-def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None):
+def add_maintenance_task_if_not_exists(name, desc, airtable_id, tags, section_gid=None):
     """Add a task to the shop tech asana project if it doesn't already exist"""
     matching = list(
         _tasks().search_tasks_for_workspace(
             get_config("asana/gid"),
             {
-                f"custom_fields.{get_config('asana/custom_field_airtable_id')}.value": airtable_id,
+                f"custom_fields.{get_config('asana/shop_and_maintenance_tasks/custom_fields/airtable_id/gid')}.value": airtable_id,  # pylint: disable=line-too-long
                 "completed": False,
                 "limit": 1,
             },
@@ -289,14 +293,18 @@ def add_maintenance_task_if_not_exists(name, desc, airtable_id, section_gid=None
     if len(matching) > 0:
         return matching[0].get("gid")  # Already exists
 
+    tag_ids = get_config("asana/shop_and_maintenance_tasks/tags")
+    tags = [tag_ids[t] for t in tags]  # tags MUST have a lookup ID
     result = _tasks().create_task(
         {
             "data": {
-                "projects": [get_config("asana/techs_project/gid")],
+                "projects": [get_config("asana/shop_and_maintenance_tasks/gid")],
                 "section": section_gid,
-                "tags": [get_config("asana/tech_ready_tag")],
+                "tags": tags,
                 "custom_fields": {
-                    get_config("asana/custom_field_airtable_id"): str(airtable_id),
+                    get_config(
+                        "asana/shop_and_maintenance_tasks/custom_fields/airtable_id/gid"
+                    ): str(airtable_id),
                 },
                 "name": name,
                 "notes": desc,
