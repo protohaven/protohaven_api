@@ -1,4 +1,5 @@
 """Verify proper behavior of tech lead dashboard"""
+
 # pylint: skip-file
 import json
 
@@ -62,7 +63,7 @@ def test_techs_event_registration_success_register(client, mocker):
     mocker.patch.object(
         tl.neon_base,
         "fetch_account",
-        return_value={"firstName": "First", "lastName": "Last"},
+        return_value=({"firstName": "First", "lastName": "Last"}, True),
     )
     mocker.patch.object(
         tl.neon,
@@ -86,8 +87,8 @@ def test_techs_event_registration_success_register(client, mocker):
     tl.neon.delete_single_ticket_registration.assert_not_called()
     tl.comms.send_discord_message.assert_has_calls(
         [
-            mocker.call(MatchStr("Seats remaining: 5"), "#instructors", blocking=False),
-            mocker.call(MatchStr("Seats remaining: 5"), "#techs", blocking=False),
+            mocker.call(MatchStr("5 seat"), "#instructors", blocking=False),
+            mocker.call(MatchStr("5 seat"), "#techs", blocking=False),
         ]
     )
 
@@ -101,7 +102,7 @@ def test_techs_event_registration_success_unregister(client, mocker):
     mocker.patch.object(
         tl.neon_base,
         "fetch_account",
-        return_value={"firstName": "First", "lastName": "Last"},
+        return_value=({"firstName": "First", "lastName": "Last"}, True),
     )
     mocker.patch.object(
         tl.neon,
@@ -125,8 +126,8 @@ def test_techs_event_registration_success_unregister(client, mocker):
     tl.neon.delete_single_ticket_registration.assert_called_with(1234, "test_event")
     tl.comms.send_discord_message.assert_has_calls(
         [
-            mocker.call(MatchStr("Seats remaining: 5"), "#instructors", blocking=False),
-            mocker.call(MatchStr("Seats remaining: 5"), "#techs", blocking=False),
+            mocker.call(MatchStr("5 seat"), "#instructors", blocking=False),
+            mocker.call(MatchStr("5 seat"), "#techs", blocking=False),
         ]
     )
 

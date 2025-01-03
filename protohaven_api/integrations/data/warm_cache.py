@@ -1,5 +1,6 @@
 """Provide an implementation of a dictionary that prefetches its data and
 keeps it fresh"""
+
 import logging
 import time
 import traceback
@@ -52,7 +53,7 @@ class WarmDict:
             self.refresh()
             if self.failures >= self.NOTIFY_AFTER_FAILURES:
                 comms.send_discord_message(
-                    f"Successfully updated cache after {self.failures} failures",
+                    f"{self.NAME} cache recovered after {self.failures} failures",
                     "#membership-automation",
                     blocking=False,
                 )
@@ -65,7 +66,7 @@ class WarmDict:
             self.failures += 1
             if self.failures == self.NOTIFY_AFTER_FAILURES:
                 comms.send_discord_message(
-                    f"Failed to update cache {self.failures} times so far "
+                    f"{self.NAME} cache failed {self.failures} times so far "
                     + f"- retry interval {self.RETRY_PD_SEC}s",
                     "#membership-automation",
                     blocking=False,

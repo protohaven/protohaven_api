@@ -60,7 +60,7 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     mocker.patch.object(m.comms, "send_discord_message")
     got = cli("gen_maintenance_tasks", ["--apply"])
     assert len(got) == 1
-    assert "no new tasks" in got[0]["body"]
+    assert "no new tasks" in got[0]["subject"]
     m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
 
 
@@ -146,9 +146,9 @@ def test_check_cameras(mocker, cli):
     mocker.patch.object(m.wyze, "get_camera_states", return_value=mock_camera_states)
     got = cli("check_cameras", [])
     for expected in [
-        "Camera(s) {'Camera3'} configured in Wyze, but not in protohaven_api config.yaml",
-        "Camera {'Camera2'} expected per protohaven_api config.yaml, but not present in Wyze",
-        "camera Camera3 offline (check power cable/network connection)",
+        "{'Camera3'} configured in Wyze, but not in protohaven_api config.yaml",
+        "{'Camera2'} expected per protohaven_api config.yaml, but not present in Wyze",
+        "Camera3 offline (check power cable/network connection)",
     ]:
         assert expected in got[0]["body"]
 

@@ -209,20 +209,19 @@ class Commands:
         not_in_config = cameras - expected
         if len(not_in_config) > 0:
             warnings.append(
-                f"Camera(s) {not_in_config} configured in Wyze, "
+                f"{not_in_config} configured in Wyze, "
                 + "but not in protohaven_api config.yaml"
             )
         not_in_wyze = expected - cameras
         if len(not_in_wyze) > 0:
             warnings.append(
-                f"Camera {not_in_wyze} expected per protohaven_api "
+                f"{not_in_wyze} expected per protohaven_api "
                 + "config.yaml, but not present in Wyze"
             )
         for c in camera_states:
             if not c.get("is_online"):
                 warnings.append(
-                    f"camera {c['name']} offline "
-                    + "(check power cable/network connection)"
+                    f"{c['name']} offline " + "(check power cable/network connection)"
                 )
         if len(warnings) > 0:
             print_yaml(

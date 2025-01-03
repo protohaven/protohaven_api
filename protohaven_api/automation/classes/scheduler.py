@@ -86,6 +86,14 @@ def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
     for t0, t1 in avail:
         for c in caps:
             cbid = class_by_id.get(c)
+            if not cbid:
+                rejected["Availability Validation"].append(
+                    {
+                        "time": None,
+                        "reason": f"Could not find class info in Airtable (id {c})",
+                    }
+                )
+                continue
             sliced = slice_date_range(t0, t1, cbid.hours)
             if len(sliced) == 0:
                 rejected["Availability Validation"].append(

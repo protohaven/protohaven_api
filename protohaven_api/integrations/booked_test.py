@@ -74,3 +74,37 @@ def test_apply_resource_custom_fields(mocker):
             "resourceId": 123,
         },
     )
+
+
+def test_stage_tool_update(mocker):
+    """Test updating a tool's metadata"""
+    mocker.patch.object(
+        booked,
+        "get_config",
+        side_effect=lambda k: {
+            "booked/resource_custom_attribute": {"attr": "123"},
+            "booked/tool_type_id": 1,
+        }[k],
+    )
+
+    r = {
+        "statusId": booked.STATUS_UNAVAILABLE,
+        "typeId": "0",
+        # Yes, the API uses different key names for fecthing state
+        # ("id"/"value") vs patching state ("attributeId", "attributeValue")
+        "customAttributes": [{"id": "123", "value": "old_value"}],
+    }
+    r2, changes = booked.stage_tool_update(
+        r, {"attr": "new_value"}, reservable=True, additional="info"
+    )
+
+    assert r2["statusId"] == booked.STATUS_AVAILABLE
+    assert r2["typeId"] == "1"
+    assert r2["customAttributes"][0]["attributeId"] == "123"
+    assert r2["customAttributes"][0]["attributeValue"] == "new_value"
+    assert set(changes) == {
+        "additional (None->info)",
+        "custom attributes ({'attr': True} -> {'attr': 'new_value'})",
+        "statusId (NOT_AVAILABLE->AVAILABLE)",
+        "typeId (0->1)",
+    }

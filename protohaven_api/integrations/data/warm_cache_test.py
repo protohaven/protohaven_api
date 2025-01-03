@@ -1,4 +1,5 @@
 """Test the warm caching class"""
+
 import pytest
 
 from protohaven_api.integrations.data import warm_cache as w
@@ -53,7 +54,7 @@ def test_warmdict_retry_behavior(mocker):
 
     # Verify notifications after NOTIFY_AFTER_FAILURES failures
     assert mock_send_discord.call_count == 1
-    assert "Failed to update cache 3 times so far" in mock_send_discord.call_args[0][0]
+    assert "TestDict cache failed 3 times so far" in mock_send_discord.call_args[0][0]
 
     # Verify retry behavior
     assert mock_sleep.call_count >= wd.NOTIFY_AFTER_FAILURES
@@ -64,4 +65,4 @@ def test_warmdict_retry_behavior(mocker):
 
     # Verify a recovery notification is sent
     assert mock_send_discord.call_count == 2
-    assert "Successfully updated cache after" in mock_send_discord.call_args[0][0]
+    assert "TestDict cache recovered after" in mock_send_discord.call_args[0][0]
