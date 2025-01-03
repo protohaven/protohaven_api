@@ -1,4 +1,5 @@
 """Test operation of linear solver for class scheduling"""
+
 # pylint: skip-file
 
 import datetime
@@ -64,6 +65,21 @@ def test_build_instructor_basic():
         area_occupancy={},
         class_by_id={TEST_CLASS.class_id: TEST_CLASS},
     ).avail == [d(1, 18)]
+
+
+def test_build_instructor_no_class_info():
+    """Tests that class info missing doesn't cause breakage"""
+    assert (
+        s.build_instructor(
+            name="testname",
+            avail=[[d(1, 18).isoformat(), d(1, 21).isoformat(), "avail_id"]],
+            caps=["test_id"],
+            instructor_occupancy=[],
+            area_occupancy={},
+            class_by_id={},
+        ).avail
+        == []
+    )
 
 
 def test_build_instructor_respects_empty_caps():

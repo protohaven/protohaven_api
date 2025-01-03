@@ -1,4 +1,5 @@
 """Test methods for finance-oriented CLI commands"""
+
 # pylint: skip-file
 import datetime
 
@@ -28,6 +29,7 @@ def test_transaction_alerts_ok(mocker, cli):
             "var_id": ("plan_id", 50),
         },
     )
+    mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.sales,
         "get_subscriptions",

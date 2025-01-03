@@ -1,4 +1,5 @@
 """Site for tech leads to manage shop techs"""
+
 import datetime
 import logging
 from collections import defaultdict
@@ -133,8 +134,8 @@ def _notify_override(name, shift, techs):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
     msg = (
-        f"**Shift Override by {name}**:\n\n**On duty for {shift}**: {', '.join(techs)}"
-        "\n\n*Make additional changes to the shift schedule "
+        f"**On duty for {shift}**: {', '.join(techs)} (edited by {name})"
+        "\n*Make additional changes to the shift schedule "
         "[here](https://api.protohaven.org/techs#cal) (requires login)*"
     )
     comms.send_discord_message(msg, "#techs", blocking=False)
@@ -267,7 +268,7 @@ def techs_backfill_events():
 def _notify_registration(account_id, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
-    acc = neon_base.fetch_account(account_id, required=True)
+    acc, _ = neon_base.fetch_account(account_id, required=True)
     evt = neon.fetch_event(event_id)
     attendees = {
         a["accountId"]
@@ -276,8 +277,9 @@ def _notify_registration(account_id, event_id, action):
     }
     action = "registered for" if action == "register" else "unregistered from"
     msg = (
-        f"**{acc['firstName']} {acc['lastName']} {action} {evt['name']} on {evt['startDate']}**"
-        f"\n\nSeats remaining: {evt['capacity'] - len(attendees)}"
+        f"{acc.get('firstName')} {acc.get('lastName')} {action} "
+        f"{evt.get('name')} on {evt.get('startDate')}"
+        f"; {evt.get('capacity', 0) - len(attendees)} seat(s) remain"
     )
     comms.send_discord_message(msg, "#instructors", blocking=False)
     msg += (

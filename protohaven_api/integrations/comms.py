@@ -107,11 +107,11 @@ def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
     if channel is None:
-        channel = cfg["techs-live"]
+        channel = cfg["webhooks"]["techs-live"]
     elif channel.startswith("@"):  # Send to a user
         return get_connector().discord_bot_fn("send_dm", channel[1:], content)
     elif channel.startswith("#"):  # Send to a channel
-        channel = cfg[channel[1:]]
+        channel = cfg["webhooks"][channel[1:]]
     else:
         raise RuntimeError(f"Unknown channel '{channel}' for discord message")
 

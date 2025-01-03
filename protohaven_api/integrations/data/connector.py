@@ -136,7 +136,7 @@ class Connector:
         https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority
         """
         try:
-            from_addr = get_config("comms/email_username")
+            from_addr = get_config("comms/email/username")
             creds = service_account.Credentials.from_service_account_file(
                 get_config("gmail/credentials_path"), scopes=get_config("gmail/scopes")
             ).with_subject(from_addr)

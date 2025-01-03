@@ -1,4 +1,5 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
+
 import datetime
 import logging
 import secrets
@@ -165,8 +166,8 @@ def stage_tool_update(r, custom_attributes, reservable=True, **kwargs):
             f"Changed custom attributes: {changed_attrs} -> {custom_attributes}"
         )
     for k, v in kwargs.items():
-        if str(r[k]) != str(v):
-            changes.append(f"{k} ({_fmt_update(k,r[k])}->{_fmt_update(k,v)})")
+        if str(r.get(k)) != str(v):
+            changes.append(f"{k} ({_fmt_update(k,r.get(k))}->{_fmt_update(k,v)})")
             log.warning(changes[-1])
             r[k] = v
     return r, changes

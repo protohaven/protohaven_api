@@ -2,6 +2,7 @@
 
 import json
 import logging
+import socket
 import threading
 import time
 from collections import defaultdict
@@ -25,6 +26,14 @@ TOPICS = [
     "ALIVE",
 ]
 SUB_PREFIXES = ("stat", "tele", "err")
+
+
+class ClearanceLevel:  # pylint: disable=too-few-public-methods
+    """Levels of auth/clearance for a tool, for shopminder"""
+
+    MEMBER = "MEMBER"
+    TECH = "TECH"
+    ADMIN = "ADMIN"
 
 
 class TopicResource:  # pylint: disable=too-few-public-methods
@@ -99,7 +108,9 @@ class Client:
 
     def _notify_heartbeat(self):
         """A periodic message published to reassure listeners that the server is operational"""
-        return self.pub(TopicResource.SELF, "", TopicAttribute.HEARTBEAT, "1")
+        return self.pub(
+            TopicResource.SELF, socket.gethostname(), TopicAttribute.HEARTBEAT, "1"
+        )
 
     def run_forever(self):
         """Starts up dependent threads and loops forever"""
@@ -132,7 +143,12 @@ def notify_reservation(tool_code, ref, start_time, end_time, user_id):
         TopicResource.TOOL,
         tool_code,
         TopicAttribute.RESERVATION,
-        {"ref": ref, "start": start_time, "end": end_time, "uid": user_id},
+        {
+            "ref": ref,
+            "start": start_time,
+            "end": end_time,
+            "uid": user_id,
+        },
     )
 
 
@@ -151,11 +167,13 @@ def notify_member_signed_in(user_id):
     return client.pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
 
 
-def notify_clearance(user_id: str, tool_code: str, added: bool = True):
+def notify_clearance(
+    user_id: str, tool_code: str, added: bool = True, level=ClearanceLevel.MEMBER
+):
     """Notify that a user's clearance has been added or removed"""
     return client.pub(
-        TopicResource.USER,
-        user_id,
+        TopicResource.TOOL,
+        tool_code,
         TopicAttribute.CLEARANCE,
-        {"tool_code": tool_code, "added": added},
+        {"uid": user_id, "added": added, "level": level},
     )
