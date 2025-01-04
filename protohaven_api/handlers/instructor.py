@@ -1,4 +1,5 @@
 """Handlers for instructor actions on classes"""
+
 import datetime
 import logging
 
@@ -11,7 +12,7 @@ from protohaven_api.automation.classes.scheduler import (
 from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon, neon_base
+from protohaven_api.integrations import airtable, comms, neon, neon_base
 from protohaven_api.rbac import Role, am_admin, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -92,9 +93,9 @@ def get_instructor_readiness(inst, caps=None):
         result["active_membership"] = inst["Account Current Membership Status"]
     if inst.get("Discord User"):
         result["discord_user"] = "OK"
-    result[
-        "fullname"
-    ] = f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
+    result["fullname"] = (
+        f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
+    )
 
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
@@ -107,9 +108,11 @@ def get_instructor_readiness(inst, caps=None):
             x
             for x in [
                 "W9" if not caps["fields"].get("W9 Form") else None,
-                "Direct Deposit"
-                if not caps["fields"].get("Direct Deposit Info")
-                else None,
+                (
+                    "Direct Deposit"
+                    if not caps["fields"].get("Direct Deposit Info")
+                    else None
+                ),
                 "Profile Pic" if not caps["fields"].get("Profile Pic") else None,
                 "Bio" if not caps["fields"].get("Bio") else None,
             ]
@@ -308,6 +311,17 @@ def instructor_class_supply_req():
     eid = data["eid"]
     missing = data["missing"]
     _, result = airtable.mark_schedule_supply_request(eid, missing)
+
+    class_name = result["fields"]["Name (from Class)"][0]
+    name = result["fields"]["Instructor"]
+    email = result["fields"]["Email"]
+    date = dateparser.parse(result["fields"]["Start Time"]).strftime("%Y-%m-%d %H%p")
+    supply_state = result["fields"]["Supply State"]
+    comms.send_discord_message(
+        f"{name} ({email}) - {supply_state} for {class_name} on {date}",
+        "#supply-automation",
+        blocking=False,
+    )
     return _annotate_schedule_class(result["fields"])
 
 

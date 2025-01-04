@@ -1,4 +1,5 @@
 """Verify proper behavior of instructor pages"""
+
 # pylint: skip-file
 import datetime
 import json
@@ -12,8 +13,8 @@ from protohaven_api.handlers import instructor
 from protohaven_api.testing import fixture_client
 
 
-@pytest.fixture()
-def inst_client(client):
+@pytest.fixture(name="inst_client")
+def custom_client(client):
     with client.session_transaction() as session:
         session["neon_account"] = {
             "accountCustomFields": [
@@ -100,6 +101,37 @@ def test_prefill(mocker):
         clearances=["3DF"],
         volunteer=False,
         event_id=12345,
+    )
+
+
+def test_instructor_class_supply_req(mocker, inst_client):
+    mocker.patch.object(
+        instructor.airtable,
+        "mark_schedule_supply_request",
+        return_value=(
+            None,
+            {
+                "fields": {
+                    "Name (from Class)": ["Yoga 101"],
+                    "Instructor": "John Doe",
+                    "Email": "johndoe@example.com",
+                    "Start Time": "2025-01-01 10:00:00",
+                    "Supply State": "Supplies Needed",
+                }
+            },
+        ),
+    )
+    mocker.patch.object(instructor.comms, "send_discord_message")
+
+    result = inst_client.post(
+        "/instructor/class/supply_req", json={"eid": "123", "missing": True}
+    )
+
+    instructor.airtable.mark_schedule_supply_request.assert_called_with("123", True)
+    instructor.comms.send_discord_message.assert_called_once_with(
+        "John Doe (johndoe@example.com) - Supplies Needed for Yoga 101 on 2025-01-01 10AM",
+        "#supply-automation",
+        blocking=False,
     )
 
 
