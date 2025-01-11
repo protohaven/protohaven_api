@@ -1,4 +1,5 @@
 """Helper methods for the code in integrations.neon"""
+
 import datetime
 import json
 import logging
@@ -6,6 +7,7 @@ import re
 import time
 import urllib
 
+import pyotp
 from bs4 import BeautifulSoup
 
 from protohaven_api.config import get_config
@@ -166,9 +168,11 @@ def set_custom_fields(account_id, *fields, is_company=None):
         account_id,
         {
             "accountCustomFields": [
-                {"id": field_id, "optionValues": value}
-                if isinstance(value, list)
-                else {"id": field_id, "value": value}
+                (
+                    {"id": field_id, "optionValues": value}
+                    if isinstance(value, list)
+                    else {"id": field_id, "value": value}
+                )
                 for field_id, value in fields
             ]
         },
@@ -194,12 +198,15 @@ class NeonOne:  # pylint: disable=too-few-public-methods
     TYPE_MEMBERSHIP_DISCOUNT = 2
     TYPE_EVENT_DISCOUNT = 3
 
-    def __init__(self):
+    def __init__(self, autologin=True):
         self.s = get_connector().neon_session()
         self.drt = DuplicateRequestToken()
-        self._do_login(get_config("neon/login_user"), get_config("neon/login_pass"))
+        self.totp = pyotp.TOTP(get_config("neon/login_otp_code"))
+        if autologin:
+            self.do_login(get_config("neon/login_user"), get_config("neon/login_pass"))
 
-    def _do_login(self, user, passwd):
+    def do_login(self, user, passwd):
+        """Performs user login, handling second factor OTP if needed"""
         csrf = self._get_csrf()
         log.debug(f"CSRF: {csrf}")
 
@@ -209,6 +216,21 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             data={"_token": csrf, "email": user, "password": passwd},
         )
         assert r.status_code == 200
+
+        content = r.content.decode("utf8")
+        if "2-Step Verification" in content:
+            m = re.search(r'name="_token" value="([^"]+)"', content)
+            if not m:
+                raise RuntimeError(
+                    f"Could not extract MFA token from 2 step verification page:\n{content}"
+                )
+            print("Using mfa token", m.group(1))
+            r = self.s.post(
+                "https://app.neonsso.com/mfa",
+                data={"_token": m.group(1), "mfa_code": str(self.totp.now())},
+            )
+
+        assert "Log Out" in r.content.decode("utf8")
 
         # Select Neon SSO and go through the series of SSO redirects to properly set cookies
         r = self.s.get("https://app.neoncrm.com/np/ssoAuth")
@@ -430,9 +452,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "ticketPackage.sessionId": "",
             "ticketPackage.name": price_name,
             "ticketPackage.fee": str(amt),
-            "ticketPackage.ticketPackageGroupid": ""
-            if group_id == "default"
-            else str(group_id),
+            "ticketPackage.ticketPackageGroupid": (
+                "" if group_id == "default" else str(group_id)
+            ),
             "ticketPackage.capacity": str(capacity),
             "ticketPackage.advantageAmount": str(amt),
             "ticketPackage.advantageDescription": "",
@@ -446,9 +468,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             data=data,
         )
         if r.status_code != 302:
+            log.error(r.content.decode("utf8"))
             raise RuntimeError(
-                "Price creation failed; expected code 302 FOUND, got "
-                + str(r.status_code)
+                "Price creation failed; expected code 302, got " + str(r.status_code)
             )
         return True
 

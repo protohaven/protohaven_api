@@ -517,12 +517,18 @@ def assign_pricing(  # pylint: disable=too-many-arguments
         )
         if p.get("cond", None) is not None:
             n.assign_condition_to_group(event_id, group_id, p["cond"])
+
+        # Some classes have so few seats that the ratio rounds down to zero
+        # We just skip those here.
+        qty = round(seats * p["qty_ratio"])
+        if qty <= 0:
+            continue
         n.assign_price_to_group(
             event_id,
             group_id,
             p["price_name"],
             round(price * p["price_ratio"]),
-            round(seats * p["qty_ratio"]),
+            qty,
         )
 
 
