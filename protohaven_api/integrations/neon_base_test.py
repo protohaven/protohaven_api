@@ -1,4 +1,5 @@
 """Test base methods for neon integration"""
+
 import pytest
 
 from protohaven_api.integrations import neon_base as nb
@@ -86,3 +87,47 @@ def test_fetch_account(mocker):
     # Test case where neon_request returns a company account
     m.return_value = {"companyAccount": {"a": 1}}
     assert nb.fetch_account("123") == ({"a": 1}, True)
+
+
+def test_do_login(mocker):
+    """Tests the login flow with 2-factor auth"""
+
+    mock_session = mocker.MagicMock()
+    mock_session.post.side_effect = [
+        mocker.Mock(
+            status_code=200,
+            content=b'2-Step Verification name="_token" value="mfa_token"',
+        ),
+        mocker.Mock(content=b"Log Out", status_code=200),
+    ]
+    mock_session.get.return_value = mocker.Mock(
+        content=b"Mission Control Dashboard", status_code=200
+    )
+
+    mocker.patch.object(
+        nb,
+        "get_connector",
+        return_value=mocker.MagicMock(neon_session=lambda: mock_session),
+    )
+
+    n = nb.NeonOne(autologin=False)
+    assert n.s == mock_session
+
+    mocker.patch.object(n, "_get_csrf", return_value="dummy_csrf")
+    mocker.patch.object(n, "totp", mocker.Mock(now=lambda: "123456"))
+
+    n.do_login("user", "pass")
+
+    mock_session.post.assert_any_call(
+        "https://app.neonsso.com/login",
+        data={
+            "_token": "dummy_csrf",
+            "email": "user",
+            "password": "pass",  # pragma: allowlist secret
+        },
+    )
+    mock_session.post.assert_any_call(
+        "https://app.neonsso.com/mfa",
+        data={"_token": "mfa_token", "mfa_code": "123456"},
+    )
+    mock_session.get.assert_called_once_with("https://app.neoncrm.com/np/ssoAuth")

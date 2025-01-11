@@ -80,6 +80,7 @@ in pkgs.mkShell {
         python-dotenv
         asana
         requests
+        pyotp
         beautifulsoup4
         pulp
         holidays
