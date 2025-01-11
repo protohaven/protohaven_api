@@ -93,9 +93,9 @@ def get_instructor_readiness(inst, caps=None):
         result["active_membership"] = inst["Account Current Membership Status"]
     if inst.get("Discord User"):
         result["discord_user"] = "OK"
-    result["fullname"] = (
-        f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
-    )
+    result[
+        "fullname"
+    ] = f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
 
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])

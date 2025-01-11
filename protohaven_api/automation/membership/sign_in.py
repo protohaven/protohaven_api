@@ -262,7 +262,11 @@ def handle_announcements(last_ack, roles: str, clearances: list, is_active, test
         roles.append("Testing")
     if is_active:
         roles.append("Member")
-    result = list(airtable.cache.announcements_after(last_ack, roles, set(clearances)))
+    result = list(
+        airtable.announcement_cache.announcements_after(
+            last_ack, roles, set(clearances)
+        )
+    )
     # Don't send others' survey responses to the frontend
     for a in result:
         if "Sign-In Survey Responses" in a:
@@ -317,7 +321,9 @@ def as_member(data, send):
 
     try:
         send("Checking storage...", 70)
-        result["violations"] = list(airtable.cache.violations_for(m["Account ID"]))
+        result["violations"] = list(
+            airtable.violation_cache.violations_for(m["Account ID"])
+        )
     except Exception:  # pylint: disable=broad-exception-caught
         traceback.print_exc()
         notify_async(f"Error checking storage (member #{data['email']}) - see log")

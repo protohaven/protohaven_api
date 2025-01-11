@@ -1,7 +1,9 @@
 """Test base methods for neon integration"""
+
 import pytest
 
 from protohaven_api.integrations import neon_base as nb
+from protohaven_api.testing import d
 
 
 def test_paginated_search(mocker):
@@ -86,3 +88,25 @@ def test_fetch_account(mocker):
     # Test case where neon_request returns a company account
     m.return_value = {"companyAccount": {"a": 1}}
     assert nb.fetch_account("123") == ({"a": 1}, True)
+
+
+def test_create_single_use_abs_event_discount(mocker):
+    """Test create_single_use_abs_event_discount method"""
+    c = mocker.patch.object(nb, "get_connector")
+    mocker.patch.object(nb, "get_config")
+    mocker.patch.object(nb.NeonOne, "_do_login")
+    n = nb.NeonOne()
+    mocker.patch.object(nb, "tznow", return_value=d(0))
+    m = mocker.patch.object(n, "_post_discount")
+    code = "TESTCODE"
+    amt = 100
+    n.create_single_use_abs_event_discount(code, amt)
+
+    m.assert_called_once_with(
+        n.TYPE_EVENT_DISCOUNT,
+        code=code,
+        pct=False,
+        amt=amt,
+        from_date="12/31/2024",
+        to_date="06/30/2025",
+    )

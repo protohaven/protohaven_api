@@ -258,5 +258,5 @@ mqtt:
     heartbeat: 1
     reservations: 60
     maintenance: 60
-    clearance: 600
+    clearance: 60
     signins: 600

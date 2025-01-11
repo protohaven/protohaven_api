@@ -47,6 +47,8 @@ def get_maintenance_needed_tasks(now=None):
         if m["approval_state"].get("approved_revision")
     ]
     log.info(f"Loaded {len(candidates)} task(s)")
+    for c in candidates:
+        log.debug(f"{c}")
     log.info("Loading candidate tasks from Airtable recurring tasks table")
     candidates += [
         {
@@ -59,6 +61,7 @@ def get_maintenance_needed_tasks(now=None):
             "section": section_map.get(t["fields"]["Asana Section"]),
         }
         for t in airtable.get_all_maintenance_tasks()
+        if t["fields"]["Skill Level"] != "REVIEW NEEDED"
     ]
     log.info(f"Loaded {len(candidates)} total task(s)")
 

@@ -29,10 +29,6 @@ def test_warmdict_retry_behavior(mocker):
     class TestWarmDict(w.WarmDict):
         """Test harness for WarmDict"""
 
-        NAME = "TestDict"
-        REFRESH_PD_SEC = 10
-        RETRY_PD_SEC = 1
-
         def refresh(self):
             pass
 
@@ -40,7 +36,7 @@ def test_warmdict_retry_behavior(mocker):
     mock_send_discord = mocker.patch.object(w.comms, "send_discord_message")
     mock_sleep = mocker.patch.object(w.time, "sleep")
 
-    wd = TestWarmDict()
+    wd = TestWarmDict(refresh_sec=10, retry_sec=1, notify_after_failures=3)
     mocker.patch.object(
         wd,
         "refresh",

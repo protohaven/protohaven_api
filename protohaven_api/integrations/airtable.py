@@ -1,4 +1,5 @@
 """Airtable integration (classes, tool state etc)"""
+
 import datetime
 import logging
 import re
@@ -8,7 +9,7 @@ from functools import lru_cache
 from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations.airtable_base import (
     delete_record,
     get_all_records,
@@ -517,30 +518,16 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
     return insert_records([data], "people", "shop_tech_forecast_overrides")
 
 
-class AirtableCache(WarmDict):
+class AnnouncementCache(WarmDict):
     """Prefetches airtable data for faster lookup"""
 
-    NAME = "airtable"
-    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
-    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self["announcements"] = []
 
     def refresh(self):
         """Refresh values; called every REFRESH_PD"""
-        self.log.info("Beginning AirtableCache refresh")
         self["announcements"] = get_all_announcements()
-        self["violations"] = get_policy_violations()
-        self.log.info(
-            f"AirtableCache refresh complete; next update in {self.REFRESH_PD_SEC} seconds"
-        )
-
-    def violations_for(self, account_id):
-        """Check member for storage violations"""
-        for pv in self["violations"]:
-            if str(pv["fields"].get("Neon ID")) != str(account_id) or pv["fields"].get(
-                "Closure"
-            ):
-                continue
-            yield pv
 
     def announcements_after(self, d, roles, clearances):
         """Gets all announcements, excluding those before `d`"""
@@ -574,4 +561,61 @@ class AirtableCache(WarmDict):
                     break
 
 
-cache = AirtableCache()
+class ViolationCache(WarmDict):
+    """Prefetches airtable data for faster lookup"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self["violations"] = []
+
+    def refresh(self):
+        """Refresh values; called every REFRESH_PD"""
+        self["violations"] = get_policy_violations()
+
+    def violations_for(self, account_id):
+        """Check member for storage violations"""
+        for pv in self["violations"]:
+            if str(pv["fields"].get("Neon ID")) != str(account_id) or pv["fields"].get(
+                "Closure"
+            ):
+                continue
+            yield pv
+
+
+class ToolCache(WarmDict):
+    """Prefetches airtable data for faster lookup"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self["tools"] = []
+
+    def refresh(self):
+        """Refresh values; called every REFRESH_PD"""
+        self["tools"] = get_tools()
+
+    def all_tool_statuses(self):
+        """Collect and return a dict mapping tool code to status info"""
+        result = {}
+        for r in self["tools"]:
+            if "Tool Code" not in r["fields"]:
+                log.error(
+                    f"Tool missing tool code in airtable: {r['id']} {r['fields'].get('Tool Name')}"
+                )
+                continue
+
+            result[r["fields"]["Tool Code"]] = {
+                "status": r["fields"].get("Current Status"),
+                "message": r["fields"].get("Status Message"),
+                "modified": r["fields"].get("Status last modified"),
+            }
+        return result
+
+
+class SignInCache(WarmDict):
+    pass  # TODO
+
+
+violation_cache = ViolationCache(**get_config("airtable/cache/violations"))
+announcement_cache = AnnouncementCache(**get_config("airtable/cache/announcements"))
+tool_cache = ToolCache(**get_config("airtable/cache/tools"))
+# signin_cache = SignInCache(**get_config("airtable/cache/sign_ins"))

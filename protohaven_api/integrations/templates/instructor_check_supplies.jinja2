@@ -1,13 +1,16 @@
-{% set evt_date = evt.python_date.strftime("%B %-d") %}
+{# html #}{% set evt_date = evt.python_date.strftime("%B %-d") %}
 {% if subject %}{{evt.name}} on {{evt_date}} - please confirm class supplies{% else %}Hi {{evt.instructor_firstname}},
 
 Thanks for agreeing to teach {{evt.name}} on {{evt_date}}.
 
-This is an automated reminder that you need to confirm there's adequate supplies at Protohaven to run your class.
+This is an automated reminder that you need to confirm there's adequate supplies at Protohaven to run your class:
 
-Please check the class supply room, then visit https://api.protohaven.org/instructor/class and click either "Supplies Needed" or "Supplies OK" to indicate the supply state of your class.
-
-If supplies are needed, make sure to submit a New Request via the same page or else they won't be purchased.
+<ol>
+  <li>Collect your supplies for your upcoming class(es) in the class supply room.</li>
+  <li>If you have everything you need to run them, visit the <a href="https://api.protohaven.org/instructor" target="_blank">Instructor Dashboard</a> and click "Supplies OK" for your class.</li>
+  <li>If any supplies are missing, click "Purchase Request" in the dropdown for the given class and write up what we need to buy. <strong>If you do not submit a purchase request with enough time before the class, we will not be able to purchase it for you.</strong></li>
+  <li>Click "Supplies Needed" to send a notification that you've submitted one or more purchase requests.</li>
+</ol>
 
 Thanks!
  -Protohaven Automation

@@ -270,23 +270,23 @@ def assign_members_group_users(user_ids: list):
 class ReservationCache(WarmDict):
     """Fetches tool reservation info"""
 
-    NAME = "reservations"
-    REFRESH_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
-    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
-
-    def __init__(self, update_cb):
-        self.cb = update_cb
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.base_refresh_sec = self.refresh_sec
+        self["reservations"] = []
 
     def refresh(self):
         start = tznow()
         end = start.replace(hour=23, minute=59, second=59)
         self["reservations"] = get_reservations(start, end)["reservations"]
         self.log.debug("Reservation cache updated")
-        self.cb(self)
         # We can be less aggressive outside of normal business hours
-        self.REFRESH_PD_SEC = datetime.timedelta(  # pylint: disable=invalid-name
-            minutes=15 if 10 <= start.hour <= 22 else 60
+        self.refresh_sec = datetime.timedelta(
+            seconds=(
+                self.base_refresh_sec
+                if 10 <= start.hour <= 22
+                else self.base_refresh_sec * 3
+            )
         ).total_seconds()
 
     def get_today_reservations_by_tool(self):
@@ -307,3 +307,6 @@ class ReservationCache(WarmDict):
                     }
                 )
         return result
+
+
+cache = ReservationCache(**get_config("booked/cache"))

@@ -30,6 +30,20 @@ function action(event_id, ticket_id, action) {
     submitting = false;
   });
 }
+
+function plural(v, unit) {
+  // Note: doesn't work for nouns that end in "y" and preceded by a consonant, 
+  // but it's not worth adding a dependency (plural.js) for an edge case we don't have.
+  if (v == 1) {
+    return `${v} ${unit}`;
+  }
+  for (let ending of ["s", "x", "z", "ch", "sh"]) {
+    if (unit.endsWith(ending)) {
+      return `${v} ${unit}es`;
+    }
+  }
+  return `${v} ${unit}s`;
+}
 </script>
 
 {#if visible}
@@ -65,9 +79,10 @@ function action(event_id, ticket_id, action) {
     {#each p as r}
       <ListGroupItem>
             <div><strong>{r.name}</strong></div>
-            <div>On {new Date(r.start).toLocaleString()}</div>
+            <div>{plural(r.hours, "hour")}, {plural(r.days, "day")}, starting {new Date(r.start).toLocaleString()}</div>
+            <div>{plural(r.capacity - r.attendees.length, "seat")} left ({r.capacity} total)</div>
+            <div>${r.supply_cost} payment required at front desk</div>
             <div><a href={`https://protohaven.org/e/${r.id}`} target="_blank">Event Details</a></div>
-            <div>{r.capacity - r.attendees.length} seat(s) left</div>
             {#if user}
             <div>
             {#if r.attendees.indexOf(user.neon_id) !== -1}

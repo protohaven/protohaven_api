@@ -162,13 +162,20 @@ docker compose logs -t --follow --tail 50
 Follow the [QA check steps](docs/qa.md) (testing with https://staging.protohaven.api), then turn the staging instance off again to conserve on host RAM:
 
 ```
-sudo systemctl stop staging_protohaven_api.service
+cd path/to/docker-compose-yaml-file
+docker compose down
 ```
 
 When staging is observed to work properly, do the same for prod (just remove all references to `staging_` in the above instructions). The SCP command can be replaced with
 ```
 rm -r ~/protohaven_api/protohaven_api/static/svelte/* && \
 cp -r ~/staging_protohaven_api/protohaven_api/static/svelte/* ~/protohaven_api/protohaven_api/static/svelte/
+```
+
+For each server, if there are more than two tagged releases you should delete the old one to conserve disk space:
+
+```
+docker image rm protohaven_api:vX.X.X
 ```
 
 ## Wordpress plugins

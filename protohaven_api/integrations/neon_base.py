@@ -1,4 +1,5 @@
 """Helper methods for the code in integrations.neon"""
+
 import datetime
 import json
 import logging
@@ -8,7 +9,7 @@ import urllib
 
 from bs4 import BeautifulSoup
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.neon import Category
 
@@ -166,9 +167,11 @@ def set_custom_fields(account_id, *fields, is_company=None):
         account_id,
         {
             "accountCustomFields": [
-                {"id": field_id, "optionValues": value}
-                if isinstance(value, list)
-                else {"id": field_id, "value": value}
+                (
+                    {"id": field_id, "optionValues": value}
+                    if isinstance(value, list)
+                    else {"id": field_id, "value": value}
+                )
                 for field_id, value in fields
             ]
         },
@@ -238,7 +241,12 @@ class NeonOne:  # pylint: disable=too-few-public-methods
     def create_single_use_abs_event_discount(self, code, amt):
         """Creates an absolute discount, usable once"""
         return self._post_discount(
-            self.TYPE_EVENT_DISCOUNT, code=code, pct=False, amt=amt
+            self.TYPE_EVENT_DISCOUNT,
+            code=code,
+            pct=False,
+            amt=amt,
+            from_date=(tznow() - datetime.timedelta(days=1)).strftime("%m/%d/%Y"),
+            to_date=(tznow() + datetime.timedelta(days=180)).strftime("%m/%d/%Y"),
         )
 
     def _post_discount(  # pylint: disable=too-many-arguments
@@ -430,9 +438,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "ticketPackage.sessionId": "",
             "ticketPackage.name": price_name,
             "ticketPackage.fee": str(amt),
-            "ticketPackage.ticketPackageGroupid": ""
-            if group_id == "default"
-            else str(group_id),
+            "ticketPackage.ticketPackageGroupid": (
+                "" if group_id == "default" else str(group_id)
+            ),
             "ticketPackage.capacity": str(capacity),
             "ticketPackage.advantageAmount": str(amt),
             "ticketPackage.advantageDescription": "",
@@ -445,10 +453,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             allow_redirects=False,
             data=data,
         )
-        if r.status_code != 302:
+        if r.status_code != 200:
             raise RuntimeError(
-                "Price creation failed; expected code 302 FOUND, got "
-                + str(r.status_code)
+                "Price creation failed; expected code 200, got " + str(r.status_code)
             )
         return True
 

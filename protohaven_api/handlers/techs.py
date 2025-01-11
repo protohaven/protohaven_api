@@ -215,13 +215,15 @@ def techs_backfill_events():
     """Returns the list of available events for tech backfill.
     Logic matches automation.classes.builder.Action.FOR_TECHS
     """
-    supply_cost_map = {
-        str(s["fields"].get("Neon ID", "")): int(
-            s["fields"].get("Supply Cost (from Class)", [0])[0]
-        )
+    metadata_map = {
+        str(s["fields"].get("Neon ID", "")): {
+            "supply_cost": int(s["fields"].get("Supply Cost (from Class)", [0])[0]),
+            "days": s["fields"]["Days (from Class)"],
+            "hours": s["fields"]["Hours (from Class)"],
+        }
         for s in airtable.get_class_automation_schedule()
     }
-    log.info(f"Fetched {len(supply_cost_map)} class supply costs")
+    log.info(f"Fetched metadata for {len(metadata_map)} class(es)")
     for_techs = []
     now = tznow()
     # Should dedupe logic with builder.py eventually
@@ -253,13 +255,13 @@ def techs_backfill_events():
 
             for_techs.append(
                 {
+                    **metadata_map.get(str(evt["id"]), {}),
                     "id": evt["id"],
                     "ticket_id": tid,
                     "name": evt["name"],
                     "attendees": list(attendees),
                     "capacity": evt["capacity"],
                     "start": start,
-                    "supply_cost": supply_cost_map.get(str(evt["id"]), 0),
                 }
             )
     return for_techs

@@ -2,12 +2,13 @@
 
 import datetime
 import logging
+from collections import defaultdict
 from functools import lru_cache
 
 from dateutil import parser as dateparser
 from flask import Response
 
-from protohaven_api.config import tz, tznow, utcnow
+from protohaven_api.config import get_config, tz, tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
@@ -532,9 +533,6 @@ class AccountCache(WarmDict):
     """Prefetches account information for faster lookup.
     Lookups are case-insensitive (to match email spec)"""
 
-    NAME = "neon_accounts"
-    REFRESH_PD_SEC = datetime.timedelta(hours=24).total_seconds()
-    RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
     FIELDS = [
         *MEMBER_SEARCH_OUTPUT_FIELDS,
         "Email 1",
@@ -543,8 +541,8 @@ class AccountCache(WarmDict):
         CustomField.INCOME_BASED_RATE,
     ]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
 
     def get(self, k, default=None):
@@ -564,7 +562,7 @@ class AccountCache(WarmDict):
             self.by_booked_id[a["Booked User ID"]] = a
 
     def refresh(self):
-        """Refresh values; called every REFRESH_PD"""
+        """Refresh values; called every refresh_sec"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
         for a in get_inactive_members(self.FIELDS):
@@ -574,18 +572,36 @@ class AccountCache(WarmDict):
                 self.log.info(n)
         for a in get_active_members(self.FIELDS):
             self._update(a)
+            if n == 1000:
+                log.info(a)
             n += 1
             if n % 100 == 0:
                 self.log.info(n)
 
         self.log.info(
             f"Fetched {n} total accounts / {len(self.by_booked_id.keys())} total mapped "
-            f"booked IDs; next refresh in {self.REFRESH_PD_SEC} seconds"
+            f"booked IDs; next refresh in {self.refresh_sec}s"
         )
 
     def neon_id_from_booked_id(self, booked_id):
         """Fetches the Neon ID associated with a Booked user ID"""
         return self.by_booked_id[booked_id]["Account ID"]
 
+    def member_clearances(self):
+        """Returns a dictionary mapping tool codes to member IDs
+        that are cleared on them"""
+        result = defaultdict(list)
+        with self.mu:
+            for _, account in self.cache.items():
+                for acc_id, data in account.items():
+                    log.info(data)
+                    if data.get("Account Current Membership Status") != "Active":
+                        continue
+                    for tool in (data.get("Clearances") or "").split("|"):
+                        if ":" in tool:
+                            result[tool.split(":")[0].strip()].append(acc_id)
+        log.info(f"Member clearances {result}")
+        return result
 
-cache = AccountCache()
+
+cache = AccountCache(**get_config("neon/cache"))

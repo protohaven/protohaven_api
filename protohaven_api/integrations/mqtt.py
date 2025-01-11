@@ -1,5 +1,6 @@
 """A controller/driver for MQTT communications to `protohaven_embedded` devices."""
 
+import datetime
 import json
 import logging
 import socket
@@ -9,7 +10,8 @@ from collections import defaultdict
 
 import paho.mqtt.client as mqtt
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tznow
+from protohaven_api.integrations import airtable, booked, neon
 
 log = logging.getLogger("integrations.mqtt")
 
@@ -54,6 +56,36 @@ class TopicAttribute:  # pylint: disable=too-few-public-methods
     CLEARANCE = "clearance"
 
 
+client = None  # pylint: disable=invalid-name
+
+
+def notify_maintenance(tool_code, status, reason):
+    """Notify that equipment maintenance status is changing"""
+    return client.pub(
+        TopicResource.TOOL,
+        tool_code,
+        TopicAttribute.MAINTENANCE,
+        {"status": status, "reason": reason},
+    )
+
+
+def notify_member_signed_in(user_id):
+    """Notify that a user has signed in at the front desk"""
+    return client.pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
+
+
+def notify_clearance(
+    user_id: str, tool_code: str, added: bool = True, level=ClearanceLevel.MEMBER
+):
+    """Notify that a user's clearance has been added or removed"""
+    return client.pub(
+        TopicResource.TOOL,
+        tool_code,
+        TopicAttribute.CLEARANCE,
+        {"uid": user_id, "added": added, "level": level},
+    )
+
+
 class Client:
     """An MQTT client for managing the ShopMinder devices"""
 
@@ -62,6 +94,7 @@ class Client:
     def __init__(self):
         self.c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.shopminders = defaultdict(dict)
+        self.next_notify = {}
 
     def _start(self):
         self.c.on_connect = self.on_connect
@@ -112,16 +145,58 @@ class Client:
             TopicResource.SELF, socket.gethostname(), TopicAttribute.HEARTBEAT, "1"
         )
 
+    def _on_interval(self, fn, sec):
+        now = tznow()
+        if self.next_notify.get(fn.__name__, now) > now:
+            return
+        fn()
+        self.next_notify[fn.__name__] = now + datetime.timedelta(seconds=sec)
+        log.debug(f"Next notification for {fn.__name__}: {sec}s")
+
+    def _notify_reservations(self):
+        rr = booked.cache.get_today_reservations_by_tool()
+        for tool_code, data in rr.items():
+            neon_id = neon.cache.neon_id_from_booked_id(data["user"])
+            log.info(f"Reservation: {tool_code} {neon_id} {data}")
+            self.pub(
+                TopicResource.TOOL,
+                tool_code,
+                TopicAttribute.RESERVATION,
+                {
+                    "ref": data["ref"],
+                    "start": data["start"],
+                    "end": data["end"],
+                    "uid": neon_id,
+                },
+            )
+
+    def _notify_maintenance(self):
+        for tool_code, data in airtable.tool_cache.all_tool_statuses().items():
+            log.info(f"Maint: {tool_code} {data}")
+            self.pub(TopicResource.TOOL, tool_code, TopicAttribute.MAINTENANCE, data)
+
+    def _notify_clearance(self):
+        for tool_code, neon_ids in neon.cache.member_clearances().items():
+            for neon_id in neon_ids:
+                self.pub(
+                    TopicResource.TOOL, tool_code, TopicAttribute.CLEARANCE, neon_id
+                )
+
+    def _notify_signins(self):
+        log.info("TODO notify signin")
+
     def run_forever(self):
         """Starts up dependent threads and loops forever"""
         self._start()
         threading.Thread(target=client.c.loop_forever, daemon=True).start()
+        intervals = get_config("mqtt/publish_interval_sec")
         while True:
-            time.sleep(self.HEARTBEAT_PD_SEC)
-            self._notify_heartbeat()
-
-
-client = None  # pylint: disable=invalid-name
+            time.sleep(1)
+            self._on_interval(self._notify_heartbeat, intervals["heartbeat"])
+            self._on_interval(self._notify_reservations, intervals["reservations"])
+            self._on_interval(self._notify_maintenance, intervals["maintenance"])
+            self._on_interval(self._notify_clearance, intervals["clearance"])
+            self._on_interval(self._notify_signins, intervals["signins"])
 
 
 def run():
@@ -135,45 +210,3 @@ def run():
 def get():
     """Gets the client"""
     return client
-
-
-def notify_reservation(tool_code, ref, start_time, end_time, user_id):
-    """Notify that equipment is being reserved"""
-    return client.pub(
-        TopicResource.TOOL,
-        tool_code,
-        TopicAttribute.RESERVATION,
-        {
-            "ref": ref,
-            "start": start_time,
-            "end": end_time,
-            "uid": user_id,
-        },
-    )
-
-
-def notify_maintenance(tool_code, status, reason):
-    """Notify that equipment maintenance status is changing"""
-    return client.pub(
-        TopicResource.TOOL,
-        tool_code,
-        TopicAttribute.MAINTENANCE,
-        {"status": status, "reason": reason},
-    )
-
-
-def notify_member_signed_in(user_id):
-    """Notify that a user has signed in at the front desk"""
-    return client.pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
-
-
-def notify_clearance(
-    user_id: str, tool_code: str, added: bool = True, level=ClearanceLevel.MEMBER
-):
-    """Notify that a user's clearance has been added or removed"""
-    return client.pub(
-        TopicResource.TOOL,
-        tool_code,
-        TopicAttribute.CLEARANCE,
-        {"uid": user_id, "added": added, "level": level},
-    )
