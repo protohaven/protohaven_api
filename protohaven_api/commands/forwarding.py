@@ -86,12 +86,12 @@ class Commands:
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
         log.info(f"Found {num} open applications")
+        log.info("\n".join(open_applicants))
         if num > 0:
             print_yaml(
                 Msg.tmpl(
                     "shop_tech_applications",
                     num=len(open_applicants),
-                    open_applicants=open_applicants[:10],
                     target="#tech-leads",
                 )
             )
@@ -106,12 +106,14 @@ class Commands:
         ):
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
-        log.info(f"Found {num} open instructor applications")
+        log.info(f"Found {num} open instructor applications:")
+        log.info("\n".join(open_applicants))
+
         if num > 0:
             print_yaml(
                 Msg.tmpl(
                     "instructor_applications",
-                    open_applicants=open_applicants,
+                    num=len(open_applicants),
                     target="#education-leads",
                 )
             )

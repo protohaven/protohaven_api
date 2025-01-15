@@ -156,7 +156,7 @@ TESTED_TEMPLATES = [
     ),
     (
         "instructor_applications",
-        {"open_applicants": ["Foo", "Bar", "Baz"]},
+        {"num": 3},
     ),
     ("instructor_check_supplies", {"evt": TEST_EVENT}),
     ("instructor_class_canceled", {"evt": TEST_EVENT}),
@@ -235,7 +235,7 @@ TESTED_TEMPLATES = [
     ),
     (
         "shop_tech_applications",
-        {"open_applicants": ["Foo", "Bar", "Baz"]},
+        {"num": 3},
     ),
     (
         "square_validation_action_needed",
@@ -356,7 +356,7 @@ HASHES = {
     "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
     "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
     "instruction_requests": "1ae4746c79bc5b54",  # pragma: allowlist secret
-    "instructor_applications": "282f1d709883f273",  # pragma: allowlist secret
+    "instructor_applications": "972e75b27ccde333",  # pragma: allowlist secret
     "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
     "instructor_class_canceled": "57dc5ce8d4ec5317",  # pragma: allowlist secret
     "instructor_class_confirmed": "51392e2fb41f37f8",  # pragma: allowlist secret
@@ -375,7 +375,7 @@ HASHES = {
     "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
     "schedule_push_notification": "78908794e790a632",  # pragma: allowlist secret
     "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
-    "shop_tech_applications": "e7d46ad4baa42673",  # pragma: allowlist secret
+    "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
     "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
     "tech_daily_tasks": "29af31c3b72f00ec",  # pragma: allowlist secret

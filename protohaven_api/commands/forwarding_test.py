@@ -111,13 +111,9 @@ def test_shop_tech_applications(mocker, cli):
             }
         ],
     )
-    assert cli("shop_tech_applications", []) == [
-        {
-            "body": MatchStr("Foo"),
-            "subject": MatchStr("shop tech"),
-            "target": "#tech-leads",
-        }
-    ]
+    got = cli("shop_tech_applications", [])[0]
+    assert got["target"] == "#tech-leads"
+    assert got["subject"] == MatchStr("shop tech")
 
 
 def test_instructor_applications(mocker, cli):
@@ -132,13 +128,9 @@ def test_instructor_applications(mocker, cli):
             }
         ],
     )
-    assert cli("instructor_applications", []) == [
-        {
-            "body": MatchStr("Foo"),
-            "subject": MatchStr("instructor"),
-            "target": "#education-leads",
-        }
-    ]
+    got = cli("instructor_applications", [])[0]
+    assert got["subject"] == MatchStr("instructor")
+    assert got["target"] == "#education-leads"
 
 
 def test_class_proposals(mocker, cli):
