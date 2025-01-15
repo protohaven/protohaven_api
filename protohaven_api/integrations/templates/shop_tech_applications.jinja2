@@ -1,3 +1,1 @@
-{% if subject %}{{num}} open shop tech applications:{% else %}@TechLeads, {{num}} applicants are [waiting for a decision](https://app.asana.com/0/1203664351777333) - showing {{open_applicants|length}}:
-{% for a in open_applicants %}{{a}}
-{% endfor %}{{footer}}{% endif %}
+{% if subject %}@TechLeads, {{num}} open shop tech applications are waiting for a decision.{% else %}Please take action via the [Asana project](https://app.asana.com/0/1203664351777333). {{footer}}{% endif %}

@@ -102,7 +102,7 @@ def test_check_door_sensors(mocker, cli):
             {"name": "Back Door", "is_online": True, "open_close_state": False},
         ],
     )
-    assert not cli("check_door_sensors", ["--names", "Front Door, Back Door"])
+    assert not cli("check_door_sensors", ["Front Door", "Back Door"])
 
 
 def test_check_door_sensors_with_warnings(mocker, cli):
@@ -116,7 +116,7 @@ def test_check_door_sensors_with_warnings(mocker, cli):
             {"name": "Back Door", "is_online": True, "open_close_state": True},
         ],
     )
-    got = cli("check_door_sensors", ["--names", "Front Door, Garage Door"])
+    got = cli("check_door_sensors", ["Front Door", "Garage Door"])
     assert len(got) == 1
     assert (
         "Door(s) {'Back Door'} configured in Wyze, but not in config" in got[0]["body"]
@@ -140,7 +140,7 @@ def test_check_cameras(mocker, cli):
     ]
     mocker.patch.object(m.wyze, "init")
     mocker.patch.object(m.wyze, "get_camera_states", return_value=mock_camera_states)
-    got = cli("check_cameras", ["--names", "Camera1, Camera2"])
+    got = cli("check_cameras", ["Camera1", "Camera2"])
     for expected in [
         "{'Camera3'} configured in Wyze, but not in config",
         "{'Camera2'} expected per config, but not present in Wyze",
