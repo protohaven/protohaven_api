@@ -93,39 +93,36 @@ def test_tech_leads_maintenance_sends(mocker, cli):
 
 def test_check_door_sensors(mocker, cli):
     """Test check_door_sensors command for doors configured and closed"""
-    mocker.patch.object(m, "get_config", return_value=["Front Door", "Back Door"])
     mocker.patch.object(m.wyze, "init")
     mocker.patch.object(
         m.wyze,
         "get_door_states",
         return_value=[
-            {"name": "Front Door", "is_online": True, "open_close_state": True},
-            {"name": "Back Door", "is_online": True, "open_close_state": True},
+            {"name": "Front Door", "is_online": True, "open_close_state": False},
+            {"name": "Back Door", "is_online": True, "open_close_state": False},
         ],
     )
-    assert not cli("check_door_sensors", [])
+    assert not cli("check_door_sensors", ["--names", "Front Door, Back Door"])
 
 
 def test_check_door_sensors_with_warnings(mocker, cli):
     """Test check_door_sensors command with warnings"""
-    mocker.patch.object(m, "get_config", return_value=["Front Door", "Garage Door"])
     mocker.patch.object(m.wyze, "init")
     mocker.patch.object(
         m.wyze,
         "get_door_states",
         return_value=[
-            {"name": "Front Door", "is_online": False, "open_close_state": True},
-            {"name": "Back Door", "is_online": True, "open_close_state": False},
+            {"name": "Front Door", "is_online": False, "open_close_state": False},
+            {"name": "Back Door", "is_online": True, "open_close_state": True},
         ],
     )
-    got = cli("check_door_sensors", [])
+    got = cli("check_door_sensors", ["--names", "Front Door, Garage Door"])
     assert len(got) == 1
     assert (
-        "Door(s) {'Back Door'} configured in Wyze, but not in protohaven_api config.yaml"
-        in got[0]["body"]
+        "Door(s) {'Back Door'} configured in Wyze, but not in config" in got[0]["body"]
     )
     assert (
-        "Door(s) {'Garage Door'} expected per protohaven_api config.yaml, but not present in Wyze"
+        "Door(s) {'Garage Door'} expected per config, but not present in Wyze"
         in got[0]["body"]
     )
     assert (
@@ -137,17 +134,16 @@ def test_check_door_sensors_with_warnings(mocker, cli):
 
 def test_check_cameras(mocker, cli):
     """Test the check_cameras command with mocked dependencies."""
-    mocker.patch.object(m, "get_config", return_value={"Camera1", "Camera2"})
     mock_camera_states = [
         {"name": "Camera1", "is_online": True},
         {"name": "Camera3", "is_online": False},
     ]
     mocker.patch.object(m.wyze, "init")
     mocker.patch.object(m.wyze, "get_camera_states", return_value=mock_camera_states)
-    got = cli("check_cameras", [])
+    got = cli("check_cameras", ["--names", "Camera1, Camera2"])
     for expected in [
-        "{'Camera3'} configured in Wyze, but not in protohaven_api config.yaml",
-        "{'Camera2'} expected per protohaven_api config.yaml, but not present in Wyze",
+        "{'Camera3'} configured in Wyze, but not in config",
+        "{'Camera2'} expected per config, but not present in Wyze",
         "Camera3 offline (check power cable/network connection)",
     ]:
         assert expected in got[0]["body"]

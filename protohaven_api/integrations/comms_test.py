@@ -84,7 +84,14 @@ TESTED_TEMPLATES = [
     ("class_proposals", {"unapproved": ["Unap1", "Unap2"]}),
     (
         "class_scheduled",
-        {"inst": "InstName", "formatted": ["Class1", "Class2"], "n": 2},
+        {
+            "inst": "InstName",
+            "formatted": [
+                {"start": "2020-01-01", "name": "Class1", "inst": "Foo"},
+                {"start": "2020-01-02", "name": "Class2", "inst": "Bar"},
+            ],
+            "n": 2,
+        },
     ),
     (
         "daily_private_instruction",
@@ -338,7 +345,7 @@ HASHES = {
     "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_proposals": "09aa7102c43e69e6",  # pragma: allowlist secret
-    "class_scheduled": "d7638c67655ae1eb",  # pragma: allowlist secret
+    "class_scheduled": "b57307cca2f8262c",  # pragma: allowlist secret
     "daily_private_instruction": "ba81765c045917ee",  # pragma: allowlist secret
     "discord_nick_change_summary": "88493fe928a1f0d4",  # pragma: allowlist secret
     "discord_nick_changed": "8aeda50de8ef931c",  # pragma: allowlist secret

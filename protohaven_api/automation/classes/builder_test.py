@@ -1,4 +1,5 @@
 """Unit tests for builder module"""
+
 import logging
 
 from dateutil.parser import parse as parse_date
@@ -478,3 +479,40 @@ def test_builder_notified():
         eb.notified("test_target", {"python_date": start, "notifications": {}}, 2)
         is False
     )
+
+
+def test_gen_class_scheduled_alerts():
+    """Test packaging and sending of class scheduling alerts"""
+    scheduled_by_instructor = {
+        "Instructor A": [
+            {
+                "fields": {
+                    "Start Time": "2025-01-01 10:00:00",
+                    "Name (from Class)": ["Class A"],
+                    "Instructor": "Instructor A",
+                    "Email": "a@a.com",
+                }
+            }
+        ],
+        "Instructor B": [
+            {
+                "fields": {
+                    "Start Time": "2025-01-01 12:00:00",
+                    "Name (from Class)": ["Class B"],
+                    "Instructor": "Instructor B",
+                    "Email": "b@b.com",
+                }
+            }
+        ],
+    }
+    got = [dict(m) for m in builder.gen_class_scheduled_alerts(scheduled_by_instructor)]
+
+    assert got[0]["target"] == "a@a.com"
+    assert "teach 1" in got[0]["subject"]
+    assert "Jan 01 2025, 10am: Class A" in got[0]["body"]
+    assert got[1]["target"] == "b@b.com"
+    assert "teach 1" in got[1]["subject"]
+    assert "Jan 01 2025, 12pm: Class B" in got[1]["body"]
+    assert got[2]["target"] == "#instructors"
+    assert got[3]["target"] == "#class-automation"
+    assert len(got) == 4

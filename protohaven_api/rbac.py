@@ -44,6 +44,15 @@ class Role:
     EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
     ONBOARDING = {"name": "Onboarding", "id": "240"}
     ADMIN = {"name": "Admin", "id": "239"}
+    SOFTWARE_DEV = {"id": "258", "name": "Software Dev"}
+    MAINTENANCE_CREW = {"id": "259", "name": "Maintenance Crew"}
+    MEMBERSHIP_AND_PROGRAMMING = {
+        "id": "260",
+        "name": "Membership and Programming Committee",
+    }
+    STRATEGIC_PLANNING = {"id": "261", "name": "Strategic Planning Committee"}
+    FINANCE = {"id": "262", "name": "Finance Committee"}
+    EXECUTIVE = {"id": "263", "name": "Executive Committee"}
 
     AUTOMATION = {"name": "Automation", "id": None}
 
