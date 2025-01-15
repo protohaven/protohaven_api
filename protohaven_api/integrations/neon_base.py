@@ -224,7 +224,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 raise RuntimeError(
                     f"Could not extract MFA token from 2 step verification page:\n{content}"
                 )
-            print("Using mfa token", m.group(1))
+            log.debug(f"Using mfa token {m.group(1)}")
             r = self.s.post(
                 "https://app.neonsso.com/mfa",
                 data={"_token": m.group(1), "mfa_code": str(self.totp.now())},

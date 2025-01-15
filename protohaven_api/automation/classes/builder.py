@@ -1,5 +1,6 @@
 """ Build and output a list of email and other communications for informing
  techs, instructors, and event registrants about their classes and events"""
+
 import datetime
 import logging
 import pickle
@@ -56,6 +57,7 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         start = dateparser.parse(cls["fields"]["Start Time"])
         start = start.astimezone(tz)
         return {
+            "t": start,
             "start": start.strftime("%b %d %Y, %-I%P"),
             "name": cls["fields"]["Name (from Class)"][0],
             "inst": cls["fields"]["Instructor"] if inst else None,
@@ -65,7 +67,7 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
     channel_class_list = []
     for inst, classes in scheduled_by_instructor.items():
         formatted = [format_class(c) for c in classes]
-        formatted.sort()
+        formatted.sort(key=lambda c: c["t"])
         email = classes[0]["fields"]["Email"]
         results.append(
             Msg.tmpl(

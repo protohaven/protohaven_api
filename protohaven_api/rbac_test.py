@@ -1,5 +1,8 @@
 """Unit tests for role-based authentication"""
+
 from unittest.mock import MagicMock
+
+import pytest
 
 from protohaven_api import rbac
 from protohaven_api.rbac import Role
@@ -40,6 +43,9 @@ def test_require_login_role_techlead_on_tech(mocker):
     mocker.patch.object(rbac, "get_roles", return_value=[Role.INSTRUCTOR["name"]])
     assert fn() != "called"
 
+    mocker.patch.object(rbac, "get_roles", return_value=["unhandled role"])
+    assert fn() != "called"
+
 
 def test_require_login_role_multiple_args(mocker):
     """Ensure multiple roles can be set for access in `require_login_role`"""
@@ -53,3 +59,53 @@ def test_require_login_role_multiple_args(mocker):
 
     mocker.patch.object(rbac, "get_roles", return_value=[Role.INSTRUCTOR["name"]])
     assert fn() != "called"
+
+    mocker.patch.object(rbac, "get_roles", return_value=["unhandled role"])
+    assert fn() != "called"
+
+
+@pytest.mark.parametrize(
+    "request_values, request_headers, session_data, expected_roles",
+    [
+        ("test_api_key", None, None, ["role1", "role2"]),  # With API key request value
+        (None, "test_api_key", None, ["role1", "role2"]),  # With API key request header
+        (None, None, None, None),  # No auth/session, no roles
+        (  # Roles from session
+            None,
+            None,
+            {
+                "accountCustomFields": [
+                    {
+                        "name": "API server role",
+                        "optionValues": [{"name": "role1"}, {"name": "role2"}],
+                    }
+                ]
+            },
+            ["role1", "role2"],
+        ),
+        (  # Other custom fields ignored, no roles
+            None,
+            None,
+            {
+                "accountCustomFields": [
+                    {"name": "Some other field", "optionValues": [{"name": "value1"}]}
+                ]
+            },
+            [],
+        ),
+    ],
+)
+def test_get_roles(
+    mocker, request_values, request_headers, session_data, expected_roles
+):
+    """Test the get_roles function extraction from request params/header/session"""
+    rmock = mocker.MagicMock(get=lambda: request_values)
+    mocker.patch.object(rbac, "request", rmock)
+    rmock.values.get.return_value = request_values
+    rmock.headers.get.return_value = request_headers
+    mocker.patch.object(rbac, "session", mocker.MagicMock(get=lambda _: session_data))
+    mocker.patch.object(
+        rbac, "get_config", return_value={"test_api_key": ["role1", "role2"]}
+    )
+
+    assert rbac.get_roles() == expected_roles
