@@ -42,14 +42,16 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
             "INACTIVE",
             [],
             ["Members"],
-            [("REVOKE", "Members", "membership is inactive")],
+            # [("REVOKE", "Members", "membership is inactive")],
+            [],  # We don't revoke member roles currently
         ),
         Tc(
             "Nonactive but matching roles",
             "INACTIVE",
             ["A"],
             ["A"],
-            [("REVOKE", "A", "membership is inactive")],
+            # [("REVOKE", "A", "membership is inactive")],
+            [],  # We don't revoke inactive membership roles currently
         ),
         Tc(
             "Not associated",
