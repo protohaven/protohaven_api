@@ -38,25 +38,35 @@ def techs_dash_svelte_files(typ, path):
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
+# Some areas we exclude from results as they are never needed during operations.
+EXCLUDED_AREAS = [
+    "Back Yard",
+    "Kitchen",
+    "Digital",
+    "Design Hub",
+    "Fishbowl",
+    "Hand Tools",
+    "Staff Room",
+    "Maintenance",
+    "Conference Room",
+    "Design Classroom",
+    "Class Supplies",
+    "Custodial Room",
+    "Rack Storage",
+    "Restroom 1",
+    "Restroom 2",
+]
+
+
 def _fetch_tool_states_and_areas(now):
     tool_states = defaultdict(list)
     now = now.astimezone(tz)
-    areas = set()  # aggregated from tool list so it only shows areas with tools
+    areas = {
+        a["fields"]["Name"].strip()
+        for a in airtable.get_areas()
+        if a["fields"]["Name"] not in EXCLUDED_AREAS
+    }
     for t in airtable.get_tools():
-        # Collect areas, excluding a few that don't need leads
-        area = t["fields"].get("Name (from Shop Area)")
-        if area and area[0].strip() not in (
-            "Back Yard",
-            "Kitchen",
-            "Digital",
-            "Design Hub",
-            "Hand Tools",
-            "Staff Room",
-            "Maintenance",
-            "Conference Room",
-            "Design Classroom",
-        ):
-            areas.add(area[0].strip())
         status = t["fields"].get("Current Status", "Unknown")
         msg = t["fields"].get("Status Message", "Unknown")
         modified = t["fields"].get("Status last modified")
@@ -100,16 +110,17 @@ def techs_area_leads():
     _, areas = _fetch_tool_states_and_areas(tznow())
     techs = neon.fetch_techs_list()
     area_map = {a: [] for a in areas}
+    extras_map = defaultdict(list)
     for t in techs:
         if not t.get("area_lead"):
             continue
         for a in t.get("area_lead").split(","):
             a = a.strip()
             if a not in area_map:
-                log.warning(f"Tech {t['name']} is area lead of invalid area {a}")
+                extras_map[a].append(t)
             else:
                 area_map[a].append(t)
-    return area_map
+    return {"area_leads": area_map, "other_leads": dict(extras_map)}
 
 
 DEFAULT_FORECAST_LEN = 14
