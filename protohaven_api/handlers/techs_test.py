@@ -286,3 +286,35 @@ def test_techs_event_registration_unregister(mocker, tech_client):
     tl.neon.register_for_event.assert_not_called()
     tl.neon.delete_single_ticket_registration.assert_called_once_with("12345", 123)
     tl._notify_registration.assert_called_once_with("12345", 123, "unregister")
+
+
+def test_techs_area_leads(mocker, tech_client):
+    """Tests the techs_area_leads function"""
+    mock_areas = ["Area1", "Area2"]
+    mock_techs = [
+        {"name": "Tech1", "area_lead": "Area1, ExtraArea"},
+        {"name": "Tech2", "area_lead": "Area2"},
+        {"name": "Tech3", "area_lead": "NonExistentArea"},
+    ]
+    mocker.patch.object(
+        tl,
+        "_fetch_tool_states_and_areas",
+        return_value=(None, mock_areas),
+    )
+    mocker.patch.object(tl.neon, "fetch_techs_list", return_value=mock_techs)
+
+    response = tech_client.get("/techs/area_leads")
+    assert response.status_code == 200
+
+    expected_response = {
+        "area_leads": {
+            "Area1": [{"name": "Tech1", "area_lead": "Area1, ExtraArea"}],
+            "Area2": [{"name": "Tech2", "area_lead": "Area2"}],
+        },
+        "other_leads": {
+            "ExtraArea": [{"name": "Tech1", "area_lead": "Area1, ExtraArea"}],
+            "NonExistentArea": [{"name": "Tech3", "area_lead": "NonExistentArea"}],
+        },
+    }
+
+    assert response.json == expected_response

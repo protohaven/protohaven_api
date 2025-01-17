@@ -27,11 +27,29 @@ $: {
 {#await promise}
 <Spinner/>
 {:then p}
-  {#each Object.keys(p) as area}
-      <Card color={(p[area].length) ? null : 'warning'}>
+  {#each Object.keys(p['area_leads']) as area}
+      <Card color={(p['area_leads'][area].length) ? null : 'warning'}>
       <CardHeader><CardTitle>{area}</CardTitle></CardHeader>
       <CardBody>
-	{#each p[area] as tech}
+	{#each p['area_leads'][area] as tech}
+	  <div>{tech.name}</div>
+	  <div>{tech.email}</div>
+	  <div>Shift: {tech.shift}</div>
+	{/each}
+      </CardBody>
+      </Card>
+  {/each}
+
+  <h2 class="my-2">Additional Contacts</h2>
+  <em>Contacts will appear here if they are assigned an "Area Lead" role for an area which is not tracked.</em>
+  {#if Object.keys(p['other_leads']).length === 0}
+    <p class="m-2">No additional contacts found.</p>
+  {/if}
+  {#each Object.keys(p['other_leads']) as a}
+      <Card>
+      <CardHeader><CardTitle>{a}</CardTitle></CardHeader>
+      <CardBody>
+	{#each p['other_leads'][a] as tech}
 	  <div>{tech.name}</div>
 	  <div>{tech.email}</div>
 	  <div>Shift: {tech.shift}</div>
