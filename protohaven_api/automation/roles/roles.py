@@ -1,4 +1,5 @@
 """Commands related operations on Dicsord"""
+
 import logging
 import sys
 from collections import defaultdict
@@ -110,8 +111,13 @@ SYNC_ROLES = {
     "Board": Role.BOARD_MEMBER["name"],
     "TechLeads": Role.SHOP_TECH_LEAD["name"],
     "EduLeads": Role.EDUCATION_LEAD["name"],
-    "Admin": Role.ADMIN["name"],
     "Members": None,
+    "Strategic Planning Committee": Role.STRATEGIC_PLANNING["name"],
+    "Membership and Programming Committee": Role.MEMBERSHIP_AND_PROGRAMMING["name"],
+    "Finance Committee": Role.FINANCE["name"],
+    "Executive Committee": Role.EXECUTIVE["name"],
+    "SoftwareDev": Role.SOFTWARE_DEV["name"],
+    "MaintenanceCrew": Role.MAINTENANCE_CREW["name"],
 }
 
 
@@ -127,7 +133,11 @@ def singleton_role_sync(neon_member, neon_roles, discord_roles):
             if neon_member == "NOT_FOUND":
                 yield "REVOKE", role, "not associated with a Neon account"
             else:
-                yield "REVOKE", role, "membership is inactive"
+                # For now, we do not revoke in the case of inactive
+                # membership. Must wait for future agreement by members.
+                # Also edge case of an instructor that has no membership
+                # yield "REVOKE", role, "membership is inactive"
+                pass
     else:
         neon_roles.add("Members")  # We're a member
         # Match remaining roles against Neon API server roles
@@ -140,12 +150,12 @@ def singleton_role_sync(neon_member, neon_roles, discord_roles):
 
 def gen_role_intents(
     user_filter, exclude_users, destructive, max_user_intents
-):  # pylint: disable=too-many-locals
+):  # pylint: disable=too-many-locals, too-many-branches
     """Generate all intents based on data from discord and neon"""
     state = defaultdict(lambda: [[], None])  # map discord ID to Neon data & roles
     log.info("Fetching all active members")
     rev_roles = {v: k for k, v in SYNC_ROLES.items()}
-    for m in neon.get_active_members(
+    for m in neon.get_all_accounts_with_discord_association(
         [
             neon.CustomField.DISCORD_USER,
             neon.CustomField.API_SERVER_ROLE,
@@ -162,12 +172,10 @@ def gen_role_intents(
         if m.get("API server role"):
             roles = {rev_roles.get(r) for r in m["API server role"].split("|")}
         if discord_user != "":
-            state[discord_user][0] = roles
+            state[discord_user][0] = {r for r in roles if r is not None}
             state[discord_user][1] = m
     sys.stderr.write("\n")
-    log.info(
-        f"Got {len(state)} total Neon members (with active membership & Discord association)"
-    )
+    log.info(f"Got {len(state)} total Neon members (with Discord association)")
     log.debug(f"Discord users: {', '.join(state.keys())}")
 
     # Here we sort members by join date to have predictable behavior when constrained by
@@ -211,6 +219,11 @@ def gen_role_intents(
             if action == "REVOKE" and not destructive:
                 log.debug(
                     f"Omitting destructive action {action} {role} ({reason}) for {intent}"
+                )
+                continue
+            if action == "REVOKE" and role == "Members":
+                log.debug(
+                    "Omitting Members revocation until further agreement by members reached"
                 )
                 continue
             modified_users.add(discord_id)
