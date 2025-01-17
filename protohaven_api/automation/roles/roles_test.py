@@ -42,14 +42,16 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
             "INACTIVE",
             [],
             ["Members"],
-            [("REVOKE", "Members", "membership is inactive")],
+            # [("REVOKE", "Members", "membership is inactive")],
+            [],  # We don't revoke member roles currently
         ),
         Tc(
             "Nonactive but matching roles",
             "INACTIVE",
             ["A"],
             ["A"],
-            [("REVOKE", "A", "membership is inactive")],
+            # [("REVOKE", "A", "membership is inactive")],
+            [],  # We don't revoke inactive membership roles currently
         ),
         Tc(
             "Not associated",
@@ -77,18 +79,50 @@ def test_singleton_role_sync(tc):
 
 def test_gen_role_intents_limited_and_sorted(mocker):
     """Cuts off role assignment additions if beyond the max"""
-    mocker.patch.object(r.neon, "get_active_members", return_value=[])
+    mocker.patch.object(
+        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+    )
 
     # Discord values are fetched from newest to oldest (descending date).
-    # Return lots of unique users that incorrectly have the Member role.
-    usrs = [
-        (f"id{i}", f"nick{i}", d(-i), [("Members", 1234567890)]) for i in range(100)
-    ]
+    # Return lots of unique users that incorrectly have the Shop Tech role.
+    usrs = [(f"id{i}", f"nick{i}", d(-i), [("Techs", 1234567890)]) for i in range(100)]
     assert usrs[0][0] == "id0"  # Youngest user first
     mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=(usrs, None))
     got = list(r.gen_role_intents(None, None, True, 20))
     assert len(got) == 20  # Cutoff at the passed max
     assert got[0].discord_id == "id99"  # Oldest user is acted upon first
+
+
+def test_gen_role_intents_departing_member(mocker):
+    """Test role intent change when prior member is no longer active"""
+
+    def mock_fetcher(_):
+        return [
+            {
+                "Account ID": 123,
+                "First Name": "A",
+                "Last Name": "B",
+                "Email 1": "a@b.com",
+                "Account Current Membership Status": "INACTIVE",
+                "Discord User": "discord_id",
+                "API server role": "",
+            }
+        ]
+
+    mocker.patch.object(
+        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+    )
+    mocker.patch.object(
+        r.comms,
+        "get_all_members_and_roles",
+        return_value=(
+            [
+                ("discord_id", "nickname", d(0), [("Members", "memid")]),
+            ],
+            None,
+        ),
+    )
+    assert list(r.gen_role_intents(None, None, True, 20)) == []
 
 
 def test_gen_role_intents_match(mocker):
@@ -107,7 +141,9 @@ def test_gen_role_intents_match(mocker):
             }
         ]
 
-    mocker.patch.object(r.neon, "get_active_members", side_effect=mock_fetcher)
+    mocker.patch.object(
+        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+    )
     mocker.patch.object(
         r.comms,
         "get_all_members_and_roles",
@@ -145,7 +181,9 @@ def test_gen_role_intents_match(mocker):
 
 def test_gen_role_intents_no_neon(mocker):
     """Test intent when discord member has no neon account"""
-    mocker.patch.object(r.neon, "get_active_members", return_value=[])
+    mocker.patch.object(
+        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+    )
     mocker.patch.object(
         r.comms,
         "get_all_members_and_roles",

@@ -1,4 +1,5 @@
 """Commands related operations on Dicsord"""
+
 import argparse
 import datetime
 import logging
@@ -74,6 +75,8 @@ class Commands:  # pylint: disable=too-few-public-methods
             )
         }
         log.info(f"Fetched {len(intents)} intents")
+        for v in intents.values():
+            log.info(f"Intent {v}")
 
         log.info("Fetching pending intents from Airtable")
         airtable_intents = {}
