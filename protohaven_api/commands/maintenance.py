@@ -151,7 +151,7 @@ class Commands:
                     stale_thresh=manager.DEFAULT_STALE_DAYS,
                     stale_tasks=stale[:MAX_STALE_TASKS],
                     id="daily_maintenance",
-                    target="#tech-leads",
+                    target="#tech-automation",
                 )
             )
         else:
@@ -197,7 +197,7 @@ class Commands:
                 Msg.tmpl(
                     "door_sensor_warnings",
                     warnings=warnings,
-                    target="#tech-leads",
+                    target="#tech-automation",
                 )
             )
         else:
@@ -236,7 +236,7 @@ class Commands:
                 Msg.tmpl(
                     "camera_check_warnings",
                     warnings=warnings,
-                    target="#tech-leads",
+                    target="#tech-automation",
                 )
             )
         else:

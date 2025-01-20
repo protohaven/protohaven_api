@@ -84,7 +84,7 @@ def test_tech_leads_maintenance_sends(mocker, cli):
         {
             "subject": "Stale maintenance tasks",
             "body": MatchStr("2 tech_ready tasks"),
-            "target": "#tech-leads",
+            "target": "#tech-automation",
             "id": "daily_maintenance",
         }
     ]
