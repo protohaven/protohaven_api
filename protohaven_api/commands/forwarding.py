@@ -92,7 +92,7 @@ class Commands:
                 Msg.tmpl(
                     "shop_tech_applications",
                     num=len(open_applicants),
-                    target="#tech-leads",
+                    target="#tech-automation",
                 )
             )
 
@@ -328,7 +328,7 @@ class Commands:
             result.append(
                 Msg.tmpl(
                     "shift_no_techs",
-                    target="#tech-leads",
+                    target="#tech-automation",
                     shift=shift,
                     onduty=[
                         (v, rev_email_map.get(v, "unknown email"))

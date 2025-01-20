@@ -112,7 +112,7 @@ def test_shop_tech_applications(mocker, cli):
         ],
     )
     got = cli("shop_tech_applications", [])[0]
-    assert got["target"] == "#tech-leads"
+    assert got["target"] == "#tech-automation"
     assert got["subject"] == MatchStr("shop tech")
 
 
