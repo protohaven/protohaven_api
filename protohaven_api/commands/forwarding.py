@@ -114,7 +114,7 @@ class Commands:
                 Msg.tmpl(
                     "instructor_applications",
                     num=len(open_applicants),
-                    target="#education-leads",
+                    target="#edu-automation",
                 )
             )
 
@@ -135,7 +135,7 @@ class Commands:
                     "class_proposals",
                     num=len(unapproved_classes),
                     unapproved=unapproved_classes[:8],
-                    target="#education-leads",
+                    target="#edu-automation",
                 )
             )
 
@@ -194,7 +194,7 @@ class Commands:
     )
     def private_instruction(self, args, _):  # pylint: disable=
         """Generate reminders to take action on private instruction.
-        This targets membership@ email and Discord's #instructors/#education-leads channels
+        This targets membership@ email and Discord's #instructors/#edu-automation channels
         """
         formatted = []
         formatted_past_day = []
@@ -227,7 +227,7 @@ class Commands:
                     "instruction_requests",
                     num=len(formatted),
                     formatted=formatted[:5],
-                    target="#education-leads",
+                    target="#edu-automation",
                 )
             )
         if args.daily and len(formatted_past_day) > 0:

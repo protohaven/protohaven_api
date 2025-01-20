@@ -67,6 +67,7 @@ comms:
     software: "${WEBHOOK_SOFTWARE}"
     instructor-feedback: "${WEBHOOK_INSTRUCTOR_FEEDBACK}"
     tech-automation: "${WEBHOOK_TECH_AUTOMATION}"
+    edu-automation: "${WEBHOOK_EDU_AUTOMATION}"
   discord_roles:
     Staff: 1130895854769807520
     Techs: 801513013710422056
