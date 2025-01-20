@@ -130,7 +130,7 @@ def test_instructor_applications(mocker, cli):
     )
     got = cli("instructor_applications", [])[0]
     assert got["subject"] == MatchStr("instructor")
-    assert got["target"] == "#education-leads"
+    assert got["target"] == "#edu-automation"
 
 
 def test_class_proposals(mocker, cli):
@@ -148,7 +148,7 @@ def test_class_proposals(mocker, cli):
         {
             "body": MatchStr("Test Class"),
             "subject": MatchStr("class"),
-            "target": "#education-leads",
+            "target": "#edu-automation",
         }
     ]
 
@@ -177,7 +177,7 @@ def test_private_instruction_email(mocker, cli):
             "subject": MatchStr("Private Instruction"),
             "target": t,
         }
-        for t in ("membership@protohaven.org", "#education-leads")
+        for t in ("membership@protohaven.org", "#edu-automation")
     ]
 
 
