@@ -1,4 +1,5 @@
 """Test methods for Discord bot"""
+
 from collections import namedtuple
 
 import pytest
@@ -13,24 +14,25 @@ Tc = namedtuple("tc", "desc,usr,enabled,include,exclude,want")
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("Default", "usr", True, None, None, True),
-        Tc("Excluded", "usr", True, None, {"usr"}, False),
-        Tc("Not Excluded", "usr", True, None, {"otherusr"}, True),
-        Tc("Included", "usr", True, {"usr"}, None, True),
-        Tc("Not Included", "usr", True, {"otherusr"}, None, False),
-        Tc("Both filters OK", "usr", True, {"usr"}, {"otherusr"}, True),
+        Tc("Disabled", "usr", False, ["usr"], "None", False),
+        Tc("Default", "usr", True, "None", "None", True),
+        Tc("Excluded", "usr", True, "None", ["usr"], False),
+        Tc("Not Excluded", "usr", True, "None", ["otherusr"], True),
+        Tc("Included", "usr", True, ["usr"], "None", True),
+        Tc("Not Included", "usr", True, ["otherusr"], "None", False),
+        Tc("Both filters OK", "usr", True, ["usr"], ["otherusr"], True),
         Tc(
-            "Included but excluded prefers strict", "usr", True, {"usr"}, {"usr"}, False
+            "Included but excluded prefers strict", "usr", True, ["usr"], ["usr"], False
         ),
         Tc(
             "Not excluded but not included prefers strict",
             "usr",
             True,
-            {"usr2"},
-            {"usr2"},
+            ["usr2"],
+            ["usr2"],
             False,
         ),
-        Tc("Fail on both filters", "usr", True, {"usr2"}, {"usr"}, False),
+        Tc("Fail on both filters", "usr", True, ["usr2"], ["usr"], False),
     ],
     ids=idfn,
 )
@@ -45,12 +47,7 @@ def test_hook_on_user_is_permitted(tc, mocker):
             "exclude_filter": tc.exclude,
         }.get(p.split("/")[-1]),
     )
-    assert (
-        db.PHClient(  # pylint: disable=protected-access
-            intents=None
-        )._hook_on_user_is_permitted(tc.usr)
-        == tc.want
-    )
+    assert db.PHClient(intents=None).hook_on_user_is_permitted(tc.usr) == tc.want
 
 
 @pytest.fixture(name="discord_bot")

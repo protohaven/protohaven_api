@@ -47,7 +47,8 @@ def search_config_calls():
 @pytest.mark.parametrize("args,kwargs", search_config_calls())
 def test_config_references(args, kwargs):
     assert len(args) > 0
-    assert (
+    if (
         c.get_config(*[a.replace("'", "").replace('"', "") for a in args], **kwargs)
-        is not None
-    )
+        is None
+    ):
+        raise AssertionError(f"get_config(*{args}, **{kwargs}) is None")

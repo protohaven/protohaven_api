@@ -1,4 +1,5 @@
 """A bot for monitoring the Protohaven server and performing automated activities"""
+
 import asyncio
 import logging
 from urllib.parse import urlparse
@@ -43,7 +44,8 @@ class PHClient(discord.Client):
     async def on_member_join(self, member):
         """Runs when a new member joins the server"""
         log.info(f"New member joined: {member.name}")
-        if not self._hook_on_user_is_permitted(member.name):
+        if not self.hook_on_user_is_permitted(member.name):
+            log.warning("Hook on member not permitted; skipping join hook action")
             return
         if member.guild != self.guild:
             log.info(f"Ignoring member joining unrelated guild {member.guild}")
@@ -172,20 +174,40 @@ class PHClient(discord.Client):
             )
         await mem.send(msg)
 
-    def _hook_on_user_is_permitted(self, discord_id):
+    def _as_filter(self, f):
+        if f is None:
+            return None
+
+        if isinstance(f, str):
+            if f.lower().strip() == "none":
+                return None
+            return {f}
+
+        if isinstance(f, list):
+            return set(f)
+
+        raise RuntimeError(f"Invalid type of filter config value {type(f)}")
+
+    def hook_on_user_is_permitted(self, discord_id: str):
+        """Returns True if configuration dictates that we should run hooks
+        for this user."""
         if not get_config("discord_bot/event_hooks/enabled", as_bool=True):
             return False
-        include_filter = get_config("discord_bot/event_hooks/include_filter")
+        include_filter = self._as_filter(
+            get_config("discord_bot/event_hooks/include_filter")
+        )
         if include_filter is not None and discord_id not in include_filter:
             return False
-        exclude_filter = get_config("discord_bot/event_hooks/exclude_filter")
+        exclude_filter = self._as_filter(
+            get_config("discord_bot/event_hooks/exclude_filter")
+        )
         if exclude_filter is not None and discord_id in exclude_filter:
             return False
         return True
 
     async def on_message(self, msg):
         """Runs on every message"""
-        if not self._hook_on_user_is_permitted(msg.author.name):
+        if not self.hook_on_user_is_permitted(msg.author.name):
             return
 
         if msg.author == client.user:
