@@ -1,10 +1,8 @@
 {% if subject %}New classes for tech backfill:{% else %}@Techs: There's {{n}} class{% if n != 1%}es{% endif %} available for backfill in the next 24 hours:
 {% for evt in events %}{% set tstart = evt.python_date.strftime("%B %-d, %-I%p") %}{% set avail=evt.capacity - evt.signups %}
- - {{tstart}} - {{evt.name}} ({{avail}} seat{% if avail != 1 %}s{% endif %} available, ${{evt.supply_cost or 0}} cost): https://protohaven.org/e/{{evt.id}}{% endfor %}
+ - {{tstart}} - {{evt.name}} ({{avail}} seat{% if avail != 1 %}s{% endif %} available, ${{evt.supply_cost or 0}} cost){% endfor %}
 
 You can pay at the front desk via Square (select "Walk-In (3 Hr Class / add price)", set to the cost listed above, charge as normal)
 
-**Please observe the new process for registration:** go to https://api.protohaven.org/techs#events, sign in, and click `Register` for the class.
-
-**DO NOT REPLY to this message for registration as it will not be guaranteed!**
+**Go to https://api.protohaven.org/techs#events, sign in, and click `Register` to register for the class.**
 {% endif %}

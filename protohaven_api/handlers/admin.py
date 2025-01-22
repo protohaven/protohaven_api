@@ -151,12 +151,22 @@ def neon_membership_created_callback():
             f"Skipping init of membership with auto_field_value={details['auto_field_value']}"
         )
         return Response("Account already deferred", status=400)
-    msg = memauto.init_membership(
-        account_id=account_id,
-        membership_id=membership_id,
-        email=details["email"],
-        fname=details["fname"],
-    )
+    try:
+        msg = memauto.init_membership(
+            account_id=account_id,
+            membership_id=membership_id,
+            email=details["email"],
+            fname=details["fname"],
+        )
+    except Exception:
+        comms.send_discord_message(
+            f"ERROR initializing membership #{membership_id} for #{account_id} "
+            f"({details['email']}, {details['fname']}); see server logs for details. "
+            "Account intervention may be needed.",
+            "#membership-automation",
+            blocking=False,
+        )
+        raise
     if msg:
         comms.send_email(msg.subject, msg.body, [details["email"]], msg.html)
         log.info(f"Sent to {details['email']}: '{msg.subject}'")

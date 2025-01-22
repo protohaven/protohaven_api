@@ -390,7 +390,7 @@ HASHES = {
     "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
     "tech_daily_tasks": "29af31c3b72f00ec",  # pragma: allowlist secret
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
-    "tech_openings": "ccb2aaf7f6284036",  # pragma: allowlist secret
+    "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret

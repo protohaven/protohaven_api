@@ -4,6 +4,7 @@ import datetime
 import logging
 from functools import lru_cache
 
+import rapidfuzz
 from dateutil import parser as dateparser
 from flask import Response
 
@@ -554,6 +555,7 @@ class AccountCache(WarmDict):
     def __init__(self):
         super().__init__()
         self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
+        self.fuzzy = {}
 
     def get(self, k, default=None):
         return super().get(str(k).lower(), default)
@@ -564,10 +566,15 @@ class AccountCache(WarmDict):
     def __getitem__(self, k):
         return super().__getitem__(str(k).lower())
 
-    def _update(self, a):
+    def update(self, a: dict):
+        """Updates cache based on an account dictionary object"""
         d = self.get(a["Email 1"], {})
         d[a["Account ID"]] = a
         self[a["Email 1"]] = d
+        self.fuzzy[
+            rapidfuzz.utils.default_process(f"{a['First Name']} {a['Last Name']}")
+        ] = a["Email 1"]
+        self.fuzzy[rapidfuzz.utils.default_process(f"{a['Email 1']}")] = a["Email 1"]
         if a.get("Booked User ID"):
             self.by_booked_id[a["Booked User ID"]] = a
 
@@ -576,12 +583,12 @@ class AccountCache(WarmDict):
         self.log.info("Beginning AccountCache refresh")
         n = 0
         for a in get_inactive_members(self.FIELDS):
-            self._update(a)
+            self.update(a)
             n += 1
             if n % 100 == 0:
                 self.log.info(n)
         for a in get_active_members(self.FIELDS):
-            self._update(a)
+            self.update(a)
             n += 1
             if n % 100 == 0:
                 self.log.info(n)
@@ -594,6 +601,32 @@ class AccountCache(WarmDict):
     def neon_id_from_booked_id(self, booked_id):
         """Fetches the Neon ID associated with a Booked user ID"""
         return self.by_booked_id[booked_id]["Account ID"]
+
+    def _find_best_match_internal(self, search_string, top_n=10):
+        """Find and return the top_n best matches to the key in `self` based on a search string."""
+        # Could probably use a priority queue / heap here for faster lookups, but we only have
+        # ~1000 or so records to sort through anyways.
+        # Not worth the optimization.
+
+        for m in rapidfuzz.process.extract(
+            rapidfuzz.utils.default_process(search_string),
+            self.fuzzy,
+            scorer=rapidfuzz.fuzz.WRatio,
+            score_cutoff=15,
+            limit=top_n,
+        ):
+            yield m[0]
+
+    def find_best_match(self, search_string, top_n=10):
+        """Deduplicates find_best_match_internal"""
+        result = set()
+        for m in self._find_best_match_internal(search_string, 2 * top_n):
+            if m in result:
+                continue
+            result.add(m)
+            yield from self[m].values()
+            if len(result) >= top_n:
+                break
 
 
 cache = AccountCache()
