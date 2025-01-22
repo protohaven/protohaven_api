@@ -95,6 +95,7 @@ airtable:
     schedule: "tbl5FGO2hj9t8vGo0"
     boilerplate: "tblZDWOcljKw0OnwN"
     availability: "tbl4tOuZKNJduN4LC"
+    discounts: "tbllyGvxfAFYsocN0"
   policy_enforcement:
     token: "${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}"
     base_id: "apppMbG0r1ZrluVMv"
