@@ -360,9 +360,11 @@ def get_num_valid_unassigned_coupons(use_by):
     return num
 
 
-def get_next_available_coupon(use_by):
+def get_next_available_coupon(use_by=None):
     """Gets all logged targets that were sent after a specific date,
     including their date of ontification"""
+    if not use_by:
+        use_by = tznow() + datetime.timedelta(days=30)
     for row in get_all_records_after(
         "class_automation", "discounts", use_by, field="Use By"
     ):

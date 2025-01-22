@@ -1,4 +1,5 @@
 """Automation for Neon memberships"""
+
 import datetime
 import logging
 import random
@@ -8,7 +9,7 @@ from functools import lru_cache
 from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config, tz
-from protohaven_api.integrations import neon
+from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("membership_automation")
@@ -63,6 +64,41 @@ def event_is_suggestible(event_id, max_price):
     return False, 0
 
 
+def try_cached_coupon(coupon_amount, assignee, apply):
+    """Tries to fetch a cached coupon from Airtable, creating one in-situ
+    if there is not a valid one of the correct amount present."""
+    coupon = airtable.get_next_available_coupon()
+    if not coupon:
+        comms.send_discord_message(
+            "WARNING: no valid coupon available in Airtable requiring"
+            "unstable, in-place creation of new one. See Discounts table "
+            "in airtable, also `restock_discounts` cronicle job",
+            "#finance-automation",
+            blocking=False,
+        )
+        cid = generate_coupon_id()
+        if apply:
+            neon.create_coupon_code(cid, coupon_amount)
+        return cid
+
+    if coupon["fields"]["Amount"] != coupon_amount:
+        comms.send_discord_message(
+            "WARNING: pricing mismatch on cached discounts requiring "
+            "unstable, in-place creation of new one. See Discounts table "
+            "in airtable, also `restock_discounts` cronicle job",
+            "#finance-automation",
+            blocking=False,
+        )
+        cid = generate_coupon_id()
+        if apply:
+            neon.create_coupon_code(cid, coupon_amount)
+        return cid
+
+    cid = coupon["fields"]["Code"]
+    airtable.mark_coupon_assigned(coupon["id"], assignee)
+    return cid
+
+
 def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements
     account_id,
     membership_id,
@@ -98,9 +134,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
 
     cid = None
     if coupon_amount > 0:
-        cid = generate_coupon_id()
-        if apply:
-            neon.create_coupon_code(cid, coupon_amount)
+        cid = try_cached_coupon(coupon_amount, email, apply)
 
     if apply:
         neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)

@@ -274,9 +274,7 @@ def test_init_new_memberships_e2e(mocker, cli):
         "get_new_members_needing_setup",
         return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}],
     )
-    m1 = mocker.patch.object(
-        neon, "create_coupon_code", return_value=mocker.MagicMock(status_code=200)
-    )
+    m1 = mocker.patch.object(f.memauto, "try_cached_coupon", return_value="test_coupon")
     m2 = mocker.patch.object(
         neon,
         "set_membership_date_range",
@@ -296,6 +294,6 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(f.memauto, "get_config", return_value=None)
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
-    m1.assert_called_with(mocker.ANY, 75)
+    m1.assert_called_with(75, "a@b.com", True)
     m2.assert_called_with("456", mocker.ANY, mocker.ANY)
     m3.assert_called_with("123", "deferred")
