@@ -1,4 +1,5 @@
 """Airtable basic API commands"""
+
 import json
 
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -35,13 +36,13 @@ def get_all_records(base, tbl, suffix=None):
     return records
 
 
-def get_all_records_after(base, tbl, after_date):
+def get_all_records_after(base, tbl, after_date, field="Created"):
     """Returns a list of all records in the table with the
     Created field timestamp after a certain date"""
     return get_all_records(
         base,
         tbl,
-        suffix=f"filterByFormula=IS_AFTER(%7BCreated%7D,'{after_date.isoformat()}')",
+        suffix=f"filterByFormula=IS_AFTER(%7B{field}%7D,'{after_date.isoformat()}')",
     )
 
 

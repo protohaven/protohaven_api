@@ -10,7 +10,7 @@ import urllib
 import pyotp
 from bs4 import BeautifulSoup
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.neon import Category
 
@@ -257,10 +257,17 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         content = json.loads(r.content.decode("utf8"))
         return content
 
-    def create_single_use_abs_event_discount(self, code, amt):
+    def create_single_use_abs_event_discount(
+        self, code, amt, from_date=None, to_date=None
+    ):
         """Creates an absolute discount, usable once"""
         return self._post_discount(
-            self.TYPE_EVENT_DISCOUNT, code=code, pct=False, amt=amt
+            self.TYPE_EVENT_DISCOUNT,
+            code=code,
+            pct=False,
+            amt=amt,
+            from_date=from_date,
+            to_date=to_date,
         )
 
     def _post_discount(  # pylint: disable=too-many-arguments
@@ -273,6 +280,13 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         to_date="11/21/2024",
         max_uses=1,
     ):
+        if from_date is None:
+            from_date = tznow()
+        if to_date is None:
+            to_date = from_date + datetime.timedelta(days=90)
+        from_date = from_date.strftime("%m/%d/%Y")
+        to_date = to_date.strftime("%m/%d/%Y")
+
         # We must appear to be coming from the specific discount settings page (Event or Membership)
         referer = (
             f"{ADMIN_URL}/systemsetting/"

@@ -1,4 +1,5 @@
 """Airtable integration (classes, tool state etc)"""
+
 import datetime
 import logging
 import re
@@ -331,6 +332,57 @@ def create_fees(fees):
     """Create fees for each violation and fee amount in the map"""
     data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
     return insert_records(data, "policy_enforcement", "fees")
+
+
+def create_coupon(code, amount, use_by, expires):
+    """Create fees for each violation and fee amount in the map"""
+    data = [
+        {
+            "Code": code,
+            "Amount": amount,
+            "Use By": use_by.isoformat(),
+            "Created": tznow().isoformat(),
+            "Expires": expires.strftime("%Y-%m-%d"),
+        }
+    ]
+    return insert_records(data, "class_automation", "discounts")
+
+
+def get_num_valid_unassigned_coupons(use_by):
+    """Counts the number of coupons that can be assigned, with
+    a 'Use By' date of at least `use_by`."""
+    num = 0
+    for row in get_all_records_after(
+        "class_automation", "discounts", use_by, field="Use By"
+    ):
+        if not row["fields"].get("Assigned"):
+            num += 1
+    return num
+
+
+def get_next_available_coupon(use_by):
+    """Gets all logged targets that were sent after a specific date,
+    including their date of ontification"""
+    for row in get_all_records_after(
+        "class_automation", "discounts", use_by, field="Use By"
+    ):
+        if row["fields"].get("Assigned"):
+            continue
+        return row
+
+
+def mark_coupon_assigned(rec, assignee):
+    """Marks the coupon as assigned to a particular assignee"""
+    _, content = update_record(
+        {
+            "Assigned": tznow().isoformat(),
+            "Assignee": assignee,
+        },
+        "class_automation",
+        "discounts",
+        rec,
+    )
+    return content
 
 
 def pay_fee(fee_id):

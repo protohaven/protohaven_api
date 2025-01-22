@@ -239,10 +239,13 @@ def test_get_reports_for_tool(mocker):
     }
 
 
+Tc = namedtuple("TC", "desc,data,want")
+
+
 @pytest.mark.parametrize(
-    "desc, data, want",
+    "tc",
     [
-        (
+        Tc(
             "correct role & tool code",
             {
                 "Published": "2024-04-01",
@@ -251,7 +254,7 @@ def test_get_reports_for_tool(mocker):
             },
             True,
         ),
-        (
+        Tc(
             "correct role, non cleared tool code",
             {
                 "Published": "2024-04-01",
@@ -260,7 +263,7 @@ def test_get_reports_for_tool(mocker):
             },
             False,
         ),
-        (
+        Tc(
             "wrong role, cleared tool",
             {
                 "Published": "2024-04-01",
@@ -269,7 +272,7 @@ def test_get_reports_for_tool(mocker):
             },
             False,
         ),
-        (
+        Tc(
             "Correct role, no tool",
             {
                 "Published": "2024-04-01",
@@ -278,7 +281,7 @@ def test_get_reports_for_tool(mocker):
             },
             True,
         ),
-        (
+        Tc(
             "too old",
             {
                 "Published": "2024-03-01",
@@ -287,7 +290,7 @@ def test_get_reports_for_tool(mocker):
             },
             False,
         ),
-        (
+        Tc(
             "too new (scheduled)",
             {
                 "Published": "2024-05-05",
@@ -298,23 +301,21 @@ def test_get_reports_for_tool(mocker):
         ),
     ],
 )
-def test_get_announcements_after(
-    desc, data, want, mocker
-):  # pylint: disable=unused-argument
+def test_get_announcements_after(mocker, tc):
     """Test announcement fetching"""
-    tc = a.AirtableCache()
-    tc["announcements"] = [{"fields": data, "id": "123"}]
+    ac = a.AirtableCache()
+    ac["announcements"] = [{"fields": tc.data, "id": "123"}]
     mocker.patch.object(
         a, "tznow", return_value=dateparser.parse("2024-04-02").astimezone(tz)
     )
     got = list(
-        tc.announcements_after(
+        ac.announcements_after(
             dateparser.parse("2024-03-14").astimezone(tz),
             ["role1"],
             ["SBL: Sandblaster"],
         )
     )
-    if want:
+    if tc.want:
         assert got
     else:
         assert not got
@@ -335,3 +336,114 @@ def test_get_storage_violations():
     assert len(violations) == 1
     assert violations[0]["fields"]["Violation"] == "Excessive storage"
     assert "Closure" not in violations[0]["fields"]
+
+
+def test_create_coupon(mocker):
+    mocker.patch.object(a, "tznow", return_value=d(0))
+    mock_insert = mocker.patch.object(a, "insert_records")
+    mock_insert.return_value = (200, {"records": [{"id": "rec123"}]})
+    result = a.create_coupon(
+        "SUMMER25",
+        25,
+        d(1),
+        d(2),
+    )
+    expected_fields = {
+        "Code": "SUMMER25",
+        "Amount": 25,
+        "Use By": d(1).isoformat(),
+        "Created": d(0).isoformat(),
+        "Expires": d(2).strftime("%Y-%m-%d"),
+    }
+    mock_insert.assert_called_once_with(
+        [expected_fields], "class_automation", "discounts"
+    )
+
+
+Tc = namedtuple("TC", "desc,records,use_by,expected_count")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("No coupons", [], "2025-01-01", 0),
+        Tc(
+            "All valid unassigned",
+            [{"fields": {"Use By": "2025-02-01", "Assigned": None}}],
+            "2025-01-01",
+            1,
+        ),
+        Tc(
+            "Some assigned",
+            [
+                {"fields": {"Use By": "2025-02-01", "Assigned": None}},
+                {"fields": {"Use By": "2025-02-01", "Assigned": "2024-01-01"}},
+            ],
+            "2025-01-01",
+            1,
+        ),
+    ],
+    ids=idfn,
+)
+def test_get_num_valid_unassigned_coupons(mocker, tc):
+    mock_get = mocker.patch.object(a, "get_all_records_after")
+    mock_get.return_value = tc.records
+
+    count = a.get_num_valid_unassigned_coupons(dateparser.parse(tc.use_by))
+    assert count == tc.expected_count
+
+
+Tc = namedtuple("TC", "desc,records,use_by,expected_result")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("No available coupons", [], "2025-01-01", None),
+        Tc(
+            "Returns first unassigned",
+            [
+                {"fields": {"Use By": "2025-02-01", "Assigned": None}, "id": "rec1"},
+                {"fields": {"Use By": "2025-03-01", "Assigned": None}, "id": "rec2"},
+            ],
+            "2025-01-01",
+            {"id": "rec1", "fields": {"Use By": "2025-02-01", "Assigned": None}},
+        ),
+        Tc(
+            "Skips assigned",
+            [
+                {
+                    "fields": {"Use By": "2025-02-01", "Assigned": "2024-01-01"},
+                    "id": "rec1",
+                },
+                {"fields": {"Use By": "2025-03-01", "Assigned": None}, "id": "rec2"},
+            ],
+            "2025-01-01",
+            {"id": "rec2", "fields": {"Use By": "2025-03-01", "Assigned": None}},
+        ),
+    ],
+    ids=idfn,
+)
+def test_get_next_available_coupon(mocker, tc):
+    mock_get = mocker.patch.object(a, "get_all_records_after")
+    mock_get.return_value = tc.records
+
+    result = a.get_next_available_coupon(dateparser.parse(tc.use_by))
+    assert result == tc.expected_result
+
+
+def test_mark_coupon_assigned(mocker):
+    mock_update = mocker.patch.object(a, "update_record")
+    mock_update.return_value = (200, {"id": "rec123"})
+    test_time = datetime.datetime(2025, 1, 1, tzinfo=tz)
+    mocker.patch.object(a, "tznow", return_value=test_time)
+
+    result = a.mark_coupon_assigned("rec123", "user@example.com")
+
+    mock_update.assert_called_once_with(
+        {"Assigned": test_time.isoformat(), "Assignee": "user@example.com"},
+        "class_automation",
+        "discounts",
+        "rec123",
+    )
+    assert result == {"id": "rec123"}
