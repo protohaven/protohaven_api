@@ -87,6 +87,7 @@ in pkgs.mkShell {
         markdown
         openai
         paho-mqtt_2
+        rapidfuzz
 
         # Square & deps
         squareup

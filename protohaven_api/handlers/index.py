@@ -1,4 +1,5 @@
 """handlers for main landing page"""
+
 import datetime
 import json
 import logging
@@ -165,13 +166,8 @@ def neon_id_lookup():
     search = request.values.get("search")
     if search is None:
         return result
-    rep = neon.soft_search(search)
-    if not rep.get("success"):
-        raise RuntimeError(rep)
-
-    for i in rep["data"]["individuals"]:
-        i = i["data"]
-        result.append(f"{i['firstName']} {i['lastName']} (#{i['accountId']})")
+    for i in neon.cache.find_best_match(search):
+        result.append(f"{i['First Name']} {i['Last Name']} (#{i['Account ID']})")
     return result
 
 

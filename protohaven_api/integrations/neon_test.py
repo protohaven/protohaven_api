@@ -1,4 +1,5 @@
 """Tests for NeonOne integration methods"""
+
 # pylint: skip-file
 import datetime
 import json
@@ -117,7 +118,12 @@ def test_account_cache_case_insensitive(mocker):
     """Confirm that lookups are case insensitive, and that non-string
     types are handled safely"""
     mocker.patch.object(n, "get_inactive_members", return_value=[])
-    want1 = {"Email 1": "aSdF", "Account ID": 123}
+    want1 = {
+        "Email 1": "aSdF",
+        "First Name": "foo",
+        "Last Name": "bar",
+        "Account ID": 123,
+    }
     mocker.patch.object(n, "get_active_members", return_value=[want1])
     c = n.AccountCache()
     c.refresh()
@@ -127,3 +133,35 @@ def test_account_cache_case_insensitive(mocker):
     assert c["GhJk"] == "test"
     assert c.get("GhJk") == "test"
     assert c["nonE"] == "foo"
+
+
+def test_find_best_match(mocker):
+    """Test find_best_match returns the best matches based on fuzzy ratio."""
+    c = n.AccountCache()
+    c.update(
+        {
+            "Email 1": "a@b.com",
+            "First Name": "Albert",
+            "Last Name": "Einstein",
+            "Account ID": 123,
+        }
+    )
+    c.update(
+        {
+            "Email 1": "b@b.com",
+            "First Name": "Albart",
+            "Last Name": "Grovinson",
+            "Account ID": 456,
+        }
+    )
+    c.update(
+        {
+            "Email 1": "b@a.com",
+            "First Name": "Dio",
+            "Last Name": "Brando",
+            "Account ID": 789,
+        }
+    )
+
+    got = [m["Account ID"] for m in c.find_best_match("Albert", top_n=2)]
+    assert got == [123, 456]
