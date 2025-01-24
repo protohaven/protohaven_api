@@ -11,11 +11,22 @@ export let user;
 export let visible;
 
 const DEFAULT_DURATION = 14;
+const DEFAULT_TRAIL = 3;
 
-let start_date = isodate(new Date());
+let start_date = new Date();
 let end_date = new Date(start_date);
+start_date.setDate(start_date.getDate() - DEFAULT_TRAIL);
+start_date = isodate(start_date);
 end_date.setDate(end_date.getDate() + DEFAULT_DURATION);
 end_date = isodate(end_date);
+
+function isToday(date) {
+  let now = new Date();
+  date = new Date(date);
+  return now.getFullYear() === date.getFullYear() &&
+         now.getMonth() === date.getMonth() &&
+         now.getDate() === date.getDate();
+}
 
 function days_between(d1, d2) {
   // https://stackoverflow.com/a/2627493
@@ -147,7 +158,7 @@ function start_edit(s, ap) {
   {#if v.filler}
     <div class="filler"></div>
   {:else}
-    <Card class="day">
+    <Card class="day" style={isToday(v.date) ? "font-weight: bold;" : ""}>
       <div>{v.date}</div>
       <div class="my-2">
       {#each ["AM", "PM"] as ap}

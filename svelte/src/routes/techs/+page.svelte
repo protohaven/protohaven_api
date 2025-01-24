@@ -45,15 +45,18 @@
 
 <Navbar color="secondary-subtle" sticky="">
   <NavbarBrand>Techs Dashboard</NavbarBrand>
-  <Nav navbar>
+  <Nav>
+    <NavItem>
+      <NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
+    </NavItem>
     <NavItem>
     {#await promise}
       <Spinner/>
     {:then}
       {#if !user || !user.fullname}
-        <a href="http://api.protohaven.org/login?referrer=/techs">Login</a>
+        <NavLink href="http://api.protohaven.org/login?referrer=/techs">Login</NavLink>
       {:else}
-        {user.fullname} (<a href="/logout">Logout</a>)
+        <NavLink href="/logout">{user.fullname} (Logout)</NavLink>
       {/if}
     {/await}
     </NavItem>

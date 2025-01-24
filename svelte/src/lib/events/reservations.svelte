@@ -12,7 +12,7 @@ import FetchError from '../fetch_error.svelte';
 
 <Card>
   <CardHeader>
-    <CardTitle>Reservations</CardTitle>
+    <CardTitle>Today's Reservations</CardTitle>
   </CardHeader>
   <CardBody>
   {#await promise}
