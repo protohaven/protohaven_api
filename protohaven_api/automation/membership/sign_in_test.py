@@ -1,4 +1,5 @@
 """Unit tests for sign-in automation flow"""
+
 # pylint: skip-file
 
 import datetime
@@ -94,7 +95,7 @@ def test_log_sign_in(mocker):
     mocker.patch.object(s.airtable, "insert_signin", return_value="airtable_response")
     m = mocker.patch.object(s, "_apply_async")
 
-    s.log_sign_in(data, result)
+    s.log_sign_in(data, result, {})
     m.assert_called_once()
 
 
@@ -590,8 +591,10 @@ def test_as_member_announcements_ok(mocker):
             "a@b.com": {
                 12346: {
                     "Account ID": 12345,
+                    "Clearances": "Clearance A|Clearance B",
                     "Account Current Membership Status": "Active",
                     "First Name": "First",
+                    "Last Name": "Last",
                     "API server role": "Shop Tech",
                 }
             }
@@ -636,6 +639,10 @@ def test_as_member_announcements_ok(mocker):
                 referrer=None,
                 purpose="I'm a member, just signing in!",
                 am_member=True,
+                full_name="First Last",
+                clearances=["Clearance A", "Clearance B"],
+                violations=[],
+                status="Active",
             ),
         ),
     )

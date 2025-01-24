@@ -254,6 +254,12 @@ def get_all_announcements():
     return list(get_all_records("people", "sign_in_announcements"))
 
 
+def get_signins_after(after):
+    """Fetches all sign-in data after a specific datetime"""
+    for rec in get_all_records_after("people", "sign_ins", after):
+        yield rec["fields"]
+
+
 def insert_simple_survey_response(announcement_id, email, neon_id, response):
     """Insert a survey response from the welcome page into Airtable"""
     return insert_records(

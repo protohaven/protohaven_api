@@ -104,7 +104,7 @@ def submit_forms(form_data):
     log.info(f"Airtable log submitted, response {rep}")
 
 
-def log_sign_in(data, result):
+def log_sign_in(data, result, meta):
     """Logs a sign-in based on form data. Sends both to Airtable and Google Forms"""
     # Note: setting `purpose` this way tricks the form into not requiring other fields
     assert result["waiver_signed"] is True
@@ -115,6 +115,10 @@ def log_sign_in(data, result):
         referrer=data.get("referrer"),
         purpose="I'm a member, just signing in!",
         am_member=(data["person"] == "member"),
+        full_name=meta.get("full_name", ""),
+        clearances=meta.get("clearances", []),
+        violations=meta.get("violations", []),
+        status=result.get("status", "UNKNOWN"),
     )
     _apply_async(submit_forms, args=(form_data,))
 
@@ -296,8 +300,13 @@ def as_member(data, send):
     result["firstname"] = m.get("First Name")
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
 
+    meta = {"full_name": f"{m.get('First Name')} {m.get('Last Name')}"}
+
     try:
         send("Fetching announcements...", 55)
+        meta["clearances"] = (
+            [] if not m.get("Clearances") else m["Clearances"].split("|")
+        )
         result["announcements"] = handle_announcements(
             last_ack=m.get("Announcements Acknowledged", None),
             roles=[
@@ -307,7 +316,7 @@ def as_member(data, send):
             ],
             is_active=result["status"] == "Active",
             testing=data.get("testing"),
-            clearances=[] if not m.get("Clearances") else m["Clearances"].split("|"),
+            clearances=meta["clearances"],
         )
     except Exception:  # pylint: disable=broad-exception-caught
         traceback.print_exc()
@@ -347,9 +356,11 @@ def as_member(data, send):
         data.get("waiver_ack", False),
     )
 
-    if result["waiver_signed"]:
-        send("Logging sign-in...", 95)
-        log_sign_in(data, result)
+    # Regardless of the state of the waiver or membership, we want to know when
+    # people interact with the sign in kiosk. Always log all sign-in attempts
+    # so we have forensics for later.
+    send("Logging sign-in...", 95)
+    log_sign_in(data, result, meta)
     log.info(f"Sign in result for {data['email']}: {result}")
     return result
 
@@ -360,5 +371,5 @@ def as_guest(data):
     result["waiver_signed"] = data.get("waiver_ack", False)
     result["firstname"] = "Guest"
     if data.get("referrer"):  # i.e. the survey was completed or passed
-        log_sign_in(data, result)
+        log_sign_in(data, result, {})
     return result

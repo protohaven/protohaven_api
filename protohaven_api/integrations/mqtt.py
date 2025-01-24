@@ -139,6 +139,8 @@ def get():
 
 def notify_reservation(tool_code, ref, start_time, end_time, user_id):
     """Notify that equipment is being reserved"""
+    if not client:
+        return None
     return client.pub(
         TopicResource.TOOL,
         tool_code,
@@ -154,6 +156,8 @@ def notify_reservation(tool_code, ref, start_time, end_time, user_id):
 
 def notify_maintenance(tool_code, status, reason):
     """Notify that equipment maintenance status is changing"""
+    if not client:
+        return None
     return client.pub(
         TopicResource.TOOL,
         tool_code,
@@ -164,6 +168,8 @@ def notify_maintenance(tool_code, status, reason):
 
 def notify_member_signed_in(user_id):
     """Notify that a user has signed in at the front desk"""
+    if not client:
+        return None
     return client.pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
 
 
@@ -171,6 +177,8 @@ def notify_clearance(
     user_id: str, tool_code: str, added: bool = True, level=ClearanceLevel.MEMBER
 ):
     """Notify that a user's clearance has been added or removed"""
+    if not client:
+        return None
     return client.pub(
         TopicResource.TOOL,
         tool_code,
