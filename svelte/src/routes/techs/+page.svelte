@@ -50,6 +50,9 @@
       <NavLink href="/events" target="_blank">Events Dashboard</NavLink>
     </NavItem>
     <NavItem>
+      <NavLink href="https://protohaven.org/maintenance" target="_blank">Tool Report</NavLink>
+    </NavItem>
+    <NavItem>
       <NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
     </NavItem>
     <NavItem>

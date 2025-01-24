@@ -1,7 +1,7 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Table, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
+import { Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
 import {get, post} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
@@ -15,8 +15,24 @@ let new_tech_email = "";
 let toast_msg = null;
 let enrolling = false;
 
+let techs = [];
+let techs_sorted = []
+let sort_type = "clearances_desc";
+$: {
+  if (sort_type === "clearances_desc") {
+    techs_sorted = [...techs].sort((a, b) => b.clearances.length - a.clearances.length);
+  } else if (sort_type === "clearances_asc") {
+    techs_sorted = [...techs].sort((a, b) => a.clearances.length - b.clearances.length);
+  } else if (sort_type === "name") {
+    techs_sorted = [...techs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  }
+}
 function refresh() {
-  promise = get("/techs/list").then((data) => {loaded = true; return data;});
+  promise = get("/techs/list").then((data) => {
+    loaded = true;
+    techs = data.techs;
+    return data;
+  });
 }
 $: {
   if (visible && !loaded) {
@@ -71,6 +87,16 @@ function clearance_click(id) {
     {#if enrolling}
       <Spinner/>
     {/if}
+    <Dropdown>
+        <DropdownToggle color="light" caret>
+            Sort
+        </DropdownToggle>
+        <DropdownMenu>
+            <DropdownItem on:click={() => sort_type="clearances_asc" }>Least Clearances</DropdownItem>
+            <DropdownItem on:click={() => sort_type="clearances_desc" }>Most Clearances</DropdownItem>
+            <DropdownItem on:click={() => sort_type="name" }>By Name</DropdownItem>
+        </DropdownMenu>
+    </Dropdown>
     <Input class="mx-1" text bind:value={new_tech_email} disabled={enrolling} placeholder="email address"/>
     <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling}>Enroll</Button>
     <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling}>Disenroll</Button>
@@ -81,7 +107,7 @@ function clearance_click(id) {
     <ToastBody>{toast_msg.msg}</ToastBody>
   </Toast>
 
-    {#each p.techs as t}
+    {#each techs_sorted as t}
       <Card class="my-2">
 	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
 	<CardBody>
