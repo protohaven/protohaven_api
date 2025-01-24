@@ -106,15 +106,19 @@
     announcements = result.announcements;
     violations = result.violations;
 
+    if (person !== 'guest' && result.status !== 'Active') {
+      // Expired membership takes priority in notification
+      state = 'membership_expired';
+      return;
+    }
+
     if (!result.waiver_signed) {
       state = 'waiver';
+      return;
     }
-    else if (person == 'guest' || result.status == 'Active') {
-      state = 'signin_ok';
-    }
-    else {
-      state = 'membership_expired';
-    }
+
+    // If everything else is good, we're good.
+    state = 'signin_ok';
   }
 </script>
 

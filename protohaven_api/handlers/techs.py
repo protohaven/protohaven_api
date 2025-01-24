@@ -104,6 +104,14 @@ def techs_shifts():
     return forecast.get_shift_map()
 
 
+@page.route("/techs/members")
+def techs_members():
+    """Fetches today's sign-in information for members"""
+    # Could extend this to search particular days...
+    start = tznow().replace(hour=0, minute=0, second=0)
+    return list(airtable.get_signins_after(start))
+
+
 @page.route("/techs/area_leads")
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
