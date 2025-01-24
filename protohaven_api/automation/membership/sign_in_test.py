@@ -724,7 +724,14 @@ def test_as_member_company_id(mocker):
     s.notify_async.assert_not_called()
 
 
-def test_as_member_notify_board_and_staff(mocker):
+@pytest.mark.parametrize(
+    "status",
+    [
+        "Active",
+        "Inactive",
+    ],
+)
+def test_as_member_notify_board_and_staff(mocker, status):
     """Test that a discord notification is sent if the account is flagged"""
     mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
@@ -735,9 +742,9 @@ def test_as_member_notify_board_and_staff(mocker):
             "a@b.com": {
                 12345: {
                     "Account ID": 12345,
-                    "Account Current Membership Status": "Active",
+                    "Account Current Membership Status": status,
                     "First Name": "First",
-                    "Notify Board & Staff": "On Sign In|Other Unrelated Condition",
+                    "Notify Board & Staff": f"On Sign In|Other Unrelated Condition",
                 },
             }
         },
@@ -753,6 +760,4 @@ def test_as_member_notify_board_and_staff(mocker):
         },
         mocker.MagicMock(),
     )
-    s.notify_async.assert_called_with(
-        "@Board and @Staff: [First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with `Notify Board & Staff = On Sign In`. This indicator suggests immediate followup with this member is needed. Click the name/email link for notes in Neon CRM."
-    )
+    s.notify_async.assert_any_call(MatchStr("immediate followup with this member"))

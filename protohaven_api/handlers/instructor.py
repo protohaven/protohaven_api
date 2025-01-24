@@ -1,4 +1,5 @@
 """Handlers for instructor actions on classes"""
+
 import datetime
 import logging
 
@@ -12,7 +13,7 @@ from protohaven_api.automation.classes.scheduler import push_schedule, solve_wit
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, neon, neon_base
-from protohaven_api.rbac import Role, am_admin, require_login_role
+from protohaven_api.rbac import Role, am_role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
 
@@ -107,9 +108,11 @@ def get_instructor_readiness(inst, caps=None):
             x
             for x in [
                 "W9" if not caps["fields"].get("W9 Form") else None,
-                "Direct Deposit"
-                if not caps["fields"].get("Direct Deposit Info")
-                else None,
+                (
+                    "Direct Deposit"
+                    if not caps["fields"].get("Direct Deposit Info")
+                    else None
+                ),
                 "Profile Pic" if not caps["fields"].get("Profile Pic") else None,
                 "Bio" if not caps["fields"].get("Bio") else None,
             ]
@@ -202,7 +205,7 @@ def instructor_about():
     email = request.args.get("email")
     if email is not None:
         ue = user_email()
-        if ue != email and not am_admin():
+        if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
             return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
@@ -264,7 +267,7 @@ def instructor_class_details():
     email = request.args.get("email")
     if email is not None:
         ue = user_email()
-        if ue != email and not am_admin():
+        if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
             return Response("Access Denied for admin parameter `email`", status=401)
     else:
         email = user_email()
