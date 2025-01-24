@@ -492,7 +492,8 @@ def update_account_automation_run_status(account_id, status: str, now=None):
 
 
 def set_event_scheduled_state(neon_id, scheduled=True):
-    """Publishes or unpublishes an event in Neon"""
+    """Publishes or unpublishes an event in Neon, including registration
+    and public visibility in protohaven.org/classes/"""
     return neon_base.patch(
         "api_key3",
         f"/events/{neon_id}",

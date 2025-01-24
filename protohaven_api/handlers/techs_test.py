@@ -12,51 +12,42 @@ from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
 @pytest.fixture()
 def tech_client(client):
-    with client.session_transaction() as session:
-        session["neon_id"] = "12345"
-        session["neon_account"] = {
-            "accountCustomFields": [
-                {"name": "API server role", "optionValues": [{"name": "Shop Tech"}]},
-            ],
-            "primaryContact": {
-                "firstName": "First",
-                "lastName": "Last",
-                "email1": "foo@bar.com",
-            },
-        }
+    setup_session(client, [Role.SHOP_TECH])
     return client
 
 
-def test_techs_all_status(client, mocker):
+@pytest.fixture()
+def lead_client(client):
     setup_session(client, [Role.SHOP_TECH_LEAD])
+    return client
+
+
+def test_techs_all_status(lead_client, mocker):
     mocker.patch.object(tl.neon, "fetch_techs_list", return_value=[])
     mocker.patch.object(tl.airtable, "get_shop_tech_time_off", return_value=[])
-    response = client.get("/techs/list")
+    response = lead_client.get("/techs/list")
     rep = json.loads(response.data.decode("utf8"))
     assert rep == {"tech_lead": True, "techs": []}
 
 
-def test_tech_update(client, mocker):
-    setup_session(client, [Role.SHOP_TECH_LEAD])
+def test_tech_update(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "set_tech_custom_fields", return_value=(mocker.MagicMock(), None)
     )
-    client.post("/techs/update", json={"id": "123", "interest": "stuff"})
+    lead_client.post("/techs/update", json={"id": "123", "interest": "stuff"})
     tl.neon.set_tech_custom_fields.assert_called_with("123", interest="stuff")
 
 
-def test_techs_enroll(client, mocker):
-    setup_session(client, [Role.SHOP_TECH_LEAD])
+def test_techs_enroll(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "patch_member_role", return_value=(mocker.MagicMock(), None)
     )
-    client.post("/techs/enroll", json={"email": "a@b.com", "enroll": True})
+    lead_client.post("/techs/enroll", json={"email": "a@b.com", "enroll": True})
     tl.neon.patch_member_role.assert_called_with("a@b.com", Role.SHOP_TECH, True)
 
 
-def test_techs_event_registration_success_register(client, mocker):
+def test_techs_event_registration_success_register(tech_client, mocker):
     """Test successful registration"""
-    setup_session(client, [Role.SHOP_TECH])
     mocker.patch.object(tl.neon, "register_for_event", return_value={"key": "value"})
     mocker.patch.object(tl.neon, "delete_single_ticket_registration")
     mocker.patch.object(tl.comms, "send_discord_message")
@@ -75,7 +66,7 @@ def test_techs_event_registration_success_register(client, mocker):
         "fetch_attendees",
         return_value=[{"accountId": 1, "registrationStatus": "SUCCEEDED"}],
     )
-    assert client.post(
+    assert tech_client.post(
         "/techs/event",
         json={
             "event_id": "test_event",
@@ -93,9 +84,8 @@ def test_techs_event_registration_success_register(client, mocker):
     )
 
 
-def test_techs_event_registration_success_unregister(client, mocker):
+def test_techs_event_registration_success_unregister(tech_client, mocker):
     """Test successful unregistration"""
-    setup_session(client, [Role.SHOP_TECH])
     mocker.patch.object(tl.neon, "register_for_event")
     mocker.patch.object(tl.neon, "delete_single_ticket_registration", return_value=b"")
     mocker.patch.object(tl.comms, "send_discord_message")
@@ -114,7 +104,7 @@ def test_techs_event_registration_success_unregister(client, mocker):
         "fetch_attendees",
         return_value=[{"accountId": 1, "registrationStatus": "SUCCEEDED"}],
     )
-    assert client.post(
+    assert tech_client.post(
         "/techs/event",
         json={
             "event_id": "test_event",
@@ -132,12 +122,11 @@ def test_techs_event_registration_success_unregister(client, mocker):
     )
 
 
-def test_techs_event_registration_missing_args(client, mocker):
+def test_techs_event_registration_missing_args(tech_client, mocker):
     """Test registration with missing arguments"""
-    setup_session(client, [Role.SHOP_TECH])
     mocker.patch.object(tl.neon, "register_for_event")
     mocker.patch.object(tl.neon, "delete_single_ticket_registration")
-    assert client.post("/techs/event", json={}).status_code == 400
+    assert tech_client.post("/techs/event", json={}).status_code == 400
     tl.neon.register_for_event.assert_not_called()
     tl.neon.delete_single_ticket_registration.assert_not_called()
 
@@ -207,6 +196,26 @@ def test_techs_backfill_events(mocker, tech_client):
                 "startTime": "10:00",
                 "capacity": 10,
                 "name": "Event A",
+                "publishEvent": True,
+                "enableEventRegistrationForm": True,
+            },
+            {  # Tech event gets shown even if no registrants
+                "id": "999",
+                "startDate": d(0).strftime("%Y-%m-%d"),
+                "startTime": "10:00",
+                "capacity": 10,
+                "name": f"{tl.TECH_ONLY_PREFIX} no registants",
+                "publishEvent": False,
+                "enableEventRegistrationForm": True,
+            },
+            {  # No registrants event gets hidden as it's not paid off
+                "id": "999",
+                "startDate": d(0).strftime("%Y-%m-%d"),
+                "startTime": "10:00",
+                "capacity": 10,
+                "name": "Upcoming event with no registants",
+                "publishEvent": True,
+                "enableEventRegistrationForm": True,
             },
             {
                 "id": "17631",
@@ -214,6 +223,8 @@ def test_techs_backfill_events(mocker, tech_client):
                 "startTime": "10:00",
                 "capacity": 10,
                 "name": "Private Event",
+                "publishEvent": True,
+                "enableEventRegistrationForm": True,
             },
             {
                 "id": "124",
@@ -221,13 +232,20 @@ def test_techs_backfill_events(mocker, tech_client):
                 "startTime": "10:00",
                 "capacity": 10,
                 "name": "Event B, too early",
+                "publishEvent": True,
+                "enableEventRegistrationForm": True,
             },
         ],
     )
     mocker.patch.object(
         tl.neon,
         "fetch_attendees",
-        side_effect=[[{"accountId": "1", "registrationStatus": "SUCCEEDED"}], []],
+        side_effect=[
+            [{"accountId": "1", "registrationStatus": "SUCCEEDED"}],
+            [],
+            [],
+            [],
+        ],
     )
     mocker.patch.object(
         tl.neon,
@@ -241,7 +259,7 @@ def test_techs_backfill_events(mocker, tech_client):
 
     response = tech_client.get("/techs/events")
     assert response.status_code == 200
-    assert response.json == [
+    assert response.json["events"] == [
         {
             "attendees": ["1"],
             "capacity": 10,
@@ -250,6 +268,15 @@ def test_techs_backfill_events(mocker, tech_client):
             "start": "Wed, 01 Jan 2025 15:00:00 GMT",
             "supply_cost": 10,
             "ticket_id": "t1",
+        },
+        {
+            "attendees": [],
+            "capacity": 10,
+            "id": "999",
+            "name": "(SHOP TECH ONLY) no registants",
+            "start": "Wed, 01 Jan 2025 15:00:00 GMT",
+            "supply_cost": 0,
+            "ticket_id": None,
         },
     ]
 
@@ -265,8 +292,8 @@ def test_techs_event_registration_register(mocker, tech_client):
         "/techs/event", json={"event_id": 123, "ticket_id": 456, "action": "register"}
     )
     assert rep.json == {"status": "ok"}
-    tl.neon.register_for_event.assert_called_once_with("12345", 123, 456)
-    tl._notify_registration.assert_called_once_with("12345", 123, "register")
+    tl.neon.register_for_event.assert_called_once_with(1234, 123, 456)
+    tl._notify_registration.assert_called_once_with(1234, 123, "register")
     tl.neon.delete_single_ticket_registration.assert_not_called()
 
 
@@ -284,8 +311,8 @@ def test_techs_event_registration_unregister(mocker, tech_client):
     )
     assert rep.json == {"status": "ok"}
     tl.neon.register_for_event.assert_not_called()
-    tl.neon.delete_single_ticket_registration.assert_called_once_with("12345", 123)
-    tl._notify_registration.assert_called_once_with("12345", 123, "unregister")
+    tl.neon.delete_single_ticket_registration.assert_called_once_with(1234, 123)
+    tl._notify_registration.assert_called_once_with(1234, 123, "unregister")
 
 
 def test_techs_area_leads(mocker, tech_client):
@@ -318,3 +345,126 @@ def test_techs_area_leads(mocker, tech_client):
     }
 
     assert response.json == expected_response
+
+
+def test_new_tech_event(mocker, lead_client):
+    """Test new tech-only event creation"""
+    mocker.patch.object(tl, "tznow", return_value=d(0))
+    mock_create_event = mocker.patch.object(
+        tl.neon_base, "create_event", return_value={}
+    )
+
+    # Test valid event creation
+    response = lead_client.post(
+        "/techs/new_event",
+        json={
+            "name": "Test Event",
+            "start": d(1, 14).isoformat(),
+            "hours": 2,
+            "capacity": 10,
+        },
+    )
+    assert response.status_code == 200
+    mock_create_event.assert_called_once_with(
+        name=f"{tl.TECH_ONLY_PREFIX} Test Event",
+        desc="Tech-only event; created via api.protohaven.org/techs dashboard",
+        start=d(1, 14),
+        end=d(1, 16),
+        max_attendees=10,
+        dry_run=False,
+        published=False,
+        registration=True,
+        free=True,
+    )
+
+    # Test empty name
+    response = lead_client.post(
+        "/techs/new_event",
+        json={"name": "", "start": "2025-01-01T12:00:00", "hours": 2, "capacity": 10},
+    )
+    assert response.status_code == 401
+    assert response.data.decode() == "name field is required"
+
+    # Test invalid start time (past)
+    response = lead_client.post(
+        "/techs/new_event",
+        json={
+            "name": "Test Event",
+            "start": "2020-01-01T12:00:00",
+            "hours": 2,
+            "capacity": 10,
+        },
+    )
+    assert response.status_code == 401
+    assert response.data.decode() == MatchStr("must be set to a valid date")
+
+    # Test invalid start time (outside business hours)
+    response = lead_client.post(
+        "/techs/new_event",
+        json={
+            "name": "Test Event",
+            "start": "2025-01-01T08:00:00",
+            "hours": 2,
+            "capacity": 10,
+        },
+    )
+    assert response.status_code == 401
+    assert response.data.decode() == MatchStr("must be set to a valid date")
+    # Test invalid capacity (negative)
+    response = lead_client.post(
+        "/techs/new_event",
+        json={
+            "name": "Test Event",
+            "start": "2025-01-01T12:00:00",
+            "hours": 2,
+            "capacity": -1,
+        },
+    )
+    assert response.status_code == 401
+    assert response.data.decode() == "capacity field invalid"
+
+
+def test_rm_tech_event(mocker, lead_client):
+    """Test deleting a techs-only event in Neon"""
+    eid = "12345"
+    mock_event = {"id": eid, "name": tl.TECH_ONLY_PREFIX + "Test Event"}
+
+    mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
+    mocker.patch.object(tl.neon, "set_event_scheduled_state", return_value={})
+
+    response = lead_client.post("/techs/rm_event", json={"eid": eid})
+    assert response.status_code == 200
+
+    tl.neon.fetch_event.assert_called_once_with(eid)
+    tl.neon.set_event_scheduled_state.assert_called_once_with(eid, scheduled=False)
+
+
+def test_rm_tech_event_missing_eid(mocker, lead_client):
+    """Test deleting a techs-only event with missing eid"""
+    response = lead_client.post("/techs/rm_event", json={"eid": ""})
+    assert response.status_code == 401
+    assert response.data.decode("utf-8") == "eid field required"
+
+
+def test_rm_tech_event_not_found(mocker, lead_client):
+    """Test deleting a non-existent techs-only event"""
+    eid = "12345"
+    mocker.patch.object(tl.neon, "fetch_event", return_value=None)
+
+    response = lead_client.post("/techs/rm_event", json={"eid": eid})
+    assert response.status_code == 404
+    assert response.data.decode("utf-8") == f"event with eid {eid} not found"
+
+
+def test_rm_tech_event_non_tech_only(mocker, lead_client):
+    """Test deleting a non-tech-only event"""
+    eid = "12345"
+    mock_event = {"id": eid, "name": "Test Event"}
+
+    mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
+
+    response = lead_client.post("/techs/rm_event", json={"eid": eid})
+    assert response.status_code == 400
+    assert response.data.decode("utf-8") == MatchStr(
+        "cannot delete a non-tech-only event"
+    )

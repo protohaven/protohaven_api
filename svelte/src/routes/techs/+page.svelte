@@ -47,6 +47,9 @@
   <NavbarBrand>Techs Dashboard</NavbarBrand>
   <Nav>
     <NavItem>
+      <NavLink href="/events" target="_blank">Events Dashboard</NavLink>
+    </NavItem>
+    <NavItem>
       <NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
     </NavItem>
     <NavItem>

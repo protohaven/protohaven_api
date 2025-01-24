@@ -132,10 +132,13 @@ def require_login_role(*role):
                 session["redirect_to_login_url"] = request.url
                 return redirect(url_for("auth.login_user_neon_oauth"))
             # Check for presence of role. Note that shop techs are a special case; leads can do
-            # anything that a shop tech is allowed to do
+            # anything that a shop tech is allowed to do.
+            # Admins can also do anything.
             for r in role:
-                if r["name"] in roles or (
-                    r == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles
+                if (
+                    r["name"] in roles
+                    or (r == Role.SHOP_TECH and Role.SHOP_TECH_LEAD["name"] in roles)
+                    or Role.ADMIN["name"] in roles
                 ):
                     return fn(*args, **kwargs)
 
@@ -153,4 +156,4 @@ def require_login_role(*role):
 
 def am_role(*role):
     """Returns True if the current session is one of the roles provided"""
-    return require_login_role(*role)(lambda: True)() is True
+    return (not is_enabled()) or require_login_role(*role)(lambda: True)() is True
