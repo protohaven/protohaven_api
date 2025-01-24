@@ -109,3 +109,17 @@ def test_get_roles(
     )
 
     assert rbac.get_roles() == expected_roles
+
+
+def test_am_role(mocker):
+    """Test am_role function"""
+    mocker.patch.object(rbac, "is_enabled", return_value=False)
+    assert rbac.am_role(Role.ADMIN) is True
+
+    mocker.patch.object(rbac, "is_enabled", return_value=True)
+    mocker.patch.object(rbac, "get_roles", return_value=[Role.ADMIN["name"]])
+    assert rbac.am_role(Role.ADMIN) is True
+
+    mocker.patch.object(rbac, "is_enabled", return_value=True)
+    mocker.patch.object(rbac, "get_roles", return_value=["not_admin"])
+    assert rbac.am_role(Role.ADMIN) is False

@@ -10,9 +10,7 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base
-from protohaven_api.rbac import Role, get_roles
-from protohaven_api.rbac import is_enabled as is_rbac_enabled
-from protohaven_api.rbac import require_login_role
+from protohaven_api.rbac import Role, am_role, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
 
@@ -37,6 +35,8 @@ def techs_dash_svelte_files(typ, path):
     """Return svelte compiled static page for dashboard"""
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
+
+TECH_ONLY_PREFIX = "(SHOP TECH ONLY)"
 
 # Some areas we exclude from results as they are never needed during operations.
 EXCLUDED_AREAS = [
@@ -196,14 +196,9 @@ def techs_forecast_override():
 @page.route("/techs/list")
 def techs_list():
     """Fetches tech info and lead status of observer"""
-    techs = neon.fetch_techs_list()
-    roles = get_roles()
-    tech_lead = (not is_rbac_enabled()) or (
-        roles is not None and Role.SHOP_TECH_LEAD["name"] in roles
-    )
     return {
-        "tech_lead": tech_lead,
-        "techs": techs,
+        "tech_lead": am_role(Role.SHOP_TECH_LEAD),
+        "techs": neon.fetch_techs_list(),
     }
 
 
@@ -219,6 +214,60 @@ def tech_update():
         if k in ("shift", "area_lead", "interest", "expertise", "first_day", "last_day")
     }
     return neon.set_tech_custom_fields(nid, **body)
+
+
+@page.route("/techs/new_event", methods=["POST"])
+@require_login_role(Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF)
+def new_tech_event():
+    """Create a new techs-only event in Neon"""
+    data = request.json
+    log.info(f"new_event with data {data}")
+    if str(data["name"]).strip() == "":
+        log.info("Name field required")
+        return Response("name field is required", status=401)
+    log.info("Parsing date")
+    d = dateparser.parse(data["start"]).astimezone(tz)
+    log.info(f"Parsed {d}")
+    if not d or d < tznow() or d.hour < 10 or d.hour + data["hours"] > 22:
+        return Response(
+            "start must be set to a valid date in the future and within business hours (10AM-10PM)",
+            status=401,
+        )
+    log.info("checking capacity")
+    if data["capacity"] < 0 or data["capacity"] > 100:
+        return Response("capacity field invalid", status=401)
+    log.info(f"Creating event with data {data}")
+    return neon_base.create_event(
+        name=f"{TECH_ONLY_PREFIX} {data['name']}",
+        desc="Tech-only event; created via api.protohaven.org/techs dashboard",
+        start=d,
+        end=d + datetime.timedelta(hours=data["hours"]),
+        max_attendees=data["capacity"],
+        dry_run=False,
+        published=False,  # Do NOT show this in the regular event browser
+        registration=True,
+        free=True,  # Do not apply pricing
+    )
+
+
+@page.route("/techs/rm_event", methods=["POST"])
+@require_login_role(Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF)
+def rm_tech_event():
+    """Delete a techs-only event in Neon"""
+    data = request.json
+    eid = str(data["eid"])
+    if eid.strip() == "":
+        return Response("eid field required", status=401)
+    evt = neon.fetch_event(eid)
+    if not evt:
+        return Response(f"event with eid {eid} not found", status=404)
+    if not evt["name"].startswith(TECH_ONLY_PREFIX):
+        return Response(
+            f"cannot delete a non-tech-only event missing prefix {TECH_ONLY_PREFIX}",
+            status=400,
+        )
+
+    return neon.set_event_scheduled_state(evt["id"], scheduled=False)
 
 
 @page.route("/techs/enroll", methods=["POST"])
@@ -240,35 +289,49 @@ def techs_backfill_events():
         )
         for s in airtable.get_class_automation_schedule()
     }
-    log.info(f"Fetched {len(supply_cost_map)} class supply costs")
     for_techs = []
     now = tznow()
-    # Should dedupe logic with builder.py eventually
-    for evt in neon.fetch_upcoming_events():
+    # Should dedupe logic with builder.py eventually.
+    # We look for unpublished events too since those may be tech events
+    for evt in neon.fetch_upcoming_events(published=False):
         if str(evt["id"]) == "17631":  # Private instruction
             continue
         start = dateparser.parse(evt["startDate"] + " " + evt["startTime"]).astimezone(
             tz
         )
-        if start - datetime.timedelta(days=1) > now or now > start:
+        tech_only_event = (
+            evt["name"].startswith(TECH_ONLY_PREFIX)
+            and evt["enableEventRegistrationForm"]
+        )
+        tech_backfill_event = (
+            evt["publishEvent"]
+            and evt["enableEventRegistrationForm"]
+            and start - datetime.timedelta(days=1) < now < start
+        )
+
+        if not tech_only_event and not tech_backfill_event:
             continue
+
         attendees = {
             a["accountId"]
             for a in neon.fetch_attendees(evt["id"])
             if a["registrationStatus"] == "SUCCEEDED"
         }
 
-        if len(attendees) < evt["capacity"]:
+        if tech_only_event or len(attendees) > 0:
             tid = None
-            for t in neon.fetch_tickets(evt["id"]):
-                tid = t["id"]
-                if t["name"] == "Single Registration":
-                    log.info(f"Found single registration ticket id {tid}")
-                    break
-            if not tid:
-                raise RuntimeError(
-                    f"Failed to get ticket IDs from event {evt['id']} for registration"
-                )
+            if not tech_only_event:
+                # Backfill events are priced; tech-only events are
+                # free and have zero ticket IDs
+                for t in neon.fetch_tickets(evt["id"]):
+                    tid = t["id"]
+                    if t["name"] == "Single Registration":
+                        log.info(f"Found single registration ticket id {tid}")
+                        break
+                if not tid:
+                    raise RuntimeError(
+                        f"Failed to get ticket IDs from event {evt['id']} for registration"
+                    )
 
             for_techs.append(
                 {
@@ -281,7 +344,10 @@ def techs_backfill_events():
                     "supply_cost": supply_cost_map.get(str(evt["id"]), 0),
                 }
             )
-    return for_techs
+
+    tech_lead = am_role(Role.SHOP_TECH_LEAD)
+
+    return {"events": for_techs, "tech_lead": tech_lead}
 
 
 def _notify_registration(account_id, event_id, action):
@@ -311,16 +377,19 @@ def _notify_registration(account_id, event_id, action):
 @page.route("/techs/event", methods=["POST"])
 @require_login_role(Role.SHOP_TECH)
 def techs_event_registration():
-    """Enroll a Neon account in the shop tech program, via email"""
+    """Enroll a Neon account in the shop tech program, via Neon ID"""
     account_id = session["neon_id"]
     data = request.json
     event_id = data.get("event_id")
     ticket_id = data.get("ticket_id")
     action = data.get("action")
+    log.info(f"Attempt to (un)register for event: {account_id} {data}")
     if not account_id:
         return Response("Not logged in", status=401)
-    if not event_id or not ticket_id or not action in ("register", "unregister"):
-        return Response("Invalid argument", status=400)
+    if not event_id:
+        return Response("event_id required", status=400)
+    if not action in ("register", "unregister"):
+        return Response("action must be one of 'register', 'unregister'", status=400)
 
     if action == "register":
         ret = neon.register_for_event(account_id, event_id, ticket_id)

@@ -102,6 +102,13 @@ def get_reservations(start, end):
     return get_connector().booked_request("GET", url)
 
 
+def delete_reservation(refnum):
+    """Deletes a reservation by its reference number - be very careful with
+    this one!"""
+    url = f"/Reservations/{refnum}"
+    return get_connector().booked_request("DELETE", url)
+
+
 def reserve_resource(
     resource_id,
     start_time,

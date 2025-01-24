@@ -548,6 +548,7 @@ def create_event(  # pylint: disable=too-many-arguments
     dry_run=True,
     published=True,
     registration=True,
+    free=False,
 ):
     """Creates a new event in Neon CRM"""
     event = {
@@ -571,7 +572,7 @@ def create_event(  # pylint: disable=too-many-arguments
             "timeZone": {"id": "1"},
         },
         "financialSettings": {
-            "feeType": "MT_OA",
+            "feeType": "Free" if free else "MT_OA",
             "admissionFee": None,
             "ticketsPerRegistration": None,
             "fund": None,
