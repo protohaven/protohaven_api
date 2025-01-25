@@ -22,7 +22,8 @@ end_date = isodate(end_date);
 
 function isToday(date) {
   let now = new Date();
-  date = new Date(date);
+// Apply time zone to prevent day offset
+  date = new Date(date + " EST");
   return now.getFullYear() === date.getFullYear() &&
          now.getMonth() === date.getMonth() &&
          now.getDate() === date.getDate();

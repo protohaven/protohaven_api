@@ -177,7 +177,7 @@ def get_all_open_maintenance_tasks():
         get_config("asana/gid"),
         {
             "completed": False,
-            "limit": 1000,
+            "limit": 100,
             "opt_fields": ",".join(
                 [
                     "name",

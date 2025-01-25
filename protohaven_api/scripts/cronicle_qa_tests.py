@@ -1,4 +1,5 @@
 """Integration tests for Cronicle jobs/events"""
+
 import argparse
 import datetime
 import logging
@@ -191,6 +192,18 @@ if __name__ == "__main__":
     readonly_commands = [
         # Readonly commands
         ("sign_ins", test_tech_sign_ins, "elzn07uwhqg"),
+        (
+            "check_doors",
+            test_simple,
+            "em5wzj6552l",
+            {"CHAN_OVERRIDE": COVR},
+        ),
+        (
+            "check_cameras",
+            test_simple,
+            "em5d0rdob1l",
+            {"CHAN_OVERRIDE": COVR},
+        ),
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
         ("instructor_apps", test_simple, "elwnqdz2o8j", {"CHAN_OVERRIDE": COVR}),
         (
@@ -328,6 +341,15 @@ if __name__ == "__main__":
                 "ARGS": '--no-apply --parent_id=""',
             },
         ),
+        (
+            "sync_booked_members",
+            test_simple,
+            "em5ahun5604",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
     ]
     destructive_commands = [
         # Need to modify a test user to properly exercise this command
@@ -418,7 +440,7 @@ if __name__ == "__main__":
                 args.after = None
             continue
 
-        log.info(f"\n\nRun test {i}/{len(tests)}: {tc}")
+        log.info(f"\n\nRun test {i+1}/{len(tests)}: {tc}")
         if len(tc) == 4:
             fn(eid, tc[3])
         else:
