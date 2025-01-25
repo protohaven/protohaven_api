@@ -155,7 +155,7 @@ def get_member_and_activation_state(email):
     # Deferred memberships are returned first, followed by active membership accounts
     # and then inactive ones.
     for m in mm:
-        unverified_amp = "AMP" in m.get("Membership Level", "") and not m.get(
+        unverified_amp = "AMP" in (m.get("Membership Level") or "") and not m.get(
             "Income Based Rate"
         )
         if (m.get("Account Automation Ran") or "").startswith("deferred"):

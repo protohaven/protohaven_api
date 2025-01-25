@@ -200,7 +200,7 @@ def get_tool_id_and_name(tool_code):
             == tool_code.strip().lower()
         ):
             return (t["id"], t["fields"].get("Tool Name"))
-    return None
+    return None, None
 
 
 def get_all_maintenance_tasks():
