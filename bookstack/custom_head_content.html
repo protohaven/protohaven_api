@@ -1,0 +1,107 @@
+<!-- This must be added manually at /settings/customization; copied here for posterity -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
+<style>
+  .page.entity-list-item, .entity-list-item-name {
+    text-decoration: underline;
+  }
+
+  body {
+    --font-body: 'Nunito', sans-serif;
+    --font-heading: 'Nunito', sans-serif;
+  }
+
+  .ph_tool_widget {
+    border: 1px grey solid;
+    border-radius: 5px;
+    padding: 5px;
+    margin: 15px;
+  }
+  .ph_tool_widget .ph_tool_history {
+    max-height: 400px;
+    overflow-y: scroll;
+  }
+  .ph_tool_widget .ph_hist_item {
+    border: 1px grey solid;
+    padding: 5px;
+    margin-bottom: 5px;
+  }
+  .ph_tool_widget .ph_asana_item {
+    display: block;
+    padding: 5px;
+    margin-bottom: 5px;
+  }
+</style>
+
+<script>
+  const p = window.location.pathname.split("/");
+  if (p[1] === 'books' && p[3] === 'page') {
+    let book_slug = p[2];
+    let page_slug = p[4];
+    let rev_id = (p[5] == "revisions") ? parseInt(p[6]) : 0; // 0 means "latest"
+    fetch(`/approvals/${book_slug}/${page_slug}/${rev_id}`).then((d) => d.json()).then((d) => {
+      console.log(d);
+      if (d.ignore || d.approved_revision == "all") {
+        return;
+      }
+      console.log("cur_id", d.current_id, "vs approved_id", d.approved_id);
+      if (d.current_id != d.approved_id) {
+        const elem = document.getElementsByTagName("main")[0];
+        let c = document.createElement('div');
+        c.style =  "color:white; background-color: #D9381E; width: 100%; font-weight: bold; font-size: 2em; padding: 20px;";
+        let inner = "There is a newer approved revision.";
+        let num_approvals = (d.approvals[d.current_revision] || []).length;
+        if (num_approvals < d.thresh) {
+          const inparens = `${num_approvals} of ${d.thresh} given`;
+          inner = `This revision is pending approval (<a href="/approvals">${inparens}</a>).`;
+        }
+        if (d.approved_revision && d.approved_id) {
+          inner += `<br/>See <a href="/books/${book_slug}/page/${page_slug}/revisions/${d.approved_id}">Revision ${d.approved_revision}</a> for most recent approved content.`;
+        }
+        c.innerHTML = inner;
+        elem.prepend(c);
+      }
+    });
+  }
+</script>
+
+<script>
+  const MAINT_WIDGET_ID = "bkmrk-%23maintenance_widget";
+  window.onload = () => {
+    console.log("onload", MAINT_WIDGET_ID);
+    const p = window.location.pathname.split("/");
+    const elem = document.getElementById(MAINT_WIDGET_ID);
+    if (!elem || p[1] !== 'books' && p[3] !== 'page') {
+      return;
+    }
+    let book_slug = p[2];
+    let page_slug = p[4];
+    elem.innerHTML = "Loading tool maintenance info...";
+    fetch(`/maintenance_history/${book_slug}/${page_slug}`).then((d) => d.json()).then((d) => {
+      console.log(d);
+      let result = document.createElement('div');
+      result.className = "ph_tool_widget";
+      result.innerHTML = '<h3>Active Tasks in Asana</h3><div><em>More tasks at <a href="TODO">TODO</a></em></div><div class="ph_asana_tasks"></div><h3>Maintenance History & Tool Reports</h3><div><em>More tool info at <a href="https://protohaven.org/equipment">protohaven.org/equipment</a></em></div><div class="ph_tool_history"></div>';
+
+      const asana = result.getElementsByClassName('ph_asana_tasks')[0];
+      for (let a of d.active_tasks) {
+        let ahref = document.createElement('a');
+        ahref.className = "ph_asana_item";
+        ahref.target = "_blank";
+        ahref.href = a.link;
+        ahref.innerText = `${a.name} (last modified ${a.last_modified})`;
+        asana.appendChild(ahref);
+      }
+
+      const hist = result.getElementsByClassName('ph_tool_history')[0];
+      for (let h of d.history) {
+        let hdiv = document.createElement('div');
+        hdiv.className="ph_hist_item";
+        hdiv.innerText = `${h.date} (${h.author}, state=${h.state}): ${h.message}`;
+        hist.appendChild(hdiv);
+      }
+      elem.replaceWith(result);
+    });
+  };
+</script>
