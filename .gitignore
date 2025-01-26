@@ -166,3 +166,6 @@ credentials.json
 comms.yaml
 protohaven_api/static/svelte/
 mock_data.pkl
+bookstack/env.secret
+bookstack/bookstack_app_data
+bookstack/bookstack_db_data

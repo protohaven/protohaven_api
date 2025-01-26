@@ -43,6 +43,7 @@ After deployment, verify that:
   * [x] Storage tab allows for looking up Neon ID by name/email
   * [x] Areas have some leads assigned to them
   * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [ ] Events tab can create, register, unregister, and delete a techs-only class
   * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides etc.
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
