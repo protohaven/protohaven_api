@@ -54,12 +54,19 @@ def test_techs_event_registration_success_register(tech_client, mocker):
     mocker.patch.object(
         tl.neon_base,
         "fetch_account",
-        return_value=({"firstName": "First", "lastName": "Last"}, True),
+        return_value=(
+            {"primaryContact": {"firstName": "First", "lastName": "Last"}},
+            True,
+        ),
     )
     mocker.patch.object(
         tl.neon,
         "fetch_event",
-        return_value={"name": "Event Name", "startDate": "YYYY-MM-DD", "capacity": 6},
+        return_value={
+            "name": "Event Name",
+            "eventDates": {"startDate": "YYYY-MM-DD"},
+            "maximumAttendees": 6,
+        },
     )
     mocker.patch.object(
         tl.neon,
@@ -92,12 +99,19 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     mocker.patch.object(
         tl.neon_base,
         "fetch_account",
-        return_value=({"firstName": "First", "lastName": "Last"}, True),
+        return_value=(
+            {"primaryContact": {"firstName": "First", "lastName": "Last"}},
+            True,
+        ),
     )
     mocker.patch.object(
         tl.neon,
         "fetch_event",
-        return_value={"name": "Event Name", "startDate": "YYYY-MM-DD", "capacity": 6},
+        return_value={
+            "name": "Event Name",
+            "eventDates": {"startDate": "YYYY-MM-DD"},
+            "maximumAttendees": 6,
+        },
     )
     mocker.patch.object(
         tl.neon,
