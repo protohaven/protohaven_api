@@ -360,13 +360,17 @@ def _notify_registration(account_id, event_id, action):
         for a in neon.fetch_attendees(event_id)
         if a["registrationStatus"] == "SUCCEEDED"
     }
+    contact = acc.get("primaryContact")
+    name = f"{contact.get('firstName')} {contact.get('lastName')}"
     action = "registered for" if action == "register" else "unregistered from"
     msg = (
-        f"{acc.get('firstName')} {acc.get('lastName')} {action} "
-        f"{evt.get('name')} on {evt.get('startDate')}"
-        f"; {evt.get('capacity', 0) - len(attendees)} seat(s) remain"
+        f"{name} {action} "
+        f"{evt.get('name')} on {evt.get('eventDates').get('startDate')}"
+        f"; {evt.get('maximumAttendees', 0) - len(attendees)} seat(s) remain"
     )
-    comms.send_discord_message(msg, "#instructors", blocking=False)
+    # Tech-only classes shouldn't bother instructors
+    if not evt.get("name").startswith(TECH_ONLY_PREFIX):
+        comms.send_discord_message(msg, "#instructors", blocking=False)
     msg += (
         "\n\n*Make registration changes [here](https://api.protohaven.org/techs#events "
         "(login required)"

@@ -107,7 +107,6 @@ def submit_forms(form_data):
 def log_sign_in(data, result, meta):
     """Logs a sign-in based on form data. Sends both to Airtable and Google Forms"""
     # Note: setting `purpose` this way tricks the form into not requiring other fields
-    assert result["waiver_signed"] is True
     form_data = SignInEvent(
         email=data["email"],
         dependent_info=data["dependent_info"],

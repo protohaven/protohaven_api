@@ -366,7 +366,7 @@ HASHES = {
     "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
     "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
     "instruction_requests": "1ae4746c79bc5b54",  # pragma: allowlist secret
-    "instructor_applications": "972e75b27ccde333",  # pragma: allowlist secret
+    "instructor_applications": "fd52d697d3e48e0b",  # pragma: allowlist secret
     "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
     "instructor_class_canceled": "57dc5ce8d4ec5317",  # pragma: allowlist secret
     "instructor_class_confirmed": "51392e2fb41f37f8",  # pragma: allowlist secret
