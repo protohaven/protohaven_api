@@ -546,7 +546,7 @@ class Commands:
         arg(
             "--limit",
             help="Max number of coupons to create in this invocation",
-            type=str,
+            type=int,
             default=5,
         ),
         arg(
