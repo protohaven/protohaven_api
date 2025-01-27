@@ -351,7 +351,7 @@ def test_create_coupon(mocker):
     expected_fields = {
         "Code": "SUMMER25",
         "Amount": 25,
-        "Use By": d(1).isoformat(),
+        "Use By": d(1).strftime("%Y-%m-%d"),
         "Created": d(0).isoformat(),
         "Expires": d(2).strftime("%Y-%m-%d"),
     }

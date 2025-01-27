@@ -346,7 +346,7 @@ def create_coupon(code, amount, use_by, expires):
         {
             "Code": code,
             "Amount": amount,
-            "Use By": use_by.isoformat(),
+            "Use By": use_by.strftime("%Y-%m-%d"),
             "Created": tznow().isoformat(),
             "Expires": expires.strftime("%Y-%m-%d"),
         }

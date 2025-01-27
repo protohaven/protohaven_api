@@ -592,13 +592,15 @@ class Commands:
                 cid, args.coupon_amount, now, expiry
             )
             log.info(f"Coupon code created: {cid}")
-            airtable.create_coupon(
+            status_code, content = airtable.create_coupon(
                 cid,
                 args.coupon_amount,
                 expiry - datetime.timedelta(args.remaining_days_valid),
                 expiry,
             )
-            log.info(f"Pushed to airtable: {cid}")
+            if status_code != 200:
+                raise RuntimeError(f"Failed to push coupon to airtable: {content}")
+            log.info("...and pushed to airtable")
 
         print_yaml(
             [
