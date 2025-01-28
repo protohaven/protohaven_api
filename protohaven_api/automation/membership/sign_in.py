@@ -114,10 +114,10 @@ def log_sign_in(data, result, meta):
         referrer=data.get("referrer"),
         purpose="I'm a member, just signing in!",
         am_member=(data["person"] == "member"),
-        full_name=meta.get("full_name", ""),
-        clearances=meta.get("clearances", []),
-        violations=meta.get("violations", []),
-        status=result.get("status", "UNKNOWN"),
+        full_name=meta.get("full_name") or "",
+        clearances=meta.get("clearances") or [],
+        violations=meta.get("violations") or [],
+        status=result.get("status") or "UNKNOWN",
     )
     _apply_async(submit_forms, args=(form_data,))
 
