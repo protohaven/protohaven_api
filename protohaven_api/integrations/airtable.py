@@ -172,12 +172,17 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
-def get_reports_for_tool(airtable_id):
+def get_reports_for_tool(airtable_id, back_days=90):
     """Fetches all tool reports tagged with a particular tool record in Airtable"""
-    for r in get_all_records("tools_and_equipment", "tool_reports"):
+    for r in get_all_records_after(
+        "tools_and_equipment",
+        "tool_reports",
+        tznow() - datetime.timedelta(days=back_days),
+    ):
         if airtable_id not in r["fields"].get("Equipment Record", []):
             continue
         yield {
+            "t": dateparser.parse(r["fields"].get("Created")),
             "date": r["fields"].get("Created"),
             "name": r["fields"].get("Name"),
             "email": r["fields"].get("Email"),
@@ -192,7 +197,7 @@ def get_areas():
     return get_all_records("tools_and_equipment", "areas")
 
 
-def get_tool_id_and_name(tool_code):
+def get_tool_id_and_name(tool_code: str):
     """Fetches the name and ID of a tool in Airtable, based on its tool code"""
     for t in get_tools():
         if (
