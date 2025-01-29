@@ -206,17 +206,18 @@ def test_get_reports_for_tool(mocker):
     """Test fetching tool reports for a specific airtable_id"""
     mocker.patch.object(
         a,
-        "get_all_records",
+        "get_all_records_after",
         return_value=[
             {
                 "fields": {
                     "Equipment Record": ["valid_id"],
-                    "Created": "2023-10-01",
+                    "Created": d(0).strftime("%Y-%m-%d"),
                     "Name": "Test User",
                     "Email": "testuser@example.com",
                     "What's the problem?": "Tool not working",
                     "Actions taken": "Checked settings",
                     "Asana Link": "http://asana.com/task/1",
+                    "Current equipment status": "foo",
                 }
             },
             {
@@ -230,7 +231,9 @@ def test_get_reports_for_tool(mocker):
     reports = list(a.get_reports_for_tool("valid_id"))
     assert len(reports) == 1
     assert reports[0] == {
-        "date": "2023-10-01",
+        "t": d(0),
+        "state": "foo",
+        "date": d(0).strftime("%Y-%m-%d"),
         "name": "Test User",
         "email": "testuser@example.com",
         "message": "Tool not working",

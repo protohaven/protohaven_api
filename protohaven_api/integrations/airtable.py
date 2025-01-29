@@ -182,7 +182,7 @@ def get_reports_for_tool(airtable_id, back_days=90):
         if airtable_id not in r["fields"].get("Equipment Record", []):
             continue
         yield {
-            "t": dateparser.parse(r["fields"].get("Created")),
+            "t": dateparser.parse(r["fields"].get("Created")).astimezone(tz),
             "date": r["fields"].get("Created"),
             "name": r["fields"].get("Name"),
             "state": r["fields"].get("Current equipment status"),

@@ -4,7 +4,7 @@ import pytest
 
 from protohaven_api import rbac
 from protohaven_api.handlers import admin as a
-from protohaven_api.testing import fixture_client  # pylint: disable=unused-import
+from protohaven_api.testing import d, fixture_client  # pylint: disable=unused-import
 
 
 def test_user_clearances(mocker, client):
@@ -142,7 +142,7 @@ def test_get_maintenance_data(mocker, client):
     tool_code = "test_tool_code"
     airtable_id = "test_airtable_id"
     tool_name = "Test Tool Name"
-    history_data = [{"id": "history1"}, {"id": "history2"}]
+    history_data = [{"id": "history1", "t": d(0)}, {"id": "history2", "t": d(1)}]
     active_tasks_data = [{"id": "task1"}, {"id": "task2"}]
 
     mocker.patch.object(
@@ -158,10 +158,12 @@ def test_get_maintenance_data(mocker, client):
 
     response = client.get(f"/admin/get_maintenance_data?tool_code={tool_code}")
     assert response.status_code == 200
-    assert response.json == {
-        "history": history_data,
-        "active_tasks": active_tasks_data,
-    }
+    got = response.json
+    assert [h["id"] for h in got["history"]] == [
+        "history2",
+        "history1",
+    ]  # By date, descending
+    assert got["active_tasks"] == active_tasks_data
 
 
 def test_tool_maintenance_submission(mocker, client):
