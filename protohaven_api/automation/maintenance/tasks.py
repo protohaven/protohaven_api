@@ -26,5 +26,5 @@ def get_open_tasks_matching_tool(record_id, tool_name):
             yield {
                 "name": t["name"],
                 "modified_at": t.get("modified_at"),
-                "uri": t.get("uri"),
+                "gid": t.get("gid"),
             }

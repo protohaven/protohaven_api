@@ -185,6 +185,7 @@ def get_reports_for_tool(airtable_id, back_days=90):
             "t": dateparser.parse(r["fields"].get("Created")),
             "date": r["fields"].get("Created"),
             "name": r["fields"].get("Name"),
+            "state": r["fields"].get("Current equipment status"),
             "email": r["fields"].get("Email"),
             "message": r["fields"].get("What's the problem?"),
             "summary": r["fields"].get("Actions taken"),

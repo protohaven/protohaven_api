@@ -18,38 +18,41 @@ function testExtractCommand() {
 }
 
 function testResolveState() {
-  $got = Approval::resolveState([["author" => 1, "html" => "approve #1"]], [1 => true]);
-  assert_equal($got, ["approved_revision" => null, "approvals" => [1 => [1]]], "Single approval");
+  $got = Approval::resolveState([["author" => 1, "html" => "approve #1"]], [1 => true], 2);
+  assert_equal($got, ["approved_revision" => null, "approvals" => [1 => [1]]], "Single approval (insufficient)");
+
+  $got = Approval::resolveState([["author" => 1, "html" => "approve #1"]], [1 => true], 1);
+  assert_equal($got, ["approved_revision" => 1, "approvals" => [1 => [1]]], "Single approval (sufficient)");
 
   $got = Approval::resolveState([
     ["author" => 1, "html" => "approve #1"],
     ["author" => 2, "html" => "approve #1"],
-  ], [1 => true, 2 => true]);
+  ], [1 => true, 2 => true], 2);
   assert_equal($got, ["approved_revision" => 1, "approvals" => [1 => [1, 2]]], "Two separate approvers");
 
   $got = Approval::resolveState([
     ["author" => 1, "html" => "approve #1"],
-  ], []);
+  ], [], 2);
   assert_equal($got, ["approved_revision" => null, "approvals" => []], "Non-approver not counted");
 
   $got = Approval::resolveState([
     ["author" => 1, "html" => "approve #1"],
     ["author" => 2, "html" => "approve #2"],
-  ], [1 => true, 2 => true]);
+  ], [1 => true, 2 => true], 2);
   assert_equal($got, ["approved_revision" => null, "approvals" => [1 => [1], 2 => [2]]], "Different revs don't accumulate approvals");
 
   $got = Approval::resolveState([
     ["author" => 1, "html" => "approve #1"],
     ["author" => 2, "html" => "reject #1"],
     ["author" => 2, "html" => "approve #1"],
-  ], [1 => true, 2 => true]);
+  ], [1 => true, 2 => true], 2);
   assert_equal($got, ["approved_revision" => null, "approvals" => [1 => [2]]], "Rejection by different approver resets count");
 
   $got = Approval::resolveState([
     ["author" => 1, "html" => "approve #1"],
     ["author" => 2, "html" => "approve #1"],
     ["author" => 3, "html" => "reject #1"],
-  ], [1 => true, 2 => true]);
+  ], [1 => true, 2 => true], 2);
   assert_equal($got, ["approved_revision" => 1, "approvals" => [1 => [1,2]]], "Rejection ignored if not an approver");
 
   $got = Approval::resolveState([
@@ -57,13 +60,13 @@ function testResolveState() {
     ["author" => 2, "html" => "approve #1"],
     ["author" => 1, "html" => "approve #2"],
     ["author" => 2, "html" => "approve #2"],
-  ], [1 => true, 2 => true]);
+  ], [1 => true, 2 => true], 2);
   assert_equal($got, ["approved_revision" => 2, "approvals" => [1 => [1, 2], 2 => [1, 2]]], "Second rev approval overwrites first");
 
   $got = Approval::resolveState([
     ["author" => 1, "html" => "approve #forever"],
     ["author" => 2, "html" => "disapprove #1"],
-  ], [1 => true, 2 => true]);
+  ], [1 => true, 2 => true], 2);
   assert_equal($got, ["approved_revision" => "all", "approvals" => []], "Permanent approval");
 }
 
