@@ -39,14 +39,11 @@ services:
   bookstack_db:
     image: lscr.io/linuxserver/mariadb
     container_name: bookstack_db
+    env_file: db_env.secret
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=America/New_York
-      - "MYSQL_ROOT_PASSWORD=rj86unps^yBUeRP*xoYiLBCfUeJicVjEs!t"
-      - MYSQL_DATABASE=bookstackapp
-      - MYSQL_USER=bookstack
-      - "MYSQL_PASSWORD=nVAmft*UAtxPWxiC9ZR&oycWeGHhYfQ3bZ"
     volumes:
       - ./bookstack_db_data:/config
     ports:
