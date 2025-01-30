@@ -22,14 +22,14 @@ function getApproverIDs() {
 }
 
 class Approval {
-  const THRESH = 2;
+  const DEFAULT_APPROVAL_THRESH = 2;
 
-  public static function getPageState(Page $page, int $rev_id) {
+  public static function getPageState(Page $page, int $rev_id, int $thresh) {
     $cc = $page->comments()->with('createdBy')->get()->all();
     $approvers = getApproverIDs();
     $cc = array_map(function($c) { return ["html" => $c->html, "author" => $c['updated_by']]; }, $cc);
 
-    $result = Approval::resolveState($cc, $approvers);
+    $result = Approval::resolveState($cc, $approvers, $thresh);
     if (!$rev_id) {
       $cur_rev = $page->currentRevision()->get()->first();
     } else {
@@ -39,7 +39,7 @@ class Approval {
       $result["current_revision"] = $cur_rev->revision_number;
       $result['current_id'] = $cur_rev->id;
     }
-    $result["thresh"] = static::THRESH;
+    $result["thresh"] = $thresh;
 
     # A page "#1" revision could actually be .../revisions/4 in the URL, as it's by ID
     # and not rev number. We must resolve the revision ID here so that we can provide
@@ -64,7 +64,7 @@ class Approval {
     return ["action" => $a, "rev" => $r];
   }
 
-  public static function resolveState($cc, $approvers) {
+  public static function resolveState($cc, $approvers, $thresh) {
     $latest_approved = null;
     $revs_approval = array();
     foreach ($cc as $c) {
@@ -87,7 +87,7 @@ class Approval {
         if (!in_array($c['author'], $revs_approval[$m['rev']])) {
           array_push($revs_approval[$m['rev']], $c['author']);
         }
-        if (count($revs_approval[$m['rev']]) >= static::THRESH && (is_null($latest_approved) || $m['rev'] > $latest_approved)) {
+        if (count($revs_approval[$m['rev']]) >= $thresh && (is_null($latest_approved) || $m['rev'] > $latest_approved)) {
           $latest_approved = $m['rev'];
         }
       }
@@ -143,7 +143,7 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
         continue;
       }
 
-      $state = Approval::getPageState($page, 0);
+      $state = Approval::getPageState($page, 0, null);
       $cr = $state['current_revision'];
       $ar = $state['approved_revision'];
       if ($cr == $ar || $ar == "all") {
@@ -154,9 +154,9 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
       echo "<p><strong><a href=\"$url\" target=\"blank\">$page->name (#$page->id) rev $cr</a></strong></p>";
       echo "<p>Approvals needed: ";
       if (!array_key_exists($cr, $state['approvals'])) {
-        echo Approval::THRESH;
+        echo $state['thresh'];
       } else {
-        echo Approval::THRESH - count($state['approvals'][$cr]);
+        echo $state['thresh'] - count($state['approvals'][$cr]);
       }
       echo "</p>";
       if (!is_null($ar)) {

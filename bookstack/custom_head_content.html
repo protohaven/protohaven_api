@@ -75,7 +75,7 @@
 </script>
 
 <script>
-  const MAINT_WIDGET_ID = "bkmrk-%23maintenance_widget";
+  const MAINT_WIDGET_ID = "bkmrk-maintenance_widget";
   window.onload = () => {
     console.log("onload", MAINT_WIDGET_ID);
     const p = window.location.pathname.split("/");
@@ -90,15 +90,15 @@
       console.log(d);
       let result = document.createElement('div');
       result.className = "ph_tool_widget";
-      result.innerHTML = '<h3>Active Tasks in Asana</h3><div><em>More tasks at <a href="TODO">TODO</a></em></div><div class="ph_asana_tasks"></div><h3>Maintenance History & Tool Reports</h3><div><em>More tool info at <a href="https://protohaven.org/equipment">protohaven.org/equipment</a></em></div><div class="ph_tool_history"></div>';
+      result.innerHTML = '<h3>Active Tasks in Asana</h3><div><em>More tasks on <a href="https://app.asana.com/0/1202469740885594/1209186829356506">Asana</a></em></div><div class="ph_asana_tasks"></div><h3>Maintenance History & Tool Reports</h3><div><em>Showing last 90 days; more history at <a href="https://protohaven.org/equipment">protohaven.org/equipment</a></em></div><div class="ph_tool_history"></div>';
 
       const asana = result.getElementsByClassName('ph_asana_tasks')[0];
       for (let a of d.active_tasks) {
         let ahref = document.createElement('a');
         ahref.className = "ph_asana_item";
         ahref.target = "_blank";
-        ahref.href = a.link;
-        ahref.innerText = `${a.name} (last modified ${a.last_modified})`;
+        ahref.href = `https://app.asana.com/0/1202469740885594/${a.gid}`;
+        ahref.innerText = `${a.name} (last modified ${new Date(a.modified_at).toLocaleString()})`;
         asana.appendChild(ahref);
       }
 
@@ -106,7 +106,7 @@
       for (let h of d.history) {
         let hdiv = document.createElement('div');
         hdiv.className="ph_hist_item";
-        hdiv.innerText = `${h.date} (${h.author}, state=${h.state}): ${h.message}`;
+        hdiv.innerText = `${h.date} (${h.name}, state=${h.state}): ${h.message}`;
         hist.appendChild(hdiv);
       }
       elem.replaceWith(result);

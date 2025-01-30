@@ -182,12 +182,18 @@ def neon_membership_created_callback():
 def get_maintenance_data():
     """Used by Bookstack wiki to populate a widget on tool wiki pages"""
     tc = request.values.get("tool_code")
+    if not tc:
+        return Response("tool_code must be provided in request", 400)
     airtable_id, name = airtable.get_tool_id_and_name(tc)
     log.info(f"Resolved {tc} -> {airtable_id}")
     if not airtable_id:
         return Response(f"Couldn't resolve airtable ID for tool code {tc}", 400)
     return {
-        "history": list(airtable.get_reports_for_tool(airtable_id)),
+        "history": sorted(
+            airtable.get_reports_for_tool(airtable_id),
+            key=lambda r: r["t"],
+            reverse=True,
+        ),
         "active_tasks": list(mtask.get_open_tasks_matching_tool(airtable_id, name)),
     }
 

@@ -7,9 +7,10 @@ use BookStack\Facades\Theme;
 use Illuminate\Routing\Router;
 use BookStack\Users\Models\Role;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 function getToolMaintenanceData($tool_code) {
-  return Http::withHeaders(["X-Protohaven-APIKey" => getenv("PROTOHAVEN_API_KEY")])->get(getenv("PROTOHAVEN_API_URL") . "/admin/get_maintenance_data")->throw()->json();
+  return Http::withHeaders(["X-Protohaven-APIKey" => getenv("PROTOHAVEN_API_KEY")])->get(getenv("PROTOHAVEN_API_URL") . "/admin/get_maintenance_data?tool_code=$tool_code")->throw()->json();
 }
 
 function loadToolData($page) {
@@ -47,18 +48,19 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
     return json_encode(getToolMaintenanceData($tool));
   });
 
-  $router->get('/maintenance_data/{book_slug}', function ($book_slug) {
+  $router->get('/maintenance_data/{book_slug}', function ($book_slug, Request $request) {
     $book = Book::where('slug', $book_slug)->get()->first();
     if (!$book) {
       return response("Book with slug $book_slug not found", 404);
     }
     $result = [];
+    $thresh = (int) $request->input('approval_threshold', Approval::DEFAULT_APPROVAL_THRESH);
     foreach ($book->pages()->get()->all() as $page) {
       $td = loadToolData($page);
       if ($td) {
         $td['book_slug'] = $book->slug;
         $td['page_slug'] = $page->slug;
-        $td['approval_state'] = Approval::getPageState($page, 0);
+        $td['approval_state'] = Approval::getPageState($page, 0, $thresh);
         $result[] = $td;
       }
     }

@@ -23,4 +23,8 @@ def get_open_tasks_matching_tool(record_id, tool_name):
             tool_name in t["name"].lower()
             or tasks.get_airtable_id(t) in task_record_ids
         ):
-            yield {"name": t["name"], "modified_at": t["modified_at"], "uri": t["uri"]}
+            yield {
+                "name": t["name"],
+                "modified_at": t.get("modified_at"),
+                "gid": t.get("gid"),
+            }
