@@ -17,9 +17,10 @@ from protohaven_api.testing import d
     "include_filter,initializes",
     [
         (None, True),
-        (["j@d.com"], True),
-        (["a@b.com"], False),
-        ([], False),
+        ("j@d.com", True),
+        ("a@b.com", False),
+        ("None", False),
+        ("", True),
     ],
 )
 def test_init_membership(mocker, include_filter, initializes):

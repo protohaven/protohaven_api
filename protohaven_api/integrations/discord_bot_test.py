@@ -14,25 +14,23 @@ Tc = namedtuple("tc", "desc,usr,enabled,include,exclude,want")
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("Disabled", "usr", False, ["usr"], "None", False),
+        Tc("Disabled", "usr", False, "usr, usr2", "None", False),
         Tc("Default", "usr", True, "None", "None", True),
-        Tc("Excluded", "usr", True, "None", ["usr"], False),
-        Tc("Not Excluded", "usr", True, "None", ["otherusr"], True),
-        Tc("Included", "usr", True, ["usr"], "None", True),
-        Tc("Not Included", "usr", True, ["otherusr"], "None", False),
-        Tc("Both filters OK", "usr", True, ["usr"], ["otherusr"], True),
-        Tc(
-            "Included but excluded prefers strict", "usr", True, ["usr"], ["usr"], False
-        ),
+        Tc("Excluded", "usr", True, "None", "usr", False),
+        Tc("Not Excluded", "usr", True, "None", "otherusr", True),
+        Tc("Included", "usr", True, "usr", "None", True),
+        Tc("Not Included", "usr", True, "otherusr", "None", False),
+        Tc("Both filters OK", "usr", True, "usr", "otherusr", True),
+        Tc("Included but excluded prefers strict", "usr", True, "usr", "usr", False),
         Tc(
             "Not excluded but not included prefers strict",
             "usr",
             True,
-            ["usr2"],
-            ["usr2"],
+            "usr2",
+            "usr2",
             False,
         ),
-        Tc("Fail on both filters", "usr", True, ["usr2"], ["usr"], False),
+        Tc("Fail on both filters", "usr", True, "usr2", "usr", False),
     ],
     ids=idfn,
 )

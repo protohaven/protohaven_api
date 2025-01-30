@@ -175,18 +175,12 @@ class PHClient(discord.Client):
         await mem.send(msg)
 
     def _as_filter(self, f):
-        if f is None:
+        if str(f) == "None" or f.strip() == "":
             return None
 
-        if isinstance(f, str):
-            if f.lower().strip() == "none":
-                return None
-            return {f}
-
-        if isinstance(f, list):
-            return set(f)
-
-        raise RuntimeError(f"Invalid type of filter config value {type(f)}")
+        if not isinstance(f, str):
+            raise RuntimeError(f"Invalid type of filter config value {type(f)}")
+        return {s.lower().strip() for s in f.split(",")}
 
     def hook_on_user_is_permitted(self, discord_id: str):
         """Returns True if configuration dictates that we should run hooks

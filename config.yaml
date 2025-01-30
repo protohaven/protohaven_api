@@ -32,14 +32,14 @@ neon:
   waiver_published_date: "2023-03-14"
   webhooks:
     new_membership:
-      enabled: True
-      include_filter: ["hello+testv2@protohaven.org", "hello+testnonmember@protohaven.org"]
+      enabled: "${NEW_MEMBERSHIP_ENABLED}"
+      include_filter: "${NEW_MEMBERSHIP_INCLUDE_CSV}"
 discord_bot:
   enabled: "${DISCORD_BOT}"
   event_hooks:
-    enabled: true
-    include_filter: ["workshop_protohaven"]
-    exclude_filter: None
+    enabled: "${EVENT_HOOKS_ENABLED}"
+    include_filter: "${EVENT_HOOKS_INCLUDE_CSV}"
+    exclude_filter: "${EVENT_HOOKS_EXCLUDE_CSV}"
   token: "${DISCORD_BOT_TOKEN}"
   guild_id: 791673872529358869
 comms:
