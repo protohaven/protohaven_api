@@ -114,7 +114,7 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
       $pq = new PageQueries();
       $page = $pq->findVisibleBySlugsOrFail($book_slug, $page_slug);
       Log::info($page->id);
-      echo json_encode(Approval::getPageState($page, (int)$rev_id));
+      echo json_encode(Approval::getPageState($page, (int)$rev_id, Approval::DEFAULT_APPROVAL_THRESH));
     } else {
       echo json_encode(["ignore" => true]);
     }
@@ -143,7 +143,7 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
         continue;
       }
 
-      $state = Approval::getPageState($page, 0, null);
+      $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
       $cr = $state['current_revision'];
       $ar = $state['approved_revision'];
       if ($cr == $ar || $ar == "all") {

@@ -62,7 +62,7 @@
         let num_approvals = (d.approvals[d.current_revision] || []).length;
         if (num_approvals < d.thresh) {
           const inparens = `${num_approvals} of ${d.thresh} given`;
-          inner = `This revision is pending approval (<a href="/approvals">${inparens}</a>).`;
+          inner = `This revision (#${d.current_revision}) is pending approval (<a href="/approvals">${inparens}</a>).`;
         }
         if (d.approved_revision && d.approved_id) {
           inner += `<br/>See <a href="/books/${book_slug}/page/${page_slug}/revisions/${d.approved_id}">Revision ${d.approved_revision}</a> for most recent approved content.`;
