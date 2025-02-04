@@ -1,8 +1,8 @@
 """Simple integration with Wyze security systems"""
+
 import logging
 
 from wyze_sdk import Client
-from wyze_sdk.models.devices import Camera, ContactSensor
 
 from protohaven_api.config import get_config
 
@@ -27,21 +27,20 @@ def init():
 
 def get_door_states():
     """Gets the states of all doors in the shop"""
-    for d in cli.devices_list():
-        if d.product.type == ContactSensor.type:
-            yield {
-                "name": d.nickname,
-                "mac": d.mac,
-                "is_online": d.is_online,
-                "open_close_state": d.open_close_state,
-            }
+    for d in cli.entry_sensors.list():
+        yield {
+            "name": d.nickname,
+            "mac": d.mac,
+            "is_online": d.is_online,
+            "open_close_state": d.open_close_state,
+        }
+        print(d.nickname, d.to_dict())
 
 
 def get_camera_states():
     """Gets the states of all cameras in the shop"""
-    for d in cli.devices_list():
-        if d.product.type == Camera.type:
-            yield {"name": d.nickname, "mac": d.mac, "is_online": d.is_online}
+    for d in cli.cameras.list():
+        yield {"name": d.nickname, "mac": d.mac, "is_online": d.is_online}
 
 
 if __name__ == "__main__":
