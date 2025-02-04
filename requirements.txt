@@ -117,5 +117,5 @@ Werkzeug==3.0.1
 wsproto==1.2.0
 yarl==1.9.4
 zipp==3.17.0
-wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@0277653e3286d539a1e861059a6f98ed9224ac3a
+wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@fad193bb417fd37bfc8871be1077166221dfcb12
 paho-mqtt==2.1.0
