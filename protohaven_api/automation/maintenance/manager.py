@@ -43,7 +43,8 @@ def get_maintenance_needed_tasks(now=None):
             "freq": m["maint_freq_days"],
             "section": section_map.get(m.get("maint_asana_section")),
         }
-        for m in wiki.get_maintenance_data(get_config("bookstack/basic_maint_slug"))
+        for book in get_config("bookstack/maintenance/books")
+        for m in wiki.get_maintenance_data(book)
         if m["approval_state"].get("approved_revision")
     ]
     log.info(f"Loaded {len(candidates)} task(s)")

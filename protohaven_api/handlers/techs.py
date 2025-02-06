@@ -329,9 +329,13 @@ def techs_backfill_events():
                         log.info(f"Found single registration ticket id {tid}")
                         break
                 if not tid:
-                    raise RuntimeError(
+                    log.warning(
                         f"Failed to get ticket IDs from event {evt['id']} for registration"
                     )
+                    # Some events (e.g. All Member Meeting, #18050) lack ticketing information
+                    # intentionally as they are free events, but they're not tech-only. In these
+                    # cases, we just pretend they don't exist.
+                    continue
 
             for_techs.append(
                 {
