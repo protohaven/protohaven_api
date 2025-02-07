@@ -76,6 +76,7 @@ packaging==23.2
 pillow==10.4.0
 platformdirs==3.0.0
 pluggy==1.5.0
+protobuf==4.25.1
 psutil==6.0.0
 PuLP==2.8.0
 pyasn1==0.5.1
@@ -116,5 +117,5 @@ Werkzeug==3.0.1
 wsproto==1.2.0
 yarl==1.9.4
 zipp==3.17.0
-wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@fad193bb417fd37bfc8871be1077166221dfcb12
+wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@2ff7f51bdd1b078630c29f778d0598fd1d777078
 paho-mqtt==2.1.0
