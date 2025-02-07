@@ -1,10 +1,15 @@
 """Functions for interfacing with Bookstack, hosted at https://wiki.protohaven.org"""
+
+from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 
 
 def get_maintenance_data(book_slug):
     """Fetches maintenance information stored in Bookstack as tags"""
-    return get_connector().bookstack_request("GET", f"/maintenance_data/{book_slug}")
+    thresh = get_config("bookstack/maintenance/approval_threshold")
+    return get_connector().bookstack_request(
+        "GET", f"/maintenance_data/{book_slug}?approval_threshold={thresh}"
+    )
 
 
 def fetch_db_backup(dest):

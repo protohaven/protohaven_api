@@ -213,7 +213,13 @@ wyze:
 bookstack:
   api_key: "${PH_BOOKSTACK_API_KEY}"
   base_url: "https://wiki.protohaven.org"
-  basic_maint_slug: "maintenance-tech-ready"
+  maintenance:
+    books:
+    - "maintenance-tech-ready"
+    - "maintenance-training-required"
+    - "maintenance-admin-required"
+    - "it-maintenance"
+    approval_threshold: 1
 drive:
   credentials_path: "credentials.json"
   scopes: ["https://www.googleapis.com/auth/drive"]

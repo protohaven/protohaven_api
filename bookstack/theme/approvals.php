@@ -12,7 +12,7 @@ function getApproverIDs() {
   global $approvers;
   $approvers = array();
   // This could be cached in the future
-  $roles = Role::whereIn('display_name', array('Shop Tech Lead', 'Admin', 'Education Lead', 'Staff', 'Board Member'))->get()->all();
+  $roles = Role::whereIn('display_name', array("Wiki Approver"))->get()->all();
   foreach ($roles as $r) {
     foreach ($r->users()->get()->all() as $u) {
       $approvers[$u->id] = true;
@@ -124,7 +124,7 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
     ?>
     <h2>Page approvals process:</h2>
     <p>The following pages need approvals and will display a disclaimer on the page until they're approved.</p>
-    <p>Approvals may be given by Tech Leads, Admins, Board Members, Staff, and Education Leads.</p>
+    <p>Approvals may be given by anyone with the "Wiki Approver" role set on their account - this role is automatically added (but NOT automatically removed) for Tech Leads, EDU Leads, Maintenance Crew, Board, and Staff members.</p>
     <p>To approve e.g. revision 3 of a page as one of these roles, comment "Approve #3" in the comments section at the bottom of the page.</p>
     <p>Approvers can also comment "Reject #3" to reset the approval counter of the given page.</p>
     <p>To exclude a page from the approval process, comment "Approve #forever".</p>

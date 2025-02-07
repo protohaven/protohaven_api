@@ -70,6 +70,7 @@ def test_get_maintenance_needed_tasks_wiki_only(mocker):
     mocker.patch.object(
         m.tasks, "last_maintenance_completion_map", return_value={"task_1": d(0)}
     )
+    mocker.patch.object(m, "get_config", return_value=["book-slug"])
     mocker.patch.object(
         m.wiki,
         "get_maintenance_data",
@@ -111,6 +112,7 @@ def test_unapproved_wiki_tasks_not_returned(mocker):
     )
     mocker.patch.object(m.tasks, "last_maintenance_completion_map", return_value={})
     mocker.patch.object(m.airtable, "get_all_maintenance_tasks", return_value=[])
+    mocker.patch.object(m, "get_config", return_value=["book-slug"])
     mocker.patch.object(
         m.wiki,
         "get_maintenance_data",

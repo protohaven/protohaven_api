@@ -58,6 +58,8 @@ function getAccountInfo($user, $password, $accessToken) {
 function computeRoleChanges($neon_roles, $cur_roles, $all_roles) {
   // Given string arrays $neon_roles and $cur_roles, loop through $all_roles and compute the
   // mutation needed to sync a user to only have $neon_roles.
+  $ROLES_GRANTING_APPROVER = ["Shop Tech Lead", "Education Lead", "Maintenance Crew", "Board Member", "Staff"];
+  $APPROVER_ROLE = "Wiki Approver";
   Log::info("User has Neon roles" . json_encode($neon_roles) . " and Bookstack roles " . json_encode($cur_roles));
   if (is_null($cur_roles)) {
 	  $cur_roles = [];
@@ -72,6 +74,21 @@ function computeRoleChanges($neon_roles, $cur_roles, $all_roles) {
     if ($name == "Admin" || $name == "Public") {
       continue; // We don't mess with admin & public roles
     }
+
+    if ($name == $APPROVER_ROLE) {
+      // Approver role is a union of "leadership" roles and handled specially.
+      // Note that Approver role is NOT auto-revoked. This is intentional, as
+      // otherwise a Tech Lead that leaves the program would get their Approver
+      // role revoked and thus invalidate all of their prior approvals.
+      foreach ($ROLES_GRANTING_APPROVER as $name2) {
+        if (in_array($name2, $neon_roles) && !in_array($APPROVER_ROLE, $cur_roles)) {
+          Log::info("Add approver");
+          array_push($result["attach"], $role->id);
+        }
+      }
+      continue;
+    }
+
     if (in_array($name, $neon_roles) && !in_array($name, $cur_roles)) {
       Log::info("Add role " . $name);
       array_push($result["attach"], $role->id);
