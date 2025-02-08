@@ -170,24 +170,37 @@ def load_schedulable_classes(exclusions):
     If there's anything that requires the instructor's attention, it's
     appended to a list of notes as part of the return value.
     """
+    classes = []
+    notices = defaultdict(list)
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
-            notes = []
+            missing = [
+                f for f in ("Name", "Hours", "Days", "Area") if f not in c["fields"]
+            ]
+            if len(missing) > 0:
+                notices[c["id"]].append(
+                    f"{c['fields']['Name']} template missing required fields: {', '.join(missing)} "
+                    "- cannot schedule; contact an Edu Lead to resolve this"
+                )
+                continue
             if not c["fields"].get("Image Link"):
-                notes.append(
+                notices[c["id"]].append(
                     "Class is missing a promo image - registrations will suffer. Reach out "
                     "in the #instructors Discord channel or to "
                     "education@protohaven.org."
                 )
-            yield Class(
-                c["id"],
-                c["fields"]["Name"],
-                hours=c["fields"]["Hours"],
-                days=c["fields"]["Days"],
-                areas=c["fields"]["Area"],
-                exclusions=exclusions[c["id"]],
-                score=compute_score(c),
-            ), notes
+            classes.append(
+                Class(
+                    c["id"],
+                    c["fields"]["Name"],
+                    hours=c["fields"]["Hours"],
+                    days=c["fields"]["Days"],
+                    areas=c["fields"]["Area"],
+                    exclusions=exclusions.get(c["id"], []),
+                    score=compute_score(c),
+                )
+            )
+    return classes, notices
 
 
 def generate_env(
@@ -226,7 +239,7 @@ def generate_env(
     )
 
     # Load classes from airtable
-    classes = list(load_schedulable_classes(exclusions))
+    classes, notices = load_schedulable_classes(exclusions)
     class_by_id = {c.class_id: c for c, _ in classes}
     log.info(f"Loaded {len(classes)} classes")
 
@@ -281,7 +294,7 @@ def generate_env(
     log.info(f"All capabilities: {all_inst_caps}")
     return {
         "classes": [c.as_dict() for c, _ in classes if c.class_id in all_inst_caps],
-        "notices": {c[0].class_id: c[1] for c in classes},
+        "notices": notices,
         "instructors": [i.as_dict() for i in instructors],
         "area_occupancy": dict(
             area_occupancy.items()

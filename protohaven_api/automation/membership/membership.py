@@ -104,6 +104,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     membership_id,
     email,
     fname,
+    is_amp=False,
     coupon_amount=DEFAULT_COUPON_AMOUNT,
     apply=True,
     target=None,
@@ -141,13 +142,26 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     if apply:
         neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)
 
+    result = []
     if cid:
-        return Msg.tmpl(
-            "init_membership",
-            fname=fname,
-            coupon_amount=coupon_amount,
-            coupon_code=cid,
-            sample_classes=get_sample_classes(coupon_amount),
-            target=target,
-            id=_id,
+        result.append(
+            Msg.tmpl(
+                "init_membership",
+                fname=fname,
+                coupon_amount=coupon_amount,
+                coupon_code=cid,
+                sample_classes=get_sample_classes(coupon_amount),
+                target=target,
+                id=_id,
+            )
         )
+    if is_amp:
+        result.append(
+            Msg.tmpl(
+                "verify_income",
+                fname=fname,
+                target=target,
+                id=_id,
+            )
+        )
+    return result

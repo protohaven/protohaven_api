@@ -318,6 +318,10 @@ TESTED_TEMPLATES = [
     ),
     ("tool_sync_summary", {"n": 1, "changes": ["change 1", "change 2"]}),
     (
+        "verify_income",
+        {"fname": "First"},
+    ),
+    (
         "violation_ongoing",
         {
             "firstname": "Firstname",
@@ -393,6 +397,7 @@ HASHES = {
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
+    "verify_income": "4d24d1a819192eae",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
     "wiki_backup_summary": "887a6b9db2867f9e",  # pragma: allowlist secret

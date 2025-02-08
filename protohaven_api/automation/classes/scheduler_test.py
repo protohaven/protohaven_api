@@ -228,3 +228,51 @@ def test_fetch_formatted_availability(mocker):
             [d(1, 16).isoformat(), d(1, 19).isoformat(), "rowid"],
         ]
     }
+
+
+def test_load_schedulable_classes(mocker):
+    mocker.patch.object(
+        s.airtable,
+        "get_all_class_templates",
+        return_value=[
+            {
+                "id": "class1",
+                "fields": {
+                    "Name": "Class One",
+                    "Schedulable": True,
+                    "Hours": 5,
+                    "Days": 2,
+                    "Area": ["Area 1"],
+                    "Image Link": "http://example.com/image1",
+                },
+            },
+            {
+                "id": "class2",
+                "fields": {
+                    "Name": "Class Two",
+                    "Schedulable": True,
+                    # Missing "Hours", "Days", "Area"; rejected
+                },
+            },
+            {
+                "id": "class3",
+                "fields": {
+                    "Name": "Class Three",
+                    "Schedulable": True,
+                    "Hours": 3,
+                    "Days": 1,
+                    "Area": ["Area 2"],
+                    # Missing "Image Link"
+                },
+            },
+        ],
+    )
+    mocker.patch.object(s, "compute_score", return_value=10)
+
+    classes, notices = s.load_schedulable_classes({})
+
+    assert len(classes) == 2
+    assert classes[0].name == "Class One"
+    assert classes[1].name == "Class Three"
+    assert "missing required fields" in notices["class2"][0]
+    assert "Class is missing a promo image" in notices["class3"][0]

@@ -461,6 +461,12 @@ class Commands:
             default=30,
         ),
         arg(
+            "--limit",
+            help="Initialize a max of this many memberships for this invocation",
+            type=int,
+            default=3,
+        ),
+        arg(
             "--filter",
             help="CSV of Neon IDs to restrict processing",
             type=str,
@@ -483,6 +489,7 @@ class Commands:
         )
         result = []
         summary = []
+        num = 0
         for m in neon.get_new_members_needing_setup(
             args.max_days_ago, extra_fields=["Email 1"]
         ):
@@ -505,7 +512,11 @@ class Commands:
                 "_id": f"init member {aid}",
             }
             summary.append(kwargs)
-            result.append(memauto.init_membership(**kwargs))
+            result.append(*memauto.init_membership(**kwargs))
+            num += 1
+            if num >= args.limit:
+                log.info("Max number of initializations reached; stopping")
+                break
 
         result = [r for r in result if r is not None]
         if len(result) > 0:
