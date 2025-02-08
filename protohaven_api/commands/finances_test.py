@@ -297,3 +297,25 @@ def test_init_new_memberships_e2e(mocker, cli):
     m1.assert_called_with(75, "a@b.com", True)
     m2.assert_called_with("456", mocker.ANY, mocker.ANY)
     m3.assert_called_with("123", "deferred")
+
+
+def test_init_new_memberships_limit(mocker, cli):
+    mocker.patch.object(
+        neon,
+        "get_new_members_needing_setup",
+        return_value=[
+            {"Account ID": str(i), "First Name": "Foo", "Email 1": "a@b.com"}
+            for i in range(5)
+        ],
+    )
+    m1 = mocker.patch.object(
+        f.memauto.neon, "get_latest_membership_id", return_value=123
+    )
+    m2 = mocker.patch.object(f.memauto, "init_membership", return_value=[None])
+    got = cli("init_new_memberships", ["--apply", "--limit=2"])
+    m1.assert_has_calls(
+        [
+            mocker.call("0"),
+            mocker.call("1"),
+        ]
+    )

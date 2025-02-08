@@ -112,7 +112,7 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
     mock_init_membership = mocker.patch.object(
         a.memauto,
         "init_membership",
-        return_value=mocker.Mock(subject="subj", body="body", html=True),
+        return_value=[mocker.Mock(subject="subj", body="body", html=True)],
     )
     mock_send_email = mocker.patch.object(a.comms, "send_email")
     mock_log_comms = mocker.patch.object(a.airtable, "log_comms")
@@ -124,7 +124,11 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
         assert (rep.status_code, rep.text) == (200, "ok")
         mock_fetch_memberships.assert_called_once_with(123958)
         mock_init_membership.assert_called_once_with(
-            account_id=123958, membership_id=134, email="a@b.com", fname="John"
+            account_id=123958,
+            membership_id=134,
+            email="a@b.com",
+            fname="John",
+            is_amp=False,
         )
         mock_send_email.assert_called_once_with("subj", "body", ["a@b.com"], True)
         mock_log_comms.assert_called_once_with(

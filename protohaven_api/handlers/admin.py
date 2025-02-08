@@ -152,22 +152,26 @@ def neon_membership_created_callback():
         )
         return Response("Account already deferred", status=400)
     try:
-        msg = memauto.init_membership(
+        msgs = memauto.init_membership(
             account_id=account_id,
             membership_id=membership_id,
             email=details["email"],
             fname=details["fname"],
+            is_amp=("AMP" in membership_name),
         )
     except Exception:
         comms.send_discord_message(
-            f"ERROR initializing membership #{membership_id} for #{account_id} "
+            "ERROR initializing membership "
+            f"[#{membership_id}](https://protohaven.app.neoncrm.com/"
+            f"np/admin/account/membershipDetail.do?id={membership_id}) for "
+            f"[#{account_id}](https://protohaven.app.neoncrm.com/admin/accounts/{account_id}) "
             f"({details['email']}, {details['fname']}); see server logs for details. "
             "Account intervention may be needed.",
             "#membership-automation",
             blocking=False,
         )
         raise
-    if msg:
+    for msg in msgs:
         comms.send_email(msg.subject, msg.body, [details["email"]], msg.html)
         log.info(f"Sent to {details['email']}: '{msg.subject}'")
         airtable.log_comms(
