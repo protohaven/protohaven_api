@@ -40,7 +40,7 @@ def get_maintenance_needed_tasks(now=None):
                 f"{m['page_slug']}/{m['approval_state']['approved_id']}"
             ),
             "tags": [m["maint_level"]],
-            "freq": m["maint_freq_days"],
+            "freq": int(m["maint_freq_days"]),
             "section": section_map.get(m.get("maint_asana_section")),
         }
         for book in get_config("bookstack/maintenance/books")
@@ -55,11 +55,12 @@ def get_maintenance_needed_tasks(now=None):
             "origin": "Airtable",
             "name": t["fields"]["Task Name"],
             "detail": t["fields"]["Task Detail"],
-            "freq": t["fields"]["Frequency"],
+            "freq": int(t["fields"]["Frequency"]),
             "tags": [t["fields"]["Skill Level"]],
             "section": section_map.get(t["fields"]["Asana Section"]),
         }
         for t in airtable.get_all_maintenance_tasks()
+        if "REVIEW NEEDED" not in t["fields"]["Skill Level"]
     ]
     log.info(f"Loaded {len(candidates)} total task(s)")
 

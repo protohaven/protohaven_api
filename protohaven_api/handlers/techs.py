@@ -152,10 +152,10 @@ def techs_forecast():
 def _notify_override(name, shift, techs):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
+    techs = [t.replace("*", "") for t in techs]
     msg = (
-        f"**On duty for {shift}**: {', '.join(techs)} (edited by {name})"
-        "\n*Make additional changes to the shift schedule "
-        "[here](https://api.protohaven.org/techs#cal) (requires login)*"
+        f"**On duty {shift}: {', '.join(techs)}** "
+        f"({name} edited via [/techs](https://api.protohaven.org/techs#cal))"
     )
     comms.send_discord_message(msg, "#techs", blocking=False)
 
@@ -376,7 +376,7 @@ def _notify_registration(account_id, event_id, action):
     if not evt.get("name").startswith(TECH_ONLY_PREFIX):
         comms.send_discord_message(msg, "#instructors", blocking=False)
     msg += (
-        "\n\n*Make registration changes [here](https://api.protohaven.org/techs#events "
+        "\n\n*Make registration changes [here](https://api.protohaven.org/techs#events) "
         "(login required)"
     )
     comms.send_discord_message(msg, "#techs", blocking=False)

@@ -117,6 +117,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     Action is gated on email configured in in config.yaml
     """
     assert account_id and membership_id
+    result = []
     include_filter = get_config("neon/webhooks/new_membership/include_filter") or ""
     if include_filter.strip() != "":
         include_filter = {s.strip().lower() for s in include_filter.split(",")}
@@ -124,7 +125,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
             log.info(
                 f"Skipping membership init (no match in include_filter {include_filter})"
             )
-            return None
+            return result
 
     log.info(f"Setting #{account_id} start date to {PLACEHOLDER_START_DATE}")
 
@@ -142,7 +143,6 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     if apply:
         neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)
 
-    result = []
     if cid:
         result.append(
             Msg.tmpl(
