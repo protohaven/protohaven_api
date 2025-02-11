@@ -99,7 +99,7 @@
     let result = await do_post();
     checking = false;
     if (result.notfound) {
-      feedback = "Member not found; please try again";
+      feedback = "Member not found; please try again. New memberships take up to 24 hours to process.";
       return;
     }
     name = result.firstname;

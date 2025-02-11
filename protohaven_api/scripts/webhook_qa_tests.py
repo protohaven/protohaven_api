@@ -1,4 +1,5 @@
 """Integration tests for varous API webhooks; see docs/qa.md"""
+
 import argparse
 import datetime
 from base64 import b64encode
@@ -67,7 +68,7 @@ def run_user_clearances_webhook_test(params):
     print("\n**Test passed - HRB and IRN removed successfully.**")
 
 
-def run_neon_membership_created_callback_test(params):
+def run_neon_membership_created_callback_test(params, is_amp):
     """Test the /admin/neon_membership_created_callback by making the test
     user look brand new (no memberships and no Account Automation Ran field
     data) then creating a membership and manually calling the callback.
@@ -120,8 +121,12 @@ def run_neon_membership_created_callback_test(params):
                 "membershipEnrollment": {
                     "accountId": m["Account ID"],
                     "membershipId": mem["id"],
-                    "membershipName": "Test Membership",
-                    "fee": 115,  # We lie about the fee to trigger execution
+                    "membershipName": (
+                        "General Membership - AMP" if is_amp else "General Membership"
+                    ),
+                    "fee": (
+                        35 if is_amp else 115
+                    ),  # We lie about the fee to trigger execution
                     "enrollmentType": "JOIN",
                 },
                 "transaction": {
@@ -153,8 +158,19 @@ def run_neon_membership_created_callback_test(params):
             f"wanted 'deferred' prefix"
         )
     print(
-        "\n**Test passed - account has deferred status set and membership start "
+        "\n**Account has deferred status set and membership start "
         "date set appropriately**"
+    )
+
+    input(
+        f"Please confirm a coupon email was sent to {params.user} - "
+        "and also an AMP income request if AMP"
+    )
+
+    input(
+        f"Try signing in to {params.base_url}/welcome as {params.user} and "
+        "confirm correct behavior (failure if AMP without Income Based Rate "
+        "set, success & Account Automation Ran == activated otherwise)"
     )
 
     print(f"Cleaning up membership {mem['id']}")
@@ -191,7 +207,7 @@ def run_get_maintenance_data_webhook_test(params):
         assert rep.status_code == 200
         return rep
 
-    test_tool = "DRL"
+    test_tool = "FRG"
     print(f"\nGetting maintenance data for {test_tool}")
     rep = _do_req("GET", {"tool_code": test_tool})
     print(rep)
@@ -248,7 +264,16 @@ if __name__ == "__main__":
         print(f"- email will be sent to {args.user}")
         print("\n====== THIS AFFECTS PROD DATA =====\n")
         input("Press enter to continue, or Ctrl+C to quit.")
-        run_neon_membership_created_callback_test(args)
+        run_neon_membership_created_callback_test(args, is_amp=False)
+    if args.test in ("new_amp_member", "all"):
+        print("\nRunning test: new_member")
+        print("\n====== THIS AFFECTS PROD DATA =====\n")
+        print("- member's entire membership history will be deleted")
+        print("- member Account Automation Ran custom field will be cleared")
+        print(f"- email will be sent to {args.user}")
+        print("\n====== THIS AFFECTS PROD DATA =====\n")
+        input("Press enter to continue, or Ctrl+C to quit.")
+        run_neon_membership_created_callback_test(args, is_amp=True)
     if args.test in ("clearance", "all"):
         print("\nRunning test: clearance")
         print("\n====== THIS AFFECTS PROD DATA =====\n")
