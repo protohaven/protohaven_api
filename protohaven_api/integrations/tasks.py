@@ -93,6 +93,15 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
         yield req
 
 
+def get_donation_requests(exclude_complete=False):
+    """Get requests for donations"""
+    return get_with_onhold_section(
+        "donation_requests",
+        exclude_on_hold=False,
+        exclude_complete=exclude_complete,
+    )
+
+
 def get_instructor_applicants(exclude_on_hold=False, exclude_complete=False):
     """Get applications for instructor position that aren't completed"""
     return get_with_onhold_section(
@@ -103,7 +112,7 @@ def get_instructor_applicants(exclude_on_hold=False, exclude_complete=False):
 def get_shop_tech_applicants(exclude_on_hold=False, exclude_complete=False):
     """Get applications for shop tech position that aren't completed"""
     return get_with_onhold_section(
-        "instructor_applicants", exclude_on_hold, exclude_complete
+        "shop_tech_applicants", exclude_on_hold, exclude_complete
     )
 
 

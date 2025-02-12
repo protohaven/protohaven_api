@@ -1,0 +1,3 @@
+{% if subject %}{{num}} donation(s) awaiting a decision:{% else %}
+{% for r in requests%}{{r}}
+{% endfor %}{{footer}}{% endif %}
