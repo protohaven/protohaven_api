@@ -116,6 +116,7 @@ SYNC_ROLES = {
     "Membership and Programming Committee": Role.MEMBERSHIP_AND_PROGRAMMING["name"],
     "Finance Committee": Role.FINANCE["name"],
     "Executive Committee": Role.EXECUTIVE["name"],
+    "Operations Committee": Role.OPERATIONS["name"],
     "SoftwareDev": Role.SOFTWARE_DEV["name"],
     "MaintenanceCrew": Role.MAINTENANCE_CREW["name"],
 }
