@@ -148,6 +148,20 @@ TESTED_TEMPLATES = [
         {"warnings": ["warning1", "warning2"]},
     ),
     (
+        "class_supply_requests",
+        {
+            "num": 1,
+            "requests": [
+                {
+                    "days": 10,
+                    "name": "Test Class",
+                    "inst": "Test Instructor",
+                    "date": "2000-01-01",
+                }
+            ],
+        },
+    ),
+    (
         "enforcement_summary",
         {
             "vs": [{"onset": d(0), "fee": 5, "unpaid": 10, "notes": "Test violation"}],
@@ -375,6 +389,7 @@ HASHES = {
     "donation_requests": "1849077f34f4b26b",  # pragma: allowlist secret
     "door_sensor_warnings": "4203149c4b940078",  # pragma: allowlist secret
     "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
+    "class_supply_requests": "3e12f3737ad31808",  # pragma: allowlist secret
     "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
     "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
     "instruction_requests": "1ae4746c79bc5b54",  # pragma: allowlist secret

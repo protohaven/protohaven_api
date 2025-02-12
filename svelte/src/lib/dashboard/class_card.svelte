@@ -147,7 +147,11 @@ function cancel(neon_id) {
   <CardText>
   <ul>
   <li># Seats:  {c['Capacity (from Class)'][0]}</li>
-  <li>{c['Supply State']} </li>
+  <li>{c['Supply State']}
+    {#if c['Supply State'] == 'Supplies Requested'}
+      <strong>- remember to file <a href="https://form.asana.com/?k=syF2O04JfU-Z82q6NcEJKg&d=1199692158232291" target="_blank">purchase requests</a></strong>
+    {/if}
+  </li>
   <li>Instruction: {#if c['Volunteer']}Volunteer (no pay){:else}Paid{/if} </li>
   <li>Instructor confirmed:  {#if c['Confirmed']}on {c['Confirmed']}{:else}no{/if}</li>
   </ul>

@@ -1,0 +1,2 @@
+{% if subject %}{{num}} class(es) still need supplies:{% else %}{% for c in requests%}- in {{c.days}} day(s): {{c.name}} by {{c.inst}} on {{c.date}}
+{% endfor %}{{footer}}{% endif %}
