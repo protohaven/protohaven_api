@@ -148,6 +148,8 @@ asana:
   instructor_applicants:
     gid: "1202211433878591"
     on_hold_section: "1208278245183323"
+  donation_requests:
+    gid: "1204106742735251"
   project_requests: "1204107875202537"
   private_instruction_requests: "1203922725251220"
   phone_messages: "1203963688927297"

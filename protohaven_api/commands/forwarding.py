@@ -119,6 +119,26 @@ class Commands:
             )
 
     @command()
+    def donation_requests(self, _1, _2):
+        """Send reminders to check for donation requests"""
+        num = 0
+        open_requests = []
+        for req in tasks.get_donation_requests(exclude_complete=True):
+            open_requests.append("- " + req["name"].split(",")[0])
+            num += 1
+        log.info(f"Found {num} open donation requests:")
+        log.info("\n".join(open_requests))
+        if num > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "donation_requests",
+                    num=len(open_requests),
+                    requests=open_requests,
+                    target="#donation-automation",
+                )
+            )
+
+    @command()
     def class_proposals(self, _1, _2):
         """Send reminders to take action on proposed classes"""
         num = 0
