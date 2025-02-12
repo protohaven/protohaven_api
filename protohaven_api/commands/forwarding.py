@@ -120,7 +120,7 @@ class Commands:
 
     @command()
     def donation_requests(self, _1, _2):
-        """Send reminders to check for donation requests"""
+        """Send reminders to triage donation requests"""
         num = 0
         open_requests = []
         for req in tasks.get_donation_requests(exclude_complete=True):
@@ -135,6 +135,37 @@ class Commands:
                     num=len(open_requests),
                     requests=open_requests,
                     target="#donation-automation",
+                )
+            )
+
+    @command()
+    def supply_requests(self, _1, _2):
+        """Send reminders to purchase requested instructor supplies"""
+        num = 0
+        reqs = []
+        now = tznow()
+        for c in airtable.get_class_automation_schedule():
+            d = dateparser.parse(c["fields"]["Start Time"])
+            if d < now or c["fields"]["Supply State"] != "Supplies Requested":
+                continue
+
+            reqs.append(
+                {
+                    "days": (d - now).days,
+                    "name": ", ".join(c["fields"]["Name (from Class)"]),
+                    "date": d.strftime("%Y-%m-%d"),
+                    "inst": c["fields"]["Instructor"],
+                }
+            )
+            log.info(str(reqs[-1]))
+            num += 1
+        if num > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "class_supply_requests",
+                    num=len(reqs),
+                    requests=reqs,
+                    target="#supply-automation",
                 )
             )
 

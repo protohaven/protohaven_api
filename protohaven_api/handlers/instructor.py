@@ -12,7 +12,7 @@ from protohaven_api.automation.classes.scheduler import (
 from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, neon, neon_base
+from protohaven_api.integrations import airtable, comms, neon, neon_base
 from protohaven_api.rbac import Role, am_role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -227,21 +227,21 @@ def _annotate_schedule_class(e):
     # lazily on page load.
     if e.get("Neon ID"):
         e["prefill"] = prefill_form(
-            instructor=e["Instructor"],
+            instructor=e.get("Instructor") or "UNKNOWN",
             start_date=date,
-            hours=e["Hours (from Class)"][0],
-            class_name=e["Name (from Class)"][0],
+            hours=(e.get("Hours (from Class)") or [0])[0],
+            class_name=(e.get("Name (from Class)") or ["UNKNOWN"])[0],
             pass_emails=["$ATTENDEE_NAMES"],
             clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
             volunteer=e.get("Volunteer", False),
-            event_id=e["Neon ID"],
+            event_id=e.get("Neon ID") or "UNKNOWN",
         )
 
     for date_field in ("Confirmed", "Instructor Log Date"):
         if e.get(date_field):
             e[date_field] = dateparser.parse(e[date_field])
     e["Dates"] = []
-    for _ in range(e["Days (from Class)"][0]):
+    for _ in range((e.get("Days (from Class)") or [0])[0]):
         e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
         date += datetime.timedelta(days=7)
     return e
@@ -299,7 +299,9 @@ def instructor_class_update():
     eid = data["eid"]
     pub = data["pub"]
     # print("eid", eid, "pub", pub)
-    _, result = airtable.respond_class_automation_schedule(eid, pub)
+    status, result = airtable.respond_class_automation_schedule(eid, pub)
+    if status != 200:
+        raise RuntimeError(result)
     return _annotate_schedule_class(result["fields"])
 
 
@@ -309,8 +311,23 @@ def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
     data = request.json
     eid = data["eid"]
-    missing = data["missing"]
-    _, result = airtable.mark_schedule_supply_request(eid, missing)
+    c = airtable.get_scheduled_class(eid)
+    if not c:
+        raise RuntimeError(f"Not found: class {eid}")
+
+    state = "Supplies Requested" if data["missing"] else "Supplies Confirmed"
+    status, result = airtable.mark_schedule_supply_request(eid, state)
+    if status != 200:
+        raise RuntimeError(f"Error setting supply state: {result}")
+
+    d = dateparser.parse(c["fields"]["Start Time"])
+    comms.send_discord_message(
+        f"{user_fullname()} set {state} for "
+        f"{', '.join(c['fields']['Name (from Class)'])} with {c['fields']['Instructor']} "
+        f"on {d.strftime('%Y-%m-%d %-I:%M %p')}",
+        "#supply-automation",
+        blocking=False,
+    )
     return _annotate_schedule_class(result["fields"])
 
 
@@ -321,7 +338,9 @@ def instructor_class_volunteer():
     data = request.json
     eid = data["eid"]
     v = data["volunteer"]
-    _, result = airtable.mark_schedule_volunteer(eid, v)
+    status, result = airtable.mark_schedule_volunteer(eid, v)
+    if status != 200:
+        raise RuntimeError(result)
     return _annotate_schedule_class(result["fields"])
 
 

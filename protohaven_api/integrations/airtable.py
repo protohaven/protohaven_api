@@ -14,6 +14,7 @@ from protohaven_api.integrations.airtable_base import (
     delete_record,
     get_all_records,
     get_all_records_after,
+    get_record,
     insert_records,
     update_record,
 )
@@ -25,6 +26,11 @@ log = logging.getLogger("integrations.airtable")
 def get_class_automation_schedule():
     """Grab the current automated class schedule"""
     return get_all_records("class_automation", "schedule")
+
+
+def get_scheduled_class(rec):
+    """Get the specific scheduled class row by reference"""
+    return get_record("class_automation", "schedule", rec)
 
 
 def get_notifications_after(tag, after_date):
@@ -152,10 +158,10 @@ def set_booked_resource_id(airtable_id, resource_id):
     )
 
 
-def mark_schedule_supply_request(eid, missing):
+def mark_schedule_supply_request(eid, state):
     """Mark a Scheduled class as needing supplies or fully supplied"""
     return update_record(
-        {"Supply State": "Supplies Requested" if missing else "Supplies Confirmed"},
+        {"Supply State": state},
         "class_automation",
         "schedule",
         eid,

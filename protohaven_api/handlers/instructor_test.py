@@ -1,4 +1,5 @@
 """Verify proper behavior of instructor pages"""
+
 # pylint: skip-file
 import datetime
 import json
@@ -9,11 +10,11 @@ from dateutil import parser as dateparser
 from protohaven_api import rbac
 from protohaven_api.config import tz
 from protohaven_api.handlers import instructor
-from protohaven_api.testing import fixture_client
+from protohaven_api.testing import d, fixture_client
 
 
-@pytest.fixture()
-def inst_client(client):
+@pytest.fixture(name="inst_client")
+def fixture_inst_client(client):
     with client.session_transaction() as session:
         session["neon_account"] = {
             "accountCustomFields": [
@@ -248,3 +249,38 @@ def test_get_instructor_readiness_all_ok(mocker):
         "profile_img": "<url>",
         "bio": "test bio",
     }
+
+
+def test_instructor_class_supply_req(mocker, inst_client):
+    """Test marking supplies as missing or confirmed for a class"""
+    mocker.patch.object(
+        instructor.airtable,
+        "get_scheduled_class",
+        return_value={
+            "fields": {
+                "Name (from Class)": ["Class Name"],
+                "Instructor": "Instructor Name",
+                "Start Time": d(0).isoformat(),
+            }
+        },
+    )
+    mocker.patch.object(
+        instructor.airtable,
+        "mark_schedule_supply_request",
+        return_value=(
+            200,
+            {"fields": {"id": "rec123", "Start Time": d(0).isoformat()}},
+        ),
+    )
+    mocker.patch.object(instructor.comms, "send_discord_message")
+
+    response = inst_client.post(
+        "/instructor/class/supply_req", json={"eid": "class123", "missing": True}
+    )
+
+    assert response.status_code == 200
+    instructor.airtable.get_scheduled_class.assert_called_once_with("class123")
+    instructor.airtable.mark_schedule_supply_request.assert_called_once_with(
+        "class123", "Supplies Requested"
+    )
+    instructor.comms.send_discord_message.assert_called_once()
