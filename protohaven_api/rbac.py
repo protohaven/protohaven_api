@@ -53,6 +53,7 @@ class Role:
     STRATEGIC_PLANNING = {"id": "261", "name": "Strategic Planning Committee"}
     FINANCE = {"id": "262", "name": "Finance Committee"}
     EXECUTIVE = {"id": "263", "name": "Executive Committee"}
+    OPERATIONS = {"id": "266", "name": "Operations Committee"}
 
     AUTOMATION = {"name": "Automation", "id": None}
 
