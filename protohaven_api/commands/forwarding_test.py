@@ -257,3 +257,61 @@ def test_purchase_request_alerts(mocker, cli):
             "target": "#finance-automation",
         }
     ]
+
+
+def test_donation_requests(mocker, cli):
+    """Test `donation_requests` cli command"""
+    mocker.patch.object(
+        F.tasks,
+        "get_donation_requests",
+        return_value=[
+            {
+                "gid": "123",
+                "name": "Foo",
+            }
+        ],
+    )
+    assert cli("donation_requests", []) == [
+        {
+            "subject": MatchStr("donation"),
+            "body": MatchStr("- Foo"),
+            "target": "#donation-automation",
+        }
+    ]
+
+
+def test_supply_requests(mocker, cli):
+    """Test `supply_requests` cli command"""
+    mocker.patch.object(F, "tznow", return_value=d(0))
+    mocker.patch.object(
+        F.airtable,
+        "get_class_automation_schedule",
+        return_value=[
+            {"fields": f}
+            for f in [
+                {
+                    # Confirmed, so not listed
+                    "Supply State": "Supplies Confirmed",
+                    "Start Time": d(1).isoformat(),
+                },
+                {
+                    # Already happened, so not listed
+                    "Supply State": "Supplies Requested",
+                    "Start Time": d(-1).isoformat(),
+                },
+                {
+                    "Supply State": "Supplies Requested",
+                    "Start Time": d(1).isoformat(),
+                    "Instructor": "Inst",
+                    "Name (from Class)": ["Classname"],
+                },
+            ]
+        ],
+    )
+    assert cli("supply_requests", []) == [
+        {
+            "subject": "1 class(es) still need supplies:",
+            "body": "- in 1 day(s): Classname by Inst on 2025-01-02",
+            "target": "#supply-automation",
+        }
+    ]

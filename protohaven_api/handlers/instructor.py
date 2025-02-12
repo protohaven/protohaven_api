@@ -227,21 +227,21 @@ def _annotate_schedule_class(e):
     # lazily on page load.
     if e.get("Neon ID"):
         e["prefill"] = prefill_form(
-            instructor=e["Instructor"],
+            instructor=e.get("Instructor") or "UNKNOWN",
             start_date=date,
-            hours=e["Hours (from Class)"][0],
-            class_name=e["Name (from Class)"][0],
+            hours=(e.get("Hours (from Class)") or [0])[0],
+            class_name=(e.get("Name (from Class)") or ["UNKNOWN"])[0],
             pass_emails=["$ATTENDEE_NAMES"],
             clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
             volunteer=e.get("Volunteer", False),
-            event_id=e["Neon ID"],
+            event_id=e.get("Neon ID") or "UNKNOWN",
         )
 
     for date_field in ("Confirmed", "Instructor Log Date"):
         if e.get(date_field):
             e[date_field] = dateparser.parse(e[date_field])
     e["Dates"] = []
-    for _ in range(e["Days (from Class)"][0]):
+    for _ in range((e.get("Days (from Class)") or [0])[0]):
         e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
         date += datetime.timedelta(days=7)
     return e
