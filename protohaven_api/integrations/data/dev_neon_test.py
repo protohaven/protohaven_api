@@ -6,7 +6,7 @@ from protohaven_api.integrations.data import dev_neon as n
 
 def test_get_events_dev(mocker):
     mocker.patch.object(n, "mock_data", return_value={"neon": {"events": [1, 2, 3]}})
-    rep = n.handle("https://api.neoncrm.com/v2/events")
+    rep = n.handle("GET", "https://api.neoncrm.com/v2/events")
     assert rep.status_code == 200
     data = rep.get_json()
     assert isinstance(data["events"], list)
@@ -17,8 +17,8 @@ def test_get_event_dev(mocker):
     mocker.patch.object(
         n, "mock_data", return_value={"neon": {"events": {1: {"id": 1}}}}
     )
-    e = list(n.handle("/v2/events").get_json()["events"].values())[0]
-    got = n.handle(f"/v2/events/{e['id']}")
+    e = list(n.handle("GET", "/v2/events").get_json()["events"].values())[0]
+    got = n.handle("GET", f"/v2/events/{e['id']}")
     assert got.status_code == 200
     assert got.get_json()["id"] == e["id"]
 
@@ -59,9 +59,9 @@ def test_search_accounts_dev(mocker):
         },
     )
     rep = n.handle(
-        "/v2/accounts/search",
         "POST",
-        body=json.dumps(data),
+        "/v2/accounts/search",
+        data=json.dumps(data),
         headers={"content-type": "application/json"},
     )
     assert rep.status_code == 200

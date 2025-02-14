@@ -251,11 +251,6 @@ def get_clearance_to_tool_map():
     return clearance_to_tool
 
 
-def get_shop_tech_time_off():
-    """Gets reported time off by techs"""
-    return get_all_records("people", "shop_tech_time_off")
-
-
 def insert_signin(evt):
     """Insert sign-in event into Airtable"""
     return insert_records([evt], "people", "sign_ins")

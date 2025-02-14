@@ -276,3 +276,64 @@ def test_load_schedulable_classes(mocker):
     assert classes[1].name == "Class Three"
     assert "missing required fields" in notices["class2"][0]
     assert "Class is missing a promo image" in notices["class3"][0]
+
+
+def test_generate_env(mocker):
+    """Test generate_env function"""
+    start_date = d(0)
+    end_date = d(1)
+    instructor_filter = ["instructor1", "instructor2"]
+    include_proposed = True
+
+    mocker.patch.object(
+        s.airtable,
+        "fetch_instructor_teachable_classes",
+        return_value={
+            "instructor1": ["class1", "class2"],
+            "instructor2": ["class1", "class3"],
+        },
+    )
+    mocker.patch.object(
+        s,
+        "fetch_formatted_availability",
+        return_value={
+            "instructor1": [],
+            "instructor2": [],
+        },
+    )
+    mocker.patch.object(
+        s.airtable,
+        "get_class_automation_schedule",
+        return_value=[
+            {"fields": {"Rejected": None, "Neon ID": "123"}},
+            {"fields": {"Rejected": None}},
+        ],
+    )
+    mocker.patch.object(
+        s, "gen_class_and_area_stats", return_value=(set(), {}, {"instructor1": []})
+    )
+    mocker.patch.object(
+        s,
+        "load_schedulable_classes",
+        return_value=(
+            [mocker.MagicMock(class_id="class1"), mocker.MagicMock(class_id="class2")],
+            [],
+        ),
+    )
+
+    inst = mocker.MagicMock(
+        name="instructor1",
+    )
+    mocker.patch.object(
+        s,
+        "build_instructor",
+        return_value=inst,
+    )
+
+    result = s.generate_env(start_date, end_date, instructor_filter, include_proposed)
+    assert result == {
+        "area_occupancy": {},
+        "classes": [],
+        "instructors": [inst.as_dict()],
+        "notices": [],
+    }

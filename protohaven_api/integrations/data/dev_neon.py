@@ -187,14 +187,11 @@ def get_custom_field(field_id):
 client = app.test_client()
 
 
-def handle(*args, **kwargs):
+def handle(method, url, data=None, headers=None):  # pylint: disable=unused-argument
     """Local execution of mock flask endpoints for Neon"""
-    url = args[0]
-    method = args[1] if len(args) >= 2 else "GET"
-
     url = urlparse(url).path
     if method == "GET":
         return client.get(url)
     if method == "POST":
-        return client.post(url, json=json.loads(kwargs["body"]))
+        return client.post(url, json=json.loads(data))
     raise RuntimeError(f"method not supported: {method}")
