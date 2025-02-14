@@ -28,53 +28,54 @@ function reload() {
       let idx = 0;
       for (let sch of data.schedule) {
         for (let i = 0; i < sch['fields']['Days (from Class)'][0]; i++) {
-	  let d = new Date(sch['fields']['Start Time']);
-	  d.setDate(d.getDate() + 7*i);
-	  let sched = {
-	  	idx,
-	  	inst: sch['fields']['Instructor'],
-		  name: sch['fields']['Name (from Class)'],
-      neon_id: sch['fields']['Neon ID']
-	  };
-	  sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
-    if (!sched.neon_id) {
-      sched.display = "*" + sched.display;
-    }
-	  sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
-	  idx += 1
-	}
+          let d = new Date(sch['fields']['Start Time']);
+          d.setDate(d.getDate() + 7*i);
+          let sched = {
+            idx,
+            inst: sch['fields']['Instructor'],
+            name: sch['fields']['Name (from Class)'],
+            neon_id: sch['fields']['Neon ID']
+          };
+          sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
+          if (!sched.neon_id) {
+            sched.display = "*" + sched.display;
+          }
+          sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
+          idx += 1
+        }
       }
 
       let s = new Date(start);
       let d = new Date(start);
-      d.setDate(d.getDate() - d.getDay() - 1); // Set to start of the week
+      d.setHours(12); // Select Noon to prevent DST bugs changing the date
+      d.setDate(d.getDate() - d.getDay()); // Set to start of the week
       let e = new Date(end);
 
       let weeks = [];
       let darr = [];
       for (; d < s; d.setDate(d.getDate() + 1)) {
-	let dstr = isodate(d);
-	darr.push({'date': dstr, 'filler': true, 'events': []});
-	if (darr.length >= 7) {
-	  weeks.push(darr);
-	  darr = [];
-	}
+        let dstr = isodate(d);
+        darr.push({'date': dstr, 'filler': true, 'events': []});
+        if (darr.length >= 7) {
+          weeks.push(darr);
+          darr = [];
+        }
       }
 
       for (; d <= e; d.setDate(d.getDate() + 1)) {
-	let dstr = isodate(d);
-	darr.push({
-	  'date': dstr,
-	  'events': lookup[dstr] || [],
-	  'schedule': sched_days[dstr] || []
-	});
-	if (darr.length >= 7) {
-	  weeks.push(darr);
-	  darr = [];
-	}
+        let dstr = isodate(d);
+        darr.push({
+          'date': dstr,
+          'events': lookup[dstr] || [],
+          'schedule': sched_days[dstr] || []
+        });
+        if (darr.length >= 7) {
+          weeks.push(darr);
+          darr = [];
+        }
       }
       if (darr.length >= 0) {
-	 weeks.push(darr);
+	      weeks.push(darr);
       }
       let result = {'start': new Date(start), 'end': e, weeks, 'events': data.records};
       return result;

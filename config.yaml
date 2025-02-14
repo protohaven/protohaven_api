@@ -106,7 +106,6 @@ airtable:
   people:
     token: "${AIRTABLE_TOKEN_PEOPLE}"
     base_id: "appZIwlIgaq1Ps28Y"
-    shop_tech_time_off: "tblaHsLZd6yvxRKn9"
     shop_tech_forecast_overrides: "tblbQYTMDnMmsud7H"
     sign_in_announcements: "tblTv5DGemRkB424u"
     sign_in_survey_responses: "tbl6hPSnVBIXk8MQO"

@@ -240,7 +240,7 @@ def generate_env(
 
     # Load classes from airtable
     classes, notices = load_schedulable_classes(exclusions)
-    class_by_id = {c.class_id: c for c, _ in classes}
+    class_by_id = {c.class_id: c for c in classes}
     log.info(f"Loaded {len(classes)} classes")
 
     instructors = []
@@ -259,12 +259,20 @@ def generate_env(
             )
             skipped += 1
             continue
+
+        inst_occ = instructor_occupancy.get(k, None)
+        if inst_occ is None:
+            log.warning(
+                f"Instructor {k} not present in occupancy list and will be skipped"
+            )
+            skipped += 1
+            continue
         instructors.append(
             build_instructor(
                 k,
                 v,
                 caps,
-                instructor_occupancy[k],
+                inst_occ,
                 area_occupancy,
                 class_by_id,
             )
@@ -293,7 +301,7 @@ def generate_env(
 
     log.info(f"All capabilities: {all_inst_caps}")
     return {
-        "classes": [c.as_dict() for c, _ in classes if c.class_id in all_inst_caps],
+        "classes": [c.as_dict() for c in classes if c.class_id in all_inst_caps],
         "notices": notices,
         "instructors": [i.as_dict() for i in instructors],
         "area_occupancy": dict(
