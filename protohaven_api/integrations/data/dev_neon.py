@@ -187,7 +187,7 @@ def get_custom_field(field_id):
 client = app.test_client()
 
 
-def handle(method, url, data, headers):  # pylint: disable=unused-argument
+def handle(method, url, data=None, headers=None):  # pylint: disable=unused-argument
     """Local execution of mock flask endpoints for Neon"""
     url = urlparse(url).path
     if method == "GET":
