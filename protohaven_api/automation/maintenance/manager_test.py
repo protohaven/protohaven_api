@@ -141,3 +141,58 @@ def test_unapproved_wiki_tasks_not_returned(mocker):
     got = m.get_maintenance_needed_tasks(d(0))
     assert len(got) == 1
     assert got[0]["id"] == "task2"
+
+
+def test_get_maintenance_needed_tasks(mocker):
+    """Test get_maintenance_needed_tasks"""
+    now = d(0)
+    mocker.patch.object(
+        m.tasks,
+        "get_shop_tech_maintenance_section_map",
+        return_value={"section1": "Section 1"},
+    )
+    mocker.patch.object(
+        m.tasks, "last_maintenance_completion_map", return_value={"task1": d(-10)}
+    )
+    mocker.patch.object(
+        m.wiki,
+        "get_maintenance_data",
+        return_value=[
+            {
+                "maint_ref": "task1",
+                "maint_task": "Task 1",
+                "book_slug": "book1",
+                "page_slug": "page1",
+                "maint_level": "Beginner",
+                "maint_freq_days": "10",
+                "maint_asana_section": "section1",
+                "approval_state": {"approved_revision": True},
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.airtable,
+        "get_all_maintenance_tasks",
+        return_value=[
+            {
+                "id": "task2",
+                "fields": {
+                    "Task Name": "Task 2",
+                    "Task Detail": "Detail 2",
+                    "Frequency": "20",
+                    "Skill Level": "Intermediate",
+                    "Asana Section": "section1",
+                },
+            }
+        ],
+    )
+    mocker.patch.object(m, "get_config", return_value=["book1"])
+
+    result = m.get_maintenance_needed_tasks(now=now)
+
+    assert len(result) == 2
+    assert result[0]["id"] == "task1"
+    assert result[0]["next_schedule"] == now
+    assert "https://wiki.protohaven.org/books/book1/page/page1" in result[0]["detail"]
+    assert result[1]["id"] == "task2"
+    assert result[1]["next_schedule"] == now

@@ -36,8 +36,8 @@ def get_maintenance_needed_tasks(now=None):
             "origin": "Bookstack",
             "name": m["maint_task"],
             "detail": (
-                f"See https://wiki.protohaven.org/books/{m['book_slug']}/pages/"
-                f"{m['page_slug']}/{m['approval_state']['approved_id']}"
+                f"See https://wiki.protohaven.org/books/{m['book_slug']}/page/"
+                f"{m['page_slug']}"
             ),
             "tags": [m["maint_level"]],
             "freq": int(m["maint_freq_days"]),
