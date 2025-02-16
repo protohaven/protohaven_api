@@ -287,11 +287,13 @@ MEMBER_SEARCH_OUTPUT_FIELDS = [
 ]
 
 
-def search_member(email, operator="EQUAL"):
+def search_member(email, operator="EQUAL", fields=None):
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
+    if not fields:
+        fields = MEMBER_SEARCH_OUTPUT_FIELDS
     return neon_base.paginated_search(
-        [("Email", operator, email)], ["Account ID", *MEMBER_SEARCH_OUTPUT_FIELDS]
+        [("Email", operator, email)], ["Account ID", *fields]
     )
 
 
@@ -558,14 +560,37 @@ class AccountCache(WarmDict):
         self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
         self.fuzzy = {}
 
+    def _handle_inactive_or_notfound(self, k, v):
+        if not v or v.get("Account Current Membership Status") != "Active":
+            aa = list(search_member(k, fields=self.FIELDS))
+            if len(aa) > 0:
+                log.info(f"search_member cache miss returned results: {aa}")
+                return {a["Account ID"]: a for a in aa}
+        return v
+
     def get(self, k, default=None):
-        return super().get(str(k).lower(), default)
+        """Attempt to lookup from cache, but verify directly with Neon if
+        the returned account is inactive or missing"""
+        return self._handle_inactive_or_notfound(
+            str(k), super().get(str(k).lower(), default)
+        )
 
     def __setitem__(self, k, v):
         return super().__setitem__(str(k).lower(), v)
 
     def __getitem__(self, k):
-        return super().__getitem__(str(k).lower())
+        """__getitem__ is patched to call out to Neon in the event of a cache
+        miss which would normally raise a KeyError"""
+        k = str(k)
+        try:
+            return self._handle_inactive_or_notfound(
+                k, super().__getitem__(str(k).lower())
+            )
+        except KeyError as err:
+            v = self._handle_inactive_or_notfound(k, None)
+            if not v:
+                raise KeyError("Cache miss failover returned no result") from err
+            return v
 
     def update(self, a: dict):
         """Updates cache based on an account dictionary object"""
