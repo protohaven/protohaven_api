@@ -1,4 +1,5 @@
 {% if subject %}{{salutation}} {% if new_count > 0 %}Today we have {{new_count}} new tech_ready task{% if new_count != 1 %}s{% endif %}:{% else %}There are no new tasks for today - we're caught up on scheduling!{% endif %}
 {% else %}{% for t in new_tasks %}
 - [{{ t['name'] }}](https://app.asana.com/0/1202469740885594/{{ t['gid'] }}){% endfor %}
+
 Remember to check out the [Shop & Maintenance Tasks project](https://app.asana.com/0/1202469740885594/1204138662113052) while you're on duty and see if you can help anything along. {{closing}}{% endif %}

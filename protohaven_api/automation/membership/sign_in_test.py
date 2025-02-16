@@ -398,7 +398,7 @@ def test_as_guest_referrer(mocker):
 def test_as_member_notfound(mocker):
     """Ensure form does not get called if member not found"""
     m = mocker.patch.object(s, "_apply_async")
-    s.neon.search_member.return_value = []
+    mocker.patch.object(s.neon, "search_member", return_value=[])
     got = s.as_member(
         {
             "person": "member",

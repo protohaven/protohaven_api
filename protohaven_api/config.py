@@ -1,4 +1,5 @@
 """Loads config.yaml"""
+
 import datetime
 import os
 import pickle
@@ -45,7 +46,11 @@ def load_yaml_with_env_substitution(yaml_path):
     # Apply defaults, followed by secrets, followed by ENV overrides
     env = {
         **dotenv_values(ENV_DEFAULTS_PATH),
-        **dotenv_values(ENV_SECRETS_PATH),
+        **(
+            dotenv_values(ENV_SECRETS_PATH)
+            if not os.getenv("PH_SERVER_MODE") == "dev"
+            else {}
+        ),
         **dict(os.environ),
     }
 

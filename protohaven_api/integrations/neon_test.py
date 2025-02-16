@@ -123,21 +123,26 @@ def test_account_cache_case_insensitive(mocker):
         "First Name": "foo",
         "Last Name": "bar",
         "Account ID": 123,
+        "Account Current Membership Status": "Active",
     }
     mocker.patch.object(n, "get_active_members", return_value=[want1])
+    mocker.patch.object(n, "search_member", return_value=[])
     c = n.AccountCache()
     c.refresh()
-    c["gHjK"] = "test"
-    c[None] = "foo"
+    want2 = {456: {"First Name": "bar"}}
+    c["gHjK"] = want2
+    want3 = {789: {"First Name": "baz"}}
+    c[None] = want3
     assert c["AsDf"][123] == want1
-    assert c["GhJk"] == "test"
-    assert c.get("GhJk") == "test"
-    assert c["nonE"] == "foo"
+    assert c["GhJk"] == want2
+    assert c.get("GhJk") == want2
+    assert c["nonE"] == want3
 
 
 def test_find_best_match(mocker):
     """Test find_best_match returns the best matches based on fuzzy ratio."""
     c = n.AccountCache()
+    mocker.patch.object(n, "search_member", return_value=[])
     c.update(
         {
             "Email 1": "a@b.com",
@@ -165,3 +170,42 @@ def test_find_best_match(mocker):
 
     got = [m["Account ID"] for m in c.find_best_match("Albert", top_n=2)]
     assert got == [123, 456]
+
+
+def test_account_cache_miss_inactive(mocker):
+    """Confirm that inactive memberships trigger a direct lookup to Neon"""
+    want1 = {
+        "Email 1": "asdf",
+        "First Name": "foo",
+        "Last Name": "bar",
+        "Account ID": 123,
+        "Account Current Membership Status": "Active",
+    }
+    mocker.patch.object(n, "search_member", return_value=[want1])
+    c = n.AccountCache()
+    c.update({**want1, "Account Current Membership Status": "Inactive"})
+    assert c.get("asdf") == {123: want1}
+    assert c["asdf"] == {123: want1}
+
+
+def test_account_cache_miss_keyerror(mocker):
+    """Confirm that __getitem__ exceptions are suppressed if direct lookup
+    succeeds, are thrown if direct lookup also fails"""
+    want1 = {
+        "Email 1": "asdf",
+        "First Name": "foo",
+        "Last Name": "bar",
+        "Account ID": 123,
+        # Note, even inactive direct access is returned
+        "Account Current Membership Status": "Inctive",
+    }
+    c = n.AccountCache()
+
+    # Exception suppressed and value returned if direct lookup succeeds
+    mocker.patch.object(n, "search_member", return_value=[want1])
+    assert c["asdf"] == {123: want1}
+
+    # Exception thrown if direct lookup also fails
+    mocker.patch.object(n, "search_member", return_value=[])
+    with pytest.raises(KeyError):
+        c["asdf"]

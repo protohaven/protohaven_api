@@ -415,7 +415,7 @@ HASHES = {
     "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
     "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
-    "tech_daily_tasks": "29af31c3b72f00ec",  # pragma: allowlist secret
+    "tech_daily_tasks": "40fd5ae5ea4d2806",  # pragma: allowlist secret
     "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
