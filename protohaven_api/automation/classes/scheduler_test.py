@@ -324,16 +324,13 @@ def test_generate_env(mocker):
     inst = mocker.MagicMock(
         name="instructor1",
     )
-    mocker.patch.object(
-        s,
-        "build_instructor",
-        return_value=inst,
-    )
+    m1 = mocker.patch.object(s, "build_instructor")
 
     result = s.generate_env(start_date, end_date, instructor_filter, include_proposed)
-    assert result == {
-        "area_occupancy": {},
-        "classes": [],
-        "instructors": [inst.as_dict()],
-        "notices": [],
-    }
+    m1.assert_has_calls(
+        [
+            mocker.call("instructor1", [], ["class1", "class2"], [], {}, mocker.ANY),
+            mocker.call("instructor2", [], ["class1", "class3"], [], {}, mocker.ANY),
+        ]
+    )
+    assert len(result["instructors"]) == 2

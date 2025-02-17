@@ -142,7 +142,9 @@ def test_account_cache_case_insensitive(mocker):
 def test_find_best_match(mocker):
     """Test find_best_match returns the best matches based on fuzzy ratio."""
     c = n.AccountCache()
-    mocker.patch.object(n, "search_member", return_value=[])
+    mocker.patch.object(
+        n, "search_member", side_effect=AssertionError("Should never be called")
+    )
     c.update(
         {
             "Email 1": "a@b.com",
