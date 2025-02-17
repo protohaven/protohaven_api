@@ -188,6 +188,26 @@ def test_account_cache_miss_inactive(mocker):
     assert c["asdf"] == {123: want1}
 
 
+def test_account_update_causes_cache_hit(mocker):
+    """Confirm that a call to update() fills the cache and does not require
+    a Neon lookup upon fetch"""
+    want = {
+        "Email 1": "asdf",
+        "First Name": "foo",
+        "Last Name": "bar",
+        "Account ID": 123,
+        "Account Current Membership Status": "Active",
+    }
+
+    mocker.patch.object(
+        n, "search_member", side_effect=AssertionError("should never be called")
+    )
+    c = n.AccountCache()
+    c.update(want)
+    assert c.get(want["Email 1"]) == {123: want}
+    assert c[want["Email 1"]] == {123: want}
+
+
 def test_account_cache_miss_keyerror(mocker):
     """Confirm that __getitem__ exceptions are suppressed if direct lookup
     succeeds, are thrown if direct lookup also fails"""

@@ -560,8 +560,14 @@ class AccountCache(WarmDict):
         self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
         self.fuzzy = {}
 
+    def _value_has_active_membership(self, v):
+        for a in v.values():
+            if a.get("Account Current Membership Status") == "Active":
+                return True
+        return False
+
     def _handle_inactive_or_notfound(self, k, v):
-        if not v or v.get("Account Current Membership Status") != "Active":
+        if not v or not self._value_has_active_membership(v):
             aa = list(search_member(k, fields=self.FIELDS))
             if len(aa) > 0:
                 log.info(f"search_member cache miss returned results: {aa}")
