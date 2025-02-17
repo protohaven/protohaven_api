@@ -260,13 +260,7 @@ def generate_env(
             skipped += 1
             continue
 
-        inst_occ = instructor_occupancy.get(k, None)
-        if inst_occ is None:
-            log.warning(
-                f"Instructor {k} not present in occupancy list and will be skipped"
-            )
-            skipped += 1
-            continue
+        inst_occ = instructor_occupancy.get(k) or []
         instructors.append(
             build_instructor(
                 k,

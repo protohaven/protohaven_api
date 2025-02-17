@@ -7,7 +7,7 @@ The API key can be found at https://cron.protohaven.org/#Admin?sub=api_keys
 ```shell
 python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
-* [X] runs successfully
+* [x] runs successfully
 
 *Note: on failure, can run --after=test_name to skip all tests up to and including `test_name`*
 
@@ -18,11 +18,11 @@ After deployment, verify that:
 * https://api.protohaven.org/
   * [x] Page redirects to /member, loads and displays clearances + links
 * https://api.protohaven.org/welcome
-  * ] Member sign in fails with hello+testnonmember@protohaven.org
+  * [x] Member sign in fails with hello+testnonmember@protohaven.org
   * [x] Member sign in with hello+testnoticeboard@protohaven.org sends the notice
   * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
   * [ ] Member sign in with hello+testamp@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
-  * [x] Guest sign in presents waiver and completes - check the `Welcome and Waiver Form Responses` sheet
+  * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
   * [x] Displays upcoming calendar events
   * [x] Shows reservations
@@ -42,18 +42,19 @@ After deployment, verify that:
   * [x] Tool states load, clicking a tool shows info
   * [x] Storage tab allows for looking up Neon ID by name/email
   * [x] Areas have some leads assigned to them
-  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [x] Areas has populated "additional contacts" section at the bottom of the pane
+  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
   * [ ] Events tab can create, register, unregister, and delete a techs-only class
-  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides etc.
+  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data
   * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
-  * [x] Scheduler runs and proposes classes
-  * [x] Can confirm/unconfirm a class
-  * [x] Log submission button works
+  * [ ] Scheduler runs and proposes classes
+  * [ ] Can confirm/unconfirm a class
+  * [ ] Log submission button works
 * https://api.protohaven.org/member
-  * [x] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
+  * [ ] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
 * https://api.protohaven.org/event_ticker
   * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
@@ -77,7 +78,7 @@ Override and register the user in Neon. Remove all roles from Discord user, and 
 
 Add an extra role to the user via Discord.
 
-* [x] When called with registered user with extra roles, notifies of pending removal
+* [ ] When called with registered user with extra roles, notifies of pending removal
 
 ## Webhooks
 

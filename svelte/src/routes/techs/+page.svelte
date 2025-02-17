@@ -78,7 +78,7 @@
   <NavItem><NavLink href="#tools" on:click={on_tab}>Tools</NavLink></NavItem>
   <NavItem><NavLink href="#storage" on:click={on_tab}>Storage</NavLink></NavItem>
   <NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
-  <NavItem><NavLink href="#techs" on:click={on_tab}>Techs</NavLink></NavItem>
+  <NavItem><NavLink href="#techs" on:click={on_tab}>Roster</NavLink></NavItem>
   <NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
 </Nav>
 <Shifts {user} visible={activeTab == 'cal'}/>

@@ -570,7 +570,7 @@ class AccountCache(WarmDict):
         if not v or not self._value_has_active_membership(v):
             aa = list(search_member(k, fields=self.FIELDS))
             if len(aa) > 0:
-                log.info(f"search_member cache miss returned results: {aa}")
+                log.info(f"cache miss on '{k}' returned results: {aa}")
                 return {a["Account ID"]: a for a in aa}
         return v
 
@@ -656,7 +656,8 @@ class AccountCache(WarmDict):
             if m in result:
                 continue
             result.add(m)
-            yield from self[m].values()
+            # Avoid cache misses on lookup
+            yield from super().get(m).values()
             if len(result) >= top_n:
                 break
 
