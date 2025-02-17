@@ -69,6 +69,7 @@ comms:
     tech-automation: "${WEBHOOK_TECH_AUTOMATION}"
     edu-automation: "${WEBHOOK_EDU_AUTOMATION}"
     supply-automation: "${WEBHOOK_SUPPLY_AUTOMATION}"
+    donation-automation: "${WEBHOOK_DONATION_AUTOMATION}"
   discord_roles:
     Staff: 1130895854769807520
     Techs: 801513013710422056

@@ -386,7 +386,7 @@ HASHES = {
     "discord_role_change_dm": "e36c6c70681a8804",  # pragma: allowlist secret
     "discord_role_change_summary": "8a34d924f30d0625",  # pragma: allowlist secret
     "discount_creation_summary": "e3c5a08c4933b6b3",  # pragma: allowlist secret
-    "donation_requests": "1849077f34f4b26b",  # pragma: allowlist secret
+    "donation_requests": "49699a619e3833d3",  # pragma: allowlist secret
     "door_sensor_warnings": "4203149c4b940078",  # pragma: allowlist secret
     "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
     "class_supply_requests": "3e12f3737ad31808",  # pragma: allowlist secret
