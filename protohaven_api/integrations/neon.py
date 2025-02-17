@@ -594,7 +594,7 @@ class AccountCache(WarmDict):
 
     def update(self, a: dict):
         """Updates cache based on an account dictionary object"""
-        d = self.get(a["Email 1"], {})
+        d = super().get(str(a["Email 1"]).lower(), {})  # Don't trigger cache miss
         d[a["Account ID"]] = a
         self[a["Email 1"]] = d
         self.fuzzy[

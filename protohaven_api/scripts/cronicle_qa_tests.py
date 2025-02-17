@@ -18,7 +18,7 @@ log = logging.getLogger("main")
 base_url = None  # pylint: disable=invalid-name
 api_key = None  # pylint: disable=invalid-name
 REQ_TIMEOUT = 30
-JOB_TIMEOUT = 60 * 10
+JOB_TIMEOUT = 60 * 15
 
 COVR = "#cronicle-automation"
 EOVR = "scott@protohaven.org"
@@ -199,6 +199,12 @@ if __name__ == "__main__":
             {"CHAN_OVERRIDE": COVR},
         ),
         (
+            "donations_summary",
+            test_simple,
+            "em78dbzj04f",
+            {"CHAN_OVERRIDE": COVR},
+        ),
+        (
             "check_cameras",
             test_simple,
             "em5d0rdob1l",
@@ -345,6 +351,15 @@ if __name__ == "__main__":
             "sync_booked_members",
             test_simple,
             "em5ahun5604",
+            {
+                "CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
+        (
+            "restock_discounts",
+            test_simple,
+            "em6fgimj413",
             {
                 "CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
