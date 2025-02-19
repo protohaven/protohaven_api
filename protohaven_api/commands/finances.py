@@ -259,7 +259,7 @@ class Commands:
                 for ms in neon.fetch_memberships(mem["Account ID"]):
                     start = (
                         dateparser.parse(ms.get("termStartDate")).astimezone(tz)
-                        if ms.get("termEndDate")
+                        if ms.get("termStartDate")
                         else None
                     )
                     end = (
@@ -440,6 +440,106 @@ class Commands:
         else:
             result += [f"Unhandled membership: '{level}'"]
         return result
+
+    def _last_expiring_membership(self, account_id):
+        result = None
+        for m in neon.fetch_memberships(account_id):
+            if not m.get("termEndDate"):
+                log.warning(f"Found etenal membership {m}")
+                return dateparser.parse("9000-01-01")
+            end = dateparser.parse(m.get("termEndDate")).astimezone(tz)
+            if not result or result < end:
+                result = end
+        return result
+
+    @command(
+        arg(
+            "--filter",
+            help="CSV of Neon IDs to restrict processing",
+            type=str,
+            default="",
+        ),
+        arg(
+            "--apply",
+            help="When true, actually create new memberships",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--limit",
+            help="Refresh a max of this many memberships for this invocation",
+            type=int,
+            default=3,
+        ),
+        arg(
+            "--duration_days",
+            help="How long the new membership should run",
+            type=int,
+            default=30,
+        ),
+        arg(
+            "--expiry_threshold",
+            help="How many days before membership expiration we consider 'renewable'",
+            type=int,
+            default=4,
+        ),
+    )
+    def refresh_volunteer_memberships(self, args, _):
+        """If a volunteer's membership is due to expire soon, create a
+        future membership that starts when the previous one ends."""
+        now = tznow()
+        summary = []
+        for t in neon.get_members_with_role(Role.SHOP_TECH, []):
+            if len(summary) >= args.limit:
+                log.info("Processing limit reached; exiting")
+                break
+
+            log.info(f"Processing tech {t}")
+            end = self._last_expiring_membership(t["Account ID"])
+            if now + datetime.timedelta(days=args.expiry_threshold) < end:
+                continue  # Skip if active membership not expiring soon
+
+            # Precondition: shop tech has no future or active membership
+            # expiring later than args.expiry_threshold, and args.apply is set
+            summary.append(
+                {
+                    "fname": t["First Name"].strip(),
+                    "lname": t["Last Name"].strip(),
+                    "end_date": end.strftime("%Y-%m-%d"),
+                    "account_id": t["Account ID"],
+                    "membership_id": "DRYRUN",
+                    "new_end": "N/A",
+                    "membership_type": "Shop Tech",
+                }
+            )
+            if not args.apply:
+                log.info(f"DRY RUN: create membership for tech {t}")
+                continue
+
+            new_end = end + datetime.timedelta(days=1 + args.duration_days)
+            ret = neon.create_zero_cost_membership(
+                t["Account ID"],
+                end + datetime.timedelta(days=1),
+                new_end,
+                level={"id": 19, "name": "Shop Tech"},
+                term={"id": 61, "name": "Shop Tech"},
+            )
+            log.info(f"New membership response: {ret}")
+            if ret:
+                summary[-1]["membership_id"] = ret["id"]
+                summary[-1]["new_end"] = new_end.strftime("%Y-%m-%d")
+
+        if len(summary) > 0:
+            print_yaml(
+                Msg.tmpl(
+                    "volunteer_refresh_summary",
+                    n=len(summary),
+                    summary=summary,
+                    target="#membership-automation",
+                )
+            )
+        else:
+            print_yaml([])
 
     @command(
         arg(
