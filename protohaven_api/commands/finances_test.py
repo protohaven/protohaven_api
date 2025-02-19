@@ -13,8 +13,8 @@ from protohaven_api.integrations import neon  # pylint: disable=import-error
 from protohaven_api.testing import MatchStr, d, mkcli
 
 
-@pytest.fixture
-def cli(capsys):
+@pytest.fixture(name="cli")
+def fixture_cli(capsys):
     return mkcli(capsys, f)
 
 
@@ -318,4 +318,31 @@ def test_init_new_memberships_limit(mocker, cli):
             mocker.call("0"),
             mocker.call("1"),
         ]
+    )
+
+
+def test_refresh_volunteer_memberships(mocker, cli):
+    """Test refresh_volunteer_memberships command"""
+    mocker.patch.object(f, "tznow", return_value=d(0))
+    mocker.patch.object(
+        f.neon,
+        "get_members_with_role",
+        return_value=[
+            {
+                "Account ID": 123,
+                "First Name": "John",
+                "Last Name": "Doe",
+                "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
+            }
+        ],
+    )
+    mocker.patch.object(f.Commands, "_last_expiring_membership", return_value=d(0, 23))
+    mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
+
+    got = cli("refresh_volunteer_memberships", ["--apply", "--limit", "1"])
+    assert len(got) == 1
+    assert got[0]["target"] == "#membership-automation"
+    assert got[0]["body"] == MatchStr("new Shop Tech membership")
+    f.neon.create_zero_cost_membership.assert_called_with(
+        123, d(1, 23), d(31, 23), level=mocker.ANY, term=mocker.ANY
     )
