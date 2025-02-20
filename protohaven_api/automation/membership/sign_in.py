@@ -49,7 +49,7 @@ def result_base():
     return {
         "neon_id": "",
         "notfound": False,
-        "status": False,
+        "status": "Unknown",
         "violations": [],
         "waiver_signed": False,
         "announcements": [],
@@ -339,7 +339,7 @@ def as_member(data, send):
             data["url"],
         )
         handle_notify_inactive(
-            result["status"], result["firstname"], data["email"], data["url"]
+            str(result["status"]), result["firstname"], data["email"], data["url"]
         )
         handle_notify_violations(
             result["violations"], result["firstname"], data["email"], data["url"]

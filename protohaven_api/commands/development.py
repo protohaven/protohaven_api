@@ -4,6 +4,7 @@ import logging
 import pickle
 import random
 import string
+import time
 from collections import defaultdict
 
 from dateutil import parser as dateparser
@@ -15,6 +16,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     neon,
     neon_base,
 )
+from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.dev")
 
@@ -57,6 +59,25 @@ def random_email(*args):  # pylint: disable=unused-argument
     username = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     domain = random.choice(domains)
     return f"{username}@{domain}"
+
+
+def fake_neon_acct(roles, extra_custom_fields=None):
+    """Create a fake Neon account with custom field modifications"""
+    data = {
+        "accountId": random_id(),
+        "accountCustomFields": [
+            {"id": "75", "name": "Clearances", "value": None, "optionValues": []},
+            {"id": "85", "name": "API server role", "optionValues": roles},
+            *(extra_custom_fields or []),
+        ],
+        "primaryContact": {
+            "firstName": random_fname(),
+            "lastName": random_lname(),
+            "email1": random_email(),
+        },
+        "accountCurrentMembershipStatus": "Active",
+    }
+    return {"individualAccount": data}
 
 
 class Commands:  # pylint: disable=too-few-public-methods
@@ -115,6 +136,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                         "email": random_email(),
                     }
                 )
+                time.sleep(0.25)
         return events, attendees
 
     def _fetch_airtable(self):
@@ -170,7 +192,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                     "Id": None,
                     "Last Scheduled": None,
                     "Task Name": None,
-                    "Task Detail": None,
+                    "Task Detail": lambda _: "Detail redacted",
                     "Tool/Area": None,
                     "Frequency": None,
                     "Managed By": random_name,
@@ -236,9 +258,15 @@ class Commands:  # pylint: disable=too-few-public-methods
                 },
                 "capabilities": {
                     "ID": None,
-                    "Instructor": random_name,
+                    "Instructor": lambda r: (
+                        random_name()
+                        if r["Instructor"] != "Test Instructor"
+                        else r["Instructor"]
+                    ),
                     "Class": None,
-                    "Email": random_email,
+                    "Email": lambda r: (
+                        random_email() if r["Email"] != "test@test.com" else r["Email"]
+                    ),
                     "Can you teach any other classes not listed here?": None,
                     "W9 Form": (lambda _: ["https://link_to_w9.com"]),
                     "Direct Deposit Info": (
@@ -247,7 +275,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                     "Profile Pic": (lambda _: "https://example.com"),
                     "Bio": (lambda _: "https://example.com"),
                     "Portfolio": (lambda _: "https://example.com"),
-                    "Active": None,
+                    "Active": lambda r: r["Active"]
+                    or r["Instructor"] == "Test Instructor",
                     "Availability": None,
                     "Position": None,
                     "Name (from Class)": None,
@@ -296,7 +325,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                     "Start": None,
                     "End": None,
                     "Instructor (from Instructor)": random_name,
-                    "Summary": None,
+                    "Summary": lambda _: "A summary",
                     "Email (from Instructor)": random_email,
                     "Recurrence": None,
                 },
@@ -374,7 +403,18 @@ class Commands:  # pylint: disable=too-few-public-methods
                     "Referrer": None,
                     "Violations": None,
                 },
-                "automation_intents": {},
+                "automation_intents": {
+                    "Summary": lambda _: "A summary",
+                    "Name": random_name,
+                    "Email": random_email,
+                    "Neon ID": random_id,
+                    "Discord ID": random_id,
+                    "Discord Name": random_name,
+                    "Action": None,
+                    "Role": None,
+                    "State": None,
+                    "Last Notified": None,
+                },
             },
         }
         for k, v in get_config("airtable").items():
@@ -383,17 +423,18 @@ class Commands:  # pylint: disable=too-few-public-methods
                     continue
                 log.info(f"- {k} {k2}...")
                 for rec in airtable.get_all_records(k, k2):
-                    for field, val in rec["fields"].items():
+                    for field in rec["fields"].keys():
                         try:
                             fn = table_sanitization[k][k2][field]
                         except KeyError as exc:
                             raise KeyError(
                                 f"Failed to lookup sanitizer for {k}/{k2}/{field}"
                             ) from exc
-                        if callable(fn):
-                            rec["fields"][field] = fn(val)
+                        if fn is not None:
+                            rec["fields"][field] = fn(rec["fields"])
                     tables[k][k2].append(rec)
-        return tables
+
+        return dict(tables)  # defaultdict not serializable
 
     def _fetch_neon_accounts(self):
         log.info("Fetching sanitized accounts/memberships from neon...")
@@ -418,6 +459,45 @@ class Commands:  # pylint: disable=too-few-public-methods
                     else {"individualAccount": acc}
                 )
                 memberships[acct_id] = list(neon.fetch_memberships(acct_id))
+
+        # Create a few test tech accounts
+        for ap in ("AM", "PM"):
+            for dow in (
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+            ):
+                for _ in range(2):
+                    acc = {}
+                    while not acc or accounts.get(
+                        acc["individualAccount"]["accountId"]
+                    ):
+                        acc = fake_neon_acct(
+                            [Role.SHOP_TECH],
+                            [
+                                {
+                                    "id": neon.CustomField.SHOP_TECH_SHIFT,
+                                    "name": "Shop Tech Shift",
+                                    "value": f"{dow} {ap}",
+                                }
+                            ],
+                        )
+                    accounts[acc["individualAccount"]["accountId"]] = acc
+
+        # Create neon account for test instructor
+        acc = fake_neon_acct([Role.INSTRUCTOR], [])
+        acc["individualAccount"]["accountId"] = "111111"
+        acc["individualAccount"]["primaryContact"] = {
+            "firstName": "Test",
+            "lastName": "Instructor",
+            "email1": "test@test.com",
+        }
+        accounts["111111"] = acc
+
         return accounts, memberships
 
     @command(
@@ -435,18 +515,19 @@ class Commands:  # pylint: disable=too-few-public-methods
         clearance_codes = list(neon.fetch_clearance_codes())
 
         events, attendees = self._fetch_neon_events(args.after)
-        with open(args.path, "wb") as f:
-            pickle.dump(
-                {
-                    "neon": {
-                        "events": events,
-                        "attendees": attendees,
-                        "accounts": accounts,
-                        "memberships": memberships,
-                        "clearance_codes": clearance_codes,
-                    },
-                    "airtable": tables,
+        try:
+            data = {
+                "neon": {
+                    "events": events,
+                    "attendees": attendees,
+                    "accounts": accounts,
+                    "memberships": memberships,
+                    "clearance_codes": clearance_codes,
                 },
-                f,
-            )
+                "airtable": tables,
+            }
+            with open(args.path, "wb") as f:
+                pickle.dump(data, f)
+        except AttributeError as err:
+            raise AttributeError(f"Contents: {data}") from err
         log.info("Done")
