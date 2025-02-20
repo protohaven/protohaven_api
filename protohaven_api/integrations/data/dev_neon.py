@@ -73,7 +73,7 @@ def _neon_dev_search_filter(field, operator, value):
             def email_filter(rec):
                 acc = first(rec, "individualAccount", "companyAccount")
                 return True in [
-                    acc["primaryContact"][f"email{i}"] == value for i in range(1, 4)
+                    acc["primaryContact"].get(f"email{i}") == value for i in range(1, 4)
                 ]
 
             return email_filter
@@ -81,9 +81,26 @@ def _neon_dev_search_filter(field, operator, value):
 
             def fname_filter(rec):
                 acc = first(rec, "individualAccount", "companyAccount")
-                return acc["primaryContact"]["firstName"] == value
+                return acc["primaryContact"].get("firstName") == value
 
             return fname_filter
+
+        if field == "Account Current Membership Status":
+
+            def status_filter(rec):
+                acc = first(rec, "individualAccount", "companyAccount")
+                return acc.get("accountCurrentMembershipStatus") == value
+
+            return status_filter
+
+    if operator == "NOT_EQUAL":
+        if field == "Account Current Membership Status":
+
+            def status_ne_filter(rec):
+                acc = first(rec, "individualAccount", "companyAccount")
+                return acc["accountCurrentMembershipStatus"] != value
+
+            return status_ne_filter
 
     raise NotImplementedError(
         f"dev search filter with operator {operator}, field {field}"
@@ -105,7 +122,7 @@ def get_event(event_id):
 def get_events():
     """Mock events endpoint for Neon"""
     return {
-        "events": mock_data()["neon"]["events"],
+        "events": list(mock_data()["neon"]["events"].values()),
         "pagination": {"totalPages": 1},
     }
 
@@ -125,9 +142,7 @@ def get_event_registrations(event_id):
 @app.route("/v2/events/<event_id>/attendees")
 def get_attendees(event_id):
     """Mock event attendees endpoint for Neon"""
-    a = mock_data()["neon"]["attendees"].get(int(event_id))
-    if not a:
-        return Response("Event not found", status=404)
+    a = mock_data()["neon"]["attendees"].get(int(event_id)) or []
     return {"attendees": a, "pagination": {"totalResults": len(a), "totalPages": 1}}
 
 

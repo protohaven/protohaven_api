@@ -5,7 +5,9 @@ from protohaven_api.integrations.data import dev_neon as n
 
 
 def test_get_events_dev(mocker):
-    mocker.patch.object(n, "mock_data", return_value={"neon": {"events": [1, 2, 3]}})
+    mocker.patch.object(
+        n, "mock_data", return_value={"neon": {"events": {1: "a", 2: "b", 3: "c"}}}
+    )
     rep = n.handle("GET", "https://api.neoncrm.com/v2/events")
     assert rep.status_code == 200
     data = rep.get_json()
@@ -17,7 +19,7 @@ def test_get_event_dev(mocker):
     mocker.patch.object(
         n, "mock_data", return_value={"neon": {"events": {1: {"id": 1}}}}
     )
-    e = list(n.handle("GET", "/v2/events").get_json()["events"].values())[0]
+    e = n.handle("GET", "/v2/events").get_json()["events"][0]
     got = n.handle("GET", f"/v2/events/{e['id']}")
     assert got.status_code == 200
     assert got.get_json()["id"] == e["id"]

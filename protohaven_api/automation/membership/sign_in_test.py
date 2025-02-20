@@ -413,7 +413,7 @@ def test_as_member_notfound(mocker):
         "announcements": [],
         "firstname": "member",
         "notfound": True,
-        "status": False,
+        "status": "Unknown",
         "violations": [],
         "waiver_signed": False,
         "neon_id": "",
