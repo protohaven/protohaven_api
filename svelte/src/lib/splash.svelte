@@ -63,7 +63,7 @@
   <Row class="mx-5">
     <Col>
     <FormGroup>
-      <Input type="email" disabled={progress} placeholder="Your email address here" bind:value={email} invalid={feedback !== null} {feedback} on:keydown={check_enter_key_submit} />
+      <Input type="email" autofocus disabled={progress} placeholder="Your email address here" bind:value={email} invalid={feedback !== null} {feedback} on:keydown={check_enter_key_submit} />
     </FormGroup>
     </Col>
     {#if progress}
