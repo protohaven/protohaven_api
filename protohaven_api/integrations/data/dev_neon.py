@@ -67,6 +67,8 @@ def _neon_dev_search_filter(field, operator, value):
             return custom_field_filter
 
         return lambda rec: value in rec[field]
+
+    # This could almost certainly be made less redundant
     if operator == "EQUAL":
         if field == "Email":
 
@@ -101,6 +103,15 @@ def _neon_dev_search_filter(field, operator, value):
                 return acc["accountCurrentMembershipStatus"] != value
 
             return status_ne_filter
+        if field == "Email":
+
+            def email_ne_filter(rec):
+                acc = first(rec, "individualAccount", "companyAccount")
+                return True not in [
+                    acc["primaryContact"].get(f"email{i}") == value for i in range(1, 4)
+                ]
+
+            return email_ne_filter
 
     raise NotImplementedError(
         f"dev search filter with operator {operator}, field {field}"
@@ -190,7 +201,13 @@ def get_account_memberships(account_id):
     m = mock_data()["neon"]["memberships"].get(int(account_id))
     if not m:
         return Response("Memberships not found for account", status=404)
-    return m
+    return {
+        "memberships": m,
+        "pagination": {
+            "totalPages": 1,
+            "totalResults": len(m),
+        },
+    }
 
 
 @app.route("/v2/customFields/<field_id>", methods=["GET", "PUT"])

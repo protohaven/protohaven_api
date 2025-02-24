@@ -10,7 +10,7 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base
-from protohaven_api.rbac import Role, am_role, require_login_role
+from protohaven_api.rbac import Role, am_lead_role, am_role, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
 
@@ -105,6 +105,7 @@ def techs_shifts():
 
 
 @page.route("/techs/members")
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_members():
     """Fetches today's sign-in information for members"""
     # Could extend this to search particular days...
@@ -116,7 +117,7 @@ def techs_members():
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
     _, areas = _fetch_tool_states_and_areas(tznow())
-    techs = neon.fetch_techs_list()
+    techs = neon.fetch_techs_list(include_pii=am_lead_role())
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
     for t in techs:
@@ -161,7 +162,7 @@ def _notify_override(name, shift, techs):
 
 
 @page.route("/techs/forecast/override", methods=["POST", "DELETE"])
-@require_login_role(Role.SHOP_TECH)
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_forecast_override():
     """Update/remove forecast overrides on shop tech forecast"""
     data = request.json
@@ -198,12 +199,12 @@ def techs_list():
     """Fetches tech info and lead status of observer"""
     return {
         "tech_lead": am_role(Role.SHOP_TECH_LEAD),
-        "techs": neon.fetch_techs_list(),
+        "techs": neon.fetch_techs_list(include_pii=am_lead_role()),
     }
 
 
 @page.route("/techs/update", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD)
+@require_login_role(Role.SHOP_TECH_LEAD, redirect_to_login=False)
 def tech_update():
     """Update the custom fields of a shop tech in Neon"""
     data = request.json
@@ -217,7 +218,9 @@ def tech_update():
 
 
 @page.route("/techs/new_event", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def new_tech_event():
     """Create a new techs-only event in Neon"""
     data = request.json
@@ -251,7 +254,9 @@ def new_tech_event():
 
 
 @page.route("/techs/rm_event", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def rm_tech_event():
     """Delete a techs-only event in Neon"""
     data = request.json
@@ -271,7 +276,7 @@ def rm_tech_event():
 
 
 @page.route("/techs/enroll", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD)
+@require_login_role(Role.SHOP_TECH_LEAD, redirect_to_login=False)
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
@@ -383,7 +388,7 @@ def _notify_registration(account_id, event_id, action):
 
 
 @page.route("/techs/event", methods=["POST"])
-@require_login_role(Role.SHOP_TECH)
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_event_registration():
     """Enroll a Neon account in the shop tech program, via Neon ID"""
     account_id = session["neon_id"]

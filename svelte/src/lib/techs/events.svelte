@@ -111,10 +111,10 @@ function delete_event(eid) {
             <div>{r.capacity - r.attendees.length} seat(s) left</div>
             {#if user}
             <div>
-            {#if r.attendees.indexOf(user.neon_id) !== -1 && r.capacity - r.attendees.length > 0}
+            {#if r.attendees.indexOf(user.neon_id) !== -1}
               <strong>You are registered!</strong>
               <Button color="secondary" on:click={()=>action(r.id, r.ticket_id, 'unregister')} disabled={submitting}>Unregister</Button>
-            {:else}
+            {:else if r.capacity - r.attendees.length > 0}
               <Button color="primary" on:click={()=>action(r.id, r.ticket_id, 'register')} disabled={submitting}>Register</Button>
             {/if}
             {#if p.tech_lead && r.name.startsWith("(SHOP TECH ONLY)")}

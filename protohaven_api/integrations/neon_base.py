@@ -36,7 +36,7 @@ def paginated_fetch(api_key, path, params=None):
             + f"?{urllib.parse.urlencode(params)}",
         )
         if isinstance(content, list):
-            raise RuntimeError(content)
+            raise RuntimeError(f"Got content of type list, expected dict: {content}")
         total_pages = content["pagination"]["totalPages"]
         if content[result_field]:
             yield from content[result_field]

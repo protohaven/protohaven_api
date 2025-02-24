@@ -6,6 +6,7 @@ import sys
 
 from protohaven_api.commands import (
     classes,
+    clearances,
     comms,
     development,
     docs,
@@ -53,6 +54,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
     roles.Commands,
     maintenance.Commands,
     docs.Commands,
+    clearances.Commands,
 ):
     """argparser-based CLI for protohaven operations"""
 

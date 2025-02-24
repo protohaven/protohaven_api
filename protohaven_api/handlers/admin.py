@@ -5,6 +5,7 @@ import logging
 from flask import Blueprint, Response, request
 
 from protohaven_api.automation.maintenance import tasks as mtask
+from protohaven_api.automation.membership import clearances as mclearance
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
@@ -13,34 +14,6 @@ from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 page = Blueprint("admin", __name__, template_folder="templates")
 
 log = logging.getLogger("handlers.admin")
-
-
-def _update_clearance(e, method, delta, name_to_code, code_to_id):
-    m = list(neon.search_member(e))
-    if len(m) == 0:
-        return "NotFound"
-    m = m[0]
-    if m["Account ID"] == m["Company ID"]:
-        return Response(
-            f"Account with email {e} is a company; request invalid", status=400
-        )
-    codes = {
-        name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
-    }
-    if method == "GET":
-        return [c for c in codes if c is not None]
-    if method == "PATCH":
-        codes.update(delta)
-    elif method == "DELETE":
-        codes -= set(delta)
-
-    ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
-    log.info(f"Setting clearances for {m['Account ID']} to {ids}")
-    content = neon.set_clearances(m["Account ID"], ids, is_company=False)
-    log.info("Neon response: %s", str(content))
-    for d in delta:
-        mqtt.notify_clearance(m["Account ID"], d, added=method == "PATCH")
-    return "OK"
 
 
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
@@ -58,30 +31,21 @@ def user_clearances():
         return Response("Missing required param 'emails'", status=400)
     results = {}
     all_codes = neon.fetch_clearance_codes()
-    name_to_code = {c["name"]: c["code"] for c in all_codes}
-    code_to_id = {c["code"]: c["id"] for c in all_codes}
 
     delta = []
     if request.method != "GET":
         initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
             return Response("Missing required param 'codes'", status=400)
-
-        # Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP...)
-        mapping = airtable.get_clearance_to_tool_map()
-        for c in initial:
-            if c in mapping:
-                delta += list(mapping[c])
-            else:
-                delta.append(c)
+        delta = mclearance.resolve(initial)
 
     for e in emails:
         try:
-            results[e] = _update_clearance(
-                e, request.method, delta, name_to_code, code_to_id
-            )
+            results[e] = mclearance.update(e, request.method, delta)
         except RuntimeError as exc:
             return Response(str(exc), status=500)
+        except FailedPrecondition as exc:
+            return Response(str(exc), status=400)
     return results
 
 
