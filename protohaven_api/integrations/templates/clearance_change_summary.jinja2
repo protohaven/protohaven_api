@@ -1,0 +1,5 @@
+{% if subject %}{{n}} change(s) to clearances:{% else %}{% for c in changes %}* {{c}}
+{% endfor %}{% if errors %}
+Errors:{% for e in errors %}
+* {{e}}{% endfor %}{% endif %}
+{{footer}}{% endif %}

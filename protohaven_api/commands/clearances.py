@@ -1,17 +1,19 @@
 """Commands related operations on Dicsord"""
-
+import re
 import argparse
 import datetime
 import logging
 
+from collections import defaultdict
 from dateutil import parser as dateparser
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import sheets
+from protohaven_api.integrations import sheets, neon
 from protohaven_api.integrations.comms import Msg
+from protohaven_api.automation.membership.clearances import update as update_clearances, resolve_codes
 
-log = logging.getLogger("cli.roles")
+log = logging.getLogger("cli.clearances")
 
 PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."
 CLEARANCE_HDR = "Which clearance(s) was covered?"
@@ -34,13 +36,8 @@ class Commands:  # pylint: disable=too-few-public-methods
             type=str,
         ),
         arg(
-            "--filter_clearances",
-            help="Restrict to comma separated list of clearances",
-            type=str,
-        ),
-        arg(
             "--after",
-            help="Don't process this comma separated list of discord users",
+            help="Handle instructor logs after this date",
             type=str,
         ),
         arg(
@@ -62,27 +59,28 @@ class Commands:  # pylint: disable=too-few-public-methods
             log.warning(
                 "***** --apply not set; clearances will not actually change *****"
             )
-        log.info("Fetching role intents from Neon and Discord")
-        user_filter = set(args.filter_users.split(",")) if args.filter_users else None
-        clearance_filter = (
-            set(args.filter_clearances.split(",")) if args.filter_clearances else None
-        )
+        user_filter = set([e.lower() for e in args.filter_users.split(",")]) if args.filter_users else None
         dt = (
             tznow() - datetime.timedelta(days=30)
             if not args.after
-            else dateparser.parse(args.after)
+            else dateparser.parse(args.after).astimezone(tz)
         )
-        changes = {}
 
-        all_codes = neon.fetch_clearance_codes()
-        name_to_code = {c["name"]: c["code"] for c in all_codes}
-        code_to_id = {c["code"]: c["id"] for c in all_codes}
+        log.info("Fetching clearance codes")
+        all_codes = {c['name'].split(':')[0] for c in neon.fetch_clearance_codes()}
+        log.info(f"All codes: {all_codes}")
 
+        log.info(f"Building list of clearances starting from {dt}")
+        earned = defaultdict(set)
         for sub in sheets.get_instructor_submissions():
             if sub["Timestamp"].astimezone(tz) < dt:
                 continue
-            log.info(sub)
             emails = sub.get(PASS_HDR)
+            mm = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', emails)
+            if not mm:
+                log.warning(f"No valid emails parsed from row: {emails}")
+            emails = [m.replace('(', '').replace(')', '').replace(',', '').strip() for m in mm]
+
             clearance_codes = sub.get(CLEARANCE_HDR)
             clearance_codes = (
                 [s.split(":")[0].strip() for s in clearance_codes.split(",")]
@@ -95,16 +93,48 @@ class Commands:  # pylint: disable=too-few-public-methods
                 if tool_codes
                 else None
             )
-            log.info(f"{emails} passed {clearance_codes}, tools {tool_codes}")
-            return
+            for e in emails:
+                if user_filter and e.lower() not in user_filter:
+                    continue
+                if clearance_codes:
+                    earned[e.strip()].update(resolve_codes(clearance_codes))
+                if tool_codes:
+                    earned[e.strip()].update(tool_codes)
+        log.info(f"Clearance list built; {len(earned)} users in list")
 
-        if changes:
+        changes = []
+        errors = []
+        invalids = set()
+        log.info("Earned clearances:")
+        for email, clr in earned.items():
+            clr = [c for c in clr if not c.strip().lower() == "n/a"]
+            clr_validated = set(c for c in clr if c in all_codes)
+            if len(clr) != len(clr_validated):
+                log.warning(f"Ignoring invalid clearances for {email}: {clr - clr_validated}") 
+                invalids.update(clr - clr_validated)
+            try:
+                mutations = update_clearances(email, "PATCH", clr_validated, apply=args.apply)
+                if len(mutations) > 0:
+                    changes.append(f"{email}: added {', '.join(mutations)}")
+                    log.info(changes[-1])
+            except TypeError as err:
+                log.warning(str(err))
+                errors.append(str(err))
+            except KeyError as err:
+                log.warning(str(err))
+                errors.append(str(err))
+
+        if len(invalids) > 0:
+            errors.append(f"Found one or more instances of the following invalid clearances: {', '.join(invalids)}")
+
+        if len(changes) > 0:
             print_yaml(
                 [
                     Msg.tmpl(
                         "clearance_change_summary",
                         target="#membership-automation",
                         changes=list(changes),
+                        errors=list(errors),
                         n=len(changes),
                     )
                 ]

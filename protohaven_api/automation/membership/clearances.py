@@ -16,33 +16,38 @@ def code_mapping():
     return name_to_code, code_to_id
 
 
-def update(email, method, delta):
+def update(email, method, delta, apply=True):
+    delta = set(delta)
     name_to_code, code_to_id = code_mapping()
     m = list(neon.search_member(email))
     if len(m) == 0:
-        return "NotFound"
+        raise KeyError(f"Member {email} not found")
     m = m[0]
     if m["Account ID"] == m["Company ID"]:
-        raise FailedPrecondition(
+        raise TypeError(
             f"Account with email {email} is a company; expected individual"
         )
     codes = {
         name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
     }
+    result = set()
     if method == "GET":
         return [c for c in codes if c is not None]
     if method == "PATCH":
+        result = delta - codes
         codes.update(delta)
     elif method == "DELETE":
+        result = codes - delta
         codes -= set(delta)
 
     ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
-    log.info(f"Setting clearances for {m['Account ID']} to {ids}")
-    content = neon.set_clearances(m["Account ID"], ids, is_company=False)
-    log.info("Neon response: %s", str(content))
-    for d in delta:
-        mqtt.notify_clearance(m["Account ID"], d, added=method == "PATCH")
-    return "OK"
+    if apply:
+        log.info(f"Setting clearances for {m['Account ID']} to {ids}")
+        content = neon.set_clearances(m["Account ID"], ids, is_company=False)
+        log.info("Neon response: %s", str(content))
+        for d in delta:
+            mqtt.notify_clearance(m["Account ID"], d, added=method == "PATCH")
+    return list(result)
 
 
 def resolve_codes(initial: list):
