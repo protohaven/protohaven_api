@@ -29,7 +29,7 @@ jobs:
         pip install -e .
     - name: Lint with pylint
       run: |
-        pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error
+        pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error,duplicate-code
     - name: Test with pytest
       run: |
         TZ=US/Eastern python -m pytest

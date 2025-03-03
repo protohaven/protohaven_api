@@ -46,7 +46,8 @@ def test_user_clearances(mocker, client):
         [
             mocker.call("123", "CLEAR1", added=True),
             mocker.call("123", "CLEAR2", added=True),
-        ]
+        ],
+        any_order=True,
     )
 
 

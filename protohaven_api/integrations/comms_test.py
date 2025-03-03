@@ -94,6 +94,14 @@ TESTED_TEMPLATES = [
         },
     ),
     (
+        "clearance_change_summary",
+        {
+            "n": 2,
+            "changes": ["change 1", "change 2"],
+            "errors": ["error 1", "error 2"],
+        },
+    ),
+    (
         "daily_private_instruction",
         {"formatted": ["Req 1", "Req 2"]},
     ),
@@ -397,6 +405,7 @@ HASHES = {
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_proposals": "09aa7102c43e69e6",  # pragma: allowlist secret
     "class_scheduled": "b57307cca2f8262c",  # pragma: allowlist secret
+    "clearance_change_summary": "98410280f08a0823",  # pragma: allowlist secret
     "daily_private_instruction": "ba81765c045917ee",  # pragma: allowlist secret
     "discord_nick_change_summary": "88493fe928a1f0d4",  # pragma: allowlist secret
     "discord_nick_changed": "8aeda50de8ef931c",  # pragma: allowlist secret

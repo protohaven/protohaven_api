@@ -336,7 +336,7 @@ def get_members_with_discord_id(discord_id, extra_fields=None):
     )
 
 
-def fetch_techs_list():
+def fetch_techs_list(include_pii=False):
     """Fetches a list of current shop techs, ordered by number of clearances"""
     techs = []
     for t in get_members_with_role(
@@ -354,9 +354,13 @@ def fetch_techs_list():
     ):
         techs.append(
             {
-                "id": t["Account ID"],
-                "name": f"{t['First Name']} {t['Last Name']}",
-                "email": t["Email 1"],
+                "id": t["Account ID"] if include_pii else "",
+                "name": (
+                    f"{t['First Name']} {t['Last Name']}"
+                    if include_pii
+                    else f"{t['First Name']}"
+                ),
+                "email": t["Email 1"] if include_pii else "",
                 "interest": t.get("Interest", ""),
                 "expertise": t.get("Expertise", ""),
                 "area_lead": t.get("Area Lead", ""),

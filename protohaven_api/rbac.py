@@ -120,7 +120,7 @@ def get_roles():
     return result
 
 
-def require_login_role(*role):
+def require_login_role(*role, redirect_to_login=True):
     """Decorator that requires the use to be logged in and have a particular role"""
 
     def fn_setup(fn):
@@ -130,6 +130,13 @@ def require_login_role(*role):
                 return fn(*args, **kwargs)
             roles = get_roles()
             if roles is None:
+                if not redirect_to_login:
+                    return Response(
+                        "Access Denied - you are not logged in. "
+                        "Please visit https://api.protohaven.org/login to see this content.",
+                        status=401,
+                    )
+
                 session["redirect_to_login_url"] = request.url
                 return redirect(url_for("auth.login_user_neon_oauth"))
             # Check for presence of role. Note that shop techs are a special case; leads can do
@@ -158,3 +165,14 @@ def require_login_role(*role):
 def am_role(*role):
     """Returns True if the current session is one of the roles provided"""
     return (not is_enabled()) or require_login_role(*role)(lambda: True)() is True
+
+
+def am_lead_role():
+    """Returns True if the current session is a priviliged role"""
+    return am_role(
+        Role.ADMIN,
+        Role.SHOP_TECH_LEAD,
+        Role.EDUCATION_LEAD,
+        Role.STAFF,
+        Role.BOARD_MEMBER,
+    )
