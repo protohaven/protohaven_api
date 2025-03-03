@@ -52,7 +52,9 @@ def _neon_dev_outputify(rec, field):
     raise NotImplementedError(f"Extract search outputField {field} from account {acc}")
 
 
-def _neon_dev_search_filter(field, operator, value):
+def _neon_dev_search_filter(
+    field, operator, value
+):  # pylint: disable=too-many-return-statements
     """Construct a filter on canned records"""
     if operator == "CONTAIN":
         if field.isdigit():  # Custom fields all indexed by number

@@ -3,13 +3,14 @@
 import logging
 from functools import lru_cache
 
-from protohaven_api.integrations import airtable, comms, mqtt, neon, tasks
+from protohaven_api.integrations import airtable, mqtt, neon
 
 log = logging.getLogger("handlers.admin")
 
 
 @lru_cache(maxsize=1)
 def code_mapping():
+    """Fetch neon's current mapping of clearance -> tool code and tool code -> id"""
     all_codes = neon.fetch_clearance_codes()
     name_to_code = {c["name"]: c["code"] for c in all_codes}
     code_to_id = {c["code"]: c["id"] for c in all_codes}
@@ -17,6 +18,7 @@ def code_mapping():
 
 
 def update(email, method, delta, apply=True):
+    """Update clearances for `email` user"""
     delta = set(delta)
     name_to_code, code_to_id = code_mapping()
     m = list(neon.search_member(email))
@@ -24,9 +26,7 @@ def update(email, method, delta, apply=True):
         raise KeyError(f"Member {email} not found")
     m = m[0]
     if m["Account ID"] == m["Company ID"]:
-        raise TypeError(
-            f"Account with email {email} is a company; expected individual"
-        )
+        raise TypeError(f"Account with email {email} is a company; expected individual")
     codes = {
         name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
     }
