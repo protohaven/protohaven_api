@@ -612,7 +612,7 @@ class Commands:
                 "_id": f"init member {aid}",
             }
             summary.append(kwargs)
-            result.append(*memauto.init_membership(**kwargs))
+            result += memauto.init_membership(**kwargs)
             num += 1
             if num >= args.limit:
                 log.info("Max number of initializations reached; stopping")

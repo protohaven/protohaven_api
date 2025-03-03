@@ -311,8 +311,9 @@ def test_init_new_memberships_limit(mocker, cli):
     m1 = mocker.patch.object(
         f.memauto.neon, "get_latest_membership_id", return_value=123
     )
-    m2 = mocker.patch.object(f.memauto, "init_membership", return_value=[None])
+    m2 = mocker.patch.object(f.memauto, "init_membership", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--limit=2"])
+    assert got == []
     m1.assert_has_calls(
         [
             mocker.call("0"),

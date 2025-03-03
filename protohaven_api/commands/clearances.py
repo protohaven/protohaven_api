@@ -1,21 +1,21 @@
 """Commands related operations on Dicsord"""
-import re
+
 import argparse
 import datetime
 import logging
-
+import re
 from collections import defaultdict
-from dateutil import parser as dateparser
 
+from protohaven_api.automation.membership.clearances import resolve_codes
+from protohaven_api.automation.membership.clearances import update as update_clearances
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import sheets, neon
+from protohaven_api.integrations import neon, sheets
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.automation.membership.clearances import update as update_clearances, resolve_codes
 
 log = logging.getLogger("cli.clearances")
 
-PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."
+PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."  # pylint: disable=line-too-long
 CLEARANCE_HDR = "Which clearance(s) was covered?"
 TOOLS_HDR = "Which tools?"
 
@@ -36,9 +36,10 @@ class Commands:  # pylint: disable=too-few-public-methods
             type=str,
         ),
         arg(
-            "--after",
-            help="Handle instructor logs after this date",
-            type=str,
+            "--after_days_ago",
+            help="Handle instructor logs after this many days ago",
+            type=int,
+            default=30,
         ),
         arg(
             "--max_users_affected",
@@ -47,7 +48,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             default=5,
         ),
     )
-    def sync_clearances(self, args, _):  # pylint: disable=too-many-locals
+    def sync_clearances(  # pylint: disable=too-many-locals, too-many-statements, too-many-branches
+        self, args, _
+    ):
         """Fetchesclearances in the Master Instructor Hours and Clearance Log,
         expands them to individual tool codes, and updates accounts in Neon CRM with
         assigned clearances.
@@ -59,15 +62,15 @@ class Commands:  # pylint: disable=too-few-public-methods
             log.warning(
                 "***** --apply not set; clearances will not actually change *****"
             )
-        user_filter = set([e.lower() for e in args.filter_users.split(",")]) if args.filter_users else None
-        dt = (
-            tznow() - datetime.timedelta(days=30)
-            if not args.after
-            else dateparser.parse(args.after).astimezone(tz)
+        user_filter = (
+            {e.lower() for e in args.filter_users.split(",")}
+            if args.filter_users
+            else None
         )
+        dt = tznow() - datetime.timedelta(days=args.after_days_ago)
 
         log.info("Fetching clearance codes")
-        all_codes = {c['name'].split(':')[0] for c in neon.fetch_clearance_codes()}
+        all_codes = {c["name"].split(":")[0] for c in neon.fetch_clearance_codes()}
         log.info(f"All codes: {all_codes}")
 
         log.info(f"Building list of clearances starting from {dt}")
@@ -76,10 +79,12 @@ class Commands:  # pylint: disable=too-few-public-methods
             if sub["Timestamp"].astimezone(tz) < dt:
                 continue
             emails = sub.get(PASS_HDR)
-            mm = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', emails)
+            mm = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", emails)
             if not mm:
                 log.warning(f"No valid emails parsed from row: {emails}")
-            emails = [m.replace('(', '').replace(')', '').replace(',', '').strip() for m in mm]
+            emails = [
+                m.replace("(", "").replace(")", "").replace(",", "").strip() for m in mm
+            ]
 
             clearance_codes = sub.get(CLEARANCE_HDR)
             clearance_codes = (
@@ -107,13 +112,17 @@ class Commands:  # pylint: disable=too-few-public-methods
         invalids = set()
         log.info("Earned clearances:")
         for email, clr in earned.items():
-            clr = [c for c in clr if not c.strip().lower() == "n/a"]
+            clr = {c for c in clr if not c.strip().lower() == "n/a"}
             clr_validated = set(c for c in clr if c in all_codes)
             if len(clr) != len(clr_validated):
-                log.warning(f"Ignoring invalid clearances for {email}: {clr - clr_validated}") 
+                log.warning(
+                    f"Ignoring invalid clearances for {email}: {clr - clr_validated}"
+                )
                 invalids.update(clr - clr_validated)
             try:
-                mutations = update_clearances(email, "PATCH", clr_validated, apply=args.apply)
+                mutations = update_clearances(
+                    email, "PATCH", clr_validated, apply=args.apply
+                )
                 if len(mutations) > 0:
                     changes.append(f"{email}: added {', '.join(mutations)}")
                     log.info(changes[-1])
@@ -125,7 +134,10 @@ class Commands:  # pylint: disable=too-few-public-methods
                 errors.append(str(err))
 
         if len(invalids) > 0:
-            errors.append(f"Found one or more instances of the following invalid clearances: {', '.join(invalids)}")
+            errors.append(
+                "Found one or more instances of the following invalid clearances: "
+                + ", ".join(invalids)
+            )
 
         if len(changes) > 0:
             print_yaml(

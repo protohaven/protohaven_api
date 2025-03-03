@@ -30,21 +30,22 @@ def user_clearances():
     if len(emails) == 0:
         return Response("Missing required param 'emails'", status=400)
     results = {}
-    all_codes = neon.fetch_clearance_codes()
 
     delta = []
     if request.method != "GET":
         initial = [c.strip() for c in request.values.get("codes").split(",")]
         if len(initial) == 0:
             return Response("Missing required param 'codes'", status=400)
-        delta = mclearance.resolve(initial)
+        delta = mclearance.resolve_codes(initial)
 
     for e in emails:
         try:
             results[e] = mclearance.update(e, request.method, delta)
         except RuntimeError as exc:
             return Response(str(exc), status=500)
-        except FailedPrecondition as exc:
+        except KeyError as exc:
+            return Response(str(exc), status=404)
+        except TypeError as exc:
             return Response(str(exc), status=400)
     return results
 

@@ -1,5 +1,6 @@
-{% if subject %}{{n}} change(s) to clearances:{% else %}{% for c in changes %}* {{c}}
+{% if subject %}**{{n}} change(s) to clearances:**{% else %}{% for c in changes %}* {{c}}
 {% endfor %}{% if errors %}
 Errors:{% for e in errors %}
 * {{e}}{% endfor %}{% endif %}
+See [Master Instructor Hour & Clearance Log](https://docs.google.com/spreadsheets/d/1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI/edit) to correct any email parsing errors, or use the [Log Hours & Clearance Status](https://docs.google.com/forms/u/1/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform) form to submit missing clearances. [Wiki](https://wiki.protohaven.org/books/software-developers-handbook/page/member-clearances) for details.
 {{footer}}{% endif %}
