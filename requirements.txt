@@ -67,7 +67,6 @@ matplotlib==3.9.2
 mccabe==0.7.0
 memory-profiler==0.61.0
 msgpack==1.0.7
-multidict==6.0.4
 mypy-extensions==1.0.0
 numpy==2.1.1
 oauthlib==3.2.2
@@ -119,3 +118,4 @@ yarl==1.9.4
 zipp==3.17.0
 wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@2ff7f51bdd1b078630c29f778d0598fd1d777078
 paho-mqtt==2.1.0
+multidict==6.1.0
