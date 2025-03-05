@@ -1,75 +1,75 @@
 general:
-  log_level: "${LOGLEVEL}"
-  yaml_out: "${YAML_OUT}"
-  server_mode: "${PH_SERVER_MODE}"
+  log_level: ${LOGLEVEL}
+  yaml_out: ${YAML_OUT}
+  server_mode: ${PH_SERVER_MODE}
   behind_proxy: false
-  cors: "${CORS}"
-  unsafe_no_rbac: "${UNSAFE_NO_RBAC}"
-  session_secret: "${SESSION_SECRET}"
+  cors: ${CORS}
+  unsafe_no_rbac: ${UNSAFE_NO_RBAC}
+  session_secret: ${SESSION_SECRET}
   admin_users: ["1245"]
-  precache_sign_in: "${PRECACHE_SIGN_IN}"
+  precache_sign_in: ${PRECACHE_SIGN_IN}
   external_access_codes:
-    "${EXTERNAL_ACCESS_CODES_AUTOMATION}": ["Automation"]
+    ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle
   base_url: "https://cron.protohaven.org"
 openai:
-  api_key: "${OPENAI_API_KEY}"
+  api_key: ${OPENAI_API_KEY}
 neon:
   domain: "protohaven"
   base_url: "https://api.neoncrm.com/v2/"
   admin_url: "https://protohaven.app.neoncrm.com/np/admin/"
-  oauth_client_id: "${NEON_OAUTH_CLIENT_ID}"
-  oauth_client_secret: "${NEON_OAUTH_CLIENT_SECRET}"
-  api_key1: "${NEON_API_KEY1}"
-  api_key2: "${NEON_API_KEY2}"
-  api_key3: "${NEON_API_KEY3}"
-  login_user: "${NEON_LOGIN_USER}"
-  login_pass: "${NEON_LOGIN_PASS}"
-  login_otp_code: "${NEON_LOGIN_OTP_CODE}"
+  oauth_client_id: ${NEON_OAUTH_CLIENT_ID}
+  oauth_client_secret: ${NEON_OAUTH_CLIENT_SECRET}
+  api_key1: ${NEON_API_KEY1}
+  api_key2: ${NEON_API_KEY2}
+  api_key3: ${NEON_API_KEY3}
+  login_user: ${NEON_LOGIN_USER}
+  login_pass: ${NEON_LOGIN_PASS}
+  login_otp_code: ${NEON_LOGIN_OTP_CODE}
   waiver_expiration_days: 60
   waiver_published_date: "2023-03-14"
   webhooks:
     new_membership:
-      enabled: "${NEW_MEMBERSHIP_ENABLED}"
-      include_filter: "${NEW_MEMBERSHIP_INCLUDE_CSV}"
+      enabled: ${NEW_MEMBERSHIP_ENABLED}
+      include_filter: ${NEW_MEMBERSHIP_INCLUDE_CSV}
 discord_bot:
-  enabled: "${DISCORD_BOT}"
+  enabled: ${DISCORD_BOT}
   event_hooks:
-    enabled: "${EVENT_HOOKS_ENABLED}"
-    include_filter: "${EVENT_HOOKS_INCLUDE_CSV}"
-    exclude_filter: "${EVENT_HOOKS_EXCLUDE_CSV}"
-  token: "${DISCORD_BOT_TOKEN}"
+    enabled: ${EVENT_HOOKS_ENABLED}
+    include_filter: ${EVENT_HOOKS_INCLUDE_CSV}
+    exclude_filter: ${EVENT_HOOKS_EXCLUDE_CSV}
+  token: ${DISCORD_BOT_TOKEN}
   guild_id: 791673872529358869
 comms:
   email:
-    username: "${EMAIL_USERNAME}"
+    username: ${EMAIL_USERNAME}
     # Note: email uses the GMail API via service account, so password is not needed
   webhooks:
-    techs: "${WEBHOOK_TECHS}"
-    techs-live: "${WEBHOOK_TECHS_LIVE}"
-    board-private: "${WEBHOOK_BOARD_PRIVATE}"
-    maintenance: "${WEBHOOK_MAINTENANCE}"
-    tech-leads: "${WEBHOOK_TECH_LEADS}"
-    help-wanted: "${WEBHOOK_HELP_WANTED}"
-    instructors: "${WEBHOOK_INSTRUCTORS}"
-    private-instructors: "${WEBHOOK_PRIVATE_INSTRUCTORS}"
-    education-leads: "${WEBHOOK_EDUCATION_LEADS}"
-    class-automation: "${WEBHOOK_CLASS_AUTOMATION}"
-    membership-automation: "${WEBHOOK_MEMBERSHIP_AUTOMATION}"
-    storage: "${WEBHOOK_STORAGE}"
-    finance-automation: "${WEBHOOK_FINANCE_AUTOMATION}"
-    docs-automation: "${WEBHOOK_DOCS_AUTOMATION}"
-    discord-automation: "${WEBHOOK_DISCORD_AUTOMATION}"
-    cronicle-automation: "${WEBHOOK_CRONICLE_AUTOMATION}"
-    tool-automation: "${WEBHOOK_TOOL_AUTOMATION}"
-    software: "${WEBHOOK_SOFTWARE}"
-    instructor-feedback: "${WEBHOOK_INSTRUCTOR_FEEDBACK}"
-    tech-automation: "${WEBHOOK_TECH_AUTOMATION}"
-    edu-automation: "${WEBHOOK_EDU_AUTOMATION}"
-    supply-automation: "${WEBHOOK_SUPPLY_AUTOMATION}"
-    donation-automation: "${WEBHOOK_DONATION_AUTOMATION}"
+    techs: ${WEBHOOK_TECHS}
+    techs-live: ${WEBHOOK_TECHS_LIVE}
+    board-private: ${WEBHOOK_BOARD_PRIVATE}
+    maintenance: ${WEBHOOK_MAINTENANCE}
+    tech-leads: ${WEBHOOK_TECH_LEADS}
+    help-wanted: ${WEBHOOK_HELP_WANTED}
+    instructors: ${WEBHOOK_INSTRUCTORS}
+    private-instructors: ${WEBHOOK_PRIVATE_INSTRUCTORS}
+    education-leads: ${WEBHOOK_EDUCATION_LEADS}
+    class-automation: ${WEBHOOK_CLASS_AUTOMATION}
+    membership-automation: ${WEBHOOK_MEMBERSHIP_AUTOMATION}
+    storage: ${WEBHOOK_STORAGE}
+    finance-automation: ${WEBHOOK_FINANCE_AUTOMATION}
+    docs-automation: ${WEBHOOK_DOCS_AUTOMATION}
+    discord-automation: ${WEBHOOK_DISCORD_AUTOMATION}
+    cronicle-automation: ${WEBHOOK_CRONICLE_AUTOMATION}
+    tool-automation: ${WEBHOOK_TOOL_AUTOMATION}
+    software: ${WEBHOOK_SOFTWARE}
+    instructor-feedback: ${WEBHOOK_INSTRUCTOR_FEEDBACK}
+    tech-automation: ${WEBHOOK_TECH_AUTOMATION}
+    edu-automation: ${WEBHOOK_EDU_AUTOMATION}
+    supply-automation: ${WEBHOOK_SUPPLY_AUTOMATION}
+    donation-automation: ${WEBHOOK_DONATION_AUTOMATION}
   discord_roles:
     Staff: 1130895854769807520
     Techs: 801513013710422056
@@ -80,7 +80,7 @@ comms:
     Board: 953363629837799434
 airtable:
   tools_and_equipment:
-    token: "${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}"
+    token: ${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}
     base_id: "appbIlORlmbIxNU1L"
     areas: "tblpZf4XLHiptLLzL"
     tools: "tblalZYdLVoTICzE6"
@@ -88,7 +88,7 @@ airtable:
     recurring_tasks: "tbl2934K2YxSVnZMC"
     tool_reports: "tblZbQcalfrvUiNM6"
   class_automation:
-    token: "${AIRTABLE_TOKEN_CLASS_AUTOMATION}"
+    token: ${AIRTABLE_TOKEN_CLASS_AUTOMATION}
     base_id: "applultHGJxHNg69H"
     clearance_codes: "tblzfYMmIuxchMJk7"
     classes: "tblBHGwrU8cwVwbHI"
@@ -99,13 +99,13 @@ airtable:
     availability: "tbl4tOuZKNJduN4LC"
     discounts: "tbllyGvxfAFYsocN0"
   policy_enforcement:
-    token: "${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}"
+    token: ${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}
     base_id: "apppMbG0r1ZrluVMv"
     sections: "tblfCye5J6cS3rBGs"
     violations: "tblxivDVVxoARFkHC"
     fees: "tblpM1KXai4koCgCV"
   people:
-    token: "${AIRTABLE_TOKEN_PEOPLE}"
+    token: ${AIRTABLE_TOKEN_PEOPLE}
     base_id: "appZIwlIgaq1Ps28Y"
     shop_tech_forecast_overrides: "tblbQYTMDnMmsud7H"
     sign_in_announcements: "tblTv5DGemRkB424u"
@@ -123,11 +123,11 @@ gmail: # See protohaven_api.integrations.data.connector, Connector.email() for d
 square:
   sandbox_app_id: "sandbox-sq0idb-sUaoKt-N2lB7_geQO-cgjg"
   sandbox_token: "EAAAEGKUuR67gUfi0Hmfq5dfn8nSiuhibpB2HSDQTlAzQbaCQCEcJ6uPUJjcyAcm" # pragma: allowlist secret
-  app_id: "${SQUARE_APP_ID}"
-  token: "${SQUARE_TOKEN}"
+  app_id: ${SQUARE_APP_ID}
+  token: ${SQUARE_TOKEN}
   location: "EHP2KE13B35EQ"
 asana:
-  token: "${ASANA_TOKEN}"
+  token: ${ASANA_TOKEN}
   gid: "1199692158232291"
   shop_and_maintenance_tasks:
     gid: "1202469740885594"
@@ -169,8 +169,8 @@ sheets:
   welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 booked:
-  id: "${BOOKED_ID}"
-  key: "${BOOKED_KEY}"
+  id: ${BOOKED_ID}
+  key: ${BOOKED_KEY}
   resource_custom_attribute:
     area: 2
     tool_code: 3
@@ -195,8 +195,8 @@ booked:
   - "All"
   notify_mqtt: true
 wiki:
-  user: "${WIKI_USER}"
-  password: "${WIKI_PASSWORD}"
+  user: ${WIKI_USER}
+  password: ${WIKI_PASSWORD}
 forms:
   signin:
     base_url: "https://docs.google.com/forms/d/e/1FAIpQLSfen4NHmAivUPKuvMIqT8UeRqD9meoxq31ZHNG17upDWiTGkQ/"
@@ -208,13 +208,13 @@ forms:
       purpose: "entry.131288088"
       am_member: "entry.1823004694"
 wyze:
-  key_id: "${WYZE_KEY_ID}"
-  api_key: "${WYZE_API_KEY}"
+  key_id: ${WYZE_KEY_ID}
+  api_key: ${WYZE_API_KEY}
   email: "hello@protohaven.org"
-  password: "${WYZE_PASSWORD}"
+  password: ${WYZE_PASSWORD}
   expiration: "12-16-2025 08:18:28"
 bookstack:
-  api_key: "${PH_BOOKSTACK_API_KEY}"
+  api_key: ${PH_BOOKSTACK_API_KEY}
   base_url: "https://wiki.protohaven.org"
   maintenance:
     books:
@@ -227,10 +227,10 @@ drive:
   credentials_path: "credentials.json"
   scopes: ["https://www.googleapis.com/auth/drive"]
 mqtt:
-  enabled: "${MQTT}"
+  enabled: ${MQTT}
   host: "mqtt.cron.protohaven.org"
   port: 8883
   keepalive_sec: 60
-  username: "${MQTT_USERNAME}"
-  password: "${MQTT_PASSWORD}"
+  username: ${MQTT_USERNAME}
+  password: ${MQTT_PASSWORD}
   ca_cert_path: "./ISRGRootX1.crt"

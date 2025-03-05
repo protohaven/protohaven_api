@@ -4,6 +4,7 @@ Required, IMAP enabled in gmail, also less secure access turned on
 see https://myaccount.google.com/u/3/lesssecureapps
 """
 
+import logging
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -13,6 +14,8 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from protohaven_api.config import get_config
 from protohaven_api.integrations.cronicle import exec_details_footer
 from protohaven_api.integrations.data.connector import get as get_connector
+
+log = logging.getLogger("integrations.comms")
 
 
 @lru_cache(maxsize=1)
@@ -103,6 +106,10 @@ def send_email(subject, body, recipients, html):
     return get_connector().email(subject, body, recipients, html)
 
 
+# Actual character limit is 2000, but we add some headroom here
+DISCORD_CHAR_LIMIT = 1950
+
+
 def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
@@ -123,16 +130,19 @@ def send_discord_message(content, channel=None, blocking=True):
         if role_id is None:
             return s
 
-        print(f"Replacing {s} with role id tag {role_id}")
+        log.info(f"Replacing {s} with role id tag {role_id}")
         return f"<@&{role_id}>"
 
     content = re.sub(r"@\w+", sub_roles, content, flags=re.MULTILINE)
 
-    result = get_connector().discord_webhook(channel, content)
-    if blocking:
-        result.raise_for_status()
-    else:
-        return result
+    log.info("Message is {len(content)} chars")
+    for i in range(0, len(content), DISCORD_CHAR_LIMIT):
+        chunk = content[i : i + DISCORD_CHAR_LIMIT]
+        log.info(f"Sending msg {len(chunk)} chars")
+        result = get_connector().discord_webhook(channel, chunk)
+        if blocking:
+            result.raise_for_status()
+    return result
 
 
 def set_discord_nickname(name, nick):
