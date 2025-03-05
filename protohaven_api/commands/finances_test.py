@@ -139,7 +139,7 @@ def test_validate_membership_no_end_date_bad():
 
 def test_validate_membership_zero_cost_roles_ok():
     """Various roles that are $0 memberships should validate OK"""
-    for l in ["Shop Tech", "Board Member", "Staff"]:
+    for l in ["Shop Tech", "Board Member", "Staff", "Software Dev"]:
         got = f.Commands()._validate_membership_singleton(
             {
                 "level": l,
@@ -328,22 +328,48 @@ def test_refresh_volunteer_memberships(mocker, cli):
     mocker.patch.object(
         f.neon,
         "get_members_with_role",
-        return_value=[
-            {
-                "Account ID": 123,
-                "First Name": "John",
-                "Last Name": "Doe",
-                "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
-            }
+        side_effect=[
+            [
+                {
+                    "Account ID": 123,
+                    "First Name": "John",
+                    "Last Name": "Doe",
+                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
+                }
+            ],
+            [
+                {
+                    "Account ID": 456,
+                    "First Name": "Jane",
+                    "Last Name": "Doe",
+                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
+                }
+            ],
         ],
     )
     mocker.patch.object(f.Commands, "_last_expiring_membership", return_value=d(0, 23))
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
-    got = cli("refresh_volunteer_memberships", ["--apply", "--limit", "1"])
+    got = cli("refresh_volunteer_memberships", ["--apply", "--limit", "2"])
     assert len(got) == 1
     assert got[0]["target"] == "#membership-automation"
     assert got[0]["body"] == MatchStr("new Shop Tech membership")
-    f.neon.create_zero_cost_membership.assert_called_with(
-        123, d(1, 23), d(31, 23), level=mocker.ANY, term=mocker.ANY
+    assert got[0]["body"] == MatchStr("new Software Dev membership")
+    f.neon.create_zero_cost_membership.assert_has_calls(
+        [
+            mocker.call(
+                123,
+                d(1, 23),
+                d(31, 23),
+                level={"id": mocker.ANY, "name": "Shop Tech"},
+                term={"id": mocker.ANY, "name": "Shop Tech"},
+            ),
+            mocker.call(
+                456,
+                d(1, 23),
+                d(31, 23),
+                level={"id": mocker.ANY, "name": "Software Developer"},
+                term={"id": mocker.ANY, "name": "Software Developer"},
+            ),
+        ]
     )

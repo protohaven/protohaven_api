@@ -387,6 +387,7 @@ class Commands:
                 "Shop Tech",
                 "Board Member",
                 "Staff",
+                "Software Dev",
             ):
                 if (
                     details.get("zero_cost_ok_until") is None
@@ -427,6 +428,8 @@ class Commands:
             result += self._validate_role_membership(details, Role.INSTRUCTOR)
         elif level in "Board Member":
             result += self._validate_role_membership(details, Role.BOARD_MEMBER)
+        elif level == "Software Dev":
+            result += self._validate_role_membership(details, Role.SOFTWARE_DEV)
         elif level == "Staff":
             result += self._validate_role_membership(details, Role.STAFF)
         elif level == "Additional Family Membership":
@@ -451,6 +454,50 @@ class Commands:
             if not result or result < end:
                 result = end
         return result
+
+    def _refresh_role_memberships(
+        self, args, summary, role, level, term
+    ):  # pylint: disable=too-many-arguments
+        now = tznow()
+        for t in neon.get_members_with_role(role, []):
+            if len(summary) >= args.limit:
+                log.info("Processing limit reached; exiting")
+                break
+
+            log.info(f"Processing tech {t}")
+            end = self._last_expiring_membership(t["Account ID"])
+            if now + datetime.timedelta(days=args.expiry_threshold) < end:
+                continue  # Skip if active membership not expiring soon
+
+            # Precondition: shop tech has no future or active membership
+            # expiring later than args.expiry_threshold, and args.apply is set
+            summary.append(
+                {
+                    "fname": t["First Name"].strip(),
+                    "lname": t["Last Name"].strip(),
+                    "end_date": end.strftime("%Y-%m-%d"),
+                    "account_id": t["Account ID"],
+                    "membership_id": "DRYRUN",
+                    "new_end": "N/A",
+                    "membership_type": role["name"],
+                }
+            )
+            if not args.apply:
+                log.info(f"DRY RUN: create membership for tech {t}")
+                continue
+
+            new_end = end + datetime.timedelta(days=1 + args.duration_days)
+            ret = neon.create_zero_cost_membership(
+                t["Account ID"],
+                end + datetime.timedelta(days=1),
+                new_end,
+                level=level,
+                term=term,
+            )
+            log.info(f"New membership response: {ret}")
+            if ret:
+                summary[-1]["membership_id"] = ret["id"]
+                summary[-1]["new_end"] = new_end.strftime("%Y-%m-%d")
 
     @command(
         arg(
@@ -487,47 +534,21 @@ class Commands:
     def refresh_volunteer_memberships(self, args, _):
         """If a volunteer's membership is due to expire soon, create a
         future membership that starts when the previous one ends."""
-        now = tznow()
         summary = []
-        for t in neon.get_members_with_role(Role.SHOP_TECH, []):
-            if len(summary) >= args.limit:
-                log.info("Processing limit reached; exiting")
-                break
-
-            log.info(f"Processing tech {t}")
-            end = self._last_expiring_membership(t["Account ID"])
-            if now + datetime.timedelta(days=args.expiry_threshold) < end:
-                continue  # Skip if active membership not expiring soon
-
-            # Precondition: shop tech has no future or active membership
-            # expiring later than args.expiry_threshold, and args.apply is set
-            summary.append(
-                {
-                    "fname": t["First Name"].strip(),
-                    "lname": t["Last Name"].strip(),
-                    "end_date": end.strftime("%Y-%m-%d"),
-                    "account_id": t["Account ID"],
-                    "membership_id": "DRYRUN",
-                    "new_end": "N/A",
-                    "membership_type": "Shop Tech",
-                }
-            )
-            if not args.apply:
-                log.info(f"DRY RUN: create membership for tech {t}")
-                continue
-
-            new_end = end + datetime.timedelta(days=1 + args.duration_days)
-            ret = neon.create_zero_cost_membership(
-                t["Account ID"],
-                end + datetime.timedelta(days=1),
-                new_end,
-                level={"id": 19, "name": "Shop Tech"},
-                term={"id": 61, "name": "Shop Tech"},
-            )
-            log.info(f"New membership response: {ret}")
-            if ret:
-                summary[-1]["membership_id"] = ret["id"]
-                summary[-1]["new_end"] = new_end.strftime("%Y-%m-%d")
+        self._refresh_role_memberships(
+            args,
+            summary,
+            Role.SHOP_TECH,
+            level={"id": 19, "name": "Shop Tech"},
+            term={"id": 61, "name": "Shop Tech"},
+        )
+        self._refresh_role_memberships(
+            args,
+            summary,
+            Role.SOFTWARE_DEV,
+            level={"id": 33, "name": "Software Developer"},
+            term={"id": 115, "name": "Software Developer"},
+        )
 
         if len(summary) > 0:
             print_yaml(
