@@ -82,7 +82,6 @@ function clearance_click(id) {
 {#await promise}
 <Spinner/>
 {:then p}
-  {#if p.tech_lead }
   <div class="d-flex">
     {#if enrolling}
       <Spinner/>
@@ -97,11 +96,12 @@ function clearance_click(id) {
             <DropdownItem on:click={() => sort_type="name" }>By Name</DropdownItem>
         </DropdownMenu>
     </Dropdown>
-    <Input class="mx-1" text bind:value={new_tech_email} disabled={enrolling} placeholder="email address"/>
-    <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling}>Enroll</Button>
-    <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling}>Disenroll</Button>
+    {#if p.tech_lead }
+      <Input class="mx-1" text bind:value={new_tech_email} disabled={enrolling} placeholder="email address"/>
+      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling}>Enroll</Button>
+      <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling}>Disenroll</Button>
+    {/if}
   </div>
-  {/if}
   <Toast class="me-1" style="position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
     <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
     <ToastBody>{toast_msg.msg}</ToastBody>
