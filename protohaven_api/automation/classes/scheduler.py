@@ -12,7 +12,7 @@ from protohaven_api.automation.classes.validation import (
     sort_and_merge_date_ranges,
     validate_candidate_class_time,
 )
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable
 from protohaven_api.integrations.comms import Msg
 
@@ -125,25 +125,48 @@ def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
     return Instructor(name, candidates, dict(rejected))
 
 
-def gen_class_and_area_stats(cur_sched, start_date, end_date):
+def gen_class_and_area_stats(
+    cur_sched, start_date, end_date, clearance_code_mapping
+):  # pylint: disable=too-many-locals
     """Build a map of when each class in the current schedule was last run, plus
     a list of times where areas are occupied, within the bounds of start_date and end_date
     """
     exclusions = defaultdict(list)
+    clearance_exclusion = defaultdict(list)
     area_occupancy = defaultdict(list)
     instructor_occupancy = defaultdict(list)
+    clearance_exclusion_range = get_config(
+        "general/class_scheduling/clearance_exclusion_range_days"
+    )
+
     for c in cur_sched:
         t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
         pd = c["fields"]["Period (from Class)"][0]
         rec = c["fields"]["Class"][0]
 
         exclusion_window = [
-            t - datetime.timedelta(pd),
-            t + datetime.timedelta(pd),
+            t - datetime.timedelta(days=pd),
+            t
+            + datetime.timedelta(days=7 * (c["fields"]["Days (from Class)"][0] - 1))
+            + datetime.timedelta(days=pd),
+            t,  # Main date is included for reference
+        ]
+        clearance_exclusion_window = [
+            t - datetime.timedelta(days=clearance_exclusion_range),
+            t + datetime.timedelta(days=clearance_exclusion_range),
             t,  # Main date is included for reference
         ]
         if exclusion_window[0] <= end_date or exclusion_window[1] >= start_date:
             exclusions[rec].append(exclusion_window)
+        if (
+            clearance_exclusion_window[0] <= end_date
+            or clearance_exclusion_window[1] >= start_date
+        ):
+            for clr in c["fields"]["Clearance (from Class)"]:
+                mapped = clearance_code_mapping.get(clr)
+                if mapped:
+                    clearance_exclusion[mapped].append(clearance_exclusion_window)
+
         for i in range(c["fields"]["Days (from Class)"][0]):
             ao = [
                 t + datetime.timedelta(days=7 * i),
@@ -160,12 +183,13 @@ def gen_class_and_area_stats(cur_sched, start_date, end_date):
                     aoc
                 )
                 instructor_occupancy[c["fields"]["Instructor"].lower()].append(aoc)
+
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
-    return exclusions, area_occupancy, instructor_occupancy
+    return exclusions, area_occupancy, clearance_exclusion, instructor_occupancy
 
 
-def load_schedulable_classes(exclusions):
+def load_schedulable_classes(class_exclusions, clearance_exclusions):
     """Load all classes which are schedulable, as Class instances.
     If there's anything that requires the instructor's attention, it's
     appended to a list of notes as part of the return value.
@@ -189,6 +213,13 @@ def load_schedulable_classes(exclusions):
                     "in the #instructors Discord channel or to "
                     "education@protohaven.org."
                 )
+
+            exclusions = [ee + ["class"] for ee in class_exclusions.get(c["id"], [])]
+            exclusions += [
+                ee + [f"clearance ({clr})"]
+                for clr in (c["fields"].get("Clearance") or [])
+                for ee in (clearance_exclusions.get(clr) or [])
+            ]
             classes.append(
                 Class(
                     c["id"],
@@ -196,7 +227,7 @@ def load_schedulable_classes(exclusions):
                     hours=c["fields"]["Hours"],
                     days=c["fields"]["Days"],
                     areas=c["fields"]["Area"],
-                    exclusions=exclusions.get(c["id"], []),
+                    exclusions=exclusions,
                     score=compute_score(c),
                 )
             )
@@ -229,17 +260,30 @@ def generate_env(
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
 
     # Compute ancillary info about what times/areas/instructors are occupied by which classes
-    exclusions, area_occupancy, instructor_occupancy = gen_class_and_area_stats(
-        cur_sched, start_date, end_date
+
+    clearance_code_mapping = {
+        rec["id"]: rec["fields"].get("Code")
+        for rec in airtable.get_all_records("class_automation", "clearance_codes")
+    }
+    (
+        exclusions,
+        area_occupancy,
+        clearance_exclusions,
+        instructor_occupancy,
+    ) = gen_class_and_area_stats(
+        cur_sched, start_date, end_date, clearance_code_mapping
     )
-    log.info(f"Computed exclusion times of {len(exclusions)} different classes")
+    log.info(
+        f"Computed exclusion times of {len(exclusions)} different classes, "
+        f"{len(clearance_exclusions)} clearances"
+    )
     log.info(
         f"Computed occupancy of {len(area_occupancy)} different areas, "
         f"{len(instructor_occupancy)} instructors"
     )
 
     # Load classes from airtable
-    classes, notices = load_schedulable_classes(exclusions)
+    classes, notices = load_schedulable_classes(exclusions, clearance_exclusions)
     class_by_id = {c.class_id: c for c in classes}
     log.info(f"Loaded {len(classes)} classes")
 

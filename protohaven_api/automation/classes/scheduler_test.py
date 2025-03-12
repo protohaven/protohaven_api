@@ -54,7 +54,7 @@ def test_build_instructor_basic():
         days=1,
         hours=3,
         areas=["a0"],
-        exclusions=[[d(5), d(10), d(7)]],
+        exclusions=[[d(5), d(10), d(7), "class"]],
         score=1.0,
     )
     assert s.build_instructor(
@@ -174,34 +174,54 @@ def test_push_schedule(mocker):
     )
 
 
-def test_gen_class_and_area_stats_exclusions():
+def test_gen_class_and_area_stats_exclusions(mocker):
     """Verify that exclusions account for the time before and after a run of a class
     that should be avoided when schedling new classes"""
-    exclusions, _, _ = s.gen_class_and_area_stats(
+    mocker.patch.object(s, "get_config", return_value=7)
+    exclusions, _, clearance_exclusions, _ = s.gen_class_and_area_stats(
         [
             {
                 "fields": {
                     "Start Time": "2024-04-01",
                     "Class": ["r1"],
-                    "Days (from Class)": [0],
+                    "Clearance (from Class)": [12345],
+                    "Days (from Class)": [1],
+                    "Hours (from Class)": [3],
                     "Period (from Class)": [30],
+                    "Name (from Class)": "Class1",
+                    "Name (from Area) (from Class)": "Area1",
+                    "Instructor": "Foo",
                 }
             },
             {
                 "fields": {
                     "Start Time": "2024-03-01",
                     "Class": ["r1"],
-                    "Days (from Class)": [0],
+                    "Clearance (from Class)": [12345],
+                    "Days (from Class)": [
+                        2
+                    ],  # End of exclusion should be from last session
+                    "Hours (from Class)": [3],
                     "Period (from Class)": [30],
+                    "Name (from Class)": "Class1",
+                    "Name (from Area) (from Class)": "Area1",
+                    "Instructor": "Foo",
                 }
             },
         ],
         parse_date("2024-02-01T00:00:00-04:00"),
         parse_date("2024-05-01T00:00:00-05:00"),
+        {12345: "C1"},
     )
     assert [tuple([d.strftime("%Y-%m-%d") for d in dd]) for dd in exclusions["r1"]] == [
         ("2024-03-02", "2024-05-01", "2024-04-01"),
-        ("2024-01-31", "2024-03-31", "2024-03-01"),
+        ("2024-01-31", "2024-04-07", "2024-03-01"),
+    ]
+    assert [
+        tuple([d.strftime("%Y-%m-%d") for d in dd]) for dd in clearance_exclusions["C1"]
+    ] == [
+        ("2024-03-25", "2024-04-08", "2024-04-01"),
+        ("2024-02-23", "2024-03-08", "2024-03-01"),
     ]
 
 
@@ -243,6 +263,7 @@ def test_load_schedulable_classes(mocker):
                     "Hours": 5,
                     "Days": 2,
                     "Area": ["Area 1"],
+                    "Clearance": ["C1", "C2"],
                     "Image Link": "http://example.com/image1",
                 },
             },
@@ -269,11 +290,17 @@ def test_load_schedulable_classes(mocker):
     )
     mocker.patch.object(s, "compute_score", return_value=10)
 
-    classes, notices = s.load_schedulable_classes({})
+    classes, notices = s.load_schedulable_classes(
+        {"class1": [[d(0), d(2), d(1)]]}, {"C1": [[d(0), d(2), d(1)]]}
+    )
 
     assert len(classes) == 2
     assert classes[0].name == "Class One"
     assert classes[1].name == "Class Three"
+    assert classes[0].exclusions == [
+        [d(0), d(2), d(1), "class"],
+        [d(0), d(2), d(1), "clearance (C1)"],
+    ]
     assert "missing required fields" in notices["class2"][0]
     assert "Class is missing a promo image" in notices["class3"][0]
 
@@ -310,7 +337,14 @@ def test_generate_env(mocker):
         ],
     )
     mocker.patch.object(
-        s, "gen_class_and_area_stats", return_value=(set(), {}, {"instructor1": []})
+        s.airtable,
+        "get_all_records",
+        return_value=[
+            {"id": "rec1", "fields": {"Code": "Code1"}},
+        ],
+    )
+    mocker.patch.object(
+        s, "gen_class_and_area_stats", return_value=(set(), {}, {}, {"instructor1": []})
     )
     mocker.patch.object(
         s,
