@@ -106,7 +106,7 @@ def test_validate_candidate_class_time(tc):
         hours=tc.class_hours,
         days=tc.class_days,
         areas=["a0"],
-        exclusions=[[d(5), d(10), d(7)]],
+        exclusions=[[d(5), d(10), d(7), "class"]],
         score=1.0,
     )
     valid, reason = v.validate_candidate_class_time(
@@ -146,9 +146,14 @@ Tc = namedtuple("TC", "desc,d,exclusions,want")
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("Simple containment", d(0, 12), [(d(0), d(1), "foo")], [d(0), d(1), "foo"]),
-        Tc("Too late", d(2), [(d(0), d(1), "foo")], False),
-        Tc("Too early", d(-1), [(d(0), d(1), "foo")], False),
+        Tc(
+            "Simple containment",
+            d(0, 12),
+            [(d(0), d(1), "foo", "bar")],
+            [d(0), d(1), "foo", "bar"],
+        ),
+        Tc("Too late", d(2), [(d(0), d(1), "foo", "bar")], False),
+        Tc("Too early", d(-1), [(d(0), d(1), "foo", "bar")], False),
     ],
     ids=idfn,
 )
