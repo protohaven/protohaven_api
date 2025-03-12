@@ -29,6 +29,8 @@ class Class:
         assert isinstance(areas, list)
         self.areas = areas
 
+        # NOTE: exclusions are not factored at solver time; they are instead
+        # applied to instructor `candidates` scheduling times via `scheduler.py.`
         if len(exclusions) > 0 and isinstance(exclusions[0][0], str):
             # Convert from string to Date if required
             self.exclusions = [

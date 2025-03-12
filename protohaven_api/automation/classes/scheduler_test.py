@@ -9,7 +9,7 @@ from dateutil.parser import parse as parse_date
 from protohaven_api.automation.classes import scheduler as s
 from protohaven_api.automation.classes.solver import Class
 from protohaven_api.config import tz, tznow
-from protohaven_api.testing import d, t
+from protohaven_api.testing import MatchStr, d, t
 
 
 def test_slice_date_range():
@@ -65,6 +65,35 @@ def test_build_instructor_basic():
         area_occupancy={},
         class_by_id={TEST_CLASS.class_id: TEST_CLASS},
     ).avail == [d(1, 18)]
+
+
+def test_build_instructor_exclusion():
+    """Test that exclusions resrict instructor availability"""
+    TEST_CLASS = Class(
+        "test_id",
+        "Test Class",
+        days=1,
+        hours=3,
+        areas=["a0"],
+        exclusions=[[d(5), d(10), d(7), "class"]],
+        score=1.0,
+    )
+    got = s.build_instructor(
+        name="testname",
+        avail=[[d(6, 18).isoformat(), d(6, 21).isoformat(), "avail_id"]],
+        caps=[TEST_CLASS.class_id],
+        instructor_occupancy=[],
+        area_occupancy={},
+        class_by_id={TEST_CLASS.class_id: TEST_CLASS},
+    )
+
+    assert got.avail == []
+    assert got.rejected["test_id"] == [
+        {
+            "time": d(6, 18).isoformat(),
+            "reason": MatchStr("Too soon before/after same class"),
+        }
+    ]
 
 
 def test_build_instructor_no_class_info():
