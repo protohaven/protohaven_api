@@ -4,12 +4,16 @@ general:
   server_mode: ${PH_SERVER_MODE}
   behind_proxy: false
   cors: ${CORS}
-  unsafe_no_rbac: ${UNSAFE_NO_RBAC}
   session_secret: ${SESSION_SECRET}
   admin_users: ["1245"]
   precache_sign_in: ${PRECACHE_SIGN_IN}
   external_access_codes:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
+  class_scheduling:
+    clearance_exclusion_range_days: 7
+  unsafe:
+    no_rbac: ${UNSAFE_NO_RBAC}
+    login_as_user: ${UNSAFE_LOGIN_AS}
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle

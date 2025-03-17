@@ -47,9 +47,9 @@ def has_area_conflict(area_occupancy, t_start, t_end):
 def date_within_exclusions(d, exclusions):
     """Returns the matching exclusion date if `d` is
     within any of the tuples in the list of `exclusions`"""
-    for e1, e2, esched in exclusions:
+    for e1, e2, esched, eattr in exclusions:
         if e1 <= d <= e2:
-            return [e1, e2, esched]
+            return [e1, e2, esched, eattr]
     return False
 
 
@@ -104,10 +104,10 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
         # Skip this particular time if it's in an exclusion region
         excluding_class_dates = date_within_exclusions(t0, c.exclusions)
         if excluding_class_dates:
-            e1, e2, esched = excluding_class_dates
+            e1, e2, esched, eattr = excluding_class_dates
             return (
                 False,
-                f"Too soon before/after same class (scheduled for "
+                f"Too soon before/after same {eattr} (scheduled for "
                 f"{esched.strftime('%Y-%m-%d')}; no repeats allowed "
                 f"between {e1.strftime('%Y-%m-%d')} and {e2.strftime('%Y-%m-%d')})",
             )

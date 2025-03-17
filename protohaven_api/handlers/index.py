@@ -15,7 +15,6 @@ from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.schedule import fetch_shop_events
-from protohaven_api.rbac import is_enabled as rbac_enabled
 from protohaven_api.rbac import require_login
 
 page = Blueprint("index", __name__, template_folder="templates")
@@ -33,14 +32,6 @@ def index():
 @page.route("/whoami")
 def whoami():
     """Returns data about the logged in user"""
-    if not rbac_enabled():
-        return {
-            "fullname": "Test User (RBAC disabled)",
-            "email": "noreply@noreply.com",
-            "clearances": [],
-            "roles": [],
-            "neon_id": "00000",
-        }
     neon_account = session.get("neon_account")
     if not neon_account:
         return Response("You are not logged in", status=400)

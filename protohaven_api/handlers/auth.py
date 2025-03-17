@@ -58,15 +58,20 @@ def logout():
     return "You've been logged out"
 
 
+def login_with_neon_id(neon_id):
+    """Sets the session based on a Neon user ID"""
+    session["neon_id"] = neon_id
+    session["neon_account"], _ = neon_base.fetch_account(
+        session["neon_id"], required=True
+    )
+
+
 @page.route("/oauth_redirect")
 def neon_oauth_redirect():
     """Redirect back to the page the user came from for login"""
     code = request.args.get("code")
     rep = oauth.retrieve_token(_redirect_uri(), code)
-    session["neon_id"] = rep.get("access_token")
-    session["neon_account"], _ = neon_base.fetch_account(
-        session["neon_id"], required=True
-    )
+    login_with_neon_id(rep.get("access_token"))
     referrer = session.get("login_referrer", "/")
     log.info(f"Login referrer redirect: {referrer}")
     return redirect(referrer)

@@ -44,7 +44,7 @@ def recordless_op(base, tbl):
             rep.append(rec)
         log.info(f"Airtable add records: {rep}")
         check = mock_data()["airtable"][_base_lookup(base)][_tbl_lookup(tbl)]
-        log.info(f"In table: {check[-1]}")
+        log.info(f"Value in table: {check[-1]}")
         return {"records": rep}
     return Response("Method not supported", status=400)
 

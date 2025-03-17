@@ -409,14 +409,19 @@ def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def get_instructor_availability(inst):
+def get_instructor_record(inst_name):
+    """Fetches the instructor metadata by name"""
+    inst_name = inst_name.lower().strip()
+    for row in get_all_records("class_automation", "capabilities"):
+        if inst_name == row["fields"]["Instructor"].lower().strip():
+            return row["id"]
+    raise RuntimeError(f"Instructor ID missing for {inst_name}")
+
+
+def get_instructor_availability(inst_rec):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
-    inst = inst.strip().lower()
     for row in get_all_records("class_automation", "availability"):
-        row_inst = (
-            row["fields"].get("Instructor (from Instructor)", [""])[0].strip().lower()
-        )
-        if row_inst == inst:
+        if inst_rec in row["fields"].get("Instructor"):
             yield row
 
 
