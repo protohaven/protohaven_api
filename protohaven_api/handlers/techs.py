@@ -231,12 +231,14 @@ def new_tech_event():
     log.info("Parsing date")
     d = dateparser.parse(data["start"]).astimezone(tz)
     log.info(f"Parsed {d}")
+    data["hours"] = int(data["hours"])
     if not d or d < tznow() or d.hour < 10 or d.hour + data["hours"] > 22:
         return Response(
             "start must be set to a valid date in the future and within business hours (10AM-10PM)",
             status=401,
         )
     log.info("checking capacity")
+    data["capacity"] = int(data["capacity"])
     if data["capacity"] < 0 or data["capacity"] > 100:
         return Response("capacity field invalid", status=401)
     log.info(f"Creating event with data {data}")

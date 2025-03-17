@@ -373,8 +373,8 @@ def test_new_tech_event(mocker, lead_client):
         json={
             "name": "Test Event",
             "start": d(1, 14).isoformat(),
-            "hours": 2,
-            "capacity": 10,
+            "hours": "2",  # Pass as string to exercise casting
+            "capacity": "10",  # Pass as string to exercise casting
         },
     )
     assert response.status_code == 200
