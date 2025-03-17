@@ -18,6 +18,7 @@ const PROXY_PATHS = [
   '^/staff/.',
   '^/events/.',
   '^/instructor/.',
+  '^/admin/.',
   '/whoami',
   '/neon_lookup',
   '/class_listing',

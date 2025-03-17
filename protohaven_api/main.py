@@ -25,7 +25,7 @@ app = configure_app(
     session_secret=get_config("general/session_secret"),
 )
 
-if get_config("general/unsafe_no_rbac", as_bool=True):
+if get_config("general/unsafe/no_rbac", as_bool=True):
     log.warning(
         "DANGER DANGER DANGER\n\nRBAC DISABLED; EVERYONE CAN DO EVERYTHING\n\nDANGER DANGER DANGER"
     )

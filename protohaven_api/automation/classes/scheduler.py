@@ -24,7 +24,8 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
     return tuples of times bounding their availability"""
     result = {}
     for inst in inst_filter:
-        rows = airtable.get_instructor_availability(inst)
+        inst_rec = airtable.get_instructor_record(inst)
+        rows = airtable.get_instructor_availability(inst_rec)
         # Have to drop the record IDs
         result[inst] = [
             [t0.isoformat(), t1.isoformat(), row_id]
@@ -162,7 +163,7 @@ def gen_class_and_area_stats(
             clearance_exclusion_window[0] <= end_date
             or clearance_exclusion_window[1] >= start_date
         ):
-            for clr in c["fields"]["Clearance (from Class)"]:
+            for clr in c["fields"].get("Clearance (from Class)") or []:
                 mapped = clearance_code_mapping.get(clr)
                 if mapped:
                     clearance_exclusion[mapped].append(clearance_exclusion_window)

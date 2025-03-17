@@ -324,9 +324,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                     "Instructor": (lambda _: [random_id()]),
                     "Start": None,
                     "End": None,
-                    "Instructor (from Instructor)": random_name,
                     "Summary": lambda _: "A summary",
-                    "Email (from Instructor)": random_email,
                     "Recurrence": None,
                 },
                 "discounts": {

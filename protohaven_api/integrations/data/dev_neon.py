@@ -188,7 +188,7 @@ def search_accounts():
 @app.route("/v2/accounts/<account_id>", methods=["GET", "PATCH"])
 def get_account(account_id):
     """Mock account lookup endpoint for Neon"""
-    a = mock_data()["neon"]["accounts"].get(int(account_id))
+    a = mock_data()["neon"]["accounts"].get(account_id)
     if not a:
         return Response("Account not found", status=404)
 
@@ -200,7 +200,7 @@ def get_account(account_id):
 @app.route("/v2/accounts/<account_id>/memberships")
 def get_account_memberships(account_id):
     """Mock account membership endpoint for Neon"""
-    m = mock_data()["neon"]["memberships"].get(int(account_id))
+    m = mock_data()["neon"]["memberships"].get(account_id)
     if not m:
         return Response("Memberships not found for account", status=404)
     return {

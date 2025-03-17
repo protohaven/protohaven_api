@@ -29,7 +29,6 @@ def _arec(email, start, end, rrule=""):
         "id": 123,
         "fields": {
             "Instructor": [123],
-            "Email (from Instructor)": email,
             "Start": start.isoformat(),
             "End": end.isoformat(),
             "Recurrence": rrule,
