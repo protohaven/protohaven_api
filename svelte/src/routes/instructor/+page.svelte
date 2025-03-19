@@ -4,7 +4,7 @@ import '../../app.scss';
 import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
-import { Container, Row, Col, Navbar, NavbarBrand, Spinner } from '@sveltestrap/sveltestrap';
+import { Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
 import Calendar from '$lib/dashboard/calendar.svelte';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
@@ -35,8 +35,16 @@ let fullname = "";
 let airtable_id = "";
 </script>
 
-<Navbar color="primary-subtle">
+<Navbar color="primary-subtle" sticky="">
   <NavbarBrand>Instructor Dashboard</NavbarBrand>
+  <Nav>
+    <NavItem>
+      <NavLink href="https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform" target="_blank">Log Form (Blank)</NavLink>
+    </NavItem>
+    <NavItem>
+      <NavLink href="https://wiki.protohaven.org/books/instructors-handbook" target="_blank">Wiki/Help</NavLink>
+    </NavItem>
+  </Nav>
 </Navbar>
 <main>
   {#await promise}

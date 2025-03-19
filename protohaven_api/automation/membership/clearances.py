@@ -40,6 +40,10 @@ def update(email, method, delta, apply=True):
         result = codes - delta
         codes -= set(delta)
 
+    if len(result) == 0:
+        log.info(f"No change required for {email}; skipping {method}")
+        return []
+
     ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
     if apply:
         log.info(f"Setting clearances for {m['Account ID']} to {ids}")
