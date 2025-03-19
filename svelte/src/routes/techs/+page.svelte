@@ -30,9 +30,6 @@
         }
 	      throw e;
       });
-    } else {
-      user = {email: e, fullname: 'Test User'};
-      promise = Promise.resolve(user);
     }
   });
   function on_tab(e) {
