@@ -63,14 +63,25 @@ def user_clearances():
 
     for e in emails:
         try:
-            results[e] = mclearance.update(e, request.method, delta)
+            results[e] = {
+                "result": mclearance.update(e, request.method, delta),
+                "status": 200,
+            }
         except RuntimeError as exc:
-            return Response(str(exc), status=500)
+            results[e] = {"result": [], "status": 500, "message": str(exc)}
         except KeyError as exc:
-            return Response(str(exc), status=404)
+            results[e] = {"result": [], "status": 404, "message": str(exc)}
         except TypeError as exc:
-            return Response(str(exc), status=400)
-    return results
+            results[e] = {"result": [], "status": 400, "message": str(exc)}
+
+    comms.send_discord_message(
+        "Member clearance updates:"
+        "\n".join([f"-{e}: {v}\n" for e, v in results.items()]),
+        "#membership-automation",
+        blocking=False,
+    )
+
+    return Response(results, status=max(r["status"] for r in results.values()))
 
 
 def _get_account_details(account_id):
