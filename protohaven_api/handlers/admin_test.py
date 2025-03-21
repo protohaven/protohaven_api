@@ -7,6 +7,22 @@ from protohaven_api.handlers import admin as a
 from protohaven_api.testing import d, fixture_client  # pylint: disable=unused-import
 
 
+def test_user_clearances_notifies_discord(mocker, client):
+    """Test that changes to user clearances pushed to discord"""
+    mocker.patch.object(
+        rbac, "is_enabled", return_value=False
+    )  # Disable to allow testing
+    mocker.patch.object(a.mclearance, "update")
+    mocker.patch.object(a.mclearance, "resolve_codes")
+    mocker.patch.object(a.comms, "send_discord_message")
+    rep = client.patch(
+        "/user/clearances",
+        data={"emails": "test@example.com", "codes": "CLEAR1,CLEAR2"},
+    )
+    a.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
+    assert rep.status_code == 200
+
+
 def test_user_clearances(mocker, client):
     """Test the user_clearances function"""
     mocker.patch.object(
@@ -20,6 +36,7 @@ def test_user_clearances(mocker, client):
             {"name": "CLEAR2", "code": "C2", "id": 2},
         ],
     )
+    mocker.patch.object(a.comms, "send_discord_message")
     mocker.patch.object(
         a.neon,
         "search_member",
