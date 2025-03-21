@@ -36,6 +36,7 @@ def test_user_clearances(mocker, client):
             {"name": "CLEAR2", "code": "C2", "id": 2},
         ],
     )
+    mocker.patch.object(a.comms, "send_discord_message")
     mocker.patch.object(
         a.neon,
         "search_member",
