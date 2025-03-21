@@ -6,7 +6,7 @@ from protohaven_api.integrations import airtable_base as a
 
 def test_get_all_records(mocker):
     mocker.patch.object(a, "get_connector")
-    a.get_connector().airtable_request.side_effect = [
+    a.get_connector().db_request.side_effect = [
         (200, json.dumps({"records": ["foo", "bar", "baz"], "offset": 1})),
         (200, json.dumps({"records": ["fizz", "buzz"]})),
     ]
@@ -17,10 +17,10 @@ def test_get_all_records(mocker):
         "fizz",
         "buzz",
     ]
-    _, args, kwargs = a.get_connector().airtable_request.mock_calls[0]
+    _, args, kwargs = a.get_connector().db_request.mock_calls[0]
     print(kwargs)
     assert kwargs["suffix"] == "?offset=&a=test_suffix"
 
-    _, args, kwargs = a.get_connector().airtable_request.mock_calls[1]
+    _, args, kwargs = a.get_connector().db_request.mock_calls[1]
     print(kwargs)
     assert kwargs["suffix"] == "?offset=1&a=test_suffix"

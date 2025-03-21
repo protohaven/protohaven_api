@@ -14,6 +14,7 @@ from protohaven_api.automation.classes.validation import (
 )
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable
+from protohaven_api.integrations.airtable_base import _idref
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.scheduler")
@@ -143,7 +144,7 @@ def gen_class_and_area_stats(
     for c in cur_sched:
         t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
         pd = c["fields"]["Period (from Class)"][0]
-        rec = c["fields"]["Class"][0]
+        rec = _idref(c, "Class")[0]
 
         exclusion_window = [
             t - datetime.timedelta(days=pd),
@@ -218,7 +219,7 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
             exclusions = [ee + ["class"] for ee in class_exclusions.get(c["id"], [])]
             exclusions += [
                 ee + [f"clearance ({clr})"]
-                for clr in (c["fields"].get("Clearance") or [])
+                for clr in _idref(c, "Clearance")
                 for ee in (clearance_exclusions.get(clr) or [])
             ]
             classes.append(
@@ -227,7 +228,7 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
                     c["fields"]["Name"],
                     hours=c["fields"]["Hours"],
                     days=c["fields"]["Days"],
-                    areas=c["fields"]["Area"],
+                    areas=_idref(c, "Area"),
                     exclusions=exclusions,
                     score=compute_score(c),
                 )

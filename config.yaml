@@ -82,40 +82,77 @@ comms:
     PrivateInstructors: 1248640897126633575
     Members: 800816903881752616
     Board: 953363629837799434
+connector:
+  timeout: 20.0
+  num_attempts: 3
+  max_retry_delay_sec: 3.0
+nocodb:
+  requests:
+    url: "http://localhost:8080"
+    token: "LjsLEB_Iyi_BVk2fO26X5LJOI-hCnw7k4jIC4G7r" # pragma: allowlist secret
+  data:
+    tools_and_equipment:
+      areas: "mkb05bg2fnjp5af"
+      tools: "m70mnnu12pnc5fx"
+      clearances: "mt6i54nze3zpqsg"
+      recurring_tasks: "mjsz6m2oqwzb25f"
+      tool_reports: "mon1qz7fs6mp0j6"
+    class_automation:
+      clearance_codes: "mzgdpodpavc8x2x"
+      classes: "m3t3xquljpfvihq"
+      capabilities: "mzazxu9bgb3vdf0"
+      email_log: "m4y3g9aigjo0x7m"
+      schedule: "motauynqv5q473c"
+      boilerplate: "m956in9b8grmer1"
+      availability: "ms8jby3zcv0s3jo"
+      discounts: "mstauhc7ovslglt"
+    policy_enforcement:
+      sections: "mxq6xd6e7nqmnm0"
+      violations: "m1jbelb76ix3cn4"
+      fees: "myl3brdewxm9uti"
+    people:
+      shop_tech_forecast_overrides: "mbnsv0gknsanym3"
+      sign_in_announcements: "mpq6eu6gljxpojl"
+      sign_in_survey_responses: "m0ug87cgzm31t0b"
+      sign_ins: "m5pqytb0n1ydtml"
+      automation_intents: "m6h05qg8s18szjl"
 airtable:
-  tools_and_equipment:
-    token: ${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}
-    base_id: "appbIlORlmbIxNU1L"
-    areas: "tblpZf4XLHiptLLzL"
-    tools: "tblalZYdLVoTICzE6"
-    clearances: "tblsDjiWCOQLgDCHd"
-    recurring_tasks: "tbl2934K2YxSVnZMC"
-    tool_reports: "tblZbQcalfrvUiNM6"
-  class_automation:
-    token: ${AIRTABLE_TOKEN_CLASS_AUTOMATION}
-    base_id: "applultHGJxHNg69H"
-    clearance_codes: "tblzfYMmIuxchMJk7"
-    classes: "tblBHGwrU8cwVwbHI"
-    capabilities: "tbltv8tpiCqUnLTp4"
-    email_log: "tblEJqjHuYDhL09tY"
-    schedule: "tbl5FGO2hj9t8vGo0"
-    boilerplate: "tblZDWOcljKw0OnwN"
-    availability: "tbl4tOuZKNJduN4LC"
-    discounts: "tbllyGvxfAFYsocN0"
-  policy_enforcement:
-    token: ${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}
-    base_id: "apppMbG0r1ZrluVMv"
-    sections: "tblfCye5J6cS3rBGs"
-    violations: "tblxivDVVxoARFkHC"
-    fees: "tblpM1KXai4koCgCV"
-  people:
-    token: ${AIRTABLE_TOKEN_PEOPLE}
-    base_id: "appZIwlIgaq1Ps28Y"
-    shop_tech_forecast_overrides: "tblbQYTMDnMmsud7H"
-    sign_in_announcements: "tblTv5DGemRkB424u"
-    sign_in_survey_responses: "tbl6hPSnVBIXk8MQO"
-    sign_ins: "tblVBhzeE3k9yYRn9"
-    automation_intents: "tblBgXQlOFjNqvBVm"
+  requests:
+    url: "https://api.airtable.com/v0"
+  data:
+    tools_and_equipment:
+      token: ${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}
+      base_id: "appbIlORlmbIxNU1L"
+      areas: "tblpZf4XLHiptLLzL"
+      tools: "tblalZYdLVoTICzE6"
+      clearances: "tblsDjiWCOQLgDCHd"
+      recurring_tasks: "tbl2934K2YxSVnZMC"
+      tool_reports: "tblZbQcalfrvUiNM6"
+    class_automation:
+      token: ${AIRTABLE_TOKEN_CLASS_AUTOMATION}
+      base_id: "applultHGJxHNg69H"
+      clearance_codes: "tblzfYMmIuxchMJk7"
+      classes: "tblBHGwrU8cwVwbHI"
+      capabilities: "tbltv8tpiCqUnLTp4"
+      email_log: "tblEJqjHuYDhL09tY"
+      schedule: "tbl5FGO2hj9t8vGo0"
+      boilerplate: "tblZDWOcljKw0OnwN"
+      availability: "tbl4tOuZKNJduN4LC"
+      discounts: "tbllyGvxfAFYsocN0"
+    policy_enforcement:
+      token: ${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}
+      base_id: "apppMbG0r1ZrluVMv"
+      sections: "tblfCye5J6cS3rBGs"
+      violations: "tblxivDVVxoARFkHC"
+      fees: "tblpM1KXai4koCgCV"
+    people:
+      token: ${AIRTABLE_TOKEN_PEOPLE}
+      base_id: "appZIwlIgaq1Ps28Y"
+      shop_tech_forecast_overrides: "tblbQYTMDnMmsud7H"
+      sign_in_announcements: "tblTv5DGemRkB424u"
+      sign_in_survey_responses: "tbl6hPSnVBIXk8MQO"
+      sign_ins: "tblVBhzeE3k9yYRn9"
+      automation_intents: "tblBgXQlOFjNqvBVm"
 calendar:
   credentials_path: "credentials.json"
   instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"

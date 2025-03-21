@@ -11,6 +11,7 @@ from dateutil.rrule import rrulestr
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations.airtable_base import (
+    _idref,
     delete_record,
     get_all_records,
     get_all_records_after,
@@ -81,7 +82,7 @@ def fetch_instructor_teachable_classes():
             continue
         inst = row["fields"]["Instructor"].strip().lower()
         if "Class" in row["fields"].keys():
-            instructor_caps[inst] += row["fields"]["Class"]
+            instructor_caps[inst] += _idref(row, "Class")
     return instructor_caps
 
 
@@ -421,7 +422,7 @@ def get_instructor_record(inst_name):
 def get_instructor_availability(inst_rec):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
     for row in get_all_records("class_automation", "availability"):
-        if inst_rec in row["fields"].get("Instructor"):
+        if inst_rec in _idref(row, "Instructor"):
             yield row
 
 
@@ -602,7 +603,9 @@ class AirtableCache(WarmDict):
         self["announcements"] = get_all_announcements()
         self["violations"] = get_policy_violations()
         self.log.info(
-            f"AirtableCache refresh complete; next update in {self.REFRESH_PD_SEC} seconds"
+            f"AirtableCache refresh complete; {len(self['announcements'])} announcements, "
+            f"{len(self['violations'])} violations loaded. "
+            f"Next update in {self.REFRESH_PD_SEC} seconds"
         )
 
     def violations_for(self, account_id):
