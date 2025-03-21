@@ -2,8 +2,10 @@
 
 import logging
 from json import loads
+from urllib.parse import urljoin
 
-from protohaven_api.integrations.data import dev_airtable, dev_booked, dev_neon
+from protohaven_api.config import get_config
+from protohaven_api.integrations.data import dev_booked, dev_neon
 from protohaven_api.integrations.data.connector import Connector
 
 log = logging.getLogger("integrations.data.dev_connector")
@@ -47,11 +49,18 @@ class DevConnector(Connector):
             "Neon session creation not implemented for dev environment"
         )
 
-    def _handle_airtable_request(self, mode, url, data, _):
-        rep = dev_airtable.handle(mode, url, data)
-        if mode != "GET":
-            self.mutated = True
-        return rep.status_code, rep.data
+    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
+        cfg = get_config("nocodb")
+        path = f"/api/v2/tables/{cfg['data'][base][tbl]}/records"
+        if rec:
+            path += f"/{rec}"
+        if suffix:
+            path += suffix
+        headers = {
+            "xc-token": cfg["requests"]["token"],
+            "Content-Type": "application/json",
+        }
+        return urljoin(cfg["requests"]["url"], path), headers
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""

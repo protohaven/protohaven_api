@@ -21,19 +21,15 @@ from protohaven_api.integrations import discord_bot
 
 log = logging.getLogger("integrations.data.connector")
 
-DEFAULT_TIMEOUT = 20.0
-NUM_READ_ATTEMPTS = 3
-NUM_NEON_ATTEMPTS = 3
-RETRY_MAX_DELAY_SEC = 3.0
-
-AIRTABLE_URL = "https://api.airtable.com/v0"
-
 
 class Connector:
     """Provides production access to dependencies."""
 
     def __init__(self):
         self.neon_ratelimit = Lock()
+        self.timeout = get_config("connector/timeout")
+        self.max_attempts = get_config("connector/num_attempts")
+        self.max_retry_delay_sec = get_config("connector/max_retry_delay_sec")
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request"""
@@ -43,17 +39,15 @@ class Connector:
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
         # include a sleep timer to prevent us from overrunning
-        for i in range(NUM_NEON_ATTEMPTS):
+        for i in range(self.max_attempts):
             if "/attendees" in args[0]:
                 with self.neon_ratelimit:
                     r = requests.request(
-                        *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
+                        *args, **kwargs, auth=auth, timeout=self.timeout
                     )
                     time.sleep(0.25)
             else:
-                r = requests.request(
-                    *args, **kwargs, auth=auth, timeout=DEFAULT_TIMEOUT
-                )
+                r = requests.request(*args, **kwargs, auth=auth, timeout=self.timeout)
 
             if r.status_code == 200:
                 try:
@@ -66,7 +60,7 @@ class Connector:
                 f"\ncontent: {r.content}"
                 f"\nretry #{i+1}"
             )
-            time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
+            time.sleep(int(random.random() * self.max_retry_delay_sec))
 
         raise RuntimeError(
             f"neon_request(args={args}, kwargs={kwargs}) "
@@ -77,48 +71,49 @@ class Connector:
         """Create a new session using the requests lib"""
         return requests.Session()
 
-    def _handle_airtable_request(self, mode, url, data, token):
+    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
+        cfg = get_config("airtable")
+        path = f"/{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
+        if rec:
+            path += f"/{rec}"
+        if suffix:
+            path += suffix
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {cfg['data'][base]['token']}",
             "Content-Type": "application/json",
         }
-        rep = requests.request(
-            mode, url, headers=headers, timeout=DEFAULT_TIMEOUT, data=data
-        )
-        return rep.status_code, rep.content
+        return urljoin(cfg["requests"]["url"], path), headers
 
-    def airtable_request(  # pylint: disable=too-many-arguments
+    def db_request(  # pylint: disable=too-many-arguments
         self, mode, base, tbl, rec=None, suffix=None, data=None
     ):
         """Make an airtable request using the requests module"""
-        cfg = get_config("airtable")[base]
-        url = f"{AIRTABLE_URL}/{cfg['base_id']}/{cfg[tbl]}"
-        if rec:
-            url += f"/{rec}"
-        if suffix:
-            url += suffix
-        for i in range(NUM_READ_ATTEMPTS):
+        url, headers = self._construct_db_request_url_and_headers(
+            base, tbl, rec, suffix
+        )
+        for i in range(self.max_attempts):
             try:
-                return self._handle_airtable_request(mode, url, data, cfg["token"])
+                rep = requests.request(
+                    mode, url, headers=headers, timeout=self.timeout, data=data
+                )
+                return rep.status_code, rep.content
             except requests.exceptions.ReadTimeout as rt:
-                if mode != "GET" or i == NUM_READ_ATTEMPTS - 1:
+                if mode != "GET" or i == self.max_attempts - 1:
                     raise rt
                 log.warning(
                     f"ReadTimeout on airtable request {mode} {base} {tbl} "
                     f"{rec} {suffix}, retry #{i+1}"
                 )
-                time.sleep(int(random.random() * RETRY_MAX_DELAY_SEC))
+                time.sleep(int(random.random() * self.max_retry_delay_sec))
         return None, None
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
-        return requests.get(url, params, timeout=DEFAULT_TIMEOUT)
+        return requests.get(url, params, timeout=self.timeout)
 
     def discord_webhook(self, webhook, content):
         """Send content to a Discord webhook"""
-        return requests.post(
-            webhook, json={"content": content}, timeout=DEFAULT_TIMEOUT
-        )
+        return requests.post(webhook, json={"content": content}, timeout=self.timeout)
 
     def email(self, subject: str, body: str, recipients: list, html: bool):
         """Send an email via GMail SMTP.
@@ -179,7 +174,7 @@ class Connector:
             "X-Booked-ApiKey": get_config("booked/key"),
         }
         r = requests.request(
-            mode, url, *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+            mode, url, *args, headers=headers, timeout=self.timeout, **kwargs
         )
         if r.status_code != 200:
             raise RuntimeError(
@@ -198,7 +193,7 @@ class Connector:
             "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
         }
         response = requests.get(
-            url, headers=headers, timeout=DEFAULT_TIMEOUT * 5, stream=True
+            url, headers=headers, timeout=self.timeout * 5, stream=True
         )
         response.raise_for_status()
 
@@ -218,7 +213,7 @@ class Connector:
             "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
         }
         r = requests.request(
-            mode, url, *args, headers=headers, timeout=DEFAULT_TIMEOUT, **kwargs
+            mode, url, *args, headers=headers, timeout=self.timeout, **kwargs
         )
         if r.status_code != 200:
             raise RuntimeError(

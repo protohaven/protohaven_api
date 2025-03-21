@@ -10,7 +10,7 @@ from protohaven_api.automation.classes.scheduler import (
     generate_env as generate_scheduler_env,
 )
 from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, comms, neon, neon_base
 from protohaven_api.rbac import Role, am_role, require_login_role
@@ -66,6 +66,13 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
     return result
 
 
+def _classes_in_caps(caps):
+    c = caps["fields"].get("Class", [])
+    if isinstance(c, list):
+        return len(c) > 0
+    return True
+
+
 def get_instructor_readiness(inst, caps=None):
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
@@ -101,7 +108,7 @@ def get_instructor_readiness(inst, caps=None):
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:
         result["airtable_id"] = caps["id"]
-        if len(caps["fields"].get("Class", [])) > 0:
+        if _classes_in_caps(caps):
             result["capabilities_listed"] = "OK"
 
         missing_info = [
@@ -118,10 +125,10 @@ def get_instructor_readiness(inst, caps=None):
             ]
             if x
         ]
-
-        result["profile_img"] = caps["fields"].get("Profile Pic", [{"url": None}])[0][
-            "url"
-        ]
+        img = (caps["fields"].get("Profile Pic") or [{"url": None}])[0]
+        result["profile_img"] = (
+            img.get("url") or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+        )
         result["bio"] = caps["fields"].get("Bio")
         if len(missing_info) > 0:
             result["paperwork"] = f"Missing {', '.join(missing_info)}"

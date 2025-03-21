@@ -83,4 +83,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
 
 
 if __name__ == "__main__":
-    ProtohavenCLI()
+    from protohaven_api.integrations.airtable_base import get_all_records
+
+    print(get_all_records("tools_and_equipment", "tools"))
+    # ProtohavenCLI()

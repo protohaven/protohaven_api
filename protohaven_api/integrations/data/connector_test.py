@@ -21,7 +21,7 @@ def test_airtable_read_retry(mocker, c):
         con.requests.exceptions.ReadTimeout("Whoopsie"),
         mocker.MagicMock(status_code=200, content=True),
     ]
-    status, content = c.airtable_request("GET", "tools_and_equipment", "tools")
+    status, content = c.db_request("GET", "tools_and_equipment", "tools")
     assert status == 200
     assert content is True
     con.time.sleep.assert_called()
@@ -35,7 +35,7 @@ def test_airtable_read_max_retries(c):
         con.requests.exceptions.ReadTimeout("Last Fail"),
     ]
     with pytest.raises(con.requests.exceptions.ReadTimeout):
-        c.airtable_request("GET", "tools_and_equipment", "tools")
+        c.db_request("GET", "tools_and_equipment", "tools")
 
 
 def test_neon_request_attendees_endpoint(mocker, c):
@@ -123,7 +123,13 @@ def test_bookstack_download_zero_bytes(mocker, tmp_path, c):
 def test_bookstack_request_success(mocker):
     """Test bookstack_request with a successful JSON response"""
     mocker.patch.object(
-        con, "get_config", side_effect=["http://example.com", "test-api-key"]
+        con,
+        "get_config",
+        side_effect=lambda v: {  # pylint: disable=unnecessary-lambda
+            "bookstack/base_url": "http://example.com",
+            "bookstack/api_key": "test-api-key",  # pragma: allowlist secret
+            "connector/timeout": 5.0,
+        }.get(v),
     )
     mock_request = mocker.patch.object(
         con.requests,
@@ -138,7 +144,7 @@ def test_bookstack_request_success(mocker):
         "GET",
         "http://example.com/api/data",
         headers={"X-Protohaven-Bookstack-API-Key": "test-api-key"},
-        timeout=con.DEFAULT_TIMEOUT,
+        timeout=5.0,
     )
     assert response == {"key": "value"}
 
@@ -146,7 +152,13 @@ def test_bookstack_request_success(mocker):
 def test_bookstack_request_failure(mocker):
     """Test bookstack_request with a non-200 response"""
     mocker.patch.object(
-        con, "get_config", side_effect=["http://example.com", "test-api-key"]
+        con,
+        "get_config",
+        side_effect=lambda v: {  # pylint: disable=unnecessary-lambda
+            "bookstack/base_url": "http://example.com",
+            "bookstack/api_key": "test-api-key",  # pragma: allowlist secret
+            "connector/timeout": 5.0,
+        }.get(v),
     )
     mocker.patch.object(
         con.requests,
