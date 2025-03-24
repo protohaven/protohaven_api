@@ -538,6 +538,13 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             )
 
 
+def delete_event_unsafe(event_id):
+    """Deletes an event in Neon"""
+    log.warning(f"Deleting neon event {event_id}")
+    assert event_id
+    return delete("api_key3", f"/events/{event_id}")
+
+
 def create_event(  # pylint: disable=too-many-arguments
     name,
     desc,

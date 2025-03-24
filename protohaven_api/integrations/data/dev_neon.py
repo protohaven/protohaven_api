@@ -1,6 +1,7 @@
 """A mock version of Neon CRM serving results pulled from mock_data"""
 
 import json
+import logging
 from urllib.parse import urlparse
 
 from flask import Flask, Response, request
@@ -9,6 +10,8 @@ from protohaven_api.config import mock_data
 from protohaven_api.integrations.data.neon import CustomField
 
 app = Flask(__file__)
+
+log = logging.getLogger("integrations.data.dev_neon")
 
 
 def first(*args):
@@ -120,7 +123,7 @@ def _neon_dev_search_filter(
     )
 
 
-@app.route("/v2/events/<event_id>", methods=["GET", "PATCH"])
+@app.route("/v2/events/<event_id>", methods=["GET", "PATCH", "DELETE"])
 def get_event(event_id):
     """Mock event endpoint for Neon"""
     if request.method == "GET":
@@ -128,16 +131,21 @@ def get_event(event_id):
             if str(e) == str(event_id):
                 return v
         return Response("Event not found", status=404)
-    raise NotImplementedError("PATCH")
+    if request.method == "PATCH":
+        raise NotImplementedError("PATCH")
+    log.warning("Delete request received by mock Neon service; ignored")
+    return {}
 
 
-@app.route("/v2/events")
+@app.route("/v2/events", methods=["GET", "POST"])
 def get_events():
     """Mock events endpoint for Neon"""
-    return {
-        "events": list(mock_data()["neon"]["events"].values()),
-        "pagination": {"totalPages": 1},
-    }
+    if request.method == "GET":
+        return {
+            "events": list(mock_data()["neon"]["events"].values()),
+            "pagination": {"totalPages": 1},
+        }
+    return {"id": "test_event_id"}
 
 
 @app.route("/v2/events/<event_id>/tickets")
@@ -228,4 +236,6 @@ def handle(method, url, data=None, headers=None):  # pylint: disable=unused-argu
         return client.get(url)
     if method == "POST":
         return client.post(url, json=json.loads(data))
+    if method == "DELETE":
+        return client.delete(url)
     raise RuntimeError(f"method not supported: {method}")

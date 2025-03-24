@@ -63,7 +63,7 @@ def test_techs_event_registration_success_register(tech_client, mocker):
         "fetch_event",
         return_value={
             "name": "Event Name",
-            "eventDates": {"startDate": "YYYY-MM-DD"},
+            "eventDates": {"startDate": "YYYY-MM-DD", "startTime": "HH:MM"},
             "maximumAttendees": 6,
         },
     )

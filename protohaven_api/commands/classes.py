@@ -338,7 +338,7 @@ class Commands:
     def _resolve_schedule(self, min_future_days, overrides):
         now = tznow()
         for event in airtable.get_class_automation_schedule():
-            cid = event["fields"]["ID"]
+            cid = event["fields"].get("ID") or event["fields"].get("ID_1")
             start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
             if overrides:
                 if str(cid) in overrides:
@@ -352,7 +352,7 @@ class Commands:
                     )
                     continue
                 # Quietly ignore already-scheduled events
-                if event["fields"].get("Neon ID", "") != "":
+                if (event["fields"].get("Neon ID") or "") != "":
                     log.debug(
                         f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: "
                         f"{event['fields']['Name (from Class)']}"
@@ -435,40 +435,50 @@ class Commands:
         to_schedule = list(self._resolve_schedule(args.min_future_days, args.ovr))
         scheduled_by_instructor = defaultdict(list)
         to_schedule.sort(key=lambda e: e["start"])
-        to_reserve = {}
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
                 f"{event['start']} {event['cid']} {event['fields']['Instructor']}: "
                 f"{event['fields']['Name (from Class)'][0]}"
             )
-            scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
 
             if args.apply:
                 num += 1
-                result_id = self._schedule_event(
-                    event,
-                    self._format_class_description(event),
-                    dry_run=not args.apply,
-                    published=args.publish,
-                    registration=args.registration,
-                )
-                log.info(f"- Neon event {result_id} created")
-                self._apply_pricing(result_id, event, args.discounts)
-                log.info("- Pricing applied")
-                airtable.update_record(
-                    {"Neon ID": str(result_id)},
-                    "class_automation",
-                    "schedule",
-                    event["id"],
-                )
-                log.info("- Neon ID updated in Airtable")
-                to_reserve[event["cid"]] = reservation_dict_from_record(event)
+                result_id = None
+                try:
+                    result_id = self._schedule_event(
+                        event,
+                        self._format_class_description(event),
+                        dry_run=not args.apply,
+                        published=args.publish,
+                        registration=args.registration,
+                    )
+                    log.info(f"- Neon event {result_id} created")
+                    assert result_id
 
-        if args.reserve and num > 0:
-            log.info("Reserving equipment for scheduled classes")
-            self._reserve_equipment_for_class_internal(  # pylint: disable=no-member
-                to_reserve, args.apply
-            )
+                    self._apply_pricing(result_id, event, args.discounts)
+                    log.info("- Pricing applied")
+
+                    airtable.update_record(
+                        {"Neon ID": str(result_id)},
+                        "class_automation",
+                        "schedule",
+                        event["id"],
+                    )
+                    log.info("- Neon ID updated in Airtable")
+
+                    if args.reserve:
+                        log.info("Reserving equipment for scheduled classes")
+                        self._reserve_equipment_for_class_internal(  # pylint: disable=no-member
+                            reservation_dict_from_record(event), args.apply
+                        )
+
+                    scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
+                    log.info("Added to notification list")
+                except Exception as e:
+                    if result_id:
+                        log.error("Failed; reverting event creation")
+                        log.info(neon_base.delete_event_unsafe(result_id))
+                    raise RuntimeError(f"Failed to create event #{result_id}") from e
 
         print_yaml(builder.gen_class_scheduled_alerts(scheduled_by_instructor))

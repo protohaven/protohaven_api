@@ -374,7 +374,8 @@ def _notify_registration(account_id, event_id, action):
     action = "registered for" if action == "register" else "unregistered from"
     msg = (
         f"{name} {action} "
-        f"{evt.get('name')} on {evt.get('eventDates').get('startDate')}"
+        f"{evt.get('name')} on {evt.get('eventDates').get('startDate')} "
+        f"{evt.get('eventDates').get('startTime')}"
         f"; {evt.get('maximumAttendees', 0) - len(attendees)} seat(s) remain"
     )
     # Tech-only classes shouldn't bother instructors
