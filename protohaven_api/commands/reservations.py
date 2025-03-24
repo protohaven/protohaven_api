@@ -71,17 +71,21 @@ class Commands:
         cls = [
             t
             for t in airtable.get_all_class_templates()
-            if str(t["fields"]["ID"]) == args.cls
-        ][0]
-        results = {}
-        results[cls["fields"]["ID"]] = reservation_dict(
-            cls["fields"]["Name (from Area)"],
-            cls["fields"]["Name"],
-            args.start,
-            cls["fields"]["Days"],
-            cls["fields"]["Hours"],
+            if str(t["fields"].get("ID") or t["fields"].get("ID_1")) == args.cls
+        ]
+        if len(cls) == 0:
+            raise RuntimeError(f"Failed to resolve class by id {args.cls}")
+        cls = cls[0]
+        self._reserve_equipment_for_class_internal(
+            reservation_dict(
+                cls["fields"]["Name (from Area)"],
+                cls["fields"]["Name"],
+                args.start,
+                cls["fields"]["Days"],
+                cls["fields"]["Hours"],
+            ),
+            args.apply,
         )
-        self._reserve_equipment_for_class_internal(results, args.apply)
         log.info("Done")
 
     @command(
@@ -107,58 +111,47 @@ class Commands:
         # record ID since we're operating on a synced copy of the areas when
         # we go to look up tools and equipment
         args_cls = [int(c) for c in args.cls.split(",")]
-        results = {}
-        for cls in airtable.get_class_automation_schedule():
-            cid = cls["fields"]["ID"]
+        num = 0
+        for crec in airtable.get_class_automation_schedule():
+            cid = crec["fields"].get("ID") or crec["fields"].get("ID_1")
             if cid not in args_cls:
                 continue
-            results[cid] = reservation_dict(
-                cls["fields"]["Name (from Area) (from Class)"],
-                cls["fields"]["Name (from Class)"],
-                cls["fields"]["Start Time"],
-                cls["fields"]["Days (from Class)"][0],
-                cls["fields"]["Hours (from Class)"][0],
+            num += 1
+            self._reserve_equipment_for_class_internal(
+                reservation_dict_from_record(crec), args.apply
             )
-        log.info(f"Resolved {len(results)} class(es) to areas")
-        self._reserve_equipment_for_class_internal(results, args.apply)
-        log.info("Done")
+        log.info(f"Done - {num} class(es) reservations attempted")
 
-    def _reserve_equipment_for_class_internal(self, results, apply):
+    def _reserve_equipment_for_class_internal(self, rdict, apply):
         """Internal version of the same method, for use by post_classes_to_neon
         command in commands/classes.py"""
         # Convert areas to booked IDs using tool table
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
-            cid = None
-            for cid in results:
-                for a in row["fields"].get("Name (from Shop Area)", []):
-                    if a in results[cid]["areas"] and row["fields"].get(
-                        "BookedResourceId"
-                    ):
-                        results[cid]["resources"].append(
-                            (
-                                row["fields"]["Tool Name"],
-                                row["fields"]["BookedResourceId"],
-                            )
+            for a in row["fields"].get("Name (from Shop Area)", []):
+                if a in rdict["areas"] and row["fields"].get("BookedResourceId"):
+                    rdict["resources"].append(
+                        (
+                            row["fields"]["Tool Name"],
+                            row["fields"]["BookedResourceId"],
                         )
-                        break
-
-        for cid, rr in results.items():
-            log.info(
-                f"Class {results[cid]['name']} (#{cid}) has {len(rr['resources'])} resources:"
-            )
-            for name, resource_id in rr["resources"]:
-                for start, end in rr["intervals"]:
-                    log.info(
-                        f"  Reserving {name} (Booked ID {resource_id}) from {start} to {end}"
                     )
-                    if apply:
-                        log.info(
-                            str(
-                                booked.reserve_resource(
-                                    resource_id, start, end, title=rr["name"]
-                                )
+                    break
+
+        log.info(f"Class {rdict['name']} has {len(rdict['resources'])} resources:")
+        for name, resource_id in rdict["resources"]:
+            for start, end in rdict["intervals"]:
+                log.info(
+                    f"  Reserving {name} (Booked ID {resource_id}) from "
+                    f"{start} to {end} (apply={apply})"
+                )
+                if apply:
+                    log.info(
+                        str(
+                            booked.reserve_resource(
+                                resource_id, start, end, title=rdict["name"]
                             )
                         )
+                    )
 
     @lru_cache(maxsize=1)
     def _area_colors(self):

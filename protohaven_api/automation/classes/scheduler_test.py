@@ -14,18 +14,24 @@ from protohaven_api.testing import MatchStr, d, t
 
 def test_slice_date_range():
     """Slices date range into individual start times"""
-    assert s.slice_date_range(t(9, weekday=6), t(14, weekday=6), 3) == [
-        t(10, weekday=6)
+    SUNDAY = 6
+    MONDAY = 0
+
+    assert s.slice_date_range(t(9, weekday=SUNDAY), t(14, weekday=SUNDAY), 3) == [
+        t(10, weekday=SUNDAY)
     ]  # Loose bounds
-    assert s.slice_date_range(t(10, weekday=6), t(13, weekday=6), 3) == [
-        t(10, weekday=6)
+    assert s.slice_date_range(t(10, weekday=SUNDAY), t(13, weekday=SUNDAY), 3) == [
+        t(10, weekday=SUNDAY)
     ]  # Tight bounds still work
     assert not s.slice_date_range(
-        t(10, weekday=6), t(12, weekday=6), 3
+        t(10, weekday=SUNDAY), t(12, weekday=SUNDAY), 3
     )  # Too tight for a 3 hour class
-    assert s.slice_date_range(t(9, weekday=0), t(22, weekday=0), 3) == [
-        t(18, weekday=0)
+    assert s.slice_date_range(t(9, weekday=MONDAY), t(22, weekday=MONDAY), 3) == [
+        t(18, weekday=MONDAY)
     ]  # Only weekday evenings allowed
+    assert s.slice_date_range(t(9, weekday=SUNDAY), t(16, weekday=SUNDAY), 6) == [
+        t(10, weekday=SUNDAY)
+    ]  # 5hr class starts at 10am
 
 
 def test_slice_date_range_tzinfo():

@@ -178,21 +178,25 @@ def test_post_classes_to_neon_no_actions(cli, mocker, tc):
     assert cli("post_classes_to_neon", ["--apply"]) == []
 
 
-Tc = namedtuple("Tc", "desc,args,publish,register,discount")
+Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
 
 
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("defaults", [], True, True, True),
-        Tc("no publish", ["--no-publish"], False, True, True),
-        Tc("no registration", ["--no-registration"], True, False, True),
-        Tc("no discounts", ["--no-discounts"], True, True, False),
+        Tc("defaults", [], True, True, True, True),
+        Tc("no publish", ["--no-publish"], False, True, True, True),
+        Tc("no registration", ["--no-registration"], True, False, True, True),
+        Tc("no discounts", ["--no-discounts"], True, True, False, True),
+        Tc("no reservation", ["--no-reserve"], True, True, True, False),
     ],
     ids=idfn,
 )
 def test_post_classes_to_neon_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
+    mock_delete = mocker.patch.object(
+        C.neon_base, "delete_event_unsafe", return_value=True
+    )
     mocker.patch.object(C.neon, "assign_pricing")
     mocker.patch.object(C.neon_base, "create_event", return_value="123")
     mocker.patch.object(C.airtable, "update_record")
@@ -232,5 +236,52 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
     C.neon.assign_pricing.assert_called_with(
         "123", 90, 6, include_discounts=tc.discount, clear_existing=True
     )
-    assert C.Commands._reserve_equipment_for_class_internal.call_args.args[0]["123"]
-    assert C.Commands._reserve_equipment_for_class_internal.call_args[0][1] == True
+    if tc.reserve:
+        C.Commands._reserve_equipment_for_class_internal.assert_called_with(
+            {
+                "areas": {90},
+                "name": ["Test Class"],
+                "intervals": mocker.ANY,
+                "resources": [],
+            },
+            True,
+        )
+    mock_delete.assert_not_called()
+
+
+def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
+    """Test that class creation is reverted when part of the process fails"""
+    # Setup test data
+    test_event = {
+        "id": "test_id",
+        "start": d(1),
+        "cid": "test_cid",
+        "fields": {
+            "Instructor": "Test Instructor",
+            "Name (from Class)": ["Test Class"],
+        },
+    }
+    mocker.patch.object(C.Commands, "_resolve_schedule", return_value=[test_event])
+
+    mock_delete = mocker.patch.object(
+        C.neon_base, "delete_event_unsafe", return_value=True
+    )
+    mock_schedule = mocker.patch.object(
+        C.Commands, "_schedule_event", return_value="test_event_id"
+    )
+    mocker.patch.object(
+        C.Commands, "_format_class_description", return_value="test_description"
+    )
+    mock_pricing = mocker.patch.object(
+        C.Commands, "_apply_pricing", side_effect=Exception("Pricing failed!")
+    )
+    mock_airtable = mocker.patch.object(C.airtable, "update_record")
+
+    with pytest.raises(RuntimeError) as exc:
+        got = cli("post_classes_to_neon", ["--apply"])
+    # Verify behavior
+    assert "Failed to create event #test_event_id" in str(exc)
+    mock_schedule.assert_called_once()
+    mock_pricing.assert_called_once()
+    mock_airtable.assert_not_called()
+    mock_delete.assert_called_once_with("test_event_id")
