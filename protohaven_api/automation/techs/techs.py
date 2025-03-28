@@ -10,9 +10,9 @@ from protohaven_api.integrations import airtable, neon
 DEFAULT_FORECAST_LEN = 16
 
 
-def get_shift_map():
+def get_shift_map(include_pii=False):
     """Get map of shift name to list of techs on shift"""
-    techs = neon.fetch_techs_list()
+    techs = neon.fetch_techs_list(include_pii)
     shift_map = defaultdict(list)
     for t in techs:
         if not t.get("shift"):
@@ -72,7 +72,7 @@ def _create_calendar_view(
     return calendar_view
 
 
-def generate(date, forecast_len):
+def generate(date, forecast_len, include_pii=False):
     """Provide advance notice of the level of staffing of tech shifts"""
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     shift_term_map = {
@@ -88,9 +88,9 @@ def generate(date, forecast_len):
             if t.get("last_day") is not None
             else None,
         )
-        for t in neon.fetch_techs_list()
+        for t in neon.fetch_techs_list(include_pii)
     }
-    shift_map = get_shift_map()
+    shift_map = get_shift_map(include_pii)
 
     calendar_view = _create_calendar_view(date, shift_map, shift_term_map, forecast_len)
     return {

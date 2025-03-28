@@ -349,14 +349,14 @@ class Commands:
         )
 
         # Current day from calendar
-        techs_on_duty = forecast.generate(now, 1)["calendar_view"][0]
+        techs_on_duty = forecast.generate(now, 1, include_pii=True)["calendar_view"][0]
         log.info(f"Forecast: {techs_on_duty}")
         # Pick AM vs PM shift
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {
             t["email"].strip().lower(): t["name"]
-            for t in neon.fetch_techs_list()
+            for t in neon.fetch_techs_list(include_pii=True)
             if t["name"] in techs_on_duty
         }
         rev_email_map = {v: k for k, v in email_map.items()}

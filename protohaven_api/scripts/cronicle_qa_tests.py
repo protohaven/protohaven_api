@@ -80,7 +80,7 @@ def test_tech_sign_ins(evt_id):
         run_cronicle_sync(
             evt_id,
             {
-                "ARGS": "--now=2024-10-28T16:30:00",
+                "ARGS": "--now=2025-03-25T16:30:00",
                 "CHAN_OVERRIDE": COVR,
             },
         )

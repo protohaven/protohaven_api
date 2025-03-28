@@ -73,7 +73,7 @@ class Connector:
 
     def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
         cfg = get_config("airtable")
-        path = f"/{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
+        path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
         if rec:
             path += f"/{rec}"
         if suffix:
