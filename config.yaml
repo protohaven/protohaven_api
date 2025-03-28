@@ -118,7 +118,7 @@ nocodb:
       automation_intents: "m6h05qg8s18szjl"
 airtable:
   requests:
-    url: "https://api.airtable.com/v0"
+    url: "https://api.airtable.com/v0/"
   data:
     tools_and_equipment:
       token: ${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}
