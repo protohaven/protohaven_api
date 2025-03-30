@@ -135,7 +135,7 @@ def send_discord_message(content, channel=None, blocking=True):
 
     content = re.sub(r"@\w+", sub_roles, content, flags=re.MULTILINE)
 
-    log.info("Message is {len(content)} chars")
+    log.info(f"Message is {len(content)} chars")
     for i in range(0, len(content), DISCORD_CHAR_LIMIT):
         chunk = content[i : i + DISCORD_CHAR_LIMIT]
         log.info(f"Sending msg {len(chunk)} chars")
