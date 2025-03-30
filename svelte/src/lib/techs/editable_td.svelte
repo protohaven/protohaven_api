@@ -1,5 +1,5 @@
 <script type="typescript">
-  import { Col, Icon, Input, Button } from '@sveltestrap/sveltestrap';
+  import { Col, Row, Icon, Input, Button } from '@sveltestrap/sveltestrap';
 
   export let title;
   export let value;
@@ -26,16 +26,16 @@
 </script>
 
 {#if editing}
-<Col>
+<Row>
   <div class="d-flex flex-row justify-content-between">
   <strong>{title}</strong>
   <Input text bind:value={new_value}/>
   <div class="mx-2" on:click={edit_ok}><Icon name="check2-square"/></div>
   <div class="mx-2" on:click={edit_cancel}><Icon name="x-square"/></div>
   </div>
-</Col>
+</Row>
 {:else}
-<Col>
+<Row>
   <div class="d-flex justify-content-between">
   <strong>{title}</strong>
   <div class="mx-3">{value || ''}</div>
@@ -43,5 +43,5 @@
   <Button class="ml-1" outline on:click={edit_start}><Icon name="pencil-square"/></Button>
   {/if}
   </div>
-</Col>
+</Row>
 {/if}

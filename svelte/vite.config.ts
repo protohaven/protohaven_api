@@ -3,8 +3,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vitest/config';
 
 // Base URL of the flask backend server
-const SERVER_BASE = 'http://localhost:5000';
-const WS_SERVER_BASE = 'ws://localhost:5000';
+const SERVER_BASE = 'http://127.0.0.1:5000';
+const WS_SERVER_BASE = 'ws://127.0.0.1:5000';
 
 // Paths to proxy to the backend. Note that we use ? instead of * at the
 // end of regex paths as many of the base paths (e.g. "/onboarding") are
