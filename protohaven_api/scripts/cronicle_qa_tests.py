@@ -46,7 +46,7 @@ def run_cronicle_sync(event_id: str, image: str, params: dict):
         "id": event_id,
         "retries": 0,
         "timeout": JOB_TIMEOUT,
-        "params": {"image": image, "unused": "blargh", **params},
+        "params": {"image": image, **params},
     }
     log.info(f"Data {data}")
     rep = requests.post(
@@ -89,7 +89,7 @@ def test_tech_sign_ins(evt_id: str, image: str):
             image,
             {
                 "ARGS": "--now=2025-03-25T16:30:00",
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
             },
         )
         == 0
@@ -103,7 +103,7 @@ def test_tech_sign_ins(evt_id: str, image: str):
             image,
             {
                 "ARGS": "--now=3000-01-01T12:30:00",
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
             },
         )
         == 0
@@ -169,8 +169,8 @@ def test_send_class_emails(cronicle_evt_id: str, image: str):
                 {
                     # Only act on the event we created; it's unpublished.
                     "ARGS": f"--filter={evt_id} --no-published_only --no-cache",
-                    "CHAN_OVERRIDE": COVR,
-                    "EMAIL_OVERRIDE": EOVR,
+                    "ARGS_CHAN_OVERRIDE": COVR,
+                    "ARGS_EMAIL_OVERRIDE": EOVR,
                 },
             )
             == 0
@@ -186,12 +186,12 @@ def test_simple(evt_id: str, image: str, params: dict):
     """Simple test of Cronicle job without any setup/teardown"""
     assert run_cronicle_sync(evt_id, image, params) == 0
     print("\n")
-    if "CHAN_OVERRIDE" in params:
-        print(f"-Notice sent to {params['CHAN_OVERRIDE']}")
-    if "DM_OVERRIDE" in params:
-        print(f"-Notice sent to {params['DM_OVERRIDE']}")
-    if "EMAIL_OVERRIDE" in params:
-        print(f"-Notice sent to {params['EMAIL_OVERRIDE']}")
+    if "ARGS_CHAN_OVERRIDE" in params:
+        print(f"-Notice sent to {params['ARGS_CHAN_OVERRIDE']}")
+    if "ARGS_DM_OVERRIDE" in params:
+        print(f"-Notice sent to {params['ARGS_DM_OVERRIDE']}")
+    if "ARGS_EMAIL_OVERRIDE" in params:
+        print(f"-Notice sent to {params['ARGS_EMAIL_OVERRIDE']}")
     # In the future, may be able to fetch the job log and check
     # for specific substrings, e.g.
     # https://cronicle.api.protohaven.org/api/app/get_job_log?id=<job_id>
@@ -206,49 +206,49 @@ if __name__ == "__main__":
             "check_doors",
             test_simple,
             "em5wzj6552l",
-            {"CHAN_OVERRIDE": COVR},
+            {"ARGS_CHAN_OVERRIDE": COVR},
         ),
         (
             "donations_summary",
             test_simple,
             "em78dbzj04f",
-            {"CHAN_OVERRIDE": COVR},
+            {"ARGS_CHAN_OVERRIDE": COVR},
         ),
         (
             "check_cameras",
             test_simple,
             "em5d0rdob1l",
-            {"CHAN_OVERRIDE": COVR},
+            {"ARGS_CHAN_OVERRIDE": COVR},
         ),
         ("class_emails", test_send_class_emails, "elwnkuoqf8g"),
-        ("instructor_apps", test_simple, "elwnqdz2o8j", {"CHAN_OVERRIDE": COVR}),
+        ("instructor_apps", test_simple, "elwnqdz2o8j", {"ARGS_CHAN_OVERRIDE": COVR}),
         (
             "private_instruction",
             test_simple,
             "elzadpyaqmj",
-            {"CHAN_OVERRIDE": COVR, "EMAIL_OVERRIDE": EOVR},
+            {"ARGS_CHAN_OVERRIDE": COVR, "ARGS_EMAIL_OVERRIDE": EOVR},
         ),
         (
             "private_instruction_daily",
             test_simple,
             "elziy4cxkp4",
-            {"CHAN_OVERRIDE": COVR},
+            {"ARGS_CHAN_OVERRIDE": COVR},
         ),
-        ("class_proposals", test_simple, "elx994dfv2o", {"CHAN_OVERRIDE": COVR}),
-        ("shop_tech_apps", test_simple, "elw7tf3bg4s", {"CHAN_OVERRIDE": COVR}),
+        ("class_proposals", test_simple, "elx994dfv2o", {"ARGS_CHAN_OVERRIDE": COVR}),
+        ("shop_tech_apps", test_simple, "elw7tf3bg4s", {"ARGS_CHAN_OVERRIDE": COVR}),
         # Note: this should really create some transaction violation problem for
         # reporting purposes
-        ("square_txns", test_simple, "elw7tp2fs4x", {"CHAN_OVERRIDE": COVR}),
+        ("square_txns", test_simple, "elw7tp2fs4x", {"ARGS_CHAN_OVERRIDE": COVR}),
         # Note: we should ideally filter to specific memberships that we've
         # intentionally created as invalid.
-        ("membership_val", test_simple, "elxbtcrmq3d", {"CHAN_OVERRIDE": COVR}),
+        ("membership_val", test_simple, "elxbtcrmq3d", {"ARGS_CHAN_OVERRIDE": COVR}),
         (
             "instructor_sched",
             test_simple,
             "em1zpa3989p",
             {
-                "CHAN_OVERRIDE": COVR,
-                "EMAIL_OVERRIDE": EOVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_EMAIL_OVERRIDE": EOVR,
                 "ARGS": (
                     "--start=2000-01-01 --end=2000-01-30 "
                     "--no-require_active --filter=test@test.com"
@@ -261,7 +261,7 @@ if __name__ == "__main__":
             test_simple,
             "em1zphtib9s",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
             },
         ),
         # Note: should change this to always produce a stale alert
@@ -270,7 +270,7 @@ if __name__ == "__main__":
             test_simple,
             "em1zpe87a9q",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
             },
         ),
         # Note: should change this to always produce a stale alert
@@ -279,7 +279,7 @@ if __name__ == "__main__":
             test_simple,
             "elzx3r1hlu5",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
             },
         ),
     ]
@@ -290,7 +290,7 @@ if __name__ == "__main__":
             test_simple,
             "elw7tkk5n4v",
             {
-                "EMAIL_OVERRIDE": EOVR,
+                "ARGS_EMAIL_OVERRIDE": EOVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -300,7 +300,7 @@ if __name__ == "__main__":
             test_simple,
             "elth9zp5g01",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -312,7 +312,7 @@ if __name__ == "__main__":
             test_simple,
             "elvv9mdlx2j",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -322,8 +322,8 @@ if __name__ == "__main__":
             test_simple,
             "elzk399t7ph",
             {
-                "CHAN_OVERRIDE": COVR,
-                "EMAIL_OVERRIDE": EOVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_EMAIL_OVERRIDE": EOVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -333,7 +333,7 @@ if __name__ == "__main__":
             test_simple,
             "eltiobjj002",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -343,8 +343,8 @@ if __name__ == "__main__":
             test_simple,
             "elzd1jx39n8",
             {
-                "CHAN_OVERRIDE": COVR,
-                "EMAIL_OVERRIDE": EOVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_EMAIL_OVERRIDE": EOVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -353,7 +353,7 @@ if __name__ == "__main__":
             test_simple,
             "em4u369ldgl",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": '--no-apply --parent_id=""',
             },
         ),
@@ -362,7 +362,7 @@ if __name__ == "__main__":
             test_simple,
             "em5ahun5604",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -371,7 +371,7 @@ if __name__ == "__main__":
             test_simple,
             "em6fgimj413",
             {
-                "CHAN_OVERRIDE": COVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",
             },
         ),
@@ -383,8 +383,8 @@ if __name__ == "__main__":
             test_simple,
             "elzx3nvdvu4",
             {
-                "CHAN_OVERRIDE": COVR,
-                "DM_OVERRIDE": DOVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_DM_OVERRIDE": DOVR,
                 "ARGS": "--no-apply --filter=pwacata --warn_not_associated",
             },
         ),
@@ -394,8 +394,8 @@ if __name__ == "__main__":
             test_simple,
             "elzsp1fmpsk",
             {
-                "CHAN_OVERRIDE": COVR,
-                "DM_OVERRIDE": DOVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_DM_OVERRIDE": DOVR,
                 "ARGS": "--no-apply_records --no-apply_discord --no-destructive --filter=pwacata",
             },
         ),
@@ -405,8 +405,8 @@ if __name__ == "__main__":
             test_simple,
             "em1zpg3sc9r",
             {
-                "CHAN_OVERRIDE": COVR,
-                "EMAIL_OVERRIDE": EOVR,
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_EMAIL_OVERRIDE": EOVR,
                 "ARGS": "--no-apply --filter=1245",
             },
         ),
