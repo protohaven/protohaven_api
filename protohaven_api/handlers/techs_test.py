@@ -24,6 +24,7 @@ def lead_client(client):
 
 def test_techs_all_status(lead_client, mocker):
     mocker.patch.object(tl.neon, "fetch_techs_list", return_value=[])
+    mocker.patch.object(tl.airtable, "get_all_tech_bios", return_value = [])
     response = lead_client.get("/techs/list")
     rep = json.loads(response.data.decode("utf8"))
     assert rep == {"tech_lead": True, "techs": []}

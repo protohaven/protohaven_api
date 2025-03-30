@@ -262,6 +262,11 @@ def get_all_announcements():
     return list(get_all_records("people", "sign_in_announcements"))
 
 
+def get_all_tech_bios():
+    """Fetches and returns all tech bios and photos from airtable/nocodb"""
+    return list(get_all_records("people", "volunteers_staff"))
+
+
 def get_signins_after(after):
     """Fetches all sign-in data after a specific datetime"""
     for rec in get_all_records_after("people", "sign_ins", after):

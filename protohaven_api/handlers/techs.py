@@ -3,6 +3,7 @@
 import datetime
 import logging
 from collections import defaultdict
+from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
@@ -197,10 +198,19 @@ def techs_forecast_override():
 @page.route("/techs/list")
 def techs_list():
     """Fetches tech info and lead status of observer"""
-    return {
-        "tech_lead": am_role(Role.SHOP_TECH_LEAD),
-        "techs": neon.fetch_techs_list(include_pii=am_lead_role()),
-    }
+    techs_results = neon.fetch_techs_list(include_pii=am_lead_role())
+    bios_results = airtable.get_all_tech_bios()
+    bio_dict = {bio["fields"]["Email"]: bio["fields"] for bio in bios_results}
+    for idx, tech in enumerate(techs_results):
+        tech_bio = bio_dict.get(tech["email"], {})
+        if tech_bio:
+            techs_results[idx]["bio"] = tech_bio.get("Bio", {})
+            techs_results[idx]["picture"] = urljoin(
+                "http://localhost:8080",
+                tech_bio.get("Picture")[0]["thumbnails"]["small"]["signedPath"],
+            )
+
+    return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
 
 
 @page.route("/techs/update", methods=["POST"])

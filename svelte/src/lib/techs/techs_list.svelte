@@ -112,14 +112,27 @@ function clearance_click(id) {
 	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
 	<CardBody>
 	<Container style="max-width: none;">
-	<Row cols={{ xxl: 4, xl: 4, l: 4, md: 2, sm: 1, xs: 1}}>
-	<EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
-	<EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.first_day}/>
-	<EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
-	<EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
-	<EditCell title="Interest" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
-	<EditCell title="Expertise" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>
-	<Col><Button outline on:click={() => clearance_click(t.email)}>{t.clearances.length} Clearance(s)</Button></Col>
+	<Row cols={{ xxl: 2, xl: 2, l: 2, md: 2, sm: 1, xs: 1}}>
+    <Col>
+      <Row cols={{ xxl: 2, xl: 2, l: 2, md: 1, sm: 1, xs: 1}}>
+      {#if t.bio}
+        <img src={t.picture} style="max-width: 200px;">
+        <div>
+          <strong>Bio</strong>
+        <div>{t.bio}</div>
+        </div>
+      {/if}
+      </Row>
+    </Col>
+    <Col>
+      <EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
+      <EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.first_day}/>
+      <EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
+      <EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
+      <EditCell title="Interest" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
+      <EditCell title="Expertise" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>
+      <Col><Button outline on:click={() => clearance_click(t.email)}>{t.clearances.length} Clearance(s)</Button></Col>
+    </Col>
 	</Row>
 	</Container>
 	</CardBody>
