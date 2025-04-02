@@ -62,6 +62,11 @@ class DevConnector(Connector):
         }
         return urljoin(cfg["requests"]["url"], path), headers
 
+    def _format_db_request_data(self, mode, _, data):
+        if mode == "POST":
+            return [r["fields"] for r in data["records"]]
+        return data
+
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
         log.info(f"Suppressing google form submission: {url}, params {params}")

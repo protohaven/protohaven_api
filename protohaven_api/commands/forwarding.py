@@ -14,7 +14,6 @@ from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
-    sheets,
     tasks,
 )
 from protohaven_api.integrations.comms import Msg
@@ -363,7 +362,7 @@ class Commands:
         log.info(f"Email map: {email_map}")
         on_duty_ok = False
         log.info("Sign ins:")
-        for s in list(sheets.get_sign_ins_between(start, end)):
+        for s in list(airtable.get_signins_between(start, end)):
             email = s["email"].strip().lower()
             name = email_map.get(email)
             if name in techs_on_duty:

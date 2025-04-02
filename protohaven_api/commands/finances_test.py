@@ -139,7 +139,7 @@ def test_validate_membership_no_end_date_bad():
 
 def test_validate_membership_zero_cost_roles_ok():
     """Various roles that are $0 memberships should validate OK"""
-    for l in ["Shop Tech", "Board Member", "Staff", "Software Dev"]:
+    for l in ["Shop Tech", "Board Member", "Staff", "Software Developer"]:
         got = f.Commands()._validate_membership_singleton(
             {
                 "level": l,

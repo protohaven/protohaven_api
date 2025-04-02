@@ -15,6 +15,7 @@ from protohaven_api.integrations.airtable_base import (
     delete_record,
     get_all_records,
     get_all_records_after,
+    get_all_records_between,
     get_record,
     insert_records,
     update_record,
@@ -265,6 +266,15 @@ def get_all_announcements():
 def get_signins_after(after):
     """Fetches all sign-in data after a specific datetime"""
     for rec in get_all_records_after("people", "sign_ins", after):
+        yield rec["fields"]
+
+
+def get_signins_between(start, end):
+    """Fetches all sign-in data between two dates; falls back to
+    get_signins_after if end=None"""
+    if not end:
+        yield from get_signins_after(start)
+    for rec in get_all_records_between("people", "sign_ins", start, end):
         yield rec["fields"]
 
 
