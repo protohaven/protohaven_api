@@ -2,6 +2,7 @@
 configured state of the server"""
 
 import base64
+import json
 import logging
 import random
 import time
@@ -74,15 +75,19 @@ class Connector:
     def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
         cfg = get_config("airtable")
         path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
-        if rec:
-            path += f"/{rec}"
-        if suffix:
-            path += suffix
+        path += (f"/{rec}" if rec else "") + (suffix or "")
         headers = {
             "Authorization": f"Bearer {cfg['data'][base]['token']}",
             "Content-Type": "application/json",
         }
         return urljoin(cfg["requests"]["url"], path), headers
+
+    def db_format(self):
+        """Returns the format of DB calls; the response is different between Airtable and Nocodb"""
+        return "airtable"
+
+    def _format_db_request_data(self, _1, _2, data):
+        return data
 
     def db_request(  # pylint: disable=too-many-arguments
         self, mode, base, tbl, rec=None, suffix=None, data=None
@@ -91,12 +96,15 @@ class Connector:
         url, headers = self._construct_db_request_url_and_headers(
             base, tbl, rec, suffix
         )
+        if data is not None:
+            data = json.dumps(self._format_db_request_data(mode, rec, data))
+            log.info(f"{mode} data {data}")
         for i in range(self.max_attempts):
             try:
                 rep = requests.request(
                     mode, url, headers=headers, timeout=self.timeout, data=data
                 )
-                return rep.status_code, rep.content
+                return rep.status_code, json.loads(rep.content) if rep.content else None
             except requests.exceptions.ReadTimeout as rt:
                 if mode != "GET" or i == self.max_attempts - 1:
                     raise rt

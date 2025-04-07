@@ -387,7 +387,7 @@ class Commands:
                 "Shop Tech",
                 "Board Member",
                 "Staff",
-                "Software Dev",
+                "Software Developer",
             ):
                 if (
                     details.get("zero_cost_ok_until") is None
@@ -428,7 +428,7 @@ class Commands:
             result += self._validate_role_membership(details, Role.INSTRUCTOR)
         elif level in "Board Member":
             result += self._validate_role_membership(details, Role.BOARD_MEMBER)
-        elif level == "Software Dev":
+        elif level == "Software Developer":
             result += self._validate_role_membership(details, Role.SOFTWARE_DEV)
         elif level == "Staff":
             result += self._validate_role_membership(details, Role.STAFF)

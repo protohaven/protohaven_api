@@ -49,6 +49,9 @@ class DevConnector(Connector):
             "Neon session creation not implemented for dev environment"
         )
 
+    def db_format(self):
+        return "nocodb"
+
     def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
         cfg = get_config("nocodb")
         path = f"/api/v2/tables/{cfg['data'][base][tbl]}/records"
@@ -61,6 +64,11 @@ class DevConnector(Connector):
             "Content-Type": "application/json",
         }
         return urljoin(cfg["requests"]["url"], path), headers
+
+    def _format_db_request_data(self, mode, _, data):
+        if mode == "POST":
+            return [r["fields"] for r in data["records"]]
+        return data
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
