@@ -58,7 +58,7 @@ def get_all_records_between(base, tbl, start_date, end_date, field="Created"):
     if get_connector().db_format() == "nocodb":
         suffix = f"where=({field},le,exactDate,{end_date.isoformat()})~and({field},ge,exactDate,{start_date.isoformat()})"  # pylint: disable=line-too-long
     else:
-        suffix = f"filterByFormula=AND(IS_BEFORE(%7B{field}%7D, '{end_date.isoformat()}', IS_AFTER(%7B{field}%7D,'{start_date.isoformat()}'))"  # pylint: disable=line-too-long
+        suffix = f"filterByFormula=AND(IS_BEFORE(%7B{field}%7D, '{end_date.isoformat()}'), IS_AFTER(%7B{field}%7D,'{start_date.isoformat()}'))"  # pylint: disable=line-too-long
 
     return get_all_records(base, tbl, suffix=suffix)
 
