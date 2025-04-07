@@ -20,7 +20,7 @@ def test_set_booked_resource_id(mocker):
     a.set_booked_resource_id("airtable_id", "resource_id")
 
     fname, args, kwargs = ab.get_connector().db_request.mock_calls[0]
-    assert kwargs["data"] == json.dumps({"fields": {"BookedResourceId": "resource_id"}})
+    assert kwargs["data"] == {"fields": {"BookedResourceId": "resource_id"}}
     assert "airtable_id" == kwargs["rec"]
 
 

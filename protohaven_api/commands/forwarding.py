@@ -363,13 +363,14 @@ class Commands:
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(airtable.get_signins_between(start, end)):
-            email = s["email"].strip().lower()
+            email = s["Email"].strip().lower()
             name = email_map.get(email)
             if name in techs_on_duty:
                 on_duty_ok = True
-                log.info(
-                    f"{name} ({email}, signed in {s.get('timestamp', now).strftime('%-I%p')})"
-                )
+                timestamp = s.get("Created") or now
+                if isinstance(timestamp, str):
+                    timestamp = dateparser.parse(timestamp)
+                log.info(f"{name} ({email}, signed in {timestamp.strftime('%-I%p')})")
             else:
                 log.info(email)
 

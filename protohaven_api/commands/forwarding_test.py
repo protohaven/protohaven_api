@@ -47,7 +47,11 @@ Tc = namedtuple("TC", "desc,now,signins,want")
 )
 def test_tech_sign_ins(mocker, tc, cli):
     """Notifies if nobody is signed in for the AM shift"""
-    mocker.patch.object(F.sheets, "get_sign_ins_between", return_value=tc.signins)
+    mocker.patch.object(
+        F.airtable,
+        "get_signins_between",
+        return_value=[{"Email": s["email"]} for s in tc.signins],
+    )
     mocker.patch.object(
         F.forecast,
         "generate",

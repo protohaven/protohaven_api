@@ -1,4 +1,6 @@
 """Tests for data connector"""
+import json
+
 import pytest
 
 from protohaven_api.integrations.data import connector as con
@@ -19,7 +21,7 @@ def test_airtable_read_retry(mocker, c):
     """ReadTimeout triggers a retry on get requests to Airtable"""
     con.requests.request.side_effect = [
         con.requests.exceptions.ReadTimeout("Whoopsie"),
-        mocker.MagicMock(status_code=200, content=True),
+        mocker.MagicMock(status_code=200, content=json.dumps(True)),
     ]
     status, content = c.db_request("GET", "tools_and_equipment", "tools")
     assert status == 200

@@ -36,8 +36,7 @@ def get_all_records(base, tbl, suffix=None):
                 content,
             )
         data = content
-        is_nocodb = "list" in data
-        if is_nocodb:
+        if get_connector().db_format() == "nocodb":
             # Original implementation is with Airtable; NocoDB has a different response format
             # so we massage it to look like an Airtable response.
             records += [{"id": d["Id"], "fields": d} for d in data["list"]]
@@ -55,21 +54,26 @@ def get_all_records(base, tbl, suffix=None):
 def get_all_records_between(base, tbl, start_date, end_date, field="Created"):
     """Returns a list of all records in the table with the
     Created field timestamp after a certain date"""
-    return get_all_records(
-        base,
-        tbl,
-        suffix=f"filterByFormula=AND(IS_BEFORE(%7B{field}%7D, '{end_date.isoformat()}', IS_AFTER(%7B{field}%7D,'{start_date.isoformat()}'))",  # pylint: disable=line-too-long
-    )
+    suffix = None
+    if get_connector().db_format() == "nocodb":
+        suffix = f"where=({field},le,exactDate,{end_date.isoformat()})~and({field},ge,exactDate,{start_date.isoformat()})"  # pylint: disable=line-too-long
+    else:
+        suffix = (
+            f"filterByFormula=AND(IS_BEFORE(%7B{field}%7D, '{end_date.isoformat()}', IS_AFTER(%7B{field}%7D,'{start_date.isoformat()}'))",  # pylint: disable=line-too-long
+        )
+
+    return get_all_records(base, tbl, suffix=suffix)
 
 
 def get_all_records_after(base, tbl, after_date, field="Created"):
     """Returns a list of all records in the table with the
     Created field timestamp after a certain date"""
-    return get_all_records(
-        base,
-        tbl,
-        suffix=f"filterByFormula=IS_AFTER(%7B{field}%7D,'{after_date.isoformat()}')",
-    )
+    if get_connector().db_format() == "nocodb":
+        suffix = f"where=({field},ge,exactDate,{after_date.isoformat()})"
+    else:
+        suffix = f"filterByFormula=IS_AFTER(%7B{field}%7D,'{after_date.isoformat()}')"
+
+    return get_all_records(base, tbl, suffix=suffix)
 
 
 def insert_records(data, base, tbl):

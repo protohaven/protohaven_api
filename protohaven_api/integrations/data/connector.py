@@ -75,15 +75,16 @@ class Connector:
     def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
         cfg = get_config("airtable")
         path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
-        if rec:
-            path += f"/{rec}"
-        if suffix:
-            path += suffix
+        path += (f"/{rec}" if rec else "") + (suffix or "")
         headers = {
             "Authorization": f"Bearer {cfg['data'][base]['token']}",
             "Content-Type": "application/json",
         }
         return urljoin(cfg["requests"]["url"], path), headers
+
+    def db_format(self):
+        """Returns the format of DB calls; the response is different between Airtable and Nocodb"""
+        return "airtable"
 
     def _format_db_request_data(self, _1, _2, data):
         return data
