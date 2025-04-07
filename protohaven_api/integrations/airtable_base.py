@@ -55,6 +55,9 @@ def get_all_records_between(base, tbl, start_date, end_date, field="Created"):
     """Returns a list of all records in the table with the
     Created field timestamp after a certain date"""
     suffix = None
+    if not end_date:
+        return get_all_records_after(base, tbl, start_date, field)
+
     if get_connector().db_format() == "nocodb":
         suffix = f"where=({field},le,exactDate,{end_date.isoformat()})~and({field},ge,exactDate,{start_date.isoformat()})"  # pylint: disable=line-too-long
     else:

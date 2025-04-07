@@ -1,5 +1,6 @@
 """Administrative pages and endpoints"""
 
+import json
 import logging
 
 from flask import Blueprint, Response, request, session
@@ -64,24 +65,49 @@ def user_clearances():
     for e in emails:
         try:
             results[e] = {
+                "method": request.method,
+                "delta": delta,
                 "result": mclearance.update(e, request.method, delta),
                 "status": 200,
             }
         except RuntimeError as exc:
-            results[e] = {"result": [], "status": 500, "message": str(exc)}
+            results[e] = {
+                "method": request.method,
+                "delta": delta,
+                "result": [],
+                "status": 500,
+                "message": str(exc),
+            }
         except KeyError as exc:
-            results[e] = {"result": [], "status": 404, "message": str(exc)}
+            results[e] = {
+                "method": request.method,
+                "delta": delta,
+                "result": [],
+                "status": 404,
+                "message": str(exc),
+            }
         except TypeError as exc:
-            results[e] = {"result": [], "status": 400, "message": str(exc)}
+            results[e] = {
+                "method": request.method,
+                "delta": delta,
+                "result": [],
+                "status": 400,
+                "message": str(exc),
+            }
 
-    comms.send_discord_message(
-        "Member clearance updates:"
-        "\n".join([f"-{e}: {v}\n" for e, v in results.items()]),
-        "#membership-automation",
-        blocking=False,
+    if request.method != "GET":
+        comms.send_discord_message(
+            "Member clearance updates:\n"
+            + "\n".join([f"-{e}: {v}\n" for e, v in results.items()]),
+            "#membership-automation",
+            blocking=False,
+        )
+
+    return Response(
+        json.dumps(results),
+        content_type="application/json",
+        status=max(r["status"] for r in results.values()),
     )
-
-    return Response(results, status=max(r["status"] for r in results.values()))
 
 
 def _get_account_details(account_id):
