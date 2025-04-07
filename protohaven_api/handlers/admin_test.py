@@ -12,9 +12,10 @@ def test_user_clearances_notifies_discord(mocker, client):
     mocker.patch.object(
         rbac, "is_enabled", return_value=False
     )  # Disable to allow testing
-    mocker.patch.object(a.mclearance, "update")
-    mocker.patch.object(a.mclearance, "resolve_codes")
+    mocker.patch.object(a.mclearance, "update", return_value=[])
+    mocker.patch.object(a.mclearance, "resolve_codes", return_value=[])
     mocker.patch.object(a.comms, "send_discord_message")
+
     rep = client.patch(
         "/user/clearances",
         data={"emails": "test@example.com", "codes": "CLEAR1,CLEAR2"},

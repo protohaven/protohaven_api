@@ -30,6 +30,7 @@ def update(email, method, delta, apply=True):
     codes = {
         name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
     }
+    initial_codes = set(codes)
     result = set()
     if method == "GET":
         return [c for c in codes if c is not None]
@@ -40,7 +41,7 @@ def update(email, method, delta, apply=True):
         result = codes - delta
         codes -= set(delta)
 
-    if len(result) == 0:
+    if codes == initial_codes:
         log.info(f"No change required for {email}; skipping {method}")
         return []
 
