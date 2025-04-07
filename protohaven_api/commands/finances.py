@@ -464,24 +464,28 @@ class Commands:
                 log.info("Processing limit reached; exiting")
                 break
 
+            s = {
+                "fname": t["First Name"].strip(),
+                "lname": t["Last Name"].strip(),
+                "account_id": t["Account ID"],
+                "membership_id": "DRYRUN",
+                "new_end": "N/A",
+                "membership_type": role["name"],
+            }
             log.info(f"Processing tech {t}")
             end = self._last_expiring_membership(t["Account ID"])
+            if end is None:
+                s["end_date"] = "ERR INFINITE"
+                summary.append(s)
+                continue
+
             if now + datetime.timedelta(days=args.expiry_threshold) < end:
                 continue  # Skip if active membership not expiring soon
 
             # Precondition: shop tech has no future or active membership
             # expiring later than args.expiry_threshold, and args.apply is set
-            summary.append(
-                {
-                    "fname": t["First Name"].strip(),
-                    "lname": t["Last Name"].strip(),
-                    "end_date": end.strftime("%Y-%m-%d"),
-                    "account_id": t["Account ID"],
-                    "membership_id": "DRYRUN",
-                    "new_end": "N/A",
-                    "membership_type": role["name"],
-                }
-            )
+            s["end_date"] = end.strftime("%Y-%m-%d")
+            summary.append(s)
             if not args.apply:
                 log.info(f"DRY RUN: create membership for tech {t}")
                 continue
