@@ -55,18 +55,13 @@ def test_get_maintenance_needed_tasks_airtable_only(mocker):
     assert needed_tasks[0]["origin"] == "Airtable"
     assert needed_tasks[0]["detail"] == "More Details"
     assert needed_tasks[0]["next_schedule"] == d(2)
-    assert needed_tasks[0]["tags"] == ["admin_required"]
+    assert needed_tasks[0]["level"] == "admin_required"
 
 
 def test_get_maintenance_needed_tasks_wiki_only(mocker):
     """Test get_maintenance_needed_tasks for wiki-sourced tasks."""
     # Mock the dependencies
     mocker.patch.object(m, "tznow", return_value=d(0))
-    mocker.patch.object(
-        m.tasks,
-        "get_shop_tech_maintenance_section_map",
-        return_value={"section_1": "Shop Section"},
-    )
     mocker.patch.object(
         m.tasks, "last_maintenance_completion_map", return_value={"task_1": d(0)}
     )
@@ -83,7 +78,7 @@ def test_get_maintenance_needed_tasks_wiki_only(mocker):
                 "approval_state": {"approved_revision": True, "approved_id": "rev_1"},
                 "maint_freq_days": 7,
                 "maint_level": "admin_required",
-                "maint_asana_section": "section_1",
+                "maint_asana_section": "Shop Section",
             }
         ],
     )
@@ -100,16 +95,14 @@ def test_get_maintenance_needed_tasks_wiki_only(mocker):
     assert needed_tasks[0]["origin"] == "Bookstack"
     assert needed_tasks[0]["name"] == "Check Inventory"
     assert needed_tasks[0]["section"] == "Shop Section"
-    assert needed_tasks[0]["tags"] == ["admin_required"]
+    assert needed_tasks[0]["level"] == "admin_required"
 
 
 def test_unapproved_wiki_tasks_not_returned(mocker):
     """Ensure unapproved wiki tasks aren't returned on calls to
     get_maintenance_needed_tasks"""
     mocker.patch.object(m, "tznow", return_value=d(0))
-    mocker.patch.object(
-        m.tasks, "get_shop_tech_maintenance_section_map", return_value={}
-    )
+    mocker.patch.object(m.tasks, "_resolve_section_gid", return_value=None)
     mocker.patch.object(m.tasks, "last_maintenance_completion_map", return_value={})
     mocker.patch.object(m.airtable, "get_all_maintenance_tasks", return_value=[])
     mocker.patch.object(m, "get_config", return_value=["book-slug"])
@@ -146,11 +139,7 @@ def test_unapproved_wiki_tasks_not_returned(mocker):
 def test_get_maintenance_needed_tasks(mocker):
     """Test get_maintenance_needed_tasks"""
     now = d(0)
-    mocker.patch.object(
-        m.tasks,
-        "get_shop_tech_maintenance_section_map",
-        return_value={"section1": "Section 1"},
-    )
+    mocker.patch.object(m.tasks, "_resolve_section_gid", return_value="Section 1")
     mocker.patch.object(
         m.tasks, "last_maintenance_completion_map", return_value={"task1": d(-10)}
     )

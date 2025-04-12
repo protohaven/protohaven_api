@@ -116,6 +116,8 @@ nocodb:
       sign_in_survey_responses: "m0ug87cgzm31t0b"
       sign_ins: "m5pqytb0n1ydtml"
       automation_intents: "m6h05qg8s18szjl"
+    tasks:
+      shop_and_maintenance_tasks: "mb9vrl8klha39w3"
 airtable:
   requests:
     url: "https://api.airtable.com/v0/"

@@ -114,4 +114,4 @@ class DevConnector(Connector):
 
     def asana_client(self):
         """Create and return an Asana API client"""
-        raise NotImplementedError("TODO")
+        raise NotImplementedError("Asana client not implemented in dev mode")
