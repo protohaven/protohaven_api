@@ -1,10 +1,10 @@
 """Administrative pages and endpoints"""
 
+import json
 import logging
 
 from flask import Blueprint, Response, request, session
 
-from protohaven_api.automation.maintenance import tasks as mtask
 from protohaven_api.automation.membership import clearances as mclearance
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config, mock_data
@@ -64,24 +64,49 @@ def user_clearances():
     for e in emails:
         try:
             results[e] = {
+                "method": request.method,
+                "delta": delta,
                 "result": mclearance.update(e, request.method, delta),
                 "status": 200,
             }
         except RuntimeError as exc:
-            results[e] = {"result": [], "status": 500, "message": str(exc)}
+            results[e] = {
+                "method": request.method,
+                "delta": delta,
+                "result": [],
+                "status": 500,
+                "message": str(exc),
+            }
         except KeyError as exc:
-            results[e] = {"result": [], "status": 404, "message": str(exc)}
+            results[e] = {
+                "method": request.method,
+                "delta": delta,
+                "result": [],
+                "status": 404,
+                "message": str(exc),
+            }
         except TypeError as exc:
-            results[e] = {"result": [], "status": 400, "message": str(exc)}
+            results[e] = {
+                "method": request.method,
+                "delta": delta,
+                "result": [],
+                "status": 400,
+                "message": str(exc),
+            }
 
-    comms.send_discord_message(
-        "Member clearance updates:"
-        "\n".join([f"-{e}: {v}\n" for e, v in results.items()]),
-        "#membership-automation",
-        blocking=False,
+    if request.method != "GET":
+        comms.send_discord_message(
+            "Member clearance updates:\n"
+            + "\n".join([f"-{e}: {v}\n" for e, v in results.items()]),
+            "#membership-automation",
+            blocking=False,
+        )
+
+    return Response(
+        json.dumps(results),
+        content_type="application/json",
+        status=max(r["status"] for r in results.values()),
     )
-
-    return Response(results, status=max(r["status"] for r in results.values()))
 
 
 def _get_account_details(account_id):
@@ -187,7 +212,7 @@ def get_maintenance_data():
     tc = request.values.get("tool_code")
     if not tc:
         return Response("tool_code must be provided in request", 400)
-    airtable_id, name = airtable.get_tool_id_and_name(tc)
+    airtable_id, _ = airtable.get_tool_id_and_name(tc)
     log.info(f"Resolved {tc} -> {airtable_id}")
     if not airtable_id:
         return Response(f"Couldn't resolve airtable ID for tool code {tc}", 400)
@@ -197,7 +222,13 @@ def get_maintenance_data():
             key=lambda r: r["t"],
             reverse=True,
         ),
-        "active_tasks": list(mtask.get_open_tasks_matching_tool(airtable_id, name)),
+        "active_tasks": [
+            {
+                "name": "TODO",
+                "modified_at": None,
+                "gid": None,
+            }
+        ],
     }
 
 

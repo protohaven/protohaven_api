@@ -95,7 +95,7 @@ class Commands:
 
         for t in tt:
             log.info(
-                f"Applying {t['id']} {t['name']} (section={t['section']}, tags={t['tags']})"
+                f"Applying {t['id']} {t['name']} (section={t['section']}, level={t['level']})"
             )
             if args.apply:
                 try:
@@ -103,8 +103,8 @@ class Commands:
                         t["name"],
                         t["detail"],
                         t["id"],
-                        t["tags"],
-                        section_gid=t["section"],
+                        t["level"],
+                        section=t["section"],
                     )
                     scheduled.append(t)
                 except Exception as e:  # pylint: disable=broad-exception-caught
@@ -136,26 +136,6 @@ class Commands:
                 target="#techs-live",
             )
         )
-
-    @command()
-    def gen_tech_leads_maintenance_summary(self, _1, _2):
-        """Report on status of equipment maintenance & stale tasks"""
-        stale = manager.get_stale_tech_ready_tasks()
-        if len(stale) > 0:
-            log.info(f"Found {len(stale)} stale tasks")
-            stale.sort(key=lambda k: k["days_ago"], reverse=True)
-            print_yaml(
-                Msg.tmpl(
-                    "tech_leads_maintenance_status",
-                    stale_count=len(stale),
-                    stale_thresh=manager.DEFAULT_STALE_DAYS,
-                    stale_tasks=stale[:MAX_STALE_TASKS],
-                    id="daily_maintenance",
-                    target="#tech-automation",
-                )
-            )
-        else:
-            print_yaml([])
 
     @command(
         arg(

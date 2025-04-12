@@ -29,7 +29,7 @@ After deployment, verify that:
   * [x] Shows classes including attendee data
 * https://api.protohaven.org/onboarding
   * [x] can check membership (e.g. hello+testmember@protohaven.org)
-  * [x] can generate a coupon
+  * [] can generate a coupon
   * [] can setup a discord user
   * [] can assign roles
   * [x] can view list of onboarding people (bottom of page)
@@ -37,28 +37,29 @@ After deployment, verify that:
   * [x] Cal loads, individual shifts can be clicked and overridden, highlights current day
   * [x] Cal can change date range, highlights current day
   * [x] Cal swap overrides send an alert to the #techs channel
-  * [x] Members tab shows today's sign-ins
+  * [FAIL] Members tab shows today's sign-ins
   * [x] Shift page shows the roster, highlights current day
   * [x] Tool states load, clicking a tool shows info
   * [x] Storage tab allows for looking up Neon ID by name/email
   * [x] Areas have some leads assigned to them
   * [x] Areas has populated "additional contacts" section at the bottom of the pane
-  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
-  * [ ] Events tab can create, register, unregister, and delete a techs-only class
+  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [x] Events tab can create, register, unregister, and delete a techs-only class
   * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data
   * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
-  * [ ] Scheduler runs and proposes classes
-  * [ ] Can confirm/unconfirm a class
+  * [x] Scheduler runs and proposes classes
+  * [x] Can confirm/unconfirm a class
   * [ ] Log submission button works
 * https://api.protohaven.org/member
-  * [ ] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
+  * [x] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
 * https://api.protohaven.org/event_ticker
   * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
   * [x] Can summarize one or more discord channels, and view photos
+  * [x] Access denied if logged in as hello+testmember@protohaven.org
 
 ## Discord events
 
@@ -70,11 +71,11 @@ run the `on_member_join` hook which is configured by `main.py` to run
 
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove association.
 
-* [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+* [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
 
 Override and register the user in Neon. Remove all roles from Discord user, and change its display name to something other than `Test Member`.
 
-* [x] When missing roles & nickname format, adds them & notifies (both of role and nick change)
+* [ ] When missing roles & nickname format, adds them & notifies (both of role and nick change)
 
 Add an extra role to the user via Discord.
 
@@ -94,7 +95,7 @@ Clearance webhook
 ```shell
 python3 -m protohaven_api.scripts.webhook_qa_tests clearance
 ```
-* [x] runs successfully
+* [ ] runs successfully
 
 Maintenance data webhook
 

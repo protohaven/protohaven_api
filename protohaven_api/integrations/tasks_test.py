@@ -48,44 +48,6 @@ def test_get_with_onhold_section(mocker):
     assert tasks[2]["memberships"][0]["section"]["gid"] == "456"
 
 
-def test_get_open_purchase_requests(mocker):
-    """Test get_open_purchase_requests function"""
-    mt = mocker.patch.object(t, "_tasks")
-    mt().get_tasks_for_project.return_value = [
-        {
-            "completed": False,
-            "memberships": [{"section": {"gid": "requested"}}],
-            "created_at": "2023-10-01T00:00:00Z",
-            "modified_at": "2023-10-02T00:00:00Z",
-        },
-        {
-            "completed": True,
-            "memberships": [{"section": {"gid": "approved"}}],
-            "created_at": "2023-10-03T00:00:00Z",
-            "modified_at": "2023-10-04T00:00:00Z",
-        },
-    ]
-    mocker.patch.object(
-        t,
-        "get_config",
-        side_effect=lambda x: {
-            "asana/purchase_requests/gid": "some_gid",
-            "asana/purchase_requests/sections": {
-                "requested": "requested",
-                "approved": "approved",
-                "ordered": "ordered",
-                "on_hold": "on_hold",
-            },
-        }[x],
-    )
-
-    result = list(t.get_open_purchase_requests())
-    assert len(result) == 1
-    assert result[0]["category"] == "requested"
-    assert result[0]["created_at"] == dateparser.parse("2023-10-01T00:00:00Z")
-    assert result[0]["modified_at"] == dateparser.parse("2023-10-02T00:00:00Z")
-
-
 def test_last_maintenance_completion_map(mocker):
     """Test last_maintenance_completion_map function"""
     mocker.patch.object(t, "tznow", return_value=d(0))
@@ -110,7 +72,7 @@ def test_last_maintenance_completion_map(mocker):
     )
     mocker.patch.object(t, "get_config", return_value="some_gid")
     mocker.patch.object(
-        t, "get_airtable_id", side_effect=lambda x: x["custom_fields"][0]["text_value"]
+        t, "_get_maint_ref", side_effect=lambda x: x["custom_fields"][0]["text_value"]
     )
 
     result = t.last_maintenance_completion_map()
@@ -147,11 +109,15 @@ def test_add_maintenance_task_if_not_exists(mocker):
     mock_tasks().create_task.assert_not_called()
     mock_sections().add_task_for_section.assert_not_called()
 
+    mock_sections().get_sections_for_project.return_value = [
+        {"name": "section", "gid": "section_gid"}
+    ]
+
     # Test when the task does not exist
     mock_tasks().search_tasks_for_workspace.return_value = []
     mock_tasks().create_task.return_value = {"gid": "new_gid"}
     task_gid = t.add_maintenance_task_if_not_exists(
-        "Task Name", "Task Desc", "rec12345", ["training_needed"], "section_gid"
+        "Task Name", "Task Desc", "rec12345", "training_needed", "section"
     )
     assert task_gid == "new_gid"
     mock_tasks().create_task.assert_called_once_with(

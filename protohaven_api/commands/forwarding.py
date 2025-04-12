@@ -4,7 +4,6 @@ import argparse
 import datetime
 import logging
 import re
-from collections import defaultdict
 
 from dateutil import parser as dateparser
 
@@ -14,7 +13,6 @@ from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
-    sheets,
     tasks,
 )
 from protohaven_api.integrations.comms import Msg
@@ -166,27 +164,6 @@ class Commands:
                     num=len(reqs),
                     requests=reqs,
                     target="#supply-automation",
-                )
-            )
-
-    @command()
-    def class_proposals(self, _1, _2):
-        """Send reminders to take action on proposed classes"""
-        num = 0
-        unapproved_classes = []
-        for r in airtable.get_all_class_templates():
-            if r["fields"].get("Approved") is not None:
-                continue
-            unapproved_classes.append("- " + r["fields"]["Name"])
-            num += 1
-        log.info(f"Found {num} proposed classes awaiting approval.")
-        if num > 0:
-            print_yaml(
-                Msg.tmpl(
-                    "class_proposals",
-                    num=len(unapproved_classes),
-                    unapproved=unapproved_classes[:8],
-                    target="#edu-automation",
                 )
             )
 
@@ -349,28 +326,29 @@ class Commands:
         )
 
         # Current day from calendar
-        techs_on_duty = forecast.generate(now, 1)["calendar_view"][0]
+        techs_on_duty = forecast.generate(now, 1, include_pii=True)["calendar_view"][0]
         log.info(f"Forecast: {techs_on_duty}")
         # Pick AM vs PM shift
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {
             t["email"].strip().lower(): t["name"]
-            for t in neon.fetch_techs_list()
+            for t in neon.fetch_techs_list(include_pii=True)
             if t["name"] in techs_on_duty
         }
         rev_email_map = {v: k for k, v in email_map.items()}
         log.info(f"Email map: {email_map}")
         on_duty_ok = False
         log.info("Sign ins:")
-        for s in list(sheets.get_sign_ins_between(start, end)):
-            email = s["email"].strip().lower()
+        for s in list(airtable.get_signins_between(start, end)):
+            email = s["Email"].strip().lower()
             name = email_map.get(email)
             if name in techs_on_duty:
                 on_duty_ok = True
-                log.info(
-                    f"{name} ({email}, signed in {s.get('timestamp', now).strftime('%-I%p')})"
-                )
+                timestamp = s.get("Created") or now
+                if isinstance(timestamp, str):
+                    timestamp = dateparser.parse(timestamp)
+                log.info(f"{name} ({email}, signed in {timestamp.strftime('%-I%p')})")
             else:
                 log.info(email)
 
@@ -389,60 +367,3 @@ class Commands:
             )
 
         print_yaml(result)
-
-    @command()
-    def purchase_request_alerts(self, _1, _2):
-        """Send alerts when there's purchase requests that haven't been acted upon for some time"""
-        sections = defaultdict(list)
-        counts = defaultdict(int)
-        now = tznow()
-        thresholds = {
-            "requested": 7,
-            "approved": 7,
-            "ordered": 14,
-            "on_hold": 30,
-            "unknown": 0,
-        }
-        headers = {
-            "requested": "Requested",
-            "approved": "Approved",
-            "ordered": "Ordered",
-            "on_hold": "On Hold",
-            "unknown": "Unknown/Unparsed Tasks",
-        }
-
-        for t in tasks.get_open_purchase_requests():
-            counts[t["category"]] += 1
-            thresh = now - datetime.timedelta(days=thresholds[t["category"]])
-            if t["created_at"] < thresh and t["modified_at"] < thresh:
-                sections[t["category"]].append(t)
-            else:
-                log.info(
-                    f"Task mod date at {thresh}; under threshold {thresholds[t['category']]}"
-                )
-
-        # Sort oldest to youngest, by section
-        for k, v in sections.items():
-            v.sort(key=lambda t: min(t["created_at"], t["modified_at"]))
-
-        render_sections = []
-        for k in ("requested", "approved", "ordered", "on_hold", "unknown"):
-            if len(sections[k]) > 0:
-                render_sections.append(
-                    {
-                        "name": headers[k],
-                        "counts": counts[k],
-                        "threshold": thresholds[k],
-                        "tasks": sections[k][:5],
-                    }
-                )
-        if len(render_sections) > 0:
-            print_yaml(
-                Msg.tmpl(
-                    "stale_purchase_requests",
-                    sections=render_sections,
-                    now=now,
-                    target="#finance-automation",
-                )
-            )
-        log.info("Done")

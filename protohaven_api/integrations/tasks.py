@@ -2,11 +2,20 @@
 
 import datetime
 import json
+from functools import lru_cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tznow
+from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.connector import get as get_connector
+
+
+def _use_db():
+    con = get_connector()
+    if con is None:
+        return False
+    return get_connector().db_format() == "nocodb"
 
 
 def _sections():
@@ -33,8 +42,15 @@ def get_all_projects():
 
 def get_tech_ready_tasks(modified_before):
     """Get tasks assigned to techs"""
-    # https://developers.asana.com/reference/gettasksforproject
-    return _tasks().search_tasks_for_workspace(
+    if _use_db():
+        for rec in airtable_base.get_all_records("tasks", "shop_and_maintenance_tasks"):
+            yield (
+                rec["fields"]["Name"],
+                dateparser.parse(rec["fields"]["UpdatedAt"]).astimezone(tz),
+            )
+        return
+
+    for t in _tasks().search_tasks_for_workspace(
         get_config("asana/gid"),
         {
             "projects.all": get_config("asana/shop_and_maintenance_tasks/gid"),
@@ -51,7 +67,8 @@ def get_tech_ready_tasks(modified_before):
                 ]
             ),
         },
-    )
+    ):
+        yield (t["name"], dateparser.parse(t["modified_at"].astimezone(tz)))
 
 
 def get_project_requests():
@@ -126,83 +143,14 @@ def get_phone_messages():
     )
 
 
-def get_open_purchase_requests():
-    """Get purchase requests made by techs & instructors"""
-
-    # https://developers.asana.com/reference/gettasksforproject
-    def aggregate(t):
-        if t["completed"]:
-            return None
-        cats = {
-            get_config("asana/purchase_requests/sections")[v]: v
-            for v in ("requested", "approved", "ordered", "on_hold")
-        }
-        t["category"] = "unknown"
-        for mem in t["memberships"]:
-            cat = cats.get(mem["section"]["gid"])
-            if cat is not None:
-                t["category"] = cat
-                break
-        for tk in ("created_at", "modified_at"):
-            t[tk] = dateparser.parse(t[tk])
-        return t
-
-    opts = {
-        "opt_fields": ",".join(
-            [
-                "completed",
-                "name",
-                "memberships.section",
-                "created_at",
-                "modified_at",
-            ]
-        ),
-    }
-    for t in _tasks().get_tasks_for_project(
-        get_config("asana/purchase_requests/gid"), opts
-    ):
-        t2 = aggregate(t)
-        if t2:
-            yield t2
-
-
 def complete(gid):
     """Complete a task"""
     # https://developers.asana.com/reference/updatetask
     return _tasks().update_task({"data": {"completed": True}}, gid, {})
 
 
-def get_shop_tech_maintenance_section_map():
-    """Gets a mapping of Asana section names to their ID's"""
-    result = _sections().get_sections_for_project(
-        get_config("asana/shop_and_maintenance_tasks/gid"), {}
-    )
-    return {r["name"]: r["gid"] for r in result}
-
-
-def get_all_open_maintenance_tasks():
-    """Fetches all uncompleted tasks matching a tool record in Airtable"""
-    return _tasks().search_tasks_for_workspace(
-        get_config("asana/gid"),
-        {
-            "completed": False,
-            "limit": 100,
-            "opt_fields": ",".join(
-                [
-                    "name",
-                    "modified_at",
-                    "uri",
-                    "custom_fields.name",
-                    "custom_fields.number_value",
-                    "custom_fields.text_value",
-                ]
-            ),
-        },
-    )
-
-
-def get_airtable_id(t):
-    """Extracts the airtable ID custom field from a task"""
+def _get_maint_ref(t):
+    """Extracts the "airtable ID" custom field from a maintenance task"""
     for cf in t["custom_fields"]:
         if cf["name"] == "Airtable Record":
             return cf["text_value"]
@@ -216,7 +164,27 @@ def last_maintenance_completion_map():
     Tasks completed earlier than 400 days ago are excluded.
     """
     result = {}
+
+    def _build_map(aid, completed, modified_at, now):
+        if not completed:
+            result[aid] = now
+            return
+        mod = dateparser.parse(modified_at)
+        if aid not in result or mod > result[aid]:
+            result[aid] = mod
+
     now = tznow()
+
+    if _use_db():
+        for t in airtable_base.get_all_records("tasks", "shop_and_maintenance_tasks"):
+            _build_map(
+                t["fields"]["Maint Ref"],
+                t["fields"]["Completed"],
+                t["fields"]["UpdatedAt"],
+                now,
+            )
+        return result
+
     for t in _tasks().get_tasks_for_project(
         get_config("asana/shop_and_maintenance_tasks/gid"),
         {
@@ -238,13 +206,7 @@ def last_maintenance_completion_map():
             ),
         },
     ):
-        aid = get_airtable_id(t)
-        if not t["completed"]:
-            result[aid] = now
-            continue
-        mod = dateparser.parse(t["modified_at"])
-        if aid not in result or mod > result[aid]:
-            result[aid] = mod
+        _build_map(_get_maint_ref(t), t["completed"], t["modified_at"], now)
     return result
 
 
@@ -260,6 +222,22 @@ def add_tool_report_task(  # pylint: disable=too-many-arguments
         f"Report created by {reporter} via Airtable form"
     )
     notes = notes.replace("<", "&lt;").replace(">", "&gt;")
+
+    if _use_db():
+        status, result = airtable_base.insert_records(
+            [
+                {
+                    "Tool Report": True,
+                    "Priority": "P0" if urgent else None,
+                    "Name": name,
+                    "Notes": notes,
+                }
+            ],
+            "tasks",
+            "shop_and_maintenance_tasks",
+        )
+        print(result)
+        return result[0]["Id"]
 
     custom_fields = {}
     if urgent:
@@ -286,14 +264,51 @@ def add_tool_report_task(  # pylint: disable=too-many-arguments
     return result.get("gid")
 
 
+@lru_cache(maxsize=1)
+def _resolve_section_gid(section):
+    """Gets a mapping of Asana section names to their ID's"""
+    for r in _sections().get_sections_for_project(
+        get_config("asana/shop_and_maintenance_tasks/gid"), {}
+    ):
+        if r["name"].lower().strip() == section.lower().strip():
+            return r["gid"]
+    return None
+
+
 # Could also create tech task for maintenance here
-def add_maintenance_task_if_not_exists(name, desc, airtable_id, tags, section_gid=None):
+def add_maintenance_task_if_not_exists(name, notes, maint_ref, level, section=None):
     """Add a task to the shop tech asana project if it doesn't already exist"""
+
+    if _use_db():
+        for rec in airtable_base.get_all_records("tasks", "shop_and_maintenance_tasks"):
+            if (
+                rec["fields"]["Maint Ref"] == maint_ref
+                and not rec["fields"]["completed"]
+            ):
+                return rec["Id"]
+        _, result = airtable_base.insert_records(
+            [
+                {
+                    "Name": name,
+                    "Notes": notes,
+                    "Maint Ref": maint_ref,
+                    "Level": level,
+                    "Section": section,
+                }
+            ],
+            "tasks",
+            "shop_and_maintenance_tasks",
+        )
+        return result[0]["Id"]
+
+    if section is not None:
+        section = _resolve_section_gid(section)
+
     matching = list(
         _tasks().search_tasks_for_workspace(
             get_config("asana/gid"),
             {
-                f"custom_fields.{get_config('asana/shop_and_maintenance_tasks/custom_fields/airtable_id/gid')}.value": airtable_id,  # pylint: disable=line-too-long
+                f"custom_fields.{get_config('asana/shop_and_maintenance_tasks/custom_fields/airtable_id/gid')}.value": maint_ref,  # pylint: disable=line-too-long
                 "completed": False,
                 "limit": 1,
             },
@@ -303,28 +318,28 @@ def add_maintenance_task_if_not_exists(name, desc, airtable_id, tags, section_gi
         return matching[0].get("gid")  # Already exists
 
     tag_ids = get_config("asana/shop_and_maintenance_tasks/tags")
-    tags = [tag_ids[t] for t in tags]  # tags MUST have a lookup ID
+    tags = [tag_ids[level]]  # tags MUST have a lookup ID
     result = _tasks().create_task(
         {
             "data": {
                 "projects": [get_config("asana/shop_and_maintenance_tasks/gid")],
-                "section": section_gid,
+                "section": section,
                 "tags": tags,
                 "custom_fields": {
                     get_config(
                         "asana/shop_and_maintenance_tasks/custom_fields/airtable_id/gid"
-                    ): str(airtable_id),
+                    ): str(maint_ref),
                 },
                 "name": name,
-                "notes": desc,
+                "notes": notes,
             }
         },
         {},
     )
     # print(result)
     task_gid = result.get("gid")
-    if section_gid and task_gid:
+    if section and task_gid:
         _sections().add_task_for_section(
-            str(section_gid), {"body": {"data": {"task": task_gid}}}
+            str(section), {"body": {"data": {"task": task_gid}}}
         )
     return task_gid

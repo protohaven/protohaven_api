@@ -47,7 +47,11 @@ Tc = namedtuple("TC", "desc,now,signins,want")
 )
 def test_tech_sign_ins(mocker, tc, cli):
     """Notifies if nobody is signed in for the AM shift"""
-    mocker.patch.object(F.sheets, "get_sign_ins_between", return_value=tc.signins)
+    mocker.patch.object(
+        F.airtable,
+        "get_signins_between",
+        return_value=[{"Email": s["email"]} for s in tc.signins],
+    )
     mocker.patch.object(
         F.forecast,
         "generate",
@@ -133,26 +137,6 @@ def test_instructor_applications(mocker, cli):
     assert got["target"] == "#edu-automation"
 
 
-def test_class_proposals(mocker, cli):
-    """Test `class_proposals` cmd"""
-    mocker.patch.object(
-        F.airtable,
-        "get_all_class_templates",
-        return_value=[
-            {
-                "fields": {"Name": "Test Class"},
-            }
-        ],
-    )
-    assert cli("class_proposals", []) == [
-        {
-            "body": MatchStr("Test Class"),
-            "subject": MatchStr("class"),
-            "target": "#edu-automation",
-        }
-    ]
-
-
 def test_private_instruction_email(mocker, cli):
     """Test `private_instruction` sends to email"""
     mocker.patch.object(
@@ -231,32 +215,6 @@ def test_phone_messages(mocker, cli):
         }
     ]
     F.tasks.complete.assert_called_with("123")  # pylint: disable=no-member
-
-
-def test_purchase_request_alerts(mocker, cli):
-    """Test `purchase_request_alerts` cli command"""
-    mocker.patch.object(
-        F.tasks,
-        "get_open_purchase_requests",
-        return_value=[
-            {
-                "gid": "123",
-                "name": "Foo",
-                "created_at": d(0),
-                "modified_at": d(0),
-                "category": "requested",
-                "notes": "test notes",
-            }
-        ],
-    )
-    mocker.patch.object(F, "tznow", return_value=d(30))
-    assert cli("purchase_request_alerts", []) == [
-        {
-            "subject": MatchStr("Open purchase requests"),
-            "body": MatchStr("1 total"),
-            "target": "#finance-automation",
-        }
-    ]
 
 
 def test_donation_requests(mocker, cli):

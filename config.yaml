@@ -117,9 +117,11 @@ nocodb:
       sign_ins: "m5pqytb0n1ydtml"
       automation_intents: "m6h05qg8s18szjl"
       volunteers_staff: "mkygxd0r8l1yhah"
+    tasks:
+      shop_and_maintenance_tasks: "mb9vrl8klha39w3"
 airtable:
   requests:
-    url: "https://api.airtable.com/v0"
+    url: "https://api.airtable.com/v0/"
   data:
     tools_and_equipment:
       token: ${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}
