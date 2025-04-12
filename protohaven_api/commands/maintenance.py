@@ -137,26 +137,6 @@ class Commands:
             )
         )
 
-    @command()
-    def gen_tech_leads_maintenance_summary(self, _1, _2):
-        """Report on status of equipment maintenance & stale tasks"""
-        stale = list(manager.get_stale_tech_ready_tasks())
-        if len(stale) > 0:
-            log.info(f"Found {len(stale)} stale tasks")
-            stale.sort(key=lambda k: k["days_ago"], reverse=True)
-            print_yaml(
-                Msg.tmpl(
-                    "tech_leads_maintenance_status",
-                    stale_count=len(stale),
-                    stale_thresh=manager.DEFAULT_STALE_DAYS,
-                    stale_tasks=stale[:MAX_STALE_TASKS],
-                    id="daily_maintenance",
-                    target="#tech-automation",
-                )
-            )
-        else:
-            print_yaml([])
-
     @command(
         arg(
             "names",

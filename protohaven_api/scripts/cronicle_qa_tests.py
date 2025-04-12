@@ -234,7 +234,6 @@ if __name__ == "__main__":
             "elziy4cxkp4",
             {"ARGS_CHAN_OVERRIDE": COVR},
         ),
-        ("class_proposals", test_simple, "elx994dfv2o", {"ARGS_CHAN_OVERRIDE": COVR}),
         ("shop_tech_apps", test_simple, "elw7tf3bg4s", {"ARGS_CHAN_OVERRIDE": COVR}),
         # Note: this should really create some transaction violation problem for
         # reporting purposes
@@ -253,24 +252,6 @@ if __name__ == "__main__":
                     "--start=2000-01-01 --end=2000-01-30 "
                     "--no-require_active --filter=test@test.com"
                 ),
-            },
-        ),
-        # Note: should change this to always produce a stale alert
-        (
-            "purchase_requests",
-            test_simple,
-            "em1zphtib9s",
-            {
-                "ARGS_CHAN_OVERRIDE": COVR,
-            },
-        ),
-        # Note: should change this to always produce a stale alert
-        (
-            "leads_maintenance",
-            test_simple,
-            "em1zpe87a9q",
-            {
-                "ARGS_CHAN_OVERRIDE": COVR,
             },
         ),
         # Note: should change this to always produce a stale alert

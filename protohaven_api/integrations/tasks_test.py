@@ -48,44 +48,6 @@ def test_get_with_onhold_section(mocker):
     assert tasks[2]["memberships"][0]["section"]["gid"] == "456"
 
 
-def test_get_open_purchase_requests(mocker):
-    """Test get_open_purchase_requests function"""
-    mt = mocker.patch.object(t, "_tasks")
-    mt().get_tasks_for_project.return_value = [
-        {
-            "completed": False,
-            "memberships": [{"section": {"gid": "requested"}}],
-            "created_at": "2023-10-01T00:00:00Z",
-            "modified_at": "2023-10-02T00:00:00Z",
-        },
-        {
-            "completed": True,
-            "memberships": [{"section": {"gid": "approved"}}],
-            "created_at": "2023-10-03T00:00:00Z",
-            "modified_at": "2023-10-04T00:00:00Z",
-        },
-    ]
-    mocker.patch.object(
-        t,
-        "get_config",
-        side_effect=lambda x: {
-            "asana/purchase_requests/gid": "some_gid",
-            "asana/purchase_requests/sections": {
-                "requested": "requested",
-                "approved": "approved",
-                "ordered": "ordered",
-                "on_hold": "on_hold",
-            },
-        }[x],
-    )
-
-    result = list(t.get_open_purchase_requests())
-    assert len(result) == 1
-    assert result[0]["category"] == "requested"
-    assert result[0]["created_at"] == dateparser.parse("2023-10-01T00:00:00Z")
-    assert result[0]["modified_at"] == dateparser.parse("2023-10-02T00:00:00Z")
-
-
 def test_last_maintenance_completion_map(mocker):
     """Test last_maintenance_completion_map function"""
     mocker.patch.object(t, "tznow", return_value=d(0))

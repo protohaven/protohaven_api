@@ -3,7 +3,7 @@
 import pytest
 
 from protohaven_api.commands import maintenance as m
-from protohaven_api.testing import MatchStr, d, mkcli
+from protohaven_api.testing import d, mkcli
 
 
 @pytest.fixture(name="cli")
@@ -62,33 +62,6 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     assert len(got) == 1
     assert "no new tasks" in got[0]["subject"]
     m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
-
-
-def test_tech_leads_maintenance_none(mocker, cli):
-    """Confirm that when there are no stale tasks, we send no notifications"""
-    mocker.patch.object(m.manager, "get_stale_tech_ready_tasks", return_value=[])
-    assert cli("gen_tech_leads_maintenance_summary", []) == []
-
-
-def test_tech_leads_maintenance_sends(mocker, cli):
-    """Confirm that when there are no stale tasks, we send no notifications"""
-    mocker.patch.object(
-        m.manager,
-        "get_stale_tech_ready_tasks",
-        return_value=[
-            {"name": "Task 1", "gid": "123", "days_ago": 5},
-            {"name": "Task 2", "gid": "456", "days_ago": 10},
-        ],
-    )
-    expected = [
-        {
-            "subject": "Stale maintenance tasks",
-            "body": MatchStr("2 tech_ready tasks"),
-            "target": "#tech-automation",
-            "id": "daily_maintenance",
-        }
-    ]
-    assert cli("gen_tech_leads_maintenance_summary", []) == expected
 
 
 def test_check_door_sensors(mocker, cli):

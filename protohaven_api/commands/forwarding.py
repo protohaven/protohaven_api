@@ -4,7 +4,6 @@ import argparse
 import datetime
 import logging
 import re
-from collections import defaultdict
 
 from dateutil import parser as dateparser
 
@@ -165,27 +164,6 @@ class Commands:
                     num=len(reqs),
                     requests=reqs,
                     target="#supply-automation",
-                )
-            )
-
-    @command()
-    def class_proposals(self, _1, _2):
-        """Send reminders to take action on proposed classes"""
-        num = 0
-        unapproved_classes = []
-        for r in airtable.get_all_class_templates():
-            if r["fields"].get("Approved") is not None:
-                continue
-            unapproved_classes.append("- " + r["fields"]["Name"])
-            num += 1
-        log.info(f"Found {num} proposed classes awaiting approval.")
-        if num > 0:
-            print_yaml(
-                Msg.tmpl(
-                    "class_proposals",
-                    num=len(unapproved_classes),
-                    unapproved=unapproved_classes[:8],
-                    target="#edu-automation",
                 )
             )
 
@@ -389,60 +367,3 @@ class Commands:
             )
 
         print_yaml(result)
-
-    @command()
-    def purchase_request_alerts(self, _1, _2):
-        """Send alerts when there's purchase requests that haven't been acted upon for some time"""
-        sections = defaultdict(list)
-        counts = defaultdict(int)
-        now = tznow()
-        thresholds = {
-            "requested": 7,
-            "approved": 7,
-            "ordered": 14,
-            "on_hold": 30,
-            "unknown": 0,
-        }
-        headers = {
-            "requested": "Requested",
-            "approved": "Approved",
-            "ordered": "Ordered",
-            "on_hold": "On Hold",
-            "unknown": "Unknown/Unparsed Tasks",
-        }
-
-        for t in tasks.get_open_purchase_requests():
-            counts[t["category"]] += 1
-            thresh = now - datetime.timedelta(days=thresholds[t["category"]])
-            if t["created_at"] < thresh and t["modified_at"] < thresh:
-                sections[t["category"]].append(t)
-            else:
-                log.info(
-                    f"Task mod date at {thresh}; under threshold {thresholds[t['category']]}"
-                )
-
-        # Sort oldest to youngest, by section
-        for k, v in sections.items():
-            v.sort(key=lambda t: min(t["created_at"], t["modified_at"]))
-
-        render_sections = []
-        for k in ("requested", "approved", "ordered", "on_hold", "unknown"):
-            if len(sections[k]) > 0:
-                render_sections.append(
-                    {
-                        "name": headers[k],
-                        "counts": counts[k],
-                        "threshold": thresholds[k],
-                        "tasks": sections[k][:5],
-                    }
-                )
-        if len(render_sections) > 0:
-            print_yaml(
-                Msg.tmpl(
-                    "stale_purchase_requests",
-                    sections=render_sections,
-                    now=now,
-                    target="#finance-automation",
-                )
-            )
-        log.info("Done")

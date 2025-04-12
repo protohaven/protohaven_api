@@ -81,7 +81,6 @@ TESTED_TEMPLATES = [
         },
     ),
     ("booked_member_sync_summary", {"n": 5, "changes": [1, 2, 3]}),
-    ("class_proposals", {"unapproved": ["Unap1", "Unap2"]}),
     (
         "class_scheduled",
         {
@@ -283,46 +282,6 @@ TESTED_TEMPLATES = [
         },
     ),
     (
-        "stale_purchase_requests",
-        {
-            "sections": [
-                {
-                    "name": "section1",
-                    "counts": 1,
-                    "threshold": 5,
-                    "tasks": [
-                        {
-                            "name": "t1",
-                            "modified_at": d(0),
-                            "created_at": d(1),
-                            "id": "123",
-                        }
-                    ],
-                },
-                {
-                    "name": "section2",
-                    "counts": 2,
-                    "threshold": 5,
-                    "tasks": [
-                        {
-                            "name": "t2",
-                            "modified_at": d(1),
-                            "created_at": d(0),
-                            "id": "456",
-                        },
-                        {
-                            "name": "t3",
-                            "modified_at": d(5),
-                            "created_at": d(6),
-                            "id": "789",
-                        },
-                    ],
-                },
-            ],
-            "now": d(14),
-        },
-    ),
-    (
         "tech_daily_tasks",
         {
             "salutation": "Whattup!",
@@ -330,14 +289,6 @@ TESTED_TEMPLATES = [
             "errs": [ValueError("value or something")],
             "new_tasks": [{"name": "Test Task", "gid": "123"}],
             "closing": "Stay tested!",
-        },
-    ),
-    (
-        "tech_leads_maintenance_status",
-        {
-            "stale_count": 1,
-            "stale_thresh": 999,
-            "stale_tasks": [{"name": "Test Task", "gid": "123", "days_ago": 9001}],
         },
     ),
     ("tech_openings", {"n": 1, "events": [TEST_EVENT]}),
@@ -403,7 +354,6 @@ HASHES = {
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
     "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
-    "class_proposals": "09aa7102c43e69e6",  # pragma: allowlist secret
     "class_scheduled": "b57307cca2f8262c",  # pragma: allowlist secret
     "clearance_change_summary": "98410280f08a0823",  # pragma: allowlist secret
     "daily_private_instruction": "ba81765c045917ee",  # pragma: allowlist secret
@@ -440,9 +390,7 @@ HASHES = {
     "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
     "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
-    "stale_purchase_requests": "eafac3a7e4553a83",  # pragma: allowlist secret
     "tech_daily_tasks": "40fd5ae5ea4d2806",  # pragma: allowlist secret
-    "tech_leads_maintenance_status": "e763f572fa0203a5",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
