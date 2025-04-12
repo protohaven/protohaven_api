@@ -143,46 +143,6 @@ def get_phone_messages():
     )
 
 
-def get_open_purchase_requests():
-    """Get purchase requests made by techs & instructors"""
-
-    # https://developers.asana.com/reference/gettasksforproject
-    def aggregate(t):
-        if t["completed"]:
-            return None
-        cats = {
-            get_config("asana/purchase_requests/sections")[v]: v
-            for v in ("requested", "approved", "ordered", "on_hold")
-        }
-        t["category"] = "unknown"
-        for mem in t["memberships"]:
-            cat = cats.get(mem["section"]["gid"])
-            if cat is not None:
-                t["category"] = cat
-                break
-        for tk in ("created_at", "modified_at"):
-            t[tk] = dateparser.parse(t[tk])
-        return t
-
-    opts = {
-        "opt_fields": ",".join(
-            [
-                "completed",
-                "name",
-                "memberships.section",
-                "created_at",
-                "modified_at",
-            ]
-        ),
-    }
-    for t in _tasks().get_tasks_for_project(
-        get_config("asana/purchase_requests/gid"), opts
-    ):
-        t2 = aggregate(t)
-        if t2:
-            yield t2
-
-
 def complete(gid):
     """Complete a task"""
     # https://developers.asana.com/reference/updatetask

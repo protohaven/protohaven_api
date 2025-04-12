@@ -76,15 +76,3 @@ def get_maintenance_needed_tasks(now=None):
         else:
             log.debug(f"Skip (too early)\t{c}")
     return needed
-
-
-DEFAULT_STALE_DAYS = 14
-
-
-def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
-    """Get tasks in Asana that haven't been acted upon within threshold"""
-    if now is None:
-        now = tznow()
-    thresh = now - datetime.timedelta(days=thresh)
-    for name, modified_at in tasks.get_tech_ready_tasks(thresh):
-        yield {"name": name, "days_ago": (now - modified_at).days}
