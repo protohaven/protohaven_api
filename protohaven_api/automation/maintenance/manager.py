@@ -3,9 +3,7 @@
 import datetime
 import logging
 
-from dateutil import parser as dateparser
-
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations import airtable, tasks, wiki
 
 log = logging.getLogger("maintenance.manager")
@@ -21,10 +19,6 @@ def get_maintenance_needed_tasks(now=None):
     if not now:
         now = tznow()
 
-    log.info("Loading maintenance sections")
-    section_map = tasks.get_shop_tech_maintenance_section_map()
-    log.info(f"{len(section_map.keys())} sections loaded")
-
     log.info("Loading maintenance completion dates")
     last_completions = tasks.last_maintenance_completion_map()
     log.info(f"{len(last_completions.keys())} tasks with known last completion dates")
@@ -39,9 +33,9 @@ def get_maintenance_needed_tasks(now=None):
                 f"See https://wiki.protohaven.org/books/{m['book_slug']}/page/"
                 f"{m['page_slug']}"
             ),
-            "tags": [m["maint_level"]],
+            "level": m["maint_level"],
             "freq": int(m["maint_freq_days"]),
-            "section": section_map.get(m.get("maint_asana_section")),
+            "section": m.get("maint_asana_section"),
         }
         for book in get_config("bookstack/maintenance/books")
         for m in wiki.get_maintenance_data(book)
@@ -56,8 +50,8 @@ def get_maintenance_needed_tasks(now=None):
             "name": t["fields"]["Task Name"],
             "detail": t["fields"]["Task Detail"],
             "freq": int(t["fields"]["Frequency"]),
-            "tags": [t["fields"]["Skill Level"]],
-            "section": section_map.get(t["fields"]["Asana Section"]),
+            "level": t["fields"]["Skill Level"],
+            "section": t["fields"]["Asana Section"],
         }
         for t in airtable.get_all_maintenance_tasks()
         if "REVIEW NEEDED" not in t["fields"]["Skill Level"]
@@ -88,12 +82,9 @@ DEFAULT_STALE_DAYS = 14
 
 
 def get_stale_tech_ready_tasks(now=None, thresh=DEFAULT_STALE_DAYS):
-    """Get tasks in Asana that haven't been acted upon within a certain threshold"""
+    """Get tasks in Asana that haven't been acted upon within threshold"""
     if now is None:
         now = tznow()
     thresh = now - datetime.timedelta(days=thresh)
-    result = []
-    for t in tasks.get_tech_ready_tasks(thresh):
-        mod = dateparser.parse(t["modified_at"]).astimezone(tz)
-        result.append({"name": t["name"], "days_ago": (now - mod).days})
-    return result
+    for name, modified_at in tasks.get_tech_ready_tasks(thresh):
+        yield {"name": name, "days_ago": (now - modified_at).days}

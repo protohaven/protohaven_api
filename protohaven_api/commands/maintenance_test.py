@@ -23,7 +23,7 @@ def test_gen_maintenance_tasks(mocker, cli):
                 "section": "foo",
                 "name": "test task",
                 "detail": "details",
-                "tags": ["tech_ready"],
+                "level": "tech_ready",
                 "next_schedule": d(1),
             }
         ],
@@ -48,7 +48,7 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
                 "id": "rec345",
                 "section": "foo",
                 "name": "test task",
-                "tags": ["tech_ready"],
+                "level": "tech_ready",
                 # Note no details section
                 "next_schedule": d(1),
             }

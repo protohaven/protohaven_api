@@ -110,7 +110,7 @@ def test_last_maintenance_completion_map(mocker):
     )
     mocker.patch.object(t, "get_config", return_value="some_gid")
     mocker.patch.object(
-        t, "get_airtable_id", side_effect=lambda x: x["custom_fields"][0]["text_value"]
+        t, "_get_maint_ref", side_effect=lambda x: x["custom_fields"][0]["text_value"]
     )
 
     result = t.last_maintenance_completion_map()
@@ -147,11 +147,15 @@ def test_add_maintenance_task_if_not_exists(mocker):
     mock_tasks().create_task.assert_not_called()
     mock_sections().add_task_for_section.assert_not_called()
 
+    mock_sections().get_sections_for_project.return_value = [
+        {"name": "section", "gid": "section_gid"}
+    ]
+
     # Test when the task does not exist
     mock_tasks().search_tasks_for_workspace.return_value = []
     mock_tasks().create_task.return_value = {"gid": "new_gid"}
     task_gid = t.add_maintenance_task_if_not_exists(
-        "Task Name", "Task Desc", "rec12345", ["training_needed"], "section_gid"
+        "Task Name", "Task Desc", "rec12345", "training_needed", "section"
     )
     assert task_gid == "new_gid"
     mock_tasks().create_task.assert_called_once_with(
