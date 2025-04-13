@@ -1,4 +1,4 @@
-"""A mock version of Neon CRM serving results pulled from mock_data"""
+"""A mock version of Neon CRM serving results pulled from Nocodb"""
 
 import json
 import logging
@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, Response, request
 
-from protohaven_api.config import mock_data
+from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.neon import CustomField
 
 app = Flask(__file__)
@@ -92,6 +92,13 @@ def _neon_dev_search_filter(
 
             return fname_filter
 
+        if field == "Last Name":
+
+            def lname_filter(rec):
+                acc = first(rec, "individualAccount", "companyAccount")
+                return acc["primaryContact"].get("lastName") == value
+
+            return lname_filter
         if field == "Account Current Membership Status":
 
             def status_filter(rec):
@@ -127,25 +134,31 @@ def _neon_dev_search_filter(
 def get_event(event_id):
     """Mock event endpoint for Neon"""
     if request.method == "GET":
-        for e, v in mock_data()["neon"]["events"].items():
-            if str(e) == str(event_id):
-                return v
+        for row in airtable_base.get_all_records("fake_neon", "events"):
+            if str(row["fields"]["eventId"]) == str(event_id):
+                return row["fields"]["data"]
         return Response("Event not found", status=404)
-    if request.method == "PATCH":
-        raise NotImplementedError("PATCH")
-    log.warning("Delete request received by mock Neon service; ignored")
-    return {}
+
+    raise NotImplementedError(
+        f"method {request.method} not implemented for /v2/events/*"
+    )
 
 
 @app.route("/v2/events", methods=["GET", "POST"])
 def get_events():
     """Mock events endpoint for Neon"""
+    # Need to implement filtering here
     if request.method == "GET":
+        evts = [
+            row["fields"]["data"]
+            for row in airtable_base.get_all_records("fake_neon", "events")
+        ]
         return {
-            "events": list(mock_data()["neon"]["events"].values()),
+            "events": evts,
             "pagination": {"totalPages": 1},
         }
-    return {"id": "test_event_id"}
+
+    raise NotImplementedError(f"method {request.method} not implemented for /v2/events")
 
 
 @app.route("/v2/events/<event_id>/tickets")
@@ -163,8 +176,15 @@ def get_event_registrations(event_id):
 @app.route("/v2/events/<event_id>/attendees")
 def get_attendees(event_id):
     """Mock event attendees endpoint for Neon"""
-    a = mock_data()["neon"]["attendees"].get(int(event_id)) or []
-    return {"attendees": a, "pagination": {"totalResults": len(a), "totalPages": 1}}
+    result = []
+    for row in airtable_base.get_all_records("fake_neon", "attendees"):
+        if str(row["fields"]["eventId"]) == str(event_id):
+            result.append(row["fields"]["data"])
+            break
+    return {
+        "attendees": result,
+        "pagination": {"totalResults": len(result), "totalPages": 1},
+    }
 
 
 @app.route("/v2/accounts/search", methods=["POST"])
@@ -173,7 +193,8 @@ def search_accounts():
     data = request.json
     filters = [_neon_dev_search_filter(**f) for f in data["searchFields"]]
     results = []
-    for a in mock_data()["neon"]["accounts"].values():
+    for row in airtable_base.get_all_records("fake_neon", "accounts"):
+        a = row["fields"]["data"]
         if False not in [f(a) for f in filters]:
             result = {}
             for k in data["outputFields"]:
@@ -196,28 +217,35 @@ def search_accounts():
 @app.route("/v2/accounts/<account_id>", methods=["GET", "PATCH"])
 def get_account(account_id):
     """Mock account lookup endpoint for Neon"""
-    a = mock_data()["neon"]["accounts"].get(account_id)
-    if not a:
-        return Response("Account not found", status=404)
+    if request.method != "GET":
+        raise NotImplementedError(
+            f"Method {request.method} not implemented for /v2/accounts/*"
+        )
 
-    if request.method == "GET":
-        return a
-    raise NotImplementedError("TODO")
+    for row in airtable_base.get_all_records("fake_neon", "accounts"):
+        if (
+            str(row["fields"]["accountId"]) == str(account_id)
+            and request.method == "GET"
+        ):
+            return row["fields"]["data"]
+
+    return Response("Account not found", status=404)
 
 
 @app.route("/v2/accounts/<account_id>/memberships")
 def get_account_memberships(account_id):
     """Mock account membership endpoint for Neon"""
-    m = mock_data()["neon"]["memberships"].get(account_id)
-    if not m:
-        return Response("Memberships not found for account", status=404)
-    return {
-        "memberships": m,
-        "pagination": {
-            "totalPages": 1,
-            "totalResults": len(m),
-        },
-    }
+    for row in airtable_base.get_all_records("fake_neon", "memberships"):
+        if str(row["fields"]["accountId"]) == str(account_id):
+            m = row["fields"]["data"]
+            return {
+                "memberships": m,
+                "pagination": {
+                    "totalPages": 1,
+                    "totalResults": len(m),
+                },
+            }
+    return Response("Memberships not found for account", status=404)
 
 
 @app.route("/v2/customFields/<field_id>", methods=["GET", "PUT"])
