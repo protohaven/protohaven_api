@@ -121,6 +121,12 @@ nocodb:
       shop_and_maintenance_tasks: "mb9vrl8klha39w3"
     fake_discord:
       members: "m63a1kzdhf4yepz"
+    fake_neon:
+      accounts: "mnk0ozc78npm418"
+      memberships: "mv3lhkooul6is39"
+      events: "mjxxyvyn5a8qegm"
+      attendees: "meoi8fng058o3rb"
+      clearance_codes: "mmk3g8k9pwcykd0"
 airtable:
   requests:
     url: "https://api.airtable.com/v0/"
