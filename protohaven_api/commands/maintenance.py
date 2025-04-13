@@ -8,9 +8,10 @@ import traceback
 from pathlib import Path
 
 from protohaven_api.automation.maintenance import manager
+from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
-from protohaven_api.integrations import comms, drive, tasks, wiki, wyze
+from protohaven_api.integrations import comms, drive, neon, tasks, wiki, wyze
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
@@ -125,6 +126,25 @@ class Commands:
                 blocking=False,
             )
 
+        techs_on_duty = forecast.generate(tznow(), 1, include_pii=True)[
+            "calendar_view"
+        ][0]
+        all_users = neon.get_all_accounts_with_discord_association(
+            [neon.CustomField.DISCORD_USER, "First Name", "Last Name"]
+        )
+        name_to_discord_dict = {
+            f'{item["First Name"]} {item["Last Name"]}': item["Discord User"]
+            for item in all_users
+        }
+        am_tech_discord = [
+            f"@{name_to_discord_dict.get(tech_name)}"
+            for tech_name in techs_on_duty["AM"]["people"]
+        ]
+        pm_tech_discord = [
+            f"@{name_to_discord_dict.get(tech_name)}"
+            for tech_name in techs_on_duty["PM"]["people"]
+        ]
+
         print_yaml(
             Msg.tmpl(
                 "tech_daily_tasks",
@@ -134,6 +154,8 @@ class Commands:
                 new_tasks=scheduled,
                 id="daily_maintenance",
                 target="#techs-live",
+                am_tech_discord=am_tech_discord,
+                pm_tech_discord=pm_tech_discord,
             )
         )
 
