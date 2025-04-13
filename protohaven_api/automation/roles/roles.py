@@ -184,7 +184,7 @@ def gen_role_intents(
     # Note that in certain cases, joined_at can be None
     # (see https://discordpy.readthedocs.io/en/stable/api.html#discord.Member.joined_at)
     log.info("Fetch Discord members")
-    discord_members, _ = comms.get_all_members_and_roles()
+    discord_members = list(comms.get_all_members())
     log.info(f"Got {len(discord_members)}; example {discord_members[0]}")
     discord_members.sort(key=lambda m: m[2])
     modified_users = set()  # for early cutoff on `max_user_intents`

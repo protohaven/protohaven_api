@@ -99,11 +99,9 @@ class PHClient(discord.Client):
     def _member_details(self, m):
         return (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
 
-    async def get_all_members_and_roles(self):
+    async def get_all_members(self):
         """Retrieves all data on members and roles for the server"""
-        members = [self._member_details(m) for m in self.guild.members]
-        role_map = self.role_map
-        return members, role_map
+        return [self._member_details(m) for m in self.guild.members]
 
     async def get_member_channels(self):
         """Returns all channels in self.guild visible to the Members role.
@@ -158,7 +156,7 @@ class PHClient(discord.Client):
         )
 
     async def get_member_details(self, discord_id):
-        """Returns data in the same format as `get_all_members_and_roles`
+        """Returns data in the same format as `get_all_members`
         just for a single member (if exists)"""
         m = self.guild.get_member_named(discord_id)
         if m is None:

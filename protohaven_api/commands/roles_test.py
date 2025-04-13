@@ -136,7 +136,7 @@ def test_update_role_intents_zero_comms(mocker, cli):
 
 def test_enforce_discord_nicknames_zero_comms(mocker, cli):
     """Ensure that no comms are sent if there were no problems"""
-    mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=([], None))
+    mocker.patch.object(r.comms, "get_all_members", return_value=[])
     mocker.patch.object(
         r.neon, "get_all_accounts_with_discord_association", return_value=[]
     )
@@ -148,16 +148,13 @@ def test_enforce_discord_nicknames(mocker, cli):
     """Ensure that nicknames are enforced and a summary sent; limit not exceeded"""
     mocker.patch.object(
         r.comms,
-        "get_all_members_and_roles",
-        return_value=(
-            [
-                ["usr1", "bad1", d(0)],
-                ["usr2", "a b", d(-1)],
-                ["usr 3", "not_in_neon", d(-2)],
-                ["usr4", "in_neon_non_member", d(-3)],
-            ],
-            None,
-        ),
+        "get_all_members",
+        return_value=[
+            ["usr1", "bad1", d(0)],
+            ["usr2", "a b", d(-1)],
+            ["usr 3", "not_in_neon", d(-2)],
+            ["usr4", "in_neon_non_member", d(-3)],
+        ],
     )
     mocker.patch.object(r.airtable, "get_notifications_after", return_value={})
     mocker.patch.object(r.comms, "set_discord_nickname")
@@ -198,13 +195,10 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
     """Ensure that warnings about association don't happen too frequently"""
     mocker.patch.object(
         r.comms,
-        "get_all_members_and_roles",
-        return_value=(
-            [
-                ["usr3", "not_in_neon", d(-2)],
-            ],
-            None,
-        ),
+        "get_all_members",
+        return_value=[
+            ["usr3", "not_in_neon", d(-2)],
+        ],
     )
     mocker.patch.object(
         r.airtable, "get_notifications_after", return_value={"@usr3": [d(0)]}
