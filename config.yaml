@@ -119,6 +119,8 @@ nocodb:
       volunteers_staff: "mkygxd0r8l1yhah"
     tasks:
       shop_and_maintenance_tasks: "mb9vrl8klha39w3"
+    fake_discord:
+      members: "m63a1kzdhf4yepz"
 airtable:
   requests:
     url: "https://api.airtable.com/v0/"

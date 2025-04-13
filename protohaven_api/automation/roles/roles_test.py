@@ -87,7 +87,7 @@ def test_gen_role_intents_limited_and_sorted(mocker):
     # Return lots of unique users that incorrectly have the Shop Tech role.
     usrs = [(f"id{i}", f"nick{i}", d(-i), [("Techs", 1234567890)]) for i in range(100)]
     assert usrs[0][0] == "id0"  # Youngest user first
-    mocker.patch.object(r.comms, "get_all_members_and_roles", return_value=(usrs, None))
+    mocker.patch.object(r.comms, "get_all_members", return_value=usrs)
     got = list(r.gen_role_intents(None, None, True, 20))
     assert len(got) == 20  # Cutoff at the passed max
     assert got[0].discord_id == "id99"  # Oldest user is acted upon first
@@ -114,13 +114,10 @@ def test_gen_role_intents_departing_member(mocker):
     )
     mocker.patch.object(
         r.comms,
-        "get_all_members_and_roles",
-        return_value=(
-            [
-                ("discord_id", "nickname", d(0), [("Members", "memid")]),
-            ],
-            None,
-        ),
+        "get_all_members",
+        return_value=[
+            ("discord_id", "nickname", d(0), [("Members", "memid")]),
+        ],
     )
     assert list(r.gen_role_intents(None, None, True, 20)) == []
 
@@ -146,13 +143,10 @@ def test_gen_role_intents_match(mocker):
     )
     mocker.patch.object(
         r.comms,
-        "get_all_members_and_roles",
-        return_value=(
-            [
-                ("discord_id", "nickname", d(0), [("Techs", "techid")]),
-            ],
-            None,
-        ),
+        "get_all_members",
+        return_value=[
+            ("discord_id", "nickname", d(0), [("Techs", "techid")]),
+        ],
     )
     got = list(r.gen_role_intents(None, None, True, 20))
     want_base = r.DiscordIntent(
@@ -186,13 +180,10 @@ def test_gen_role_intents_no_neon(mocker):
     )
     mocker.patch.object(
         r.comms,
-        "get_all_members_and_roles",
-        return_value=(
-            [
-                ("discord_id", "nickname", d(0), [("Techs", "techid")]),
-            ],
-            None,
-        ),
+        "get_all_members",
+        return_value=[
+            ("discord_id", "nickname", d(0), [("Techs", "techid")]),
+        ],
     )
     got = list(r.gen_role_intents(None, None, True, 20))
     assert got == [

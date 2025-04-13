@@ -160,9 +160,9 @@ def revoke_discord_role(name, role):
     return get_connector().discord_bot_fn("revoke_role", name, role)
 
 
-def get_all_members_and_roles():
+def get_all_members():
     """Gets all members and roles on Discord"""
-    return get_connector().discord_bot_fn("get_all_members_and_roles")
+    return get_connector().discord_bot_fn("get_all_members")
 
 
 def get_member_details(discord_id):

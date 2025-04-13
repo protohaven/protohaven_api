@@ -5,17 +5,10 @@ from json import loads
 from urllib.parse import urljoin
 
 from protohaven_api.config import get_config
-from protohaven_api.integrations.data import dev_booked, dev_neon
+from protohaven_api.integrations.data import dev_booked, dev_discord, dev_neon
 from protohaven_api.integrations.data.connector import Connector
 
 log = logging.getLogger("integrations.data.dev_connector")
-
-
-class DevDiscordResponse:  # pylint: disable=too-few-public-methods
-    """Discord response in dev mode"""
-
-    def raise_for_status(self):
-        """Do nothing; stub only"""
 
 
 class DevConnector(Connector):
@@ -83,7 +76,7 @@ class DevConnector(Connector):
             "==========================================================\n"
         )
         self.sent_comms = True
-        return DevDiscordResponse()
+        return dev_discord.Response()
 
     def email(self, subject, body, recipients, _):
         """Send an email via GMail SMTP"""
@@ -92,17 +85,22 @@ class DevConnector(Connector):
         )
         self.sent_comms = True
 
+    def _discord_fn(self, fn, args, kwargs):
+        if not hasattr(dev_discord, fn):
+            raise NotImplementedError("Function {fn} not implemented in dev_discord")
+        return getattr(dev_discord, fn)(*args, **kwargs)
+
     def discord_bot_fn(self, fn, *args, **kwargs):
         """Executes a function synchronously on the discord bot"""
-        raise NotImplementedError("TODO")
+        return self._discord_fn(fn, args, kwargs)
 
     def discord_bot_genfn(self, fn, *args, **kwargs):
         """Properly interact with a generator function in the discord bot"""
-        raise NotImplementedError("TODO")
+        return self._discord_fn(fn, args, kwargs)
 
     def discord_bot_fn_nonblocking(self, fn, *args, **kwargs):
         """Executes a function synchronously on the discord bot"""
-        raise NotImplementedError("TODO")
+        return self._discord_fn(fn, args, kwargs)
 
     def booked_request(self, *args, **kwargs):
         """Make a request to the Booked reservation system"""

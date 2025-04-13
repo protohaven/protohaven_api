@@ -162,7 +162,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         """Ensure nicknames of all associated Discord users are properly set.
         This only targets active members, as inactive members shouldn't
         be present in channels anyways."""
-        discord_members, _ = comms.get_all_members_and_roles()
+        discord_members = list(comms.get_all_members())
         user_nick = {m[0]: m[1] for m in discord_members}
         join_dates = {m[0]: m[2] for m in discord_members}
 
