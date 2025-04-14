@@ -83,12 +83,16 @@ def get_project_requests():
 
 def get_private_instruction_requests():
     """Get instruction requests submitted by members"""
-    return _tasks().get_tasks_for_project(
-        get_config("asana/private_instruction_requests"),
-        {
-            "opt_fields": ",".join(["completed", "notes", "name", "created_at"]),
-        },
-    )
+    if _use_db():
+        for rec in airtable_base.get_all_records("tasks", "private_instruction"):
+            yield {**rec["fields"], "created_at": rec["fields"]["Created time"]}
+    else:
+        yield from _tasks().get_tasks_for_project(
+            get_config("asana/private_instruction_requests"),
+            {
+                "opt_fields": ",".join(["completed", "notes", "name", "created_at"]),
+            },
+        )
 
 
 def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=False):
