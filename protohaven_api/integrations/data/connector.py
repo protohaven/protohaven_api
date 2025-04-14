@@ -7,6 +7,7 @@ import logging
 import random
 import time
 from email.mime.text import MIMEText
+from functools import lru_cache
 from threading import Lock
 from urllib.parse import urljoin
 
@@ -16,6 +17,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from square.client import Client as SquareClient
+from wyze_sdk import Client
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations import discord_bot
@@ -260,6 +262,19 @@ class Connector:
     def asana_sections(self):
         """Create and return asana SectionsApi"""
         return asana.SectionsApi(self.asana_client())
+
+    @lru_cache(maxsize=1)
+    def wyze_client(self):
+        """Create and return the Wyze client"""
+        # Need to do get_config('wyze/expiration') warning. Automate renewal?
+        cli = Client()
+        cli.login(
+            email=get_config("wyze/email"),
+            password=get_config("wyze/password"),
+            key_id=get_config("wyze/key_id"),
+            api_key=get_config("wyze/api_key"),
+        )
+        return cli
 
 
 C = None

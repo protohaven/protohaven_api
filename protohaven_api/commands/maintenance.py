@@ -147,7 +147,6 @@ class Commands:
     )
     def check_door_sensors(self, args, _):
         """Check the door sensors to make sure they're configured and the doors are closed"""
-        wyze.init()
         expected = {n.strip() for n in args.names}
         door_states = list(wyze.get_door_states())
         doors = {d["name"] for d in door_states}
@@ -193,7 +192,6 @@ class Commands:
     )
     def check_cameras(self, args, _):
         """Check wyze cameras to make sure they're connected and working"""
-        wyze.init()
         expected = {n.strip() for n in args.names}
         camera_states = list(wyze.get_camera_states())
         cameras = {c["name"].strip() for c in camera_states}

@@ -127,14 +127,17 @@ def _neon_dev_search_filter(
 
     if operator == "NOT_BLANK":
         if str(field) == "150":
+
             def notblank_discord_filter(rec):
                 acc = first(rec, "individualAccount", "companyAccount")
                 for cf in acc.get("accountCustomFields", []):
-                    if (cf.get("id") == "150" or cf.get("name") == "Discord User") and cf.get("value"):
+                    if (
+                        cf.get("id") == "150" or cf.get("name") == "Discord User"
+                    ) and cf.get("value"):
                         return True
                 return False
+
             return notblank_discord_filter
-                
 
     raise NotImplementedError(
         f"dev search filter with operator {operator}, field {field}"
