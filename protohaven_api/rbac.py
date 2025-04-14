@@ -45,6 +45,7 @@ class Role:
     ONBOARDING = {"name": "Onboarding", "id": "240"}
     ADMIN = {"name": "Admin", "id": "239"}
     SOFTWARE_DEV = {"id": "258", "name": "Software Dev"}
+    IT_MAINTENANCE = {"id": "274", "name": "IT Maintenance"}
     MAINTENANCE_CREW = {"id": "259", "name": "Maintenance Crew"}
     MEMBERSHIP_AND_PROGRAMMING = {
         "id": "260",

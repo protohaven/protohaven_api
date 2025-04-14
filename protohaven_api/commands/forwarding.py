@@ -187,14 +187,14 @@ class Commands:
             result[field] = "\n".join(body)
         return result
 
-    def _format_private_instruction_request_task(self, req, now):
+    def _format_private_instruction_request_task(self, req, now, summary_limit):
         """Return a string summary of the private instruction request"""
         d = dateparser.parse(req["created_at"]).astimezone(tz)
         dt = now - d
         form = self._form_from_task_notes(req["notes"])
         summary = form["Details"].replace("\n", " ")
-        if len(summary) > 120:
-            summary = summary[:117] + "..."
+        if len(summary) > summary_limit:
+            summary = summary[: summary_limit - 3] + "..."
 
         ddur = dt.days
         if ddur > 7:
@@ -203,8 +203,8 @@ class Commands:
             duration = f"{ddur} days"
 
         avail = form["Availability"].replace("\n", ", ")
-        if len(avail) > 90:
-            avail = avail[:87] + "..."
+        if len(avail) > summary_limit / 2:
+            avail = avail[: summary_limit / 2 - 3] + "..."
         fmt = (
             f"- {d.strftime('%b %-d'):6} {'(' + duration + ' ago)':14} "
             f"{form['Name'].strip()}, {form['Email'].strip()}: "
@@ -219,6 +219,12 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
+        arg(
+            "--summary_limit",
+            help="Max character length of instruction request summaries sent to Discord",
+            type=int,
+            default=300,
+        ),
     )
     def private_instruction(self, args, _):  # pylint: disable=
         """Generate reminders to take action on private instruction.
@@ -231,7 +237,9 @@ class Commands:
         for req in tasks.get_private_instruction_requests():
             if req.get("completed"):
                 continue
-            dt, fmt = self._format_private_instruction_request_task(req, now)
+            dt, fmt = self._format_private_instruction_request_task(
+                req, now, args.summary_limit
+            )
             formatted.append(fmt)
             if dt.days < 1 and dt.seconds // 3600 < 24:
                 formatted_past_day.append(fmt)
