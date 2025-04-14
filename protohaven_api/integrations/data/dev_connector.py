@@ -5,7 +5,7 @@ from json import loads
 from urllib.parse import urljoin
 
 from protohaven_api.config import get_config
-from protohaven_api.integrations.data import dev_booked, dev_discord, dev_neon
+from protohaven_api.integrations.data import dev_booked, dev_discord, dev_neon, dev_wyze
 from protohaven_api.integrations.data.connector import Connector
 
 log = logging.getLogger("integrations.data.dev_connector")
@@ -113,3 +113,6 @@ class DevConnector(Connector):
     def asana_client(self):
         """Create and return an Asana API client"""
         raise NotImplementedError("Asana client not implemented in dev mode")
+
+    def wyze_client(self):
+        return dev_wyze.Client()

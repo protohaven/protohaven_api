@@ -9,16 +9,19 @@ def test_get_door_states(mocker):
     m.nickname = "Front Door"
     m.mac = "00:11:22:33:44:55"
     m.is_online = True
-    m.open_close_state = "open"
+    m.open_close_state = True
 
-    mocker.patch.object(w, "cli", entry_sensors=mocker.MagicMock(list=lambda: [m]))
+    mocker.patch.object(w, "get_connector")
+    w.get_connector().wyze_client.return_value = mocker.MagicMock(
+        entry_sensors=mocker.MagicMock(list=lambda: [m])
+    )
 
     expected = [
         {
             "name": "Front Door",
             "mac": "00:11:22:33:44:55",
             "is_online": True,
-            "open_close_state": "open",
+            "open_close_state": True,
         }
     ]
 
@@ -33,7 +36,10 @@ def test_get_camera_states(mocker):
     m.mac = "00:11:22:33:44:55"
     m.is_online = True
 
-    mocker.patch.object(w, "cli", cameras=mocker.MagicMock(list=lambda: [m]))
+    mocker.patch.object(w, "get_connector")
+    w.get_connector().wyze_client.return_value = mocker.MagicMock(
+        cameras=mocker.MagicMock(list=lambda: [m])
+    )
 
     expected_result = [
         {"name": "Camera 1", "mac": "00:11:22:33:44:55", "is_online": True}

@@ -6,7 +6,13 @@ from protohaven_api.integrations.data import dev_neon as n
 
 def test_get_events_dev(mocker):
     mocker.patch.object(
-        n, "mock_data", return_value={"neon": {"events": {1: "a", 2: "b", 3: "c"}}}
+        n.airtable_base,
+        "get_all_records",
+        return_value=[
+            {"fields": {"eventId": 1, "data": "a"}},
+            {"fields": {"eventId": 2, "data": "b"}},
+            {"fields": {"eventId": 3, "data": "c"}},
+        ],
     )
     rep = n.handle("GET", "https://api.neoncrm.com/v2/events")
     assert rep.status_code == 200
@@ -17,7 +23,16 @@ def test_get_events_dev(mocker):
 
 def test_get_event_dev(mocker):
     mocker.patch.object(
-        n, "mock_data", return_value={"neon": {"events": {1: {"id": 1}}}}
+        n.airtable_base,
+        "get_all_records",
+        return_value=[
+            {"fields": f}
+            for f in (
+                {"eventId": 1, "data": {"id": 1}},
+                {"eventId": 2, "data": {"id": 2}},
+                {"eventId": 3, "data": {"id": 3}},
+            )
+        ],
     )
     e = n.handle("GET", "/v2/events").get_json()["events"][0]
     got = n.handle("GET", f"/v2/events/{e['id']}")
@@ -45,12 +60,12 @@ def test_search_accounts_dev(mocker):
     }
     # Matches _paginated_account_search in integrations.neon
     mocker.patch.object(
-        n,
-        "mock_data",
-        return_value={
-            "neon": {
-                "accounts": {
-                    123: {
+        n.airtable_base,
+        "get_all_records",
+        return_value=[
+            {
+                "fields": {
+                    "data": {
                         "individualAccount": {
                             "accountId": 123,
                             "primaryContact": {"firstName": "Test"},
@@ -58,7 +73,7 @@ def test_search_accounts_dev(mocker):
                     }
                 }
             }
-        },
+        ],
     )
     rep = n.handle(
         "POST",

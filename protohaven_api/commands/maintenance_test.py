@@ -66,7 +66,6 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
 
 def test_check_door_sensors(mocker, cli):
     """Test check_door_sensors command for doors configured and closed"""
-    mocker.patch.object(m.wyze, "init")
     mocker.patch.object(
         m.wyze,
         "get_door_states",
@@ -80,7 +79,6 @@ def test_check_door_sensors(mocker, cli):
 
 def test_check_door_sensors_with_warnings(mocker, cli):
     """Test check_door_sensors command with warnings"""
-    mocker.patch.object(m.wyze, "init")
     mocker.patch.object(
         m.wyze,
         "get_door_states",
@@ -111,7 +109,6 @@ def test_check_cameras(mocker, cli):
         {"name": "Camera1", "is_online": True},
         {"name": "Camera3", "is_online": False},
     ]
-    mocker.patch.object(m.wyze, "init")
     mocker.patch.object(m.wyze, "get_camera_states", return_value=mock_camera_states)
     got = cli("check_cameras", ["Camera1", "Camera2"])
     for expected in [
