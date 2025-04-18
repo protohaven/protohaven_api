@@ -484,14 +484,19 @@ def inst_availability():
             )
         recurrence = request.json.get("recurrence")
         if rec is not None:
-            result = airtable.update_availability(rec, inst_id, t0, t1, recurrence)
+            status, result = airtable.update_availability(
+                rec, inst_id, t0, t1, recurrence
+            )
+            assert status == 200
         else:
-            result = airtable.add_availability(inst_id, t0, t1, recurrence)
+            status, result = airtable.add_availability(inst_id, t0, t1, recurrence)
+            assert status == 200
         log.info(f"PUT result {result}")
         return result
 
     if request.method == "DELETE":
         rec = request.json.get("rec")
-        return airtable.delete_availability(rec)
+        status, result = airtable.delete_availability(rec)
+        assert status == 200
 
     return Response(f"Unsupported method {request.method}", status=400)

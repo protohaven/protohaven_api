@@ -16,7 +16,7 @@ let neon_state = null;
 function fetch_neon_state(data) {
   if (data['Neon ID']) {
     console.log("Fetching state for", data['Neon ID']);
-    return get("/instructor/class/neon_state?id=" + data['Neon ID']).then((data) => {
+    return get("/instructor/class/neon_state?id=" + encodeURIComponent(data['Neon ID'])).then((data) => {
       neon_state = data;
       return data;
     });
@@ -27,7 +27,7 @@ function fetch_neon_state(data) {
 function fetch_attendees(data) {
   if (data['Neon ID']) {
     console.log("Fetching attendees for", data['Neon ID']);
-    return get("/instructor/class/attendees?id=" + data['Neon ID']).then((data) => {
+    return get("/instructor/class/attendees?id=" + encodeURIComponent(data['Neon ID'])).then((data) => {
       attendees = data;
       return data;
     });
@@ -40,7 +40,7 @@ let state_promise = meta_promise.then(fetch_neon_state);
 
 function refresh(neon_id) {
   if (neon_id) {
-    promise = get("/instructor/class/attendees?id=" + neon_id);
+    promise = get("/instructor/class/attendees?id=" + encodeURIComponent(neon_id));
   }
   return promise;
 }

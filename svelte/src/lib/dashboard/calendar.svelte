@@ -16,7 +16,7 @@ let edit_rec = null;
 
 function reload() {
   if (start && end && inst) {
-    promise = get(`/instructor/calendar/availability?inst=${inst}&t0=${start}&t1=${end}`).then((data) => {
+    promise = get(`/instructor/calendar/availability?inst=${encodeURIComponent(inst)}&t0=${encodeURIComponent(start)}&t1=${encodeURIComponent(end)}`).then((data) => {
       let lookup = {};
       records = data.records;
       for (let evt of data.availability) {
@@ -96,9 +96,9 @@ function save_avail(id, start, end, recurrence) {
     promise = put(`/instructor/calendar/availability`, {
     	inst_id,
     	rec: id,
-	t0: start,
-	t1: end,
-	recurrence: recurrence,
+      t0: start,
+      t1: end,
+      recurrence: recurrence,
     }).then(date_edited).then(reload).finally(() => {edit_rec = null});
     return promise;
 }

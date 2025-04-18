@@ -1,6 +1,9 @@
 """Airtable basic API commands"""
+import logging
 
 from protohaven_api.integrations.data.connector import get as get_connector
+
+log = logging.getLogger("integrations.airtable_base")
 
 
 def _idref(rec, field):
@@ -77,14 +80,48 @@ def get_all_records_after(base, tbl, after_date, field="Created"):
     return get_all_records(base, tbl, suffix=suffix)
 
 
-def insert_records(data, base, tbl):
+def insert_records(records, base, tbl, link_fields=None):
     """Inserts one or more records into a named table. the "fields" structure is
-    automatically applied."""
+    automatically applied.
+
+    Note that link_records is only needed for NocoDB, as airtable auto-links in a
+    single request.
+    """
     # Max of 10 records allowed for insertion, see
     # https://airtable.com/developers/web/api/create-records
-    assert len(data) <= 10
-    post_data = {"records": [{"fields": d} for d in data]}
-    return get_connector().db_request("POST", base, tbl, data=post_data)
+    assert len(records) <= 10
+
+    post_data = {"records": [{"fields": d} for d in records]}
+    status, content = get_connector().db_request("POST", base, tbl, data=post_data)
+
+    if get_connector().db_format() != "nocodb" or link_fields is None:
+        return status, content
+
+    log.info(f"NocoDB: handling link fields {link_fields} for records {content}...")
+    try:
+        # NocoDB requires linking as a separate request (ugh).
+        # https://github.com/nocodb/nocodb/issues/11138 tracks discussion on allowing
+        # single-request inserts with link fields.
+        for i, rec in enumerate(content):
+            for lf in link_fields or []:
+                val = records[i].get(lf)
+                if val is None:
+                    continue
+                log.info(f"Linking {lf} in {rec['Id']} to {val}")
+                if not isinstance(val, list):
+                    val = [val]
+                val = [{"Id": v} for v in val]
+                lstatus, lcontent = get_connector().db_request(
+                    "POST", base, tbl, rec["Id"], link_field=lf, data=val
+                )
+                log.info(f"Link result {lstatus}: {lcontent}")
+                assert lstatus in (201, 200)
+        return status, content
+    except Exception as e:
+        log.error("Rolling back / attempting to delete inserted records")
+        status, content = get_connector().db_request("DELETE", base, tbl, content)
+        assert status == 200
+        raise RuntimeError(f"Failed to link record {rec['Id']}, field {lf}") from e
 
 
 def update_record(data, base, tbl, rec):
@@ -96,3 +133,17 @@ def update_record(data, base, tbl, rec):
 def delete_record(base, tbl, rec):
     """Deletes a record in a named table"""
     return get_connector().db_request("DELETE", base, tbl, rec=rec)
+
+
+def link_record(
+    base: str, tbl: str, rec: int, field: str, linked_record_ids: list[int]
+):
+    """NOCODB ONLY - see https://data-apis-v2.nocodb.com/#tag/Table-Records/operation/db-data-table-row-nested-list"""
+    return get_connector().db_request(
+        "POST",
+        base,
+        tbl,
+        rec,
+        data=[{"Id": i} for i in linked_record_ids],
+        link_field=field,
+    )
