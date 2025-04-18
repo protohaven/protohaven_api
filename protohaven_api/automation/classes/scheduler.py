@@ -26,6 +26,7 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
     result = {}
     for inst in inst_filter:
         inst_rec = airtable.get_instructor_record(inst)
+        log.info(f"inst_rec is {inst_rec}")
         rows = airtable.get_instructor_availability(inst_rec)
         # Have to drop the record IDs
         result[inst] = [

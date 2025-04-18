@@ -8,7 +8,7 @@ import FetchError from '../fetch_error.svelte';
   onMount(() => {
     promise = get("/events/upcoming").then((data) => {
       for (let e of data.events) {
-        e.attendees = get(`/events/attendees?id=${e.id}`);
+        e.attendees = get(`/events/attendees?id=${encodeURIComponent(e.id)}`);
       }
       return data;
     });

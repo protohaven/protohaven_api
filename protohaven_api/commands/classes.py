@@ -3,6 +3,7 @@ import argparse
 import datetime
 import logging
 import re
+import traceback
 from collections import defaultdict
 from functools import lru_cache
 
@@ -236,7 +237,7 @@ class Commands:
             neon.set_event_scheduled_state(i, scheduled=False)
         log.info("Done")
 
-    def _apply_pricing(self, event_id, evt, include_discounts):
+    def _apply_pricing(self, event_id, evt, include_discounts, session):
         price = evt["fields"]["Price (from Class)"][0]
         qty = evt["fields"]["Capacity (from Class)"][0]
         log.debug(f"{event_id} {evt['fields']['Name (from Class)']} {price} {qty}")
@@ -246,6 +247,7 @@ class Commands:
             qty,
             include_discounts=include_discounts,
             clear_existing=True,
+            n=session,
         )
 
     @classmethod
@@ -435,6 +437,10 @@ class Commands:
         to_schedule = list(self._resolve_schedule(args.min_future_days, args.ovr))
         scheduled_by_instructor = defaultdict(list)
         to_schedule.sort(key=lambda e: e["start"])
+
+        log.info("Attempting auth as user to allow for pricing changes")
+        session = neon_base.NeonOne()
+
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
@@ -456,7 +462,7 @@ class Commands:
                     log.info(f"- Neon event {result_id} created")
                     assert result_id
 
-                    self._apply_pricing(result_id, event, args.discounts)
+                    self._apply_pricing(result_id, event, args.discounts, session)
                     log.info("- Pricing applied")
 
                     airtable.update_record(
@@ -476,9 +482,19 @@ class Commands:
                     scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
                     log.info("Added to notification list")
                 except Exception as e:
+                    log.error(f"Failed to create event #{result_id}: {e}")
+                    log.error(traceback.format_exc())
                     if result_id:
                         log.error("Failed; reverting event creation")
                         log.info(neon_base.delete_event_unsafe(result_id))
-                    raise RuntimeError(f"Failed to create event #{result_id}") from e
+                    try:
+                        comms.send_discord_message(
+                            f"Reverted class #{result_id}; creation failed: {e}\n"
+                            "Check Cronicle logs for details",
+                            "#class-automation",
+                            blocking=False,
+                        )
+                    except Exception as e2:
+                        pass
 
         print_yaml(builder.gen_class_scheduled_alerts(scheduled_by_instructor))

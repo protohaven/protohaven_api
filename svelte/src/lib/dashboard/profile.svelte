@@ -10,7 +10,7 @@ import {get, post} from '$lib/api.ts';
   let profile = null;
   let promise;
   function refresh() {
-	promise = get("/instructor/about?email=" + email);
+	promise = get("/instructor/about?email=" + encodeURIComponent(email));
   }
   onMount(refresh);
 

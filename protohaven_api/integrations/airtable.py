@@ -437,6 +437,8 @@ def get_instructor_record(inst_name):
 def get_instructor_availability(inst_rec):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
     for row in get_all_records("class_automation", "availability"):
+        log.info(str(row))
+        log.info(f"{_idref(row, 'Instructor')} vs {inst_rec}")
         if inst_rec in _idref(row, "Instructor"):
             yield row
 
@@ -484,7 +486,7 @@ def expand_instructor_availability(rows, t0, t1):
 
 def add_availability(inst_id, start, end, recurrence=""):
     """Adds an optionally-recurring availability row to the Availability airtable"""
-    _, content = insert_records(
+    return insert_records(
         [
             {
                 "Instructor": [inst_id],
@@ -495,15 +497,15 @@ def add_availability(inst_id, start, end, recurrence=""):
         ],
         "class_automation",
         "availability",
+        link_fields=["Instructor"],
     )
-    return content["records"][0]
 
 
 def update_availability(
     rec, inst_id, start, end, recurrence
 ):  # pylint: disable=too-many-arguments
     """Updates a specific availability record"""
-    _, content = update_record(
+    return update_record(
         {
             "Instructor": [inst_id],
             "Start": start.isoformat(),
@@ -514,13 +516,11 @@ def update_availability(
         "availability",
         rec,
     )
-    return content
 
 
 def delete_availability(rec):
     """Removes an Availability record"""
-    _, content = delete_record("class_automation", "availability", rec)
-    return content
+    return delete_record("class_automation", "availability", rec)
 
 
 def trim_availability(rec, cut_start=None, cut_end=None):
