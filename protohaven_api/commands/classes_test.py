@@ -7,7 +7,7 @@ import pytest
 
 from protohaven_api.commands import classes as C
 from protohaven_api.integrations.data.neon import Category
-from protohaven_api.testing import d, idfn, mkcli
+from protohaven_api.testing import MatchStr, d, idfn, mkcli
 
 
 def test_category_from_event_name():
@@ -165,6 +165,7 @@ Tc = namedtuple("Tc", "desc,cls")
 )
 def test_post_classes_to_neon_no_actions(cli, mocker, tc):
     """Test cases where the scheduling action is skipped"""
+    mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
         C.neon,
         "_schedule_event",
@@ -194,6 +195,7 @@ Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
 )
 def test_post_classes_to_neon_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
+    mocker.patch.object(C.neon_base, "NeonOne")
     mock_delete = mocker.patch.object(
         C.neon_base, "delete_event_unsafe", return_value=True
     )
@@ -234,7 +236,7 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         in C.neon_base.create_event.mock_calls[0][1][1]
     )
     C.neon.assign_pricing.assert_called_with(
-        "123", 90, 6, include_discounts=tc.discount, clear_existing=True
+        "123", 90, 6, include_discounts=tc.discount, clear_existing=True, n=mocker.ANY
     )
     if tc.reserve:
         C.Commands._reserve_equipment_for_class_internal.assert_called_with(
@@ -251,6 +253,8 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
 
 def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
     """Test that class creation is reverted when part of the process fails"""
+    mocker.patch.object(C.comms, "send_discord_message")
+    mocker.patch.object(C.neon_base, "NeonOne")
     # Setup test data
     test_event = {
         "id": "test_id",
@@ -277,10 +281,13 @@ def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
     )
     mock_airtable = mocker.patch.object(C.airtable, "update_record")
 
-    with pytest.raises(RuntimeError) as exc:
-        got = cli("post_classes_to_neon", ["--apply"])
+    got = cli("post_classes_to_neon", ["--apply"])
+    assert got == []
+
     # Verify behavior
-    assert "Failed to create event #test_event_id" in str(exc)
+    C.comms.send_discord_message.assert_called_with(
+        MatchStr("Reverted class #test_event_id"), "#class-automation", blocking=False
+    )
     mock_schedule.assert_called_once()
     mock_pricing.assert_called_once()
     mock_airtable.assert_not_called()

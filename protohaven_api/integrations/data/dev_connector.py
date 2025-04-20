@@ -38,14 +38,14 @@ class DevConnector(Connector):
 
     def neon_session(self):
         """Create a new session using the requests lib, or dev alternative"""
-        raise NotImplementedError(
-            "Neon session creation not implemented for dev environment"
-        )
+        return dev_neon.Session()
 
     def db_format(self):
         return "nocodb"
 
-    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix, link_field):
+    def _construct_db_request_url_and_headers( # pylint: disable=too-many-arguments
+        self, base, tbl, rec, suffix, link_field
+    ):
         cfg = get_config("nocodb")
         if link_field:
             link_field = cfg["link_field_ids"][base][tbl][link_field]

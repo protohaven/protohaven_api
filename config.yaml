@@ -24,6 +24,7 @@ neon:
   domain: "protohaven"
   base_url: "https://api.neoncrm.com/v2/"
   admin_url: "https://protohaven.app.neoncrm.com/np/admin/"
+  sso_url: "https://app.neonsso.com"
   oauth_client_id: ${NEON_OAUTH_CLIENT_ID}
   oauth_client_secret: ${NEON_OAUTH_CLIENT_SECRET}
   api_key1: ${NEON_API_KEY1}
@@ -134,6 +135,8 @@ nocodb:
     class_automation:
       availability:
         Instructor: "cm6okvc2szaigxk"
+      schedule:
+        Class: "csv92ymx3j996xg"
 airtable:
   requests:
     url: "https://api.airtable.com/v0/"

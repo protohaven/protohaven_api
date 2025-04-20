@@ -16,6 +16,7 @@ from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
+    comms,
     neon,
     neon_base,
 )
@@ -317,7 +318,7 @@ class Commands:
             "Clearances Earned",
         ):
             body = cls["fields"].get(col + suf, [""])[0]
-            if body.strip() != "":
+            if body is not None and body.strip() != "":
                 sections.append((col, body))
 
         if cls["fields"].get("Age Requirement" + suf) is not None:
@@ -481,7 +482,7 @@ class Commands:
 
                     scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
                     log.info("Added to notification list")
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     log.error(f"Failed to create event #{result_id}: {e}")
                     log.error(traceback.format_exc())
                     if result_id:
@@ -494,7 +495,7 @@ class Commands:
                             "#class-automation",
                             blocking=False,
                         )
-                    except Exception as e2:
+                    except Exception:  # pylint: disable=broad-exception-caught
                         pass
 
         print_yaml(builder.gen_class_scheduled_alerts(scheduled_by_instructor))

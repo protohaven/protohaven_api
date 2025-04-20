@@ -2,6 +2,8 @@
 
 import json
 import logging
+from dataclasses import dataclass
+from random import random
 from urllib.parse import urlparse
 
 from flask import Flask, Response, request
@@ -147,15 +149,19 @@ def _neon_dev_search_filter(
 @app.route("/v2/events/<event_id>", methods=["GET", "PATCH", "DELETE"])
 def get_event(event_id):
     """Mock event endpoint for Neon"""
-    if request.method == "GET":
-        for row in airtable_base.get_all_records("fake_neon", "events"):
-            if str(row["fields"]["eventId"]) == str(event_id):
+    for row in airtable_base.get_all_records("fake_neon", "events"):
+        if str(row["fields"]["eventId"]) == str(event_id):
+            if request.method == "GET":
                 return row["fields"]["data"]
-        return Response("Event not found", status=404)
-
-    raise NotImplementedError(
-        f"method {request.method} not implemented for /v2/events/*"
-    )
+            if request.method == "DELETE":
+                _, content = airtable_base.delete_record(
+                    "fake_neon", "events", row["id"]
+                )
+                return content
+            raise NotImplementedError(
+                f"method {request.method} not implemented for /v2/events/*"
+            )
+    return Response("Event not found", status=404)
 
 
 @app.route("/v2/events", methods=["GET", "POST"])
@@ -172,7 +178,19 @@ def get_events():
             "pagination": {"totalPages": 1},
         }
 
-    raise NotImplementedError(f"method {request.method} not implemented for /v2/events")
+    # POST
+    new_id = int(random() * 100000)
+    airtable_base.insert_records(
+        [
+            {
+                "eventId": new_id,
+                "data": json.dumps(request.json),
+            }
+        ],
+        "fake_neon",
+        "events",
+    )
+    return {"id": new_id}
 
 
 @app.route("/v2/events/<event_id>/tickets")
@@ -268,6 +286,32 @@ def get_custom_field(field_id):
     raise NotImplementedError("TODO")
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login_handler():
+    """Dummy login page handler for user impersonation"""
+    if request.method == "GET":
+        return '<head><meta name="csrf-token" content="test_csrf_token"/></head>'
+    return "OK - Log Out"
+
+
+@app.route("/np/ssoAuth")
+def sso_auth_handler():
+    """Dummy SSO authentication handler for user impersonation"""
+    return "Mission Control Dashboard"
+
+
+@app.route("/event/newPackage.do")
+def new_ticket_package():
+    """Dummy handler for ticket group editing"""
+    return "Event Price"
+
+
+@app.route("/event/savePackage.do")
+def save_ticket_package():
+    """Dummy handler for ticket group editing"""
+    return Response("Creatin'", status=302)
+
+
 client = app.test_client()
 
 
@@ -281,3 +325,25 @@ def handle(method, url, data=None, headers=None):  # pylint: disable=unused-argu
     if method == "DELETE":
         return client.delete(url)
     raise RuntimeError(f"method not supported: {method}")
+
+
+@dataclass
+class DevSeshResp:
+    """Requests-style response"""
+
+    status_code: int
+    content: bytes
+
+
+class Session:
+    """A requests-style session for dev environment"""
+
+    def get(self, *args, **kwargs):
+        """Return a requests-style response"""
+        r = client.get(*args, **kwargs)
+        return DevSeshResp(status_code=r.status_code, content=r.data)
+
+    def post(self, *args, **kwargs):
+        """Return a requests-style response"""
+        r = client.post(*args, **kwargs)
+        return DevSeshResp(status_code=r.status_code, content=r.data)

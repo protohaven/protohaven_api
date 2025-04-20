@@ -455,8 +455,7 @@ def inst_availability():
                 status=400,
             )
         t1 += datetime.timedelta(hours=24)  # End date is inclusive
-        inst_rec = airtable.get_instructor_record(inst)
-        avail = list(airtable.get_instructor_availability(inst_rec))
+        avail = list(airtable.get_instructor_availability(inst))
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
 
         log.info(f"Expanded and merged availability: {expanded}")

@@ -132,13 +132,17 @@ def update_record(data, base, tbl, rec):
 
 def delete_record(base, tbl, rec):
     """Deletes a record in a named table"""
+    if get_connector().db_format() == "nocodb":
+        return get_connector().db_request("DELETE", base, tbl, data=[{"Id": rec}])
     return get_connector().db_request("DELETE", base, tbl, rec=rec)
 
 
 def link_record(
     base: str, tbl: str, rec: int, field: str, linked_record_ids: list[int]
 ):
-    """NOCODB ONLY - see https://data-apis-v2.nocodb.com/#tag/Table-Records/operation/db-data-table-row-nested-list"""
+    """NOCODB ONLY
+    https://data-apis-v2.nocodb.com/#tag/Table-Records/operation/db-data-table-row-nested-list
+    """
     return get_connector().db_request(
         "POST",
         base,

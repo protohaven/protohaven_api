@@ -262,9 +262,6 @@ def test_gen_class_and_area_stats_exclusions(mocker):
 
 def test_fetch_formatted_availability(mocker):
     mocker.patch.object(
-        s.airtable, "get_instructor_record", return_value={"id": "asdf"}
-    )
-    mocker.patch.object(
         s.airtable,
         "get_instructor_availability",
         return_value=[

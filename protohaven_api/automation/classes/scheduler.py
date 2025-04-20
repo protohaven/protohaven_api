@@ -25,9 +25,7 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
     return tuples of times bounding their availability"""
     result = {}
     for inst in inst_filter:
-        inst_rec = airtable.get_instructor_record(inst)
-        log.info(f"inst_rec is {inst_rec}")
-        rows = airtable.get_instructor_availability(inst_rec)
+        rows = airtable.get_instructor_availability(inst)
         # Have to drop the record IDs
         result[inst] = [
             [t0.isoformat(), t1.isoformat(), row_id]
@@ -144,7 +142,10 @@ def gen_class_and_area_stats(
 
     for c in cur_sched:
         t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
-        pd = c["fields"]["Period (from Class)"][0]
+        pd = (c["fields"].get("Period (from Class)") or [None])[0]
+        if not pd:
+            log.warning(f"Class missing template info: {c}")
+            continue
         rec = _idref(c, "Class")[0]
 
         exclusion_window = [
@@ -225,7 +226,7 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
             ]
             classes.append(
                 Class(
-                    c["id"],
+                    str(c["id"]),
                     c["fields"]["Name"],
                     hours=c["fields"]["Hours"],
                     days=c["fields"]["Days"],
