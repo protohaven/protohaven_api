@@ -123,7 +123,7 @@
 <Modal size="lg" isOpen={open}>
   <ModalHeader>Class Scheduler</ModalHeader>
   <ModalBody>
-    <strong>See <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">the Instructor wiki page</a> for details and a video tutorial on how to use this scheduler.</strong>
+    <strong>See <a href="https://wiki.protohaven.org/books/instructors-handbook" target="_blank">the Instructor wiki page</a> for details and a video tutorial on how to use this scheduler.</strong>
 
     <h5>1. Pick Scheduling Window</h5>
     <p>Select the window of time where you want to schedule your classes, and build your availability.</p>
@@ -148,7 +148,7 @@
     {:then p}
 	      <div class="my-3">
         {#if Object.keys(candidates).length == 0}
-          <Alert color="warning"><strong>No good times found for scheduling classes. Click <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">HERE</a> for more info on how the scheduler picks times.</strong></Alert>
+          <Alert color="warning"><strong>No good times found for scheduling classes. Click <a href="https://wiki.protohaven.org/books/instructors-handbook/page/scheduling" target="_blank">HERE</a> for more info on how the scheduler picks times.</strong></Alert>
         {/if}
 
 	      {#each Object.keys(candidates) as k}
@@ -176,7 +176,7 @@
           {/each}
 
           <div class="my-3">
-            See <strong><a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank">the Instructor wiki page</a></strong> for more details.
+            See <strong><a href="https://wiki.protohaven.org/books/instructors-handbook/page/scheduling" target="_blank">the Instructor wiki page</a></strong> for more details.
           </div>
           </AccordionItem>
         </Accordion>

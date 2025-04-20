@@ -38,16 +38,21 @@ class DevConnector(Connector):
 
     def neon_session(self):
         """Create a new session using the requests lib, or dev alternative"""
-        raise NotImplementedError(
-            "Neon session creation not implemented for dev environment"
-        )
+        return dev_neon.Session()
 
     def db_format(self):
         return "nocodb"
 
-    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
+    def _construct_db_request_url_and_headers( # pylint: disable=too-many-arguments
+        self, base, tbl, rec, suffix, link_field
+    ):
         cfg = get_config("nocodb")
-        path = f"/api/v2/tables/{cfg['data'][base][tbl]}/records"
+        if link_field:
+            link_field = cfg["link_field_ids"][base][tbl][link_field]
+            path = f"/api/v2/tables/{cfg['data'][base][tbl]}/links/{link_field}/records"
+        else:
+            path = f"/api/v2/tables/{cfg['data'][base][tbl]}/records"
+
         if rec:
             path += f"/{rec}"
         if suffix:
@@ -59,7 +64,7 @@ class DevConnector(Connector):
         return urljoin(cfg["requests"]["url"], path), headers
 
     def _format_db_request_data(self, mode, _, data):
-        if mode == "POST":
+        if mode == "POST" and not isinstance(data, list):
             return [r["fields"] for r in data["records"]]
         return data
 

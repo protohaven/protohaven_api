@@ -123,7 +123,7 @@ def _mock_builder_singles(mocker, airtable_fields, neon_event):
     )
 
 
-def test_builder_fetch_aggregate_empty(mocker):
+def test_fetch_and_aggregate_data_empty(mocker):
     """Builder can handle an empty setup"""
     _mock_builder(mocker, airtable_schedule=[], neon_events=[])
     eb = builder.ClassEmailBuilder(use_cache=False)
@@ -182,7 +182,7 @@ def _neon_events():
     ]
 
 
-def test_builder_fetch_aggregate_singletons(mocker, caplog):
+def test_fetch_and_aggregate_singletons(mocker, caplog):
     """Builder correctly aggregates data from Airtable and Neon for a class with
     a single attendee"""
     caplog.set_level(logging.INFO)
@@ -516,3 +516,39 @@ def test_gen_class_scheduled_alerts():
     assert got[2]["target"] == "#instructors"
     assert got[3]["target"] == "#class-automation"
     assert len(got) == 4
+
+
+def test_fetch_and_aggregate_data_missing_supply_cost(mocker):
+    """No exceptions should occur if some airtable data is missing - this caused failure to
+    send important emails in the past."""
+    _mock_builder_singles(
+        mocker,
+        airtable_fields={
+            "Neon ID": "1234",
+            "Instructor": "Test Instructor",
+            "Email": "inst@ructor.com",
+            "Volunteer": True,
+            "Supply State": "Supply Check Needed",
+            # Missing: "Supply Cost (from Class)"
+        },
+        neon_event={
+            "id": 1234,
+            "name": "Test Event",
+            "startDate": "2024-02-20",
+            "startTime": "06:00pm",
+            "endDate": "2024-02-20",
+            "endTime": "09:00pm",
+            "capacity": 6,
+        },
+    )
+    eb = builder.ClassEmailBuilder(use_cache=False)
+    eb.fetch_and_aggregate_data(TEST_NOW)
+    evt = {
+        **_neon_events()[0],
+        "instructor_email": None,
+        "instructor_firstname": None,
+        "supply_cost": None,
+        "supply_state": None,
+        "volunteer_instructor": False,
+    }
+    assert eb.events == [evt]

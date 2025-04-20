@@ -13,7 +13,7 @@ export let scheduler_open; // Watched to trigger refresh
 
 let promise;
 function refresh() {
-  promise = get("/instructor/class_details?email=" + email).then((data) => data.schedule);
+  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data) => data.schedule);
 }
 
 $: {

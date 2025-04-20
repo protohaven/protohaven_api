@@ -75,6 +75,12 @@ def fetch_instructor_capabilities(name):
     return None
 
 
+NOCODB_CLASS_REF_FIELD = (
+    "_nc_m2m_Class_Templates_Instructor_Capas",
+    "Class_Templates_id",
+)
+
+
 def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
     instructor_caps = defaultdict(list)
@@ -83,7 +89,14 @@ def fetch_instructor_teachable_classes():
             continue
         inst = row["fields"]["Instructor"].strip().lower()
         if "Class" in row["fields"].keys():
-            instructor_caps[inst] += _idref(row, "Class")
+            log.info(f"INST CAPS {row}")
+            if NOCODB_CLASS_REF_FIELD[0] in row["fields"]:
+                instructor_caps[inst] += [
+                    str(lnk[NOCODB_CLASS_REF_FIELD[1]])
+                    for lnk in row["fields"][NOCODB_CLASS_REF_FIELD[0]]
+                ]
+            else:
+                instructor_caps[inst] += _idref(row, "Class")
     return instructor_caps
 
 
@@ -95,7 +108,9 @@ def get_all_class_templates():
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
     assert isinstance(payload, list)
-    return insert_records(payload, "class_automation", "schedule")
+    return insert_records(
+        payload, "class_automation", "schedule", link_fields=["Class"]
+    )
 
 
 def get_role_intents():
@@ -425,19 +440,10 @@ def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def get_instructor_record(inst_name):
-    """Fetches the instructor metadata by name"""
-    inst_name = inst_name.lower().strip()
-    for row in get_all_records("class_automation", "capabilities"):
-        if inst_name == row["fields"]["Instructor"].lower().strip():
-            return row["id"]
-    raise RuntimeError(f"Instructor ID missing for {inst_name}")
-
-
 def get_instructor_availability(inst_rec):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
     for row in get_all_records("class_automation", "availability"):
-        if inst_rec in _idref(row, "Instructor"):
+        if inst_rec in row["fields"]["Instructor (from Instructor)"][0].lower():
             yield row
 
 
@@ -484,7 +490,7 @@ def expand_instructor_availability(rows, t0, t1):
 
 def add_availability(inst_id, start, end, recurrence=""):
     """Adds an optionally-recurring availability row to the Availability airtable"""
-    _, content = insert_records(
+    return insert_records(
         [
             {
                 "Instructor": [inst_id],
@@ -495,15 +501,15 @@ def add_availability(inst_id, start, end, recurrence=""):
         ],
         "class_automation",
         "availability",
+        link_fields=["Instructor"],
     )
-    return content["records"][0]
 
 
 def update_availability(
     rec, inst_id, start, end, recurrence
 ):  # pylint: disable=too-many-arguments
     """Updates a specific availability record"""
-    _, content = update_record(
+    return update_record(
         {
             "Instructor": [inst_id],
             "Start": start.isoformat(),
@@ -514,13 +520,11 @@ def update_availability(
         "availability",
         rec,
     )
-    return content
 
 
 def delete_availability(rec):
     """Removes an Availability record"""
-    _, content = delete_record("class_automation", "availability", rec)
-    return content
+    return delete_record("class_automation", "availability", rec)
 
 
 def trim_availability(rec, cut_start=None, cut_end=None):

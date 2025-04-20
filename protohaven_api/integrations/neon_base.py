@@ -18,6 +18,7 @@ log = logging.getLogger("integrations.neon_base")
 
 BASE_URL = get_config("neon/base_url")
 ADMIN_URL = get_config("neon/admin_url")
+SSO_URL = get_config("neon/sso_url")
 
 
 def paginated_fetch(api_key, path, params=None):
@@ -212,10 +213,11 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
         # Submit login info to initial login page
         r = self.s.post(
-            "https://app.neonsso.com/login",
+            f"{SSO_URL}/login",
             data={"_token": csrf, "email": user, "password": passwd},
         )
-        assert r.status_code == 200
+        if r.status_code != 200:
+            raise RuntimeError("do_login HTTP {r.status_code}: {r.content}")
 
         content = r.content.decode("utf8")
         if "2-Step Verification" in content:
@@ -226,7 +228,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 )
             log.debug(f"Using mfa token {m.group(1)}")
             r = self.s.post(
-                "https://app.neonsso.com/mfa",
+                f"{SSO_URL}/mfa",
                 data={"_token": m.group(1), "mfa_code": str(self.totp.now())},
             )
 
@@ -239,8 +241,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             raise RuntimeError(dec)
 
     def _get_csrf(self):
-        rlogin = self.s.get("https://app.neonsso.com/login")
-        assert rlogin.status_code == 200
+        rlogin = self.s.get(f"{SSO_URL}/login")
+        if rlogin.status_code != 200:
+            raise RuntimeError(f"_get_csrf HTTP {rlogin.status_code}: {rlogin.content}")
         csrf = None
         soup = BeautifulSoup(rlogin.content.decode("utf8"), features="html.parser")
         for m in soup.head.find_all("meta"):
@@ -253,7 +256,8 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         r = self.s.get(
             f"https://protohaven.app.neoncrm.com/nx/top-search/search?keyword={keyword}"
         )
-        assert r.status_code == 200
+        if r.status_code != 200:
+            raise RuntimeError(f"soft_search HTTP {r.status_code}: {r.content}")
         content = json.loads(r.content.decode("utf8"))
         return content
 
@@ -455,7 +459,9 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         ag = self.s.get(referer)
         content = ag.content.decode("utf8")
         if "Event Price" not in content:
-            raise RuntimeError("BAD get group price creation page")
+            raise RuntimeError(
+                f"BAD get group price creation page - {content[:128]}..."
+            )
 
         # Submit report / condition
         # Must set referer so the server knows which event this POST is for

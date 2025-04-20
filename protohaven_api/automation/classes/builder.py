@@ -259,6 +259,14 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.log.warning(f"Not notified after {thresh}")
         return False
 
+    def _sched_is_well_formed(self, sched):
+        return (
+            sched is not None
+            and "Email" in sched["fields"]
+            and "Instructor" in sched["fields"]
+            and "Supply Cost (from Class)" in sched["fields"]
+        )
+
     def _annotate(self, evt):
         """Annotate an event with additional data needed to properly categorize it"""
         evt["python_date"] = dateparser.parse(
@@ -295,7 +303,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         sched = self.airtable_schedule.get(str(evt["id"]))
         evt["instructor_email"] = None
         evt["instructor_firstname"] = None
-        if sched is not None:
+        evt["supply_cost"] = None
+        if self._sched_is_well_formed(sched):
             sched = sched["fields"]
             evt["instructor_email"] = sched["Email"]
             evt["instructor_firstname"] = sched["Instructor"].split()[0]

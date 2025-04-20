@@ -74,7 +74,7 @@ class Connector:
         """Create a new session using the requests lib"""
         return requests.Session()
 
-    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix):
+    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix, _):
         cfg = get_config("airtable")
         path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
         path += (f"/{rec}" if rec else "") + (suffix or "")
@@ -92,11 +92,11 @@ class Connector:
         return data
 
     def db_request(  # pylint: disable=too-many-arguments
-        self, mode, base, tbl, rec=None, suffix=None, data=None
+        self, mode, base, tbl, rec=None, suffix=None, data=None, link_field=None
     ):
         """Make an airtable request using the requests module"""
         url, headers = self._construct_db_request_url_and_headers(
-            base, tbl, rec, suffix
+            base, tbl, rec, suffix, link_field
         )
         if data is not None:
             data = json.dumps(self._format_db_request_data(mode, rec, data))
