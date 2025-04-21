@@ -43,7 +43,7 @@ class DevConnector(Connector):
     def db_format(self):
         return "nocodb"
 
-    def _construct_db_request_url_and_headers( # pylint: disable=too-many-arguments
+    def _construct_db_request_url_and_headers(  # pylint: disable=too-many-arguments
         self, base, tbl, rec, suffix, link_field
     ):
         cfg = get_config("nocodb")

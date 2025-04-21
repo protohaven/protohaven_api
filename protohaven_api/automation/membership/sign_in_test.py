@@ -20,7 +20,9 @@ def test_activate_membership_ok(mocker):
     mock_response.status_code = 200
 
     mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(s.neon, "get_latest_membership_id", return_value="5678")
+    mocker.patch.object(
+        s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
+    )
     m1 = mocker.patch.object(
         s.neon, "set_membership_date_range", return_value=mock_response
     )
@@ -47,7 +49,9 @@ def test_activate_membership_ok(mocker):
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
     mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(s.neon, "get_latest_membership_id", return_value="5678")
+    mocker.patch.object(
+        s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
+    )
     mocker.patch.object(
         s.neon, "set_membership_date_range", side_effect=RuntimeError("Error 500")
     )

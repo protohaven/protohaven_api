@@ -623,11 +623,12 @@ class Commands:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
 
-            membership_id = neon.get_latest_membership_id(aid)
+            membership_id, membership_name = neon.get_latest_membership_id_and_name(aid)
             if not membership_id:
                 raise RuntimeError(f"No latest membership for member {aid}")
             kwargs = {
                 "account_id": aid,
+                "membership_name": membership_name,
                 "membership_id": membership_id,
                 "email": m["Email 1"],
                 "fname": m["First Name"],

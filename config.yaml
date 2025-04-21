@@ -39,6 +39,7 @@ neon:
     new_membership:
       enabled: ${NEW_MEMBERSHIP_ENABLED}
       include_filter: ${NEW_MEMBERSHIP_INCLUDE_CSV}
+      excluded_membership_types: ${EXCLUDED_MEMBERSHIP_TYPES}
 discord_bot:
   enabled: ${DISCORD_BOT}
   event_hooks:

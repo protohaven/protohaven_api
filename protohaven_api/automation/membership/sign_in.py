@@ -67,7 +67,7 @@ def activate_membership(account_id, fname, email):
         return
 
     try:
-        membership_id = neon.get_latest_membership_id(account_id)
+        membership_id, _ = neon.get_latest_membership_id_and_name(account_id)
         if not membership_id:
             raise RuntimeError(
                 f"Could not fetch latest membership for account {account_id}"

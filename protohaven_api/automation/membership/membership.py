@@ -101,10 +101,10 @@ def try_cached_coupon(coupon_amount, assignee, apply):
 
 def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements
     account_id,
+    membership_name,
     membership_id,
     email,
     fname,
-    is_amp=False,
     coupon_amount=DEFAULT_COUPON_AMOUNT,
     apply=True,
     target=None,
@@ -123,7 +123,21 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
         include_filter = {s.strip().lower() for s in include_filter.split(",")}
         if email.strip().lower() not in include_filter:
             log.info(
-                f"Skipping membership init (no match in include_filter {include_filter})"
+                f"Skipping membership init (no match in include_filter: {include_filter})"
+            )
+            return result
+
+    membership_name_filter = (
+        get_config("neon/webhooks/new_membership/excluded_membership_types") or "None"
+    )
+    if isinstance(membership_name_filter, str) and membership_name_filter != "None":
+        membership_name_filter = [
+            m.strip().lower() for m in membership_name_filter.split(",")
+        ]
+        if membership_name.strip().lower() in membership_name_filter:
+            log.info(
+                f"Skipping membership init for {membership_name} as it's present "
+                f"in excluded membershi ptypes: {membership_name_filter}"
             )
             return result
 
@@ -155,7 +169,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
                 id=_id,
             )
         )
-    if is_amp:
+    if "AMP" in membership_name:
         result.append(
             Msg.tmpl(
                 "verify_income",

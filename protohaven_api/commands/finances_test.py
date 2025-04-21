@@ -288,7 +288,9 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(
         neon,
         "fetch_memberships",
-        return_value=[{"termStartDate": d(0).isoformat(), "id": "456"}],
+        return_value=[
+            {"termStartDate": d(0).isoformat(), "id": "456", "name": "testname"}
+        ],
     )
 
     m3 = mocker.patch.object(
@@ -314,7 +316,9 @@ def test_init_new_memberships_limit(mocker, cli):
         ],
     )
     m1 = mocker.patch.object(
-        f.memauto.neon, "get_latest_membership_id", return_value=123
+        f.memauto.neon,
+        "get_latest_membership_id_and_name",
+        return_value=("123", "General"),
     )
     m2 = mocker.patch.object(f.memauto, "init_membership", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--limit=2"])
