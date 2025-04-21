@@ -231,3 +231,19 @@ def test_account_cache_miss_keyerror(mocker):
     mocker.patch.object(n, "search_member", return_value=[])
     with pytest.raises(KeyError):
         c["asdf"]
+
+
+def test_get_latest_membership_id_and_name(mocker):
+    mocker.patch.object(n, "fetch_memberships", return_value=[])
+    assert n.get_latest_membership_id_and_name("abc") == (None, None)
+
+    mocker.patch.object(
+        n,
+        "fetch_memberships",
+        return_value=[
+            {"termStartDate": "2025-01-01", "id": "123", "name": "A"},
+            {"termStartDate": "2025-01-03", "id": "456", "name": "B"},
+            {"termStartDate": "2025-01-02", "id": "789", "name": "C"},
+        ],
+    )
+    assert n.get_latest_membership_id_and_name("abc") == ("456", "B")

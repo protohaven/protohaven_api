@@ -178,10 +178,10 @@ def neon_membership_created_callback():
     try:
         msgs = memauto.init_membership(
             account_id=account_id,
+            membership_name=membership_name,
             membership_id=membership_id,
             email=details["email"],
             fname=details["fname"],
-            is_amp=("AMP" in membership_name),
         )
     except Exception:
         comms.send_discord_message(

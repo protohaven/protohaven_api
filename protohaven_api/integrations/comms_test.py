@@ -227,6 +227,7 @@ TESTED_TEMPLATES = [
                     "account_id": "123",
                     "email": "a@b.com",
                     "membership_id": "456",
+                    "membership_name": "Test Membership",
                     "coupon_amount": 1000000,
                     "apply": "oh yeah",
                 }
@@ -378,7 +379,7 @@ HASHES = {
     "instructor_schedule_classes": "39aea10c71fc8895",  # pragma: allowlist secret
     "instructors_new_classes": "43f58a36632acefb",  # pragma: allowlist secret
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
-    "membership_init_summary": "40ebdf94a4ada4af",  # pragma: allowlist secret
+    "membership_init_summary": "c4503d766704f3ec",  # pragma: allowlist secret
     "membership_validation_problems": "e9b4740d33220373",  # pragma: allowlist secret
     "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
     "not_associated": "4368092931234979",  # pragma: allowlist secret

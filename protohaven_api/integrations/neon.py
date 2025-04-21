@@ -170,14 +170,14 @@ def create_zero_cost_membership(account_id, start, end, level=None, term=None):
     )
 
 
-def get_latest_membership_id(account_id):
-    """Returns the ID of the membership with the latest start date, or None
+def get_latest_membership_id_and_name(account_id):
+    """Returns the ID and level of the membership with the latest start date, or None
     if there are no memberships for the account under `account_id`."""
-    latest = (None, None)
+    latest = ((None, None), None)
     for mem in fetch_memberships(account_id):
         tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
         if not latest[1] or latest[1] < tsd:
-            latest = (mem["id"], tsd)
+            latest = ((mem["id"], mem["name"]), tsd)
     return latest[0]
 
 
