@@ -22,6 +22,13 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
             [("ADD", "Members", "indicated by Neon CRM")],
         ),
         Tc(
+            "Future, no roles",
+            "FUTURE",
+            [],
+            [],
+            [("ADD", "Members", "indicated by Neon CRM")],
+        ),
+        Tc(
             "Active, missing role",
             "ACTIVE",
             ["A"],
