@@ -290,6 +290,8 @@ TESTED_TEMPLATES = [
             "errs": [ValueError("value or something")],
             "new_tasks": [{"name": "Test Task", "gid": "123"}],
             "closing": "Stay tested!",
+            "am_tech_discord": ["@foo", "@bar"],
+            "pm_tech_discord": ["@fizz", "@buzz"],
         },
     ),
     ("tech_openings", {"n": 1, "events": [TEST_EVENT]}),
@@ -391,7 +393,7 @@ HASHES = {
     "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
     "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
-    "tech_daily_tasks": "40fd5ae5ea4d2806",  # pragma: allowlist secret
+    "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
     "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
