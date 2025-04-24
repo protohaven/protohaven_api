@@ -126,7 +126,7 @@ def singleton_role_sync(neon_member, neon_roles, discord_roles):
     """Given neon membership state and listed roles, compute ops to make discord role smatch"""
     # Remove generic roles not enforced
     discord_roles = discord_roles - {"@everyone"}
-    if neon_member != "ACTIVE":
+    if neon_member not in ("ACTIVE", "FUTURE"):
         # Revoke all roles of any users missing Neon information
         if len(discord_roles) == 0:
             return
