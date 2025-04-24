@@ -442,7 +442,7 @@ def _safe_date(v):
 
 
 @page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
-def inst_availability():
+def inst_availability():  # pylint: disable=too-many-return-statements
     """Different methods for CRUD actions on Availability records in airtable, used to
     describe an instructor's availability"""
     if request.method == "GET":
@@ -481,6 +481,11 @@ def inst_availability():
                 "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
                 status=400,
             )
+        if t0 > t1:
+            return Response(
+                f"Start (t0) must be before End (t1) - got t0={t0}, t1={t1}",
+                status=400,
+            )
         recurrence = request.json.get("recurrence")
         if rec is not None:
             status, result = airtable.update_availability(
@@ -497,5 +502,6 @@ def inst_availability():
         rec = request.json.get("rec")
         status, result = airtable.delete_availability(rec)
         assert status == 200
+        return {"result": result}
 
-    return Response(f"Unsupported method {request.method}", status=400)
+    return Response(f"Unsupported method '{request.method}'", status=400)

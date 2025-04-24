@@ -284,3 +284,104 @@ def test_instructor_class_supply_req(mocker, inst_client):
         "class123", "Supplies Requested"
     )
     instructor.comms.send_discord_message.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "method,params,expected_status,mock_avail,mock_expanded,mock_sched",
+    [
+        ("GET", {"inst": "test"}, 400, None, None, None),
+        (
+            "GET",
+            {"inst": "test", "t0": d(0).isoformat(), "t1": d(2).isoformat()},
+            200,
+            [{"id": "1", "fields": {"test": "data"}}],
+            ["expanded_data"],
+            [{"fields": {"Start Time": d(1).isoformat(), "Rejected": False}}],
+        ),
+        (
+            "PUT",
+            {
+                "rec": "1",
+                "t0": d(0).isoformat(),
+                "t1": d(1).isoformat(),
+                "inst_id": "inst1",
+            },
+            200,
+            None,
+            None,
+            None,
+        ),
+        ("PUT", {"t0": d(0).isoformat()}, 400, None, None, None),
+        (
+            "PUT",
+            {"t0": d(1).isoformat(), "t1": d(0).isoformat()},
+            400,
+            None,
+            None,
+            None,
+        ),
+        ("DELETE", {"rec": "1"}, 200, None, None, None),
+        ("POST", {}, 405, None, None, None),
+    ],
+)
+def test_inst_availability(
+    inst_client,
+    mocker,
+    method,
+    params,
+    expected_status,
+    mock_avail,
+    mock_expanded,
+    mock_sched,
+):
+    """Test instructor availability endpoint with various methods and parameters"""
+    if method == "GET":
+        if mock_avail is not None:
+            mocker.patch.object(
+                instructor.airtable,
+                "get_instructor_availability",
+                return_value=mock_avail,
+            )
+            mocker.patch.object(
+                instructor.airtable,
+                "expand_instructor_availability",
+                return_value=mock_expanded,
+            )
+            mocker.patch.object(
+                instructor.airtable,
+                "get_class_automation_schedule",
+                return_value=mock_sched,
+            )
+        resp = inst_client.get("/instructor/calendar/availability", query_string=params)
+    elif method == "PUT":
+        mocker.patch.object(
+            instructor.airtable,
+            "update_availability" if "rec" in params else "add_availability",
+            return_value=(200, {"result": "success"}),
+        )
+        resp = inst_client.put("/instructor/calendar/availability", json=params)
+    elif method == "DELETE":
+        mocker.patch.object(
+            instructor.airtable,
+            "delete_availability",
+            return_value=(200, {"result": "deleted"}),
+        )
+        resp = inst_client.delete("/instructor/calendar/availability", json=params)
+    else:
+        resp = inst_client.open(
+            "/instructor/calendar/availability",
+            method=method,
+            json=params if method != "GET" else None,
+            query_string=params if method == "GET" else None,
+        )
+
+    if resp.status_code != expected_status:
+        raise RuntimeError(
+            f"Want ({expected_status}, _), got ({resp.status_code}, {resp.data})"
+        )
+    if expected_status == 200:
+        if method == "GET":
+            assert "availability" in resp.json
+            assert "schedule" in resp.json
+        else:
+            assert "result" in resp.json

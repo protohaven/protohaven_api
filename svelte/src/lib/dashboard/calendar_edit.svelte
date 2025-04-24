@@ -1,5 +1,5 @@
 <script type="typescript">
-import { Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
+import { Alert, Spinner, Table, Badge, Accordion, AccordionItem, FormGroup, InputGroup, InputGroupText, Label, Button, Modal, ModalHeader, ModalBody, ModalFooter, Tooltip, Input } from '@sveltestrap/sveltestrap';
 import { isodate, parse_8601_basic, isodatetime } from '$lib/api.ts';
 
 // Had to reimplement rrule parsing here as the "canonical" rrule npm package does not work in this svelte environment
@@ -50,6 +50,7 @@ export let rec;
 let expanded;
 
 let busy = false;
+let alert = null;
 export let on_save;
 export let on_delete;
 
@@ -62,6 +63,7 @@ $: {
 
 
 function do_save() {
+  alert = null;
   // Convert rec and expanded back to rrule format
   let rules = [];
   if (expanded.recurrence) {
@@ -74,15 +76,24 @@ function do_save() {
     }
   }
   let rrule = 'RRULE:' + rules.join(';');
+  if (rec.start > rec.end) {
+    alert = "Start must be before End";
+    return;
+  }
   busy = true;
-  return on_save(rec.id, rec.start, rec.end, rrule).finally(() => busy = false);
+  return on_save(rec.id, rec.start, rec.end, rrule).finally(() => { busy = false; alert = null; });
 }
 
 function do_delete() {
   busy = true;
-  return on_delete(rec.id).finally(() => busy = false);
+  return on_delete(rec.id).finally(() => { busy = false; alert = null; });
 }
 
+function do_cancel() {
+  rec = null;
+  alert = null;
+  busy = false;
+}
 </script>
 
 
@@ -125,10 +136,13 @@ function do_delete() {
 			</InputGroup>
       {/if}
 		</FormGroup>
+    {#if alert}
+      <Alert color="warning">{alert}</Alert>
+    {/if}
 	</ModalBody>
 	<ModalFooter>
 	    <Button on:click={do_save} disabled={busy}>Save</Button>
 	    <Button on:click={do_delete} disabled={!(rec && rec.id) || busy}>Delete</Button>
-	    <Button on:click={() => rec = null} disabled={busy}>Cancel</Button>
+	    <Button on:click={do_cancel} disabled={busy}>Cancel</Button>
 	</ModalFooter>
   </Modal>
