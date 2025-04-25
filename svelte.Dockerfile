@@ -12,4 +12,4 @@ RUN pnpm install
 
 EXPOSE 5173
 COPY . .
-CMD ["npm", "run", "debug"]
+CMD ["pnpm", "run", "dev", "--host=0.0.0.0"]
