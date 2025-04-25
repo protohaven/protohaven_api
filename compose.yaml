@@ -6,14 +6,17 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - CORS=true
-      - LOG_LEVEL=debug
-      - PH_CONFIG=config.yaml
-      - PH_SERVER_MODE=dev
-      - UNSAFE_NO_RBAC=true
+      CORS: true
+      LOG_LEVEL: "debug"
+      PH_CONFIG: "config.yaml"
+      PH_SERVER_MODE: "dev"
+      UNSAFE_NO_RBAC: true
     configs:
       - source: ph-config
         target: /config.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
     develop:
       watch:
         - action: sync+restart
@@ -61,9 +64,11 @@ services:
     volumes:
       - "nc_data:/usr/app/data"
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       NC_DB: "pg://postgres:5432?u=postgres&p=password&d=root_db"
+      NC_DISABLE_TELE: true
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy
