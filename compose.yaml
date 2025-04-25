@@ -1,0 +1,91 @@
+services:
+  flask:
+    build:
+      context: .
+      dockerfile: protohaven_api.dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - CORS=true
+      - LOG_LEVEL=debug
+      - PH_CONFIG=config.yaml
+      - PH_SERVER_MODE=dev
+      - UNSAFE_NO_RBAC=true
+    configs:
+      - source: ph-config
+        target: /config.yaml
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          ignore:
+            - .git
+            - requirements.txt
+            - Dockerfile
+            - svelte
+            - bookstack
+            - wordpress
+            - docs
+          target: /code
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: protohaven_api.Dockerfile
+
+  svelte:
+    build:
+      context: ./svelte
+      dockerfile: ../svelte.Dockerfile
+    ports:
+      - "5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./svelte
+          ignore:
+            - node_modules
+            - package.json
+            - pnpm-lock.yaml
+          target: /code
+        - action: rebuild
+          path: ./svelte/package.json
+        - action: rebuild
+          path: ./svelte/pnpm-lock.yaml
+        - action: rebuild
+          path: svelte.dockerfile
+
+  nocodb:
+    image: "nocodb/nocodb:latest"
+    volumes:
+      - "nc_data:/usr/app/data"
+    ports:
+      - "8000:8000"
+    environment:
+      NC_DB: "pg://postgres:5432?u=postgres&p=password&d=root_db"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16.6
+    restart: always
+    volumes:
+      - "pg_data:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_DB: root_db
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
+      timeout: 2s
+
+volumes:
+  nc_data: {}
+  pg_data: {}
+
+configs:
+  ph-config:
+    # external: true
+    file: config.yaml

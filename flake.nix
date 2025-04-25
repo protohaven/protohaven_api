@@ -1,5 +1,5 @@
 {
-  description = "Description for the project";
+  description = "Protohaven API system development environment";
 
   inputs = {
     devenv-root = {
@@ -34,6 +34,10 @@
         # Equivalent to  inputs'.nixpkgs.legacyPackages.hello;
         # packages.default = pkgs.hello;
 
+        devenv.modules = [
+          # ./devenv/nocodb.nix
+        ];
+
         devenv.shells.default = {
           devenv.root =
             let
@@ -41,12 +45,13 @@
             in
             pkgs.lib.mkIf (devenvRootFileContent != "") devenvRootFileContent;
 
-          name = "protohaven_api";
+          name = "protohaven-dev";
 
           imports = [
             # This is just like the imports in devenv.nix.
             # See https://devenv.sh/guides/using-with-flake-parts/#import-a-devenv-module
             # ./devenv-foo.nix
+            ./devenv.nix
           ];
 
           # https://devenv.sh/reference/options/
@@ -54,38 +59,21 @@
             # config.packages.default
           ];
 
+          languages.nix.enable = true;
+
           # enterShell = ''
           #   hello
           # '';
 
           # processes.hello.exec = "hello";
-
-          dotenv = {
-            enable = true;
-            filename = ".env.default";
-          };
-
-          languages.javascript = {
-            enable = true;
-            corepack.enable = true;
-            npm.enable = true;
-          };
-
-          languages.python = {
-            enable = true;
-            venv = {
-              enable = true;
-              requirements = ./requirements.txt;
-            };
-          };
         };
 
       };
+
       flake = {
         # The usual flake attributes can be defined here, including system-
         # agnostic ones like nixosModule and system-enumerating ones, although
         # those are more easily expressed in perSystem.
-
       };
     };
 }
