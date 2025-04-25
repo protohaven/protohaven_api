@@ -19,6 +19,8 @@ services:
         - action: sync+restart
           path: .
           ignore:
+            - .devenv
+            - .direnv
             - .git
             - requirements.txt
             - Dockerfile
