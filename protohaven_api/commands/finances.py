@@ -472,7 +472,7 @@ class Commands:
                 "new_end": "N/A",
                 "membership_type": role["name"],
             }
-            log.info(f"Processing tech {t}")
+            log.info(f"Processing {role['name']} {t}")
             end = self._last_expiring_membership(t["Account ID"])
             if end is None:
                 s["end_date"] = "ERR INFINITE"
@@ -539,6 +539,15 @@ class Commands:
         """If a volunteer's membership is due to expire soon, create a
         future membership that starts when the previous one ends."""
         summary = []
+        log.info("Refreshing shop tech lead memberships...")
+        self._refresh_role_memberships(
+            args,
+            summary,
+            Role.SHOP_TECH_LEAD,
+            level={"id": 19, "name": "Shop Tech"},
+            term={"id": 61, "name": "Shop Tech"},
+        )
+        log.info("Refreshing shop tech memberships...")
         self._refresh_role_memberships(
             args,
             summary,
@@ -546,6 +555,7 @@ class Commands:
             level={"id": 19, "name": "Shop Tech"},
             term={"id": 61, "name": "Shop Tech"},
         )
+        log.info("Refreshing software dev memberships...")
         self._refresh_role_memberships(
             args,
             summary,
