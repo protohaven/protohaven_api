@@ -62,7 +62,7 @@
       flask --app protohaven_api.main run
     '';
 
-    svelt.exec = /* sh */ ''
+    svelte.exec = /* sh */ ''
       pushd svelte
       pnpm run dev
     '';
