@@ -354,12 +354,26 @@ def test_refresh_volunteer_memberships(mocker, cli):
                     "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
                 }
             ],
+            [
+                {
+                    "Account ID": 789,
+                    "First Name": "Jorb",
+                    "Last Name": "Dorb",
+                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
+                },
+                {
+                    "Account ID": 999,
+                    "First Name": "Past",
+                    "Last Name": "DeLimit",
+                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
+                },
+            ],
         ],
     )
     mocker.patch.object(f.Commands, "_last_expiring_membership", return_value=d(0, 23))
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
-    got = cli("refresh_volunteer_memberships", ["--apply", "--limit", "2"])
+    got = cli("refresh_volunteer_memberships", ["--apply", "--limit", "3"])
     assert len(got) == 1
     assert got[0]["target"] == "#membership-automation"
     assert got[0]["body"] == MatchStr("new Shop Tech membership")
@@ -375,6 +389,13 @@ def test_refresh_volunteer_memberships(mocker, cli):
             ),
             mocker.call(
                 456,
+                d(1, 23),
+                d(31, 23),
+                level={"id": mocker.ANY, "name": "Shop Tech"},
+                term={"id": mocker.ANY, "name": "Shop Tech"},
+            ),
+            mocker.call(
+                789,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Software Developer"},
