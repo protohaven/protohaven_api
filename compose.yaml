@@ -11,11 +11,12 @@ services:
       PH_CONFIG: "config.yaml"
       PH_SERVER_MODE: "dev"
       UNSAFE_NO_RBAC: true
+      NOCODB_HOST: "nocodb"
     configs:
       - source: ph-config
         target: /config.yaml
     depends_on:
-      postgres:
+      nocodb:
         condition: service_healthy
     develop:
       watch:
@@ -36,6 +37,11 @@ services:
           path: requirements.txt
         - action: rebuild
           path: protohaven_api.Dockerfile
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:5000"
+      timeout: 2s
 
   svelte:
     build:
@@ -58,6 +64,11 @@ services:
           path: ./svelte/pnpm-lock.yaml
         - action: rebuild
           path: svelte.Dockerfile
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:5173"
+      timeout: 2s
 
   nocodb:
     image: "nocodb/nocodb:latest"
@@ -72,6 +83,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:8080"
+      timeout: 2s
 
   postgres:
     image: postgres:16.6
