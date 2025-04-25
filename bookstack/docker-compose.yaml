@@ -1,41 +1,5 @@
+
 services:
-  bookstack:
-    image: lscr.io/linuxserver/bookstack:latest
-    container_name: bookstack
-    env_file: env.secret
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/New_York
-      # This is a custom theme that supplies OAuth2 authentication using
-      # Neon CRM as a third party OAuth provider.
-      # See bookstack/theme/functions.php for implementation.
-      #
-      # =============== READ THIS IF STARTING FROM SCRATCH ===========
-      # When users are first created, they are not given any permissions.
-      # To bootstrap, you must COMMENT OUT the app theme
-      # so that you can use basic auth to login - default is
-      # user `admin@admin.com`, pass `password`.
-      # Start the server, login, then change the email address of the
-      # admin user to the neon CRM email of the user you want to have admin permissions.
-      # Stop the service, re-add the APP_THEME env var, and start it up again.
-      # =============================================================
-      - APP_THEME=protohaven
-      - APP_DEBUG=true
-    volumes:
-      - ./bookstack_app_data:/config
-      # ================= READ THIS IF STARTING FROM SCRATCH ================
-      # This volume mount pre-creates the /config/www directory, which apparently
-      # interferes with initial setup and DB creation with obscure errors.
-      # This MUST be commented out on initial install for the server to initialize
-      # the DB correctly.
-      # =====================================================================
-      - ./theme:/config/www/themes/protohaven
-    ports:
-      - 6875:80
-    restart: unless-stopped
-    depends_on:
-      - bookstack_db
   bookstack_db:
     image: lscr.io/linuxserver/mariadb
     container_name: bookstack_db
@@ -49,3 +13,42 @@ services:
     ports:
       - 3306:3306  # We need this port open apparently for fetching backups from the bookstack container
     restart: unless-stopped
+
+  bookstack_initial_setup: &base_tmpl
+    profiles: ["no_plugin"]
+    image: lscr.io/linuxserver/bookstack:latest
+    container_name: bookstack
+    env_file: env.secret
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - APP_DEBUG=true
+    volumes:
+      - ./bookstack_app_data:/config
+    ports:
+      - 6875:80
+    restart: unless-stopped
+    depends_on:
+      - bookstack_db
+
+  bookstack:
+    <<: *base_tmpl
+    profiles: ["protohaven"]
+    volumes:
+      # This volume mount pre-creates the /config/www directory, which apparently
+      # interferes with initial setup and DB creation with obscure errors.
+      # bookstack_initial_setup should be run before this service
+      - ./theme:/config/www/themes/protohaven
+    environment:
+      # This is a custom theme that supplies OAuth2 authentication using
+      # Neon CRM as a third party OAuth provider.
+      # See bookstack/theme/functions.php for implementation.
+      # When users are first created, they are not given any permissions.
+      # To bootstrap, you must run bookstack_initial_setup
+      # so that you can use basic auth to login - default is
+      # user `admin@admin.com`, pass `password`.
+      # Start the server, login, then change the email address of the
+      # admin user to the neon CRM email of the user you want to have admin permissions.
+      # Stop the service, re-add the APP_THEME env var, and start it up again.
+      - APP_THEME=protohaven
