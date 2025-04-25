@@ -2,7 +2,7 @@ services:
   flask:
     build:
       context: .
-      dockerfile: protohaven_api.dockerfile
+      dockerfile: protohaven_api.Dockerfile
     ports:
       - "5000:5000"
     environment:
@@ -52,7 +52,7 @@ services:
         - action: rebuild
           path: ./svelte/pnpm-lock.yaml
         - action: rebuild
-          path: svelte.dockerfile
+          path: svelte.Dockerfile
 
   nocodb:
     image: "nocodb/nocodb:latest"
