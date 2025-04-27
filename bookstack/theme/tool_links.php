@@ -39,13 +39,13 @@ function getPageURLsWithToolCode($tool_code) {
 Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
 
   $router->get('/tool_clearance/{tool_code}', function ($tool_code) {
-    $NOTFOUND_URL = "/book/test/page/herp";
+    $NOTFOUND_URL = "/books/clearances/page/missing-clearance-page";
     $urls = getPageURLsWithToolCode($tool_code);
     return redirect($urls['clearance'] ?? $NOTFOUND_URL);
   });
 
   $router->get('/tool_tutorial/{tool_code}', function ($tool_code) {
-    $NOTFOUND_URL = "/book/test/page/herp";
+    $NOTFOUND_URL = "/books/tool-guides/page/tool-guide-missing";
     $urls = getPageURLsWithToolCode($tool_code);
     return redirect($urls['tool_tutorial'] ?? $NOTFOUND_URL);
   });
