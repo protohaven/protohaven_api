@@ -12,8 +12,8 @@ use Illuminate\Http\Request;
 
 
 function getPageURLsWithToolCode($tool_code) {
-  $CLEARANCE_BOOKS = ["basic-maintenance"];
-  $TOOL_TUTORIAL_BOOKS = ["test"];
+  $CLEARANCE_BOOKS = ["clearances"];
+  $TOOL_TUTORIAL_BOOKS = ["tool-guides"];
   $tags = Tag::where('name', 'tool_code')
     ->where('value', $tool_code)
     ->with('entity')
