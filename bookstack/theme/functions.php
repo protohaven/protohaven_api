@@ -27,4 +27,5 @@ require_once("approvals.php");
 require_once("approvals_test.php");
 require_once("backups.php");
 require_once("tool_maintenance_history.php");
+require_once("tool_links.php");
 ?>
