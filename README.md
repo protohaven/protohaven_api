@@ -38,8 +38,6 @@ source venv/bin/activate
 pip install -e .
 
 # Run the server (in dev mode)
-# Be sure to download the mock_data.pkl file and place it in the root of the repository dir
-# mock_data.pkl is found at https://drive.google.com/file/d/1_Fd0BoAkPqNjPmHUsWW27YXN7XFqZI20/view
 LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=dev flask --app protohaven_api.main run
 
 # In prod mode:
