@@ -2,7 +2,6 @@
 
 import datetime
 import os
-import pickle
 from functools import lru_cache
 from string import Template
 
@@ -15,7 +14,6 @@ from dotenv import dotenv_values
 # See https://blog.ganssle.io/articles/2018/03/pytz-fastest-footgun.html for more details.
 tz = dtz.gettz("America/New_York")
 
-MOCK_DATA_PATH = "mock_data.pkl"
 ENV_DEFAULTS_PATH = ".env.default"
 ENV_SECRETS_PATH = ".env.secret"
 CONFIG_YAML_PATH = "config.yaml"
@@ -83,10 +81,3 @@ def get_config(path=None, default=None, as_bool=False):
             isinstance(data, str) and data.strip().lower() in ("1", "true")
         ) or data is True
     return data
-
-
-@lru_cache(maxsize=1)
-def mock_data():
-    """Fetches mock data from .pkl file"""
-    with open(MOCK_DATA_PATH, "rb") as f:
-        return pickle.load(f)

@@ -7,7 +7,7 @@ from flask import Blueprint, Response, request, session
 
 from protohaven_api.automation.membership import clearances as mclearance
 from protohaven_api.automation.membership import membership as memauto
-from protohaven_api.config import get_config, mock_data
+from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
 from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
 from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
@@ -15,18 +15,6 @@ from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
 page = Blueprint("admin", __name__, template_folder="templates")
 
 log = logging.getLogger("handlers.admin")
-
-
-@page.route("/admin/mock_data_stats", methods=["GET"])
-@require_login_role(Role.ADMIN)
-def mock_data_stats():
-    """Show info about mock data loaded (dev environment)"""
-    result = []
-    for aid, adata in mock_data()["neon"]["accounts"].items():
-        result.append(
-            f"{type(aid)} {aid}: {adata['individualAccount']['primaryContact']}"
-        )
-    return result
 
 
 @page.route("/admin/login_as", methods=["GET"])
