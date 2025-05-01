@@ -257,9 +257,6 @@ booked:
   - "Custodial Room"
   - "All"
   notify_mqtt: true
-wiki:
-  user: ${WIKI_USER}
-  password: ${WIKI_PASSWORD}
 forms:
   signin:
     base_url: "https://docs.google.com/forms/d/e/1FAIpQLSfen4NHmAivUPKuvMIqT8UeRqD9meoxq31ZHNG17upDWiTGkQ/"
@@ -278,7 +275,7 @@ wyze:
   expiration: "12-16-2025 08:18:28"
 bookstack:
   api_key: ${PH_BOOKSTACK_API_KEY}
-  base_url: "https://wiki.protohaven.org"
+  base_url: ${PH_BOOKSTACK_URL}
   maintenance:
     books:
     - "maintenance-tech-ready"

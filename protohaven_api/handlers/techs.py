@@ -10,7 +10,7 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, comms, neon, neon_base
+from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
 from protohaven_api.rbac import Role, am_lead_role, am_role, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
@@ -60,7 +60,7 @@ EXCLUDED_AREAS = [
 
 
 def _fetch_tool_states_and_areas(now):
-    tool_states = defaultdict(list)
+    tool_states = []
     now = now.astimezone(tz)
     areas = {
         a["fields"]["Name"].strip()
@@ -68,27 +68,29 @@ def _fetch_tool_states_and_areas(now):
         if a["fields"]["Name"] not in EXCLUDED_AREAS
     }
     for t in airtable.get_tools():
-        status = t["fields"].get("Current Status", "Unknown")
-        msg = t["fields"].get("Status Message", "Unknown")
+        status = t["fields"].get("Current Status") or "Unknown"
+        msg = t["fields"].get("Status Message") or "Unknown"
         modified = t["fields"].get("Status last modified")
+        date = modified or ""
+        log.info(f"Midified {modified}")
         if modified:
-            modified = (now - dateparser.parse(modified)).days
+            modified = (now - dateparser.parse(modified).astimezone(tz)).days
+            date = dateparser.parse(date).strftime("%Y-%m-%d")
         else:
             modified = 0
-        date = t["fields"].get("Status last modified", "")
-        if date != "":
-            date = dateparser.parse(date).strftime("%Y-%m-%d")
-        tool_states[status].append(
+        tool_states.append(
             {
+                "status": status,
                 "name": t["fields"]["Tool Name"],
-                "code": t["fields"]["Tool Code"],
+                "area": t["fields"]["Name (from Shop Area)"],
+                "code": t["fields"]["Tool Code"].strip().upper()
+                if t["fields"]["Tool Code"]
+                else None,
                 "modified": modified,
                 "message": msg,
                 "date": date,
             }
         )
-    for _, vv in tool_states.items():
-        vv.sort(key=lambda k: k["modified"], reverse=True)
     return tool_states, areas
 
 
@@ -97,6 +99,12 @@ def techs_tool_state():
     """Fetches info on current state of tools"""
     tool_states, _ = _fetch_tool_states_and_areas(tznow())
     return tool_states
+
+
+@page.route("/techs/docs_state")
+def techs_docs_state():
+    """Fetches the state of documentation for all tool pages in the wiki"""
+    return wiki.get_tool_docs_summary()
 
 
 @page.route("/techs/shifts")
