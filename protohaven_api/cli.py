@@ -8,7 +8,6 @@ from protohaven_api.commands import (
     classes,
     clearances,
     comms,
-    docs,
     finances,
     forwarding,
     maintenance,
@@ -51,7 +50,6 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
     violations.Commands,
     roles.Commands,
     maintenance.Commands,
-    docs.Commands,
     clearances.Commands,
 ):
     """argparser-based CLI for protohaven operations"""
