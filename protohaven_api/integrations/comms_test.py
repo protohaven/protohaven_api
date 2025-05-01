@@ -295,10 +295,6 @@ TESTED_TEMPLATES = [
         },
     ),
     ("tech_openings", {"n": 1, "events": [TEST_EVENT]}),
-    (
-        "tool_documentation",
-        {"n": 1, "tool_tutorials": "tutorial info", "clearance_docs": "clearance info"},
-    ),
     ("tool_sync_summary", {"n": 1, "changes": ["change 1", "change 2"]}),
     (
         "verify_income",
@@ -395,7 +391,6 @@ HASHES = {
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
     "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
-    "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "verify_income": "4d24d1a819192eae",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
