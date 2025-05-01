@@ -48,6 +48,7 @@ class Approval {
     if ($approved) {
         $result['approved_id'] = $approved->id;
     }
+    $result['url'] = $page->getUrl();
     return $result;
   }
 

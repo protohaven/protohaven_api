@@ -42,19 +42,24 @@ function getPageURLsWithToolCode($tool_code) {
   return $result;
 }
 
+function clearance_not_found_url() {
+    return getenv("PH_TOOL_LINK_CLEARANCE_NOT_FOUND_URL") ?: "/books/clearances/page/missing-clearance-page";
+}
+
+function tutorial_not_found_url() {
+    return getenv("PH_TOOL_LINK_TUTORIAL_NOT_FOUND_URL") ?: "/books/tool-guides/page/tool-guide-missing";
+}
 
 Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
 
   $router->get('/tool_clearance/{tool_code}', function ($tool_code) {
-    $NOTFOUND_URL = getenv("PH_TOOL_LINK_CLEARANCE_NOT_FOUND_URL") ?: "/books/clearances/page/missing-clearance-page";
     $urls = getPageURLsWithToolCode($tool_code);
-    return redirect($urls['clearance'] ?? $NOTFOUND_URL);
+    return redirect($urls['clearance'] ?? clearance_not_found_url());
   });
 
   $router->get('/tool_tutorial/{tool_code}', function ($tool_code) {
-    $NOTFOUND_URL = getenv("PH_TOOL_LINK_TUTORIAL_NOT_FOUND_URL") ?: "/books/tool-guides/page/tool-guide-missing";
     $urls = getPageURLsWithToolCode($tool_code);
-    return redirect($urls['tool_tutorial'] ?? $NOTFOUND_URL);
+    return redirect($urls['tool_tutorial'] ?? tutorial_not_found_url());
   });
 
   $router->get('/tool_docs_report', function() {
@@ -64,14 +69,21 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
       ->with('entity.book')
       ->get();
     $result = array();
+    $approval_result = array();
     foreach ($tags as $tag) {
       $page = $tag->entity ?? null;
       $book_slug = $page['book']['slug'];
       if ($page instanceof \BookStack\Entities\Models\Page) {
-        $result[strtoupper($tag["value"])][getPageCategory($page)][] = $page->getUrl();
+        $code = strtoupper($tag["value"]);
+        $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
+        $result[$code][getPageCategory($page)][] = $state;
       }
     }
-    echo json_encode($result);
+    echo json_encode([
+      "by_code" => $result,
+      "clearance_not_found_url" => clearance_not_found_url(),
+      "tutorial_not_found_url" => tutorial_not_found_url()
+    ]);
   });
 });
 
