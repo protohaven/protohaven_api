@@ -366,7 +366,9 @@ def test_refresh_volunteer_memberships(mocker, cli):
             ],
         ],
     )
-    mocker.patch.object(f.Commands, "_last_expiring_membership", return_value=d(0, 23))
+    mocker.patch.object(
+        f.Commands, "_last_expiring_membership", return_value=(d(0, 23), False)
+    )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
     got = cli("refresh_volunteer_memberships", ["--apply", "--limit", "3"])
@@ -419,7 +421,9 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
             [],
         ],
     )
-    mocker.patch.object(f.Commands, "_last_expiring_membership", return_value=None)
+    mocker.patch.object(
+        f.Commands, "_last_expiring_membership", return_value=(None, None)
+    )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
     got = cli("refresh_volunteer_memberships", ["--apply"])
@@ -438,3 +442,31 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
             ),
         ]
     )
+
+
+def test_refresh_volunteer_memberships_autorenew(mocker, cli):
+    """Test refresh_volunteer_memberships command"""
+    mocker.patch.object(f, "tznow", return_value=d(0))
+    mocker.patch.object(
+        f.neon,
+        "get_members_with_role",
+        side_effect=[
+            [
+                {
+                    "Account ID": 123,
+                    "First Name": "John",
+                    "Last Name": "Doe",
+                }
+            ],
+            [],
+            [],
+        ],
+    )
+    mocker.patch.object(
+        f.Commands, "_last_expiring_membership", return_value=(None, True)
+    )
+    mocker.patch.object(f.neon, "create_zero_cost_membership")
+
+    got = cli("refresh_volunteer_memberships", ["--apply"])
+    assert not got
+    f.neon.create_zero_cost_membership.assert_not_called()

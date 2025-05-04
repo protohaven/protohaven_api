@@ -445,14 +445,14 @@ class Commands:
         return result
 
     def _last_expiring_membership(self, account_id):
-        result = None
+        result = (None, None)
         for m in neon.fetch_memberships(account_id):
             if not m.get("termEndDate"):
                 log.warning(f"Found etenal membership {m}")
                 return dateparser.parse("9000-01-01")
             end = dateparser.parse(m.get("termEndDate")).astimezone(tz)
             if not result or result < end:
-                result = end
+                result = (end, m.get("autoRenewal", False))
         return result
 
     def _refresh_role_memberships(
@@ -473,7 +473,11 @@ class Commands:
                 "membership_type": role["name"],
             }
             log.info(f"Processing {role['name']} {t}")
-            end = self._last_expiring_membership(t["Account ID"])
+            end, autorenew = self._last_expiring_membership(t["Account ID"])
+            if autorenew:
+                log.info("Latest membership is autorenewing; skipping")
+                continue
+
             if end is None:
                 s["end_date"] = "N/A"
                 end = tznow()
