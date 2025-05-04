@@ -468,16 +468,15 @@ class Commands:
                 "fname": t["First Name"].strip(),
                 "lname": t["Last Name"].strip(),
                 "account_id": t["Account ID"],
-                "membership_id": "DRYRUN",
+                "membership_id": "Not created",
                 "new_end": "N/A",
                 "membership_type": role["name"],
             }
             log.info(f"Processing {role['name']} {t}")
             end = self._last_expiring_membership(t["Account ID"])
             if end is None:
-                s["end_date"] = "ERR INFINITE"
-                summary.append(s)
-                continue
+                s["end_date"] = "N/A"
+                end = tznow()
 
             if now + datetime.timedelta(days=args.expiry_threshold) < end:
                 continue  # Skip if active membership not expiring soon

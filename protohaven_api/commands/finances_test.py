@@ -343,7 +343,6 @@ def test_refresh_volunteer_memberships(mocker, cli):
                     "Account ID": 123,
                     "First Name": "John",
                     "Last Name": "Doe",
-                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
                 }
             ],
             [
@@ -351,7 +350,6 @@ def test_refresh_volunteer_memberships(mocker, cli):
                     "Account ID": 456,
                     "First Name": "Jane",
                     "Last Name": "Doe",
-                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
                 }
             ],
             [
@@ -359,13 +357,11 @@ def test_refresh_volunteer_memberships(mocker, cli):
                     "Account ID": 789,
                     "First Name": "Jorb",
                     "Last Name": "Dorb",
-                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
                 },
                 {
                     "Account ID": 999,
                     "First Name": "Past",
                     "Last Name": "DeLimit",
-                    "Membership End Date": d(0, 23).strftime("%Y-%m-%d"),
                 },
             ],
         ],
@@ -400,6 +396,45 @@ def test_refresh_volunteer_memberships(mocker, cli):
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Software Developer"},
                 term={"id": mocker.ANY, "name": "Software Developer"},
+            ),
+        ]
+    )
+
+
+def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
+    """Test refresh_volunteer_memberships command"""
+    mocker.patch.object(f, "tznow", return_value=d(0))
+    mocker.patch.object(
+        f.neon,
+        "get_members_with_role",
+        side_effect=[
+            [
+                {
+                    "Account ID": 123,
+                    "First Name": "John",
+                    "Last Name": "Doe",
+                }
+            ],
+            [],
+            [],
+        ],
+    )
+    mocker.patch.object(f.Commands, "_last_expiring_membership", return_value=None)
+    mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
+
+    got = cli("refresh_volunteer_memberships", ["--apply"])
+    assert len(got) == 1
+    assert got[0]["target"] == "#membership-automation"
+    assert got[0]["body"] == MatchStr("new Shop Tech Lead membership")
+
+    f.neon.create_zero_cost_membership.assert_has_calls(
+        [
+            mocker.call(
+                123,
+                d(1, 0),
+                d(31, 0),
+                level={"id": mocker.ANY, "name": "Shop Tech"},
+                term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
         ]
     )
