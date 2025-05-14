@@ -482,3 +482,23 @@ def test_rm_tech_event_non_tech_only(mocker, lead_client):
     assert response.data.decode("utf-8") == MatchStr(
         "cannot delete a non-tech-only event"
     )
+
+
+def test_techs_members(mocker, tech_client):
+    """Test fetching member sign-ins for techs view"""
+    mock_signins = [{"id": "1", "name": "Test User"}]
+    mocker.patch.object(tl.airtable, "get_signins_between", return_value=mock_signins)
+    mocker.patch.object(tl, "tznow", return_value=d(0))
+    mocker.patch.object(tl.dateparser, "parse", return_value=d(1))
+
+    rep = tech_client.get("/techs/members?start=2024-01-01")
+    assert rep.json == mock_signins
+    tl.airtable.get_signins_between.assert_called_once_with(
+        d(1).replace(hour=0, minute=0, second=0), None
+    )
+
+    got = tech_client.get("/techs/members")
+    assert rep.json == mock_signins
+    tl.airtable.get_signins_between.assert_called_with(
+        d(0).replace(hour=0, minute=0, second=0), None
+    )

@@ -117,8 +117,11 @@ def techs_shifts():
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_members():
     """Fetches today's sign-in information for members"""
-    # Could extend this to search particular days...
-    start = tznow().replace(hour=0, minute=0, second=0)
+    start = request.values.get("start")
+    start = (dateparser.parse(start) if start else tznow()).replace(
+        hour=0, minute=0, second=0
+    )
+    log.info(f"Fetching signins starting at {start}")
     return list(airtable.get_signins_between(start, None))
 
 

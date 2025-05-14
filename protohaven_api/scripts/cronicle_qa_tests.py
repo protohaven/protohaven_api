@@ -356,6 +356,24 @@ if __name__ == "__main__":
                 "ARGS": "--no-apply",
             },
         ),
+        (
+            "refresh_volunteer_memberships",
+            test_simple,
+            "em8x5gxfp4t",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
+        (
+            "sync_clearances",
+            test_simple,
+            "em8x5c0o24r",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
     ]
     destructive_commands = [
         # Need to modify a test user to properly exercise this command

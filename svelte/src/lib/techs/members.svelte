@@ -1,17 +1,21 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Accordion, AccordionItem, ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
+import { FormGroup, Label, Accordion, AccordionItem, ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
 
 import FetchError from '../fetch_error.svelte';
-import {get} from '$lib/api.ts';
+import {get, isodate} from '$lib/api.ts';
+
+
+let start_date = new Date();
 
 export let visible;
 let search = "";
 let promise = new Promise((r,_)=>{r([])});
 let loaded = false;
 function refresh() {
-  promise = get(`/techs/members`).then((data) => {
+  const start = isodate(new Date(start_date));
+  promise = get(`/techs/members?start=${start}`).then((data) => {
     loaded = true;
     let by_email = {};
     for (let d of data) {
@@ -54,6 +58,11 @@ $: {
     {#await promise}
       <Spinner/>Loading...
     {:then p}
+    <FormGroup>
+      <Label>Start Date</Label>
+      <Input type="date" bind:value={start_date} on:change={refresh}/>
+    </FormGroup>
+
     <ListGroup>
     {#each p as r}
       <ListGroupItem>
