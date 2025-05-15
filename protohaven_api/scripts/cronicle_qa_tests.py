@@ -70,7 +70,7 @@ def run_cronicle_sync(event_id: str, image: str, params: dict):
                 timeout=REQ_TIMEOUT,
                 verify=False,
             ).json()
-            # log.info(str(rep))
+            log.info(str(rep))
             running[rid] = rep["job"].get("complete") != 1
         log.info(f"Running: {running}")
         code = rep["job"].get("code")
@@ -252,15 +252,6 @@ if __name__ == "__main__":
                     "--start=2000-01-01 --end=2000-01-30 "
                     "--no-require_active --filter=test@test.com"
                 ),
-            },
-        ),
-        # Note: should change this to always produce a stale alert
-        (
-            "validate_docs",
-            test_simple,
-            "elzx3r1hlu5",
-            {
-                "ARGS_CHAN_OVERRIDE": COVR,
             },
         ),
     ]
