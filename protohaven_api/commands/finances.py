@@ -451,7 +451,7 @@ class Commands:
                 log.warning(f"Found etenal membership {m}")
                 return dateparser.parse("9000-01-01")
             end = dateparser.parse(m.get("termEndDate")).astimezone(tz)
-            if not result or result[0] < end:
+            if not result[0] or result[0] < end:
                 result = (end, m.get("autoRenewal", False))
         return result
 
