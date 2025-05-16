@@ -28,19 +28,19 @@ After deployment, verify that:
   * [x] Shows reservations
   * [x] Shows classes including attendee data
 * https://api.protohaven.org/techs
-  * [ ] Cal loads, individual shifts can be clicked and overridden, highlights current day
-  * [ ] Full name is visible when logged in as a tech / tech lead
-  * [ ] Cal can change date range, highlights current day
-  * [ ] Cal swap overrides send an alert to the #techs channel
-  * [ ] Members tab shows today's sign-ins
-  * [ ] Shift page shows the roster, highlights current day
-  * [ ] Tool states load, clicking a tool shows info
-  * [ ] Storage tab allows for looking up Neon ID by name/email
-  * [ ] Areas have some leads assigned to them
-  * [ ] Areas has populated "additional contacts" section at the bottom of the pane
-  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [x] Cal loads, individual shifts can be clicked and overridden, highlights current day
+  * [x] Full name is visible when logged in as a tech / tech lead
+  * [x] Cal can change date range, highlights current day
+  * [x] Cal swap overrides send an alert to the #techs channel
+  * [x] Members tab shows today's sign-ins
+  * [x] Shift page shows the roster, highlights current day
+  * [x] Tool states load, clicking a tool shows info
+  * [x] Storage tab allows for looking up Neon ID by name/email
+  * [x] Areas have some leads assigned to them
+  * [x] Areas has populated "additional contacts" section at the bottom of the pane
+  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
   * [ ] Events tab can create, register, unregister, and delete a techs-only class
-  * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data
@@ -48,8 +48,6 @@ After deployment, verify that:
   * [x] Scheduler runs and proposes classes
   * [x] Can confirm/unconfirm a class
   * [x] Log submission button works
-* https://api.protohaven.org/member
-  * [ ] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
 * https://api.protohaven.org/event_ticker
   * [ ] Returns JSON of sample classes
 * https://api.protohaven.org/staff
@@ -66,17 +64,23 @@ run the `on_member_join` hook which is configured by `main.py` to run
 
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove association.
 
-* [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+* [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
 
-Override and register the user in Neon. Remove all roles from Discord user, and change its display name to something other than `Test Member`.
+Override and register the user in Neon via the link.
 
-* [ ] When missing roles & nickname format, adds them & notifies (both of role and nick change)
+* [x] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
 
-Add an extra role to the user via Discord.
+Remove all roles from Discord user, and change its display name to something other than `Test Member`.
+
+* [x] When missing roles & nickname format, adds them & notifies (both of role and nick change)
+
+Add an extra role to the user via Discord. (Does this actually work via TEST_MEMBER_JOIN? Isn't it just cron based?)
 
 * [ ] When called with registered user with extra roles, notifies of pending removal
 
 ## Webhooks
+
+Call these when SSH'd into the Cron server via ~/protohaven_api. Make sure to `source ./venv/bin/activate`
 
 Membership creation webhook
 

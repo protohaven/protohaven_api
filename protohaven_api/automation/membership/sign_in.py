@@ -76,7 +76,17 @@ def activate_membership(account_id, fname, email):
         neon.set_membership_date_range(
             membership_id, tznow(), tznow() + datetime.timedelta(days=30)
         )
-    except RuntimeError as e:
+
+        neon.update_account_automation_run_status(account_id, "activated")
+        msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
+        comms.send_email(msg.subject, msg.body, [email], msg.html)
+        log.info(f"Sent email {msg}")
+        notify_async(
+            f"Activated deferred membership for {fname} ({email}, "
+            f"#{account_id}) as they've just signed in at the front desk"
+        )
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        traceback.print_exc()
         notify_async(
             f"@Staff: Error activating membership for "
             f"#{account_id}: "
@@ -85,15 +95,6 @@ def activate_membership(account_id, fname, email):
             "Allowing the member through anyways."
         )
         return
-
-    neon.update_account_automation_run_status(account_id, "activated")
-    msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
-    comms.send_email(msg.subject, msg.body, [email], msg.html)
-    log.info(f"Sent email {msg}")
-    notify_async(
-        f"Activated deferred membership for {fname} ({email}, "
-        f"#{account_id}) as they've just signed in at the front desk"
-    )
 
 
 def submit_forms(form_data):

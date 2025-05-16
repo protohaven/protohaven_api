@@ -140,8 +140,8 @@ $: {
             <div>Code: {tool.code}</div>
             <div>Area: {tool.area}</div>
             <div>Status: {tool.message}</div>
-            <div>Clearance doc: <Badge color={tool.clearance_doc.color} href={tool.clearance_doc.url}>{tool.clearance_doc.status}</Badge></div>
-            <div>Tutorial doc: <Badge color={tool.tutorial_doc.color} href={tool.tutorial_doc.url}>{tool.tutorial_doc.status}</Badge></div>
+            <div>Clearance doc: <Badge color={tool.clearance_doc.color} href={tool.clearance_doc.url} target="_blank">{tool.clearance_doc.status}</Badge></div>
+            <div>Tutorial doc: <Badge color={tool.tutorial_doc.color} href={tool.tutorial_doc.url} target="_blank">{tool.tutorial_doc.status}</Badge></div>
             <div><a href="https://airtable.com/appbIlORlmbIxNU1L/shr9Hbyf7tdf7Y5LD/tblalZYdLVoTICzE6?filter_Tool Name={tool.name}" target="_blank">history</a></div>
           </CardBody>
         </Card>
