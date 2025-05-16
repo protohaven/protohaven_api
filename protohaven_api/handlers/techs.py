@@ -375,9 +375,11 @@ def techs_backfill_events():
                 }
             )
 
-    tech_lead = am_role(Role.SHOP_TECH_LEAD)
-
-    return {"events": for_techs, "tech_lead": tech_lead}
+    return {
+        "events": for_techs,
+        "can_register": am_role(Role.SHOP_TECH) or am_role(Role.SHOP_TECH_LEAD),
+        "tech_lead": am_role(Role.SHOP_TECH_LEAD),
+    }
 
 
 def _notify_registration(account_id, event_id, action):

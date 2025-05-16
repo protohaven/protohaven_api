@@ -10,7 +10,12 @@ from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
 from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
-from protohaven_api.rbac import Role, require_login_role, roles_from_api_key
+from protohaven_api.rbac import (
+    Role,
+    require_dev_environment,
+    require_login_role,
+    roles_from_api_key,
+)
 
 page = Blueprint("admin", __name__, template_folder="templates")
 
@@ -18,7 +23,7 @@ log = logging.getLogger("handlers.admin")
 
 
 @page.route("/admin/login_as", methods=["GET"])
-@require_login_role(Role.ADMIN)
+@require_dev_environment()
 def login_as_user():
     """Force the browser session to a specific user (for dev)"""
     neon_id = int(request.values["neon_id"])
