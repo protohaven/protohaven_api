@@ -289,7 +289,11 @@ def test_init_new_memberships_e2e(mocker, cli):
         neon,
         "fetch_memberships",
         return_value=[
-            {"termStartDate": d(0).isoformat(), "id": "456", "name": "testname"}
+            {
+                "termStartDate": d(0).isoformat(),
+                "id": "456",
+                "membershipLevel": {"name": "testname"},
+            }
         ],
     )
 

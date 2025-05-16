@@ -177,7 +177,7 @@ def get_latest_membership_id_and_name(account_id):
     for mem in fetch_memberships(account_id):
         tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
         if not latest[1] or latest[1] < tsd:
-            latest = ((mem["id"], mem["name"]), tsd)
+            latest = ((mem["id"], mem["membershipLevel"]["name"]), tsd)
     return latest[0]
 
 
