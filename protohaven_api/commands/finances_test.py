@@ -470,3 +470,59 @@ def test_refresh_volunteer_memberships_autorenew(mocker, cli):
     got = cli("refresh_volunteer_memberships", ["--apply"])
     assert not got
     f.neon.create_zero_cost_membership.assert_not_called()
+
+
+def test_refresh_volunteer_memberships_exclude(mocker, cli):
+    """Test refresh_volunteer_memberships command"""
+    mocker.patch.object(f, "tznow", return_value=d(0))
+    mocker.patch.object(
+        f.neon,
+        "get_members_with_role",
+        side_effect=[
+            [
+                {
+                    "Account ID": 123,
+                    "First Name": "John",
+                    "Last Name": "Doe",
+                }
+            ],
+            [],
+            [],
+        ],
+    )
+    mocker.patch.object(
+        f.Commands, "_last_expiring_membership", return_value=(None, None)
+    )
+    mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
+
+    got = cli("refresh_volunteer_memberships", ["--apply", "--exclude=123"])
+    assert not got
+    f.neon.create_zero_cost_membership.assert_not_called()
+
+
+def test_refresh_volunteer_memberships_filter_dev(mocker, cli):
+    """Test refresh_volunteer_memberships command"""
+    mocker.patch.object(f, "tznow", return_value=d(0))
+    mocker.patch.object(
+        f.neon,
+        "get_members_with_role",
+        side_effect=[
+            [],
+            [],
+            [  # Dev comes last
+                {
+                    "Account ID": 123,
+                    "First Name": "John",
+                    "Last Name": "Doe",
+                }
+            ],
+        ],
+    )
+    mocker.patch.object(
+        f.Commands, "_last_expiring_membership", return_value=(None, None)
+    )
+    mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
+
+    got = cli("refresh_volunteer_memberships", ["--apply", "--filter_dev=456"])
+    assert not got
+    f.neon.create_zero_cost_membership.assert_not_called()

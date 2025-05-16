@@ -460,14 +460,28 @@ class Commands:
     ):  # pylint: disable=too-many-arguments
         now = tznow()
         for t in neon.get_members_with_role(role, []):
+            aid = t["Account ID"]
             if len(summary) >= args.limit:
                 log.info("Processing limit reached; exiting")
                 break
+            if args.exclude and aid not in args.exclude:
+                log.debug(f"Skipping {aid}: in exclusion list")
+                continue
+            if args.filter and aid not in args.filter:
+                log.debug(f"Skipping {aid}: not in filter")
+                continue
+            if (
+                role == Role.SOFTWARE_DEV
+                and args.filter_dev
+                and aid not in args.filter_dev
+            ):
+                log.debug(f"Skipping {aid}: not in software dev filter")
+                continue
 
             s = {
                 "fname": t["First Name"].strip(),
                 "lname": t["Last Name"].strip(),
-                "account_id": t["Account ID"],
+                "account_id": aid,
                 "membership_id": "Not created",
                 "new_end": "N/A",
                 "membership_type": role["name"],
@@ -514,6 +528,16 @@ class Commands:
             default="",
         ),
         arg(
+            "--exclude",
+            help="CSV of Neon IDs to prevent processing",
+            default="",
+        ),
+        arg(
+            "--filter_dev",
+            help="CSV of Neon IDs to restrict processing for software devs",
+            default="",
+        ),
+        arg(
             "--apply",
             help="When true, actually create new memberships",
             action=argparse.BooleanOptionalAction,
@@ -541,6 +565,15 @@ class Commands:
     def refresh_volunteer_memberships(self, args, _):
         """If a volunteer's membership is due to expire soon, create a
         future membership that starts when the previous one ends."""
+        if args.filter:
+            args.filter = {a.strip() for a in args.filter.split(",")}
+            log.info(f"filtering to {args.filter}")
+        if args.filter_dev:
+            args.filter_dev = {a.strip() for a in args.filter_dev.split(",")}
+            log.info(f"filtering software devs to {args.filter_dev}")
+        if args.exclude:
+            args.exclude = {a.strip() for a in args.exclude.split(",")}
+            log.info(f"excluding {args.exclude}")
         summary = []
         log.info("Refreshing shop tech lead memberships...")
         self._refresh_role_memberships(
