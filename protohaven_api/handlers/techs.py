@@ -216,9 +216,10 @@ def techs_list():
         tech_bio = bio_dict.get(tech["email"], {})
         if tech_bio:
             techs_results[idx]["bio"] = tech_bio.get("Bio", {})
-            techs_results[idx]["picture"] = urljoin(
+            thumbs = tech_bio.get("Picture")[0]["thumbnails"]["small"]
+            techs_results[idx]["picture"] = thumbs.get("url") or urljoin(
                 "http://localhost:8080",
-                tech_bio.get("Picture")[0]["thumbnails"]["small"]["signedPath"],
+                thumbs.get("signedPath"),
             )
 
     return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}

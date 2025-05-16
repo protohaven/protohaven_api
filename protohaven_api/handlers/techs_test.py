@@ -30,6 +30,58 @@ def test_techs_all_status(lead_client, mocker):
     assert rep == {"tech_lead": True, "techs": []}
 
 
+def test_techs_picture_url(lead_client, mocker):
+    """Ensure that both Nocodb and Airtable URL paths are observed"""
+    mocker.patch.object(
+        tl.neon,
+        "fetch_techs_list",
+        return_value=[
+            {"email": "asdf"},
+        ],
+    )
+    mocker.patch.object(
+        tl.airtable,
+        "get_all_tech_bios",
+        return_value=[
+            {
+                "fields": {
+                    "Email": "asdf",
+                    "Picture": [{"thumbnails": {"small": {"url": "want"}}}],
+                }
+            },
+        ],
+    )
+    response = lead_client.get("/techs/list")
+    rep = json.loads(response.data.decode("utf8"))
+    assert rep == {
+        "tech_lead": True,
+        "techs": [
+            {"bio": {}, "email": "asdf", "picture": "want"},
+        ],
+    }
+
+    mocker.patch.object(
+        tl.airtable,
+        "get_all_tech_bios",
+        return_value=[
+            {
+                "fields": {
+                    "Email": "asdf",
+                    "Picture": [{"thumbnails": {"small": {"signedPath": "want"}}}],
+                }
+            },
+        ],
+    )
+    response = lead_client.get("/techs/list")
+    rep = json.loads(response.data.decode("utf8"))
+    assert rep == {
+        "tech_lead": True,
+        "techs": [
+            {"bio": {}, "email": "asdf", "picture": "http://localhost:8080/want"},
+        ],
+    }
+
+
 def test_tech_update(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "set_tech_custom_fields", return_value=(mocker.MagicMock(), None)
