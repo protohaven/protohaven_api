@@ -527,47 +527,6 @@ def delete_availability(rec):
     return delete_record("class_automation", "availability", rec)
 
 
-def trim_availability(rec, cut_start=None, cut_end=None):
-    """Similar to string.slice() in javascript, supports removing a section
-    of a repeating Availability record. The one or two result records
-    are returned"""
-    raise NotImplementedError("Need to refactor to support RRULE")
-    # if cut_start is None:  # No start means delete
-    #     delete_record("class_automation", "availability", rec)
-    #     return (None, None)
-    # r = get_record("class_automation", "availability", rec)
-
-    # # We'll always be truncating the record beginning at cut_start
-    # r2 = update_record(
-    #     {"Interval End": cut_start}, "class_automation", "availability", rec
-    # )
-
-    # # If we don't have an end, we're done.
-    # if cut_end is None:
-    #     return (r2, None)
-
-    # # Otherwise we're slicing the record in two and leaving a gap; add a new one as suffix
-    # start0, end0 = dateparser.parse(r["fields"]["Start"]), dateparser.parse(
-    #     r["fields"]["End"]
-    # )
-    # interval = r["fields"]["Interval"]
-    # i = (
-    #     (_day_trunc(cut_end) - _day_trunc(start0)).days // interval
-    #     if interval > 0
-    #     else 0
-    # )
-    # offs = timedelta(days=i * interval)
-    # assert offs.days >= 0
-    # r3 = add_availability(
-    #     r["fields"]["Instructor"][0],
-    #     start0 + offs,
-    #     end0 + offs,
-    #     recurrence,
-    # )
-
-    # return (r2, r3)
-
-
 def get_forecast_overrides():
     """Gets all overrides for the shop tech shift forecast"""
     for r in get_all_records("people", "shop_tech_forecast_overrides"):

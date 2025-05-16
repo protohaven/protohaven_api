@@ -121,8 +121,9 @@ def techs_members():
     start = (dateparser.parse(start) if start else tznow()).replace(
         hour=0, minute=0, second=0
     )
-    log.info(f"Fetching signins starting at {start}")
-    return list(airtable.get_signins_between(start, None))
+    end = start.replace(hour=23, minute=59, second=59)
+    log.info(f"Fetching signins from {start} to {end}")
+    return list(airtable.get_signins_between(start, end))
 
 
 @page.route("/techs/area_leads")
