@@ -80,7 +80,6 @@ comms:
     Staff: 1130895854769807520
     Techs: 801513013710422056
     TechLeads: 1074870525026893844
-    Onboarders: 1248676878038863872
     PrivateInstructors: 1248640897126633575
     Members: 800816903881752616
     Board: 953363629837799434
@@ -176,6 +175,7 @@ airtable:
       sign_in_survey_responses: "tbl6hPSnVBIXk8MQO"
       sign_ins: "tblVBhzeE3k9yYRn9"
       automation_intents: "tblBgXQlOFjNqvBVm"
+      volunteers_staff: "tblgwvc07mvLg3zds"
 calendar:
   credentials_path: "credentials.json"
   instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"

@@ -126,7 +126,7 @@ def get_member_and_activation_state(email):
     """Fetch the candidate account from Neon, preferring active memberships.
     Returns (member info, is_deferred)
 
-    See Onboarding V2 proposal for deferral info at
+    More deferral info available at
     https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies

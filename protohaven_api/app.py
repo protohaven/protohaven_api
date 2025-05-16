@@ -11,7 +11,6 @@ from protohaven_api.handlers.index import page as index_pages
 from protohaven_api.handlers.index import setup_sock_routes as index_ws_setup
 from protohaven_api.handlers.instructor import page as instructor_pages
 from protohaven_api.handlers.member import page as member_pages
-from protohaven_api.handlers.onboarding import page as onboarding_pages
 from protohaven_api.handlers.reservations import page as reservations_pages
 from protohaven_api.handlers.staff import page as staff_pages
 from protohaven_api.handlers.staff import setup_sock_routes as staff_ws_setup
@@ -45,7 +44,6 @@ def configure_app(behind_proxy=False, cors_all_routes=False, session_secret=None
         index_pages,
         admin_pages,
         instructor_pages,
-        onboarding_pages,
         staff_pages,
         techs_pages,
         reservations_pages,

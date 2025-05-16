@@ -103,7 +103,6 @@ class DiscordIntent:  # pylint: disable=too-many-instance-attributes
 
 
 SYNC_ROLES = {
-    "Onboarders": Role.ONBOARDING["name"],
     "Staff": Role.STAFF["name"],
     "Instructors": Role.INSTRUCTOR["name"],
     "PrivateInstructors": Role.PRIVATE_INSTRUCTOR["name"],
