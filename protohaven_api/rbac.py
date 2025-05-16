@@ -121,6 +121,21 @@ def get_roles():
     return result
 
 
+def require_dev_environment():
+    """Require the server to be running a non-prod (i.e. Dev) environment"""
+
+    def fn_setup(fn):
+        def do_dev_check(*args, **kwargs):
+            if get_config("general/server_mode").lower() == "prod":
+                return Response("Access Denied", status=401)
+            return fn(*args, **kwargs)
+
+        do_dev_check.__name__ = fn.__name__
+        return do_dev_check
+
+    return fn_setup
+
+
 def require_login_role(*role, redirect_to_login=True):
     """Decorator that requires the use to be logged in and have a particular role"""
 
