@@ -56,7 +56,7 @@ def test_techs_picture_url(lead_client, mocker):
     assert rep == {
         "tech_lead": True,
         "techs": [
-            {"bio": {}, "email": "asdf", "picture": "want"},
+            {"bio": "", "email": "asdf", "picture": "want"},
         ],
     }
 
@@ -77,7 +77,7 @@ def test_techs_picture_url(lead_client, mocker):
     assert rep == {
         "tech_lead": True,
         "techs": [
-            {"bio": {}, "email": "asdf", "picture": "http://localhost:8080/want"},
+            {"bio": "", "email": "asdf", "picture": "http://localhost:8080/want"},
         ],
     }
 
@@ -546,11 +546,13 @@ def test_techs_members(mocker, tech_client):
     rep = tech_client.get("/techs/members?start=2024-01-01")
     assert rep.json == mock_signins
     tl.airtable.get_signins_between.assert_called_once_with(
-        d(1).replace(hour=0, minute=0, second=0), None
+        d(1).replace(hour=0, minute=0, second=0),
+        d(1).replace(hour=23, minute=59, second=59),
     )
 
     got = tech_client.get("/techs/members")
     assert rep.json == mock_signins
     tl.airtable.get_signins_between.assert_called_with(
-        d(0).replace(hour=0, minute=0, second=0), None
+        d(0).replace(hour=0, minute=0, second=0),
+        d(0).replace(hour=23, minute=59, second=59),
     )
