@@ -379,21 +379,21 @@ def test_refresh_volunteer_memberships(mocker, cli):
     f.neon.create_zero_cost_membership.assert_has_calls(
         [
             mocker.call(
-                123,
+                "123",
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
                 term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
             mocker.call(
-                456,
+                "456",
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
                 term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
             mocker.call(
-                789,
+                "789",
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Software Developer"},
@@ -434,7 +434,7 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
     f.neon.create_zero_cost_membership.assert_has_calls(
         [
             mocker.call(
-                123,
+                "123",
                 d(1, 0),
                 d(31, 0),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
