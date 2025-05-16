@@ -129,7 +129,7 @@ def techs_members():
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
     _, areas = _fetch_tool_states_and_areas(tznow())
-    techs = neon.fetch_techs_list(include_pii=am_lead_role())
+    techs = neon.fetch_techs_list(include_pii=am_role(Role.SHOP_TECH) or am_lead_role())
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
     for t in techs:
@@ -159,7 +159,9 @@ def techs_forecast():
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:
         return Response("Nonzero days required for forecast", status=400)
-    return forecast.generate(date, forecast_len)
+    return forecast.generate(
+        date, forecast_len, include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
+    )
 
 
 def _notify_override(name, shift, techs):
@@ -209,14 +211,16 @@ def techs_forecast_override():
 @page.route("/techs/list")
 def techs_list():
     """Fetches tech info and lead status of observer"""
-    techs_results = neon.fetch_techs_list(include_pii=am_lead_role())
+    techs_results = neon.fetch_techs_list(
+        include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
+    )
     bios_results = airtable.get_all_tech_bios()
     bio_dict = {bio["fields"]["Email"]: bio["fields"] for bio in bios_results}
     for idx, tech in enumerate(techs_results):
         tech_bio = bio_dict.get(tech["email"], {})
         if tech_bio:
-            techs_results[idx]["bio"] = tech_bio.get("Bio", {})
-            thumbs = tech_bio.get("Picture")[0]["thumbnails"]["small"]
+            techs_results[idx]["bio"] = tech_bio.get("Bio", "")
+            thumbs = tech_bio.get("Picture")[0]["thumbnails"]["large"]
             techs_results[idx]["picture"] = thumbs.get("url") or urljoin(
                 "http://localhost:8080",
                 thumbs.get("signedPath"),

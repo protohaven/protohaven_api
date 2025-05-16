@@ -46,7 +46,7 @@ def test_techs_picture_url(lead_client, mocker):
             {
                 "fields": {
                     "Email": "asdf",
-                    "Picture": [{"thumbnails": {"small": {"url": "want"}}}],
+                    "Picture": [{"thumbnails": {"large": {"url": "want"}}}],
                 }
             },
         ],
@@ -67,7 +67,7 @@ def test_techs_picture_url(lead_client, mocker):
             {
                 "fields": {
                     "Email": "asdf",
-                    "Picture": [{"thumbnails": {"small": {"signedPath": "want"}}}],
+                    "Picture": [{"thumbnails": {"large": {"signedPath": "want"}}}],
                 }
             },
         ],
