@@ -42,7 +42,7 @@ class Role:
     SHOP_TECH = {"name": "Shop Tech", "id": "238"}
     SHOP_TECH_LEAD = {"name": "Shop Tech Lead", "id": "241"}
     EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
-    ONBOARDING = {"name": "Onboarding", "id": "240"}
+    ONBOARDING_DEPRECATED = {"name": "Onboarding", "id": "240"}  # DO NOT USE
     ADMIN = {"name": "Admin", "id": "239"}
     SOFTWARE_DEV = {"id": "258", "name": "Software Dev"}
     IT_MAINTENANCE = {"id": "274", "name": "IT Maintenance"}
@@ -67,11 +67,6 @@ class Role:
             if isinstance(v, dict) and v.get("id") is not None:
                 results[v["name"]] = v
         return results
-
-    @classmethod
-    def can_onboard(cls, r):
-        """Returns True if an onboarder can set this role in /onboarding/wizard"""
-        return r in (cls.INSTRUCTOR, cls.PRIVATE_INSTRUCTOR, cls.SHOP_TECH)
 
 
 def require_login(fn):

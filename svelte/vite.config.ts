@@ -6,12 +6,9 @@ import { defineConfig } from 'vitest/config';
 const SERVER_BASE = 'http://127.0.0.1:5000';
 const WS_SERVER_BASE = 'ws://127.0.0.1:5000';
 
-// Paths to proxy to the backend. Note that we use ? instead of * at the
-// end of regex paths as many of the base paths (e.g. "/onboarding") are
-// what we want to see fetched from this vite dev server
+// Paths to proxy to the backend.
 // See https://vitejs.dev/config/server-options#server-proxy
 const PROXY_PATHS = [
-  '^/onboarding/.',
   '^/instructor/.',
   '^/techs/.',
   '^/member/.',

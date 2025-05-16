@@ -396,8 +396,10 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     ):
         if e.get("Event Web Publish") != "Yes" or e.get("Event Web Register") != "Yes":
             continue
-        capacity = int(e.get("Event Capacity"))
-        numreg = int(e.get("Event Registration Attendee Count"))
+
+        # Events may not always have capacity, or potentially even registrants.
+        capacity = int(e.get("Event Capacity") or "0")
+        numreg = int(e.get("Event Registration Attendee Count") or "999")
         if capacity <= numreg:
             continue
         if not e.get("Event Start Date") or not e.get("Event Start Time"):

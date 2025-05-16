@@ -340,26 +340,26 @@ def test_refresh_volunteer_memberships(mocker, cli):
         side_effect=[
             [
                 {
-                    "Account ID": 123,
+                    "Account ID": "123",
                     "First Name": "John",
                     "Last Name": "Doe",
                 }
             ],
             [
                 {
-                    "Account ID": 456,
+                    "Account ID": "456",
                     "First Name": "Jane",
                     "Last Name": "Doe",
                 }
             ],
             [
                 {
-                    "Account ID": 789,
+                    "Account ID": "789",
                     "First Name": "Jorb",
                     "Last Name": "Dorb",
                 },
                 {
-                    "Account ID": 999,
+                    "Account ID": "999",
                     "First Name": "Past",
                     "Last Name": "DeLimit",
                 },
@@ -412,7 +412,7 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
         side_effect=[
             [
                 {
-                    "Account ID": 123,
+                    "Account ID": "123",
                     "First Name": "John",
                     "Last Name": "Doe",
                 }
@@ -453,7 +453,7 @@ def test_refresh_volunteer_memberships_autorenew(mocker, cli):
         side_effect=[
             [
                 {
-                    "Account ID": 123,
+                    "Account ID": "123",
                     "First Name": "John",
                     "Last Name": "Doe",
                 }
@@ -481,7 +481,7 @@ def test_refresh_volunteer_memberships_exclude(mocker, cli):
         side_effect=[
             [
                 {
-                    "Account ID": 123,
+                    "Account ID": "123",
                     "First Name": "John",
                     "Last Name": "Doe",
                 }
@@ -511,7 +511,7 @@ def test_refresh_volunteer_memberships_filter_dev(mocker, cli):
             [],
             [  # Dev comes last
                 {
-                    "Account ID": 123,
+                    "Account ID": "123",
                     "First Name": "John",
                     "Last Name": "Doe",
                 }

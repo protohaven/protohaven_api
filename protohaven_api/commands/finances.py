@@ -163,10 +163,7 @@ class Commands:
                 return ["Shop Tech Lead"]
             if Role.SHOP_TECH["name"] in details["roles"]:
                 return ["Shop Tech"]
-            if (
-                Role.INSTRUCTOR["name"] in details["roles"]
-                or Role.ONBOARDING["name"] in details["roles"]
-            ):
+            if Role.INSTRUCTOR["name"] in details["roles"]:
                 return ["Instructor"]
         if num_company > 0:
             return ["Non-Profit Membership", "Company Membership"]
@@ -464,18 +461,18 @@ class Commands:
             if len(summary) >= args.limit:
                 log.info("Processing limit reached; exiting")
                 break
-            if args.exclude and aid not in args.exclude:
-                log.debug(f"Skipping {aid}: in exclusion list")
+            if args.exclude and aid in args.exclude:
+                log.info(f"Skipping {aid}: in exclusion list")
                 continue
             if args.filter and aid not in args.filter:
-                log.debug(f"Skipping {aid}: not in filter")
+                log.info(f"Skipping {aid}: not in filter")
                 continue
             if (
                 role == Role.SOFTWARE_DEV
                 and args.filter_dev
                 and aid not in args.filter_dev
             ):
-                log.debug(f"Skipping {aid}: not in software dev filter")
+                log.info(f"Skipping {aid}: not in software dev filter")
                 continue
 
             s = {
