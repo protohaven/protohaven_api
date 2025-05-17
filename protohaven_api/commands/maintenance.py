@@ -144,17 +144,24 @@ class Commands:
                     [neon.CustomField.DISCORD_USER, "First Name", "Last Name"]
                 )
                 name_to_discord_dict = {
-                    f'{item["First Name"]} {item["Last Name"]}': item["Discord User"]
+                    f'{item["First Name"]} {item["Last Name"]}'.lower().strip(): item[
+                        "Discord User"
+                    ]
                     for item in all_users
                 }
+                log.info(
+                    f"Loaded mapping of {len(name_to_discord_dict)} associated discord usernames"
+                )
                 am_tech_discord = [
-                    f"@{name_to_discord_dict.get(tech_name)}"
+                    f"@{name_to_discord_dict.get(tech_name.lower().strip())}"
                     for tech_name in techs_on_duty["AM"]["people"]
                 ]
+                log.info(f"AM techs: {am_tech_discord}")
                 pm_tech_discord = [
-                    f"@{name_to_discord_dict.get(tech_name)}"
+                    f"@{name_to_discord_dict.get(tech_name.lower().strip())}"
                     for tech_name in techs_on_duty["PM"]["people"]
                 ]
+                log.info(f"PM techs: {pm_tech_discord}")
             except Exception as e:  # pylint: disable=broad-exception-caught
                 comms.send_discord_message(
                     "Error looking up Discord users for mentioning in `gen_maintenance_tasks`:\n"
