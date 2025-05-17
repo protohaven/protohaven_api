@@ -65,13 +65,17 @@ function resolve_docs_category(docs, cat) {
 
 function refresh() {
   promise = Promise.all([get("/techs/tool_state"), get("/techs/docs_state")]).then((data) => {
-    tool_state = data[0];
+    tool_state = [];
     let docs_state = data[1];
     areas = new Set();
-    for (let tool of tool_state) {
+    for (let tool of data[0]) {
+      if (tool.status === "Grey (N/A)") {
+        continue;
+      }
       let docs = docs_state['by_code'][tool.code] || {};
       tool.clearance_doc = resolve_docs_category(docs, 'clearance');
       tool.tutorial_doc = resolve_docs_category(docs, 'tool_tutorial');
+      tool_state.push(tool);
       for (let area of tool.area) {
         areas.add(area.trim());
       }
