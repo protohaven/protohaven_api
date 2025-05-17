@@ -132,6 +132,8 @@ nocodb:
       clearance_codes: "mmk3g8k9pwcykd0"
     fake_wyze:
       devices: "mhjg19llr23inaa"
+    fake_booked:
+      reservations: "mkbmiwjyi3ow1ae"
   link_field_ids:
     class_automation:
       availability:

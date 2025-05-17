@@ -79,4 +79,10 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
 
 
 if __name__ == "__main__":
-    ProtohavenCLI()
+    # ProtohavenCLI()
+    import json
+
+    from dateutil import parser as dateparser
+
+    from protohaven_api.automation.classes import scheduler
+    print(json.dumps(scheduler.generate_env(dateparser.parse("2025-05-16"), dateparser.parse("2025-05-17")), indent=2))
