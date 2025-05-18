@@ -124,16 +124,26 @@ def send_discord_message(content, channel=None, blocking=True):
 
     # For convenience, any recognizable @role mentions are converted
     # See https://discord.com/developers/docs/reference#message-formatting
-    def sub_roles(m):
+    def sub_roles_and_users(m):
         s = m.group()
-        role_id = cfg["discord_roles"].get(m.group()[1:], None)
-        if role_id is None:
-            return s
+        name = m.group()[1:]
+        log.info(f"Found potential role/user name in content: @{name}")
+        role_id = cfg["discord_roles"].get(name, None)
+        if role_id is not None:
+            log.info(f"Replacing {s} with role id tag {role_id}")
+            return f"<@&{role_id}>"
 
-        log.info(f"Replacing {s} with role id tag {role_id}")
-        return f"<@&{role_id}>"
+        user_id = get_connector().discord_bot_fn("resolve_user_id", name)
+        if user_id is not None:
+            log.info(f"Replacing {s} with user id tag {user_id}")
+            return f"<@{user_id}>"
 
-    content = re.sub(r"@\w+", sub_roles, content, flags=re.MULTILINE)
+        log.info("No user or role match; leaving it alone")
+        return s
+
+    # Usernames are alphanumeric and can contain periods and underscores
+    # https://gamertweak.com/new-username-system-discord/
+    content = re.sub(r"@[\w\._]+", sub_roles_and_users, content, flags=re.MULTILINE)
 
     log.info(f"Message is {len(content)} chars")
     for i in range(0, len(content), DISCORD_CHAR_LIMIT):
