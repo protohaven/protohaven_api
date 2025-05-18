@@ -14,99 +14,106 @@ export let date_edited;
 let records = {};
 let edit_rec = null;
 
-function reload() {
-  console.log("Reload calendar");
-  if (start && end && inst) {
-    promise = get(`/instructor/calendar/availability?inst=${encodeURIComponent(inst)}&t0=${encodeURIComponent(start)}&t1=${encodeURIComponent(end)}`).then((data) => {
-      records = data.records;
+function handle_data(data) {
+  records = data.records;
 
-      let avail_lookup = {};
-      for (let evt of data.availability) {
-        let dstr = isodate(evt[1]);
-        avail_lookup[dstr] = [...(avail_lookup[dstr] || []), evt];
-      }
-
-      let reservation_lookup = {};
-      let idx = 0;
-      for (let res of data.reservations) {
-        let dstr = isodate(res[0]);
-        reservation_lookup[dstr] = [...(reservation_lookup[dstr] || []), {
-          idx,
-          start: localtime(res[0]),
-          end: localtime(res[1]),
-          resource: res[2],
-          name: res[3],
-          url: res[4],
-        }];
-        idx += 1;
-      }
-
-      let sched_days = {}
-      idx = 0;
-      for (let sch of data.schedule) {
-        for (let i = 0; i < sch['fields']['Days (from Class)'][0]; i++) {
-          let d = new Date(sch['fields']['Start Time']);
-          d.setDate(d.getDate() + 7*i);
-          let sched = {
-            idx,
-            inst: sch['fields']['Instructor'],
-            name: sch['fields']['Name (from Class)'],
-            neon_id: sch['fields']['Neon ID']
-          };
-          sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
-          if (!sched.neon_id) {
-            sched.display = "*" + sched.display;
-          }
-          sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
-          idx += 1
-        }
-      }
-
-      let s = new Date(start);
-      let d = new Date(start);
-      d.setHours(12); // Select Noon to prevent DST bugs changing the date
-      d.setDate(d.getDate() - d.getDay()); // Set to start of the week
-      let e = new Date(end);
-
-      let weeks = [];
-      let darr = [];
-      for (; d < s; d.setDate(d.getDate() + 1)) {
-        let dstr = isodate(d);
-        darr.push({'date': dstr, 'filler': true, 'events': []});
-        if (darr.length >= 7) {
-          weeks.push(darr);
-          darr = [];
-        }
-      }
-
-      for (; d <= e; d.setDate(d.getDate() + 1)) {
-        let dstr = isodate(d);
-        darr.push({
-          'date': dstr,
-          'events': avail_lookup[dstr] || [],
-          'reservations': reservation_lookup[dstr] || [],
-          'schedule': sched_days[dstr] || []
-        });
-        if (darr.length >= 7) {
-          weeks.push(darr);
-          darr = [];
-        }
-      }
-      if (darr.length >= 0) {
-	      weeks.push(darr);
-      }
-      let result = {'start': new Date(start), 'end': e, weeks, 'events': data.records};
-      console.log(result);
-      return result;
-    });
+  let avail_lookup = {};
+  for (let evt of data.availability) {
+    let dstr = isodate(evt[1]);
+    avail_lookup[dstr] = [...(avail_lookup[dstr] || []), evt];
   }
+
+  let reservation_lookup = {};
+  let idx = 0;
+  for (let res of data.reservations) {
+    let dstr = isodate(res[0]);
+    reservation_lookup[dstr] = [...(reservation_lookup[dstr] || []), {
+      idx,
+      start: localtime(res[0]),
+      end: localtime(res[1]),
+      resource: res[2],
+      name: res[3],
+      url: res[4],
+    }];
+    idx += 1;
+  }
+
+  let sched_days = {}
+  idx = 0;
+  for (let sch of data.schedule) {
+    for (let i = 0; i < sch['fields']['Days (from Class)'][0]; i++) {
+      let d = new Date(sch['fields']['Start Time']);
+      d.setDate(d.getDate() + 7*i);
+      let sched = {
+        idx,
+        inst: sch['fields']['Instructor'],
+        name: sch['fields']['Name (from Class)'],
+        neon_id: sch['fields']['Neon ID']
+      };
+      sched.display = sched.inst.match(/\b(\w)/g).join(''); // Get initials of name
+      if (!sched.neon_id) {
+        sched.display = "*" + sched.display;
+      }
+      sched_days[isodate(d)] = [...(sched_days[isodate(d)] || []), sched];
+      idx += 1
+    }
+  }
+
+  let s = new Date(start);
+  let d = new Date(start);
+  d.setHours(12); // Select Noon to prevent DST bugs changing the date
+  d.setDate(d.getDate() - d.getDay()); // Set to start of the week
+  let e = new Date(end);
+
+  let weeks = [];
+  let darr = [];
+  for (; d < s; d.setDate(d.getDate() + 1)) {
+    let dstr = isodate(d);
+    darr.push({'date': dstr, 'filler': true, 'events': []});
+    if (darr.length >= 7) {
+      weeks.push(darr);
+      darr = [];
+    }
+  }
+
+  for (; d <= e; d.setDate(d.getDate() + 1)) {
+    let dstr = isodate(d);
+    darr.push({
+      'date': dstr,
+      'events': avail_lookup[dstr] || [],
+      'reservations': reservation_lookup[dstr] || [],
+      'schedule': sched_days[dstr] || []
+    });
+    if (darr.length >= 7) {
+      weeks.push(darr);
+      darr = [];
+    }
+  }
+  if (darr.length >= 0) {
+    weeks.push(darr);
+  }
+  let result = {'start': new Date(start), 'end': e, weeks, 'events': data.records};
+  return result;
+}
+
+
+let controller = new AbortController();
+function reload() {
+  if (!(start && end && inst)) {
+    return;
+  }
+  if (controller) {
+    controller.abort(); // Prevent double fetches
+    controller = new AbortController();
+  }
+  promise = get(`/instructor/calendar/availability?inst=${encodeURIComponent(inst)}&t0=${encodeURIComponent(start)}&t1=${encodeURIComponent(end)}`, controller.signal).then(handle_data);
 }
 $: {
   if (start && end) {
     reload();
   }
 }
-onMount(reload);
+// onMount(reload); // Not needed since start and end are defined initially
 
 let promise = Promise.resolve((resolve, reject)=>{resolve([])});
 
@@ -188,20 +195,21 @@ function start_edit(e, d) {
 		<td on:click={(evt) => start_edit(evt, d.date)} class={(d.filler) ? "filler" : ""}>
 			{d.date.substr(5)}
 			{#if d.events.length > 0}
-
-			{#each d.events as e}
-			  <Button style="display:block" color={((edit_rec && edit_rec.id) === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
-			{/each}
-      {#if d.reservations.length > 0}
-			  <Popover trigger="hover" target={"resrv"+d.reservations[0].idx}>
+        {#each d.events as e}
+          <Button style="display:block" color={((edit_rec && edit_rec.id) === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
+        {/each}
+      {/if}
+      {#if d.reservations && d.reservations.length > 0}
+        <Popover trigger="hover" target={"resrv"+d.reservations[0].idx}>
           {#each d.reservations as r}
               <div>{r.resource}</div>
               <div>{r.start} - {r.end}</div>
               <div><a href={r.url} target="_blank">Reserved by {r.name}</a></div>
           {/each}
         </Popover>
-			<Badge id={"resrv"+d.reservations[0].idx} color={"warning"} target="_blank">{d.reservations.length} res</Badge>
-      {/if}
+        <Badge id={"resrv"+d.reservations[0].idx} color={"warning"} target="_blank">{d.reservations.length} res</Badge>
+			{/if}
+      {#if d.schedule && d.schedule.length > 0}
 			{#each d.schedule as s}
 			  <Popover trigger="hover" target={"sched"+s.idx}>
           {#if s.neon_id}
@@ -212,7 +220,7 @@ function start_edit(e, d) {
         </Popover>
 			  <Badge id={"sched"+s.idx} color={(s.inst === inst) ? "primary" : "light"}>{s.display}</Badge>
 			{/each}
-			{/if}
+      {/if}
 		</td>
 		{/each}
 	    </tr>
