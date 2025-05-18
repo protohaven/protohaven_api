@@ -15,6 +15,7 @@ let records = {};
 let edit_rec = null;
 
 function reload() {
+  console.log("Reload calendar");
   if (start && end && inst) {
     promise = get(`/instructor/calendar/availability?inst=${encodeURIComponent(inst)}&t0=${encodeURIComponent(start)}&t1=${encodeURIComponent(end)}`).then((data) => {
       records = data.records;
@@ -95,8 +96,8 @@ function reload() {
 	      weeks.push(darr);
       }
       let result = {'start': new Date(start), 'end': e, weeks, 'events': data.records};
-      return result;
       console.log(result);
+      return result;
     });
   }
 }
