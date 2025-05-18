@@ -17,6 +17,7 @@ class PHClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.role_map = {}
+        self.user_map = {}
         self.member_join_hook_fn = lambda details: []
 
     @property
@@ -33,7 +34,16 @@ class PHClient(discord.Client):
         # role = guild.get_role(role_id)
         for r in self.guild.roles:
             self.role_map[r.name] = r
-        log.info(f"Roles: {self.role_map}")
+        log.info(f"Loaded {len(self.role_map)} roles")
+
+        for m in self.guild.members:
+            self.user_map[m.name] = m.id
+            self.user_map[m.display_name] = m.id
+        log.info(f"Loaded {len(self.user_map)} users")
+
+    async def resolve_user_id(self, name):
+        """Resolves a user ID from a name or display name"""
+        return self.user_map.get(name)
 
     async def handle_hook_action(self, fn_name, *args):
         """Handle actions yielded back from calling a hook_fn (see `on_member_join`)"""
