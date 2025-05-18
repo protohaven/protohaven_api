@@ -63,7 +63,7 @@ Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
             "fail, area overlap",
             t0=d(1, 18),
             area_occupancy={"a0": [[d(1, 18), d(1, 19), "Occupying Event"]]},
-            want_reason="Area already occupied by other event (Occupying Event)",
+            want_reason="Area already occupied (Occupying Event)",
         ),
         Tc(
             "fail, too soon",

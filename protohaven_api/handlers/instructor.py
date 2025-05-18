@@ -475,7 +475,7 @@ def inst_availability():  # pylint: disable=too-many-return-statements
                     f"{res['firstName']} {res['lastName']}",
                     f"https://reserve.protohaven.org/Web/reservation/?rn={res['referenceNumber']}",
                 )
-                for res in booked.get_reservations(t0, t1)["reservations"]
+                for res in booked.get_reservations(t0, t1).get("reservations", [])
             ],
         }
 

@@ -242,7 +242,9 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
             missing = [
-                f for f in ("Name", "Hours", "Days", "Area") if f not in c["fields"]
+                f
+                for f in ("Name", "Hours", "Days", "Name (from Area)")
+                if f not in c["fields"]
             ]
             if len(missing) > 0:
                 notices[c["id"]].append(

@@ -1,10 +1,8 @@
 """Provide date and availability validation methods for class scheduling"""
-import logging
 from functools import reduce
 
 import holidays
 
-log = logging.getLogger("automation.classes.validation")
 
 def date_range_overlaps(a0, a1, b0, b1):
     """Return True if [a0,a1] and [b0,b1] overlap"""
@@ -71,8 +69,6 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
     if c is None or c.hours is None:
         return False, "Could not fetch class timing details"
 
-    log.info(f"Area occupancy {area_occupancy}")
-
     for t0, t1 in c.expand(start):
         # Make sure the instructor is available
         within_avail = reduce(
@@ -98,12 +94,11 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
 
         # Skip if area is already occupied
         for a in c.areas:
-            log.info(f"Test check area conflict {a} {t0} - {t1} vs {area_occupancy.get(a, [])}")
-            conflicting_class = has_area_conflict(area_occupancy.get(a, []), t0, t1)
-            if conflicting_class:
+            conflict = has_area_conflict(area_occupancy.get(a, []), t0, t1)
+            if conflict:
                 return (
                     False,
-                    f"Area already occupied ({conflicting_class})",
+                    f"Area already occupied ({conflict})",
                 )
 
         # Skip this particular time if it's in an exclusion region
