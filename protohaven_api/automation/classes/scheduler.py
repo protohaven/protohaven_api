@@ -32,11 +32,7 @@ def get_reserved_area_occupancy(from_date, to_date):
         area = row["fields"].get("Name (from Shop Area)")
         if rid and area:
             id_to_area[str(rid)] = area
-    log.info(f"Booked to area map: {id_to_area}")
-
-    log.info(f"Fetching reservations from {from_date} to {to_date}")
     for res in booked.get_reservations(from_date, to_date)["reservations"]:
-        log.info(f"Reservation: {res}")
         for area in id_to_area.get(res["resourceId"], []):
             # We use "buffered" start and end date, even though
             # currently it's the same value as start/end date.
@@ -305,7 +301,7 @@ def generate_env(
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
 
     reserved_areas = get_reserved_area_occupancy(start_date, end_date)
-    log.info(f"Computed area reservations: {reserved_areas}")
+    log.info(f"Computed reservations for {len(reserved_areas)} area(s)")
 
     # Compute ancillary info about what times/areas/instructors are occupied by which classes
 

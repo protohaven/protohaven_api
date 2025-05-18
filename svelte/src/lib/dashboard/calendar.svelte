@@ -96,6 +96,7 @@ function reload() {
       }
       let result = {'start': new Date(start), 'end': e, weeks, 'events': data.records};
       return result;
+      console.log(result);
     });
   }
 }
