@@ -127,6 +127,7 @@ def send_discord_message(content, channel=None, blocking=True):
     def sub_roles_and_users(m):
         s = m.group()
         name = m.group()[1:]
+        log.info(f"Found potential role/user name in content: @{name}")
         role_id = cfg["discord_roles"].get(name, None)
         if role_id is not None:
             log.info(f"Replacing {s} with role id tag {role_id}")
@@ -137,6 +138,7 @@ def send_discord_message(content, channel=None, blocking=True):
             log.info(f"Replacing {s} with user id tag {user_id}")
             return f"<@{user_id}>"
 
+        log.info("No user or role match; leaving it alone")
         return s
 
     # Usernames are alphanumeric and can contain periods and underscores
