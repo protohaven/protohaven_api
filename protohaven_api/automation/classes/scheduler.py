@@ -19,16 +19,17 @@ from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.scheduler")
 
+
 def get_reserved_area_occupancy(from_date, to_date):
     """Fetches reservations between `from_date` and `to_date` and
-        groups them by the area they occupy. This is intended
-        to prevent class scheduling automation from colliding with
-        manually-scheduled reservations on tools."""
+    groups them by the area they occupy. This is intended
+    to prevent class scheduling automation from colliding with
+    manually-scheduled reservations on tools."""
     occupancy = defaultdict(list)
     id_to_area = {}
     for row in get_all_records("tools_and_equipment", "tools"):
-        rid = row['fields'].get('BookedResourceId')
-        area = row['fields'].get('Name (from Shop Area)')
+        rid = row["fields"].get("BookedResourceId")
+        area = row["fields"].get("Name (from Shop Area)")
         if rid and area:
             id_to_area[str(rid)] = area
     log.info(f"Booked to area map: {id_to_area}")
@@ -41,16 +42,17 @@ def get_reserved_area_occupancy(from_date, to_date):
             # currently it's the same value as start/end date.
             # There may be setup/teardown time incorporated in
             # the future for reservations though.
-            occupancy[area].append([
-                dateparser.parse(res["bufferedStartDate"]),
-                dateparser.parse(res["bufferedEndDate"]),
+            occupancy[area].append(
                 [
-                    f"{res["resourceName"]} reservation by "
-                    f"{res["firstName"]} {res["lastName"]} (#{res["referenceNumber"]})"
+                    dateparser.parse(res["bufferedStartDate"]),
+                    dateparser.parse(res["bufferedEndDate"]),
+                    f"{res['resourceName']} reservation by "
+                    + f"{res['firstName']} {res['lastName']}, "
+                    + "https://reserve.protohaven.org/Web/reservation/?rn="
+                    + str(res["referenceNumber"]),
                 ]
-            ])
+            )
     return occupancy
-
 
 
 def fetch_formatted_availability(inst_filter, time_min, time_max):
@@ -225,7 +227,6 @@ def gen_class_and_area_stats(
     for area, aocs in reserved_areas.items():
         area_occupancy[area] += aocs
 
-
     for v in area_occupancy.values():
         v.sort(key=lambda o: o[1])
     return exclusions, area_occupancy, clearance_exclusion, instructor_occupancy
@@ -268,7 +269,7 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
                     c["fields"]["Name"],
                     hours=c["fields"]["Hours"],
                     days=c["fields"]["Days"],
-                    areas=_idref(c, "Area"),
+                    areas=c["fields"]["Name (from Area)"],
                     exclusions=exclusions,
                     score=compute_score(c),
                 )
@@ -301,10 +302,8 @@ def generate_env(
     if not include_proposed:
         cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
 
-
     reserved_areas = get_reserved_area_occupancy(start_date, end_date)
     log.info(f"Computed area reservations: {reserved_areas}")
-
 
     # Compute ancillary info about what times/areas/instructors are occupied by which classes
 
@@ -329,7 +328,6 @@ def generate_env(
         f"Computed occupancy of {len(area_occupancy)} different areas, "
         f"{len(instructor_occupancy)} instructors"
     )
-    log.info(f"Area occupancy: {area_occupancy}") # TODO rm
 
     # Load classes from airtable
     classes, notices = load_schedulable_classes(exclusions, clearance_exclusions)

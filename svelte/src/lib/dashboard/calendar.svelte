@@ -17,15 +17,31 @@ let edit_rec = null;
 function reload() {
   if (start && end && inst) {
     promise = get(`/instructor/calendar/availability?inst=${encodeURIComponent(inst)}&t0=${encodeURIComponent(start)}&t1=${encodeURIComponent(end)}`).then((data) => {
-      let lookup = {};
       records = data.records;
+
+      let avail_lookup = {};
       for (let evt of data.availability) {
         let dstr = isodate(evt[1]);
-        lookup[dstr] = [...(lookup[dstr] || []), evt];
+        avail_lookup[dstr] = [...(avail_lookup[dstr] || []), evt];
+      }
+
+      let reservation_lookup = {};
+      let idx = 0;
+      for (let res of data.reservations) {
+        let dstr = isodate(res[0]);
+        reservation_lookup[dstr] = [...(reservation_lookup[dstr] || []), {
+          idx,
+          start: localtime(res[0]),
+          end: localtime(res[1]),
+          resource: res[2],
+          name: res[3],
+          url: res[4],
+        }];
+        idx += 1;
       }
 
       let sched_days = {}
-      let idx = 0;
+      idx = 0;
       for (let sch of data.schedule) {
         for (let i = 0; i < sch['fields']['Days (from Class)'][0]; i++) {
           let d = new Date(sch['fields']['Start Time']);
@@ -66,7 +82,8 @@ function reload() {
         let dstr = isodate(d);
         darr.push({
           'date': dstr,
-          'events': lookup[dstr] || [],
+          'events': avail_lookup[dstr] || [],
+          'reservations': reservation_lookup[dstr] || [],
           'schedule': sched_days[dstr] || []
         });
         if (darr.length >= 7) {
@@ -173,6 +190,16 @@ function start_edit(e, d) {
 			{#each d.events as e}
 			  <Button style="display:block" color={((edit_rec && edit_rec.id) === e[0]) ? 'primary' : 'secondary'} on:click={(evt) => {start_edit(evt, e[0])}}>{localtime(e[1])}</Button>
 			{/each}
+      {#if d.reservations.length > 0}
+			  <Popover trigger="hover" target={"resrv"+d.reservations[0].idx}>
+          {#each d.reservations as r}
+              <div>{r.resource}</div>
+              <div>{r.start} - {r.end}</div>
+              <div><a href={r.url} target="_blank">Reserved by {r.name}</a></div>
+          {/each}
+        </Popover>
+			<Badge id={"resrv"+d.reservations[0].idx} color={"warning"} target="_blank">{d.reservations.length} res</Badge>
+      {/if}
 			{#each d.schedule as s}
 			  <Popover trigger="hover" target={"sched"+s.idx}>
           {#if s.neon_id}

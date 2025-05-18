@@ -12,7 +12,7 @@ from protohaven_api.automation.classes.scheduler import (
 from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, comms, neon, neon_base
+from protohaven_api.integrations import airtable, booked, comms, neon, neon_base
 from protohaven_api.rbac import Role, am_role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -457,8 +457,6 @@ def inst_availability():  # pylint: disable=too-many-return-statements
         t1 += datetime.timedelta(hours=24)  # End date is inclusive
         avail = list(airtable.get_instructor_availability(inst))
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
-
-        log.info(f"Expanded and merged availability: {expanded}")
         sched = [
             s
             for s in airtable.get_class_automation_schedule()
@@ -469,6 +467,16 @@ def inst_availability():  # pylint: disable=too-many-return-statements
             "records": {r["id"]: r["fields"] for r in avail},
             "availability": expanded,
             "schedule": sched,
+            "reservations": [
+                (
+                    res["bufferedStartDate"],
+                    res["bufferedEndDate"],
+                    res["resourceName"],
+                    f"{res['firstName']} {res['lastName']}",
+                    f"https://reserve.protohaven.org/Web/reservation/?rn={res['referenceNumber']}",
+                )
+                for res in booked.get_reservations(t0, t1)["reservations"]
+            ],
         }
 
     if request.method == "PUT":
