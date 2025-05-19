@@ -94,11 +94,11 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
 
         # Skip if area is already occupied
         for a in c.areas:
-            conflicting_class = has_area_conflict(area_occupancy.get(a, []), t0, t1)
-            if conflicting_class:
+            conflict = has_area_conflict(area_occupancy.get(a, []), t0, t1)
+            if conflict:
                 return (
                     False,
-                    f"Area already occupied by other event ({conflicting_class})",
+                    f"Area already occupied ({conflict})",
                 )
 
         # Skip this particular time if it's in an exclusion region

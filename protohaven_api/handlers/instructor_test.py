@@ -352,6 +352,11 @@ def test_inst_availability(
                 "get_class_automation_schedule",
                 return_value=mock_sched,
             )
+            mocker.patch.object(
+                instructor.booked,
+                "get_reservations",
+                return_value={},
+            )
         resp = inst_client.get("/instructor/calendar/availability", query_string=params)
     elif method == "PUT":
         mocker.patch.object(
@@ -385,3 +390,57 @@ def test_inst_availability(
             assert "schedule" in resp.json
         else:
             assert "result" in resp.json
+
+
+def test_availability_reservations(mocker, inst_client):
+    """Specifically test reservation parsing"""
+    mocker.patch.object(
+        instructor.airtable,
+        "get_instructor_availability",
+        return_value=[{"id": "1", "fields": {"test": "data"}}],
+    )
+    mocker.patch.object(
+        instructor.airtable,
+        "expand_instructor_availability",
+        return_value=["expanded_data"],
+    )
+    mocker.patch.object(
+        instructor.airtable,
+        "get_class_automation_schedule",
+        return_value=[{"fields": {"Start Time": d(1).isoformat(), "Rejected": False}}],
+    )
+    mocker.patch.object(
+        instructor.booked,
+        "get_reservations",
+        return_value={
+            "reservations": [
+                {
+                    "bufferedStartDate": d(0, 16).isoformat(),
+                    "bufferedEndDate": d(0, 19).isoformat(),
+                    "resourceName": "test tool",
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "referenceNumber": "123",
+                }
+            ]
+        },
+    )
+    resp = inst_client.get(
+        "/instructor/calendar/availability",
+        query_string={"inst": "test", "t0": d(0).isoformat(), "t1": d(2).isoformat()},
+    )
+    assert resp.status_code == 200
+    assert resp.json == {
+        "availability": mocker.ANY,
+        "records": mocker.ANY,
+        "schedule": mocker.ANY,
+        "reservations": [
+            [
+                d(0, 16).isoformat(),
+                d(0, 19).isoformat(),
+                "test tool",
+                "First Last",
+                "https://reserve.protohaven.org/Web/reservation/?rn=123",
+            ],
+        ],
+    }

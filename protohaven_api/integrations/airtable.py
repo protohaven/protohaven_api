@@ -89,7 +89,6 @@ def fetch_instructor_teachable_classes():
             continue
         inst = row["fields"]["Instructor"].strip().lower()
         if "Class" in row["fields"].keys():
-            log.info(f"INST CAPS {row}")
             if NOCODB_CLASS_REF_FIELD[0] in row["fields"]:
                 instructor_caps[inst] += [
                     str(lnk[NOCODB_CLASS_REF_FIELD[1]])
