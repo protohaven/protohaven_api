@@ -17,20 +17,22 @@ log = logging.getLogger("integrations.data.dev_booked")
 def get_reservations():
     """Mock events endpoint for Neon - needs to be completed"""
     if request.method == "POST":
-        raise NotImplementedError(f"Unhandled dev POST to /Reservations/: {request.data}")
-
+        raise NotImplementedError(
+            f"Unhandled dev POST to /Reservations/: {request.data}"
+        )
 
     start = dateparser.parse(request.values.get("startDateTime")).astimezone(tz)
     end = dateparser.parse(request.values.get("endDateTime")).astimezone(tz)
     return {
         "reservations": [
-            row['fields']['data'] for row in airtable_base.get_all_records("fake_booked", "reservations")
-            if start <= dateparser.parse(row['fields']['start']).astimezone(tz) <= end
+            row["fields"]["data"]
+            for row in airtable_base.get_all_records("fake_booked", "reservations")
+            if start <= dateparser.parse(row["fields"]["start"]).astimezone(tz) <= end
         ],
         "startDateTime": start,
         "endDateTime": end,
         "links": [],
-        "message": None
+        "message": None,
     }
 
 
