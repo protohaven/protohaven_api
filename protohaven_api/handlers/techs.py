@@ -400,11 +400,11 @@ def _notify_registration(account_id, event_id, action):
     }
     contact = acc.get("primaryContact")
     name = f"{contact.get('firstName')} {contact.get('lastName')}"
-    verb = "[registered](https://api.protohaven.org/techs#events) for"
+    verb = "registered for"
     if action != "register":
-        verb = "[unregistered](https://api.protohaven.org/techs#events) from"
+        verb = "unregistered from"
     msg = (
-        f"{name} {verb} "
+        f"{name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
         f"{evt.get('name')} on {evt.get('eventDates').get('startDate')} "
         f"{evt.get('eventDates').get('startTime')}"
         f"; {evt.get('maximumAttendees', 0) - len(attendees)} seat(s) remain"
@@ -412,7 +412,6 @@ def _notify_registration(account_id, event_id, action):
     # Tech-only classes shouldn't bother instructors
     if not evt.get("name").startswith(TECH_ONLY_PREFIX):
         comms.send_discord_message(msg, "#instructors", blocking=False)
-    msg += "\n\n*Make registration changes  " "(login required)"
     comms.send_discord_message(msg, "#techs", blocking=False)
 
 
