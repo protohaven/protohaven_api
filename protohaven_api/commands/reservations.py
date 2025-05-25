@@ -355,15 +355,9 @@ class Commands:
                 neon.CustomField.BOOKED_USER_ID,
             ]
         ):
-            if m.get("Account ID") == m.get("Company ID"):
+            if m.neon_id == m.company_id:
                 continue
-            bid = int(m["Booked User ID"]) if m.get("Booked User ID") else None
-            k = (
-                m["First Name"].strip(),
-                m["Last Name"].strip(),
-                (m["Email 1"] or "").lower(),
-            )
-            neon_members[k] = (m["Account ID"], bid)
+            neon_members[(m.fname, m.lname, m.email)] = (m.neon_id, m.booked_id)
         log.info(f"Fetched {len(neon_members)} neon members")
         return neon_members
 

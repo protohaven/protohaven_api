@@ -194,13 +194,13 @@ def test_sync_booked_members_not_in_booked(mocker, cli):
         r.neon,
         "get_active_members",
         return_value=[
-            {
-                "Account ID": 12345,
-                "Booked User ID": None,
-                "First Name": "John",
-                "Last Name": "Doe",
-                "Email 1": "john@example.com",
-            }
+            mocker.MagicMock(
+                email="john@example.com",
+                fname="John",
+                lname="Doe",
+                neon_id=12345,
+                booked_id=None,
+            )
         ],
     )
     mocker.patch.object(r.booked, "get_all_users", return_value=[])
@@ -229,13 +229,13 @@ def test_sync_booked_members_associate_existing(mocker, cli):
         r.neon,
         "get_active_members",
         return_value=[
-            {
-                "Account ID": 12345,
-                "Booked User ID": None,
-                "First Name": "John",
-                "Last Name": "Doe",
-                "Email 1": "john@example.com",
-            }
+            mocker.MagicMock(
+                email="john@example.com",
+                fname="John",
+                lname="Doe",
+                neon_id=12345,
+                booked_id=None,
+            )
         ],
     )
     mocker.patch.object(
@@ -276,13 +276,13 @@ def test_sync_booked_members_update_associated(mocker, cli):
         r.neon,
         "get_active_members",
         return_value=[
-            {
-                "Account ID": 12345,
-                "Booked User ID": 456,
-                "First Name": "John",
-                "Last Name": "Doe",
-                "Email 1": "john@example.com",
-            }
+            mocker.MagicMock(
+                email="john@example.com",
+                fname="John",
+                lname="Doe",
+                neon_id=12345,
+                booked_id=456,
+            )
         ],
     )
 

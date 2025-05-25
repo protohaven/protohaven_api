@@ -3,7 +3,6 @@
 import datetime
 import logging
 import multiprocessing as mp
-import re
 import traceback
 
 from dateutil import parser as dateparser
@@ -15,7 +14,6 @@ from protohaven_api.integrations.data.models import SignInEvent
 log = logging.getLogger("automation.membership.sign_in")
 
 WAIVER_FMT = "version {version} on {accepted}"
-WAIVER_REGEX = r"version (.+?) on (.*)"
 
 # This is the process pool for async execution of long-running
 # commands produced during the sign-in process, e.g. membership
@@ -129,17 +127,17 @@ def get_member_and_activation_state(email):
     https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies
-    mm = neon.cache.get(email.strip(), {})
-    mm = [m for m in mm.values() if m.get("Account ID") != m.get("Company ID")]
+    mm = neon.cache.get(email, {}).values()
+    mm = [m for m in mm if m.neon_id != m.company_id]
     if len(mm) == 0:
         return None, False
 
     if len(mm) > 1:
         # Warn to membership automation channel that we have an account to deduplicate
         urls = [
-            f"  [#{m['Account ID']}]"
-            + f"(https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}) "
-            + f"{m.get('First Name')} {m.get('Last Name')} ({m.get('Email 1')})"
+            f"  [#{m.neon_id}]"
+            + f"(https://protohaven.app.neoncrm.com/admin/accounts/{m.neon_id}) "
+            + f"{m.fname} {m.lname} ({m.email})"
             for m in mm
         ]
         notify_async(
@@ -153,10 +151,8 @@ def get_member_and_activation_state(email):
     # Deferred memberships are returned first, followed by active membership accounts
     # and then inactive ones.
     for m in mm:
-        unverified_amp = "AMP" in (m.get("Membership Level") or "") and not m.get(
-            "Income Based Rate"
-        )
-        if (m.get("Account Automation Ran") or "").startswith("deferred"):
+        unverified_amp = "AMP" in m.membership_level and not m.income_based_rate
+        if (m.account_automation_ran or "").startswith("deferred"):
             if unverified_amp:
                 notify_async(
                     f"Sign-in attempt by {email} with missing `Income Based Rate` "
@@ -168,7 +164,7 @@ def get_member_and_activation_state(email):
                 log.info("Notified of unverified AMP status")
             else:
                 return m, True
-        if (m.get("Account Current Membership Status") or "").upper() == "ACTIVE":
+        if (m.account_current_membership_status or "").upper() == "ACTIVE":
             return m, False
     return m, False
 
@@ -211,7 +207,8 @@ def handle_notify_violations(violations, fname, email, url):
 
 def handle_waiver(  # pylint: disable=too-many-arguments
     user_id,
-    waiver_status,
+    last_version: str,
+    last_signed: datetime.datetime,
     ack,
     now=None,
     current_version=None,
@@ -236,14 +233,6 @@ def handle_waiver(  # pylint: disable=too-many-arguments
 
     # Precondition: ack = false
     # Check if signature on file, version is current, and not expired
-    last_version = None
-    last_signed = None
-    if waiver_status is not None:
-        match = re.match(WAIVER_REGEX, waiver_status)
-        if match is not None:
-            log.debug(str(match))
-            last_version = match[1]
-            last_signed = dateparser.parse(match[2]).astimezone(tz)
     if last_version is None:
         return False
     if last_version != current_version:
@@ -285,33 +274,25 @@ def as_member(data, send):
 
     if should_activate:
         send("Activating membership...", 50)
-        log.info(f"Activating membership on account {m['Account ID']}")
+        log.info(f"Activating membership on account {m.neon_id}")
         # Do this all in a thread so we're not wasting time
-        _apply_async(
-            activate_membership, args=(m["Account ID"], m["First Name"], data["email"])
-        )
+        _apply_async(activate_membership, args=(m.neon_id, m.fname, data["email"]))
         result["status"] = "Active"  # Assume the activation went through
     else:
-        result["status"] = m.get("Account Current Membership Status", "Unknown")
+        result["status"] = m.account_current_membership_status or "Unknown"
 
-    result["neon_id"] = m.get("Account ID")
-    result["firstname"] = m.get("First Name")
-    data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m['Account ID']}"
+    result["neon_id"] = m.neon_id
+    result["firstname"] = m.fname
+    data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m.neon_id}"
 
-    meta = {"full_name": f"{m.get('First Name')} {m.get('Last Name')}"}
+    meta = {"full_name": f"{m.fname} {m.lname}"}
 
     try:
         send("Fetching announcements...", 55)
-        meta["clearances"] = (
-            [] if not m.get("Clearances") else m["Clearances"].split("|")
-        )
+        meta["clearances"] = m.clearances
         result["announcements"] = handle_announcements(
-            last_ack=m.get("Announcements Acknowledged", None),
-            roles=[
-                r
-                for r in (m.get("API server role", "") or "").split("|")  # Can be None
-                if r.strip() != ""
-            ],
+            last_ack=m.announcements_acknowledged,
+            roles=[r["name"] for r in m.roles],
             is_active=result["status"] == "Active",
             testing=data.get("testing"),
             clearances=meta["clearances"],
@@ -324,7 +305,7 @@ def as_member(data, send):
 
     try:
         send("Checking storage...", 70)
-        result["violations"] = list(airtable.cache.violations_for(m["Account ID"]))
+        result["violations"] = list(airtable.cache.violations_for(m.neon_id))
     except Exception:  # pylint: disable=broad-exception-caught
         traceback.print_exc()
         notify_async(f"Error checking storage (member #{data['email']}) - see log")
@@ -332,7 +313,7 @@ def as_member(data, send):
     try:
         # These are sent out of band, no need to alert the sign-in member
         handle_notify_board_and_staff(
-            m.get("Notify Board & Staff") or "",
+            m.notify_board_and_staff,
             result["firstname"],
             data["email"],
             data["url"],
@@ -348,9 +329,11 @@ def as_member(data, send):
         notify_async(f"Error routing notifications (member #{data['email']}) - see log")
 
     send("Checking waiver...", 90)
+    last_version, last_signed = m.waiver_accepted
     result["waiver_signed"] = handle_waiver(
-        m["Account ID"],
-        m.get("Waiver Accepted"),
+        m.neon_id,
+        last_version,
+        last_signed,
         data.get("waiver_ack", False),
     )
 

@@ -1,5 +1,7 @@
 """Objects modeling particular entities that are commonly passed between systems"""
+import datetime
 import logging
+import re
 from dataclasses import dataclass, field
 
 from dateutil import parser as dateparser
@@ -7,6 +9,8 @@ from dateutil import parser as dateparser
 from protohaven_api.config import tz
 
 log = logging.getLogger("integrations.models")
+
+WAIVER_REGEX = r"version (.+?) on (.*)"
 
 
 @dataclass
@@ -48,7 +52,7 @@ class Role:
 
 
 @dataclass
-class Member:
+class Member:  # pylint:disable=too-many-public-methods
     """A canonical format for all of a Protohaven member's data"""
 
     neon_raw_data: dict = field(default_factory=dict)
@@ -88,12 +92,27 @@ class Member:
 
     @property
     def fname(self):
-        """Get the preferred first name of the member"""
-        return (
+        """Get the preferred first name of the member
+        Please try to use self.name instead unless interacting
+        with a third party service that stores first and last names.
+        """
+        v = (
             self.neon_search_data.get("Preferred Name")
             or self.neon_search_data.get("First Name")
             or self._raw_account().get("primaryContact", {}).get("firstName")
         )
+        return v.strip() if v else None
+
+    @property
+    def lname(self):
+        """Get the preferred last name of the member
+        Please try to use self.name instead unless interacting
+        with a third party service that stores first and last names.
+        """
+        v = self.neon_search_data.get("Last Name") or self._raw_account().get(
+            "primaryContact", {}
+        ).get("lastName")
+        return v.strip() if v else None
 
     def _resolve_full_name(self, first, preferred, last, pronouns):
         """Convert neon values into a single string of Discord nickname for user"""
@@ -123,11 +142,15 @@ class Member:
     @property
     def email(self):
         """Fetches the first valid email address for the member"""
-        return (
-            self._raw_account()["primaryContact"]["email1"]
+        v = (
+            self.neon_search_data.get("Email 1")
+            or self.neon_search_data.get("Email 2")
+            or self.neon_search_data.get("Email 3")
+            or self._raw_account()["primaryContact"]["email1"]
             or self._raw_account()["primaryContact"]["email2"]
             or self._raw_account()["primaryContact"]["email3"]
         )
+        return v.strip().lower() if v else None
 
     def _get_custom_field(self, key_field, value_field):
         search_result = self.neon_search_data.get(key_field)
@@ -138,13 +161,19 @@ class Member:
                 return cf.get(value_field)
         return None
 
+    def _resolve(self, fetch_field, search_field):
+        """Resolve a field from either neon_search_data or neon_raw_data"""
+        return (
+            self._raw_account().get(fetch_field)
+            or self.neon_search_data.get(search_field)
+            or None
+        )
+
     @property
     def account_current_membership_status(self):
         """Returns the current membership status string"""
-        return (
-            self.neon_search_data.get("Account Current Membership Status")
-            or self._raw_account().get("accountCurrentMembershipStatus")
-            or None
+        return self._resolve(
+            "accountCurrentMembershipStatus", "Account Current Membership Status"
         )
 
     @property
@@ -171,9 +200,35 @@ class Member:
         return None
 
     @property
+    def membership_level(self):
+        """Fetches membership level - note that this is only available via search result"""
+        return self.neon_search_data.get("Membership Level") or ""
+
+    @property
     def proof_of_income(self):
         """Return Proof of Income custom neon field"""
         return self._get_custom_field("Proof of Income", "value")
+
+    @property
+    def announcements_acknowledged(self) -> str:
+        """Return announcements acknowledged custom neon field"""
+        return self._get_custom_field("Announcements Acknowledged", "value") or ""
+
+    @property
+    def waiver_accepted(self) -> (str | None, datetime.datetime | None):
+        """Return version and date of waiver acceptance via custom neon field"""
+        v = self._get_custom_field("Waiver Accepted", "value") or ""
+        match = re.match(WAIVER_REGEX, v)
+        if match is not None:
+            last_version = match[1]
+            last_signed = dateparser.parse(match[2]).astimezone(tz)
+            return (last_version, last_signed)
+        return (None, None)
+
+    @property
+    def notify_board_and_staff(self) -> str:
+        """Return Notify Board & Staff custom neon field"""
+        return self._get_custom_field("Notify Board & Staff", "value") or ""
 
     @property
     def company(self):
@@ -208,6 +263,15 @@ class Member:
     @property
     def neon_id(self):
         """Neon account ID"""
-        return self._raw_account().get("accountId") or self.neon_search_data.get(
-            "Account ID"
-        )
+        return self._resolve("accountId", "Account ID")
+
+    @property
+    def company_id(self):
+        """Neon company ID"""
+        return self._resolve("companyId", "Company ID")
+
+    @property
+    def booked_id(self):
+        """Return Booked user ID custom field from Neon"""
+        got = self._get_custom_field("Booked User ID", "value")
+        return int(got) if got else None
