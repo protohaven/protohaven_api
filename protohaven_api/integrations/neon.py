@@ -12,7 +12,7 @@ from protohaven_api.config import tz, tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 
 log = logging.getLogger("integrations.neon")
 
@@ -439,8 +439,8 @@ def patch_member_role(email, role, enabled):
     if len(mem) == 0:
         raise KeyError()
     account_id = mem[0]["Account ID"]
-    roles = neon_base.get_custom_field(account_id, CustomField.API_SERVER_ROLE)
-    roles = {v["id"]: v["name"] for v in roles}
+    acct = neon_base.fetch_account(account_id, required=True)
+    roles = {v["id"]: v["name"] for v in acct.roles}
     if enabled:
         roles[role["id"]] = role["name"]
     elif role["id"] in roles:

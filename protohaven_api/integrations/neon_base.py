@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.neon import Category
+from protohaven_api.integrations.models import Member
 
 log = logging.getLogger("integrations.neon_base")
 
@@ -73,11 +74,10 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
         yield from content["searchResults"]
 
 
-def fetch_account(account_id, required=False):
-    """Fetches account information for a specific user in Neon.
+def fetch_account(account_id, required=False, raw=False):
+    """Fetches account information for a specific user in Neon, as a Member()
     Raises RuntimeError if an error is returned from the server, or None
     if the account is not found.
-    Second return value is True if the account is for a company, False otherwise
     """
     content = get("api_key1", f"/accounts/{account_id}")
     if isinstance(content, list):
@@ -86,11 +86,9 @@ def fetch_account(account_id, required=False):
         raise RuntimeError(f"Account not found: {account_id}")
     if content is None and not required:
         return None
-    if content.get("individualAccount"):
-        return content["individualAccount"], False
-    if content.get("companyAccount"):
-        return content["companyAccount"], True
-    return None, None
+    if raw:
+        return content
+    return Member.from_neon_fetch(content)
 
 
 def get(api_key, path):
@@ -140,7 +138,9 @@ def delete(api_key, path):
 def patch_account(account_id, data, is_company=None):
     """Patch an existing account via Neon V2 API"""
     if is_company is None:
-        _, is_company = fetch_account(account_id, required=True)
+        acct = fetch_account(account_id, required=True)
+        if acct:
+            is_company = acct.is_company
     return patch(
         "api_key2",
         f"/accounts/{account_id}",
@@ -155,12 +155,6 @@ def extract_custom_field(acc, field_id):
         if cf["id"] == field_id:
             return cf.get("value") or cf.get("optionValues")
     return []
-
-
-def get_custom_field(account_id, field_id):
-    """Get the value of a single custom field from Neon"""
-    acc, _ = fetch_account(account_id, required=True)
-    return extract_custom_field(acc, field_id)
 
 
 def set_custom_fields(account_id, *fields, is_company=None):

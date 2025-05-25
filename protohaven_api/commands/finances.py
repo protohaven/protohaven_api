@@ -19,7 +19,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     sales,
 )
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 
 log = logging.getLogger("cli.finances")
 
@@ -246,8 +246,8 @@ class Commands:
                     continue
                 hid = mem["Household ID"]
                 level = mem["Membership Level"]
-                acct, is_company = neon_base.fetch_account(mem["Account ID"])
-                if acct is None or is_company:
+                acct = neon_base.fetch_account(mem["Account ID"])
+                if acct is None or acct.is_company:
                     continue
 
                 active_memberships = []
@@ -278,7 +278,7 @@ class Commands:
                             }
                         )
 
-                details = {
+                member_data[aid] = {
                     "aid": aid,
                     "hid": hid,
                     "name": f"{mem['First Name']} {mem['Last Name']}",
@@ -286,26 +286,12 @@ class Commands:
                     "level": level,
                     "term": mem["Membership Term"],
                     "active_memberships": active_memberships,
+                    "zero_cost_ok_until": acct.zero_cost_ok_until,
+                    "amp": acct.income_based_rate,
+                    "income_proof": acct.proof_of_income,
+                    "company": acct.company,
+                    "roles": [r["name"] for r in acct.roles],
                 }
-                for acf in acct.get("accountCustomFields", []):
-                    if acf["name"] == "Zero-Cost Membership OK Until Date":
-                        try:
-                            details["zero_cost_ok_until"] = dateparser.parse(
-                                acf["value"]
-                            ).astimezone(tz)
-                        except dateparser.ParserError as e:
-                            log.error(e)
-                            details["zero_cost_ok_until"] = None
-
-                    if acf["name"] == "Income Based Rate":
-                        details["amp"] = acf["optionValues"][0]["name"]
-                    elif acf["name"] == "Proof of Income":
-                        details["income_proof"] = acf
-                    elif acf.get("company"):
-                        details["company"] = acf
-                    elif acf["name"] == "API server role":
-                        details["roles"] = [ov["name"] for ov in acf["optionValues"]]
-                member_data[aid] = details
                 if "Additional" in level:
                     household_num_addl_members[hid] += 1
                 elif has_fee:

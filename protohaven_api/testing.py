@@ -72,19 +72,22 @@ def setup_session(client, roles=None):
     with client.session_transaction() as session:
         session["neon_id"] = 1234
         session["neon_account"] = {
-            "accountCustomFields": [
-                {
-                    "name": "Clearances",
-                    "optionValues": [{"name": "C1"}, {"name": "C2"}],
+            "individualAccount": {
+                "accountId": 1234,
+                "accountCustomFields": [
+                    {
+                        "name": "Clearances",
+                        "optionValues": [{"name": "C1"}, {"name": "C2"}],
+                    },
+                    {
+                        "name": "API server role",
+                        "optionValues": roles or [{"name": "Board Member"}],
+                    },
+                ],
+                "primaryContact": {
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "email1": "foo@bar.com",
                 },
-                {
-                    "name": "API server role",
-                    "optionValues": roles or [{"name": "test role"}],
-                },
-            ],
-            "primaryContact": {
-                "firstName": "First",
-                "lastName": "Last",
-                "email1": "foo@bar.com",
-            },
+            }
         }

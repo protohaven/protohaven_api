@@ -285,12 +285,6 @@ def get_account_memberships(account_id):
     return Response("Memberships not found for account", status=404)
 
 
-@app.route("/v2/customFields/<field_id>", methods=["GET", "PUT"])
-def get_custom_field(field_id):
-    """Mock custom field endpoint for Neon"""
-    raise NotImplementedError("TODO")
-
-
 @app.route("/login", methods=["GET", "POST"])
 def login_handler():
     """Dummy login page handler for user impersonation"""

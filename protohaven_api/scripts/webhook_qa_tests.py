@@ -148,13 +148,10 @@ def run_neon_membership_created_callback_test(params, is_amp):
             f"Term start date incorrect - wanted {want_date_str}, got {mem.get('termStartDate')}"
         )
 
-    automation_ran = neon_base.get_custom_field(
-        m["Account ID"], neon.CustomField.ACCOUNT_AUTOMATION_RAN
-    )
-    print(automation_ran)
-    if not automation_ran.startswith(memauto.DEFERRED_STATUS):
+    acc = neon_base.fetch_account(m["Account ID"], required=True)
+    if not acc.automation_ran.startswith(memauto.DEFERRED_STATUS):
         raise RuntimeError(
-            f'Account Automation Ran custom field is "{automation_ran}"; '
+            f'Account Automation Ran custom field is "{acc.automation_ran}"; '
             f"wanted 'deferred' prefix"
         )
     print(
