@@ -9,7 +9,7 @@ from flask import Response
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon as n
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 from protohaven_api.testing import d
 
 TEST_USER = 1234
@@ -20,11 +20,11 @@ def test_patch_member_role(mocker):
     mocker.patch.object(n, "search_member", return_value=[{"Account ID": 1324}])
     mocker.patch.object(
         n.neon_base,
-        "get_custom_field",
-        return_value=[{"name": "TEST", "id": "1234"}],
+        "fetch_account",
+        return_value=mocker.MagicMock(roles=[{"name": "TEST", "id": "1234"}]),
     )
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
-    n.patch_member_role("a@b.com", Role.INSTRUCTOR, True)
+    n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
     m.assert_called_with(
         1324,
         (
@@ -42,11 +42,13 @@ def test_patch_member_role_rm(mocker):
     mocker.patch.object(n, "search_member", return_value=[{"Account ID": 1324}])
     mocker.patch.object(
         n.neon_base,
-        "get_custom_field",
-        return_value=[
-            {"name": "TEST", "id": "1234"},
-            {"name": "Instructor", "id": "75"},
-        ],
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            roles=[
+                {"name": "TEST", "id": "1234"},
+                {"name": "Instructor", "id": "75"},
+            ]
+        ),
     )
     mocker.patch.object(n.neon_base, "get_connector")
     m = mocker.patch.object(n.neon_base, "set_custom_fields")

@@ -17,14 +17,19 @@ from protohaven_api.testing import d, fixture_client
 def fixture_inst_client(client):
     with client.session_transaction() as session:
         session["neon_account"] = {
-            "accountCustomFields": [
-                {"name": "API server role", "optionValues": [{"name": "Instructor"}]},
-            ],
-            "primaryContact": {
-                "firstName": "First",
-                "lastName": "Last",
-                "email1": "foo@bar.com",
-            },
+            "individualAccount": {
+                "accountCustomFields": [
+                    {
+                        "name": "API server role",
+                        "optionValues": [{"name": "Instructor"}],
+                    },
+                ],
+                "primaryContact": {
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "email1": "foo@bar.com",
+                },
+            }
         }
     return client
 
@@ -111,7 +116,7 @@ def test_instructor_class_attendees(inst_client, mocker):
     mocker.patch.object(
         instructor.neon.neon_base,
         "fetch_account",
-        return_value=({"primaryContact": {"email1": "a@b.com"}}, False),
+        return_value=mocker.MagicMock(email="a@b.com"),
     )
     result = inst_client.get("/instructor/class/attendees?id=12345")
     assert result.status_code == 200

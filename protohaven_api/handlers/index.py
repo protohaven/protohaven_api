@@ -11,9 +11,9 @@ from flask_sock import Sock
 
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
-from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
+from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
@@ -35,20 +35,13 @@ def whoami():
     neon_account = session.get("neon_account")
     if not neon_account:
         return Response("You are not logged in", status=400)
-    clearances = []
-    roles = []
-    for cf in neon_account.get("accountCustomFields", []):
-        if cf["name"] == "Clearances":
-            clearances = [v["name"] for v in cf["optionValues"]]
-        if cf["name"] == "API server role":
-            roles = [v["name"] for v in cf["optionValues"]]
-
+    acct = Member.from_neon_fetch(neon_account)
     return {
-        "fullname": user_fullname(),
-        "email": user_email(),
-        "neon_id": session.get("neon_id", ""),
-        "clearances": clearances,
-        "roles": roles,
+        "fullname": acct.name,
+        "email": acct.email,
+        "neon_id": acct.neon_id,
+        "clearances": acct.clearances,
+        "roles": [v["name"] for v in acct.roles],
     }
 
 

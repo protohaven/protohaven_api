@@ -11,7 +11,8 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
-from protohaven_api.rbac import Role, am_lead_role, am_role, require_login_role
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import am_lead_role, am_role, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
 
@@ -391,20 +392,18 @@ def techs_backfill_events():
 def _notify_registration(account_id, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
-    acc, _ = neon_base.fetch_account(account_id, required=True)
+    acc = neon_base.fetch_account(account_id, required=True)
     evt = neon.fetch_event(event_id)
     attendees = {
         a["accountId"]
         for a in neon.fetch_attendees(event_id)
         if a["registrationStatus"] == "SUCCEEDED"
     }
-    contact = acc.get("primaryContact")
-    name = f"{contact.get('firstName')} {contact.get('lastName')}"
     verb = "registered for"
     if action != "register":
         verb = "unregistered from"
     msg = (
-        f"{name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
+        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
         f"{evt.get('name')} on {evt.get('eventDates').get('startDate')} "
         f"{evt.get('eventDates').get('startTime')}"
         f"; {evt.get('maximumAttendees', 0) - len(attendees)} seat(s) remain"

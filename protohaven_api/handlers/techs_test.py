@@ -6,7 +6,8 @@ import json
 import pytest
 
 from protohaven_api.handlers import techs as tl
-from protohaven_api.rbac import Role, set_rbac
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import set_rbac
 from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
 
@@ -104,12 +105,7 @@ def test_techs_event_registration_success_register(tech_client, mocker):
     mocker.patch.object(tl.neon, "delete_single_ticket_registration")
     mocker.patch.object(tl.comms, "send_discord_message")
     mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=(
-            {"primaryContact": {"firstName": "First", "lastName": "Last"}},
-            True,
-        ),
+        tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
     )
     mocker.patch.object(
         tl.neon,
@@ -149,12 +145,7 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     mocker.patch.object(tl.neon, "delete_single_ticket_registration", return_value=b"")
     mocker.patch.object(tl.comms, "send_discord_message")
     mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=(
-            {"primaryContact": {"firstName": "First", "lastName": "Last"}},
-            True,
-        ),
+        tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
     )
     mocker.patch.object(
         tl.neon,

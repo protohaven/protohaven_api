@@ -28,7 +28,7 @@ def test_whoami(client):
         "email": "foo@bar.com",
         "neon_id": 1234,
         "clearances": ["C1", "C2"],
-        "roles": ["test role"],
+        "roles": ["Board Member"],
     }
 
 

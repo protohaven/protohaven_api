@@ -15,17 +15,9 @@ def test_get_account_email(mocker):
     mocker.patch.object(
         builder.neon_base,
         "fetch_account",
-        return_value=({"primaryContact": {"email2": "foo@bar.com"}}, False),
+        return_value=mocker.MagicMock(email="foo@bar.com"),
     )
     assert builder.get_account_email("1234") == "foo@bar.com"
-
-
-def test_get_account_email_unset(mocker):
-    """Test email extraction when there is no email to extract"""
-    mocker.patch.object(
-        builder.neon_base, "fetch_account", return_value=({"primaryContact": {}}, False)
-    )
-    assert not builder.get_account_email("1234")
 
 
 def test_get_unscheduled_instructors(mocker):

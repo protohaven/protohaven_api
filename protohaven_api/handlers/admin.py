@@ -104,19 +104,11 @@ def user_clearances():
 
 def _get_account_details(account_id):
     """Gets the matching email for a Neon account, by ID"""
-    content, _ = neon_base.fetch_account(account_id, required=True)
-    auto_field_value = None
-    for cf in content.get("accountCustomFields", []):
-        if cf["name"] == "Account Automation Ran":
-            auto_field_value = cf.get("value")
-
-    content = content.get("primaryContact", {})
+    acc = neon_base.fetch_account(account_id, required=True)
     return {
-        "fname": content.get("firstName") or "new member",
-        "email": content.get("email1")
-        or content.get("email2")
-        or content.get("email3"),
-        "auto_field_value": auto_field_value,
+        "fname": acc.fname or "new member",
+        "email": acc.email,
+        "auto_field_value": acc.account_automation_ran,
     }
 
 

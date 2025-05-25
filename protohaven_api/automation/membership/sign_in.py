@@ -59,10 +59,8 @@ def result_base():
 
 def activate_membership(account_id, fname, email):
     """Activate a member's deferred membership"""
-    automation_ran = neon_base.get_custom_field(
-        account_id, neon.CustomField.ACCOUNT_AUTOMATION_RAN
-    )
-    if "deferred" not in automation_ran:
+    mem = neon_base.fetch_account(account_id)
+    if "deferred" not in mem.account_automation_ran:
         log.error(f"activate_membership called on non-deferred account {account_id}")
         return
 

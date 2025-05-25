@@ -9,7 +9,7 @@ from dateutil import parser as dateparser
 
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 
 log = logging.getLogger("role_automation.roles")
 

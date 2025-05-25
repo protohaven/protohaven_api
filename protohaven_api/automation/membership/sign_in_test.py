@@ -19,7 +19,11 @@ def test_activate_membership_ok(mocker):
     mock_response = mocker.Mock()
     mock_response.status_code = 200
 
-    mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(account_automation_ran="* deferred *"),
+    )
     mocker.patch.object(
         s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
     )
@@ -48,7 +52,11 @@ def test_activate_membership_ok(mocker):
 
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
-    mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(account_automation_ran="* deferred *"),
+    )
     mocker.patch.object(
         s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
     )
@@ -72,13 +80,16 @@ def test_activate_membership_no_redo(mocker):
     This test confirms when "deferred" isn't in Account Automation Ran then
     no activation is done."""
     m0 = mocker.patch.object(s, "notify_async", return_value=None)
-    m1 = mocker.patch.object(s.neon_base, "get_custom_field", return_value="asdf")
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(account_automation_ran="asdf"),
+    )
     m2 = mocker.patch.object(s.neon, "set_membership_date_range")
     m3 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     m4 = mocker.patch.object(s.comms, "send_email")
     s.activate_membership("123", "fname", "a@b.com")
     m0.assert_not_called()
-    m1.assert_called()
     m2.assert_not_called()
     m3.assert_not_called()
     m4.assert_not_called()

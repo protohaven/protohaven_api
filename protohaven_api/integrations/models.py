@@ -1,0 +1,213 @@
+"""Objects modeling particular entities that are commonly passed between systems"""
+import logging
+from dataclasses import dataclass, field
+
+from dateutil import parser as dateparser
+
+from protohaven_api.config import tz
+
+log = logging.getLogger("integrations.models")
+
+
+@dataclass
+class Role:
+    """Every Neon user has zero or more roles that can be checked for access."""
+
+    INSTRUCTOR = {"name": "Instructor", "id": "75"}
+    PRIVATE_INSTRUCTOR = {"name": "Private Instructor", "id": "246"}
+    BOARD_MEMBER = {"name": "Board Member", "id": "244"}
+    STAFF = {"name": "Staff", "id": "245"}
+    SHOP_TECH = {"name": "Shop Tech", "id": "238"}
+    SHOP_TECH_LEAD = {"name": "Shop Tech Lead", "id": "241"}
+    EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
+    ONBOARDING_DEPRECATED = {"name": "Onboarding", "id": "240"}  # DO NOT USE
+    ADMIN = {"name": "Admin", "id": "239"}
+    SOFTWARE_DEV = {"id": "258", "name": "Software Dev"}
+    IT_MAINTENANCE = {"id": "274", "name": "IT Maintenance"}
+    MAINTENANCE_CREW = {"id": "259", "name": "Maintenance Crew"}
+    MEMBERSHIP_AND_PROGRAMMING = {
+        "id": "260",
+        "name": "Membership and Programming Committee",
+    }
+    STRATEGIC_PLANNING = {"id": "261", "name": "Strategic Planning Committee"}
+    FINANCE = {"id": "262", "name": "Finance Committee"}
+    EXECUTIVE = {"id": "263", "name": "Executive Committee"}
+    OPERATIONS = {"id": "266", "name": "Operations Committee"}
+
+    AUTOMATION = {"name": "Automation", "id": None}
+
+    @classmethod
+    def as_dict(cls):
+        """Return dictionary mapping name to the value of each field"""
+        results = {}
+        for f in dir(cls()):
+            v = getattr(cls, f)
+            if isinstance(v, dict) and v.get("id") is not None:
+                results[v["name"]] = v
+        return results
+
+
+@dataclass
+class Member:
+    """A canonical format for all of a Protohaven member's data"""
+
+    neon_raw_data: dict = field(default_factory=dict)
+    neon_search_data: dict = field(default_factory=dict)
+    airtable_data: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_neon_fetch(cls, data):
+        """Parses out all relevant info for a member
+        from the results of a Neon /account GET request"""
+        if not data:
+            return None
+        m = cls()
+        m.neon_raw_data = data
+        return m
+
+    @classmethod
+    def from_neon_search(cls, data):
+        """Parses out all relevant info for a member from
+        the results of a neon /account/search request"""
+        if not data:
+            return None
+        m = cls()
+        m.neon_search_data = data
+        return m
+
+    def is_company(self):
+        """True if this is a Neon company account and not an individual account"""
+        return self.neon_raw_data.get("companyAccount")
+
+    def _raw_account(self):
+        return (
+            self.neon_raw_data.get("individualAccount")
+            or self.neon_raw_data.get("companyAccount")
+            or {}
+        )
+
+    @property
+    def fname(self):
+        """Get the preferred first name of the member"""
+        return (
+            self.neon_search_data.get("Preferred Name")
+            or self.neon_search_data.get("First Name")
+            or self._raw_account().get("primaryContact", {}).get("firstName")
+        )
+
+    def _resolve_full_name(self, first, preferred, last, pronouns):
+        """Convert neon values into a single string of Discord nickname for user"""
+        first = first.strip() if first else ""
+        preferred = preferred.strip() if preferred else ""
+        last = last.strip() if last else ""
+        pronouns = pronouns.strip() if pronouns else ""
+        first = preferred if preferred != "" else first
+        nick = f"{first} {last}".strip() if first != last else first
+        if pronouns != "":
+            nick += f" ({pronouns})"
+        return nick
+
+    @property
+    def name(self):
+        """Get the fully resolved name and pronouns of the member"""
+        return self._resolve_full_name(
+            self.neon_search_data.get("First Name")
+            or self._raw_account().get("primaryContact", {}).get("firstName"),
+            self.neon_search_data.get("Preferred Name"),
+            self.neon_search_data.get("Last Name")
+            or self._raw_account().get("primaryContact", {}).get("lastName"),
+            self.neon_search_data.get("Pronouns")
+            or self._get_custom_field("Pronouns", "value"),
+        )
+
+    @property
+    def email(self):
+        """Fetches the first valid email address for the member"""
+        return (
+            self._raw_account()["primaryContact"]["email1"]
+            or self._raw_account()["primaryContact"]["email2"]
+            or self._raw_account()["primaryContact"]["email3"]
+        )
+
+    def _get_custom_field(self, key_field, value_field):
+        search_result = self.neon_search_data.get(key_field)
+        if search_result is not None:
+            return search_result
+        for cf in self._raw_account().get("accountCustomFields", []):
+            if cf["name"] == key_field:
+                return cf.get(value_field)
+        return None
+
+    @property
+    def account_current_membership_status(self):
+        """Returns the current membership status string"""
+        return (
+            self.neon_search_data.get("Account Current Membership Status")
+            or self._raw_account().get("accountCurrentMembershipStatus")
+            or None
+        )
+
+    @property
+    def account_automation_ran(self):
+        """Return the string used for account deferral automation tracking"""
+        return self._get_custom_field("Account Automation Ran", "value")
+
+    @property
+    def zero_cost_ok_until(self):
+        """Returns the date until which a zero cost membership is OK for this member"""
+        val = self._get_custom_field("Zero-Cost Membership OK Until Date", "value")
+        try:
+            return dateparser.parse(val).astimezone(tz)
+        except dateparser.ParserError as e:
+            log.error(e)
+            return None
+
+    @property
+    def income_based_rate(self):
+        """Return Income Based Rate custom neon field"""
+        val = self._get_custom_field("Income Based Rate", "optionValues")
+        if val:
+            return val[0]["name"]
+        return None
+
+    @property
+    def proof_of_income(self):
+        """Return Proof of Income custom neon field"""
+        return self._get_custom_field("Proof of Income", "value")
+
+    @property
+    def company(self):
+        """Fetches company information for neon individual account"""
+        return self._raw_account().get("company", None)
+
+    @property
+    def clearances(self):
+        """Fetches clearances for the account"""
+        return [v["name"] for v in self._get_custom_field("Clearances", "optionValues")]
+
+    @property
+    def roles(self):
+        """Fetches all roles associated with the neon account"""
+        rdict = Role.as_dict()
+
+        search_result = self.neon_search_data.get("API server role")
+        if search_result:
+            return [rdict.get(r) for r in search_result.split("|") if r in rdict]
+
+        val = self._get_custom_field("API server role", "optionValues")
+        if val:
+            return [rdict.get(v["name"]) for v in val if v["name"] in rdict]
+
+        return None
+
+    @property
+    def discord_user(self):
+        """Returns the discord user custom field"""
+        return self._get_custom_field("Discord User", "value")
+
+    @property
+    def neon_id(self):
+        """Neon account ID"""
+        return self._raw_account().get("accountId") or self.neon_search_data.get(
+            "Account ID"
+        )
