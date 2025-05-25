@@ -12,7 +12,7 @@ from protohaven_api.config import tz, tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Role
+from protohaven_api.integrations.models import Member, Role
 
 log = logging.getLogger("integrations.neon")
 
@@ -235,39 +235,28 @@ def fetch_output_fields():
     return content
 
 
-def search_member_by_name(firstname, lastname):
-    """Lookup a user by first and last name"""
-    for result in neon_base.paginated_search(
-        [
-            ("First Name", "EQUAL", firstname.strip()),
-            ("Last Name", "EQUAL", lastname.strip()),
-        ],
-        ["Account ID", "Email 1"],
-        pagination={"pageSize": 1},
-    ):
-        return result
-
-
-def get_inactive_members(extra_fields):
+def get_inactive_members(extra_fields: list[str]) -> list[Member]:
     """Lookup all accounts with inactive memberships"""
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [
             ("Account Current Membership Status", "NOT_EQUAL", "Active"),
         ],
         ["Account ID", *extra_fields],
         pagination={"pageSize": 100},
-    )
+    ):
+        yield Member.from_neon_search(acct)
 
 
-def get_active_members(extra_fields):
+def get_active_members(extra_fields: list[str]) -> list[Member]:
     """Lookup all accounts with active memberships"""
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [
             ("Account Current Membership Status", "EQUAL", "Active"),
         ],
         ["Account ID", *extra_fields],
         pagination={"pageSize": 100},
-    )
+    ):
+        yield Member.from_neon_search(acct)
 
 
 MEMBER_SEARCH_OUTPUT_FIELDS = [
@@ -568,7 +557,7 @@ class AccountCache(WarmDict):
 
     def _value_has_active_membership(self, v):
         for a in v.values():
-            if a.get("Account Current Membership Status") == "Active":
+            if a.account_current_membership_status == "Active":
                 return True
         return False
 
@@ -577,14 +566,14 @@ class AccountCache(WarmDict):
             aa = list(search_member(k, fields=self.FIELDS))
             if len(aa) > 0:
                 log.info(f"cache miss on '{k}' returned results: {aa}")
-                return {a["Account ID"]: a for a in aa}
+                return {a.neon_id: a for a in aa}
         return v
 
     def get(self, k, default=None):
         """Attempt to lookup from cache, but verify directly with Neon if
         the returned account is inactive or missing"""
         return self._handle_inactive_or_notfound(
-            str(k), super().get(str(k).lower(), default)
+            str(k), super().get(str(k).lower().strip(), default)
         )
 
     def __setitem__(self, k, v):
@@ -604,17 +593,17 @@ class AccountCache(WarmDict):
                 raise KeyError("Cache miss failover returned no result") from err
             return v
 
-    def update(self, a: dict):
+    def update(self, a: Member):
         """Updates cache based on an account dictionary object"""
-        d = super().get(str(a["Email 1"]).lower(), {})  # Don't trigger cache miss
-        d[a["Account ID"]] = a
-        self[a["Email 1"]] = d
-        self.fuzzy[
-            rapidfuzz.utils.default_process(f"{a['First Name']} {a['Last Name']}")
-        ] = a["Email 1"]
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a['Email 1']}")] = a["Email 1"]
-        if a.get("Booked User ID"):
-            self.by_booked_id[a["Booked User ID"]] = a
+        d = super().get(a.email, {})  # Don't trigger cache miss
+        d[a.neon_id] = a
+        self[a.email] = d
+        self.fuzzy[rapidfuzz.utils.default_process(f"{a.fname} {a.lname}")] = a[
+            "Email 1"
+        ]
+        self.fuzzy[rapidfuzz.utils.default_process(f"{a.email}")] = a.email
+        if a.booked_id:
+            self.by_booked_id[a.booked_id] = a
 
     def refresh(self):
         """Refresh values; called every REFRESH_PD"""
@@ -636,9 +625,9 @@ class AccountCache(WarmDict):
             f"booked IDs; next refresh in {self.REFRESH_PD_SEC} seconds"
         )
 
-    def neon_id_from_booked_id(self, booked_id):
+    def neon_id_from_booked_id(self, booked_id: int) -> str:
         """Fetches the Neon ID associated with a Booked user ID"""
-        return self.by_booked_id[booked_id]["Account ID"]
+        return self.by_booked_id[booked_id].neon_id
 
     def _find_best_match_internal(self, search_string, top_n=10):
         """Find and return the top_n best matches to the key in `self` based on a search string."""

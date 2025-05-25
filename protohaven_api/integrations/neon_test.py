@@ -120,20 +120,20 @@ def test_account_cache_case_insensitive(mocker):
     """Confirm that lookups are case insensitive, and that non-string
     types are handled safely"""
     mocker.patch.object(n, "get_inactive_members", return_value=[])
-    want1 = {
-        "Email 1": "aSdF",
-        "First Name": "foo",
-        "Last Name": "bar",
-        "Account ID": 123,
-        "Account Current Membership Status": "Active",
-    }
+    want1 = mocker.MagicMock(
+        email="aSdF",
+        fname="foo",
+        lname="bar",
+        neon_id=123,
+        account_current_membership_status="Active",
+    )
     mocker.patch.object(n, "get_active_members", return_value=[want1])
     mocker.patch.object(n, "search_member", return_value=[])
     c = n.AccountCache()
     c.refresh()
-    want2 = {456: {"First Name": "bar"}}
+    want2 = {456: mocker.MagicMock(fname="bar")}
     c["gHjK"] = want2
-    want3 = {789: {"First Name": "baz"}}
+    want3 = {789: mocker.MagicMock(fname="baz")}
     c[None] = want3
     assert c["AsDf"][123] == want1
     assert c["GhJk"] == want2
@@ -148,86 +148,85 @@ def test_find_best_match(mocker):
         n, "search_member", side_effect=AssertionError("Should never be called")
     )
     c.update(
-        {
-            "Email 1": "a@b.com",
-            "First Name": "Albert",
-            "Last Name": "Einstein",
-            "Account ID": 123,
-        }
+        mocker.MagicMock(email="a@b.com", fname="Albert", lname="Einstein", neon_id=123)
     )
     c.update(
-        {
-            "Email 1": "b@b.com",
-            "First Name": "Albart",
-            "Last Name": "Grovinson",
-            "Account ID": 456,
-        }
+        mocker.MagicMock(
+            email="b@b.com", fname="Albart", lname="Grovinson", neon_id=456
+        )
     )
     c.update(
-        {
-            "Email 1": "b@a.com",
-            "First Name": "Dio",
-            "Last Name": "Brando",
-            "Account ID": 789,
-        }
+        mocker.MagicMock(email="b@a.com", fname="Dio", lname="Brando", neon_id=789)
     )
 
-    got = [m["Account ID"] for m in c.find_best_match("Albert", top_n=2)]
+    got = [m.neon_id for m in c.find_best_match("Albert", top_n=2)]
     assert got == [123, 456]
 
 
 def test_account_cache_miss_inactive(mocker):
     """Confirm that inactive memberships trigger a direct lookup to Neon"""
-    want1 = {
-        "Email 1": "asdf",
-        "First Name": "foo",
-        "Last Name": "bar",
-        "Account ID": 123,
-        "Account Current Membership Status": "Active",
-    }
-    mocker.patch.object(n, "search_member", return_value=[want1])
+    mocker.patch.object(
+        n,
+        "search_member",
+        return_value=[
+            mocker.MagicMock(
+                email="asdf",
+                fname="foo",
+                lname="bar",
+                neon_id=123,
+                account_current_membership_status="Active",
+            )
+        ],
+    )
     c = n.AccountCache()
-    c.update({**want1, "Account Current Membership Status": "Inactive"})
-    assert c.get("asdf") == {123: want1}
-    assert c["asdf"] == {123: want1}
+    c.update(
+        mocker.MagicMock(
+            email="asdf",
+            fname="foo",
+            lname="bar",
+            neon_id=123,
+            account_current_membership_status="Inactive",
+        )
+    )
+    assert c.get("asdf")[123].account_current_membership_status == "Active"
+    assert c["asdf"][123].account_current_membership_status == "Active"
 
 
 def test_account_update_causes_cache_hit(mocker):
     """Confirm that a call to update() fills the cache and does not require
     a Neon lookup upon fetch"""
-    want = {
-        "Email 1": "asdf",
-        "First Name": "foo",
-        "Last Name": "bar",
-        "Account ID": 123,
-        "Account Current Membership Status": "Active",
-    }
+    want = mocker.MagicMock(
+        email="asdf",
+        fname="foo",
+        lname="bar",
+        neon_id=123,
+        account_current_membership_status="Active",
+    )
 
     mocker.patch.object(
         n, "search_member", side_effect=AssertionError("should never be called")
     )
     c = n.AccountCache()
     c.update(want)
-    assert c.get(want["Email 1"]) == {123: want}
-    assert c[want["Email 1"]] == {123: want}
+    assert c.get(want.email) == {123: want}
+    assert c[want.email] == {123: want}
 
 
 def test_account_cache_miss_keyerror(mocker):
     """Confirm that __getitem__ exceptions are suppressed if direct lookup
     succeeds, are thrown if direct lookup also fails"""
-    want1 = {
-        "Email 1": "asdf",
-        "First Name": "foo",
-        "Last Name": "bar",
-        "Account ID": 123,
-        # Note, even inactive direct access is returned
-        "Account Current Membership Status": "Inctive",
-    }
+    want = mocker.MagicMock(
+        email="asdf",
+        fname="foo",
+        lname="bar",
+        neon_id=123,
+        account_current_membership_status="Inactive",
+    )
     c = n.AccountCache()
 
     # Exception suppressed and value returned if direct lookup succeeds
-    mocker.patch.object(n, "search_member", return_value=[want1])
-    assert c["asdf"] == {123: want1}
+    mocker.patch.object(n, "search_member", return_value=[want])
+    assert c["asdf"] == {123: want}
 
     # Exception thrown if direct lookup also fails
     mocker.patch.object(n, "search_member", return_value=[])

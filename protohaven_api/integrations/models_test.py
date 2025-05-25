@@ -35,6 +35,13 @@ def test_fname():
     assert m.fname == "Test"
 
 
+def test_lname():
+    """Test Member.lname property"""
+    data = {"individualAccount": {"primaryContact": {"lastName": "Test"}}}
+    m = Member(neon_raw_data=data)
+    assert m.lname == "Test"
+
+
 def test_name():
     """Test Member.name property resolution"""
     search_data = {
