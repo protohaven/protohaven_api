@@ -294,13 +294,13 @@ def rm_tech_event():
     evt = neon.fetch_event(eid)
     if not evt:
         return Response(f"event with eid {eid} not found", status=404)
-    if not evt["name"].startswith(TECH_ONLY_PREFIX):
+    if not evt.name.startswith(TECH_ONLY_PREFIX):
         return Response(
             f"cannot delete a non-tech-only event missing prefix {TECH_ONLY_PREFIX}",
             status=400,
         )
 
-    return neon.set_event_scheduled_state(evt["id"], scheduled=False)
+    return neon.set_event_scheduled_state(evt.neon_id, scheduled=False)
 
 
 @page.route("/techs/enroll", methods=["POST"])
@@ -404,12 +404,11 @@ def _notify_registration(account_id, event_id, action):
         verb = "unregistered from"
     msg = (
         f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
-        f"{evt.get('name')} on {evt.get('eventDates').get('startDate')} "
-        f"{evt.get('eventDates').get('startTime')}"
-        f"; {evt.get('maximumAttendees', 0) - len(attendees)} seat(s) remain"
+        f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
+        f"; {evt.capacity - len(attendees)} seat(s) remain"
     )
     # Tech-only classes shouldn't bother instructors
-    if not evt.get("name").startswith(TECH_ONLY_PREFIX):
+    if not evt.name.startswith(TECH_ONLY_PREFIX):
         comms.send_discord_message(msg, "#instructors", blocking=False)
     comms.send_discord_message(msg, "#techs", blocking=False)
 

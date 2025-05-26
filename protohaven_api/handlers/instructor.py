@@ -412,7 +412,11 @@ def class_neon_state():
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
-    return neon.fetch_event(event_id)
+    evt = neon.fetch_event(event_id)
+    return {
+        "publishEvent": evt.published,
+        "archived": evt.archived,
+    }
 
 
 @page.route("/instructor/class/cancel", methods=["POST"])

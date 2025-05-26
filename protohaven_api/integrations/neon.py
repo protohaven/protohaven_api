@@ -12,7 +12,7 @@ from protohaven_api.config import tz, tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Member, Role
+from protohaven_api.integrations.models import Event, Member, Role
 
 log = logging.getLogger("integrations.neon")
 
@@ -67,7 +67,7 @@ def search_upcoming_events(from_date, to_date, extra_fields):
 
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    return neon_base.get("api_key1", f"/events/{event_id}")
+    return Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
 
 
 def fetch_registrations(event_id):
