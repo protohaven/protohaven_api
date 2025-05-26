@@ -144,9 +144,7 @@ class Commands:
                     [neon.CustomField.DISCORD_USER, "First Name", "Last Name"]
                 )
                 name_to_discord_dict = {
-                    f'{item["First Name"]} {item["Last Name"]}'.lower().strip(): item[
-                        "Discord User"
-                    ]
+                    f"{item.fname} {item.lname}".lower().strip(): item.discord_user
                     for item in all_users
                 }
                 log.info(

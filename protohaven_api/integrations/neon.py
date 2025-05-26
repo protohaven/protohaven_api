@@ -301,30 +301,33 @@ def get_new_members_needing_setup(max_days_ago, extra_fields=None):
     all paying members past the start of the Onboarding V2 plan
     that haven't yet had automation applied to them."""
     enroll_date = (tznow() - datetime.timedelta(days=max_days_ago)).strftime("%Y-%m-%d")
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [
             (str(CustomField.ACCOUNT_AUTOMATION_RAN), "BLANK", None),
             ("First Membership Enrollment Date", "GREATER_THAN", enroll_date),
             ("Membership Cost", "GREATER_THAN", 10),
         ],
         ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
-    )
+    ):
+        return Member.from_neon_search(acct)
 
 
 def get_all_accounts_with_discord_association(extra_fields):
     """Lookup all accounts with discord users associated"""
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)],
         ["Account ID", *extra_fields],
-    )
+    ):
+        return Member.from_neon_search(acct)
 
 
 def get_members_with_discord_id(discord_id, extra_fields=None):
     """Fetch all members with a specific Discord ID"""
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [(str(CustomField.DISCORD_USER), "EQUAL", discord_id)],
         ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
-    )
+    ):
+        return Member.from_neon_search(acct)
 
 
 def fetch_techs_list(include_pii=False):
@@ -409,11 +412,6 @@ def create_coupon_code(code, amt, from_date=None, to_date=None):
     return neon_base.NeonOne().create_single_use_abs_event_discount(
         code, amt, from_date, to_date
     )
-
-
-def soft_search(keyword):
-    """Creates a coupon code for a specific absolute amount"""
-    return neon_base.NeonOne().soft_search(keyword)
 
 
 def patch_member_role(email, role, enabled):

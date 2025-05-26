@@ -647,7 +647,7 @@ class Commands:
         for m in neon.get_new_members_needing_setup(
             args.max_days_ago, extra_fields=["Email 1"]
         ):
-            aid = m["Account ID"]
+            aid = m.neon_id
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
@@ -659,11 +659,11 @@ class Commands:
                 "account_id": aid,
                 "membership_name": membership_name,
                 "membership_id": membership_id,
-                "email": m["Email 1"],
-                "fname": m["First Name"],
+                "email": m.email,
+                "fname": m.fname,
                 "coupon_amount": args.coupon_amount,
                 "apply": args.apply,
-                "target": m["Email 1"],
+                "target": m.email,
                 "_id": f"init member {aid}",
             }
             summary.append(kwargs)

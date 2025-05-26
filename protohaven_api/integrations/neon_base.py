@@ -245,16 +245,6 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 csrf = m["content"]
         return csrf
 
-    def soft_search(self, keyword):
-        """Search based on a keyword - matches email, first/last names etc"""
-        r = self.s.get(
-            f"https://protohaven.app.neoncrm.com/nx/top-search/search?keyword={keyword}"
-        )
-        if r.status_code != 200:
-            raise RuntimeError(f"soft_search HTTP {r.status_code}: {r.content}")
-        content = json.loads(r.content.decode("utf8"))
-        return content
-
     def create_single_use_abs_event_discount(
         self, code, amt, from_date=None, to_date=None
     ):

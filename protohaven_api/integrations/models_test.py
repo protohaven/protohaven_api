@@ -1,6 +1,10 @@
 """Various objects representing physical and digital entities."""
+from collections import namedtuple
+
+import pytest
+
 from protohaven_api.integrations.models import Member, Role
-from protohaven_api.testing import d
+from protohaven_api.testing import d, idfn
 
 
 def test_from_neon_fetch():
@@ -42,18 +46,29 @@ def test_lname():
     assert m.lname == "Test"
 
 
-def test_name():
-    """Test Member.name property resolution"""
+Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tc("basic", "first", "preferred", "last", "a/b", "preferred last (a/b)"),
+        Tc("no pronouns or preferred", "first", "", "last", "", "first last"),
+        Tc("preferred is last name", "first", "last", "last", "", "last"),
+        Tc("only first name", "first", None, None, None, "first"),
+    ],
+    ids=idfn,
+)
+def test_name(tc):
+    """Confirm expected behavior of nickname resolution from Neon data"""
     search_data = {
-        "First Name": "First",
-        "Preferred Name": "Pref",
-        "Last Name": "Last",
-        "Pronouns": "they/them",
+        "First Name": tc.first,
+        "Preferred Name": tc.preferred,
+        "Last Name": tc.last,
+        "Pronouns": tc.pronouns,
     }
     m = Member(neon_search_data=search_data)
-    assert m.name == "Pref Last (they/them)"
-    m.neon_search_data = {"First Name": "Only"}
-    assert m.name == "Only"
+    assert m.name == tc.want
 
 
 def test_email():
@@ -92,9 +107,9 @@ def test_neon_id():
     """Test neon_id property from both raw and search data"""
     raw_data = {"individualAccount": {"accountId": "123"}}
     search_data = {"Account ID": "456"}
-    m = Member(neon_raw_data=raw_data)
+    m = Member.from_neon_fetch(raw_data)
     assert m.neon_id == "123"
-    m = Member(neon_search_data=search_data)
+    m = Member.from_neon_search(search_data)
     assert m.neon_id == "456"
 
 
