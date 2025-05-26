@@ -57,7 +57,6 @@ class Member:  # pylint:disable=too-many-public-methods
 
     neon_raw_data: dict = field(default_factory=dict)
     neon_search_data: dict = field(default_factory=dict)
-    airtable_data: dict = field(default_factory=dict)
 
     @classmethod
     def from_neon_fetch(cls, data):
@@ -287,3 +286,83 @@ class Member:  # pylint:disable=too-many-public-methods
         """Return Booked user ID custom field from Neon"""
         got = self._get_custom_field("Booked User ID", "value")
         return int(got) if got else None
+
+
+@dataclass
+class Event:
+    """A canonical format for Neon event data"""
+
+    neon_raw_data: dict = field(default_factory=dict)
+    neon_search_data: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_neon_fetch(cls, data):
+        """Parses out all relevant info from the results of a Neon GET request"""
+        if not data:
+            return None
+        m = cls()
+        m.neon_raw_data = data
+        return m
+
+    @classmethod
+    def from_neon_search(cls, data):
+        """Parses out all relevant info from
+        the results of a neon /account/search request"""
+        if not data:
+            return None
+        m = cls()
+        m.neon_search_data = data
+        return m
+
+    def _resolve(self, fetch_field, search_field):
+        """Resolve a field from either neon_search_data or neon_raw_data"""
+        return (
+            self.neon_raw_data.get(fetch_field)
+            or self.neon_search_data.get(search_field)
+            or None
+        )
+
+    def __getattr__(self, attr):
+        """Resolves simple calls to _get_custom_field and _resolve for account data.
+        Only called when self.attr doesn't exist - instance attribute access only.
+        """
+        resolvable_fields = {
+            "neon_id": ("id", "Event ID"),
+            "name": ("name", "Event Name"),
+            "capacity": ("maximumAttendees", "Event Capacity"),
+            "published": ("publishEvent", "Event Web Publish"),
+            "archived": ("archived", "Event Archive"),
+            "registration": ("enableEventRegistrationForm", "Event Web Register"),
+        }
+        if attr in resolvable_fields:
+            return self._resolve(*resolvable_fields[attr])
+        raise AttributeError(attr)
+
+    def _resolve_date(self, d0, d1, t0, t1):
+        """Returns the start date of the event"""
+        vd = (self.neon_raw_data or {}).get("eventDates", {}).get(
+            d0
+        ) or self.neon_search_data.get(d1)
+        vt = (self.neon_raw_data or {}).get("eventDates", {}).get(
+            t0
+        ) or self.neon_search_data.get(t1)
+        if vd and vt:
+            try:
+                return dateparser.parse(f"{vd} {vt}").astimezone(tz)
+            except dateparser.ParserError as e:
+                log.error(e)
+        return None
+
+    @property
+    def start_date(self):
+        """Get the start date of the event"""
+        return self._resolve_date(
+            "startDate", "Event Start Date", "startTime", "Event Start Time"
+        )
+
+    @property
+    def end_date(self):
+        """Get the end date of the event"""
+        return self._resolve_date(
+            "endDate", "Event End Date", "endTime", "Event End Time"
+        )

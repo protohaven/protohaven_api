@@ -107,14 +107,12 @@ def test_techs_event_registration_success_register(tech_client, mocker):
     mocker.patch.object(
         tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
     )
+    m = mocker.MagicMock(capacity=6, start_date=d(0))
+    m.name = "Event Name"
     mocker.patch.object(
         tl.neon,
         "fetch_event",
-        return_value={
-            "name": "Event Name",
-            "eventDates": {"startDate": "YYYY-MM-DD", "startTime": "HH:MM"},
-            "maximumAttendees": 6,
-        },
+        return_value=m,
     )
     mocker.patch.object(
         tl.neon,
@@ -147,14 +145,12 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     mocker.patch.object(
         tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
     )
+    m = mocker.MagicMock(capacity=6, start_date=d(0))
+    m.name = "Event Name"
     mocker.patch.object(
         tl.neon,
         "fetch_event",
-        return_value={
-            "name": "Event Name",
-            "eventDates": {"startDate": "YYYY-MM-DD"},
-            "maximumAttendees": 6,
-        },
+        return_value=m,
     )
     mocker.patch.object(
         tl.neon,
@@ -484,7 +480,8 @@ def test_new_tech_event(mocker, lead_client):
 def test_rm_tech_event(mocker, lead_client):
     """Test deleting a techs-only event in Neon"""
     eid = "12345"
-    mock_event = {"id": eid, "name": tl.TECH_ONLY_PREFIX + "Test Event"}
+    mock_event = mocker.MagicMock(neon_id=eid)
+    mock_event.name = tl.TECH_ONLY_PREFIX + "Test Event"
 
     mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
     mocker.patch.object(tl.neon, "set_event_scheduled_state", return_value={})
@@ -516,7 +513,8 @@ def test_rm_tech_event_not_found(mocker, lead_client):
 def test_rm_tech_event_non_tech_only(mocker, lead_client):
     """Test deleting a non-tech-only event"""
     eid = "12345"
-    mock_event = {"id": eid, "name": "Test Event"}
+    mock_event = mocker.MagicMock(neon_id=eid)
+    mock_event.name = "Test Event"
 
     mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
 
