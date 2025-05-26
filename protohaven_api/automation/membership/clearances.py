@@ -25,11 +25,9 @@ def update(email, method, delta, apply=True):
     if len(m) == 0:
         raise KeyError(f"Member {email} not found")
     m = m[0]
-    if m["Account ID"] == m["Company ID"]:
+    if m.neon_id == m.company_id:
         raise TypeError(f"Account with email {email} is a company; expected individual")
-    codes = {
-        name_to_code.get(n) for n in (m.get("Clearances") or "").split("|") if n != ""
-    }
+    codes = {name_to_code.get(n) for n in m.clearances if n != ""}
     initial_codes = set(codes)
     result = set()
     if method == "GET":
@@ -47,11 +45,11 @@ def update(email, method, delta, apply=True):
 
     ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
     if apply:
-        log.info(f"Setting clearances for {m['Account ID']} to {ids}")
-        content = neon.set_clearances(m["Account ID"], ids, is_company=False)
+        log.info(f"Setting clearances for {m.neon_id} to {ids}")
+        content = neon.set_clearances(m.neon_id, ids, is_company=False)
         log.info("Neon response: %s", str(content))
         for d in delta:
-            mqtt.notify_clearance(m["Account ID"], d, added=method == "PATCH")
+            mqtt.notify_clearance(m.neon_id, d, added=method == "PATCH")
     return list(result)
 
 

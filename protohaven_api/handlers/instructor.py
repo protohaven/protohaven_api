@@ -94,16 +94,14 @@ def get_instructor_readiness(inst, caps=None):
         result["email"] = f"{len(inst)} duplicate accounts in Neon"
     inst = inst[0]
 
-    result["neon_id"] = inst.get("Account ID")
-    if inst["Account Current Membership Status"] == "Active":
+    result["neon_id"] = inst.neon_id
+    if inst.account_current_membership_status == "Active":
         result["active_membership"] = "OK"
     else:
-        result["active_membership"] = inst["Account Current Membership Status"]
-    if inst.get("Discord User"):
+        result["active_membership"] = inst.account_current_membership_status
+    if inst.discord_user:
         result["discord_user"] = "OK"
-    result[
-        "fullname"
-    ] = f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
+    result["fullname"] = f"{inst.fname} {inst.lname}"
 
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])

@@ -90,9 +90,9 @@ def test_tech_discord_mapping(mocker, cli):
         m.neon,
         "get_all_accounts_with_discord_association",
         return_value=[
-            {"First Name": "Tech", "Last Name": "One", "Discord User": "tech1"},
-            {"First Name": "Tech", "Last Name": "Two", "Discord User": "tech2"},
-            {"First Name": "Tech", "Last Name": "Three", "Discord User": "tech3"},
+            mocker.MagicMock(fname="Tech", lname="One", discord_user="tech1"),
+            mocker.MagicMock(fname="Tech", lname="Two", discord_user="tech2"),
+            mocker.MagicMock(fname="Tech", lname="Three", discord_user="tech3"),
         ],
     )
     mocker.patch.object(

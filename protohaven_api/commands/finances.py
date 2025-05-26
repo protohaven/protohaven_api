@@ -238,22 +238,22 @@ class Commands:
             ):
                 # This should really pull total from paginated_search
                 pct[0] = max(0.5, i / 6000)
-                log.info(f"#{mem['Account ID']}")
-                if mem["Account Current Membership Status"].lower() != "active":
+                log.info(f"#{mem.neon_id}")
+                if mem.account_current_membership_status.lower() != "active":
                     continue
-                aid = mem["Account ID"]
+                aid = mem.neon_id
                 if member_ids is not None and aid not in member_ids:
                     continue
-                hid = mem["Household ID"]
-                level = mem["Membership Level"]
-                acct = neon_base.fetch_account(mem["Account ID"])
+                hid = mem.household_id
+                level = mem.membership_level
+                acct = neon_base.fetch_account(mem.neon_id)
                 if acct is None or acct.is_company:
                     continue
 
                 active_memberships = []
                 now = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
                 has_fee = False
-                for ms in neon.fetch_memberships(mem["Account ID"]):
+                for ms in neon.fetch_memberships(mem.neon_id):
                     start = (
                         dateparser.parse(ms.get("termStartDate")).astimezone(tz)
                         if ms.get("termStartDate")
@@ -281,10 +281,10 @@ class Commands:
                 member_data[aid] = {
                     "aid": aid,
                     "hid": hid,
-                    "name": f"{mem['First Name']} {mem['Last Name']}",
-                    "cid": mem["Company ID"],
+                    "name": f"{mem.fname} {mem.lname}",
+                    "cid": mem.company_id,
                     "level": level,
-                    "term": mem["Membership Term"],
+                    "term": mem.membership_term,
                     "active_memberships": active_memberships,
                     "zero_cost_ok_until": acct.zero_cost_ok_until,
                     "amp": acct.income_based_rate,
@@ -296,7 +296,7 @@ class Commands:
                     household_num_addl_members[hid] += 1
                 elif has_fee:
                     household_paying_member_count[hid] += 1
-                company_member_count[mem["Company ID"]] += 1
+                company_member_count[mem.company_id] += 1
                 n += 1
             if write_cache:
                 with open(write_cache, "wb") as f:
@@ -443,7 +443,7 @@ class Commands:
     ):  # pylint: disable=too-many-arguments
         now = tznow()
         for t in neon.get_members_with_role(role, []):
-            aid = t["Account ID"]
+            aid = t.neon_id
             if len(summary) >= args.limit:
                 log.info("Processing limit reached; exiting")
                 break
@@ -462,15 +462,15 @@ class Commands:
                 continue
 
             s = {
-                "fname": t["First Name"].strip(),
-                "lname": t["Last Name"].strip(),
+                "fname": t.fname,
+                "lname": t.lname,
                 "account_id": aid,
                 "membership_id": "Not created",
                 "new_end": "N/A",
                 "membership_type": role["name"],
             }
             log.info(f"Processing {role['name']} {t}")
-            end, autorenew = self._last_expiring_membership(t["Account ID"])
+            end, autorenew = self._last_expiring_membership(t.neon_id)
             if autorenew:
                 log.info("Latest membership is autorenewing; skipping")
                 continue
@@ -492,7 +492,7 @@ class Commands:
 
             new_end = end + datetime.timedelta(days=1 + args.duration_days)
             ret = neon.create_zero_cost_membership(
-                t["Account ID"],
+                t.neon_id,
                 end + datetime.timedelta(days=1),
                 new_end,
                 level=level,
@@ -647,7 +647,7 @@ class Commands:
         for m in neon.get_new_members_needing_setup(
             args.max_days_ago, extra_fields=["Email 1"]
         ):
-            aid = m["Account ID"]
+            aid = m.neon_id
             if args.filter and aid not in args.filter:
                 log.debug(f"Skipping {aid}: not in filter")
                 continue
@@ -659,11 +659,11 @@ class Commands:
                 "account_id": aid,
                 "membership_name": membership_name,
                 "membership_id": membership_id,
-                "email": m["Email 1"],
-                "fname": m["First Name"],
+                "email": m.email,
+                "fname": m.fname,
                 "coupon_amount": args.coupon_amount,
                 "apply": args.apply,
-                "target": m["Email 1"],
+                "target": m.email,
                 "_id": f"init member {aid}",
             }
             summary.append(kwargs)

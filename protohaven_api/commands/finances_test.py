@@ -277,7 +277,7 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(
         neon,
         "get_new_members_needing_setup",
-        return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}],
+        return_value=[mocker.MagicMock(neon_id="123", fname="Foo", email="a@b.com")],
     )
     m1 = mocker.patch.object(f.memauto, "try_cached_coupon", return_value="test_coupon")
     m2 = mocker.patch.object(
@@ -315,7 +315,7 @@ def test_init_new_memberships_limit(mocker, cli):
         neon,
         "get_new_members_needing_setup",
         return_value=[
-            {"Account ID": str(i), "First Name": "Foo", "Email 1": "a@b.com"}
+            mocker.MagicMock(neon_id=str(i), fname="Foo", email="a@b.com")
             for i in range(5)
         ],
     )
@@ -342,31 +342,11 @@ def test_refresh_volunteer_memberships(mocker, cli):
         f.neon,
         "get_members_with_role",
         side_effect=[
+            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
+            [mocker.MagicMock(neon_id="456", fname="Jane", lname="Doe")],
             [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
-            ],
-            [
-                {
-                    "Account ID": "456",
-                    "First Name": "Jane",
-                    "Last Name": "Doe",
-                }
-            ],
-            [
-                {
-                    "Account ID": "789",
-                    "First Name": "Jorb",
-                    "Last Name": "Dorb",
-                },
-                {
-                    "Account ID": "999",
-                    "First Name": "Past",
-                    "Last Name": "DeLimit",
-                },
+                mocker.MagicMock(neon_id="789", fname="Jorb", lname="Dorb"),
+                mocker.MagicMock(neon_id="999", fname="Past", lname="DeLimit"),
             ],
         ],
     )
@@ -414,13 +394,7 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
         f.neon,
         "get_members_with_role",
         side_effect=[
-            [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
-            ],
+            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [],
             [],
         ],
@@ -455,13 +429,7 @@ def test_refresh_volunteer_memberships_autorenew(mocker, cli):
         f.neon,
         "get_members_with_role",
         side_effect=[
-            [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
-            ],
+            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [],
             [],
         ],
@@ -483,13 +451,7 @@ def test_refresh_volunteer_memberships_exclude(mocker, cli):
         f.neon,
         "get_members_with_role",
         side_effect=[
-            [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
-            ],
+            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [],
             [],
         ],
@@ -514,11 +476,7 @@ def test_refresh_volunteer_memberships_filter_dev(mocker, cli):
             [],
             [],
             [  # Dev comes last
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(neon_id="123", fname="John", lname="Doe")
             ],
         ],
     )

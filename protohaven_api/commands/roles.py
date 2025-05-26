@@ -193,7 +193,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 "Preferred Name",
             ]
         ):
-            discord_id = (m.get("Discord User") or "").strip()
+            discord_id = m.discord_user
             if discord_id == "":
                 continue
             if (
@@ -205,28 +205,22 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.info(f"Limit of {args.limit} changes reached")
                 i += 1
             elif i < args.limit:
-                nick = roles.resolve_nickname(
-                    m.get("First Name"),
-                    m.get("Preferred Name"),
-                    m.get("Last Name"),
-                    m.get("Pronouns"),
-                )
                 cur = user_nick.get(discord_id)
                 if not cur:
                     continue
-                if nick != cur:
+                if m.name != cur:
                     changes.append(
-                        f"{discord_id} ({cur} -> {nick}){' (dry run)' if not args.apply else ''}"
+                        f"{discord_id} ({cur} -> {m.name}){' (dry run)' if not args.apply else ''}"
                     )
                     log.info(changes[-1])
                     if args.apply:
-                        log.info(str(comms.set_discord_nickname(discord_id, nick)))
+                        log.info(str(comms.set_discord_nickname(discord_id, m.name)))
                     i += 1
                     result.append(
                         Msg.tmpl(
                             "discord_nick_changed",
                             prev_nick=cur,
-                            next_nick=nick,
+                            next_nick=m.name,
                             target=f"@{discord_id}",
                             id=f"{discord_id}_nick_change",
                         )
