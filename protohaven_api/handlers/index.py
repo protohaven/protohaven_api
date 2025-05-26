@@ -101,7 +101,7 @@ def acknowledge_announcements():
     m = list(neon.search_member(data["email"]))
     if len(m) == 0:
         raise KeyError("Member not found")
-    neon.update_announcement_status(m[0]["Account ID"])
+    neon.update_announcement_status(m[0].neon_id)
     return {"status": "OK"}
 
 
@@ -114,7 +114,7 @@ def survey_response():
     neon_id = None
     m = list(neon.search_member(data["email"]))
     if len(m) != 0:
-        neon_id = m[0]["Account ID"]
+        neon_id = m[0].neon_id
     status, content = airtable.insert_simple_survey_response(
         data["rec_id"], data["email"], neon_id, data["response"]
     )

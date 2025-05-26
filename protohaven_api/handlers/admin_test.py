@@ -42,7 +42,9 @@ def test_user_clearances(mocker, client):
         a.neon,
         "search_member",
         return_value=[
-            {"Account ID": "123", "Company ID": "456", "Clearances": "CLEAR1|CLEAR2"}
+            mocker.MagicMock(
+                neon_id="123", company_id="456", clearances=["CLEAR1", "CLEAR2"]
+            )
         ],
     )
     mocker.patch.object(

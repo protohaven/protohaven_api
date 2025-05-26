@@ -170,18 +170,6 @@ class Member:  # pylint:disable=too-many-public-methods
         )
 
     @property
-    def account_current_membership_status(self):
-        """Returns the current membership status string"""
-        return self._resolve(
-            "accountCurrentMembershipStatus", "Account Current Membership Status"
-        )
-
-    @property
-    def account_automation_ran(self):
-        """Return the string used for account deferral automation tracking"""
-        return self._get_custom_field("Account Automation Ran", "value")
-
-    @property
     def zero_cost_ok_until(self):
         """Returns the date until which a zero cost membership is OK for this member"""
         val = self._get_custom_field("Zero-Cost Membership OK Until Date", "value")
@@ -203,6 +191,16 @@ class Member:  # pylint:disable=too-many-public-methods
     def membership_level(self):
         """Fetches membership level - note that this is only available via search result"""
         return self.neon_search_data.get("Membership Level") or ""
+
+    @property
+    def household_id(self):
+        """Fetches household ID - note that this is only available via search result"""
+        return self.neon_search_data.get("Household ID") or ""
+
+    @property
+    def membership_term(self):
+        """Fetches membership term - note that this is only available via search result"""
+        return self.neon_search_data.get("Membership Term") or ""
 
     @property
     def proof_of_income(self):
@@ -238,6 +236,8 @@ class Member:  # pylint:disable=too-many-public-methods
     @property
     def clearances(self):
         """Fetches clearances for the account"""
+        if self.neon_search_data and self.neon_search_data.get("Clearances"):
+            return [v.strip() for v in self.neon_search_data["Clearances"]]
         return [v["name"] for v in self._get_custom_field("Clearances", "optionValues")]
 
     @property
@@ -255,20 +255,32 @@ class Member:  # pylint:disable=too-many-public-methods
 
         return None
 
-    @property
-    def discord_user(self):
-        """Returns the discord user custom field"""
-        return self._get_custom_field("Discord User", "value")
-
-    @property
-    def neon_id(self):
-        """Neon account ID"""
-        return self._resolve("accountId", "Account ID")
-
-    @property
-    def company_id(self):
-        """Neon company ID"""
-        return self._resolve("companyId", "Company ID")
+    def __getattr__(self, attr):
+        """Resolves simple calls to _get_custom_field and _resolve for account data.
+        Only called when self.attr doesn't exist - instance attribute access only.
+        """
+        custom_fields = {
+            "discord_user": ("Discord User", "value"),
+            "interest": ("Interest", "value"),
+            "area_lead": ("Area Lead", "value"),
+            "shop_tech_shift": ("Shop Tech Shift", "value"),
+            "shop_tech_first_day": ("Shop Tech First Day", "value"),
+            "shop_tech_last_day": ("Shop Tech Last Day", "value"),
+            "account_automation_ran": ("Account Automation Ran", "value"),
+        }
+        resolvable_fields = {
+            "neon_id": ("accountId", "Account ID"),
+            "company_id": ("companyId", "Company ID"),
+            "account_current_membership_status": (
+                "accountCurrentMembershipStatus",
+                "Account Current Membership Status",
+            ),
+        }
+        if attr in custom_fields:
+            return self._get_custom_field(*custom_fields[attr])
+        if attr in resolvable_fields:
+            return self._resolve(*resolvable_fields[attr])
+        raise AttributeError(attr)
 
     @property
     def booked_id(self):

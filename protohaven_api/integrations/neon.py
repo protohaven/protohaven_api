@@ -281,17 +281,19 @@ def search_member(email, operator="EQUAL", fields=None):
     return multiple results."""
     if not fields:
         fields = MEMBER_SEARCH_OUTPUT_FIELDS
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [("Email", operator, email)], ["Account ID", *fields]
-    )
+    ):
+        yield Member.from_neon_search(acct)
 
 
 def get_members_with_role(role, extra_fields):
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
-    return neon_base.paginated_search(
+    for acct in neon_base.paginated_search(
         [(str(CustomField.API_SERVER_ROLE), "CONTAIN", role["id"])],
         ["Account ID", "First Name", "Last Name", *extra_fields],
-    )
+    ):
+        yield Member.from_neon_search(acct)
 
 
 def get_new_members_needing_setup(max_days_ago, extra_fields=None):
@@ -343,24 +345,16 @@ def fetch_techs_list(include_pii=False):
     ):
         techs.append(
             {
-                "id": t["Account ID"] if include_pii else "",
-                "name": (
-                    f"{t['First Name']} {t['Last Name']}"
-                    if include_pii
-                    else f"{t['First Name']}"
-                ),
-                "email": t["Email 1"] if include_pii else "",
-                "interest": t.get("Interest", ""),
-                "expertise": t.get("Expertise", ""),
-                "area_lead": t.get("Area Lead", ""),
-                "shift": t.get("Shop Tech Shift", ""),
-                "first_day": t.get("Shop Tech First Day", ""),
-                "last_day": t.get("Shop Tech Last Day", ""),
-                "clearances": (
-                    t["Clearances"].split("|")
-                    if t.get("Clearances") is not None
-                    else []
-                ),
+                "id": t.neon_id if include_pii else "",
+                "name": (f"{t.fname} {t.lname}" if include_pii else f"{t.fname}"),
+                "email": t.email if include_pii else "",
+                "interest": t.interest or "",
+                "expertise": t.expertise or "",
+                "area_lead": t.area_lead or "",
+                "shift": t.shop_tech_shift or "",
+                "first_day": t.shop_tech_first_day or "",
+                "last_day": t.shop_tech_last_day or "",
+                "clearances": t.clearances,
             }
         )
     techs.sort(key=lambda t: len(t["clearances"]))
@@ -427,7 +421,7 @@ def patch_member_role(email, role, enabled):
     mem = list(search_member(email))
     if len(mem) == 0:
         raise KeyError()
-    account_id = mem[0]["Account ID"]
+    account_id = mem[0].neon_id
     acct = neon_base.fetch_account(account_id, required=True)
     roles = {v["id"]: v["name"] for v in acct.roles}
     if enabled:

@@ -81,8 +81,8 @@ def run_neon_membership_created_callback_test(params, is_amp):
     if len(m) == 0:
         raise RuntimeError(f"No Neon account for {params.user}")
     m = m[0]
-    print(f"\nFound account #{m['Account ID']}")
-    for mem in neon.fetch_memberships(m["Account ID"]):
+    print(f"\nFound account #{m.neon_id}")
+    for mem in neon.fetch_memberships(m.neon_id):
         mem_id = int(mem["id"])
         assert mem_id and mem_id != 0
         print("Membership", mem)
@@ -95,7 +95,7 @@ def run_neon_membership_created_callback_test(params, is_amp):
     print("\nResetting Automation Ran custom field")
     print(
         neon_base.set_custom_fields(
-            m["Account ID"],
+            m.neon_id,
             (neon.CustomField.ACCOUNT_AUTOMATION_RAN, ""),
             is_company=False,
         )
@@ -105,7 +105,7 @@ def run_neon_membership_created_callback_test(params, is_amp):
     # Zero fees are normally not auto-deferred on prod; allows us to test
     # without triggering automation on the prod target
     mem = neon.create_zero_cost_membership(
-        m["Account ID"], tznow(), tznow() + datetime.timedelta(days=30)
+        m.neon_id, tznow(), tznow() + datetime.timedelta(days=30)
     )
     print(mem)
 
@@ -119,7 +119,7 @@ def run_neon_membership_created_callback_test(params, is_amp):
             },
             "data": {
                 "membershipEnrollment": {
-                    "accountId": m["Account ID"],
+                    "accountId": m.neon_id,
                     "membershipId": mem["id"],
                     "membershipName": (
                         "General Membership - AMP" if is_amp else "General Membership"
@@ -141,14 +141,14 @@ def run_neon_membership_created_callback_test(params, is_amp):
     print(rep.status_code, rep.content)
     assert rep.status_code == 200
 
-    mem = list(neon.fetch_memberships(m["Account ID"]))[0]
+    mem = list(neon.fetch_memberships(m.neon_id))[0]
     want_date_str = memauto.PLACEHOLDER_START_DATE.strftime("%Y-%m-%d")
     if mem.get("termStartDate") != want_date_str:
         raise RuntimeError(
             f"Term start date incorrect - wanted {want_date_str}, got {mem.get('termStartDate')}"
         )
 
-    acc = neon_base.fetch_account(m["Account ID"], required=True)
+    acc = neon_base.fetch_account(m.neon_id, required=True)
     if not acc.automation_ran.startswith(memauto.DEFERRED_STATUS):
         raise RuntimeError(
             f'Account Automation Ran custom field is "{acc.automation_ran}"; '
@@ -179,7 +179,7 @@ def run_neon_membership_created_callback_test(params, is_amp):
     print("\nResetting Automation Ran custom field again")
     print(
         neon_base.set_custom_fields(
-            m["Account ID"],
+            m.neon_id,
             (neon.CustomField.ACCOUNT_AUTOMATION_RAN, ""),
             is_company=False,
         )

@@ -192,17 +192,19 @@ def test_get_instructor_readiness_all_bad(mocker):
     instructor.airtable.fetch_instructor_capabilities.return_value = None
     result = instructor.get_instructor_readiness(
         [
-            {
-                "Account ID": 12345,
-                "Account Current Membership Status": "Inactive",
-                "First Name": "First",
-                "Last Name": "Last",
-            },
-            {
-                "Account ID": 12346,
-                "First Name": "Duplicate",
-                "Last Name": "Person",
-            },
+            mocker.MagicMock(
+                neon_id=12345,
+                account_current_membership_status="Inactive",
+                fname="First",
+                lname="Last",
+                discord_user=None,
+            ),
+            mocker.MagicMock(
+                neon_id=12346,
+                fname="Duplicate",
+                lname="Person",
+                discord_user=None,
+            ),
         ]
     )
     assert result == {
@@ -233,13 +235,13 @@ def test_get_instructor_readiness_all_ok(mocker):
     }
     result = instructor.get_instructor_readiness(
         [
-            {
-                "Account ID": 12345,
-                "Account Current Membership Status": "Active",
-                "Discord User": "discord_user",
-                "First Name": "First     ",  # Egregious space in the name doesn't cause lookup error
-                "Last Name": "Last",
-            }
+            mocker.MagicMock(
+                neon_id=12345,
+                account_current_membership_status="Active",
+                fname="First",
+                lname="Last",
+                discord_user="discord_user",
+            ),
         ]
     )
     assert result == {

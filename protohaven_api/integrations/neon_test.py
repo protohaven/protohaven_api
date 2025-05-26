@@ -17,7 +17,9 @@ TEST_USER = 1234
 
 def test_patch_member_role(mocker):
     """Member role patch adds to existing roles"""
-    mocker.patch.object(n, "search_member", return_value=[{"Account ID": 1324}])
+    mocker.patch.object(
+        n, "search_member", return_value=[mocker.MagicMock(neon_id=1324)]
+    )
     mocker.patch.object(
         n.neon_base,
         "fetch_account",
@@ -39,7 +41,9 @@ def test_patch_member_role(mocker):
 
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
-    mocker.patch.object(n, "search_member", return_value=[{"Account ID": 1324}])
+    mocker.patch.object(
+        n, "search_member", return_value=[mocker.MagicMock(neon_id=1324)]
+    )
     mocker.patch.object(
         n.neon_base,
         "fetch_account",
