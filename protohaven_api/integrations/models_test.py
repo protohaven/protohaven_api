@@ -3,7 +3,7 @@ from collections import namedtuple
 
 import pytest
 
-from protohaven_api.integrations.models import Member, Role
+from protohaven_api.integrations.models import Event, Member, Role
 from protohaven_api.testing import d, idfn
 
 
@@ -144,3 +144,14 @@ def test_roles():
     member = Member()
     member.neon_search_data = {"API server role": "invalid|Admin"}
     assert member.roles == [Role.ADMIN]
+
+
+def test_has_open_seats_below_price():
+    """Test ticket quanty is returned if under max price"""
+    evt = Event()
+    evt.neon_ticket_data = [
+        {"name": "Single Registration", "fee": 50, "numberRemaining": 5},
+        {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
+    ]
+    assert evt.has_open_seats_below_price(100) == 5
+    assert evt.has_open_seats_below_price(49) == 0

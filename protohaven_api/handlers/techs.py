@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
@@ -316,69 +317,34 @@ def techs_backfill_events():
     """Returns the list of available events for tech backfill.
     Logic matches automation.classes.builder.Action.FOR_TECHS
     """
-    supply_cost_map = {
-        str(s["fields"].get("Neon ID", "")): int(
-            s["fields"].get("Supply Cost (from Class)", [0])[0]
-        )
-        for s in airtable.get_class_automation_schedule()
-    }
     for_techs = []
     now = tznow()
     # Should dedupe logic with builder.py eventually.
     # We look for unpublished events too since those may be tech events
-    for evt in neon.fetch_upcoming_events(published=False):
-        if str(evt["id"]) == "17631":  # Private instruction
+    for evt in eauto.fetch_upcoming_events(
+        published=False, merge_airtable=True, fetch_attendees=True, fetch_tickets=True
+    ):
+        if evt.in_blocklist():
             continue
-        start = dateparser.parse(evt["startDate"] + " " + evt["startTime"]).astimezone(
-            tz
-        )
-        tech_only_event = (
-            evt["name"].startswith(TECH_ONLY_PREFIX)
-            and evt["enableEventRegistrationForm"]
-        )
+        tech_only_event = evt.name.startswith(TECH_ONLY_PREFIX) and evt.registration
         tech_backfill_event = (
-            evt["publishEvent"]
-            and evt["enableEventRegistrationForm"]
-            and start - datetime.timedelta(days=1) < now < start
+            evt.published
+            and evt.registration
+            and evt.start_date - datetime.timedelta(days=1) < now < evt.start_date
         )
-
         if not tech_only_event and not tech_backfill_event:
             continue
 
-        attendees = {
-            a["accountId"]
-            for a in neon.fetch_attendees(evt["id"])
-            if a["registrationStatus"] == "SUCCEEDED"
-        }
-
-        if tech_only_event or len(attendees) > 0:
-            tid = None
-            if not tech_only_event:
-                # Backfill events are priced; tech-only events are
-                # free and have zero ticket IDs
-                for t in neon.fetch_tickets(evt["id"]):
-                    tid = t["id"]
-                    if t["name"] == "Single Registration":
-                        log.info(f"Found single registration ticket id {tid}")
-                        break
-                if not tid:
-                    log.warning(
-                        f"Failed to get ticket IDs from event {evt['id']} for registration"
-                    )
-                    # Some events (e.g. All Member Meeting, #18050) lack ticketing information
-                    # intentionally as they are free events, but they're not tech-only. In these
-                    # cases, we just pretend they don't exist.
-                    continue
-
+        if tech_only_event or evt.attendee_count > 0:
             for_techs.append(
                 {
-                    "id": evt["id"],
-                    "ticket_id": tid,
-                    "name": evt["name"],
-                    "attendees": list(attendees),
-                    "capacity": evt["capacity"],
-                    "start": start,
-                    "supply_cost": supply_cost_map.get(str(evt["id"]), 0),
+                    "id": evt.neon_id,
+                    "ticket_id": evt.single_registration_ticket_id,
+                    "name": evt.name,
+                    "attendees": list(evt.signups),
+                    "capacity": evt.capacity,
+                    "start": evt.start_date.isoformat(),
+                    "supply_cost": evt.supply_cost or 0,
                 }
             )
 

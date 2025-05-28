@@ -54,15 +54,15 @@ def test_templates_html_detection():
 
 
 TEST_EVENT = {
-    "id": "34567",
-    "python_date": d(0),
+    "neon_id": "34567",
+    "start_date": d(0),
     "name": "Test Event",
-    "instructor_firstname": "TestInstName",
+    "instructor_fname": "TestInstName",
     "capacity": 6,
-    "signups": 3,
+    "attendee_count": 3,
 }
 TEST_ATTENDEE = {
-    "firstName": "TestAttendeeName",
+    "fname": "TestAttendeeName",
     "email": "test@attendee.com",
 }
 TESTED_TEMPLATES = [
@@ -384,7 +384,7 @@ HASHES = {
     "phone_message": "c17d7359c5ddace4",  # pragma: allowlist secret
     "registrant_class_canceled": "a3b36f01fde3ee4c",  # pragma: allowlist secret
     "registrant_class_confirmed": "38e0456bdb64d363",  # pragma: allowlist secret
-    "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
+    "registrant_post_class_survey": "73c4faee5c547d07",  # pragma: allowlist secret
     "schedule_push_notification": "78908794e790a632",  # pragma: allowlist secret
     "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
     "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
