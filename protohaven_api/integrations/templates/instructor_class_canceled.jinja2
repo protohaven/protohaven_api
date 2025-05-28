@@ -1,6 +1,6 @@
-{% if subject %}Your class '{{evt.name}}' was canceled{% else %}Hi {{evt.instructor_firstname}},
+{% if subject %}Your class '{{evt.name}}' was canceled{% else %}Hi {{evt.instructor_fname}},
 
-Unfortunately, we had to cancel your class {{evt.name}} (scheduled for {{evt.python_date.strftime("%B %-d")}})
+Unfortunately, we had to cancel your class {{evt.name}} (scheduled for {{evt.start_date.strftime("%B %-d")}})
 
 If you have any questions, please reach out to education@protohaven.org.
 {% endif %}

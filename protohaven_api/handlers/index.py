@@ -9,6 +9,7 @@ from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, mqtt, neon
@@ -126,19 +127,19 @@ def survey_response():
 @page.route("/class_listing", methods=["GET"])
 def class_listing():
     """Returns a list of classes that are upcoming"""
-    result = list(neon.fetch_upcoming_events(back_days=0))
-    sched = {
-        str(s["fields"]["Neon ID"]): s
-        for s in airtable.get_class_automation_schedule()
-        if s["fields"].get("Neon ID")
-    }
-    for c in result:
-        c["timestamp"] = dateparser.parse(
-            f"{c['startDate']} {c.get('startTime') or ''}"
-        ).astimezone(tz)
-        c["day"] = c["timestamp"].strftime("%A, %b %-d")
-        c["time"] = c["timestamp"].strftime("%-I:%M %p")
-        c["airtable_data"] = sched.get(str(c["id"]))
+    result = []
+    for evt in eauto.fetch_upcoming_events(back_days=0, merge_airtable=True):
+        result.append(
+            {
+                "id": evt.neon_id,
+                "name": evt.name,
+                "timestamp": evt.start_date.isoformat(),
+                "description": evt.description,
+                "day": evt.start_date.strftime("%A, %b %-d"),
+                "time": evt.start_date.strftime("%-I:%M %p"),
+                "airtable_data": evt.airtable_data,
+            }
+        )
     result.sort(key=lambda c: c["timestamp"])
     return result
 
@@ -185,44 +186,24 @@ def upcoming_events():
     """Show relevant upcoming events."""
     events = []
     now = tznow()
-
-    try:
-        instructors_map = {
-            str(s["fields"]["Neon ID"]): s["fields"]["Instructor"]
-            for s in airtable.get_class_automation_schedule()
-            if s["fields"].get("Neon ID")
-        }
-    except Exception:  # pylint: disable=broad-exception-caught
-        log.error("Failed to fetch instructor map, proceeding anyways")
-        instructors_map = {}
-
-    for e in neon.fetch_upcoming_events():
-        if not e.get("startDate"):
-            continue
-        if e["id"] == 17631:
-            continue  # Don't list private instruction
-        start = dateparser.parse(
-            e["startDate"] + " " + (e.get("startTime") or "")
-        ).astimezone(tz)
-        end = dateparser.parse(
-            e["endDate"] + " " + (e.get("endTime") or "")
-        ).astimezone(tz)
-
-        if end < now:
+    for evt in eauto.fetch_upcoming_events(merge_airtable=True):
+        # Don't list private instruction, expired classes,
+        # or classes without dates
+        if not evt.start_date or evt.in_blocklist() or evt.end_date < now:
             continue
         events.append(
             {
-                "id": e["id"],
-                "name": e["name"],
-                "date": start,
-                "instructor": instructors_map.get(str(e["id"]), ""),
-                "start_date": start.strftime("%a %b %d"),
-                "start_time": start.strftime("%-I:%M %p"),
-                "end_date": end.strftime("%a %b %d"),
-                "end_time": end.strftime("%-I:%M %p"),
-                "capacity": e["capacity"],
-                "registration": e["enableEventRegistrationForm"]
-                and start - datetime.timedelta(hours=24) > now,
+                "id": evt.neon_id,
+                "name": evt.name,
+                "date": evt.start_date,
+                "instructor": evt.instructor_name,
+                "start_date": evt.start_date.strftime("%a %b %d"),
+                "start_time": evt.start_date.strftime("%-I:%M %p"),
+                "end_date": evt.end_date.strftime("%a %b %d"),
+                "end_time": evt.end_time.strftime("%-I:%M %p"),
+                "capacity": evt.capacity,
+                "registration": evt.registration
+                and evt.start_date - datetime.timedelta(hours=24) > now,
             }
         )
 

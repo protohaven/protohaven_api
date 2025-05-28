@@ -230,95 +230,61 @@ def test_techs_forecast_override_delete(mocker, tech_client):
 
 def test_techs_backfill_events(mocker, tech_client):
     """Test the techs_backfill_events handler for expected output."""
+    events = []
+    for name, ovr in [
+        ("Event A", {"supply_cost": 10}),
+        (
+            f"{tl.TECH_ONLY_PREFIX} no registants",
+            {
+                "neon_id": "999",
+                "published": False,
+                "signups": [],
+                "single_registration_ticket_id": None,
+            },
+        ),
+        (
+            "Upcoming event with no registants",
+            {"neon_id": "875", "signups": [], "attendee_count": 0},
+        ),
+        (
+            "Private Instruction - ignored",
+            {"neon_id": "17631", "in_blocklist": lambda: True},
+        ),
+        ("Event B, too early", {"neon_id": "124", "start_date": d(-5)}),
+    ]:
+        m = mocker.MagicMock(
+            neon_id="123",
+            in_blocklist=lambda: False,
+            single_registration_ticket_id="t1",
+            published=True,
+            registration=True,
+            attendee_count=1,
+            signups=[1],
+            capacity=10,
+            start_date=d(0),
+            supply_cost=0,
+        )
+        m.name = name
+        for k, v in ovr.items():
+            setattr(m, k, v)
+        events.append(m)
+
     mocker.patch.object(
-        tl.airtable,
-        "get_class_automation_schedule",
-        return_value=[
-            {"fields": {"Neon ID": "123", "Supply Cost (from Class)": [10]}},
-            {"fields": {"Neon ID": "17631", "Supply Cost (from Class)": [15]}},
-            {"fields": {"Neon ID": "124"}},
-        ],
-    )
-    mocker.patch.object(
-        tl.neon,
+        tl.eauto,
         "fetch_upcoming_events",
-        return_value=[
-            {
-                "id": "123",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Event A",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-            {  # Tech event gets shown even if no registrants
-                "id": "999",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": f"{tl.TECH_ONLY_PREFIX} no registants",
-                "publishEvent": False,
-                "enableEventRegistrationForm": True,
-            },
-            {  # No registrants event gets hidden as it's not paid off
-                "id": "999",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Upcoming event with no registants",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-            {
-                "id": "17631",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Private Event",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-            {
-                "id": "124",
-                "startDate": d(-5).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Event B, too early",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-        ],
+        return_value=events,
     )
-    mocker.patch.object(
-        tl.neon,
-        "fetch_attendees",
-        side_effect=[
-            [{"accountId": "1", "registrationStatus": "SUCCEEDED"}],
-            [],
-            [],
-            [],
-        ],
-    )
-    mocker.patch.object(
-        tl.neon,
-        "fetch_tickets",
-        return_value=[
-            {"id": "t1", "name": "Single Registration"},
-            {"id": "t2", "name": "Other Ticket"},
-        ],
-    )
-    mocker.patch.object(tl, "tznow", return_value=d(0))
+    mocker.patch.object(tl, "tznow", return_value=d(-1, 10))
 
     response = tech_client.get("/techs/events")
     assert response.status_code == 200
     assert response.json["events"] == [
         {
-            "attendees": ["1"],
+            "attendees": [1],
             "capacity": 10,
             "id": "123",
             "name": "Event A",
-            "start": "Wed, 01 Jan 2025 15:00:00 GMT",
+            "start": d(0).isoformat(),
             "supply_cost": 10,
             "ticket_id": "t1",
         },
@@ -327,7 +293,7 @@ def test_techs_backfill_events(mocker, tech_client):
             "capacity": 10,
             "id": "999",
             "name": "(SHOP TECH ONLY) no registants",
-            "start": "Wed, 01 Jan 2025 15:00:00 GMT",
+            "start": d(0).isoformat(),
             "supply_cost": 0,
             "ticket_id": None,
         },

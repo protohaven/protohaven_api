@@ -17,38 +17,9 @@ from protohaven_api.integrations.models import Event, Member, Role
 log = logging.getLogger("integrations.neon")
 
 
-def fetch_upcoming_events(back_days=7, published=True):
-    """Load upcoming events from Neon CRM, with `back_days` of trailing event data.
-    Note that querying is done based on the end date so multi-week intensives
-    can still appear even if they started earlier than `back_days`."""
-    q_params = {
-        "endDateAfter": (tznow() - datetime.timedelta(days=back_days)).strftime(
-            "%Y-%m-%d"
-        ),
-        "archived": False,
-    }
-    if published:
-        q_params["publishedEvent"] = published
-    return neon_base.paginated_fetch("api_key1", "/events", q_params)
-
-
-def fetch_events(after=None, before=None, published=True):
-    """Load events from Neon CRM"""
-    q_params = {
-        "publishedEvent": published,
-        **({"startDateAfter": after.strftime("%Y-%m-%d")} if after is not None else {}),
-        **(
-            {"startDateBefore": before.strftime("%Y-%m-%d")}
-            if before is not None
-            else {}
-        ),
-    }
-    return neon_base.paginated_fetch("api_key1", "/events", q_params)
-
-
-def search_upcoming_events(from_date, to_date, extra_fields):
+def _search_upcoming_events(from_date, to_date):
     """Lookup upcoming events"""
-    return neon_base.paginated_search(
+    for evt in neon_base.paginated_search(
         [
             ("Event Start Date", "GREATER_AND_EQUAL", from_date.strftime("%Y-%m-%d")),
             ("Event Start Date", "LESS_AND_EQUAL", to_date.strftime("%Y-%m-%d")),
@@ -58,11 +29,15 @@ def search_upcoming_events(from_date, to_date, extra_fields):
             "Event Name",
             "Event Web Publish",
             "Event Web Register",
-            *extra_fields,
+            "Event Registration Attendee Count",
+            "Event Capacity",
+            "Event Start Date",
+            "Event Start Time",
         ],
         typ="events",
         pagination={"sortColumn": "Event Start Date", "sortDirection": "ASC"},
-    )
+    ):
+        yield Event.from_neon_search(evt)
 
 
 def fetch_event(event_id):
@@ -370,36 +345,20 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     sample_classes = []
     now = tznow()
     until = tznow() + datetime.timedelta(days=until)
-    for e in search_upcoming_events(
+    for evt in _search_upcoming_events(
         from_date=now,
         to_date=until,
-        extra_fields=[
-            "Event Registration Attendee Count",
-            "Event Capacity",
-            "Event Start Date",
-            "Event Start Time",
-        ],
     ):
-        if e.get("Event Web Publish") != "Yes" or e.get("Event Web Register") != "Yes":
+        if not evt.published or not evt.registration or not evt.start_date:
             continue
-
-        # Events may not always have capacity, or potentially even registrants.
-        capacity = int(e.get("Event Capacity") or "0")
-        numreg = int(e.get("Event Registration Attendee Count") or "999")
-        if capacity <= numreg:
+        if not evt.attendee_count or evt.capacity <= evt.attendee_count:
             continue
-        if not e.get("Event Start Date") or not e.get("Event Start Time"):
-            continue
-        d = dateparser.parse(
-            e["Event Start Date"] + " " + e["Event Start Time"]
-        ).astimezone(tz)
-        d = d.strftime("%b %-d, %-I%p")
         sample_classes.append(
             {
-                "url": f"https://protohaven.org/e/{e['Event ID']}",
-                "name": e["Event Name"],
-                "date": d,
-                "seats_left": capacity - numreg,
+                "url": f"https://protohaven.org/e/{evt.neon_id}",
+                "name": evt.name,
+                "date": evt.start_date.strftime("%b %-d, %-I%p"),
+                "seats_left": evt.capacity - evt.attendee_count,
             }
         )
         if len(sample_classes) >= 3:

@@ -67,22 +67,17 @@ def test_set_tech_custom_fields(mocker):
 
 
 def test_get_sample_classes_neon(mocker):
-    mocker.patch.object(
-        n,
-        "search_upcoming_events",
-        return_value=[
-            {
-                "Event Web Publish": "Yes",
-                "Event Web Register": "Yes",
-                "Event ID": "123",
-                "Event Name": "Sample Event",
-                "Event Capacity": "10",
-                "Event Registration Attendee Count": "5",
-                "Event Start Date": "2025-01-05",
-                "Event Start Time": "15:00:00",
-            }
-        ],
+    m = mocker.MagicMock(
+        published=True,
+        registration=True,
+        neon_id=123,
+        capacity=10,
+        attendee_count=5,
+        start_date=d(4, 15),
     )
+    m.name = "Sample Event"
+
+    mocker.patch.object(n, "_search_upcoming_events", return_value=[m])
     mocker.patch.object(n, "tznow", return_value=d(0))
     result = n.get_sample_classes(cache_bust=True)
     assert result == [

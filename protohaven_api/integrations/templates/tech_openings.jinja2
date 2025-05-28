@@ -1,5 +1,5 @@
 {% if subject %}New classes for tech backfill:{% else %}@Techs: There's {{n}} class{% if n != 1%}es{% endif %} available for backfill in the next 24 hours:
-{% for evt in events %}{% set tstart = evt.python_date.strftime("%B %-d, %-I%p") %}{% set avail=evt.capacity - evt.signups %}
+{% for evt in events %}{% set tstart = evt.start_date.strftime("%B %-d, %-I%p") %}{% set avail=evt.capacity - evt.attendee_count %}
  - {{tstart}} - {{evt.name}} ({{avail}} seat{% if avail != 1 %}s{% endif %} available, ${{evt.supply_cost or 0}} cost){% endfor %}
 
 You can pay at the front desk via Square (select "Walk-In (3 Hr Class / add price)", set to the cost listed above, charge as normal)

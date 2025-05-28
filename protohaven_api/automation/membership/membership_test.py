@@ -181,30 +181,6 @@ def test_init_membership_amp(mocker):
     assert "proof of income must be on file" in msgs[1].body
 
 
-def test_event_is_suggestible(mocker):
-    """Test that suggestible events are returned if under max price"""
-    max_price = 100
-    tickets = [
-        {"name": "Single Registration", "fee": 50, "numberRemaining": 5},
-        {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
-    ]
-    mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
-    result, number_remaining = m.event_is_suggestible(123, max_price)
-    assert result is True
-    assert number_remaining == 5
-
-
-def test_event_is_suggestible_price_too_high(mocker):
-    """Test that events aren't returned if they exceed the max_price"""
-    max_price = 40
-    tickets = [
-        {"name": "Single Registration", "fee": 50, "numberRemaining": 3},
-    ]
-    mocker.patch.object(neon, "fetch_tickets", return_value=tickets)
-    result, _ = m.event_is_suggestible(123, max_price)
-    assert result is False
-
-
 def test_generate_coupon_id():
     """Test that coupons are generated uniquely"""
     got = m.generate_coupon_id(n=10)
@@ -214,45 +190,34 @@ def test_generate_coupon_id():
 
 def test_get_sample_classes(mocker):
     """Test fetching of sample classes"""
+
+    m0 = mocker.MagicMock(
+        neon_id=1, start_date=d(0, 10), has_open_seats_below_price=lambda p: 5
+    )
+    m0.name = "Class 1"
+    m1 = mocker.MagicMock(
+        neon_id=2, start_date=d(1, 11), has_open_seats_below_price=lambda p: 1
+    )
+    m1.name = "Class 2"
+    m2 = mocker.MagicMock(
+        neon_id=3, start_date=d(2, 12), has_open_seats_below_price=lambda p: 0
+    )
+    m2.name = "Class 3"
     mocker.patch.object(
-        neon,
+        m.eauto,
         "fetch_upcoming_events",
-        return_value=[
-            {
-                "id": 1,
-                "startDate": "2023-10-10",
-                "startTime": "10:00AM",
-                "name": "Class 1",
-            },
-            {
-                "id": 2,
-                "startDate": "2023-10-11",
-                "startTime": "11:00AM",
-                "name": "Class 2",
-            },
-            {
-                "id": 3,
-                "startDate": "2023-10-12",
-                "startTime": "12:00PM",
-                "name": "Class 3",
-            },
-        ],
+        return_value=[m0, m1, m2],
     )
-    mocker.patch.object(
-        m,
-        "event_is_suggestible",
-        side_effect=[(True, 5), (True, 1), (False, 0)],
-    )
-    result = m.get_sample_classes(10)
+    result = m.get_sample_classes(coupon_amount=10)
     assert result == [
         {
-            "date": dateparser.parse("2023-10-10T10:00:00").astimezone(tz),
+            "date": d(0, 10),
             "name": "Class 1",
             "id": 1,
             "remaining": 5,
         },
         {
-            "date": dateparser.parse("2023-10-11T11:00:00").astimezone(tz),
+            "date": d(1, 11),
             "name": "Class 2",
             "id": 2,
             "remaining": 1,
