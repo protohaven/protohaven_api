@@ -87,7 +87,7 @@ def test_singleton_role_sync(tc):
 def test_gen_role_intents_limited_and_sorted(mocker):
     """Cuts off role assignment additions if beyond the max"""
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
 
     # Discord values are fetched from newest to oldest (descending date).
@@ -117,7 +117,7 @@ def test_gen_role_intents_departing_member(mocker):
         ]
 
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+        r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
     mocker.patch.object(
         r.comms,
@@ -147,7 +147,7 @@ def test_gen_role_intents_match(mocker):
         ]
 
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+        r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
     mocker.patch.object(
         r.comms,
@@ -184,7 +184,7 @@ def test_gen_role_intents_match(mocker):
 def test_gen_role_intents_no_neon(mocker):
     """Test intent when discord member has no neon account"""
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
     mocker.patch.object(
         r.comms,

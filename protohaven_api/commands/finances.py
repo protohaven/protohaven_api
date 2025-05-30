@@ -93,8 +93,9 @@ class Commands:
         log.info("Done")
 
     def _validate_role_membership(self, acct, role):
-        if role["name"] not in acct.roles:
-            yield (f"Needs role {role['name']}, has {[r['name'] for r in acct.roles]}")
+        if role not in acct.roles:
+            has = ",".join([r["name"] for r in acct.roles]) or "none"
+            yield f"Needs role {role['name']}, has {has}"
             log.info(f"Missing role {role['name']}: {acct.neon_id}")
 
     def _validate_addl_family_membership(
@@ -243,7 +244,9 @@ class Commands:
         num = 0
         am = None
         for am in acct.memberships(active_only=True):
-            if am.start_date > now or (am.status or "SUCCEEDED") != "SUCCEEDED":
+            if (am.start_date and am.start_date > now) or (
+                am.status or "SUCCEEDED"
+            ) != "SUCCEEDED":
                 continue
             num += 1
 
@@ -261,14 +264,14 @@ class Commands:
                     log.info(
                         f"Abnormal zero-cost: {acct.neon_id} - active membership {am.neon_id}"
                     )
-            if am.end_date is None:
+            if am.end_date is None or am.end_date == datetime.datetime.max:
                 yield f"Membership {am.level} with no end date (infinite duration)"
                 log.info(
                     f"Infinite duration: {acct.neon_id} - active membership {am.neon_id}"
                 )
 
         if num > 1:
-            yield f"Multiple active memberships: {len(acct.memberships())} total"
+            yield f"Multiple active memberships: want 1, got {num}"
             log.info(f"Multiple active memberships: {acct.neon_id}")
 
         if acct.level in (
@@ -529,7 +532,7 @@ class Commands:
             kwargs = {
                 "account_id": acct.neon_id,
                 "membership_name": mem.name,
-                "membership_id": mem.id,
+                "membership_id": mem.neon_id,
                 "email": acct.email,
                 "fname": acct.fname,
                 "coupon_amount": args.coupon_amount,

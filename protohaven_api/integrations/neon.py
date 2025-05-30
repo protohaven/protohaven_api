@@ -3,10 +3,10 @@
 import datetime
 import logging
 from functools import lru_cache
+from typing import Generator
 
 import rapidfuzz
 from flask import Response
-from typings import Generator
 
 from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
@@ -193,28 +193,30 @@ def fetch_output_fields():
     return content
 
 
-def search_inactive_members(extra_fields: list[str]) -> Generator[Member, None, None]:
+def search_inactive_members(
+    fields: list[str], fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Lookup all accounts with inactive memberships"""
-    for acct in neon_base.paginated_search(
+    yield from _search_members_internal(
         [
             ("Account Current Membership Status", "NOT_EQUAL", "Active"),
         ],
-        ["Account ID", *extra_fields],
-        pagination={"pageSize": 100},
-    ):
-        yield Member.from_neon_search(acct)
+        fields,
+        fetch_memberships,
+    )
 
 
-def search_active_members(extra_fields: list[str]) -> Generator[Member, None, None]:
+def search_active_members(
+    fields: list[str], fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Lookup all accounts with active memberships"""
-    for acct in neon_base.paginated_search(
+    yield from _search_members_internal(
         [
             ("Account Current Membership Status", "EQUAL", "Active"),
         ],
-        ["Account ID", *extra_fields],
-        pagination={"pageSize": 100},
-    ):
-        yield Member.from_neon_search(acct)
+        fields,
+        fetch_memberships,
+    )
 
 
 MEMBER_SEARCH_OUTPUT_FIELDS = [
@@ -490,7 +492,9 @@ class AccountCache(WarmDict):
 
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
-            aa = list(search_members_by_email(k, fields=self.FIELDS))
+            aa = list(
+                search_members_by_email(k, fields=self.FIELDS, fetch_memberships=True)
+            )
             if len(aa) > 0:
                 log.info(f"cache miss on '{k}' returned results: {aa}")
                 return {a.neon_id: a for a in aa}
@@ -536,7 +540,7 @@ class AccountCache(WarmDict):
         """Refresh values; called every REFRESH_PD"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
-        for a in search_inactive_members(self.FIELDS):
+        for a in search_inactive_members(self.FIELDS, fetch_memberships=True):
             self.update(a)
             n += 1
             if n % 100 == 0:
