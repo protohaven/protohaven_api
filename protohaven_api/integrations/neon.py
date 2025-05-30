@@ -5,14 +5,14 @@ import logging
 from functools import lru_cache
 
 import rapidfuzz
-from dateutil import parser as dateparser
 from flask import Response
+from typings import Generator
 
-from protohaven_api.config import tz, tznow, utcnow
+from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Event, Member, Role
+from protohaven_api.integrations.models import Event, Member
 
 log = logging.getLogger("integrations.neon")
 
@@ -45,13 +45,6 @@ def fetch_event(event_id):
     return Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
 
 
-def fetch_registrations(event_id):
-    """Fetch registrations for a specific Neon event"""
-    return neon_base.paginated_fetch(
-        "api_key1", f"/events/{event_id}/eventRegistrations"
-    )
-
-
 def register_for_event(account_id, event_id, ticket_id):
     """Register for `event_id` with `account_id`"""
     return neon_base.post(
@@ -79,7 +72,9 @@ def delete_single_ticket_registration(account_id, event_id):
     """Deletes single-ticket, single-attendee registrations
     for event with `event_id` made by `account_id`. This
     works for registrations created with `register_for_event()`."""
-    for reg in fetch_registrations(event_id):
+    for reg in neon_base.paginated_fetch(
+        "api_key1", f"/events/{event_id}/eventRegistrations"
+    ):
         tickets = reg.get("tickets", [])
         if len(tickets) != 1:
             continue
@@ -95,16 +90,15 @@ def delete_single_ticket_registration(account_id, event_id):
     )
 
 
-def fetch_tickets(event_id):
-    """Fetch ticket information for a specific Neon event"""
+def fetch_tickets_internal_do_not_use_directly(event_id):
+    """Fetch ticket information for a specific Neon event.
+    This is used in automation.classes.events `fetch_upcoming_events()`
+    to load additional ticketing information for classes. It should only be used
+    indirectly by calling that function.
+    """
     content = neon_base.get("api_key1", f"/events/{event_id}/tickets")
     assert isinstance(content, list)
     return content
-
-
-def fetch_memberships(account_id):
-    """Fetch membership history of an account in Neon"""
-    return neon_base.paginated_fetch("api_key2", f"/accounts/{account_id}/memberships")
 
 
 def fetch_attendees(event_id):
@@ -143,17 +137,6 @@ def create_zero_cost_membership(account_id, start, end, level=None, term=None):
             "status": "SUCCEEDED",
         },
     )
-
-
-def get_latest_membership_id_and_name(account_id):
-    """Returns the ID and level of the membership with the latest start date, or None
-    if there are no memberships for the account under `account_id`."""
-    latest = ((None, None), None)
-    for mem in fetch_memberships(account_id):
-        tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
-        if not latest[1] or latest[1] < tsd:
-            latest = ((mem["id"], mem["membershipLevel"]["name"]), tsd)
-    return latest[0]
 
 
 def set_membership_date_range(membership_id, start, end):
@@ -210,7 +193,7 @@ def fetch_output_fields():
     return content
 
 
-def get_inactive_members(extra_fields: list[str]) -> list[Member]:
+def search_inactive_members(extra_fields: list[str]) -> Generator[Member, None, None]:
     """Lookup all accounts with inactive memberships"""
     for acct in neon_base.paginated_search(
         [
@@ -222,7 +205,7 @@ def get_inactive_members(extra_fields: list[str]) -> list[Member]:
         yield Member.from_neon_search(acct)
 
 
-def get_active_members(extra_fields: list[str]) -> list[Member]:
+def search_active_members(extra_fields: list[str]) -> Generator[Member, None, None]:
     """Lookup all accounts with active memberships"""
     for acct in neon_base.paginated_search(
         [
@@ -251,92 +234,86 @@ MEMBER_SEARCH_OUTPUT_FIELDS = [
 ]
 
 
-def search_member(email, operator="EQUAL", fields=None):
+def _search_members_internal(
+    params: list, fields=None, fetch_memberships=False, merge_bios=None
+) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
-    if not fields:
-        fields = MEMBER_SEARCH_OUTPUT_FIELDS
     for acct in neon_base.paginated_search(
-        [("Email", operator, email)], ["Account ID", *fields]
+        params,
+        [
+            "Account ID",
+            *(fields if fields is not None else MEMBER_SEARCH_OUTPUT_FIELDS),
+        ],
     ):
-        yield Member.from_neon_search(acct)
+        m = Member.from_neon_search(acct)
+        if fetch_memberships:
+            m.set_membership_data(
+                neon_base.fetch_memberships_internal_do_not_call_directly(m.neon_id)
+            )
+        if merge_bios:
+            m.set_bio_data(merge_bios.get(m.email))
+        yield m
 
 
-def get_members_with_role(role, extra_fields):
+def search_members_by_email(
+    email, operator="EQUAL", fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
+    """Lookup a user by their email; note that emails aren't unique so we may
+    return multiple results."""
+    yield from _search_members_internal(
+        [("Email", operator, email)], fields, fetch_memberships
+    )
+
+
+def search_members_with_role(
+    role, fields=None, fetch_memberships=False, merge_bios=None
+) -> Generator[Member, None, None]:
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
-    for acct in neon_base.paginated_search(
+    yield from _search_members_internal(
         [(str(CustomField.API_SERVER_ROLE), "CONTAIN", role["id"])],
-        ["Account ID", "First Name", "Last Name", *extra_fields],
-    ):
-        yield Member.from_neon_search(acct)
+        fields,
+        fetch_memberships,
+        merge_bios,
+    )
 
 
-def get_new_members_needing_setup(max_days_ago, extra_fields=None):
+def search_new_members_needing_setup(
+    max_days_ago, fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Fetch all members in need of automated setup; this includes
     all paying members past the start of the Onboarding V2 plan
     that haven't yet had automation applied to them."""
     enroll_date = (tznow() - datetime.timedelta(days=max_days_ago)).strftime("%Y-%m-%d")
-    for acct in neon_base.paginated_search(
+    yield from _search_members_internal(
         [
             (str(CustomField.ACCOUNT_AUTOMATION_RAN), "BLANK", None),
             ("First Membership Enrollment Date", "GREATER_THAN", enroll_date),
             ("Membership Cost", "GREATER_THAN", 10),
         ],
-        ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
-    ):
-        return Member.from_neon_search(acct)
+        fields,
+        fetch_memberships,
+    )
 
 
-def get_all_accounts_with_discord_association(extra_fields):
+def search_members_with_discord_association(
+    fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Lookup all accounts with discord users associated"""
-    for acct in neon_base.paginated_search(
-        [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)],
-        ["Account ID", *extra_fields],
-    ):
-        return Member.from_neon_search(acct)
+    yield from _search_members_internal(
+        [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)], fields, fetch_memberships
+    )
 
 
-def get_members_with_discord_id(discord_id, extra_fields=None):
+def search_members_with_discord_id(
+    discord_id, fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Fetch all members with a specific Discord ID"""
-    for acct in neon_base.paginated_search(
+    yield from _search_members_internal(
         [(str(CustomField.DISCORD_USER), "EQUAL", discord_id)],
-        ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
-    ):
-        return Member.from_neon_search(acct)
-
-
-def fetch_techs_list(include_pii=False):
-    """Fetches a list of current shop techs, ordered by number of clearances"""
-    techs = []
-    for t in get_members_with_role(
-        Role.SHOP_TECH,
-        [
-            "Email 1",
-            CustomField.CLEARANCES,
-            CustomField.INTEREST,
-            CustomField.EXPERTISE,
-            CustomField.AREA_LEAD,
-            CustomField.SHOP_TECH_SHIFT,
-            CustomField.SHOP_TECH_FIRST_DAY,
-            CustomField.SHOP_TECH_LAST_DAY,
-        ],
-    ):
-        techs.append(
-            {
-                "id": t.neon_id if include_pii else "",
-                "name": (f"{t.fname} {t.lname}" if include_pii else f"{t.fname}"),
-                "email": t.email if include_pii else "",
-                "interest": t.interest or "",
-                "expertise": t.expertise or "",
-                "area_lead": t.area_lead or "",
-                "shift": t.shop_tech_shift or "",
-                "first_day": t.shop_tech_first_day or "",
-                "last_day": t.shop_tech_last_day or "",
-                "clearances": t.clearances,
-            }
-        )
-    techs.sort(key=lambda t: len(t["clearances"]))
-    return techs
+        fields,
+        fetch_memberships,
+    )
 
 
 @lru_cache(maxsize=1)
@@ -375,18 +352,17 @@ def create_coupon_code(code, amt, from_date=None, to_date=None):
 
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = list(search_member(email))
+    mem = list(search_members_by_email(email, [CustomField.API_SERVER_ROLE]))
     if len(mem) == 0:
         raise KeyError()
-    account_id = mem[0].neon_id
-    acct = neon_base.fetch_account(account_id, required=True)
-    roles = {v["id"]: v["name"] for v in acct.roles}
+    mem = mem[0]
+    roles = {v["id"]: v["name"] for v in mem.roles}
     if enabled:
         roles[role["id"]] = role["name"]
     elif role["id"] in roles:
         del roles[role["id"]]
     return neon_base.set_custom_fields(
-        account_id,
+        mem.account_id,
         (CustomField.API_SERVER_ROLE, [{"id": k, "name": v} for k, v in roles.items()]),
     )
 
@@ -400,7 +376,7 @@ def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     interest=None,
     expertise=None,
 ):
-    """Overwrites existing waiver status information on an account"""
+    """Sets custom fields on a shop tech Neon account"""
     cf = [
         (CustomField.SHOP_TECH_SHIFT, shift),
         (CustomField.SHOP_TECH_FIRST_DAY, first_day),
@@ -514,7 +490,7 @@ class AccountCache(WarmDict):
 
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
-            aa = list(search_member(k, fields=self.FIELDS))
+            aa = list(search_members_by_email(k, fields=self.FIELDS))
             if len(aa) > 0:
                 log.info(f"cache miss on '{k}' returned results: {aa}")
                 return {a.neon_id: a for a in aa}
@@ -560,12 +536,12 @@ class AccountCache(WarmDict):
         """Refresh values; called every REFRESH_PD"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
-        for a in get_inactive_members(self.FIELDS):
+        for a in search_inactive_members(self.FIELDS):
             self.update(a)
             n += 1
             if n % 100 == 0:
                 self.log.info(n)
-        for a in get_active_members(self.FIELDS):
+        for a in search_active_members(self.FIELDS):
             self.update(a)
             n += 1
             if n % 100 == 0:

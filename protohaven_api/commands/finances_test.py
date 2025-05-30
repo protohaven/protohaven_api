@@ -340,7 +340,7 @@ def test_refresh_volunteer_memberships(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [mocker.MagicMock(neon_id="456", fname="Jane", lname="Doe")],
@@ -392,7 +392,7 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [],
@@ -427,7 +427,7 @@ def test_refresh_volunteer_memberships_autorenew(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [],
@@ -449,7 +449,7 @@ def test_refresh_volunteer_memberships_exclude(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
             [],
@@ -471,7 +471,7 @@ def test_refresh_volunteer_memberships_filter_dev(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [],
             [],

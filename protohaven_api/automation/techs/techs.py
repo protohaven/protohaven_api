@@ -2,26 +2,10 @@
 import datetime
 from collections import defaultdict
 
-from dateutil import parser as dateparser
-
-from protohaven_api.config import tz
 from protohaven_api.integrations import airtable, neon
+from protohaven_api.rbac import Role
 
 DEFAULT_FORECAST_LEN = 16
-
-
-def get_shift_map(techs=None, include_pii=False):
-    """Get map of shift name to list of techs on shift"""
-    if not techs:
-        techs = neon.fetch_techs_list(include_pii)
-    shift_map = defaultdict(list)
-    for t in techs:
-        if not t.get("shift"):
-            continue
-        for s in t.get("shift").split(","):
-            s = s.strip()
-            shift_map[s].append(t["name"])
-    return dict(shift_map)
 
 
 def _calendar_badge_color(num_people):
@@ -75,26 +59,35 @@ def _create_calendar_view(
 
 def generate(date, forecast_len, include_pii=False):
     """Provide advance notice of the level of staffing of tech shifts"""
-    date = date.replace(hour=0, minute=0, second=0, microsecond=0)
-    techs = list(neon.fetch_techs_list(include_pii))
-    shift_term_map = {
-        t["name"]: (
-            dateparser.parse(t["first_day"])
-            .astimezone(tz)
-            .replace(hour=0, minute=0, second=0, microsecond=0)
-            if t.get("first_day") is not None
-            else None,
-            dateparser.parse(t["last_day"])
-            .astimezone(tz)
-            .replace(hour=0, minute=0, second=0, microsecond=0)
-            if t.get("last_day") is not None
-            else None,
-        )
-        for t in techs
-    }
-    shift_map = get_shift_map(techs, include_pii)
+    tech_fields = [
+        "First Name",
+        neon.CustomField.AREA_LEAD,
+        neon.CustomField.SHOP_TECH_SHIFT,
+        neon.CustomField.SHOP_TECH_FIRST_DAY,
+        neon.CustomField.SHOP_TECH_LAST_DAY,
+    ]
+    if include_pii:
+        tech_fields += [
+            "Last Name",
+            "Preferred Name",
+            neon.CustomField.PRONOUNS,
+            "Email 1",
+            neon.CustomField.CLEARANCES,
+            neon.CustomField.INTEREST,
+            neon.CustomField.EXPERTISE,
+        ]
 
-    calendar_view = _create_calendar_view(date, shift_map, shift_term_map, forecast_len)
+    date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+    techs = list(neon.search_members_with_role(Role.SHOP_TECH, tech_fields))
+    shift_term_map = {
+        t.name: (t.shop_tech_first_day, t.shop_tech_last_day) for t in techs
+    }
+    shift_map = defaultdict(list)
+    for t in techs:
+        shift_map[t.shop_tech_shift].append(t.name)
+
     return {
-        "calendar_view": calendar_view,
+        "calendar_view": _create_calendar_view(
+            date, shift_map, shift_term_map, forecast_len
+        ),
     }

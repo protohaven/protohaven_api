@@ -99,7 +99,7 @@ def acknowledge_announcements():
     """Set the acknowledgement date to `now` so prior announcements
     are no longer displayed"""
     data = request.json
-    m = list(neon.search_member(data["email"]))
+    m = list(neon.search_members_by_email(data["email"]))
     if len(m) == 0:
         raise KeyError("Member not found")
     neon.update_announcement_status(m[0].neon_id)
@@ -113,7 +113,7 @@ def survey_response():
     data = request.json
 
     neon_id = None
-    m = list(neon.search_member(data["email"]))
+    m = list(neon.search_members_by_email(data["email"]))
     if len(m) != 0:
         neon_id = m[0].neon_id
     status, content = airtable.insert_simple_survey_response(
