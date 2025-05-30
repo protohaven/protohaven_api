@@ -77,20 +77,17 @@ def run_neon_membership_created_callback_test(params, is_amp):
     created membership. Our manual call lies about the cost of the membership
     so that the callback actually executes and defers the membership."""
     print("\nFetching current user data")
-    m = list(neon.search_member(params.user))
+    m = list(neon.search_members_by_email(params.user, fetch_memberships=True))
     if len(m) == 0:
         raise RuntimeError(f"No Neon account for {params.user}")
     m = m[0]
     print(f"\nFound account #{m.neon_id}")
-    for mem in neon.fetch_memberships(m.neon_id):
-        mem_id = int(mem["id"])
-        assert mem_id and mem_id != 0
-        print("Membership", mem)
-        print("Deleting membership", mem_id)
+    for mem in m.memberships:
+        print("Deleting membership", mem.neon_id)
         # Note: this is a `neon_base` call and not a function in `neon` as it feels
         # pretty risky to have a "delete this normally archival data" function just
         # laying around to be used elsewhere.
-        print(neon_base.delete("api_key2", f"/memberships/{mem_id}"))
+        print(neon_base.delete("api_key2", f"/memberships/{mem.neon_id}"))
 
     print("\nResetting Automation Ran custom field")
     print(
@@ -141,14 +138,14 @@ def run_neon_membership_created_callback_test(params, is_amp):
     print(rep.status_code, rep.content)
     assert rep.status_code == 200
 
-    mem = list(neon.fetch_memberships(m.neon_id))[0]
-    want_date_str = memauto.PLACEHOLDER_START_DATE.strftime("%Y-%m-%d")
-    if mem.get("termStartDate") != want_date_str:
+    acc = neon_base.fetch_account(m.neon_id, required=True, fetch_memberships=True)
+    mem = acc.memberships()[0]
+    if mem.start_date != memauto.PLACEHOLDER_START_DATE:
         raise RuntimeError(
-            f"Term start date incorrect - wanted {want_date_str}, got {mem.get('termStartDate')}"
+            "Term start date incorrect - wanted "
+            + f"{memauto.PLACEHOLDER_START_DATE}, got {mem.start_date}"
         )
 
-    acc = neon_base.fetch_account(m.neon_id, required=True)
     if not acc.automation_ran.startswith(memauto.DEFERRED_STATUS):
         raise RuntimeError(
             f'Account Automation Ran custom field is "{acc.automation_ran}"; '

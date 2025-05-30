@@ -118,7 +118,7 @@ def test_delete_single_ticket_registration(mocker):
 def test_account_cache_case_insensitive(mocker):
     """Confirm that lookups are case insensitive, and that non-string
     types are handled safely"""
-    mocker.patch.object(n, "get_inactive_members", return_value=[])
+    mocker.patch.object(n, "search_inactive_members", return_value=[])
     want1 = mocker.MagicMock(
         email="aSdF",
         fname="foo",
@@ -126,7 +126,7 @@ def test_account_cache_case_insensitive(mocker):
         neon_id=123,
         account_current_membership_status="Active",
     )
-    mocker.patch.object(n, "get_active_members", return_value=[want1])
+    mocker.patch.object(n, "search_active_members", return_value=[want1])
     mocker.patch.object(n, "search_member", return_value=[])
     c = n.AccountCache()
     c.refresh()

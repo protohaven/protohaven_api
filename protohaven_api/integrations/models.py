@@ -4,10 +4,11 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import Generator
+from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import tz
+from protohaven_api.config import tz, tznow
 
 log = logging.getLogger("integrations.models")
 
@@ -53,11 +54,72 @@ class Role:
 
 
 @dataclass
+class Membership:
+    """An object that facilitates proper and safe typed lookups of membership data from Neon"""
+
+    neon_raw_data: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_neon_fetch(cls, data):
+        """Parses out all relevant info for a membership
+        from the results of a Neon /account GET request"""
+        if not data:
+            return None
+        m = cls()
+        m.neon_raw_data = data
+        return m
+
+    def is_lapsed(self, now=None) -> bool:
+        """Return true if the membership window is in the past, false otherwise"""
+        now = (now or tznow()).replace(hour=0, minute=0, second=0, microsecond=0)
+        return self.end_date and self.end_date < now
+
+    @property
+    def start_date(self) -> datetime.datetime:
+        """Returns the start date of the membership, if any"""
+        return (
+            dateparser.parse(self.neon_raw_data.get("termStartDate")).astimezone(tz)
+            if self.neon_raw_data.get("termStartDate")
+            else None
+        )
+
+    @property
+    def end_date(self) -> datetime.datetime:
+        """Return end date, or the maximum possible date if not set"""
+        return (
+            dateparser.parse(self.neon_raw_data.get("termEndDate")).astimezone(tz)
+            if self.neon_raw_data.get("termEndDate")
+            else datetime.datetime.max
+        )
+
+    @property
+    def neon_id(self):
+        """Returns neon ID of the membership"""
+        return self.neon_raw_data["id"]
+
+    @property
+    def level(self) -> str:
+        """Returns membership level"""
+        return (self.neon_raw_data["membershipLevel"]["name"] or "").strip()
+
+    @property
+    def term(self) -> str:
+        """Returns membership term"""
+        return (self.neon_raw_data["membershipTerm"]["name"] or "").strip()
+
+    def __getattr__(self, attr):
+        """Possible attributes: fee, status, autoRenewal"""
+        return self.neon_raw_data.get(attr)
+
+
+@dataclass
 class Member:  # pylint:disable=too-many-public-methods
     """A canonical format for all of a Protohaven member's data"""
 
     neon_raw_data: dict = field(default_factory=dict)
     neon_search_data: dict = field(default_factory=dict)
+    neon_membership_data: list[dict] | None = None
+    airtable_bio_data: dict = field(default_factory=dict)
 
     @classmethod
     def from_neon_fetch(cls, data):
@@ -79,9 +141,61 @@ class Member:  # pylint:disable=too-many-public-methods
         m.neon_search_data = data
         return m
 
+    def set_membership_data(self, data):
+        """Merges in membership information fetched from Neon"""
+        if data:
+            self.neon_membership_data = data
+
+    def set_bio_data(self, data):
+        """Merges in Airtable profile pic and bio information"""
+        if data:
+            self.airtable_bio_data = data
+
+    @property
+    def is_paying_member(self) -> bool:
+        """Return true if member has an active, nonzero-cost membership"""
+        for ms in self.memberships(active_only=True):
+            if ms.fee > 0:
+                return True
+
+        return False
+
+    def last_membership_expiration_date(self) -> (datetime.datetime, bool):
+        """Returns a tuple of (expiration_date, autorenewal) based on
+        membership data. Unspecified end date will be treated as "infinite".
+        A value of (None, None) will be returned if the account has no memberships
+        """
+        result = (None, None)
+        for m in self.memberships():
+            if not result[0] or result[0] < m.end_date:
+                result = (m.end_date, m.autoRenewal or False)
+        return result
+
+    def latest_membership(self, active_only=False) -> Membership | None:
+        """Gets the membership with start date furthest in the future"""
+        latest = None
+        for m in self.memberships(active_only):
+            if not latest or m.start_date > latest.start_date:
+                latest = m
+        return latest
+
+    def memberships(self, active_only=False):
+        """Fetches Membership instances for all memberships loaded"""
+        if self.neon_membership_data is None:
+            raise RuntimeError(
+                f"No membership data loaded for member instance {self.neon_id}"
+            )
+        for m in self.neon_membership_data:
+            ms = Membership(m)
+            if active_only and ms.is_lapsed():
+                continue
+            yield ms
+
     def is_company(self):
         """True if this is a Neon company account and not an individual account"""
-        return self.neon_raw_data.get("companyAccount")
+        return (
+            self.neon_raw_data.get("companyAccount") or self.company_id == self.neon_id
+        )
 
     def _raw_account(self):
         return (
@@ -170,16 +284,6 @@ class Member:  # pylint:disable=too-many-public-methods
         )
 
     @property
-    def zero_cost_ok_until(self):
-        """Returns the date until which a zero cost membership is OK for this member"""
-        val = self._get_custom_field("Zero-Cost Membership OK Until Date", "value")
-        try:
-            return dateparser.parse(val).astimezone(tz)
-        except dateparser.ParserError as e:
-            log.error(e)
-            return None
-
-    @property
     def income_based_rate(self):
         """Return Income Based Rate custom neon field"""
         val = self._get_custom_field("Income Based Rate", "optionValues")
@@ -262,12 +366,11 @@ class Member:  # pylint:disable=too-many-public-methods
         custom_fields = {
             "discord_user": ("Discord User", "value"),
             "interest": ("Interest", "value"),
-            "area_lead": ("Area Lead", "value"),
-            "shop_tech_shift": ("Shop Tech Shift", "value"),
-            "shop_tech_first_day": ("Shop Tech First Day", "value"),
-            "shop_tech_last_day": ("Shop Tech Last Day", "value"),
             "account_automation_ran": ("Account Automation Ran", "value"),
         }
+        if attr in custom_fields:
+            return self._get_custom_field(*custom_fields[attr])
+
         resolvable_fields = {
             "neon_id": ("accountId", "Account ID"),
             "company_id": ("companyId", "Company ID"),
@@ -276,11 +379,43 @@ class Member:  # pylint:disable=too-many-public-methods
                 "Account Current Membership Status",
             ),
         }
-        if attr in custom_fields:
-            return self._get_custom_field(*custom_fields[attr])
         if attr in resolvable_fields:
             return self._resolve(*resolvable_fields[attr])
+
+        day_custom_fields = {
+            "zero_cost_ok_until": "Zero-Cost Membership OK Until Date",
+            "shop_tech_first_day": "Shop Tech First Day",
+            "shop_tech_last_day": "Shop Tech Last Day",
+        }
+        if attr in day_custom_fields:
+            val = self._get_custom_field(day_custom_fields[attr], "value")
+            try:
+                return (
+                    dateparser.parse(val)
+                    .astimezone(tz)
+                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                )
+            except dateparser.ParserError as e:
+                log.error(e)
+                return None
+
         raise AttributeError(attr)
+
+    @property
+    def area_lead(self):
+        """Return a list of areas this account is an area lead for"""
+        v = self._get_custom_field("Area Lead", "value")
+        return [] if not v else [a.strip() for a in v.split(",")]
+
+    @property
+    def shop_tech_shift(self):
+        """Returns the tuple of ("weekday", AM|PM) indicating the
+        member's shop tech shift"""
+        v = self._get_custom_field("Shop Tech Shift", "value")
+        if not v:
+            return (None, None)
+        v = [s.strip() for s in v.split(",")]
+        return v[0], v[1]
 
     @property
     def booked_id(self):
@@ -519,3 +654,21 @@ class Event:
             if t["name"] == "Single Registration":
                 return t["id"]
         return None
+
+    @property
+    def volunteer_bio(self):
+        """With bio data, get member bio string"""
+        if not self.airtable_bio_data:
+            raise RuntimeError("Missing bio data for call to volunteer_bio()")
+        return self.airtable_bio_data.get("Bio") or ""
+
+    @property
+    def volunteer_picture(self):
+        """With bio data, get member's profile picture"""
+        if not self.airtable_bio_data:
+            raise RuntimeError("Missing bio data for call to volunteer_picture()")
+        thumbs = self.airtable_bio_data.get("Picture")[0]["thumbnails"]["large"]
+        return thumbs.get("url") or urljoin(
+            "http://localhost:8080",
+            thumbs.get("signedPath"),
+        )

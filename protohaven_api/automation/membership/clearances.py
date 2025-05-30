@@ -21,7 +21,7 @@ def update(email, method, delta, apply=True):
     """Update clearances for `email` user"""
     delta = set(delta)
     name_to_code, code_to_id = code_mapping()
-    m = list(neon.search_member(email))
+    m = list(neon.search_members_by_email(email))
     if len(m) == 0:
         raise KeyError(f"Member {email} not found")
     m = m[0]

@@ -9,13 +9,10 @@ from dateutil import parser as dateparser
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
-    neon,
-    tasks,
-)
+from protohaven_api.config import tz, tznow
+from protohaven_api.integrations import airtable, neon, tasks
 from protohaven_api.integrations.comms import Msg
+from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.forwarding")
 
@@ -340,9 +337,9 @@ class Commands:
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {
-            t["email"].strip().lower(): t["name"]
-            for t in neon.fetch_techs_list(include_pii=True)
-            if t["name"] in techs_on_duty
+            m.email: m.name
+            for m in neon.search_members_with_role(Role.SHOP_TECH, ["Email 1"])
+            if m.name in techs_on_duty
         }
         rev_email_map = {v: k for k, v in email_map.items()}
         log.info(f"Email map: {email_map}")

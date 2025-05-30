@@ -346,7 +346,7 @@ class Commands:
 
     def _fetch_neon_sources(self):
         neon_members = {}
-        for m in neon.get_active_members(
+        for m in neon.search_active_members(
             [
                 "Company ID",
                 "First Name",

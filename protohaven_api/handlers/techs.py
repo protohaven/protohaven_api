@@ -3,13 +3,12 @@
 import datetime
 import logging
 from collections import defaultdict
-from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 
 from protohaven_api.automation.classes import events as eauto
-from protohaven_api.automation.techs import techs as forecast
+from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
 from protohaven_api.integrations.models import Role
@@ -109,12 +108,6 @@ def techs_docs_state():
     return wiki.get_tool_docs_summary()
 
 
-@page.route("/techs/shifts")
-def techs_shifts():
-    """Fetches shift information for all techs"""
-    return forecast.get_shift_map()
-
-
 @page.route("/techs/members")
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_members():
@@ -132,14 +125,20 @@ def techs_members():
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
     _, areas = _fetch_tool_states_and_areas(tznow())
-    techs = neon.fetch_techs_list(include_pii=am_role(Role.SHOP_TECH) or am_lead_role())
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
-    for t in techs:
-        if not t.get("area_lead"):
-            continue
-        for a in t.get("area_lead").split(","):
-            a = a.strip()
+    for t in neon.search_members_with_role(
+        Role.SHOP_TECH,
+        [
+            "First Name",
+            "Last Name",
+            "Preferred Name",
+            "Email 1",
+            neon.CustomField.AREA_LEAD,
+            neon.CustomField.PRONOUNS,
+        ],
+    ):
+        for a in t.area_lead:
             if a not in area_map:
                 extras_map[a].append(t)
             else:
@@ -162,7 +161,7 @@ def techs_forecast():
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:
         return Response("Nonzero days required for forecast", status=400)
-    return forecast.generate(
+    return tauto.generate(
         date, forecast_len, include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
     )
 
@@ -214,20 +213,42 @@ def techs_forecast_override():
 @page.route("/techs/list")
 def techs_list():
     """Fetches tech info and lead status of observer"""
-    techs_results = neon.fetch_techs_list(
-        include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
-    )
-    bios_results = airtable.get_all_tech_bios()
-    bio_dict = {bio["fields"]["Email"]: bio["fields"] for bio in bios_results}
-    for idx, tech in enumerate(techs_results):
-        tech_bio = bio_dict.get(tech["email"], {})
-        if tech_bio:
-            techs_results[idx]["bio"] = tech_bio.get("Bio", "")
-            thumbs = tech_bio.get("Picture")[0]["thumbnails"]["large"]
-            techs_results[idx]["picture"] = thumbs.get("url") or urljoin(
-                "http://localhost:8080",
-                thumbs.get("signedPath"),
-            )
+    fields = [
+        "First Name",
+    ]
+    if am_role(Role.SHOP_TECH) or am_lead_role():
+        fields += [
+            "Email 1",
+            "Last Name",
+            "Preferred Name",
+            neon.CustomField.PRONOUNS,
+            neon.CustomField.SHOP_TECH_SHIFT,
+            neon.CustomField.SHOP_TECH_FIRST_DAY,
+            neon.CustomField.SHOP_TECH_LAST_DAY,
+            neon.CustomField.AREA_LEAD,
+            neon.CustomField.INTEREST,
+            neon.CustomField.EXPERTISE,
+        ]
+    techs_results = []
+    for m in neon.search_members_with_role(
+        Role.SHOP_TECH, fields, merge_bios=airtable.get_all_tech_bios()
+    ):
+        techs_results.append(
+            {
+                k: getattr(m, k)
+                for k in (
+                    "name",
+                    "email",
+                    "clearances",
+                    "shop_tech_first_day",
+                    "shop_tech_last_day",
+                    "area_lead",
+                    "interest",
+                    "expertise",
+                    "shop_tech_shift",
+                )
+            }
+        )
 
     return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
 

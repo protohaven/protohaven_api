@@ -227,7 +227,7 @@ def test_setup_discord_user_nickname_change(mocker):
     m.name = "Johnny Doe"
     mocker.patch.object(
         ra.neon,
-        "get_members_with_discord_id",
+        "search_members_with_discord_id",
         return_value=[m],
     )
     mocker.patch.object(ra.airtable, "log_comms")

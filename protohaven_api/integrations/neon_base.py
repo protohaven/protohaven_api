@@ -74,7 +74,12 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
         yield from content["searchResults"]
 
 
-def fetch_account(account_id, required=False, raw=False):
+def fetch_memberships_internal_do_not_call_directly(account_id):
+    """Fetch membership history of an account in Neon"""
+    return paginated_fetch("api_key2", f"/accounts/{account_id}/memberships")
+
+
+def fetch_account(account_id, required=False, raw=False, fetch_memberships=False):
     """Fetches account information for a specific user in Neon, as a Member()
     Raises RuntimeError if an error is returned from the server, or None
     if the account is not found.
@@ -88,7 +93,12 @@ def fetch_account(account_id, required=False, raw=False):
         return None
     if raw:
         return content
-    return Member.from_neon_fetch(content)
+    m = Member.from_neon_fetch(content)
+    if fetch_memberships:
+        m.set_membership_data(
+            fetch_memberships_internal_do_not_call_directly(account_id)
+        )
+    return m
 
 
 def get(api_key, path):
