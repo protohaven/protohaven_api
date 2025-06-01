@@ -10,9 +10,8 @@ from dateutil import parser as dateparser
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, neon, tasks
+from protohaven_api.integrations import airtable, tasks
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.rbac import Role
 
 log = logging.getLogger("cli.forwarding")
 
@@ -22,7 +21,7 @@ description_re = re.compile("Project Description:\n(.*?)Materials Budget", re.MU
 
 
 class Commands:
-    """Commands for managing classes in Airtable and Neon"""
+    """Commands for managing classes"""
 
     @command(
         arg(

@@ -36,7 +36,7 @@ def _create_calendar_view(
             )
             for i, p in enumerate(ovr_people):
                 fname, lname = [n.strip() for n in p.split(" ")][:2]
-                mm = neon.search_members_by_name(fname, lname, also_fetch=True)
+                mm = list(neon.search_members_by_name(fname, lname, also_fetch=True))
                 if len(mm) != 1:
                     raise RuntimeError(
                         "Multiple member matches for Neon lookup of tech override {p}"

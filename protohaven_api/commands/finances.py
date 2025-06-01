@@ -199,7 +199,7 @@ class Commands:
                 continue
             if member_ids is not None and acct.neon_id not in member_ids:
                 continue
-            if mem.is_company():
+            if acct.is_company():
                 continue
             member_data[acct.neon_id] = acct
             for ms in acct.memberships(active_only=True):
@@ -359,7 +359,7 @@ class Commands:
             s["end_date"] = end.strftime("%Y-%m-%d")
             summary.append(s)
             if not args.apply:
-                log.info(f"DRY RUN: create membership for tech #{t.neon_id}")
+                log.info(f"DRY RUN: create membership for tech #{acct.neon_id}")
                 continue
 
             new_end = end + datetime.timedelta(days=1 + args.duration_days)
