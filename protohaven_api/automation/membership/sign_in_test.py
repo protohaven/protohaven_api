@@ -16,19 +16,10 @@ from protohaven_api.testing import MatchStr, d
 def test_activate_membership_ok(mocker):
     """Test activate_membership when activation is successful"""
     email = "a@b.com"
-    mock_response = mocker.Mock()
-    mock_response.status_code = 200
-
-    mocker.patch.object(
-        s.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(account_automation_ran="* deferred *"),
-    )
-    mocker.patch.object(
-        s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
-    )
     m1 = mocker.patch.object(
-        s.neon, "set_membership_date_range", return_value=mock_response
+        s.neon,
+        "set_membership_date_range",
+        return_value=mocker.MagicMock(status_code=200),
     )
     m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(
@@ -39,10 +30,21 @@ def test_activate_membership_ok(mocker):
     m3 = mocker.patch.object(s.comms, "send_email")
     mocker.patch.object(s, "notify_async")
 
-    s.activate_membership("12345", "John", email)
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=12345,
+            fname="John",
+            email=email,
+            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            account_automation_ran="deferred YYYY-MM-DD",
+        ),
+    )
+    s.activate_membership(mocker.MagicMock(neon_id="123"))
 
-    m1.assert_called_once_with("5678", mocker.ANY, mocker.ANY)
-    m2.assert_called_once_with("12345", "activated")
+    m1.assert_called_once_with(5678, mocker.ANY, mocker.ANY)
+    m2.assert_called_once_with(12345, "activated")
     s.comms.Msg.tmpl.assert_called_once_with(
         "membership_activated", fname="John", target=email
     )
@@ -53,21 +55,23 @@ def test_activate_membership_ok(mocker):
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
     mocker.patch.object(
-        s.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(account_automation_ran="* deferred *"),
-    )
-    mocker.patch.object(
-        s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
-    )
-    mocker.patch.object(
         s.neon, "set_membership_date_range", side_effect=RuntimeError("Error 500")
     )
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(s.comms, "send_email")
     mocker.patch.object(s, "notify_async")
-
-    s.activate_membership("12345", "John", "a@b.com")
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=12345,
+            fname="John",
+            email="a@b.com",
+            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            account_automation_ran="deferred YYYY-MM-DD",
+        ),
+    )
+    s.activate_membership(mocker.MagicMock(neon_id=12345))
 
     s.notify_async.assert_called_once_with(MatchStr("Error 500"))
     s.comms.send_email.assert_not_called()
@@ -83,12 +87,20 @@ def test_activate_membership_no_redo(mocker):
     mocker.patch.object(
         s.neon_base,
         "fetch_account",
-        return_value=mocker.MagicMock(account_automation_ran="asdf"),
+        return_value=mocker.MagicMock(account_automation_ran="activated"),
     )
     m2 = mocker.patch.object(s.neon, "set_membership_date_range")
     m3 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     m4 = mocker.patch.object(s.comms, "send_email")
-    s.activate_membership("123", "fname", "a@b.com")
+    s.activate_membership(
+        mocker.MagicMock(
+            neon_id=12345,
+            fname="John",
+            email="a@b.com",
+            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            account_automation_ran="deferred YYYY-MM-DD",
+        )
+    )
     m0.assert_not_called()
     m2.assert_not_called()
     m3.assert_not_called()
@@ -419,7 +431,7 @@ def test_as_guest_referrer(mocker):
 def test_as_member_notfound(mocker):
     """Ensure form does not get called if member not found"""
     m = mocker.patch.object(s, "_apply_async")
-    mocker.patch.object(s.neon, "search_member", return_value=[])
+    mocker.patch.object(s.neon.cache, "get", return_value=None)
     got = s.as_member(
         {
             "person": "member",
@@ -447,22 +459,24 @@ def test_as_member_activate_deferred(mocker):
     m = mocker.patch.object(s, "_apply_async")
     l = mocker.patch.object(s, "log_sign_in")
     mocker.patch.object(s, "notify_async")
+
+    mem = mocker.MagicMock(
+        neon_id=12345,
+        company_id=None,
+        account_current_membership_status="Future",
+        account_automation_ran="deferred FOO",
+        fname="First",
+        roles=[],
+        clearances=[],
+        waiver_accepted=(None, None),
+        announcements_acknowledged=None,
+    )
     mocker.patch.object(
         s.neon,
         "cache",
         {
             "a@b.com": {
-                12345: mocker.MagicMock(
-                    neon_id=12345,
-                    company_id=None,
-                    account_current_membership_status="Future",
-                    account_automation_ran="deferred FOO",
-                    fname="First",
-                    roles=[],
-                    clearances=[],
-                    waiver_accepted=(None, None),
-                    announcements_acknowledged=None,
-                ),
+                12345: mem,
             },
         },
     )
@@ -479,9 +493,7 @@ def test_as_member_activate_deferred(mocker):
         mocker.MagicMock(),
     )
     assert rep["status"] == "Active"
-    m.assert_has_calls(
-        [mocker.call(s.activate_membership, args=(12345, "First", "a@b.com"))]
-    )
+    m.assert_has_calls([mocker.call(s.activate_membership, args=(mem,))])
 
 
 def test_as_member_expired(mocker):

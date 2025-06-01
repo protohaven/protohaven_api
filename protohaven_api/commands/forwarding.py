@@ -9,12 +9,8 @@ from dateutil import parser as dateparser
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
-    neon,
-    tasks,
-)
+from protohaven_api.config import tz, tznow
+from protohaven_api.integrations import airtable, tasks
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.forwarding")
@@ -25,7 +21,7 @@ description_re = re.compile("Project Description:\n(.*?)Materials Budget", re.MU
 
 
 class Commands:
-    """Commands for managing classes in Airtable and Neon"""
+    """Commands for managing classes"""
 
     @command(
         arg(
@@ -339,24 +335,19 @@ class Commands:
         # Pick AM vs PM shift
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
-        email_map = {
-            t["email"].strip().lower(): t["name"]
-            for t in neon.fetch_techs_list(include_pii=True)
-            if t["name"] in techs_on_duty
-        }
-        rev_email_map = {v: k for k, v in email_map.items()}
+        email_map = {t.email: t for t in techs_on_duty}
         log.info(f"Email map: {email_map}")
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(airtable.get_signins_between(start, end)):
             email = s["Email"].strip().lower()
-            name = email_map.get(email)
-            if name in techs_on_duty:
+            t = email_map.get(email)
+            if t in techs_on_duty:
                 on_duty_ok = True
                 timestamp = s.get("Created") or now
                 if isinstance(timestamp, str):
                     timestamp = dateparser.parse(timestamp)
-                log.info(f"{name} ({email}, signed in {timestamp.strftime('%-I%p')})")
+                log.info(f"{t.name} ({email}, signed in {timestamp.strftime('%-I%p')})")
             else:
                 log.info(email)
 
@@ -367,10 +358,7 @@ class Commands:
                     "shift_no_techs",
                     target="#tech-automation",
                     shift=shift,
-                    onduty=[
-                        (v, rev_email_map.get(v, "unknown email"))
-                        for v in techs_on_duty
-                    ],
+                    onduty=techs_on_duty,
                 )
             )
 

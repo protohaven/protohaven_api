@@ -14,12 +14,6 @@ def fixture_cli(capsys):
     return mkcli(capsys, F)
 
 
-# Note: space and weird capitalizations here stress test the email matching
-# since both the tech emails (from Neon) and the sign ins (from Sheets) are
-# user inputs and can be arbitrarily cased, while emails are case-insensitive.
-AM_TECH = {"email": "  a@b.CoM", "name": "A B", "shift": "Monday AM"}
-PM_TECH = {"email": "c@d.CoM  ", "name": "C D", "shift": "Monday PM"}
-
 Tc = namedtuple("TC", "desc,now,signins,want")
 
 
@@ -30,27 +24,29 @@ Tc = namedtuple("TC", "desc,now,signins,want")
             "AM shift without signin",
             t(11, 0),
             [],
-            [AM_TECH["email"].strip().lower(), "no techs assigned for Monday AM"],
+            ["a@b.com", "no techs assigned for Monday AM"],
         ),
-        Tc("AM shift with signin", t(11, 0), [AM_TECH], []),
+        Tc("AM shift with signin", t(11, 0), ["a@b.com  "], []),
         Tc(
             "PM shift without signin",
             t(17, 0),
             [],
-            [PM_TECH["email"].strip().lower(), "no techs assigned for Monday PM"],
+            ["c@d.com", "no techs assigned for Monday PM"],
         ),
-        Tc("PM shift with signin", t(17, 0), [PM_TECH], []),
+        Tc("PM shift with signin", t(17, 0), ["C@D.COM"], []),
         Tc("No techs", t(11, 0), [], ["no techs assigned"]),
-        Tc("Case & space insensitive", t(17, 0), [{"email": "   C@D.COM    "}], []),
     ],
     ids=idfn,
 )
 def test_tech_sign_ins(mocker, tc, cli):
     """Notifies if nobody is signed in for the AM shift"""
+    # Note: we're mocking a Member class object, where the email values
+    # are stripped and lowercased for consistent matching
+
     mocker.patch.object(
         F.airtable,
         "get_signins_between",
-        return_value=[{"Email": s["email"]} for s in tc.signins],
+        return_value=[{"Email": s} for s in tc.signins],
     )
     mocker.patch.object(
         F.forecast,
@@ -58,16 +54,27 @@ def test_tech_sign_ins(mocker, tc, cli):
         return_value={
             "calendar_view": [
                 {
-                    "AM": {"people": [AM_TECH["name"]]},
-                    "PM": {"people": [PM_TECH["name"]]},
+                    "AM": {
+                        "people": [
+                            mocker.Mock(
+                                email="a@b.com",
+                                name="A B (they/them)",
+                                shift=["Monday", "AM"],
+                            )
+                        ]
+                    },
+                    "PM": {
+                        "people": [
+                            mocker.Mock(
+                                email="c@d.com",
+                                name="C D (he/him)",
+                                shift=["Monday", "PM"],
+                            )
+                        ]
+                    },
                 }
             ]
         },
-    )
-    mocker.patch.object(
-        F.neon,
-        "fetch_techs_list",
-        return_value=[AM_TECH, PM_TECH],
     )
     got = cli("tech_sign_ins", ["--now", tc.now.isoformat()])
     assert len(got) == (1 if len(tc.want) > 0 else 0)

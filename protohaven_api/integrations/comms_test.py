@@ -1,6 +1,7 @@
 """Testing comms integration methods"""
 
 import hashlib
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -65,6 +66,12 @@ TEST_ATTENDEE = {
     "fname": "TestAttendeeName",
     "email": "test@attendee.com",
 }
+
+tech1=MagicMock(email="a@a.com")
+tech1.name="Tech A"
+tech2=MagicMock(email="b@b.com")
+tech2.name="Tech B"
+
 TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}),
     ("test_html_template", {"val": "test_body"}),
@@ -268,7 +275,7 @@ TESTED_TEMPLATES = [
         "shift_no_techs",
         {
             "shift": "Monwednesaturday TM",
-            "onduty": [("Tech A", "a@a.com"), ("Tech B", "b@b.com")],
+            "onduty": [tech1, tech2],
         },
     ),
     (

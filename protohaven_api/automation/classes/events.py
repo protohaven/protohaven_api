@@ -41,5 +41,7 @@ def fetch_upcoming_events(
         if fetch_attendees:
             evt.set_attendee_data(neon.fetch_attendees(evt.neon_id))
         if fetch_tickets:
-            evt.set_ticket_data(neon.fetch_tickets(evt.neon_id))
+            evt.set_ticket_data(
+                neon.fetch_tickets_internal_do_not_use_directly(evt.neon_id)
+            )
         yield evt

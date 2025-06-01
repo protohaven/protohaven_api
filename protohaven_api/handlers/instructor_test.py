@@ -150,11 +150,11 @@ def test_get_dashboard_schedule_sorted(mocker):
 
 
 def test_instructor_about_from_session(inst_client, mocker):
-    mocker.patch.object(instructor.neon, "search_member", return_value=[{}])
+    mocker.patch.object(instructor.neon, "search_members_by_email", return_value=[{}])
     mocker.patch.object(instructor, "get_instructor_readiness")
     rep = inst_client.get("/instructor/about")
     assert rep.status_code == 200
-    instructor.neon.search_member.assert_called_with("foo@bar.com")
+    instructor.neon.search_members_by_email.assert_called_with("foo@bar.com")
 
 
 def test_instructor_about_both_email_and_session(mocker, inst_client):
@@ -162,7 +162,7 @@ def test_instructor_about_both_email_and_session(mocker, inst_client):
     the url param if it's their own email"""
     rbac.set_rbac(True)
     mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.INSTRUCTOR["name"]])
-    mocker.patch.object(instructor.neon, "search_member", return_value=["test"])
+    mocker.patch.object(instructor.neon, "search_members_by_email", return_value=["test"])
     mocker.patch.object(instructor, "get_instructor_readiness")
 
     rep = inst_client.get("/instructor/about?email=a@b.com")

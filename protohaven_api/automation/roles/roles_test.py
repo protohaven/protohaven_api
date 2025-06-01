@@ -87,7 +87,7 @@ def test_singleton_role_sync(tc):
 def test_gen_role_intents_limited_and_sorted(mocker):
     """Cuts off role assignment additions if beyond the max"""
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
 
     # Discord values are fetched from newest to oldest (descending date).
@@ -117,7 +117,7 @@ def test_gen_role_intents_departing_member(mocker):
         ]
 
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+        r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
     mocker.patch.object(
         r.comms,
@@ -147,7 +147,7 @@ def test_gen_role_intents_match(mocker):
         ]
 
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+        r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
     mocker.patch.object(
         r.comms,
@@ -184,7 +184,7 @@ def test_gen_role_intents_match(mocker):
 def test_gen_role_intents_no_neon(mocker):
     """Test intent when discord member has no neon account"""
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
     mocker.patch.object(
         r.comms,
@@ -253,7 +253,7 @@ def test_sync_delayed_intents_toggling_apply(mocker):
 
 def test_setup_discord_user_not_associated(mocker):
     """If user isn't associated with neon, return association request"""
-    mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
+    mocker.patch.object(r.neon, "search_members_with_discord_id", return_value=[])
     mocker.patch.object(r.airtable, "log_comms")
     got = list(r.setup_discord_user(("a", "a", None, [])))
     assert len(got) == 1
@@ -275,7 +275,7 @@ def test_setup_discord_nonmember_nodiffs(mocker):
     m.name = "a"  # Name is a special attr
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
+        "search_members_with_discord_id",
         return_value=[m],
     )
     got = list(r.setup_discord_user(("a", "a", None, [])))
@@ -294,7 +294,7 @@ def test_setup_discord_user_no_diffs(mocker):
     m.name = "a"  # Name is a special attr
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
+        "search_members_with_discord_id",
         return_value=[m],
     )
     got = list(
@@ -315,7 +315,7 @@ def test_setup_discord_user_nickname_change(mocker):
     m.name = "b"  # Name is a special attr
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
+        "search_members_with_discord_id",
         return_value=[m],
     )
     got = list(r.setup_discord_user(("a", "a", None, [("Members", 123)])))
@@ -342,7 +342,7 @@ def test_setup_discord_user_multiple_accounts(mocker):
 
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
+        "search_members_with_discord_id",
         return_value=[m0, m1],
     )
     got = list(r.setup_discord_user(("a", "a", None, [])))

@@ -24,63 +24,11 @@ def lead_client(client):
 
 
 def test_techs_all_status(lead_client, mocker):
-    mocker.patch.object(tl.neon, "fetch_techs_list", return_value=[])
+    mocker.patch.object(tl.neon, "search_members_with_role", return_value=[])
     mocker.patch.object(tl.airtable, "get_all_tech_bios", return_value=[])
     response = lead_client.get("/techs/list")
     rep = json.loads(response.data.decode("utf8"))
     assert rep == {"tech_lead": True, "techs": []}
-
-
-def test_techs_picture_url(lead_client, mocker):
-    """Ensure that both Nocodb and Airtable URL paths are observed"""
-    mocker.patch.object(
-        tl.neon,
-        "fetch_techs_list",
-        return_value=[
-            {"email": "asdf"},
-        ],
-    )
-    mocker.patch.object(
-        tl.airtable,
-        "get_all_tech_bios",
-        return_value=[
-            {
-                "fields": {
-                    "Email": "asdf",
-                    "Picture": [{"thumbnails": {"large": {"url": "want"}}}],
-                }
-            },
-        ],
-    )
-    response = lead_client.get("/techs/list")
-    rep = json.loads(response.data.decode("utf8"))
-    assert rep == {
-        "tech_lead": True,
-        "techs": [
-            {"bio": "", "email": "asdf", "picture": "want"},
-        ],
-    }
-
-    mocker.patch.object(
-        tl.airtable,
-        "get_all_tech_bios",
-        return_value=[
-            {
-                "fields": {
-                    "Email": "asdf",
-                    "Picture": [{"thumbnails": {"large": {"signedPath": "want"}}}],
-                }
-            },
-        ],
-    )
-    response = lead_client.get("/techs/list")
-    rep = json.loads(response.data.decode("utf8"))
-    assert rep == {
-        "tech_lead": True,
-        "techs": [
-            {"bio": "", "email": "asdf", "picture": "http://localhost:8080/want"},
-        ],
-    }
 
 
 def test_tech_update(lead_client, mocker):
@@ -337,29 +285,30 @@ def test_techs_event_registration_unregister(mocker, tech_client):
 def test_techs_area_leads(mocker, tech_client):
     """Tests the techs_area_leads function"""
     mock_areas = ["Area1", "Area2"]
-    mock_techs = [
-        {"name": "Tech1", "area_lead": "Area1, ExtraArea"},
-        {"name": "Tech2", "area_lead": "Area2"},
-        {"name": "Tech3", "area_lead": "NonExistentArea"},
-    ]
+    t1 = mocker.MagicMock(area_lead=["Area1", "ExtraArea"], email="a@b.com", shop_tech_shift="a")
+    t1.name = "Tech1"
+    t2 = mocker.MagicMock(area_lead=["Area2"], email="c@d.com", shop_tech_shift="b")
+    t2.name = "Tech2"
+    t3 = mocker.MagicMock(area_lead=["NonExistentArea"], email="e@f.com", shop_tech_shift="c")
+    t3.name = "Tech3"
     mocker.patch.object(
         tl,
         "_fetch_tool_states_and_areas",
         return_value=(None, mock_areas),
     )
-    mocker.patch.object(tl.neon, "fetch_techs_list", return_value=mock_techs)
+    mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1, t2, t3])
 
     response = tech_client.get("/techs/area_leads")
     assert response.status_code == 200
 
     expected_response = {
         "area_leads": {
-            "Area1": [{"name": "Tech1", "area_lead": "Area1, ExtraArea"}],
-            "Area2": [{"name": "Tech2", "area_lead": "Area2"}],
+            "Area1": [{'name': 'Tech1', 'email': 'a@b.com', 'shift': 'a'}],
+            "Area2": [{'name': 'Tech2', 'email': 'c@d.com', 'shift': 'b'}],
         },
         "other_leads": {
-            "ExtraArea": [{"name": "Tech1", "area_lead": "Area1, ExtraArea"}],
-            "NonExistentArea": [{"name": "Tech3", "area_lead": "NonExistentArea"}],
+            "ExtraArea": [{'name': 'Tech1', 'email': 'a@b.com', 'shift': 'a'}],
+            "NonExistentArea": [{'name': 'Tech3', 'email': 'e@f.com', 'shift': 'c'}],
         },
     }
 

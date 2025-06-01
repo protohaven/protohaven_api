@@ -140,24 +140,29 @@ class Commands:
         pm_tech_discord = []
         if techs_on_duty:
             try:
-                all_users = neon.get_all_accounts_with_discord_association(
-                    [neon.CustomField.DISCORD_USER, "First Name", "Last Name"]
-                )
                 name_to_discord_dict = {
-                    f"{item.fname} {item.lname}".lower().strip(): item.discord_user
-                    for item in all_users
+                    m.name: f"@{m.discord_user}"
+                    for m in neon.search_members_with_discord_association(
+                        [
+                            neon.CustomField.DISCORD_USER,
+                            "First Name",
+                            "Last Name",
+                            "Preferred Name",
+                            neon.CustomField.PRONOUNS,
+                        ]
+                    )
                 }
                 log.info(
                     f"Loaded mapping of {len(name_to_discord_dict)} associated discord usernames"
                 )
                 am_tech_discord = [
-                    f"@{name_to_discord_dict.get(tech_name.lower().strip())}"
-                    for tech_name in techs_on_duty["AM"]["people"]
+                    name_to_discord_dict.get(t.name, t.name)
+                    for t in techs_on_duty["AM"]["people"]
                 ]
                 log.info(f"AM techs: {am_tech_discord}")
                 pm_tech_discord = [
-                    f"@{name_to_discord_dict.get(tech_name.lower().strip())}"
-                    for tech_name in techs_on_duty["PM"]["people"]
+                    name_to_discord_dict.get(t.name, t.name)
+                    for t in techs_on_duty["PM"]["people"]
                 ]
                 log.info(f"PM techs: {pm_tech_discord}")
             except Exception as e:  # pylint: disable=broad-exception-caught

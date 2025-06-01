@@ -154,7 +154,7 @@ def gen_role_intents(
     rev_roles = {v: k for k, v in SYNC_ROLES.items()}
     state = {
         m.discord_user: m
-        for m in neon.get_all_accounts_with_discord_association(
+        for m in neon.search_members_with_discord_association(
             [
                 neon.CustomField.DISCORD_USER,
                 neon.CustomField.API_SERVER_ROLE,
@@ -384,9 +384,9 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     rev_roles = {v: k for k, v in SYNC_ROLES.items()}
     log.info(f"Setting up discord user '{discord_id}'; checking for Neon assoc")
     mm = list(
-        neon.get_members_with_discord_id(
+        neon.search_members_with_discord_id(
             discord_id,
-            extra_fields=[
+            [
                 "Preferred Name",
                 neon.CustomField.PRONOUNS,
                 neon.CustomField.API_SERVER_ROLE,

@@ -55,37 +55,40 @@ def result_base():
     }
 
 
-def activate_membership(account_id, fname, email):
+def activate_membership(m):
     """Activate a member's deferred membership"""
-    mem = neon_base.fetch_account(account_id)
-    if "deferred" not in mem.account_automation_ran:
-        log.error(f"activate_membership called on non-deferred account {account_id}")
+    # We re-fetch the account to ensure we're not double-activating
+    # a cached deferred account
+    m = neon_base.fetch_account(m.neon_id, fetch_memberships=True)
+
+    if "deferred" not in m.account_automation_ran:
+        log.error(f"activate_membership called on non-deferred account {m.neon_id}")
         return
 
     try:
-        membership_id, _ = neon.get_latest_membership_id_and_name(account_id)
-        if not membership_id:
+        ms = m.latest_membership()
+        if not ms:
             raise RuntimeError(
-                f"Could not fetch latest membership for account {account_id}"
+                f"Could not fetch latest membership for account {m.neon_id}"
             )
-        log.info(f"Resolved account {account_id} latest membership ID {membership_id}")
+        log.info(f"Resolved account {m.neon_id} latest membership ID {ms.neon_id}")
         neon.set_membership_date_range(
-            membership_id, tznow(), tznow() + datetime.timedelta(days=30)
+            ms.neon_id, tznow(), tznow() + datetime.timedelta(days=30)
         )
 
-        neon.update_account_automation_run_status(account_id, "activated")
-        msg = comms.Msg.tmpl("membership_activated", fname=fname, target=email)
-        comms.send_email(msg.subject, msg.body, [email], msg.html)
+        neon.update_account_automation_run_status(m.neon_id, "activated")
+        msg = comms.Msg.tmpl("membership_activated", fname=m.fname, target=m.email)
+        comms.send_email(msg.subject, msg.body, [m.email], msg.html)
         log.info(f"Sent email {msg}")
         notify_async(
-            f"Activated deferred membership for {fname} ({email}, "
-            f"#{account_id}) as they've just signed in at the front desk"
+            f"Activated deferred membership for {m.fname} ({m.email}, "
+            f"#{m.neon_id}) as they've just signed in at the front desk"
         )
     except Exception as e:  # pylint: disable=broad-exception-caught
         traceback.print_exc()
         notify_async(
             f"@Staff: Error activating membership for "
-            f"#{account_id}: "
+            f"#{m.neon_id}: "
             f"\n{e}\n"
             "Please sync with software folks to diagnose in protohaven_api. "
             "Allowing the member through anyways."
@@ -127,7 +130,7 @@ def get_member_and_activation_state(email):
     https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies
-    mm = neon.cache.get(email, {}).values()
+    mm = (neon.cache.get(email) or {}).values()
     mm = [m for m in mm if m.neon_id != m.company_id]
     if len(mm) == 0:
         return None, False
@@ -276,7 +279,7 @@ def as_member(data, send):
         send("Activating membership...", 50)
         log.info(f"Activating membership on account {m.neon_id}")
         # Do this all in a thread so we're not wasting time
-        _apply_async(activate_membership, args=(m.neon_id, m.fname, data["email"]))
+        _apply_async(activate_membership, args=(m,))
         result["status"] = "Active"  # Assume the activation went through
     else:
         result["status"] = m.account_current_membership_status or "Unknown"

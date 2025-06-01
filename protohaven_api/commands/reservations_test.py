@@ -192,7 +192,7 @@ def test_sync_booked_members_not_in_booked(mocker, cli):
     """Test sync_booked_members command function."""
     mocker.patch.object(
         r.neon,
-        "get_active_members",
+        "search_active_members",
         return_value=[
             mocker.MagicMock(
                 email="john@example.com",
@@ -227,7 +227,7 @@ def test_sync_booked_members_associate_existing(mocker, cli):
     """Test sync_booked_members command function with existing account"""
     mocker.patch.object(
         r.neon,
-        "get_active_members",
+        "search_active_members",
         return_value=[
             mocker.MagicMock(
                 email="john@example.com",
@@ -274,7 +274,7 @@ def test_sync_booked_members_update_associated(mocker, cli):
     # Note the addition of booked user ID
     mocker.patch.object(
         r.neon,
-        "get_active_members",
+        "search_active_members",
         return_value=[
             mocker.MagicMock(
                 email="john@example.com",

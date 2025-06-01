@@ -184,7 +184,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         result = []
         changes = []
         not_associated = set(user_nick.keys())
-        for m in neon.get_all_accounts_with_discord_association(
+        for m in neon.search_members_with_discord_association(
             [
                 neon.CustomField.DISCORD_USER,
                 neon.CustomField.PRONOUNS,
