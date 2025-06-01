@@ -207,7 +207,9 @@ def search_inactive_members(
 
 
 def search_active_members(
-    fields: list[str], fetch_memberships=False
+    fields: list[str],
+    fetch_memberships=False,
+    also_fetch=False,
 ) -> Generator[Member, None, None]:
     """Lookup all accounts with active memberships"""
     yield from _search_members_internal(
@@ -215,7 +217,8 @@ def search_active_members(
             ("Account Current Membership Status", "EQUAL", "Active"),
         ],
         fields,
-        fetch_memberships,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
     )
 
 
@@ -237,7 +240,11 @@ MEMBER_SEARCH_OUTPUT_FIELDS = [
 
 
 def _search_members_internal(
-    params: list, fields=None, fetch_memberships=False, merge_bios=None
+    params: list,
+    fields=None,
+    also_fetch=False,
+    fetch_memberships=False,
+    merge_bios=None,
 ) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
@@ -249,6 +256,9 @@ def _search_members_internal(
         ],
     ):
         m = Member.from_neon_search(acct)
+        if also_fetch:
+            m.neon_fetch_data = neon_base.fetch_account(m.neon_id, raw=True)
+
         if fetch_memberships:
             m.set_membership_data(
                 neon_base.fetch_memberships_internal_do_not_call_directly(m.neon_id)
@@ -268,20 +278,43 @@ def search_members_by_email(
     )
 
 
+def search_members_by_name(  # pylint: disable=too-many-arguments
+    fname,
+    lname,
+    operator="EQUAL",
+    fields=None,
+    fetch_memberships=False,
+    also_fetch=False,
+) -> Generator[Member, None, None]:
+    """Lookup a user by their email; note that emails aren't unique so we may
+    return multiple results."""
+    yield from _search_members_internal(
+        [("First Name", operator, fname), ("Last Name", operator, lname)],
+        fields,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
+    )
+
+
 def search_members_with_role(
-    role, fields=None, fetch_memberships=False, merge_bios=None
+    role,
+    fields=None,
+    fetch_memberships=False,
+    merge_bios=None,
+    also_fetch=False,
 ) -> Generator[Member, None, None]:
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
     yield from _search_members_internal(
         [(str(CustomField.API_SERVER_ROLE), "CONTAIN", role["id"])],
         fields,
-        fetch_memberships,
-        merge_bios,
+        fetch_memberships=fetch_memberships,
+        merge_bios=merge_bios,
+        also_fetch=also_fetch,
     )
 
 
 def search_new_members_needing_setup(
-    max_days_ago, fields=None, fetch_memberships=False
+    max_days_ago, fields=None, fetch_memberships=False, also_fetch=False
 ) -> Generator[Member, None, None]:
     """Fetch all members in need of automated setup; this includes
     all paying members past the start of the Onboarding V2 plan
@@ -294,7 +327,8 @@ def search_new_members_needing_setup(
             ("Membership Cost", "GREATER_THAN", 10),
         ],
         fields,
-        fetch_memberships,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
     )
 
 

@@ -156,13 +156,13 @@ class Commands:
                     f"Loaded mapping of {len(name_to_discord_dict)} associated discord usernames"
                 )
                 am_tech_discord = [
-                    name_to_discord_dict.get(tech_name, tech_name)
-                    for tech_name in techs_on_duty["AM"]["people"]
+                    name_to_discord_dict.get(t.name, t.name)
+                    for t in techs_on_duty["AM"]["people"]
                 ]
                 log.info(f"AM techs: {am_tech_discord}")
                 pm_tech_discord = [
-                    name_to_discord_dict.get(tech_name, tech_name)
-                    for tech_name in techs_on_duty["PM"]["people"]
+                    name_to_discord_dict.get(t.name, t.name)
+                    for t in techs_on_duty["PM"]["people"]
                 ]
                 log.info(f"PM techs: {pm_tech_discord}")
             except Exception as e:  # pylint: disable=broad-exception-caught

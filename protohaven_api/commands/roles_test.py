@@ -138,7 +138,7 @@ def test_enforce_discord_nicknames_zero_comms(mocker, cli):
     """Ensure that no comms are sent if there were no problems"""
     mocker.patch.object(r.comms, "get_all_members", return_value=[])
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
     mocker.patch.object(r.airtable, "get_notifications_after", return_value={})
     assert not cli("enforce_discord_nicknames", ["--apply", "--warn_not_associated"])
@@ -165,7 +165,7 @@ def test_enforce_discord_nicknames(mocker, cli):
     m1.name = "a b"
     mocker.patch.object(
         r.neon,
-        "get_all_accounts_with_discord_association",
+        "search_members_with_discord_association",
         return_value=[m0, m1],
     )
 
@@ -207,7 +207,7 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
     )
     mocker.patch.object(r.comms, "set_discord_nickname")
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
 
     assert (

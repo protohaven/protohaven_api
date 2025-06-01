@@ -183,30 +183,29 @@ class Commands:
         # data before analysis in order to count paying household & company members
         log.info("Collecting members")
         n = 0
-        for i, mem in enumerate(
+        for i, acct in enumerate(
             neon.search_active_members(
                 [
                     "Account Current Membership Status",
                     "Company ID",
-                ]
+                ],
+                also_fetch=True,
             )
         ):
             # This should really pull total from paginated_search
             pct[0] = max(0.5, i / 6000)
-            log.info(f"#{mem.neon_id}")
-            if mem.account_current_membership_status.lower() != "active":
+            log.info(f"#{acct.neon_id}")
+            if acct.account_current_membership_status.lower() != "active":
                 continue
-            if member_ids is not None and mem.neon_id not in member_ids:
+            if member_ids is not None and acct.neon_id not in member_ids:
                 continue
             if mem.is_company():
                 continue
-            acct = neon_base.fetch_account(mem.neon_id, fetch_memberships=True)
-            acct.neon_search_data = mem.neon_search_data  # Transfer search data
             member_data[acct.neon_id] = acct
             for ms in acct.memberships(active_only=True):
                 if "Additional" not in ms.level and ms.fee > 0:
                     household_paying_member_count[acct.household_id] += 1
-            company_member_count[mem.company_id] += 1
+            company_member_count[acct.company_id] += 1
             n += 1
 
         log.info(
@@ -316,21 +315,20 @@ class Commands:
         self, args, summary, role, level, term
     ):  # pylint: disable=too-many-arguments
         now = tznow()
-        for t in neon.search_members_with_role(role):
-            acct = neon_base.fetch_account(t.account_id, fetch_memberships=True)
+        for acct in neon.search_members_with_role(role, also_fetch=True):
             if len(summary) >= args.limit:
                 log.info("Processing limit reached; exiting")
                 break
-            if args.exclude and acct.neon_id in args.exclude:
+            if args.exclude and str(acct.neon_id) in args.exclude:
                 log.info(f"Skipping {acct.neon_id}: in exclusion list")
                 continue
-            if args.filter and acct.neon_id not in args.filter:
+            if args.filter and str(acct.neon_id) not in args.filter:
                 log.info(f"Skipping {acct.neon_id}: not in filter")
                 continue
             if (
                 role == Role.SOFTWARE_DEV
                 and args.filter_dev
-                and acct.neon_id not in args.filter_dev
+                and str(acct.neon_id) not in args.filter_dev
             ):
                 log.info(f"Skipping {acct.neon_id}: not in software dev filter")
                 continue
@@ -343,7 +341,7 @@ class Commands:
                 "new_end": "N/A",
                 "membership_type": role["name"],
             }
-            log.info(f"Processing {role['name']} {t}")
+            log.info(f"Processing {role['name']} #{acct.neon_id}")
             end, autorenew = acct.last_membership_expiration_date()
             if autorenew:
                 log.info("Latest membership is autorenewing; skipping")
@@ -361,7 +359,7 @@ class Commands:
             s["end_date"] = end.strftime("%Y-%m-%d")
             summary.append(s)
             if not args.apply:
-                log.info(f"DRY RUN: create membership for tech {t}")
+                log.info(f"DRY RUN: create membership for tech #{t.neon_id}")
                 continue
 
             new_end = end + datetime.timedelta(days=1 + args.duration_days)
@@ -518,27 +516,26 @@ class Commands:
         result = []
         summary = []
         num = 0
-        for m in neon.search_new_members_needing_setup(args.max_days_ago):
-            acct = neon_base.fetch_account(m.neon_id)
-            acct.neon_search_data = m.neon_search_data
-
-            if args.filter and acct.neon_id not in args.filter:
-                log.debug(f"Skipping {acct.neon_id}: not in filter")
+        for m in neon.search_new_members_needing_setup(
+            args.max_days_ago, also_fetch=True
+        ):
+            if args.filter and m.neon_id not in args.filter:
+                log.debug(f"Skipping {m.neon_id}: not in filter")
                 continue
 
-            mem = acct.latest_membership()
+            mem = m.latest_membership()
             if not mem:
-                raise RuntimeError(f"No latest membership for member {acct.neon_id}")
+                raise RuntimeError(f"No latest membership for member {m.neon_id}")
             kwargs = {
-                "account_id": acct.neon_id,
+                "account_id": m.neon_id,
                 "membership_name": mem.name,
                 "membership_id": mem.neon_id,
-                "email": acct.email,
-                "fname": acct.fname,
+                "email": m.email,
+                "fname": m.fname,
                 "coupon_amount": args.coupon_amount,
                 "apply": args.apply,
-                "target": acct.email,
-                "_id": f"init member {acct.neon_id}",
+                "target": m.email,
+                "_id": f"init member {m.neon_id}",
             }
             summary.append(kwargs)
             result += memauto.init_membership(**kwargs)

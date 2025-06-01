@@ -193,8 +193,8 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def is_company(self):
         """True if this is a Neon company account and not an individual account"""
-        return (
-            self.neon_raw_data.get("companyAccount") or self.company_id == self.neon_id
+        return self.neon_raw_data.get("companyAccount") or (
+            self.company_id and self.company_id == self.neon_id
         )
 
     def _raw_account(self):

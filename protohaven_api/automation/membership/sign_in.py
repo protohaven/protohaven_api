@@ -8,7 +8,7 @@ import traceback
 from dateutil import parser as dateparser
 
 from protohaven_api.config import get_config, tz, tznow
-from protohaven_api.integrations import airtable, comms, forms, neon
+from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
 log = logging.getLogger("automation.membership.sign_in")
@@ -57,6 +57,10 @@ def result_base():
 
 def activate_membership(m):
     """Activate a member's deferred membership"""
+    # We re-fetch the account to ensure we're not double-activating
+    # a cached deferred account
+    m = neon_base.fetch_account(m.neon_id, fetch_memberships=True)
+
     if "deferred" not in m.account_automation_ran:
         log.error(f"activate_membership called on non-deferred account {m.neon_id}")
         return

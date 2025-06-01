@@ -29,46 +29,25 @@ def test_user_clearances(mocker, client):
     mocker.patch.object(
         rbac, "is_enabled", return_value=False
     )  # Disable to allow testing
+    c1 = {"name": "CLEAR1", "code": "C1", "id": 1}
+    c2 = {"name": "CLEAR2", "code": "C2", "id": 2}
     mocker.patch.object(
-        a.neon,
-        "fetch_clearance_codes",
-        return_value=[
-            {"name": "CLEAR1", "code": "C1", "id": 1},
-            {"name": "CLEAR2", "code": "C2", "id": 2},
-        ],
+        a.mclearance,
+        "resolve_codes",
+        return_value=[c1, c2],
     )
     mocker.patch.object(a.comms, "send_discord_message")
     mocker.patch.object(
-        a.neon,
-        "search_member",
-        return_value=[
-            mocker.MagicMock(
-                neon_id="123", company_id="456", clearances=["CLEAR1", "CLEAR2"]
-            )
-        ],
-    )
-    mocker.patch.object(
         a.airtable, "get_clearance_to_tool_map", return_value={"MWB": ["ABG", "RBP"]}
     )
-    mocker.patch.object(a.neon, "set_clearances", return_value="Success")
-    mock_notify = mocker.patch.object(a.mqtt, "notify_clearance")
-
+    mocker.patch.object(a.mclearance, "update", return_value="Success")
     rep = client.patch(
         "/user/clearances",
         data={"emails": "test@example.com", "codes": "CLEAR1,CLEAR2"},
     )
 
     assert rep.status_code == 200
-    a.neon.set_clearances.assert_called_with(  # pylint: disable=no-member
-        "123", {2, 1}, is_company=False
-    )
-    mock_notify.assert_has_calls(
-        [
-            mocker.call("123", "CLEAR1", added=True),
-            mocker.call("123", "CLEAR2", added=True),
-        ],
-        any_order=True,
-    )
+    a.mclearance.update.assert_called_with("test@example.com", "PATCH", [c1, c2]) # pylint: disable=no-member
 
 
 NEW_MEMBERSHIP_WEBHOOK_DATA = {
@@ -118,17 +97,15 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
     mocker.patch.object(
         a, "roles_from_api_key", return_value=[rbac.Role.AUTOMATION["name"]]
     )
-    mock_fetch_memberships = mocker.patch.object(
-        a.neon, "fetch_memberships", return_value=[{"membershipId": 1}]
-    )
     mocker.patch.object(
-        a,
-        "_get_account_details",
-        return_value={
-            "fname": "John",
-            "email": "a@b.com",
-            "auto_field_value": field_value,
-        },
+        a.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            email="a@b.com",
+            fname="John",
+            account_automation_ran=field_value,
+            memberships=lambda: [{"membershipId": 1}],
+        ),
     )
     mock_init_membership = mocker.patch.object(
         a.memauto,
@@ -143,7 +120,6 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
     )
     if does_init:
         assert (rep.status_code, rep.text) == (200, "ok")
-        mock_fetch_memberships.assert_called_once_with(123958)
         mock_init_membership.assert_called_once_with(
             account_id=123958,
             membership_name="320 individual group 1",

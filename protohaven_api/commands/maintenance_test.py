@@ -16,7 +16,7 @@ def test_gen_maintenance_tasks(mocker, cli):
     """Confirm generation of maintenance tasks summary"""
     mocker.patch.object(m.forecast, "generate", return_value={})
     mocker.patch.object(
-        m.neon, "get_all_accounts_with_discord_association", return_value={}
+        m.neon, "search_members_with_discord_association", return_value={}
     )
     mocker.patch.object(
         m.manager,
@@ -46,7 +46,7 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     """Confirm generation of maintenance tasks even if one has bad data"""
     mocker.patch.object(m.forecast, "generate", return_value={})
     mocker.patch.object(
-        m.neon, "get_all_accounts_with_discord_association", return_value={}
+        m.neon, "search_members_with_discord_association", return_value={}
     )
     mocker.patch.object(
         m.manager,
@@ -74,26 +74,30 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
 
 def test_tech_discord_mapping(mocker, cli):
     """Test that tech discord handles are correctly mapped from forecast data"""
+    t1 = mocker.MagicMock(discord_user="tech1")
+    t1.name = "Tech One"
+    t2 = mocker.MagicMock(discord_user="tech2")
+    t2.name = "Tech Two"
+    t3 = mocker.MagicMock(discord_user="tech3")
+    t3.name = "Tech Three"
+    t4 = mocker.MagicMock(discord_user=None)
+    t4.name = "Tech Four"
     mocker.patch.object(
         m.forecast,
         "generate",
         return_value={
             "calendar_view": [
                 {
-                    "AM": {"people": ["Tech One", "Tech Two"]},
-                    "PM": {"people": ["Tech Three"]},
+                    "AM": {"people": [t1, t2]},
+                    "PM": {"people": [t3, t4]},
                 }
             ]
         },
     )
     mocker.patch.object(
         m.neon,
-        "get_all_accounts_with_discord_association",
-        return_value=[
-            mocker.MagicMock(fname="Tech", lname="One", discord_user="tech1"),
-            mocker.MagicMock(fname="Tech", lname="Two", discord_user="tech2"),
-            mocker.MagicMock(fname="Tech", lname="Three", discord_user="tech3"),
-        ],
+        "search_members_with_discord_association",
+        return_value=[t1, t2, t3],
     )
     mocker.patch.object(
         m.manager,
@@ -117,7 +121,7 @@ def test_tech_discord_mapping(mocker, cli):
     # Run command
     got = cli("gen_maintenance_tasks", ["--apply"])
     assert "AM Shift: @tech1, @tech2" in got[0]["body"]
-    assert "PM Shift: @tech3" in got[0]["body"]
+    assert "PM Shift: @tech3, Tech Four" in got[0]["body"]
 
 
 def test_tech_discord_exception(mocker, cli):
@@ -129,12 +133,8 @@ def test_tech_discord_exception(mocker, cli):
     )
     mocker.patch.object(
         m.neon,
-        "get_all_accounts_with_discord_association",
-        return_value=[
-            {"First Name": "Tech", "Last Name": "One", "Discord User": "tech1"},
-            {"First Name": "Tech", "Last Name": "Two", "Discord User": "tech2"},
-            {"First Name": "Tech", "Last Name": "Three", "Discord User": "tech3"},
-        ],
+        "search_members_with_discord_association",
+        return_value=[],
     )
     mocker.patch.object(
         m.manager,

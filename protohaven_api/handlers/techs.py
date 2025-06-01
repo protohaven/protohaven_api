@@ -161,6 +161,7 @@ def techs_forecast():
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:
         return Response("Nonzero days required for forecast", status=400)
+    # TODO this needs to be converted to dict
     return tauto.generate(
         date, forecast_len, include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
     )

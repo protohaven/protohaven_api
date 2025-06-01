@@ -25,10 +25,10 @@ def test_from_neon_search():
 
 def test_is_company():
     """Test Member.is_company for company and individual accounts"""
-    company_data = {"companyAccount": True}
+    company_data = {"companyAccount": {"account_id": "foo"}}
     m = Member(neon_raw_data=company_data)
     assert m.is_company()
-    m.neon_raw_data = {"individualAccount": True}
+    m.neon_raw_data = {"individualAccount": {"account_id": "foo"}}
     assert not m.is_company()
 
 

@@ -20,7 +20,7 @@ def _calendar_badge_color(num_people):
 
 
 def _create_calendar_view(
-    start_date, shift_map, shift_term_map, forecast_len
+    start_date, shift_map, forecast_len
 ):  # pylint: disable=too-many-locals, too-many-nested-blocks
     calendar_view = []
     overrides = dict(airtable.get_forecast_overrides())
@@ -34,13 +34,20 @@ def _create_calendar_view(
             ovr, ovr_people, ovr_editor = overrides.get(
                 f"{dstr} {ap}", (None, None, None)
             )
+            for i, p in enumerate(ovr_people):
+                fname, lname = [n.strip() for n in p.split(" ")][:2]
+                mm = neon.search_members_by_name(fname, lname, also_fetch=True)
+                if len(mm) != 1:
+                    raise RuntimeError(
+                        "Multiple member matches for Neon lookup of tech override {p}"
+                    )
+                ovr_people[i] = mm[0]
 
             people = shift_map.get(s, [])
             final_people = []
             for p in people:  # remove if outside of the tech's tenure
-                first_day, last_day = shift_term_map.get(p, (None, None))
-                if (first_day is None or first_day <= d) and (
-                    last_day is None or last_day >= d
+                if (p.shop_tech_first_day is None or p.shop_tech_first_day <= d) and (
+                    p.shop_tech_last_day is None or p.shop_tech_last_day >= d
                 ):
                     final_people.append(p)
 
@@ -79,15 +86,10 @@ def generate(date, forecast_len, include_pii=False):
 
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     techs = list(neon.search_members_with_role(Role.SHOP_TECH, tech_fields))
-    shift_term_map = {
-        t.name: (t.shop_tech_first_day, t.shop_tech_last_day) for t in techs
-    }
     shift_map = defaultdict(list)
     for t in techs:
-        shift_map[t.shop_tech_shift].append(t.name)
+        shift_map[t.shop_tech_shift].append(t)
 
     return {
-        "calendar_view": _create_calendar_view(
-            date, shift_map, shift_term_map, forecast_len
-        ),
+        "calendar_view": _create_calendar_view(date, shift_map, forecast_len),
     }

@@ -397,7 +397,16 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(
         neon,
         "search_new_members_needing_setup",
-        return_value=[mocker.MagicMock(neon_id=123)],
+        return_value=[
+            mocker.MagicMock(
+                neon_id=123,
+                fname="Foo",
+                email="a@b.com",
+                latest_membership=lambda: mocker.MagicMock(
+                    start_date=d(0), neon_id=456, level="testname"
+                ),
+            )
+        ],
     )
     m1 = mocker.patch.object(f.memauto, "try_cached_coupon", return_value="test_coupon")
     m2 = mocker.patch.object(
@@ -405,19 +414,6 @@ def test_init_new_memberships_e2e(mocker, cli):
         "set_membership_date_range",
         return_value=mocker.MagicMock(status_code=200),
     )
-    mocker.patch.object(
-        f.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(
-            neon_id=123,
-            fname="Foo",
-            email="a@b.com",
-            latest_membership=lambda: mocker.MagicMock(
-                start_date=d(0), neon_id=456, level="testname"
-            ),
-        ),
-    )
-
     m3 = mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -460,20 +456,42 @@ def test_init_new_memberships_limit(mocker, cli):
 def test_refresh_volunteer_memberships(mocker, cli):
     """Test refresh_volunteer_memberships command"""
     mocker.patch.object(f, "tznow", return_value=d(0))
+    ld = (d(0, 23), False)
     mocker.patch.object(
         f.neon,
         "search_members_with_role",
         side_effect=[
-            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
-            [mocker.MagicMock(neon_id="456", fname="Jane", lname="Doe")],
             [
-                mocker.MagicMock(neon_id="789", fname="Jorb", lname="Dorb"),
-                mocker.MagicMock(neon_id="999", fname="Past", lname="DeLimit"),
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: ld,
+                )
+            ],
+            [
+                mocker.MagicMock(
+                    neon_id=456,
+                    fname="Jane",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: ld,
+                )
+            ],
+            [
+                mocker.MagicMock(
+                    neon_id=789,
+                    fname="Jorb",
+                    lname="Dorb",
+                    last_membership_expiration_date=lambda: ld,
+                ),
+                mocker.MagicMock(
+                    neon_id=999,
+                    fname="Past",
+                    lname="DeLimit",
+                    last_membership_expiration_date=lambda: ld,
+                ),
             ],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(d(0, 23), False)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
@@ -485,21 +503,21 @@ def test_refresh_volunteer_memberships(mocker, cli):
     f.neon.create_zero_cost_membership.assert_has_calls(
         [
             mocker.call(
-                "123",
+                123,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
                 term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
             mocker.call(
-                "456",
+                456,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
                 term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
             mocker.call(
-                "789",
+                789,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Software Developer"},
@@ -516,13 +534,17 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
         f.neon,
         "search_members_with_role",
         side_effect=[
-            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
+            [
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, None),
+                )
+            ],
             [],
             [],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, None)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
@@ -534,7 +556,7 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
     f.neon.create_zero_cost_membership.assert_has_calls(
         [
             mocker.call(
-                "123",
+                123,
                 d(1, 0),
                 d(31, 0),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
@@ -551,13 +573,17 @@ def test_refresh_volunteer_memberships_autorenew(mocker, cli):
         f.neon,
         "search_members_with_role",
         side_effect=[
-            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
+            [
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, True),
+                )
+            ],
             [],
             [],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, True)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership")
 
@@ -573,13 +599,17 @@ def test_refresh_volunteer_memberships_exclude(mocker, cli):
         f.neon,
         "search_members_with_role",
         side_effect=[
-            [mocker.MagicMock(neon_id="123", fname="John", lname="Doe")],
+            [
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, None),
+                )
+            ],
             [],
             [],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, None)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
@@ -598,12 +628,14 @@ def test_refresh_volunteer_memberships_filter_dev(mocker, cli):
             [],
             [],
             [  # Dev comes last
-                mocker.MagicMock(neon_id="123", fname="John", lname="Doe")
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, None),
+                )
             ],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, None)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
