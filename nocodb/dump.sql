@@ -134,7 +134,7 @@ CREATE FUNCTION public.to_date_time_safe(value text, format text) RETURNS timest
   BEGIN
     RETURN to_timestamp(value, format);
     EXCEPTION
-      WHEN others THEN RETURN NULL;  
+      WHEN others THEN RETURN NULL;
   END;
   $$;
 
@@ -15696,4 +15696,3 @@ ALTER TABLE ONLY public.nc_teams_v2
 --
 -- PostgreSQL database dump complete
 --
-
