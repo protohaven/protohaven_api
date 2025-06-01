@@ -139,10 +139,11 @@ def techs_area_leads():
         ],
     ):
         for a in t.area_lead:
+            data = {"name": t.name, "email": t.email, "shift": t.shop_tech_shift}
             if a not in area_map:
-                extras_map[a].append(t)
+                extras_map[a].append(data)
             else:
-                area_map[a].append(t)
+                area_map[a].append(data)
     return {"area_leads": area_map, "other_leads": dict(extras_map)}
 
 
@@ -247,6 +248,8 @@ def techs_list():
                     "interest",
                     "expertise",
                     "shop_tech_shift",
+                    "volunteer_bio",
+                    "volunteer_picture",
                 )
             }
         )

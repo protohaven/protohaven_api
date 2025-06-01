@@ -359,6 +359,24 @@ class Member:  # pylint:disable=too-many-public-methods
 
         return None
 
+    @property
+    def volunteer_bio(self):
+        """With bio data, get member bio string"""
+        if not self.airtable_bio_data:
+            raise RuntimeError("Missing bio data for call to volunteer_bio()")
+        return self.airtable_bio_data['fields'].get("Bio") or ""
+
+    @property
+    def volunteer_picture(self):
+        """With bio data, get member's profile picture"""
+        if not self.airtable_bio_data:
+            raise RuntimeError("Missing bio data for call to volunteer_picture()")
+        thumbs = self.airtable_bio_data['fields'].get("Picture")[0]["thumbnails"]["large"]
+        return thumbs.get("url") or urljoin(
+            "http://localhost:8080",
+            thumbs.get("signedPath"),
+        )
+
     def __getattr__(self, attr):
         """Resolves simple calls to _get_custom_field and _resolve for account data.
         Only called when self.attr doesn't exist - instance attribute access only.
@@ -654,21 +672,3 @@ class Event:
             if t["name"] == "Single Registration":
                 return t["id"]
         return None
-
-    @property
-    def volunteer_bio(self):
-        """With bio data, get member bio string"""
-        if not self.airtable_bio_data:
-            raise RuntimeError("Missing bio data for call to volunteer_bio()")
-        return self.airtable_bio_data.get("Bio") or ""
-
-    @property
-    def volunteer_picture(self):
-        """With bio data, get member's profile picture"""
-        if not self.airtable_bio_data:
-            raise RuntimeError("Missing bio data for call to volunteer_picture()")
-        thumbs = self.airtable_bio_data.get("Picture")[0]["thumbnails"]["large"]
-        return thumbs.get("url") or urljoin(
-            "http://localhost:8080",
-            thumbs.get("signedPath"),
-        )

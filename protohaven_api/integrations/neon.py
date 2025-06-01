@@ -248,6 +248,10 @@ def _search_members_internal(
 ) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
+
+    if merge_bios:
+        merge_bios = {row['fields']['Email'].strip().lower(): row for row in merge_bios}
+
     for acct in neon_base.paginated_search(
         params,
         [
@@ -398,7 +402,7 @@ def patch_member_role(email, role, enabled):
     elif role["id"] in roles:
         del roles[role["id"]]
     return neon_base.set_custom_fields(
-        mem.account_id,
+        mem.neon_id,
         (CustomField.API_SERVER_ROLE, [{"id": k, "name": v} for k, v in roles.items()]),
     )
 

@@ -18,12 +18,9 @@ TEST_USER = 1234
 def test_patch_member_role(mocker):
     """Member role patch adds to existing roles"""
     mocker.patch.object(
-        n, "search_member", return_value=[mocker.MagicMock(neon_id=1324)]
-    )
-    mocker.patch.object(
-        n.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(roles=[{"name": "TEST", "id": "1234"}]),
+        n, "search_members_by_email", return_value=[
+            mocker.MagicMock(neon_id=1324, roles=[{"name": "TEST", "id": "1234"}])
+         ]
     )
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
     n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
@@ -42,17 +39,13 @@ def test_patch_member_role(mocker):
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
     mocker.patch.object(
-        n, "search_member", return_value=[mocker.MagicMock(neon_id=1324)]
-    )
-    mocker.patch.object(
-        n.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(
+        n, "search_members_by_email", return_value=[mocker.MagicMock(neon_id=1324,
+
             roles=[
                 {"name": "TEST", "id": "1234"},
                 {"name": "Instructor", "id": "75"},
             ]
-        ),
+                                                                     )]
     )
     mocker.patch.object(n.neon_base, "get_connector")
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
@@ -93,8 +86,8 @@ def test_get_sample_classes_neon(mocker):
 def test_delete_single_ticket_registration(mocker):
     """Test deleting a single ticket registration."""
     fetch_registrations_mock = mocker.patch.object(
-        n,
-        "fetch_registrations",
+        n.neon_base,
+        "paginated_fetch",
         return_value=[
             {"id": "reg1", "tickets": [{"attendees": [{"accountId": "acc123"}]}]},
             {"id": "reg2", "tickets": [{"attendees": [{"accountId": "acc456"}]}]},
@@ -127,7 +120,7 @@ def test_account_cache_case_insensitive(mocker):
         account_current_membership_status="Active",
     )
     mocker.patch.object(n, "search_active_members", return_value=[want1])
-    mocker.patch.object(n, "search_member", return_value=[])
+    mocker.patch.object(n, "search_members_by_email", return_value=[])
     c = n.AccountCache()
     c.refresh()
     want2 = {456: mocker.MagicMock(fname="bar")}
@@ -144,7 +137,7 @@ def test_find_best_match(mocker):
     """Test find_best_match returns the best matches based on fuzzy ratio."""
     c = n.AccountCache()
     mocker.patch.object(
-        n, "search_member", side_effect=AssertionError("Should never be called")
+        n, "search_members_by_email", side_effect=AssertionError("Should never be called")
     )
     c.update(
         mocker.MagicMock(email="a@b.com", fname="Albert", lname="Einstein", neon_id=123)
@@ -166,7 +159,7 @@ def test_account_cache_miss_inactive(mocker):
     """Confirm that inactive memberships trigger a direct lookup to Neon"""
     mocker.patch.object(
         n,
-        "search_member",
+        "search_members_by_email",
         return_value=[
             mocker.MagicMock(
                 email="asdf",
@@ -203,7 +196,7 @@ def test_account_update_causes_cache_hit(mocker):
     )
 
     mocker.patch.object(
-        n, "search_member", side_effect=AssertionError("should never be called")
+        n, "search_members_by_email", side_effect=AssertionError("should never be called")
     )
     c = n.AccountCache()
     c.update(want)
@@ -224,38 +217,11 @@ def test_account_cache_miss_keyerror(mocker):
     c = n.AccountCache()
 
     # Exception suppressed and value returned if direct lookup succeeds
-    mocker.patch.object(n, "search_member", return_value=[want])
+    mocker.patch.object(n, "search_members_by_email", return_value=[want])
     assert c["asdf"] == {123: want}
 
     # Exception thrown if direct lookup also fails
-    mocker.patch.object(n, "search_member", return_value=[])
+    mocker.patch.object(n, "search_members_by_email", return_value=[])
     with pytest.raises(KeyError):
         c["asdf"]
 
-
-def test_get_latest_membership_id_and_name(mocker):
-    mocker.patch.object(n, "fetch_memberships", return_value=[])
-    assert n.get_latest_membership_id_and_name("abc") == (None, None)
-
-    mocker.patch.object(
-        n,
-        "fetch_memberships",
-        return_value=[
-            {
-                "termStartDate": "2025-01-01",
-                "id": "123",
-                "membershipLevel": {"name": "A"},
-            },
-            {
-                "termStartDate": "2025-01-03",
-                "id": "456",
-                "membershipLevel": {"name": "B"},
-            },
-            {
-                "termStartDate": "2025-01-02",
-                "id": "789",
-                "membershipLevel": {"name": "C"},
-            },
-        ],
-    )
-    assert n.get_latest_membership_id_and_name("abc") == ("456", "B")

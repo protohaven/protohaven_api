@@ -3,6 +3,7 @@ from collections import namedtuple
 
 import pytest
 
+from protohaven_api.integrations import models as m
 from protohaven_api.integrations.models import Event, Member, Role
 from protohaven_api.testing import d, idfn
 
@@ -155,3 +156,47 @@ def test_has_open_seats_below_price():
     ]
     assert evt.has_open_seats_below_price(100) == 5
     assert evt.has_open_seats_below_price(49) == 0
+
+
+def test_latest_membership(mocker):
+    """Fetch the latest membership in the member data"""
+    member = Member()
+    mocker.patch.object(m, "tznow", return_value=d(0))
+    member.neon_membership_data = [
+            {
+                "termStartDate": d(1).isoformat(),
+                "id": 123,
+                "membershipLevel": {"name": "A"},
+            },
+            {
+                "termStartDate": d(3).isoformat(),
+                "id": 456,
+                "membershipLevel": {"name": "B"},
+            },
+            {
+                "termStartDate": d(2).isoformat(),
+                "id": 789,
+                "membershipLevel": {"name": "C"},
+            },
+        ]
+    assert member.latest_membership().neon_id == 456
+
+def test_volunteer_bio_and_picture():
+    """Ensure parsing of volunteer airtable data"""
+    member = Member()
+    member.airtable_bio_data = {
+            "fields": {
+                "Picture": [{"thumbnails": {"large": {"url": "want"}}}],
+                "Bio": "This is a bio",
+            },
+        }
+    assert member.volunteer_bio == "This is a bio"
+    assert member.volunteer_picture == "want"
+
+    # Also test Nocodb signed path
+    member.airtable_bio_data = {
+            "fields": {
+                "Picture": [{"thumbnails": {"large": {"signedPath": "abc"}}}],
+            },
+        }
+    assert member.volunteer_picture == "http://localhost:8080/abc"
