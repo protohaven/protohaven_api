@@ -89,7 +89,7 @@ connector:
   max_retry_delay_sec: 3.0
 nocodb:
   requests:
-    url: "http://localhost:8080"
+    url: "${NOCODB_SCHEME}://${NOCODB_HOST}:${NOCODB_PORT}"
     token: "LjsLEB_Iyi_BVk2fO26X5LJOI-hCnw7k4jIC4G7r" # pragma: allowlist secret
   data:
     tools_and_equipment:

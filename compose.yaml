@@ -1,0 +1,218 @@
+services:
+  flask:
+    build:
+      context: .
+      dockerfile: protohaven_api.Dockerfile
+    container_name: protohaven_api_flask
+    ports:
+      - "5000:5000"
+    environment:
+      CORS: true
+      LOG_LEVEL: "debug"
+      PH_CONFIG: "config.yaml"
+      PH_SERVER_MODE: "dev"
+      UNSAFE_NO_RBAC: true
+      NOCODB_HOST: "nocodb"
+      NOCODB_PORT: "9090"
+    configs:
+      - source: ph-config
+        target: /config.yaml
+    depends_on:
+      nocodb:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          ignore:
+            - .devenv
+            - .direnv
+            - .git
+            - requirements.txt
+            - Dockerfile
+            - svelte
+            - bookstack
+            - wordpress
+            - docs
+          target: /code
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: protohaven_api.Dockerfile
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:5000"
+      timeout: 2s
+
+  svelte:
+    build:
+      context: ./svelte
+      dockerfile: ../svelte.Dockerfile
+    container_name: protohaven_api_svelte
+    ports:
+      - "5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./svelte
+          ignore:
+            - node_modules
+            - package.json
+            - pnpm-lock.yaml
+          target: /code
+        - action: rebuild
+          path: ./svelte/package.json
+        - action: rebuild
+          path: ./svelte/pnpm-lock.yaml
+        - action: rebuild
+          path: svelte.Dockerfile
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:5173"
+      timeout: 2s
+
+  nocodb:
+    image: "nocodb/nocodb:latest"
+    container_name: nocodb_frontend
+    volumes:
+      - "nc_data:/usr/app/data"
+    ports:
+      - "9090:8080"
+    environment:
+      NC_DB: "pg://nocodb_db:5432?u=postgres&p=password&d=root_db"
+      NC_DISABLE_TELE: true
+    restart: always
+    depends_on:
+      nocodb_db:
+        condition: service_healthy
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:8080"
+      timeout: 2s
+
+  nocodb_db:
+    image: postgres:16.6
+    container_name: nocodb_db
+    restart: always
+    volumes:
+      - "pg_data:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_DB: root_db
+      POSTGRES_PASSWORD: password    # pragma: allowlist secret
+      POSTGRES_USER: postgres
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
+      timeout: 2s
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    volumes:
+      - ./wordpress/wordpress:/var/www/html
+      - ./wordpress/protohaven-class-ticker:/var/www/html/wp-content/plugins/protohaven-class-ticker
+      - ./wordpress/protohaven-airtable-grid:/var/www/html/wp-content/plugins/protohaven-airtable-grid
+      - ./wordpress/protohaven-events:/var/www/html/wp-content/plugins/protohaven-events
+    environment:
+      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_TABLE_PREFIX=wp_
+      - WORDPRESS_DB_HOST=wordpress_db
+      - WORDPRESS_DB_USER=root
+      - WORDPRESS_DB_PASSWORD=password
+    depends_on:
+      - wordpress_db
+      - flask
+    restart: always
+    ports:
+      - 8080:80
+  wordpress_db:
+    image: mariadb:latest
+    container_name: wordpress_db
+    volumes:
+      - wp_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=password
+      - MYSQL_DATABASE=wordpress
+    restart: always
+
+  wp_events_plugin:
+    build:
+      context: ./wordpress/protohaven-events/
+      dockerfile: ../../wordpress_plugin.Dockerfile
+    container_name: wp_events_plugin_dev
+    develop:
+      watch:
+        - action: sync
+          path: ./wordpress/protohaven-events/
+          ignore:
+            - build/
+            - node_modules
+            - package.json
+            - pnpm-lock.yaml
+          target: /code
+        - action: rebuild
+          path: ./wordpress/protohaven-events/package.json
+        - action: rebuild
+          path: ./wordpress/protohaven-events/pnpm-lock.yaml
+        - action: rebuild
+          path: wordpress_plugin.Dockerfile
+
+  wp_airtable_grid_plugin:
+    build:
+      context: ./wordpress/protohaven-airtable-grid/
+      dockerfile: ../../wordpress_plugin.Dockerfile
+    container_name: wp_airtable-grid_plugin_dev
+    develop:
+      watch:
+        - action: sync
+          path: ./wordpress/protohaven-airtable-grid/
+          ignore:
+            - build/
+            - node_modules
+            - package.json
+            - pnpm-lock.yaml
+          target: /code
+        - action: rebuild
+          path: ./wordpress/protohaven-airtable-grid/package.json
+        - action: rebuild
+          path: ./wordpress/protohaven-airtable-grid/pnpm-lock.yaml
+        - action: rebuild
+          path: wordpress_plugin.Dockerfile
+
+  wp_class_ticker_plugin:
+    build:
+      context: ./wordpress/protohaven-class-ticker/
+      dockerfile: ../../wordpress_plugin.Dockerfile
+    container_name: wp_class-ticker_plugin_dev
+    develop:
+      watch:
+        - action: sync
+          path: ./wordpress/protohaven-class-ticker/
+          ignore:
+            - build/
+            - node_modules
+            - package.json
+            - pnpm-lock.yaml
+          target: /code
+        - action: rebuild
+          path: ./wordpress/protohaven-class-ticker/package.json
+        - action: rebuild
+          path: ./wordpress/protohaven-class-ticker/pnpm-lock.yaml
+        - action: rebuild
+          path: wordpress_plugin.Dockerfile
+
+volumes:
+  nc_data: {}
+  pg_data: {}
+  wp_data: {}
+
+configs:
+  ph-config:
+    # external: true
+    file: config.yaml
