@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: protohaven_api.Dockerfile
+    container_name: protohaven_api_flask
     ports:
       - "5000:5000"
     environment:
@@ -47,6 +48,7 @@ services:
     build:
       context: ./svelte
       dockerfile: ../svelte.Dockerfile
+    container_name: protohaven_api_svelte
     ports:
       - "5173:5173"
     develop:
@@ -72,16 +74,17 @@ services:
 
   nocodb:
     image: "nocodb/nocodb:latest"
+    container_name: nocodb_frontend
     volumes:
       - "nc_data:/usr/app/data"
     ports:
       - "8080:8080"
     environment:
-      NC_DB: "pg://postgres:5432?u=postgres&p=password&d=root_db"
+      NC_DB: "pg://nocodb_db:5432?u=postgres&p=password&d=root_db"
       NC_DISABLE_TELE: true
     restart: always
     depends_on:
-      postgres:
+      nocodb_db:
         condition: service_healthy
     healthcheck:
       interval: 10s
@@ -89,14 +92,15 @@ services:
       test: "curl localhost:8080"
       timeout: 2s
 
-  postgres:
+  nocodb_db:
     image: postgres:16.6
+    container_name: nocodb_db
     restart: always
     volumes:
       - "pg_data:/var/lib/postgresql/data"
     environment:
       POSTGRES_DB: root_db
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: password    # pragma: allowlist secret
       POSTGRES_USER: postgres
     healthcheck:
       interval: 10s
