@@ -36,4 +36,4 @@ cat dump.sql | docker exec -i nocodb_db psql -U postgres -d root_db
 echo -e "$HDR Unpacking Nocodb nc_data.tar... $HDR"
 docker run --rm --volume protohaven_api_nc_data:/usr/app/data -v $(pwd):/backup ubuntu bash -c "cd /usr/app/data && tar xvf /backup/nc_data.tar --strip 1"
 
-echo -e "\n\nDone! Run 'docker compose watch', then browse to http://localhost:8080 and login with:\n- username: admin@example.com\n- password: password"
+echo -e "\n\nDone! Run 'docker compose watch', then browse to http://localhost:9090 and login with:\n- username: admin@example.com\n- password: password"
