@@ -1,0 +1,118 @@
+services:
+  flask:
+    build:
+      context: .
+      dockerfile: protohaven_api.Dockerfile
+    container_name: protohaven_api_flask
+    ports:
+      - "5000:5000"
+    environment:
+      CORS: true
+      LOG_LEVEL: "debug"
+      PH_CONFIG: "config.yaml"
+      PH_SERVER_MODE: "dev"
+      UNSAFE_NO_RBAC: true
+      NOCODB_HOST: "nocodb"
+    configs:
+      - source: ph-config
+        target: /config.yaml
+    depends_on:
+      nocodb:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          ignore:
+            - .devenv
+            - .direnv
+            - .git
+            - requirements.txt
+            - Dockerfile
+            - svelte
+            - bookstack
+            - wordpress
+            - docs
+          target: /code
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: protohaven_api.Dockerfile
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:5000"
+      timeout: 2s
+
+  svelte:
+    build:
+      context: ./svelte
+      dockerfile: ../svelte.Dockerfile
+    container_name: protohaven_api_svelte
+    ports:
+      - "5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./svelte
+          ignore:
+            - node_modules
+            - package.json
+            - pnpm-lock.yaml
+          target: /code
+        - action: rebuild
+          path: ./svelte/package.json
+        - action: rebuild
+          path: ./svelte/pnpm-lock.yaml
+        - action: rebuild
+          path: svelte.Dockerfile
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:5173"
+      timeout: 2s
+
+  nocodb:
+    image: "nocodb/nocodb:latest"
+    container_name: nocodb_frontend
+    volumes:
+      - "nc_data:/usr/app/data"
+    ports:
+      - "8080:8080"
+    environment:
+      NC_DB: "pg://nocodb_db:5432?u=postgres&p=password&d=root_db"
+      NC_DISABLE_TELE: true
+    restart: always
+    depends_on:
+      nocodb_db:
+        condition: service_healthy
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "curl localhost:8080"
+      timeout: 2s
+
+  nocodb_db:
+    image: postgres:16.6
+    container_name: nocodb_db
+    restart: always
+    volumes:
+      - "pg_data:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_DB: root_db
+      POSTGRES_PASSWORD: password    # pragma: allowlist secret
+      POSTGRES_USER: postgres
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
+      timeout: 2s
+
+volumes:
+  nc_data: {}
+  pg_data: {}
+
+configs:
+  ph-config:
+    # external: true
+    file: config.yaml
