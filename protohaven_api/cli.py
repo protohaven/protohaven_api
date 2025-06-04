@@ -8,8 +8,6 @@ from protohaven_api.commands import (
     classes,
     clearances,
     comms,
-    development,
-    docs,
     finances,
     forwarding,
     maintenance,
@@ -37,7 +35,7 @@ if get_config("discord_bot/enabled", as_bool=True):
 
     threading.Thread(target=run_bot, daemon=True).start()
     time.sleep(
-        2.0
+        5.0
     )  # Hacky - should use `wait_until_ready` but there's threading problems
 else:
     log.debug("Skipping startup of discord bot")
@@ -49,11 +47,9 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
     classes.Commands,
     forwarding.Commands,
     finances.Commands,
-    development.Commands,
     violations.Commands,
     roles.Commands,
     maintenance.Commands,
-    docs.Commands,
     clearances.Commands,
 ):
     """argparser-based CLI for protohaven operations"""

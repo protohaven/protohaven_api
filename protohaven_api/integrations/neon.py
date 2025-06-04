@@ -3,52 +3,23 @@
 import datetime
 import logging
 from functools import lru_cache
+from typing import Generator
 
 import rapidfuzz
-from dateutil import parser as dateparser
 from flask import Response
 
-from protohaven_api.config import tz, tznow, utcnow
+from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Event, Member
 
 log = logging.getLogger("integrations.neon")
 
 
-def fetch_upcoming_events(back_days=7, published=True):
-    """Load upcoming events from Neon CRM, with `back_days` of trailing event data.
-    Note that querying is done based on the end date so multi-week intensives
-    can still appear even if they started earlier than `back_days`."""
-    q_params = {
-        "endDateAfter": (tznow() - datetime.timedelta(days=back_days)).strftime(
-            "%Y-%m-%d"
-        ),
-        "archived": False,
-    }
-    if published:
-        q_params["publishedEvent"] = published
-    return neon_base.paginated_fetch("api_key1", "/events", q_params)
-
-
-def fetch_events(after=None, before=None, published=True):
-    """Load events from Neon CRM"""
-    q_params = {
-        "publishedEvent": published,
-        **({"startDateAfter": after.strftime("%Y-%m-%d")} if after is not None else {}),
-        **(
-            {"startDateBefore": before.strftime("%Y-%m-%d")}
-            if before is not None
-            else {}
-        ),
-    }
-    return neon_base.paginated_fetch("api_key1", "/events", q_params)
-
-
-def search_upcoming_events(from_date, to_date, extra_fields):
+def _search_upcoming_events(from_date, to_date):
     """Lookup upcoming events"""
-    return neon_base.paginated_search(
+    for evt in neon_base.paginated_search(
         [
             ("Event Start Date", "GREATER_AND_EQUAL", from_date.strftime("%Y-%m-%d")),
             ("Event Start Date", "LESS_AND_EQUAL", to_date.strftime("%Y-%m-%d")),
@@ -58,23 +29,20 @@ def search_upcoming_events(from_date, to_date, extra_fields):
             "Event Name",
             "Event Web Publish",
             "Event Web Register",
-            *extra_fields,
+            "Event Registration Attendee Count",
+            "Event Capacity",
+            "Event Start Date",
+            "Event Start Time",
         ],
         typ="events",
         pagination={"sortColumn": "Event Start Date", "sortDirection": "ASC"},
-    )
+    ):
+        yield Event.from_neon_search(evt)
 
 
 def fetch_event(event_id):
     """Fetch data on an individual (legacy) event in Neon"""
-    return neon_base.get("api_key1", f"/events/{event_id}")
-
-
-def fetch_registrations(event_id):
-    """Fetch registrations for a specific Neon event"""
-    return neon_base.paginated_fetch(
-        "api_key1", f"/events/{event_id}/eventRegistrations"
-    )
+    return Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
 
 
 def register_for_event(account_id, event_id, ticket_id):
@@ -104,7 +72,9 @@ def delete_single_ticket_registration(account_id, event_id):
     """Deletes single-ticket, single-attendee registrations
     for event with `event_id` made by `account_id`. This
     works for registrations created with `register_for_event()`."""
-    for reg in fetch_registrations(event_id):
+    for reg in neon_base.paginated_fetch(
+        "api_key1", f"/events/{event_id}/eventRegistrations"
+    ):
         tickets = reg.get("tickets", [])
         if len(tickets) != 1:
             continue
@@ -120,16 +90,15 @@ def delete_single_ticket_registration(account_id, event_id):
     )
 
 
-def fetch_tickets(event_id):
-    """Fetch ticket information for a specific Neon event"""
+def fetch_tickets_internal_do_not_use_directly(event_id):
+    """Fetch ticket information for a specific Neon event.
+    This is used in automation.classes.events `fetch_upcoming_events()`
+    to load additional ticketing information for classes. It should only be used
+    indirectly by calling that function.
+    """
     content = neon_base.get("api_key1", f"/events/{event_id}/tickets")
     assert isinstance(content, list)
     return content
-
-
-def fetch_memberships(account_id):
-    """Fetch membership history of an account in Neon"""
-    return neon_base.paginated_fetch("api_key2", f"/accounts/{account_id}/memberships")
 
 
 def fetch_attendees(event_id):
@@ -168,17 +137,6 @@ def create_zero_cost_membership(account_id, start, end, level=None, term=None):
             "status": "SUCCEEDED",
         },
     )
-
-
-def get_latest_membership_id_and_name(account_id):
-    """Returns the ID and level of the membership with the latest start date, or None
-    if there are no memberships for the account under `account_id`."""
-    latest = ((None, None), None)
-    for mem in fetch_memberships(account_id):
-        tsd = dateparser.parse(mem["termStartDate"]).astimezone(tz)
-        if not latest[1] or latest[1] < tsd:
-            latest = ((mem["id"], mem["name"]), tsd)
-    return latest[0]
 
 
 def set_membership_date_range(membership_id, start, end):
@@ -235,38 +193,32 @@ def fetch_output_fields():
     return content
 
 
-def search_member_by_name(firstname, lastname):
-    """Lookup a user by first and last name"""
-    for result in neon_base.paginated_search(
-        [
-            ("First Name", "EQUAL", firstname.strip()),
-            ("Last Name", "EQUAL", lastname.strip()),
-        ],
-        ["Account ID", "Email 1"],
-        pagination={"pageSize": 1},
-    ):
-        return result
-
-
-def get_inactive_members(extra_fields):
+def search_inactive_members(
+    fields: list[str], fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Lookup all accounts with inactive memberships"""
-    return neon_base.paginated_search(
+    yield from _search_members_internal(
         [
             ("Account Current Membership Status", "NOT_EQUAL", "Active"),
         ],
-        ["Account ID", *extra_fields],
-        pagination={"pageSize": 100},
+        fields,
+        fetch_memberships,
     )
 
 
-def get_active_members(extra_fields):
+def search_active_members(
+    fields: list[str],
+    fetch_memberships=False,
+    also_fetch=False,
+) -> Generator[Member, None, None]:
     """Lookup all accounts with active memberships"""
-    return neon_base.paginated_search(
+    yield from _search_members_internal(
         [
             ("Account Current Membership Status", "EQUAL", "Active"),
         ],
-        ["Account ID", *extra_fields],
-        pagination={"pageSize": 100},
+        fields,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
     )
 
 
@@ -287,95 +239,121 @@ MEMBER_SEARCH_OUTPUT_FIELDS = [
 ]
 
 
-def search_member(email, operator="EQUAL", fields=None):
+def _search_members_internal(
+    params: list,
+    fields=None,
+    also_fetch=False,
+    fetch_memberships=False,
+    merge_bios=None,
+) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
-    if not fields:
-        fields = MEMBER_SEARCH_OUTPUT_FIELDS
-    return neon_base.paginated_search(
-        [("Email", operator, email)], ["Account ID", *fields]
+
+    if merge_bios:
+        merge_bios = {row['fields']['Email'].strip().lower(): row for row in merge_bios}
+
+    for acct in neon_base.paginated_search(
+        params,
+        [
+            "Account ID",
+            *(fields if fields is not None else MEMBER_SEARCH_OUTPUT_FIELDS),
+        ],
+    ):
+        m = Member.from_neon_search(acct)
+        if also_fetch:
+            m.neon_fetch_data = neon_base.fetch_account(m.neon_id, raw=True)
+
+        if fetch_memberships:
+            m.set_membership_data(
+                neon_base.fetch_memberships_internal_do_not_call_directly(m.neon_id)
+            )
+        if merge_bios:
+            m.set_bio_data(merge_bios.get(m.email))
+        yield m
+
+
+def search_members_by_email(
+    email, operator="EQUAL", fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
+    """Lookup a user by their email; note that emails aren't unique so we may
+    return multiple results."""
+    yield from _search_members_internal(
+        [("Email", operator, email)], fields, fetch_memberships
     )
 
 
-def get_members_with_role(role, extra_fields):
+def search_members_by_name(  # pylint: disable=too-many-arguments
+    fname,
+    lname,
+    operator="EQUAL",
+    fields=None,
+    fetch_memberships=False,
+    also_fetch=False,
+) -> Generator[Member, None, None]:
+    """Lookup a user by their email; note that emails aren't unique so we may
+    return multiple results."""
+    yield from _search_members_internal(
+        [("First Name", operator, fname), ("Last Name", operator, lname)],
+        fields,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
+    )
+
+
+def search_members_with_role(
+    role,
+    fields=None,
+    fetch_memberships=False,
+    merge_bios=None,
+    also_fetch=False,
+) -> Generator[Member, None, None]:
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
-    return neon_base.paginated_search(
+    yield from _search_members_internal(
         [(str(CustomField.API_SERVER_ROLE), "CONTAIN", role["id"])],
-        ["Account ID", "First Name", "Last Name", *extra_fields],
+        fields,
+        fetch_memberships=fetch_memberships,
+        merge_bios=merge_bios,
+        also_fetch=also_fetch,
     )
 
 
-def get_new_members_needing_setup(max_days_ago, extra_fields=None):
+def search_new_members_needing_setup(
+    max_days_ago, fields=None, fetch_memberships=False, also_fetch=False
+) -> Generator[Member, None, None]:
     """Fetch all members in need of automated setup; this includes
     all paying members past the start of the Onboarding V2 plan
     that haven't yet had automation applied to them."""
     enroll_date = (tznow() - datetime.timedelta(days=max_days_ago)).strftime("%Y-%m-%d")
-    return neon_base.paginated_search(
+    yield from _search_members_internal(
         [
             (str(CustomField.ACCOUNT_AUTOMATION_RAN), "BLANK", None),
             ("First Membership Enrollment Date", "GREATER_THAN", enroll_date),
             ("Membership Cost", "GREATER_THAN", 10),
         ],
-        ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
+        fields,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
     )
 
 
-def get_all_accounts_with_discord_association(extra_fields):
+def search_members_with_discord_association(
+    fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Lookup all accounts with discord users associated"""
-    return neon_base.paginated_search(
-        [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)],
-        ["Account ID", *extra_fields],
+    yield from _search_members_internal(
+        [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)], fields, fetch_memberships
     )
 
 
-def get_members_with_discord_id(discord_id, extra_fields=None):
+def search_members_with_discord_id(
+    discord_id, fields=None, fetch_memberships=False
+) -> Generator[Member, None, None]:
     """Fetch all members with a specific Discord ID"""
-    return neon_base.paginated_search(
+    yield from _search_members_internal(
         [(str(CustomField.DISCORD_USER), "EQUAL", discord_id)],
-        ["Account ID", "First Name", "Last Name", *(extra_fields or [])],
+        fields,
+        fetch_memberships,
     )
-
-
-def fetch_techs_list(include_pii=False):
-    """Fetches a list of current shop techs, ordered by number of clearances"""
-    techs = []
-    for t in get_members_with_role(
-        Role.SHOP_TECH,
-        [
-            "Email 1",
-            CustomField.CLEARANCES,
-            CustomField.INTEREST,
-            CustomField.EXPERTISE,
-            CustomField.AREA_LEAD,
-            CustomField.SHOP_TECH_SHIFT,
-            CustomField.SHOP_TECH_FIRST_DAY,
-            CustomField.SHOP_TECH_LAST_DAY,
-        ],
-    ):
-        techs.append(
-            {
-                "id": t["Account ID"] if include_pii else "",
-                "name": (
-                    f"{t['First Name']} {t['Last Name']}"
-                    if include_pii
-                    else f"{t['First Name']}"
-                ),
-                "email": t["Email 1"] if include_pii else "",
-                "interest": t.get("Interest", ""),
-                "expertise": t.get("Expertise", ""),
-                "area_lead": t.get("Area Lead", ""),
-                "shift": t.get("Shop Tech Shift", ""),
-                "first_day": t.get("Shop Tech First Day", ""),
-                "last_day": t.get("Shop Tech Last Day", ""),
-                "clearances": (
-                    t["Clearances"].split("|")
-                    if t.get("Clearances") is not None
-                    else []
-                ),
-            }
-        )
-    techs.sort(key=lambda t: len(t["clearances"]))
-    return techs
 
 
 @lru_cache(maxsize=1)
@@ -384,34 +362,20 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     sample_classes = []
     now = tznow()
     until = tznow() + datetime.timedelta(days=until)
-    for e in search_upcoming_events(
+    for evt in _search_upcoming_events(
         from_date=now,
         to_date=until,
-        extra_fields=[
-            "Event Registration Attendee Count",
-            "Event Capacity",
-            "Event Start Date",
-            "Event Start Time",
-        ],
     ):
-        if e.get("Event Web Publish") != "Yes" or e.get("Event Web Register") != "Yes":
+        if not evt.published or not evt.registration or not evt.start_date:
             continue
-        capacity = int(e.get("Event Capacity"))
-        numreg = int(e.get("Event Registration Attendee Count"))
-        if capacity <= numreg:
+        if not evt.attendee_count or evt.capacity <= evt.attendee_count:
             continue
-        if not e.get("Event Start Date") or not e.get("Event Start Time"):
-            continue
-        d = dateparser.parse(
-            e["Event Start Date"] + " " + e["Event Start Time"]
-        ).astimezone(tz)
-        d = d.strftime("%b %-d, %-I%p")
         sample_classes.append(
             {
-                "url": f"https://protohaven.org/e/{e['Event ID']}",
-                "name": e["Event Name"],
-                "date": d,
-                "seats_left": capacity - numreg,
+                "url": f"https://protohaven.org/e/{evt.neon_id}",
+                "name": evt.name,
+                "date": evt.start_date.strftime("%b %-d, %-I%p"),
+                "seats_left": evt.capacity - evt.attendee_count,
             }
         )
         if len(sample_classes) >= 3:
@@ -426,25 +390,19 @@ def create_coupon_code(code, amt, from_date=None, to_date=None):
     )
 
 
-def soft_search(keyword):
-    """Creates a coupon code for a specific absolute amount"""
-    return neon_base.NeonOne().soft_search(keyword)
-
-
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = list(search_member(email))
+    mem = list(search_members_by_email(email, [CustomField.API_SERVER_ROLE]))
     if len(mem) == 0:
         raise KeyError()
-    account_id = mem[0]["Account ID"]
-    roles = neon_base.get_custom_field(account_id, CustomField.API_SERVER_ROLE)
-    roles = {v["id"]: v["name"] for v in roles}
+    mem = mem[0]
+    roles = {v["id"]: v["name"] for v in mem.roles}
     if enabled:
         roles[role["id"]] = role["name"]
     elif role["id"] in roles:
         del roles[role["id"]]
     return neon_base.set_custom_fields(
-        account_id,
+        mem.neon_id,
         (CustomField.API_SERVER_ROLE, [{"id": k, "name": v} for k, v in roles.items()]),
     )
 
@@ -458,7 +416,7 @@ def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     interest=None,
     expertise=None,
 ):
-    """Overwrites existing waiver status information on an account"""
+    """Sets custom fields on a shop tech Neon account"""
     cf = [
         (CustomField.SHOP_TECH_SHIFT, shift),
         (CustomField.SHOP_TECH_FIRST_DAY, first_day),
@@ -566,23 +524,25 @@ class AccountCache(WarmDict):
 
     def _value_has_active_membership(self, v):
         for a in v.values():
-            if a.get("Account Current Membership Status") == "Active":
+            if a.account_current_membership_status == "Active":
                 return True
         return False
 
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
-            aa = list(search_member(k, fields=self.FIELDS))
+            aa = list(
+                search_members_by_email(k, fields=self.FIELDS, fetch_memberships=True)
+            )
             if len(aa) > 0:
                 log.info(f"cache miss on '{k}' returned results: {aa}")
-                return {a["Account ID"]: a for a in aa}
+                return {a.neon_id: a for a in aa}
         return v
 
     def get(self, k, default=None):
         """Attempt to lookup from cache, but verify directly with Neon if
         the returned account is inactive or missing"""
         return self._handle_inactive_or_notfound(
-            str(k), super().get(str(k).lower(), default)
+            str(k), super().get(str(k).lower().strip(), default)
         )
 
     def __setitem__(self, k, v):
@@ -602,28 +562,28 @@ class AccountCache(WarmDict):
                 raise KeyError("Cache miss failover returned no result") from err
             return v
 
-    def update(self, a: dict):
+    def update(self, a: Member):
         """Updates cache based on an account dictionary object"""
-        d = super().get(str(a["Email 1"]).lower(), {})  # Don't trigger cache miss
-        d[a["Account ID"]] = a
-        self[a["Email 1"]] = d
-        self.fuzzy[
-            rapidfuzz.utils.default_process(f"{a['First Name']} {a['Last Name']}")
-        ] = a["Email 1"]
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a['Email 1']}")] = a["Email 1"]
-        if a.get("Booked User ID"):
-            self.by_booked_id[a["Booked User ID"]] = a
+        d = super().get(a.email, {})  # Don't trigger cache miss
+        d[a.neon_id] = a
+        self[a.email] = d
+        self.fuzzy[rapidfuzz.utils.default_process(f"{a.fname} {a.lname}")] = a[
+            "Email 1"
+        ]
+        self.fuzzy[rapidfuzz.utils.default_process(f"{a.email}")] = a.email
+        if a.booked_id:
+            self.by_booked_id[a.booked_id] = a
 
     def refresh(self):
         """Refresh values; called every REFRESH_PD"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
-        for a in get_inactive_members(self.FIELDS):
+        for a in search_inactive_members(self.FIELDS, fetch_memberships=True):
             self.update(a)
             n += 1
             if n % 100 == 0:
                 self.log.info(n)
-        for a in get_active_members(self.FIELDS):
+        for a in search_active_members(self.FIELDS):
             self.update(a)
             n += 1
             if n % 100 == 0:
@@ -634,9 +594,9 @@ class AccountCache(WarmDict):
             f"booked IDs; next refresh in {self.REFRESH_PD_SEC} seconds"
         )
 
-    def neon_id_from_booked_id(self, booked_id):
+    def neon_id_from_booked_id(self, booked_id: int) -> str:
         """Fetches the Neon ID associated with a Booked user ID"""
-        return self.by_booked_id[booked_id]["Account ID"]
+        return self.by_booked_id[booked_id].neon_id
 
     def _find_best_match_internal(self, search_string, top_n=10):
         """Find and return the top_n best matches to the key in `self` based on a search string."""

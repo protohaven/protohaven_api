@@ -82,11 +82,6 @@ function delete_event(eid) {
 <CardBody>
     <p>Note: you will need to pay the cost of materials when you show up.</p>
     <p>You can pay at the front desk via Square - select "Walk-In (3 Hr Class / add price)", set to the cost listed above, charge as normal.</p>
-    {#if !user }
-      <p><strong>You must <a href="http://api.protohaven.org/login">login</a> to register.</strong></p>
-    {:else}
-      <p>Click Register on events below to register as <br/><strong>{user.fullname}</strong> ({user.email})</p>
-    {/if}
     {#await promise}
       <Spinner/>loading...
     {:then p}
@@ -99,17 +94,21 @@ function delete_event(eid) {
     {:catch error}
     <FetchError {error}/>
     {/await}
-    <ListGroup>
     {#if p.length === 0}
       <em>No event available for backfill - please check back later.</em>
+    {:else if !user || !p.can_register}
+      <p><strong>You must <a href="http://api.protohaven.org/login">login</a> as a Shop Tech or Tech Lead to register for events.</strong></p>
+    {:else}
+      <p>Click Register on events below to register as <br/><strong>{user.fullname}</strong> ({user.email})</p>
     {/if}
+    <ListGroup>
     {#each p.events as r}
       <ListGroupItem>
             <div><strong>{r.name}</strong></div>
             <div>On {new Date(r.start).toLocaleString()}</div>
             <div><a href={`https://protohaven.org/e/${r.id}`} target="_blank">Event Details</a></div>
             <div>{r.capacity - r.attendees.length} seat(s) left</div>
-            {#if user}
+            {#if user && p.can_register}
             <div>
             {#if r.attendees.indexOf(user.neon_id) !== -1}
               <strong>You are registered!</strong>

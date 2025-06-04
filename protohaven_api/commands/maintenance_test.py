@@ -14,6 +14,10 @@ def fixture_cli(capsys):
 
 def test_gen_maintenance_tasks(mocker, cli):
     """Confirm generation of maintenance tasks summary"""
+    mocker.patch.object(m.forecast, "generate", return_value={})
+    mocker.patch.object(
+        m.neon, "search_members_with_discord_association", return_value={}
+    )
     mocker.patch.object(
         m.manager,
         "get_maintenance_needed_tasks",
@@ -40,6 +44,10 @@ def test_gen_maintenance_tasks(mocker, cli):
 
 def test_gen_maintenance_tasks_corrupted(mocker, cli):
     """Confirm generation of maintenance tasks even if one has bad data"""
+    mocker.patch.object(m.forecast, "generate", return_value={})
+    mocker.patch.object(
+        m.neon, "search_members_with_discord_association", return_value={}
+    )
     mocker.patch.object(
         m.manager,
         "get_maintenance_needed_tasks",
@@ -62,6 +70,94 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     assert len(got) == 1
     assert "no new tasks" in got[0]["subject"]
     m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
+
+
+def test_tech_discord_mapping(mocker, cli):
+    """Test that tech discord handles are correctly mapped from forecast data"""
+    t1 = mocker.MagicMock(discord_user="tech1")
+    t1.name = "Tech One"
+    t2 = mocker.MagicMock(discord_user="tech2")
+    t2.name = "Tech Two"
+    t3 = mocker.MagicMock(discord_user="tech3")
+    t3.name = "Tech Three"
+    t4 = mocker.MagicMock(discord_user=None)
+    t4.name = "Tech Four"
+    mocker.patch.object(
+        m.forecast,
+        "generate",
+        return_value={
+            "calendar_view": [
+                {
+                    "AM": {"people": [t1, t2]},
+                    "PM": {"people": [t3, t4]},
+                }
+            ]
+        },
+    )
+    mocker.patch.object(
+        m.neon,
+        "search_members_with_discord_association",
+        return_value=[t1, t2, t3],
+    )
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec345",
+                "section": "foo",
+                "name": "test task",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(1),
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+
+    # Run command
+    got = cli("gen_maintenance_tasks", ["--apply"])
+    assert "AM Shift: @tech1, @tech2" in got[0]["body"]
+    assert "PM Shift: @tech3, Tech Four" in got[0]["body"]
+
+
+def test_tech_discord_exception(mocker, cli):
+    """Test that tech discord handles are correctly mapped from forecast data"""
+    mocker.patch.object(
+        m.forecast,
+        "generate",
+        return_value={"calendar_view": [{}]},  # Note: missing data raises KeyError
+    )
+    mocker.patch.object(
+        m.neon,
+        "search_members_with_discord_association",
+        return_value=[],
+    )
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec345",
+                "section": "foo",
+                "name": "test task",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(1),
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+
+    # Run command
+    got = cli("gen_maintenance_tasks", ["--apply"])
+    assert got
 
 
 def test_check_door_sensors(mocker, cli):

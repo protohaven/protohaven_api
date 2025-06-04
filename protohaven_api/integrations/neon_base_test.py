@@ -82,11 +82,11 @@ def test_fetch_account(mocker):
 
     # Test case where neon_request returns an individual account
     m.return_value = {"individualAccount": {"a": 1}}
-    assert nb.fetch_account("123") == ({"a": 1}, False)
+    assert not nb.fetch_account("123").is_company()
 
     # Test case where neon_request returns a company account
     m.return_value = {"companyAccount": {"a": 1}}
-    assert nb.fetch_account("123") == ({"a": 1}, True)
+    assert nb.fetch_account("123").is_company()
 
 
 def test_do_login(mocker):

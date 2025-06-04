@@ -80,7 +80,6 @@ comms:
     Staff: 1130895854769807520
     Techs: 801513013710422056
     TechLeads: 1074870525026893844
-    Onboarders: 1248676878038863872
     PrivateInstructors: 1248640897126633575
     Members: 800816903881752616
     Board: 953363629837799434
@@ -129,9 +128,12 @@ nocodb:
       memberships: "mv3lhkooul6is39"
       events: "mjxxyvyn5a8qegm"
       attendees: "meoi8fng058o3rb"
+      tickets: "mx3ak3a6hdre0c9"
       clearance_codes: "mmk3g8k9pwcykd0"
     fake_wyze:
       devices: "mhjg19llr23inaa"
+    fake_booked:
+      reservations: "mkbmiwjyi3ow1ae"
   link_field_ids:
     class_automation:
       availability:
@@ -175,6 +177,7 @@ airtable:
       sign_in_survey_responses: "tbl6hPSnVBIXk8MQO"
       sign_ins: "tblVBhzeE3k9yYRn9"
       automation_intents: "tblBgXQlOFjNqvBVm"
+      volunteers_staff: "tblgwvc07mvLg3zds"
 calendar:
   credentials_path: "credentials.json"
   instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"
@@ -257,9 +260,6 @@ booked:
   - "Custodial Room"
   - "All"
   notify_mqtt: true
-wiki:
-  user: ${WIKI_USER}
-  password: ${WIKI_PASSWORD}
 forms:
   signin:
     base_url: "https://docs.google.com/forms/d/e/1FAIpQLSfen4NHmAivUPKuvMIqT8UeRqD9meoxq31ZHNG17upDWiTGkQ/"
@@ -278,7 +278,7 @@ wyze:
   expiration: "12-16-2025 08:18:28"
 bookstack:
   api_key: ${PH_BOOKSTACK_API_KEY}
-  base_url: "https://wiki.protohaven.org"
+  base_url: ${PH_BOOKSTACK_URL}
   maintenance:
     books:
     - "maintenance-tech-ready"

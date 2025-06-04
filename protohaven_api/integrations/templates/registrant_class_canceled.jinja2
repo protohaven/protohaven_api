@@ -1,4 +1,4 @@
-{% set evt_date = evt.python_date.strftime("%B %-d") %}{% if subject %}Your class '{{evt.name}}' was canceled{% else %}Hi {{a.firstName}},
+{% set evt_date = evt.start_date.strftime("%B %-d") %}{% if subject %}Your class '{{evt.name}}' was canceled{% else %}Hi {{a.fname}},
 
 Unfortunately, we had to cancel your class {{evt.name}} (scheduled for {{evt_date}}).
 

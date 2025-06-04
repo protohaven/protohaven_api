@@ -125,9 +125,9 @@ function clearance_click(id) {
       </Row>
     </Col>
     <Col>
-      <EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shift}/>
-      <EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.first_day}/>
-      <EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.last_day}/>
+      <EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shop_tech_shift}/>
+      <EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shop_tech_first_day}/>
+      <EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shop_tech_last_day}/>
       <EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
       <EditCell title="Interest" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
       <EditCell title="Expertise" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>

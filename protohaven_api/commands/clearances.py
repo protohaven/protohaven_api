@@ -51,7 +51,7 @@ class Commands:  # pylint: disable=too-few-public-methods
     def sync_clearances(  # pylint: disable=too-many-locals, too-many-statements, too-many-branches
         self, args, _
     ):
-        """Fetchesclearances in the Master Instructor Hours and Clearance Log,
+        """Fetches clearances in the Master Instructor Hours and Clearance Log,
         expands them to individual tool codes, and updates accounts in Neon CRM with
         assigned clearances.
 

@@ -98,10 +98,6 @@
     {#if match(["Shop Tech", "Shop Tech Lead"], p.roles) }
       <ListGroupItem><a href="/techs" target="_blank">Shop Tech Dashboard</a></ListGroupItem>
     {/if}
-    {#if match(["Onboarding", "Staff"], p.roles)}
-      <ListGroupItem><a href="/onboarding" target="_blank">Onboarding Wizard</a></ListGroupItem>
-      <ListGroupItem><a href="https://protohaven.org/wiki/clearance_crew" target="_blank">Onboarding Wiki</a></ListGroupItem>
-    {/if}
     {#if match(["Board Member", "Staff"], p.roles)}
       <ListGroupItem><a href="/staff" target="_blank">Discord Summarizer</a></ListGroupItem>
     {/if}

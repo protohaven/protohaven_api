@@ -22,6 +22,13 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
             [("ADD", "Members", "indicated by Neon CRM")],
         ),
         Tc(
+            "Future, no roles",
+            "FUTURE",
+            [],
+            [],
+            [("ADD", "Members", "indicated by Neon CRM")],
+        ),
+        Tc(
             "Active, missing role",
             "ACTIVE",
             ["A"],
@@ -80,7 +87,7 @@ def test_singleton_role_sync(tc):
 def test_gen_role_intents_limited_and_sorted(mocker):
     """Cuts off role assignment additions if beyond the max"""
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
 
     # Discord values are fetched from newest to oldest (descending date).
@@ -98,19 +105,19 @@ def test_gen_role_intents_departing_member(mocker):
 
     def mock_fetcher(_):
         return [
-            {
-                "Account ID": 123,
-                "First Name": "A",
-                "Last Name": "B",
-                "Email 1": "a@b.com",
-                "Account Current Membership Status": "INACTIVE",
-                "Discord User": "discord_id",
-                "API server role": "",
-            }
+            mocker.MagicMock(
+                neon_id=123,
+                fname="A",
+                lname="B",
+                email="a@b.com",
+                account_current_membership_statu="Inactive",
+                discord_user="discord_id",
+                roles=[],
+            )
         ]
 
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+        r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
     mocker.patch.object(
         r.comms,
@@ -127,19 +134,20 @@ def test_gen_role_intents_match(mocker):
 
     def mock_fetcher(_):
         return [
-            {
-                "Account ID": 123,
-                "First Name": "A",
-                "Last Name": "B",
-                "Email 1": "a@b.com",
-                "Account Current Membership Status": "ACTIVE",
-                "Discord User": "discord_id",
-                "API server role": "Instructor",
-            }
+            mocker.MagicMock(
+                neon_id=123,
+                fname="A",
+                lname="B",
+                name="A B",
+                email="a@b.com",
+                account_current_membership_status="Active",
+                discord_user="discord_id",
+                roles=[{"name": "Instructor"}],
+            )
         ]
 
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", side_effect=mock_fetcher
+        r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
     mocker.patch.object(
         r.comms,
@@ -176,7 +184,7 @@ def test_gen_role_intents_match(mocker):
 def test_gen_role_intents_no_neon(mocker):
     """Test intent when discord member has no neon account"""
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
     mocker.patch.object(
         r.comms,
@@ -243,27 +251,9 @@ def test_sync_delayed_intents_toggling_apply(mocker):
     ]
 
 
-Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
-
-
-@pytest.mark.parametrize(
-    "tc",
-    [
-        Tc("basic", "first", "preferred", "last", "a/b", "preferred last (a/b)"),
-        Tc("no pronouns or preferred", "first", "", "last", "", "first last"),
-        Tc("preferred is last name", "first", "last", "last", "", "last"),
-        Tc("only first name", "first", None, None, None, "first"),
-    ],
-    ids=idfn,
-)
-def test_resolve_nickname(tc):
-    """Confirm expected behavior of nickname resolution from Neon data"""
-    assert r.resolve_nickname(tc.first, tc.preferred, tc.last, tc.pronouns) == tc.want
-
-
 def test_setup_discord_user_not_associated(mocker):
     """If user isn't associated with neon, return association request"""
-    mocker.patch.object(r.neon, "get_members_with_discord_id", return_value=[])
+    mocker.patch.object(r.neon, "search_members_with_discord_id", return_value=[])
     mocker.patch.object(r.airtable, "log_comms")
     got = list(r.setup_discord_user(("a", "a", None, [])))
     assert len(got) == 1
@@ -277,16 +267,16 @@ def test_setup_discord_user_not_associated(mocker):
 
 def test_setup_discord_nonmember_nodiffs(mocker):
     """Non-member with zero diffs gets zero response"""
+    m = mocker.MagicMock(
+        neon_id=1,
+        account_current_membership_status="Inactive",
+    )
+
+    m.name = "a"  # Name is a special attr
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
-        return_value=[
-            {
-                "Account ID": 1,
-                "Account Current Membership Status": "INACTIVE",
-                "First Name": "a",
-            }
-        ],
+        "search_members_with_discord_id",
+        return_value=[m],
     )
     got = list(r.setup_discord_user(("a", "a", None, [])))
     assert not got
@@ -295,17 +285,17 @@ def test_setup_discord_nonmember_nodiffs(mocker):
 def test_setup_discord_user_no_diffs(mocker):
     """If the user is set up properly and there's no action to take, no
     message is returned."""
+    m = mocker.MagicMock(
+        neon_id=1,
+        account_current_membership_status="Active",
+        roles=[{"name": "Instructor"}, {"name": "Shop Tech"}],
+    )
+
+    m.name = "a"  # Name is a special attr
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
-        return_value=[
-            {
-                "Account ID": 1,
-                "Account Current Membership Status": "ACTIVE",
-                "First Name": "a",
-                "API server role": "Instructor|Shop Tech",
-            }
-        ],
+        "search_members_with_discord_id",
+        return_value=[m],
     )
     got = list(
         r.setup_discord_user(
@@ -317,17 +307,16 @@ def test_setup_discord_user_no_diffs(mocker):
 
 def test_setup_discord_user_nickname_change(mocker):
     """Nickname change is passed to discord bot"""
+    m = mocker.MagicMock(
+        neon_id=1,
+        account_current_membership_status="Active",
+    )
+
+    m.name = "b"  # Name is a special attr
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
-        return_value=[
-            {
-                "Account ID": 1,
-                "Account Current Membership Status": "ACTIVE",
-                "First Name": "b",
-                "API server role": "",
-            }
-        ],
+        "search_members_with_discord_id",
+        return_value=[m],
     )
     got = list(r.setup_discord_user(("a", "a", None, [("Members", 123)])))
     assert len(got) == 2
@@ -336,23 +325,25 @@ def test_setup_discord_user_nickname_change(mocker):
 
 def test_setup_discord_user_multiple_accounts(mocker):
     """Multiple accounts with active user is handled OK"""
+    m0 = mocker.MagicMock(
+        neon_id=1,
+        account_current_membership_status="Inactive",
+        roles=[{"name": "Instructor"}],
+    )
+
+    m0.name = "a"  # Name is a special attr
+    m1 = mocker.MagicMock(
+        neon_id=1,
+        account_current_membership_status="Active",
+        roles=[],
+    )
+
+    m1.name = "a"  # Name is a special attr
+
     mocker.patch.object(
         r.neon,
-        "get_members_with_discord_id",
-        return_value=[
-            {
-                "Account ID": 1,
-                "Account Current Membership Status": "INACTIVE",
-                "First Name": "a",
-                "API server role": "Instructor",
-            },
-            {
-                "Account ID": 2,
-                "Account Current Membership Status": "ACTIVE",
-                "First Name": "a",
-                "API server role": "",
-            },
-        ],
+        "search_members_with_discord_id",
+        return_value=[m0, m1],
     )
     got = list(r.setup_discord_user(("a", "a", None, [])))
     assert len(got) == 3

@@ -3,7 +3,6 @@
 import base64
 import logging
 from binascii import Error as B64Error
-from dataclasses import dataclass
 
 from flask import (  # pylint: disable=import-error
     Response,
@@ -14,6 +13,7 @@ from flask import (  # pylint: disable=import-error
 )
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations.models import Member, Role
 
 enabled = True  # pylint: disable=invalid-name
 
@@ -29,49 +29,6 @@ def set_rbac(en):
 def is_enabled():
     """Return whether RBAC is currently enabled"""
     return enabled
-
-
-@dataclass
-class Role:
-    """Every Neon user has zero or more roles that can be checked for access."""
-
-    INSTRUCTOR = {"name": "Instructor", "id": "75"}
-    PRIVATE_INSTRUCTOR = {"name": "Private Instructor", "id": "246"}
-    BOARD_MEMBER = {"name": "Board Member", "id": "244"}
-    STAFF = {"name": "Staff", "id": "245"}
-    SHOP_TECH = {"name": "Shop Tech", "id": "238"}
-    SHOP_TECH_LEAD = {"name": "Shop Tech Lead", "id": "241"}
-    EDUCATION_LEAD = {"name": "Education Lead", "id": "247"}
-    ONBOARDING = {"name": "Onboarding", "id": "240"}
-    ADMIN = {"name": "Admin", "id": "239"}
-    SOFTWARE_DEV = {"id": "258", "name": "Software Dev"}
-    IT_MAINTENANCE = {"id": "274", "name": "IT Maintenance"}
-    MAINTENANCE_CREW = {"id": "259", "name": "Maintenance Crew"}
-    MEMBERSHIP_AND_PROGRAMMING = {
-        "id": "260",
-        "name": "Membership and Programming Committee",
-    }
-    STRATEGIC_PLANNING = {"id": "261", "name": "Strategic Planning Committee"}
-    FINANCE = {"id": "262", "name": "Finance Committee"}
-    EXECUTIVE = {"id": "263", "name": "Executive Committee"}
-    OPERATIONS = {"id": "266", "name": "Operations Committee"}
-
-    AUTOMATION = {"name": "Automation", "id": None}
-
-    @classmethod
-    def as_dict(cls):
-        """Return dictionary mapping name to the value of each field"""
-        results = {}
-        for f in dir(cls()):
-            v = getattr(cls, f)
-            if isinstance(v, dict) and v.get("id") is not None:
-                results[v["name"]] = v
-        return results
-
-    @classmethod
-    def can_onboard(cls, r):
-        """Returns True if an onboarder can set this role in /onboarding/wizard"""
-        return r in (cls.INSTRUCTOR, cls.PRIVATE_INSTRUCTOR, cls.SHOP_TECH)
 
 
 def require_login(fn):
@@ -109,16 +66,28 @@ def get_roles():
     if api_key is not None:
         return roles_from_api_key(api_key)
 
-    acct = session.get("neon_account")
-    if acct is None:
+    acct = Member.from_neon_fetch(session.get("neon_account"))
+    # Check for presence of "individualAccount", as previous session implementations
+    # stripped this part of the Neon structure. When this returns none,
+    # `require_login_role` redirects to login.
+    if acct is None or "individualAccount" not in acct.neon_raw_data:
         return None
-    result = []
-    for cf in acct.get("accountCustomFields", []):
-        if cf["name"] == "API server role":
-            for ov in cf["optionValues"]:
-                result.append(ov.get("name"))
-            break
-    return result
+    return [v["name"] for v in acct.roles] if acct.roles else []
+
+
+def require_dev_environment():
+    """Require the server to be running a non-prod (i.e. Dev) environment"""
+
+    def fn_setup(fn):
+        def do_dev_check(*args, **kwargs):
+            if get_config("general/server_mode").lower() == "prod":
+                return Response("Access Denied", status=401)
+            return fn(*args, **kwargs)
+
+        do_dev_check.__name__ = fn.__name__
+        return do_dev_check
+
+    return fn_setup
 
 
 def require_login_role(*role, redirect_to_login=True):

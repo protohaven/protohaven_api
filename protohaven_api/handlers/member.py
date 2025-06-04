@@ -7,7 +7,8 @@ from flask import Blueprint, Response, current_app, request, session
 
 from protohaven_api.automation.roles.roles import setup_discord_user_sync
 from protohaven_api.integrations import neon
-from protohaven_api.rbac import Role, am_role, require_login
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import am_role, require_login
 
 page = Blueprint("member", __name__, template_folder="templates")
 

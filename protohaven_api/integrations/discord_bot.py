@@ -17,6 +17,7 @@ class PHClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.role_map = {}
+        self.user_map = {}
         self.member_join_hook_fn = lambda details: []
 
     @property
@@ -33,7 +34,16 @@ class PHClient(discord.Client):
         # role = guild.get_role(role_id)
         for r in self.guild.roles:
             self.role_map[r.name] = r
-        log.info(f"Roles: {self.role_map}")
+        log.info(f"Loaded {len(self.role_map)} roles")
+
+        for m in self.guild.members:
+            self.user_map[m.name] = m.id
+            self.user_map[m.display_name] = m.id
+        log.info(f"Loaded {len(self.user_map)} users")
+
+    async def resolve_user_id(self, name):
+        """Resolves a user ID from a name or display name"""
+        return self.user_map.get(name)
 
     async def handle_hook_action(self, fn_name, *args):
         """Handle actions yielded back from calling a hook_fn (see `on_member_join`)"""
@@ -209,7 +219,7 @@ class PHClient(discord.Client):
         mem = self.guild.get_member(msg.author.id)
         if mem is None:
             log.info(
-                "Msg author {msg.author.name} ({msg.author.id}) not in PH server; ignoring"
+                f"Msg author {msg.author.name} ({msg.author.id}) not in PH server; ignoring"
             )
             return
 
@@ -220,19 +230,16 @@ class PHClient(discord.Client):
                 await self.handle_hook_action(*a)
 
 
-client = None  # pylint: disable=invalid-name
+intents = discord.Intents.default()  # pylint: disable=invalid-name
+intents.message_content = True
+intents.dm_messages = True
+intents.members = True
+client = PHClient(intents=intents)  # pylint: disable=invalid-name
 
 
 def run(member_join_hook_fn=None):
     """Run the bot"""
-    global client  # pylint: disable=global-statement
-
     log.info("Initializing discord bot")
-    intents = discord.Intents.default()
-    intents.message_content = True
-    intents.dm_messages = True
-    intents.members = True
-    client = PHClient(intents=intents)
     if member_join_hook_fn:
         client.member_join_hook_fn = member_join_hook_fn
     client.run(get_config("discord_bot/token"))

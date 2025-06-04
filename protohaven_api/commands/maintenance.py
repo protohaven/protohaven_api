@@ -8,15 +8,17 @@ import traceback
 from pathlib import Path
 
 from protohaven_api.automation.maintenance import manager
+from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
-from protohaven_api.integrations import comms, drive, tasks, wiki, wyze
+from protohaven_api.integrations import comms, drive, neon, tasks, wiki, wyze
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
 
 
 SALUTATIONS = [
+    "Tools ready, techs!",
     "Greetings techs!",
     "Hey there, techs!",
     "Salutations, techs!",
@@ -33,29 +35,35 @@ SALUTATIONS = [
     "Hi techs, ready to make something?",
     "Hey there, tech wizards!",
     "Top of the morning, techs!",
+    "Make on, techs!",
+    "Laser focus, techs!",
+    "Hello makers!",
+    "Build it, techs!",
+    "Workshop crew!",
+    "Tinker time!",
 ]
 
+
 CLOSINGS = [
-    "Keep sparking those creative circuits!",
-    "For adventure and maker glory!",
-    "Stay wired!",
-    "Onwards to innovation!",
-    "May your creativity be boundless!",
-    "Stay charged and keep on making!",
-    "Let's make some sparks!",
-    "May your projects shine brighter than LEDs!",
-    "Let's keep the gears turning and the ideas flowing!",
-    "Until our next digital rendezvous, stay charged up!",
-    "Dream it, plan it, do it!",
-    "Innovation knows no boundaries - keep pushing forward!",
-    "Every project is a step closer to greatness - keep going!",
-    "Always be innovating!",
-    "Stay curious, stay inspired, and keep making a difference!",
-    "Remember - every circuit starts with a single connection. Keep connecting!",
-    "Your passion fuels progress — keep the fire burning!",
-    "You're not just making things, you're making history — keep on crafting!",
-    "From concept to creation, keep the momentum!",
-    "Invent, iterate, and inspire — the maker's trifecta!",
+    "Keep those tools humming and creativity buzzing!",
+    "For maker magic and shop shenanigans!",
+    "Stay safe and keep making!",
+    "Onwards to the next awesome build!",
+    "May your cuts be straight and your ideas wild!",
+    "Stay powered up and keep those projects rolling!",
+    "Let's make some sawdust and sparks!",
+    "May your builds be tighter than your tolerances!",
+    "Keep the shop messy and the ideas flowing!",
+    "Until next time - keep those safety glasses on!",
+    "Measure twice, cut once, innovate always!",
+    "Every project is a chance to learn something new - keep at it!",
+    "Make it, break it, fix it, repeat!",
+    "Stay sharp (literally and figuratively)!",
+    "Remember - every masterpiece starts with a first cut. Keep building!",
+    "Your skills are your superpower - keep leveling up!",
+    "You're not just building projects, you're building skills - keep at it!",
+    "From sketch to sawdust, make it happen!",
+    "Tinker, tweak, and triumph - the maker's way!",
 ]
 
 MAX_STALE_TASKS = 3
@@ -125,6 +133,47 @@ class Commands:
                 blocking=False,
             )
 
+        techs_on_duty = forecast.generate(tznow(), 1, include_pii=True).get(
+            "calendar_view", [None]
+        )[0]
+        am_tech_discord = []
+        pm_tech_discord = []
+        if techs_on_duty:
+            try:
+                name_to_discord_dict = {
+                    m.name: f"@{m.discord_user}"
+                    for m in neon.search_members_with_discord_association(
+                        [
+                            neon.CustomField.DISCORD_USER,
+                            "First Name",
+                            "Last Name",
+                            "Preferred Name",
+                            neon.CustomField.PRONOUNS,
+                        ]
+                    )
+                }
+                log.info(
+                    f"Loaded mapping of {len(name_to_discord_dict)} associated discord usernames"
+                )
+                am_tech_discord = [
+                    name_to_discord_dict.get(t.name, t.name)
+                    for t in techs_on_duty["AM"]["people"]
+                ]
+                log.info(f"AM techs: {am_tech_discord}")
+                pm_tech_discord = [
+                    name_to_discord_dict.get(t.name, t.name)
+                    for t in techs_on_duty["PM"]["people"]
+                ]
+                log.info(f"PM techs: {pm_tech_discord}")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                comms.send_discord_message(
+                    "Error looking up Discord users for mentioning in `gen_maintenance_tasks`:\n"
+                    + traceback.print_exc()
+                    + "\nCheck Cronicle logs for details",
+                    "#tech-automation",
+                    blocking=False,
+                )
+
         print_yaml(
             Msg.tmpl(
                 "tech_daily_tasks",
@@ -134,6 +183,8 @@ class Commands:
                 new_tasks=scheduled,
                 id="daily_maintenance",
                 target="#techs-live",
+                am_tech_discord=am_tech_discord,
+                pm_tech_discord=pm_tech_discord,
             )
         )
 

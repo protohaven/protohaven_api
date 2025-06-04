@@ -247,6 +247,7 @@ def test_gen_class_and_area_stats_exclusions(mocker):
         parse_date("2024-02-01T00:00:00-04:00"),
         parse_date("2024-05-01T00:00:00-05:00"),
         {12345: "C1"},
+        {},
     )
     assert [tuple([d.strftime("%Y-%m-%d") for d in dd]) for dd in exclusions["r1"]] == [
         ("2024-03-02", "2024-05-01", "2024-04-01"),
@@ -296,7 +297,7 @@ def test_load_schedulable_classes(mocker):
                     "Schedulable": True,
                     "Hours": 5,
                     "Days": 2,
-                    "Area": ["Area 1"],
+                    "Name (from Area)": ["Area 1"],
                     "Clearance": ["C1", "C2"],
                     "Image Link": "http://example.com/image1",
                 },
@@ -306,7 +307,7 @@ def test_load_schedulable_classes(mocker):
                 "fields": {
                     "Name": "Class Two",
                     "Schedulable": True,
-                    # Missing "Hours", "Days", "Area"; rejected
+                    # Missing "Hours", "Days", "Name (from Area)"; rejected
                 },
             },
             {
@@ -316,7 +317,7 @@ def test_load_schedulable_classes(mocker):
                     "Schedulable": True,
                     "Hours": 3,
                     "Days": 1,
-                    "Area": ["Area 2"],
+                    "Name (from Area)": ["Area 2"],
                     # Missing "Image Link"
                 },
             },
@@ -328,6 +329,10 @@ def test_load_schedulable_classes(mocker):
         {"class1": [[d(0), d(2), d(1)]]}, {"C1": [[d(0), d(2), d(1)]]}
     )
 
+    assert notices == {
+        "class2": [MatchStr("missing required fields")],
+        "class3": [MatchStr("missing a promo image")],
+    }
     assert len(classes) == 2
     assert classes[0].name == "Class One"
     assert classes[1].name == "Class Three"
@@ -335,8 +340,6 @@ def test_load_schedulable_classes(mocker):
         [d(0), d(2), d(1), "class"],
         [d(0), d(2), d(1), "clearance (C1)"],
     ]
-    assert "missing required fields" in notices["class2"][0]
-    assert "Class is missing a promo image" in notices["class3"][0]
 
 
 def test_generate_env(mocker):
@@ -370,6 +373,7 @@ def test_generate_env(mocker):
             {"fields": {"Rejected": None}},
         ],
     )
+    mocker.patch.object(s, "get_reserved_area_occupancy", return_value={})
     mocker.patch.object(
         s.airtable,
         "get_all_records",
@@ -402,3 +406,37 @@ def test_generate_env(mocker):
         ]
     )
     assert len(result["instructors"]) == 2
+
+
+def test_get_reserved_area_occupancy(mocker):
+    """Test that reservations are correctly grouped by area"""
+    mock_records = [
+        {"fields": {"BookedResourceId": "123", "Name (from Shop Area)": ["Laser"]}},
+        {"fields": {"BookedResourceId": "456", "Name (from Shop Area)": ["Wood"]}},
+    ]
+    mock_reservations = {
+        "reservations": [
+            {
+                "resourceId": "123",
+                "bufferedStartDate": d(0, 16).isoformat(),
+                "bufferedEndDate": d(0, 19).isoformat(),
+                "resourceName": "Laser Cutter",
+                "firstName": "Test",
+                "lastName": "User",
+                "referenceNumber": 789,
+            }
+        ]
+    }
+
+    mocker.patch.object(s, "get_all_records", return_value=mock_records)
+    mocker.patch.object(s.booked, "get_reservations", return_value=mock_reservations)
+
+    got = s.get_reserved_area_occupancy(d(0), d(1))
+
+    assert "Laser" in got
+    assert len(got["Laser"]) == 1
+    assert got["Laser"][0][2] == (
+        "Laser Cutter reservation by Test User, "
+        "https://reserve.protohaven.org/Web/reservation/?rn=789"
+    )
+    assert "Wood" not in got

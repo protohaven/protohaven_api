@@ -296,7 +296,7 @@ def add_maintenance_task_if_not_exists(name, notes, maint_ref, level, section=No
                     "Name": name,
                     "Notes": notes,
                     "Maint Ref": maint_ref,
-                    "Level": level,
+                    "Level": level.strip().lower(),
                     "Section": section,
                 }
             ],
@@ -322,7 +322,7 @@ def add_maintenance_task_if_not_exists(name, notes, maint_ref, level, section=No
         return matching[0].get("gid")  # Already exists
 
     tag_ids = get_config("asana/shop_and_maintenance_tasks/tags")
-    tags = [tag_ids[level]]  # tags MUST have a lookup ID
+    tags = [tag_ids[level.strip().lower()]]  # tags MUST have a lookup ID
     result = _tasks().create_task(
         {
             "data": {

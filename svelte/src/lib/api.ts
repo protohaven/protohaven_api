@@ -38,8 +38,8 @@ export function del(url, data) {
   return json_req(url, data, 'DELETE');
 }
 
-export function get(url) {
-  return fetch(url).then((rep)=>rep.text())
+export function get(url, signal) {
+  return fetch(url, {method: 'get', signal}).then((rep)=>rep.text())
     .then((body) => {
       try {
 	    return JSON.parse(body);

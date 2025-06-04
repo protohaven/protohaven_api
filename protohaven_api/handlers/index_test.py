@@ -28,50 +28,39 @@ def test_whoami(client):
         "email": "foo@bar.com",
         "neon_id": 1234,
         "clearances": ["C1", "C2"],
-        "roles": ["test role"],
+        "roles": ["Board Member"],
     }
 
 
-def test_class_listing(mocker):
+def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
-    mocker.patch.object(
-        index.neon,
-        "fetch_upcoming_events",
-        return_value=[
-            {"id": 1, "startDate": "2025-01-01", "startTime": "10:00 AM"},
-            {"id": 2, "startDate": "2025-01-01", "startTime": "9:00 AM"},
-        ],
+    m1 = mocker.MagicMock(
+        neon_id=1, start_date=d(0, 10), description="foo", airtable_data="bar"
     )
-
-    mocker.patch.object(
-        index.airtable,
-        "get_class_automation_schedule",
-        return_value=[
-            {"fields": {"Neon ID": "1", "Extra Info": "Info1"}},
-            {"fields": {"Neon ID": "2", "Extra Info": "Info2"}},
-        ],
+    m1.name = "m1"
+    m2 = mocker.MagicMock(
+        neon_id=2, start_date=d(0, 9), description="foo", airtable_data="baz"
     )
-
-    expected_result = [
+    m2.name = "m2"
+    mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=[m1, m2])
+    rep = client.get("/class_listing")
+    assert json.loads(rep.data.decode("utf8")) == [
         {
             "id": 2,
-            "startDate": "2025-01-01",
-            "startTime": "9:00 AM",
-            "timestamp": d(0, 9),
+            "name": "m2",
+            "description": "foo",
+            "timestamp": d(0, 9).isoformat(),
             "day": "Wednesday, Jan 1",
             "time": "9:00 AM",
-            "airtable_data": {"fields": {"Neon ID": "2", "Extra Info": "Info2"}},
+            "airtable_data": "baz",
         },
         {
             "id": 1,
-            "startDate": "2025-01-01",
-            "startTime": "10:00 AM",
-            "timestamp": d(0, 10),
+            "name": "m1",
+            "description": "foo",
+            "timestamp": d(0, 10).isoformat(),
             "day": "Wednesday, Jan 1",
             "time": "10:00 AM",
-            "airtable_data": {"fields": {"Neon ID": "1", "Extra Info": "Info1"}},
+            "airtable_data": "bar",
         },
     ]
-
-    got = index.class_listing()
-    assert got == expected_result

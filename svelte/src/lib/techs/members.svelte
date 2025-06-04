@@ -1,32 +1,42 @@
 <script type="typescript">
 
 import {onMount} from 'svelte';
-import { Accordion, AccordionItem, ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
+import { FormGroup, Label, Accordion, AccordionItem, ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
 
 import FetchError from '../fetch_error.svelte';
-import {get} from '$lib/api.ts';
+import {get, isodate} from '$lib/api.ts';
+
+
+let start_date = new Date();
 
 export let visible;
 let search = "";
 let promise = new Promise((r,_)=>{r([])});
 let loaded = false;
 function refresh() {
-  promise = get(`/techs/members`).then((data) => {
+  const start = isodate(new Date(start_date));
+  promise = get(`/techs/members?start=${start}`).then((data) => {
     loaded = true;
-    let results = [];
+    let by_email = {};
     for (let d of data) {
-      results.push({
-        "timestamp": new Date(d['Created']),
-        "member": d['Am Member'],
-        "email": d['Email'],
-        "clearances": (d['Clearances']) ? d['Clearances'].split(',').map(entry => entry.trim()) : [],
-        "status": d['Status'] || 'UNKNOWN',
-        "name": d['Full Name'] || null,
-        "violations": (d['Violations']) ? d['Violations'].split(',').map(entry => entry.trim()): [],
-      });
+      const t = new Date(d['Created']);
+      if (!by_email[d['Email']]) {
+        by_email[d['Email']] = {
+          "first_timestamp": t,
+          "timestamps": new Set(),
+          "member": d['Am Member'],
+          "email": d['Email'],
+          "clearances": (d['Clearances']) ? d['Clearances'].split(',').map(entry => entry.trim()) : [],
+          "status": d['Status'] || 'UNKNOWN',
+          "name": d['Full Name'] || null,
+          "violations": (d['Violations']) ? d['Violations'].split(',').map(entry => entry.trim()): [],
+        };
+      }
+      by_email[d['Email']]['timestamps'].add(t.toLocaleTimeString());
     }
+    let results = Object.values(by_email);
     // Sort descending, newest on top
-    results.sort((a, b) => b.timestamp - a.timestamp);
+    results.sort((a, b) => b.first_timestamp - a.first_timestamp);
     return results;
   });
 }
@@ -48,17 +58,25 @@ $: {
     {#await promise}
       <Spinner/>Loading...
     {:then p}
+    <FormGroup>
+      <Label>Start Date</Label>
+      <Input type="date" bind:value={start_date} on:change={refresh}/>
+    </FormGroup>
+
     <ListGroup>
     {#each p as r}
       <ListGroupItem>
-        <p><strong>{r.email}{#if r.name}&nbsp;({r.name}){/if}</strong></p>
-        <p> {r.timestamp.toLocaleTimeString()} -
+        <p><strong>{r.email}{#if r.name}&nbsp;({r.name}){/if}</strong>
+          {r.first_timestamp.toLocaleTimeString()} -
               {#if !r.member}
                 Guest
               {:else}
                   Member (<span style={(r.status !== 'Active') ? 'background-color: yellow;' : null}}>{r.status}</span>)
               {/if}
         </p>
+        {#if r.timestamps.size > 1}
+        <p>All event timestamps: {Array.from(r.timestamps).join(", ")}</p>
+        {/if}
         {#if !r.clearances.length && !r.violations.length}
           <p>No clearances, no violations</p>
         {:else}

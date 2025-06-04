@@ -70,7 +70,7 @@ def run_cronicle_sync(event_id: str, image: str, params: dict):
                 timeout=REQ_TIMEOUT,
                 verify=False,
             ).json()
-            # log.info(str(rep))
+            log.info(str(rep))
             running[rid] = rep["job"].get("complete") != 1
         log.info(f"Running: {running}")
         code = rep["job"].get("code")
@@ -254,15 +254,6 @@ if __name__ == "__main__":
                 ),
             },
         ),
-        # Note: should change this to always produce a stale alert
-        (
-            "validate_docs",
-            test_simple,
-            "elzx3r1hlu5",
-            {
-                "ARGS_CHAN_OVERRIDE": COVR,
-            },
-        ),
     ]
     asana_task_completing_commands = [
         # Note: need to submit a fake phone message here
@@ -351,6 +342,24 @@ if __name__ == "__main__":
             "restock_discounts",
             test_simple,
             "em6fgimj413",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
+        (
+            "refresh_volunteer_memberships",
+            test_simple,
+            "em8x5gxfp4t",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": "--no-apply",
+            },
+        ),
+        (
+            "sync_clearances",
+            test_simple,
+            "em8x5c0o24r",
             {
                 "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": "--no-apply",

@@ -17,14 +17,19 @@ from protohaven_api.testing import d, fixture_client
 def fixture_inst_client(client):
     with client.session_transaction() as session:
         session["neon_account"] = {
-            "accountCustomFields": [
-                {"name": "API server role", "optionValues": [{"name": "Instructor"}]},
-            ],
-            "primaryContact": {
-                "firstName": "First",
-                "lastName": "Last",
-                "email1": "foo@bar.com",
-            },
+            "individualAccount": {
+                "accountCustomFields": [
+                    {
+                        "name": "API server role",
+                        "optionValues": [{"name": "Instructor"}],
+                    },
+                ],
+                "primaryContact": {
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "email1": "foo@bar.com",
+                },
+            }
         }
     return client
 
@@ -111,7 +116,7 @@ def test_instructor_class_attendees(inst_client, mocker):
     mocker.patch.object(
         instructor.neon.neon_base,
         "fetch_account",
-        return_value=({"primaryContact": {"email1": "a@b.com"}}, False),
+        return_value=mocker.MagicMock(email="a@b.com"),
     )
     result = inst_client.get("/instructor/class/attendees?id=12345")
     assert result.status_code == 200
@@ -145,11 +150,11 @@ def test_get_dashboard_schedule_sorted(mocker):
 
 
 def test_instructor_about_from_session(inst_client, mocker):
-    mocker.patch.object(instructor.neon, "search_member", return_value=[{}])
+    mocker.patch.object(instructor.neon, "search_members_by_email", return_value=[{}])
     mocker.patch.object(instructor, "get_instructor_readiness")
     rep = inst_client.get("/instructor/about")
     assert rep.status_code == 200
-    instructor.neon.search_member.assert_called_with("foo@bar.com")
+    instructor.neon.search_members_by_email.assert_called_with("foo@bar.com")
 
 
 def test_instructor_about_both_email_and_session(mocker, inst_client):
@@ -157,7 +162,7 @@ def test_instructor_about_both_email_and_session(mocker, inst_client):
     the url param if it's their own email"""
     rbac.set_rbac(True)
     mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.INSTRUCTOR["name"]])
-    mocker.patch.object(instructor.neon, "search_member", return_value=["test"])
+    mocker.patch.object(instructor.neon, "search_members_by_email", return_value=["test"])
     mocker.patch.object(instructor, "get_instructor_readiness")
 
     rep = inst_client.get("/instructor/about?email=a@b.com")
@@ -187,17 +192,19 @@ def test_get_instructor_readiness_all_bad(mocker):
     instructor.airtable.fetch_instructor_capabilities.return_value = None
     result = instructor.get_instructor_readiness(
         [
-            {
-                "Account ID": 12345,
-                "Account Current Membership Status": "Inactive",
-                "First Name": "First",
-                "Last Name": "Last",
-            },
-            {
-                "Account ID": 12346,
-                "First Name": "Duplicate",
-                "Last Name": "Person",
-            },
+            mocker.MagicMock(
+                neon_id=12345,
+                account_current_membership_status="Inactive",
+                fname="First",
+                lname="Last",
+                discord_user=None,
+            ),
+            mocker.MagicMock(
+                neon_id=12346,
+                fname="Duplicate",
+                lname="Person",
+                discord_user=None,
+            ),
         ]
     )
     assert result == {
@@ -228,13 +235,13 @@ def test_get_instructor_readiness_all_ok(mocker):
     }
     result = instructor.get_instructor_readiness(
         [
-            {
-                "Account ID": 12345,
-                "Account Current Membership Status": "Active",
-                "Discord User": "discord_user",
-                "First Name": "First     ",  # Egregious space in the name doesn't cause lookup error
-                "Last Name": "Last",
-            }
+            mocker.MagicMock(
+                neon_id=12345,
+                account_current_membership_status="Active",
+                fname="First",
+                lname="Last",
+                discord_user="discord_user",
+            ),
         ]
     )
     assert result == {
@@ -284,3 +291,163 @@ def test_instructor_class_supply_req(mocker, inst_client):
         "class123", "Supplies Requested"
     )
     instructor.comms.send_discord_message.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "method,params,expected_status,mock_avail,mock_expanded,mock_sched",
+    [
+        ("GET", {"inst": "test"}, 400, None, None, None),
+        (
+            "GET",
+            {"inst": "test", "t0": d(0).isoformat(), "t1": d(2).isoformat()},
+            200,
+            [{"id": "1", "fields": {"test": "data"}}],
+            ["expanded_data"],
+            [{"fields": {"Start Time": d(1).isoformat(), "Rejected": False}}],
+        ),
+        (
+            "PUT",
+            {
+                "rec": "1",
+                "t0": d(0).isoformat(),
+                "t1": d(1).isoformat(),
+                "inst_id": "inst1",
+            },
+            200,
+            None,
+            None,
+            None,
+        ),
+        ("PUT", {"t0": d(0).isoformat()}, 400, None, None, None),
+        (
+            "PUT",
+            {"t0": d(1).isoformat(), "t1": d(0).isoformat()},
+            400,
+            None,
+            None,
+            None,
+        ),
+        ("DELETE", {"rec": "1"}, 200, None, None, None),
+        ("POST", {}, 405, None, None, None),
+    ],
+)
+def test_inst_availability(
+    inst_client,
+    mocker,
+    method,
+    params,
+    expected_status,
+    mock_avail,
+    mock_expanded,
+    mock_sched,
+):
+    """Test instructor availability endpoint with various methods and parameters"""
+    if method == "GET":
+        if mock_avail is not None:
+            mocker.patch.object(
+                instructor.airtable,
+                "get_instructor_availability",
+                return_value=mock_avail,
+            )
+            mocker.patch.object(
+                instructor.airtable,
+                "expand_instructor_availability",
+                return_value=mock_expanded,
+            )
+            mocker.patch.object(
+                instructor.airtable,
+                "get_class_automation_schedule",
+                return_value=mock_sched,
+            )
+            mocker.patch.object(
+                instructor.booked,
+                "get_reservations",
+                return_value={},
+            )
+        resp = inst_client.get("/instructor/calendar/availability", query_string=params)
+    elif method == "PUT":
+        mocker.patch.object(
+            instructor.airtable,
+            "update_availability" if "rec" in params else "add_availability",
+            return_value=(200, {"result": "success"}),
+        )
+        resp = inst_client.put("/instructor/calendar/availability", json=params)
+    elif method == "DELETE":
+        mocker.patch.object(
+            instructor.airtable,
+            "delete_availability",
+            return_value=(200, {"result": "deleted"}),
+        )
+        resp = inst_client.delete("/instructor/calendar/availability", json=params)
+    else:
+        resp = inst_client.open(
+            "/instructor/calendar/availability",
+            method=method,
+            json=params if method != "GET" else None,
+            query_string=params if method == "GET" else None,
+        )
+
+    if resp.status_code != expected_status:
+        raise RuntimeError(
+            f"Want ({expected_status}, _), got ({resp.status_code}, {resp.data})"
+        )
+    if expected_status == 200:
+        if method == "GET":
+            assert "availability" in resp.json
+            assert "schedule" in resp.json
+        else:
+            assert "result" in resp.json
+
+
+def test_availability_reservations(mocker, inst_client):
+    """Specifically test reservation parsing"""
+    mocker.patch.object(
+        instructor.airtable,
+        "get_instructor_availability",
+        return_value=[{"id": "1", "fields": {"test": "data"}}],
+    )
+    mocker.patch.object(
+        instructor.airtable,
+        "expand_instructor_availability",
+        return_value=["expanded_data"],
+    )
+    mocker.patch.object(
+        instructor.airtable,
+        "get_class_automation_schedule",
+        return_value=[{"fields": {"Start Time": d(1).isoformat(), "Rejected": False}}],
+    )
+    mocker.patch.object(
+        instructor.booked,
+        "get_reservations",
+        return_value={
+            "reservations": [
+                {
+                    "bufferedStartDate": d(0, 16).isoformat(),
+                    "bufferedEndDate": d(0, 19).isoformat(),
+                    "resourceName": "test tool",
+                    "firstName": "First",
+                    "lastName": "Last",
+                    "referenceNumber": "123",
+                }
+            ]
+        },
+    )
+    resp = inst_client.get(
+        "/instructor/calendar/availability",
+        query_string={"inst": "test", "t0": d(0).isoformat(), "t1": d(2).isoformat()},
+    )
+    assert resp.status_code == 200
+    assert resp.json == {
+        "availability": mocker.ANY,
+        "records": mocker.ANY,
+        "schedule": mocker.ANY,
+        "reservations": [
+            [
+                d(0, 16).isoformat(),
+                d(0, 19).isoformat(),
+                "test tool",
+                "First Last",
+                "https://reserve.protohaven.org/Web/reservation/?rn=123",
+            ],
+        ],
+    }

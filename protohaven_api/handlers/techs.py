@@ -3,15 +3,16 @@
 import datetime
 import logging
 from collections import defaultdict
-from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 
-from protohaven_api.automation.techs import techs as forecast
+from protohaven_api.automation.classes import events as eauto
+from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, comms, neon, neon_base
-from protohaven_api.rbac import Role, am_lead_role, am_role, require_login_role
+from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import am_lead_role, am_role, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
 
@@ -60,7 +61,7 @@ EXCLUDED_AREAS = [
 
 
 def _fetch_tool_states_and_areas(now):
-    tool_states = defaultdict(list)
+    tool_states = []
     now = now.astimezone(tz)
     areas = {
         a["fields"]["Name"].strip()
@@ -68,27 +69,29 @@ def _fetch_tool_states_and_areas(now):
         if a["fields"]["Name"] not in EXCLUDED_AREAS
     }
     for t in airtable.get_tools():
-        status = t["fields"].get("Current Status", "Unknown")
-        msg = t["fields"].get("Status Message", "Unknown")
+        status = t["fields"].get("Current Status") or "Unknown"
+        msg = t["fields"].get("Status Message") or "Unknown"
         modified = t["fields"].get("Status last modified")
+        date = modified or ""
+        log.info(f"Midified {modified}")
         if modified:
-            modified = (now - dateparser.parse(modified)).days
+            modified = (now - dateparser.parse(modified).astimezone(tz)).days
+            date = dateparser.parse(date).strftime("%Y-%m-%d")
         else:
             modified = 0
-        date = t["fields"].get("Status last modified", "")
-        if date != "":
-            date = dateparser.parse(date).strftime("%Y-%m-%d")
-        tool_states[status].append(
+        tool_states.append(
             {
+                "status": status,
                 "name": t["fields"]["Tool Name"],
-                "code": t["fields"]["Tool Code"],
+                "area": t["fields"]["Name (from Shop Area)"],
+                "code": t["fields"]["Tool Code"].strip().upper()
+                if t["fields"]["Tool Code"]
+                else None,
                 "modified": modified,
                 "message": msg,
                 "date": date,
             }
         )
-    for _, vv in tool_states.items():
-        vv.sort(key=lambda k: k["modified"], reverse=True)
     return tool_states, areas
 
 
@@ -99,37 +102,48 @@ def techs_tool_state():
     return tool_states
 
 
-@page.route("/techs/shifts")
-def techs_shifts():
-    """Fetches shift information for all techs"""
-    return forecast.get_shift_map()
+@page.route("/techs/docs_state")
+def techs_docs_state():
+    """Fetches the state of documentation for all tool pages in the wiki"""
+    return wiki.get_tool_docs_summary()
 
 
 @page.route("/techs/members")
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_members():
     """Fetches today's sign-in information for members"""
-    # Could extend this to search particular days...
-    start = tznow().replace(hour=0, minute=0, second=0)
-    return list(airtable.get_signins_between(start, None))
+    start = request.values.get("start")
+    start = (dateparser.parse(start) if start else tznow()).replace(
+        hour=0, minute=0, second=0
+    )
+    end = start.replace(hour=23, minute=59, second=59)
+    log.info(f"Fetching signins from {start} to {end}")
+    return list(airtable.get_signins_between(start, end))
 
 
 @page.route("/techs/area_leads")
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
     _, areas = _fetch_tool_states_and_areas(tznow())
-    techs = neon.fetch_techs_list(include_pii=am_lead_role())
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
-    for t in techs:
-        if not t.get("area_lead"):
-            continue
-        for a in t.get("area_lead").split(","):
-            a = a.strip()
+    for t in neon.search_members_with_role(
+        Role.SHOP_TECH,
+        [
+            "First Name",
+            "Last Name",
+            "Preferred Name",
+            "Email 1",
+            neon.CustomField.AREA_LEAD,
+            neon.CustomField.PRONOUNS,
+        ],
+    ):
+        for a in t.area_lead:
+            data = {"name": t.name, "email": t.email, "shift": t.shop_tech_shift}
             if a not in area_map:
-                extras_map[a].append(t)
+                extras_map[a].append(data)
             else:
-                area_map[a].append(t)
+                area_map[a].append(data)
     return {"area_leads": area_map, "other_leads": dict(extras_map)}
 
 
@@ -148,7 +162,13 @@ def techs_forecast():
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:
         return Response("Nonzero days required for forecast", status=400)
-    return forecast.generate(date, forecast_len)
+    result = tauto.generate(
+        date, forecast_len, include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
+    )
+    for d in result["calendar_view"]:
+        for ap in ("AM", "PM"):
+            d[ap].people = [p.name for p in d[ap].people]
+    return result
 
 
 def _notify_override(name, shift, techs):
@@ -198,17 +218,44 @@ def techs_forecast_override():
 @page.route("/techs/list")
 def techs_list():
     """Fetches tech info and lead status of observer"""
-    techs_results = neon.fetch_techs_list(include_pii=am_lead_role())
-    bios_results = airtable.get_all_tech_bios()
-    bio_dict = {bio["fields"]["Email"]: bio["fields"] for bio in bios_results}
-    for idx, tech in enumerate(techs_results):
-        tech_bio = bio_dict.get(tech["email"], {})
-        if tech_bio:
-            techs_results[idx]["bio"] = tech_bio.get("Bio", {})
-            techs_results[idx]["picture"] = urljoin(
-                "http://localhost:8080",
-                tech_bio.get("Picture")[0]["thumbnails"]["small"]["signedPath"],
-            )
+    fields = [
+        "First Name",
+    ]
+    if am_role(Role.SHOP_TECH) or am_lead_role():
+        fields += [
+            "Email 1",
+            "Last Name",
+            "Preferred Name",
+            neon.CustomField.PRONOUNS,
+            neon.CustomField.SHOP_TECH_SHIFT,
+            neon.CustomField.SHOP_TECH_FIRST_DAY,
+            neon.CustomField.SHOP_TECH_LAST_DAY,
+            neon.CustomField.AREA_LEAD,
+            neon.CustomField.INTEREST,
+            neon.CustomField.EXPERTISE,
+        ]
+    techs_results = []
+    for m in neon.search_members_with_role(
+        Role.SHOP_TECH, fields, merge_bios=airtable.get_all_tech_bios()
+    ):
+        techs_results.append(
+            {
+                k: getattr(m, k)
+                for k in (
+                    "name",
+                    "email",
+                    "clearances",
+                    "shop_tech_first_day",
+                    "shop_tech_last_day",
+                    "area_lead",
+                    "interest",
+                    "expertise",
+                    "shop_tech_shift",
+                    "volunteer_bio",
+                    "volunteer_picture",
+                )
+            }
+        )
 
     return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
 
@@ -276,13 +323,13 @@ def rm_tech_event():
     evt = neon.fetch_event(eid)
     if not evt:
         return Response(f"event with eid {eid} not found", status=404)
-    if not evt["name"].startswith(TECH_ONLY_PREFIX):
+    if not evt.name.startswith(TECH_ONLY_PREFIX):
         return Response(
             f"cannot delete a non-tech-only event missing prefix {TECH_ONLY_PREFIX}",
             status=400,
         )
 
-    return neon.set_event_scheduled_state(evt["id"], scheduled=False)
+    return neon.set_event_scheduled_state(evt.neon_id, scheduled=False)
 
 
 @page.route("/techs/enroll", methods=["POST"])
@@ -298,103 +345,65 @@ def techs_backfill_events():
     """Returns the list of available events for tech backfill.
     Logic matches automation.classes.builder.Action.FOR_TECHS
     """
-    supply_cost_map = {
-        str(s["fields"].get("Neon ID", "")): int(
-            s["fields"].get("Supply Cost (from Class)", [0])[0]
-        )
-        for s in airtable.get_class_automation_schedule()
-    }
     for_techs = []
     now = tznow()
     # Should dedupe logic with builder.py eventually.
     # We look for unpublished events too since those may be tech events
-    for evt in neon.fetch_upcoming_events(published=False):
-        if str(evt["id"]) == "17631":  # Private instruction
+    for evt in eauto.fetch_upcoming_events(
+        published=False, merge_airtable=True, fetch_attendees=True, fetch_tickets=True
+    ):
+        if evt.in_blocklist():
             continue
-        start = dateparser.parse(evt["startDate"] + " " + evt["startTime"]).astimezone(
-            tz
-        )
-        tech_only_event = (
-            evt["name"].startswith(TECH_ONLY_PREFIX)
-            and evt["enableEventRegistrationForm"]
-        )
+        tech_only_event = evt.name.startswith(TECH_ONLY_PREFIX) and evt.registration
         tech_backfill_event = (
-            evt["publishEvent"]
-            and evt["enableEventRegistrationForm"]
-            and start - datetime.timedelta(days=1) < now < start
+            evt.published
+            and evt.registration
+            and evt.start_date - datetime.timedelta(days=1) < now < evt.start_date
         )
-
         if not tech_only_event and not tech_backfill_event:
             continue
 
-        attendees = {
-            a["accountId"]
-            for a in neon.fetch_attendees(evt["id"])
-            if a["registrationStatus"] == "SUCCEEDED"
-        }
-
-        if tech_only_event or len(attendees) > 0:
-            tid = None
-            if not tech_only_event:
-                # Backfill events are priced; tech-only events are
-                # free and have zero ticket IDs
-                for t in neon.fetch_tickets(evt["id"]):
-                    tid = t["id"]
-                    if t["name"] == "Single Registration":
-                        log.info(f"Found single registration ticket id {tid}")
-                        break
-                if not tid:
-                    log.warning(
-                        f"Failed to get ticket IDs from event {evt['id']} for registration"
-                    )
-                    # Some events (e.g. All Member Meeting, #18050) lack ticketing information
-                    # intentionally as they are free events, but they're not tech-only. In these
-                    # cases, we just pretend they don't exist.
-                    continue
-
+        if tech_only_event or evt.attendee_count > 0:
             for_techs.append(
                 {
-                    "id": evt["id"],
-                    "ticket_id": tid,
-                    "name": evt["name"],
-                    "attendees": list(attendees),
-                    "capacity": evt["capacity"],
-                    "start": start,
-                    "supply_cost": supply_cost_map.get(str(evt["id"]), 0),
+                    "id": evt.neon_id,
+                    "ticket_id": evt.single_registration_ticket_id,
+                    "name": evt.name,
+                    "attendees": list(evt.signups),
+                    "capacity": evt.capacity,
+                    "start": evt.start_date.isoformat(),
+                    "supply_cost": evt.supply_cost or 0,
                 }
             )
 
-    tech_lead = am_role(Role.SHOP_TECH_LEAD)
-
-    return {"events": for_techs, "tech_lead": tech_lead}
+    return {
+        "events": for_techs,
+        "can_register": am_role(Role.SHOP_TECH) or am_role(Role.SHOP_TECH_LEAD),
+        "tech_lead": am_role(Role.SHOP_TECH_LEAD),
+    }
 
 
 def _notify_registration(account_id, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
-    acc, _ = neon_base.fetch_account(account_id, required=True)
+    acc = neon_base.fetch_account(account_id, required=True)
     evt = neon.fetch_event(event_id)
     attendees = {
         a["accountId"]
         for a in neon.fetch_attendees(event_id)
         if a["registrationStatus"] == "SUCCEEDED"
     }
-    contact = acc.get("primaryContact")
-    name = f"{contact.get('firstName')} {contact.get('lastName')}"
-    action = "registered for" if action == "register" else "unregistered from"
+    verb = "registered for"
+    if action != "register":
+        verb = "unregistered from"
     msg = (
-        f"{name} {action} "
-        f"{evt.get('name')} on {evt.get('eventDates').get('startDate')} "
-        f"{evt.get('eventDates').get('startTime')}"
-        f"; {evt.get('maximumAttendees', 0) - len(attendees)} seat(s) remain"
+        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
+        f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
+        f"; {evt.capacity - len(attendees)} seat(s) remain"
     )
     # Tech-only classes shouldn't bother instructors
-    if not evt.get("name").startswith(TECH_ONLY_PREFIX):
+    if not evt.name.startswith(TECH_ONLY_PREFIX):
         comms.send_discord_message(msg, "#instructors", blocking=False)
-    msg += (
-        "\n\n*Make registration changes [here](https://api.protohaven.org/techs#events) "
-        "(login required)"
-    )
     comms.send_discord_message(msg, "#techs", blocking=False)
 
 

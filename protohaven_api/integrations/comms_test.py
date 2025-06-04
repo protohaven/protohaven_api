@@ -1,6 +1,7 @@
 """Testing comms integration methods"""
 
 import hashlib
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -54,17 +55,23 @@ def test_templates_html_detection():
 
 
 TEST_EVENT = {
-    "id": "34567",
-    "python_date": d(0),
+    "neon_id": "34567",
+    "start_date": d(0),
     "name": "Test Event",
-    "instructor_firstname": "TestInstName",
+    "instructor_fname": "TestInstName",
     "capacity": 6,
-    "signups": 3,
+    "attendee_count": 3,
 }
 TEST_ATTENDEE = {
-    "firstName": "TestAttendeeName",
+    "fname": "TestAttendeeName",
     "email": "test@attendee.com",
 }
+
+tech1=MagicMock(email="a@a.com")
+tech1.name="Tech A"
+tech2=MagicMock(email="b@b.com")
+tech2.name="Tech B"
+
 TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}),
     ("test_html_template", {"val": "test_body"}),
@@ -268,7 +275,7 @@ TESTED_TEMPLATES = [
         "shift_no_techs",
         {
             "shift": "Monwednesaturday TM",
-            "onduty": [("Tech A", "a@a.com"), ("Tech B", "b@b.com")],
+            "onduty": [tech1, tech2],
         },
     ),
     (
@@ -290,13 +297,11 @@ TESTED_TEMPLATES = [
             "errs": [ValueError("value or something")],
             "new_tasks": [{"name": "Test Task", "gid": "123"}],
             "closing": "Stay tested!",
+            "am_tech_discord": ["@foo", "@bar"],
+            "pm_tech_discord": ["@fizz", "@buzz"],
         },
     ),
     ("tech_openings", {"n": 1, "events": [TEST_EVENT]}),
-    (
-        "tool_documentation",
-        {"n": 1, "tool_tutorials": "tutorial info", "clearance_docs": "clearance info"},
-    ),
     ("tool_sync_summary", {"n": 1, "changes": ["change 1", "change 2"]}),
     (
         "verify_income",
@@ -386,14 +391,13 @@ HASHES = {
     "phone_message": "c17d7359c5ddace4",  # pragma: allowlist secret
     "registrant_class_canceled": "a3b36f01fde3ee4c",  # pragma: allowlist secret
     "registrant_class_confirmed": "38e0456bdb64d363",  # pragma: allowlist secret
-    "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
+    "registrant_post_class_survey": "73c4faee5c547d07",  # pragma: allowlist secret
     "schedule_push_notification": "78908794e790a632",  # pragma: allowlist secret
     "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
     "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
     "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
-    "tech_daily_tasks": "40fd5ae5ea4d2806",  # pragma: allowlist secret
+    "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
-    "tool_documentation": "30faa1dfb4e04a20",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "verify_income": "4d24d1a819192eae",  # pragma: allowlist secret
     "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret

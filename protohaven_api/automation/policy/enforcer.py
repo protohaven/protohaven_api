@@ -150,15 +150,15 @@ def gen_comms(violations, old_fees, new_fees):
         sections = [section_map[s] for s in v["fields"]["Relevant Sections"]]
         neon_id = v["fields"].get("Neon ID")
         if neon_id is not None:
-            member, _ = neon_base.fetch_account(neon_id, required=True)
+            acct = neon_base.fetch_account(neon_id, required=True)
             result.append(
                 gen_comms_for_violation(
                     v,
                     old_accrued,
                     new_accrued,
                     sections,
-                    fname=member["primaryContact"]["firstName"],
-                    email=member["primaryContact"]["email1"],
+                    fname=acct.fname,
+                    email=acct.email,
                 )
             )
 

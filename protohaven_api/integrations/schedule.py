@@ -67,5 +67,5 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
 
 
 def fetch_shop_events():
-    """Fetches onboardings, tours etc. happening in the shop"""
+    """Fetches tours etc. happening in the shop"""
     return fetch_calendar(get_config("calendar/shop_events"))

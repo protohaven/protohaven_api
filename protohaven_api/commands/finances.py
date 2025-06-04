@@ -3,7 +3,6 @@
 import argparse
 import datetime
 import logging
-import pickle
 import re
 from collections import defaultdict
 
@@ -19,7 +18,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     sales,
 )
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 
 log = logging.getLogger("cli.finances")
 
@@ -93,96 +92,59 @@ class Commands:
         print_yaml(result)
         log.info("Done")
 
-    def _validate_role_membership(self, details, role):
-        log.debug(f"Validate role membership: {role['name']}")
-        results = []
-        roles = details.get("roles", [])
-        if role["name"] not in roles:
-            results.append(f"Needs role {role['name']}, has {roles}")
-            log.info(f"Missing role {role['name']}: {details}")
-        return results
+    def _validate_role_membership(self, acct, role):
+        if role not in acct.roles:
+            has = ",".join([r["name"] for r in acct.roles]) or "none"
+            yield f"Needs role {role['name']}, has {has}"
+            log.info(f"Missing role {role['name']}: {acct.neon_id}")
 
-    def _validate_addl_family_membership(self, details):
-        log.debug("Validate additional family membership")
-        results = []
-        if details["household_paying_member_count"] <= 0:
-            results.append(
-                f"Missing required non-additional paid member in household #{details['hid']}"
+    def _validate_addl_family_membership(
+        self, household_id, household_paying_member_count
+    ):
+        if household_paying_member_count <= 0:
+            yield (
+                "Missing required non-additional paid member in household "
+                + f"[#{household_id}](https://protohaven.app.neoncrm.com/"
+                + f"np/admin/account/householdDetails.do?householdId={household_id})"
             )
-            log.info(f"Missing paid family member: {details}")
-        return results
+            log.info(
+                f"Missing paid family member: #{household_id} has {household_paying_member_count}"
+            )
 
-    def _validate_employer_membership(self, details):
-        log.debug("Validate employer membership")
-        results = []
-        if details["company_member_count"] < 2:
-            results.append(f"Missing required 2+ members in company #{details['cid']}")
-            log.info(f"Missing company members: {details}")
-        return results
+    def _validate_employer_membership(self, company_id, company_member_count):
+        if company_member_count < 2:
+            yield (
+                "Missing required 2+ members in company "
+                + f"[#{company_id}](https://protohaven.app.neoncrm.com/admin/accounts/{company_id})"
+            )
+            log.info(
+                f"Missing company members: #{company_id} has {company_member_count}"
+            )
 
-    def _validate_amp_membership(self, details):
-        log.debug("Validate AMP membership")
-        results = []
-        if not details.get("amp"):
-            results.append("Income based rate field not set for AMP membership")
+    def _validate_amp_membership(self, acct):
+        if not acct.income_based_rate:
+            yield "Income based rate field not set for AMP membership"
+            return
+
         # We may wish to enable this later, once we have the time to request it of all AMP members
         # if not details.get('income_proof'):
         #    results.append(f"Proof of income not provided for AMP membership")
-        if details.get("amp"):
-            term_type = re.search(r"(ELI|VLI|LI)", details["term"])
-            ibr = details["amp"]
-            if term_type is not None:
-                ibr_match = {
-                    "LI": "Low Income",
-                    "VLI": "Very Low Income",
-                    "ELI": "Extremely Low Income",
-                }.get(term_type[1])
-                if ibr_match not in ibr:
-                    results.append(
-                        f"Mismatch between Income based rate ({ibr}) "
-                        f"and membership type {term_type[1]}"
-                    )
-                    log.info(f"AMP mismatch: {details}")
-        return results
-
-    def _suggest_membership(  # pylint: disable=too-many-return-statements
-        self, details, num_household, num_addl_household, num_company
-    ):
-        """Look at role bits, AMP information, and company association to see whether
-         the 'best' membership fit is applied.
-
-        Zero-cost memberships matching the highest role are prioritized, followed by
-        Company, family, amp, and finally general memberships.
-        """
-        if details.get("roles"):
-            if Role.STAFF["name"] in details["roles"]:
-                return ["Staff"]
-            if Role.BOARD_MEMBER["name"] in details["roles"]:
-                return ["Board Member"]
-            if Role.SHOP_TECH_LEAD["name"] in details["roles"]:
-                return ["Shop Tech Lead"]
-            if Role.SHOP_TECH["name"] in details["roles"]:
-                return ["Shop Tech"]
-            if (
-                Role.INSTRUCTOR["name"] in details["roles"]
-                or Role.ONBOARDING["name"] in details["roles"]
-            ):
-                return ["Instructor"]
-        if num_company > 0:
-            return ["Non-Profit Membership", "Company Membership"]
-        if num_household > 1 and (num_household - num_addl_household) > 0:
-            return ["Additional Family Membership"]
-        if details.get("amp"):
-            return details["amp"]
-        return ["General"]
+        ms = acct.latest_membership(active_only=True)
+        term_type = re.search(r"(ELI|VLI|LI)", ms.term)
+        if term_type is not None:
+            ibr_match = {
+                "LI": "Low Income",
+                "VLI": "Very Low Income",
+                "ELI": "Extremely Low Income",
+            }.get(term_type[1])
+            if ibr_match not in acct.income_based_rate:
+                yield (
+                    f"Mismatch between Income based rate ({acct.income_based_rate}) "
+                    f"and membership type {term_type[1]}"
+                )
+                log.info(f"AMP mismatch: {acct.neon_id}")
 
     @command(
-        arg(
-            "--write_cache",
-            help="write intermediate data to a cache file",
-            type=str,
-        ),
-        arg("--read_cache", help="run off pickle cache file", type=str),
         arg(
             "--member_ids",
             help="Space-separated list of Neon IDs to validate",
@@ -194,11 +156,7 @@ class Commands:
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
-        problems = list(
-            self._validate_memberships_internal(
-                args.write_cache, args.read_cache, args.member_ids, pct
-            )
-        )
+        problems = list(self._validate_memberships_internal(args.member_ids, pct))
         if len(problems) > 0:
             print_yaml(
                 Msg.tmpl(
@@ -210,11 +168,10 @@ class Commands:
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def _validate_memberships_internal(
-        self, write_cache=None, read_cache=None, member_ids=None, pct=None
+        self, member_ids=None, pct=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
         household_paying_member_count = defaultdict(int)
-        household_num_addl_members = defaultdict(int)
         company_member_count = defaultdict(int)
         member_data = {}
         if pct:
@@ -222,195 +179,101 @@ class Commands:
         else:
             pct = {}
 
-        if read_cache:
-            with open(read_cache, "rb") as f:
-                (
-                    member_data,
-                    household_paying_member_count,
-                    household_num_addl_members,
-                    company_member_count,
-                ) = pickle.load(f)
-            pct[0] = 1.0
-        else:
-            # We search for NOT a bogus email to get all accounts, then collect
-            # data before analysis in order to count paying household & company members
-            log.info("Collecting member details")
-            n = 0
-            for i, mem in enumerate(
-                neon.search_member("noreply@protohaven.org", operator="NOT_EQUAL")
-            ):
-                # This should really pull total from paginated_search
-                pct[0] = max(0.5, i / 6000)
-                log.info(f"#{mem['Account ID']}")
-                if mem["Account Current Membership Status"].lower() != "active":
-                    continue
-                aid = mem["Account ID"]
-                if member_ids is not None and aid not in member_ids:
-                    continue
-                hid = mem["Household ID"]
-                level = mem["Membership Level"]
-                acct, is_company = neon_base.fetch_account(mem["Account ID"])
-                if acct is None or is_company:
-                    continue
-
-                active_memberships = []
-                now = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
-                has_fee = False
-                for ms in neon.fetch_memberships(mem["Account ID"]):
-                    start = (
-                        dateparser.parse(ms.get("termStartDate")).astimezone(tz)
-                        if ms.get("termStartDate")
-                        else None
-                    )
-                    end = (
-                        dateparser.parse(ms.get("termEndDate")).astimezone(tz)
-                        if ms.get("termEndDate")
-                        else None
-                    )
-                    if not end or end >= now:
-                        has_fee = has_fee or ms["fee"] != 0
-                        active_memberships.append(
-                            {
-                                "fee": ms["fee"],
-                                "renew": ms["autoRenewal"],
-                                "level": ms["membershipLevel"]["name"],
-                                "term": ms["membershipTerm"]["name"],
-                                "status": ms["status"],
-                                "start_date": start,
-                                "end_date": end,
-                            }
-                        )
-
-                details = {
-                    "aid": aid,
-                    "hid": hid,
-                    "name": f"{mem['First Name']} {mem['Last Name']}",
-                    "cid": mem["Company ID"],
-                    "level": level,
-                    "term": mem["Membership Term"],
-                    "active_memberships": active_memberships,
-                }
-                for acf in acct.get("accountCustomFields", []):
-                    if acf["name"] == "Zero-Cost Membership OK Until Date":
-                        try:
-                            details["zero_cost_ok_until"] = dateparser.parse(
-                                acf["value"]
-                            ).astimezone(tz)
-                        except dateparser.ParserError as e:
-                            log.error(e)
-                            details["zero_cost_ok_until"] = None
-
-                    if acf["name"] == "Income Based Rate":
-                        details["amp"] = acf["optionValues"][0]["name"]
-                    elif acf["name"] == "Proof of Income":
-                        details["income_proof"] = acf
-                    elif acf.get("company"):
-                        details["company"] = acf
-                    elif acf["name"] == "API server role":
-                        details["roles"] = [ov["name"] for ov in acf["optionValues"]]
-                member_data[aid] = details
-                if "Additional" in level:
-                    household_num_addl_members[hid] += 1
-                elif has_fee:
-                    household_paying_member_count[hid] += 1
-                company_member_count[mem["Company ID"]] += 1
-                n += 1
-            if write_cache:
-                with open(write_cache, "wb") as f:
-                    pickle.dump(
-                        (
-                            member_data,
-                            dict(household_paying_member_count),
-                            dict(household_num_addl_members),
-                            dict(company_member_count),
-                        ),
-                        f,
-                    )
+        # We search for NOT a bogus email to get all accounts, then collect
+        # data before analysis in order to count paying household & company members
+        log.info("Collecting members")
+        n = 0
+        for i, acct in enumerate(
+            neon.search_active_members(
+                [
+                    "Account Current Membership Status",
+                    "Company ID",
+                ],
+                also_fetch=True,
+            )
+        ):
+            # This should really pull total from paginated_search
+            pct[0] = max(0.5, i / 6000)
+            log.info(f"#{acct.neon_id}")
+            if acct.account_current_membership_status.lower() != "active":
+                continue
+            if member_ids is not None and acct.neon_id not in member_ids:
+                continue
+            if acct.is_company():
+                continue
+            member_data[acct.neon_id] = acct
+            for ms in acct.memberships(active_only=True):
+                if "Additional" not in ms.level and ms.fee > 0:
+                    household_paying_member_count[acct.household_id] += 1
+            company_member_count[acct.company_id] += 1
+            n += 1
 
         log.info(
-            f"Loaded details of {len(member_data)} active members, "
+            f"Loaded {len(member_data)} active members, "
             f"{len(household_paying_member_count)} households, "
             f"{len(company_member_count)} companies"
         )
 
-        log.info("Validating member details")
+        log.info("Validating members")
 
         for i, md in enumerate(member_data.items()):
-            aid, details = md
+            aid, acct = md
             pct[1] = i / len(member_data)
             if member_ids is not None and aid not in member_ids:
                 continue
-
-            # suggested = self._suggest_membership(details,
-            #                                     household_member_count.get(details['hid'], 0),
-            #                                     household_num_addl_members.get(details['hid'], 0),
-            #                                     company_member_count.get(details['cid'], 0))
-            # if level not in suggested:
-            #     result.append(f"has level {level}, suggest {suggested}")
-            details[
-                "household_paying_member_count"
-            ] = household_paying_member_count.get(details["hid"], 0)
-            details["household_num_addl_members"] = household_num_addl_members.get(
-                details["hid"], 0
-            )
-            details["company_member_count"] = company_member_count.get(
-                details["cid"], 0
-            )
-            result = self._validate_membership_singleton(details)
-            for r in result:
+            for r in self._validate_membership_singleton(
+                acct,
+                household_paying_member_count.get(acct.household_id, 0),
+                company_member_count.get(acct.household_id, 0),
+            ):
                 yield {
-                    "name": details["name"],
+                    "name": acct.name,
                     "result": r,
-                    "account_id": details["aid"],
+                    "account_id": acct.neon_id,
                 }
 
     def _validate_membership_singleton(
-        self, details, now=None
+        self, acct, household_paying_member_count, company_member_count, now=None
     ):  # pylint: disable=too-many-branches
         """Validate membership of a single member"""
-        level = details["level"].strip()
-        result = []
         if now is None:
             now = tznow()
         # Filter out future and unsuccessful membership registrations
 
         num = 0
-        for am in details["active_memberships"]:
-            if (
-                am.get("start_date", now) > now
-                or am.get("status", "SUCCEEDED") != "SUCCEEDED"
-            ):
+        am = None
+        for am in acct.memberships(active_only=True):
+            if (am.start_date and am.start_date > now) or (
+                am.status or "SUCCEEDED"
+            ) != "SUCCEEDED":
                 continue
             num += 1
 
-            if am["fee"] <= 0 and am["level"] not in (
+            if am.fee <= 0 and am.level not in (
                 "Shop Tech",
                 "Board Member",
                 "Staff",
                 "Software Developer",
             ):
-                if (
-                    details.get("zero_cost_ok_until") is None
-                    or details["zero_cost_ok_until"] < tznow()
-                ):
-                    result.append(
-                        f"Abnormal zero-cost membership {am['level']} "
+                if acct.zero_cost_ok_Until is None or acct.zero_cost_ok_until < tznow():
+                    yield (
+                        f"Abnormal zero-cost membership {am.level} "
                         "('Zero Cost OK Until' date missing, expired, invalid, or not YYYY-MM-DD)"
                     )
-                    log.info(f"Abnormal zero-cost: {details} - active membership {am}")
-            if am.get("end_date") is None:
-                result.append(
-                    f"Membership {am.get('level')} with no end date (infinite duration)"
+                    log.info(
+                        f"Abnormal zero-cost: {acct.neon_id} - active membership {am.neon_id}"
+                    )
+            if am.end_date is None or am.end_date == datetime.datetime.max:
+                yield f"Membership {am.level} with no end date (infinite duration)"
+                log.info(
+                    f"Infinite duration: {acct.neon_id} - active membership {am.neon_id}"
                 )
-                log.info(f"Infinite duration: {details} - active membership {am}")
 
         if num > 1:
-            result.append(
-                f"Multiple active memberships: {len(details['active_memberships'])} total"
-            )
-            log.info(f"Multiple active memberships: {details}")
+            yield f"Multiple active memberships: want 1, got {num}"
+            log.info(f"Multiple active memberships: {acct.neon_id}")
 
-        if level in (
+        if acct.level in (
             "General Membership",
             "Weekend Membership",
             "Weeknight Membership",
@@ -418,66 +281,75 @@ class Commands:
             "Primary Family Membership",
             "Youth Program",
         ):
-            return result  # Ignore remaining validations
+            return  # Ignore remaining validations
 
-        if "AMP" in level:
-            result += self._validate_amp_membership(details)
-        elif level == "Shop Tech":
-            result += self._validate_role_membership(details, Role.SHOP_TECH)
-        elif level == "Instructor":
-            result += self._validate_role_membership(details, Role.INSTRUCTOR)
-        elif level in "Board Member":
-            result += self._validate_role_membership(details, Role.BOARD_MEMBER)
-        elif level == "Software Developer":
-            result += self._validate_role_membership(details, Role.SOFTWARE_DEV)
-        elif level == "Staff":
-            result += self._validate_role_membership(details, Role.STAFF)
-        elif level == "Additional Family Membership":
-            result += self._validate_addl_family_membership(details)
-        elif level in (
+        if "AMP" in am.level:
+            yield from self._validate_amp_membership(acct)
+        elif am.level == "Shop Tech":
+            yield from self._validate_role_membership(acct, Role.SHOP_TECH)
+        elif am.level == "Instructor":
+            yield from self._validate_role_membership(acct, Role.INSTRUCTOR)
+        elif am.level in "Board Member":
+            yield from self._validate_role_membership(acct, Role.BOARD_MEMBER)
+        elif am.level == "Software Developer":
+            yield from self._validate_role_membership(acct, Role.SOFTWARE_DEV)
+        elif am.level == "Staff":
+            yield from self._validate_role_membership(acct, Role.STAFF)
+        elif am.level == "Additional Family Membership":
+            yield from self._validate_addl_family_membership(
+                acct.household_id, household_paying_member_count
+            )
+        elif am.level in (
             "Corporate Membership",
             "Company Membership",
             "Non-Profit Membership",
         ):
-            result += self._validate_employer_membership(details)
+            yield from self._validate_employer_membership(
+                acct.company_id, company_member_count
+            )
         else:
-            result += [f"Unhandled membership: '{level}'"]
-        return result
-
-    def _last_expiring_membership(self, account_id):
-        result = None
-        for m in neon.fetch_memberships(account_id):
-            if not m.get("termEndDate"):
-                log.warning(f"Found etenal membership {m}")
-                return dateparser.parse("9000-01-01")
-            end = dateparser.parse(m.get("termEndDate")).astimezone(tz)
-            if not result or result < end:
-                result = end
-        return result
+            yield f"Unhandled membership: '{am.level}'"
+        return
 
     def _refresh_role_memberships(
         self, args, summary, role, level, term
     ):  # pylint: disable=too-many-arguments
         now = tznow()
-        for t in neon.get_members_with_role(role, []):
+        for acct in neon.search_members_with_role(role, also_fetch=True):
             if len(summary) >= args.limit:
                 log.info("Processing limit reached; exiting")
                 break
+            if args.exclude and str(acct.neon_id) in args.exclude:
+                log.info(f"Skipping {acct.neon_id}: in exclusion list")
+                continue
+            if args.filter and str(acct.neon_id) not in args.filter:
+                log.info(f"Skipping {acct.neon_id}: not in filter")
+                continue
+            if (
+                role == Role.SOFTWARE_DEV
+                and args.filter_dev
+                and str(acct.neon_id) not in args.filter_dev
+            ):
+                log.info(f"Skipping {acct.neon_id}: not in software dev filter")
+                continue
 
             s = {
-                "fname": t["First Name"].strip(),
-                "lname": t["Last Name"].strip(),
-                "account_id": t["Account ID"],
-                "membership_id": "DRYRUN",
+                "fname": acct.fname,
+                "lname": acct.lname,
+                "account_id": acct.neon_id,
+                "membership_id": "Not created",
                 "new_end": "N/A",
                 "membership_type": role["name"],
             }
-            log.info(f"Processing tech {t}")
-            end = self._last_expiring_membership(t["Account ID"])
-            if end is None:
-                s["end_date"] = "ERR INFINITE"
-                summary.append(s)
+            log.info(f"Processing {role['name']} #{acct.neon_id}")
+            end, autorenew = acct.last_membership_expiration_date()
+            if autorenew:
+                log.info("Latest membership is autorenewing; skipping")
                 continue
+
+            if end is None:
+                s["end_date"] = "N/A"
+                end = tznow()
 
             if now + datetime.timedelta(days=args.expiry_threshold) < end:
                 continue  # Skip if active membership not expiring soon
@@ -487,12 +359,12 @@ class Commands:
             s["end_date"] = end.strftime("%Y-%m-%d")
             summary.append(s)
             if not args.apply:
-                log.info(f"DRY RUN: create membership for tech {t}")
+                log.info(f"DRY RUN: create membership for tech #{acct.neon_id}")
                 continue
 
             new_end = end + datetime.timedelta(days=1 + args.duration_days)
             ret = neon.create_zero_cost_membership(
-                t["Account ID"],
+                acct.neon_id,
                 end + datetime.timedelta(days=1),
                 new_end,
                 level=level,
@@ -508,6 +380,16 @@ class Commands:
             "--filter",
             help="CSV of Neon IDs to restrict processing",
             type=str,
+            default="",
+        ),
+        arg(
+            "--exclude",
+            help="CSV of Neon IDs to prevent processing",
+            default="",
+        ),
+        arg(
+            "--filter_dev",
+            help="CSV of Neon IDs to restrict processing for software devs",
             default="",
         ),
         arg(
@@ -538,7 +420,25 @@ class Commands:
     def refresh_volunteer_memberships(self, args, _):
         """If a volunteer's membership is due to expire soon, create a
         future membership that starts when the previous one ends."""
+        if args.filter:
+            args.filter = {a.strip() for a in args.filter.split(",")}
+            log.info(f"filtering to {args.filter}")
+        if args.filter_dev:
+            args.filter_dev = {a.strip() for a in args.filter_dev.split(",")}
+            log.info(f"filtering software devs to {args.filter_dev}")
+        if args.exclude:
+            args.exclude = {a.strip() for a in args.exclude.split(",")}
+            log.info(f"excluding {args.exclude}")
         summary = []
+        log.info("Refreshing shop tech lead memberships...")
+        self._refresh_role_memberships(
+            args,
+            summary,
+            Role.SHOP_TECH_LEAD,
+            level={"id": 19, "name": "Shop Tech"},
+            term={"id": 61, "name": "Shop Tech"},
+        )
+        log.info("Refreshing shop tech memberships...")
         self._refresh_role_memberships(
             args,
             summary,
@@ -546,6 +446,7 @@ class Commands:
             level={"id": 19, "name": "Shop Tech"},
             term={"id": 61, "name": "Shop Tech"},
         )
+        log.info("Refreshing software dev memberships...")
         self._refresh_role_memberships(
             args,
             summary,
@@ -615,27 +516,26 @@ class Commands:
         result = []
         summary = []
         num = 0
-        for m in neon.get_new_members_needing_setup(
-            args.max_days_ago, extra_fields=["Email 1"]
+        for m in neon.search_new_members_needing_setup(
+            args.max_days_ago, also_fetch=True
         ):
-            aid = m["Account ID"]
-            if args.filter and aid not in args.filter:
-                log.debug(f"Skipping {aid}: not in filter")
+            if args.filter and m.neon_id not in args.filter:
+                log.debug(f"Skipping {m.neon_id}: not in filter")
                 continue
 
-            membership_id, membership_name = neon.get_latest_membership_id_and_name(aid)
-            if not membership_id:
-                raise RuntimeError(f"No latest membership for member {aid}")
+            mem = m.latest_membership()
+            if not mem:
+                raise RuntimeError(f"No latest membership for member {m.neon_id}")
             kwargs = {
-                "account_id": aid,
-                "membership_name": membership_name,
-                "membership_id": membership_id,
-                "email": m["Email 1"],
-                "fname": m["First Name"],
+                "account_id": m.neon_id,
+                "membership_name": mem.name,
+                "membership_id": mem.neon_id,
+                "email": m.email,
+                "fname": m.fname,
                 "coupon_amount": args.coupon_amount,
                 "apply": args.apply,
-                "target": m["Email 1"],
-                "_id": f"init member {aid}",
+                "target": m.email,
+                "_id": f"init member {m.neon_id}",
             }
             summary.append(kwargs)
             result += memauto.init_membership(**kwargs)

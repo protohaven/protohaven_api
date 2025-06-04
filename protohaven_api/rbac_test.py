@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from protohaven_api import rbac
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 
 
 def test_require_login_redirect(monkeypatch):
@@ -74,22 +74,29 @@ def test_require_login_role_multiple_args(mocker):
             None,
             None,
             {
-                "accountCustomFields": [
-                    {
-                        "name": "API server role",
-                        "optionValues": [{"name": "role1"}, {"name": "role2"}],
-                    }
-                ]
+                "individualAccount": {
+                    "accountCustomFields": [
+                        {
+                            "name": "API server role",
+                            "optionValues": [{"name": "Admin"}, {"name": "Instructor"}],
+                        }
+                    ]
+                }
             },
-            ["role1", "role2"],
+            ["Admin", "Instructor"],
         ),
         (  # Other custom fields ignored, no roles
             None,
             None,
             {
-                "accountCustomFields": [
-                    {"name": "Some other field", "optionValues": [{"name": "value1"}]}
-                ]
+                "individualAccount": {
+                    "accountCustomFields": [
+                        {
+                            "name": "Some other field",
+                            "optionValues": [{"name": "value1"}],
+                        }
+                    ]
+                }
             },
             [],
         ),

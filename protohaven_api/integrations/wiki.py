@@ -12,6 +12,11 @@ def get_maintenance_data(book_slug):
     )
 
 
+def get_tool_docs_summary():
+    """Fetch summary of documentation for tools"""
+    return get_connector().bookstack_request("GET", "/tool_docs_report")
+
+
 def fetch_db_backup(dest):
     """Fetches a backup of the postgres DB for the wiki"""
     return get_connector().bookstack_download("/backups/dump_db", dest)

@@ -6,6 +6,7 @@ use BookStack\Facades\Theme;
 use Illuminate\Routing\Router;
 use BookStack\Users\Models\Role;
 use Illuminate\Support\Facades\Log;
+use BookStack\Util\CspService;
 
 $approvers = array();
 function getApproverIDs() {
@@ -48,6 +49,7 @@ class Approval {
     if ($approved) {
         $result['approved_id'] = $approved->id;
     }
+    $result['url'] = $page->getUrl();
     return $result;
   }
 
@@ -121,50 +123,81 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
   });
 
   $router->get('/approvals', function () {
+    $nonce = app()->make(CspService::class)->getNonce();
+    $items = [];
+    $uniqueTags = [];
+    foreach (Page::select('*')->get()->all() as $page) {
+        if (!$page->slug) continue; // Skip book headers
+
+        $book = $page->book()->first();
+        if (!requiresApproval($book->slug, $page->slug)) continue;
+
+        $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
+        if ($state['current_revision'] == $state['approved_revision'] || $state['approved_revision'] == "all") continue;
+
+        $needed = $state['thresh'] - count($state['approvals'][$state['current_revision']] ?? []);
+        $chapname = $page->chapter()->first()->name ?? '';
+        $items[] = [$book, $chapname, $page, $needed, $state['approved_revision']];
+
+        foreach ($page->tags as $tag) {
+            $uniqueTags["{$tag->name}=" . strtoupper($tag->value)] = true;
+        }
+    }
     ?>
+    <!DOCTYPE html>
+    <html>
+      <head>
+      </head>
+      <body>
     <h2>Page approvals process:</h2>
-    <p>The following pages need approvals and will display a disclaimer on the page until they're approved.</p>
-    <p>Approvals may be given by anyone with the "Wiki Approver" role set on their account - this role is automatically added (but NOT automatically removed) for Tech Leads, EDU Leads, Maintenance Crew, Board, and Staff members.</p>
-    <p>To approve e.g. revision 3 of a page as one of these roles, comment "Approve #3" in the comments section at the bottom of the page.</p>
-    <p>Approvers can also comment "Reject #3" to reset the approval counter of the given page.</p>
-    <p>To exclude a page from the approval process, comment "Approve #forever".</p>
-    <p>Only books/pages matching $PAGE_APPROVAL_REGEXP in the Booked server's env will be enrolled in the approvals process.</p>
-    <p>See <a href="https://github.com/protohaven/server_config/" target="_blank">https://github.com/protohaven/server_config/</a> for implementation details.</p>
+    <p>The following pages need approvals and will display a disclaimer until approved. Approvals may be given by anyone with the "Wiki Approver" role.</p>
+    <p>To approve e.g. revision 3, comment "Approve #3" in the page comments. Approvers can also comment "Reject #3" to reset approvals.</p>
+    <p>To exclude permanently: "Approve #forever".</p>
+    <p>Only books/pages matching $PAGE_APPROVAL_REGEXP are enrolled; see <a href="https://github.com/protohaven/server_config/" target="_blank">server_config</a> for details.</p>
     <hr/>
     <h2>Pages requiring approval:</h2>
-    <?php
-    foreach (Page::select('*')->get()->all() as $page) {
-      Log::info($page->id);
-      $book = $page->book()->get()->first();
-      if (!$page->slug) {
-	continue; // Book headers are considered pages, but have no slug.
-      }
-      if (!requiresApproval($book->slug, $page->slug)) {
-        continue;
-      }
+    <select id="approval_tags">
+        <option value="">Filter...</option>
+        <?php foreach(array_keys($uniqueTags) as $tagPair): ?>
+            <option value="<?= htmlentities($tagPair) ?>"><?= htmlentities($tagPair) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <?php foreach ($items as [$book, $chapname, $page, $needed, $ar]): ?>
+    <div class="item" style="padding:14px;margin:14px;border:1px grey solid;border-radius:3px;"
+        <?php foreach($page->tags as $tag): ?>
+        data-tag-<?= $tag->name ?>="<?= strtoupper($tag->value) ?>"
+        <?php endforeach; ?>>
+        <p><strong>
+            <a href="<?= $page->getUrl() ?>" target="blank">
+                <?= "$book->name / $chapname / $page->name (#$page->id) rev {$state['current_revision']}" ?>
+            </a>
+        </strong></p>
+        <ul>
+            <?php foreach($page->tags as $tag): ?>
+            <li><?= "{$tag->name} = {$tag->value}" ?></li>
+            <?php endforeach; ?>
+        </ul>
+        <p>Approvals needed: <?= $needed ?></p>
+        <?php if($ar): ?>
+        <p>Last approved: <a href="<?= "{$page->getUrl()}/revisions/$ar" ?>" target="blank">rev <?= $ar ?></a></p>
+        <?php endif; ?>
+    </div>
+    <?php endforeach; ?>
+    </body>
+    <script nonce="<?= $nonce ?>">
+      document.getElementById('approval_tags').addEventListener('change', (e) => {
+        let nv = e.target.value ? e.target.value.split('=') : [null, null];
+        document.querySelectorAll(".item").forEach(el => {
+          el.style.display = nv[0] === null ? 'block' : 'none';
+        });
+        document.querySelectorAll(`[data-tag-${nv[0]}="${nv[1]}"]`).forEach(el => {
+          el.style.display = 'block';
+        });
+      });
+    </script>
+    </html>
+<?php });
 
-      $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
-      $cr = $state['current_revision'];
-      $ar = $state['approved_revision'];
-      if ($cr == $ar || $ar == "all") {
-        continue;
-      }
-      $url = "/books/" . $book->slug . "/page/" . $page->slug;
-      echo "<div>";
-      echo "<p><strong><a href=\"$url\" target=\"blank\">$page->name (#$page->id) rev $cr</a></strong></p>";
-      echo "<p>Approvals needed: ";
-      if (!array_key_exists($cr, $state['approvals'])) {
-        echo $state['thresh'];
-      } else {
-        echo $state['thresh'] - count($state['approvals'][$cr]);
-      }
-      echo "</p>";
-      if (!is_null($ar)) {
-        echo "<p>Last approved: <a href=\"$url/revisions/$ar\" target=\"blank\">rev $ar</a></p>";
-      }
-      echo "</div>";
-    }
-  });
 });
 
 ?>
