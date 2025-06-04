@@ -134,6 +134,8 @@ nocodb:
       devices: "mhjg19llr23inaa"
     fake_booked:
       reservations: "mkbmiwjyi3ow1ae"
+    fake_eventbrite:
+      events: "m90g2ef9xvyfynt"
   link_field_ids:
     class_automation:
       availability:

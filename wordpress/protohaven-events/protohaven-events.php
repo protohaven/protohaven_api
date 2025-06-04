@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $PH_OPTIONS_GROUP_ID = 'ph_events_api_settings';
-$PH_NEON_TOKEN_OPTION_ID = 'ph_events_api_key';
+$PH_PROTOHAVEN_API_URL_OPTION_ID = 'ph_events_protohaven_api_url';
 $PH_SETTINGS_SLUG = 'ph-events-custom-settings-page';
 
 function ph_events_register_custom_settings_page() {
@@ -53,8 +53,8 @@ function ph_events_render_settings_section(){
 
 function ph_events_render_api_key_settings_field() {
 	global $PH_OPTIONS_GROUP_ID;
-	global $PH_NEON_TOKEN_OPTION_ID;
-  echo "<input name='$PH_NEON_TOKEN_OPTION_ID' type='text' value='" . esc_attr(get_option($PH_NEON_TOKEN_OPTION_ID)) . "' />";
+	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
+  echo "<input name='$PH_PROTOHAVEN_API_URL_OPTION_ID' type='text' value='" . esc_attr(get_option($PH_PROTOHAVEN_API_URL_OPTION_ID)) . "' />";
 }
 
 function ph_events_validate_options( $input ) {
@@ -64,11 +64,11 @@ function ph_events_validate_options( $input ) {
 function ph_events_register_settings() {
 	global $PH_SETTINGS_SLUG;
 	global $PH_OPTIONS_GROUP_ID;
-	global $PH_NEON_TOKEN_OPTION_ID;
+	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
 
   register_setting(
 			$PH_OPTIONS_GROUP_ID, // option group
-			$PH_NEON_TOKEN_OPTION_ID // option name
+			$PH_PROTOHAVEN_API_URL_OPTION_ID // option name
 			// args[], previously 'ph_events_validate_options'
 	);
 
@@ -80,8 +80,8 @@ function ph_events_register_settings() {
 	);
 
 	add_settings_field(
-		$PH_NEON_TOKEN_OPTION_ID, // settings field id
-		'Neon CRM user token', // title
+		$PH_PROTOHAVEN_API_URL_OPTION_ID, // settings field id
+		'protohaven_api server base url (e.g. http://protohaven_api:5000/', // title
 		'ph_events_render_api_key_settings_field', // callback
 		$PH_SETTINGS_SLUG, // settings page
 		$PH_OPTIONS_GROUP_ID// section
@@ -125,43 +125,36 @@ function ph_neon_register_routes() {
 }
 
 function ph_neon_events() {
-	return ph_neon_events_internal($_GET);
-}
-
-function ph_neon_events_internal($query_params) {
-	global $PH_NEON_TOKEN_OPTION_ID;
-	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
-	$url = "https://protohaven:$token@api.neoncrm.com/v2/events";
-	if (!empty($query_params)) {
-	    $url .= '?' . http_build_query($query_params);
-	}
+	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
+	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
+	$url = $baseurl."/events/upcoming";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		return "Error";
+		return "Error: " . $response->get_error_message();
 	}
 	// Wish we didn't have to do this decode step just to encode it again...
 	return json_decode(wp_remote_retrieve_body($response), true);
 }
 
-function ph_neon_event_tickets($neon_id) {
-	global $PH_NEON_TOKEN_OPTION_ID;
-	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
-	$url = "https://protohaven:$token@api.neoncrm.com/v2/events/$neon_id/tickets";
+function ph_neon_event_tickets($evt_id) {
+	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
+	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
+	$url = $baseurl."/events/attendees?id=$evt_id";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		return "Error";
+		return "Error: " . $response->get_error_message();
 	}
 	// Wish we didn't have to do this decode step just to encode it again...
 	return json_decode(wp_remote_retrieve_body($response), true);
 }
 
 function ph_neon_event_tickets_cached() {
-	$neon_id = $_GET['neon_id'];
-	$CACHE_ID = "ph_neon_event_tickets_$neon_id";
+	$evt_id = $_GET['evt_id'];
+	$CACHE_ID = "ph_neon_event_tickets_$evt_id";
 	$result = wp_cache_get($CACHE_ID);
 	// Here we cache at 30 mins since ticket information is volatile.
 	if ( false === $result || $result[1] < (time() - (30*60)) ) {
-		$result = array(ph_neon_event_tickets($neon_id), time());
+		$result = array(ph_neon_event_tickets($evt_id), time());
 		if ($result[0] == 'Error') {
 			return $result[0];
 		}

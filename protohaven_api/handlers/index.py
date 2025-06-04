@@ -12,7 +12,7 @@ from flask_sock import Sock
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, mqtt, neon
+from protohaven_api.integrations import airtable, eventbrite, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -174,6 +174,10 @@ def events_dashboard_attendee_count():
     event_id = request.args.get("id")
     if event_id is None:
         raise RuntimeError("Requires param id")
+    if eventbrite.is_valid_id(event_id):
+        evt = eventbrite.fetch_event(event_id)
+        if evt:
+            return str(evt.attendee_count)
     attendees = 0
     for a in neon.fetch_attendees(event_id):
         if a["registrationStatus"] == "SUCCEEDED":
@@ -189,7 +193,7 @@ def upcoming_events():
     for evt in eauto.fetch_upcoming_events(merge_airtable=True):
         # Don't list private instruction, expired classes,
         # or classes without dates
-        if not evt.start_date or evt.in_blocklist() or evt.end_date < now:
+        if not evt.start_date or evt.in_blocklist or evt.end_date < now:
             continue
         events.append(
             {
@@ -200,7 +204,7 @@ def upcoming_events():
                 "start_date": evt.start_date.strftime("%a %b %d"),
                 "start_time": evt.start_date.strftime("%-I:%M %p"),
                 "end_date": evt.end_date.strftime("%a %b %d"),
-                "end_time": evt.end_time.strftime("%-I:%M %p"),
+                "end_time": evt.end_date.strftime("%-I:%M %p"),
                 "capacity": evt.capacity,
                 "registration": evt.registration
                 and evt.start_date - datetime.timedelta(hours=24) > now,

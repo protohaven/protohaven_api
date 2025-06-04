@@ -364,14 +364,16 @@ class Member:  # pylint:disable=too-many-public-methods
         """With bio data, get member bio string"""
         if not self.airtable_bio_data:
             raise RuntimeError("Missing bio data for call to volunteer_bio()")
-        return self.airtable_bio_data['fields'].get("Bio") or ""
+        return self.airtable_bio_data["fields"].get("Bio") or ""
 
     @property
     def volunteer_picture(self):
         """With bio data, get member's profile picture"""
         if not self.airtable_bio_data:
             raise RuntimeError("Missing bio data for call to volunteer_picture()")
-        thumbs = self.airtable_bio_data['fields'].get("Picture")[0]["thumbnails"]["large"]
+        thumbs = self.airtable_bio_data["fields"].get("Picture")[0]["thumbnails"][
+            "large"
+        ]
         return thumbs.get("url") or urljoin(
             "http://localhost:8080",
             thumbs.get("signedPath"),
@@ -479,6 +481,7 @@ class Event:
     neon_search_data: dict = field(default_factory=dict)
     neon_attendee_data: dict = field(default_factory=dict)
     neon_ticket_data: dict = field(default_factory=dict)
+    eventbrite_data: dict = field(default_factory=dict)
     airtable_data: dict = field(default_factory=dict)
 
     @classmethod
@@ -498,6 +501,16 @@ class Event:
             return None
         m = cls()
         m.neon_search_data = data
+        return m
+
+    @classmethod
+    def from_eventbrite_search(cls, data):
+        """Parses out all relevant info from eventbrite"""
+        if not data:
+            return None
+        m = cls()
+        m.eventbrite_data = data
+        print(m.eventbrite_data)
         return m
 
     def set_attendee_data(self, data):
@@ -520,8 +533,13 @@ class Event:
         if data:
             self.neon_ticket_data = data
 
-    def _resolve(self, fetch_field, search_field):
+    def _resolve(self, fetch_field, search_field, eventbrite_field=None):
         """Resolve a field from either neon_search_data or neon_raw_data"""
+        if self.eventbrite_data and eventbrite_field:
+            v = self.eventbrite_data
+            for f in eventbrite_field:
+                v = v.get(f, {})
+            return v if v else None
         return (
             self.neon_raw_data.get(fetch_field)
             or self.neon_search_data.get(search_field)
@@ -533,10 +551,14 @@ class Event:
         Only called when self.attr doesn't exist - instance attribute access only.
         """
         resolvable_fields = {
-            "neon_id": ("id", "Event ID"),
-            "name": ("name", "Event Name"),
-            "description": ("description", "Event Description"),
-            "capacity": ("maximumAttendees", "Event Capacity"),
+            "neon_id": ("id", "Event ID", ["id"]),  # TODO rename to evt_id
+            "name": ("name", "Event Name", ["name", "text"]),
+            "description": (
+                "description",
+                "Event Description",
+                ["description", "html"],
+            ),
+            "capacity": ("maximumAttendees", "Event Capacity", ["capacity"]),
             "archived": ("archived", "Event Archive"),
         }
         if attr in resolvable_fields:
@@ -549,7 +571,9 @@ class Event:
             "volunteer": "Volunteer",
             "supply": "Supply State",
         }
-        if self.airtable_data and attr in airtable_fields:
+        if attr in airtable_fields:
+            if not self.airtable_data:
+                return None
             v = self.airtable_data["fields"].get(airtable_fields[attr])
             if isinstance(v, list) and len(v) == 1:
                 v = v[0]
@@ -559,8 +583,13 @@ class Event:
 
         raise AttributeError(attr)
 
-    def _resolve_date(self, d0, d1, t0, t1):
+    def _resolve_date(self, d0, d1, t0, t1, eb):
         """Returns the start date of the event"""
+        if self.eventbrite_data:
+            return dateparser.parse(self.eventbrite_data.get(eb).get("utc")).astimezone(
+                tz
+            )
+
         vd = (self.neon_raw_data or {}).get("eventDates", {}).get(
             d0
         ) or self.neon_search_data.get(d1)
@@ -596,14 +625,14 @@ class Event:
     def start_date(self):
         """Get the start date of the event"""
         return self._resolve_date(
-            "startDate", "Event Start Date", "startTime", "Event Start Time"
+            "startDate", "Event Start Date", "startTime", "Event Start Time", "start"
         )
 
     @property
     def end_date(self):
         """Get the end date of the event"""
         return self._resolve_date(
-            "endDate", "Event End Date", "endTime", "Event End Time"
+            "endDate", "Event End Date", "endTime", "Event End Time", "end"
         )
 
     @property
@@ -630,6 +659,11 @@ class Event:
     @property
     def attendee_count(self) -> int:
         """Return the number of attendees for the event"""
+        if self.eventbrite_data:
+            n = 0
+            for tc in self.eventbrite_data["ticket_classes"]:
+                n += tc["quantity_sold"]
+            return n
         return self.neon_search_data.get("Event Registration Attendee Count") or len(
             self.signups()
         )
