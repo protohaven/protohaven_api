@@ -40,9 +40,12 @@ def _search_upcoming_events(from_date, to_date):
         yield Event.from_neon_search(evt)
 
 
-def fetch_event(event_id):
+def fetch_event(event_id, fetch_tickets=False):
     """Fetch data on an individual (legacy) event in Neon"""
-    return Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
+    evt = Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
+    if fetch_tickets:
+        evt.set_ticket_data(fetch_tickets_internal_do_not_use_directly(event_id))
+    return evt
 
 
 def register_for_event(account_id, event_id, ticket_id):
@@ -250,7 +253,7 @@ def _search_members_internal(
     return multiple results."""
 
     if merge_bios:
-        merge_bios = {row['fields']['Email'].strip().lower(): row for row in merge_bios}
+        merge_bios = {row["fields"]["Email"].strip().lower(): row for row in merge_bios}
 
     for acct in neon_base.paginated_search(
         params,

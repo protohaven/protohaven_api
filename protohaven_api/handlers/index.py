@@ -185,6 +185,19 @@ def events_dashboard_attendee_count():
     return str(attendees)
 
 
+@page.route("/events/tickets")
+def event_ticket_info():
+    """Gets the attendee count for a given event, by its neon ID"""
+    event_id = request.args.get("id")
+    if event_id is None:
+        raise RuntimeError("Requires param id")
+    if eventbrite.is_valid_id(event_id):
+        evt = eventbrite.fetch_event(event_id)
+    else:
+        evt = neon.fetch_event(event_id, fetch_tickets=True)
+    return list(evt.ticket_options)
+
+
 @page.route("/events/upcoming")
 def upcoming_events():
     """Show relevant upcoming events."""
@@ -200,12 +213,12 @@ def upcoming_events():
                 "id": evt.neon_id,
                 "name": evt.name,
                 "date": evt.start_date,
+                "description": evt.description,
                 "instructor": evt.instructor_name,
-                "start_date": evt.start_date.strftime("%a %b %d"),
-                "start_time": evt.start_date.strftime("%-I:%M %p"),
-                "end_date": evt.end_date.strftime("%a %b %d"),
-                "end_time": evt.end_date.strftime("%-I:%M %p"),
+                "start": evt.start_date.isoformat(),
+                "end": evt.end_date.isoformat(),
                 "capacity": evt.capacity,
+                "url": evt.url,
                 "registration": evt.registration
                 and evt.start_date - datetime.timedelta(hours=24) > now,
             }

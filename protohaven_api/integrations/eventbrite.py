@@ -20,17 +20,20 @@ def fetch_events(include_ticketing=True, status="live"):
     url = f"/organizations/{get_config('eventbrite/organization_id')}/events/"
     params = {}
     if status:
-        params['status'] = status
+        params["status"] = status
     if include_ticketing:
         params["expand"] = "ticket_classes"
     for _ in range(100):
         rep = get_connector().eventbrite_request("GET", url, params=params)
-        for data in rep['events']:
+        for data in rep["events"]:
             yield Event.from_eventbrite_search(data)
-        if not rep['pagination']['has_more_items']:
+        if not rep["pagination"]["has_more_items"]:
             break
-        params["continuation"] = rep['pagination']['continuation']
+        params["continuation"] = rep["pagination"]["continuation"]
 
 
 def fetch_event(evt_id):
-    return Event.from_eventbrite_search(get_connector().eventbrite_request("GET", f"/events/{evt_id}"))
+    """Fetch a single event from eventbrite"""
+    return Event.from_eventbrite_search(
+        get_connector().eventbrite_request("GET", f"/events/{evt_id}")
+    )

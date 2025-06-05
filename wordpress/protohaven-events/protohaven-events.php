@@ -125,12 +125,15 @@ function ph_neon_register_routes() {
 }
 
 function ph_neon_events() {
+	error_log("Fetching /events/upcoming");
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
 	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
 	$url = $baseurl."/events/upcoming";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		return "Error: " . $response->get_error_message();
+		# TODO fallback to direct Neon API calls
+		error_log( "Error fetching /events/upcoming: " . $response->get_error_message() );
+		return "Events fetch error: " . $response->get_error_message();
 	}
 	// Wish we didn't have to do this decode step just to encode it again...
 	return json_decode(wp_remote_retrieve_body($response), true);
@@ -139,10 +142,12 @@ function ph_neon_events() {
 function ph_neon_event_tickets($evt_id) {
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
 	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
-	$url = $baseurl."/events/attendees?id=$evt_id";
+	$url = $baseurl."/events/tickets?id=$evt_id";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		return "Error: " . $response->get_error_message();
+		# TODO fallback to direct Neon API calls
+		error_log( "Error fetching /events/attendees?id=$evt_id: " . $response->get_error_message() );
+		return "Ticket fetch error: " . $response->get_error_message();
 	}
 	// Wish we didn't have to do this decode step just to encode it again...
 	return json_decode(wp_remote_retrieve_body($response), true);
@@ -153,7 +158,7 @@ function ph_neon_event_tickets_cached() {
 	$CACHE_ID = "ph_neon_event_tickets_$evt_id";
 	$result = wp_cache_get($CACHE_ID);
 	// Here we cache at 30 mins since ticket information is volatile.
-	if ( false === $result || $result[1] < (time() - (30*60)) ) {
+	if ( false === $result || $result[1] < (time() - (30*60)) || isset($_GET['nocache']) ) {
 		$result = array(ph_neon_event_tickets($evt_id), time());
 		if ($result[0] == 'Error') {
 			return $result[0];

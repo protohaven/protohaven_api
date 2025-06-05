@@ -196,6 +196,25 @@ class Connector:
         except requests.exceptions.JSONDecodeError:
             return r.content
 
+    def eventbrite_request(self, mode, api_suffix, *args, **kwargs):
+        """Make a request to Eventbrite"""
+        url = urljoin(get_config("eventbrite/base_url"), api_suffix.lstrip("/"))
+        headers = {
+            "Authorization": f"Bearer {get_config('eventbrite/token')}",
+        }
+        r = requests.request(
+            mode, url, *args, headers=headers, timeout=self.timeout, **kwargs
+        )
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"eventbrite_request(mode={mode}, url={url}, args={args}, "
+                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+            )
+        try:
+            return r.json()
+        except requests.exceptions.JSONDecodeError:
+            return r.content
+
     def bookstack_download(self, api_suffix, dest):
         """Download a file from the Bookstack wiki"""
         url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))

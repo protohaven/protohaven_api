@@ -510,7 +510,6 @@ class Event:
             return None
         m = cls()
         m.eventbrite_data = data
-        print(m.eventbrite_data)
         return m
 
     def set_attendee_data(self, data):
@@ -583,19 +582,24 @@ class Event:
 
         raise AttributeError(attr)
 
-    def _resolve_date(self, d0, d1, t0, t1, eb):
+    def _resolve_date(self, dtfetch, dtsearch, eb):
         """Returns the start date of the event"""
         if self.eventbrite_data:
             return dateparser.parse(self.eventbrite_data.get(eb).get("utc")).astimezone(
                 tz
             )
 
-        vd = (self.neon_raw_data or {}).get("eventDates", {}).get(
-            d0
-        ) or self.neon_search_data.get(d1)
-        vt = (self.neon_raw_data or {}).get("eventDates", {}).get(
-            t0
-        ) or self.neon_search_data.get(t1)
+        if self.neon_raw_data:
+            # /v2/events/<event_id> returns structured data, while
+            # /v2/events returns a flattened data subset
+            dates = self.neon_raw_data.get("eventDates") or self.neon_raw_data
+            vd = dates.get(dtfetch[0])
+            vt = dates.get(dtfetch[1])
+        else:
+            # /v2/events/search returns humanized string fields
+            vd = self.neon_search_data.get(dtsearch[0])
+            vt = self.neon_search_data.get(dtsearch[1])
+
         if vd and vt:
             try:
                 return dateparser.parse(f"{vd} {vt}").astimezone(tz)
@@ -625,14 +629,16 @@ class Event:
     def start_date(self):
         """Get the start date of the event"""
         return self._resolve_date(
-            "startDate", "Event Start Date", "startTime", "Event Start Time", "start"
+            ("startDate", "startTime"),
+            ("Event Start Date", "Event Start Time"),
+            "start",
         )
 
     @property
     def end_date(self):
         """Get the end date of the event"""
         return self._resolve_date(
-            "endDate", "Event End Date", "endTime", "Event End Time", "end"
+            ("endDate", "endTime"), ("Event End Date", "Event End Time"), "end"
         )
 
     @property
@@ -705,4 +711,34 @@ class Event:
         for t in self.neon_ticket_data:
             if t["name"] == "Single Registration":
                 return t["id"]
+        return None
+
+    @property
+    def ticket_options(self):
+        """Fetch the ticketing options for the event - requires ticket data loaded"""
+        for tc in self.eventbrite_data.get("ticket_classes") or []:
+            yield {
+                "id": tc["id"],
+                "name": tc["name"],
+                "price": float(tc["cost"]["major_value"]),
+                "total": tc["quantity_total"],
+                "sold": tc["quantity_sold"],
+            }
+        for t in self.neon_ticket_data or []:
+            yield {
+                "id": t["id"],
+                "name": t["name"],
+                "price": t["fee"],
+                "total": t["maxNumberAvailable"],
+                "sold": t["maxNumberAvailable"] - t["numberRemaining"],
+            }
+
+    @property
+    def url(self):
+        """Fetches the canonical URL for this event"""
+        if self.eventbrite_data:
+            return self.eventbrite_data.get("url")
+        nid = self.neon_id
+        if nid:
+            return f"https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event={nid}"
         return None
