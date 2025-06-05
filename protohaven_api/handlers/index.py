@@ -195,7 +195,13 @@ def event_ticket_info():
         evt = eventbrite.fetch_event(event_id)
     else:
         evt = neon.fetch_event(event_id, fetch_tickets=True)
-    return list(evt.ticket_options)
+    tickets = []
+    for t in evt.ticket_options:
+        # While this is technically a no-op, it's a reminder that this response
+        # format is expected to have exactly these fields when fetched from the
+        # protohaven-events wordpress plugin.
+        tickets.append({k: t[k] for k in ("id", "name", "price", "total", "sold")})
+    return tickets
 
 
 @page.route("/events/upcoming")
@@ -206,13 +212,13 @@ def upcoming_events():
     for evt in eauto.fetch_upcoming_events(merge_airtable=True):
         # Don't list private instruction, expired classes,
         # or classes without dates
+        log.info(str(evt.end_date))
         if not evt.start_date or evt.in_blocklist or evt.end_date < now:
             continue
         events.append(
             {
                 "id": evt.neon_id,
                 "name": evt.name,
-                "date": evt.start_date,
                 "description": evt.description,
                 "instructor": evt.instructor_name,
                 "start": evt.start_date.isoformat(),
@@ -224,8 +230,8 @@ def upcoming_events():
             }
         )
 
-    events.sort(key=lambda e: e["date"])
-    return {"now": now, "events": events}
+    events.sort(key=lambda e: e["start"])
+    return {"now": now.isoformat(), "events": events}
 
 
 @page.route("/events/shop")

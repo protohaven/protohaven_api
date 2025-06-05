@@ -7,13 +7,14 @@ from protohaven_api.integrations import airtable, eventbrite, neon, neon_base
 from protohaven_api.integrations.models import Event
 
 
-def _fetch_upcoming_events_neon(
+def fetch_upcoming_events_neon(
     after,
     published=True,
     airtable_map=None,
     fetch_attendees=False,
     fetch_tickets=False,
 ):
+    """Fetch only neon upcoming events"""
     q_params = {
         "endDateAfter": after.strftime("%Y-%m-%d"),
         "archived": False,
@@ -54,7 +55,7 @@ def fetch_upcoming_events(
         airtable_map = None
 
     after = tznow() - datetime.timedelta(days=back_days)
-    yield from _fetch_upcoming_events_neon(
+    yield from fetch_upcoming_events_neon(
         after, published, airtable_map, fetch_attendees, fetch_tickets
     )
     for evt in eventbrite.fetch_events(status="live,started,ended,completed"):
