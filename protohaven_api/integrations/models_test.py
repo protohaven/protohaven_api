@@ -151,8 +151,20 @@ def test_has_open_seats_below_price():
     """Test ticket quanty is returned if under max price"""
     evt = Event()
     evt.neon_ticket_data = [
-        {"name": "Single Registration", "fee": 50, "numberRemaining": 5},
-        {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
+        {
+            "id": 123,
+            "name": "Single Registration",
+            "fee": 50,
+            "numberRemaining": 5,
+            "maxNumberAvailable": 7,
+        },
+        {
+            "id": 345,
+            "name": "VIP Registration",
+            "fee": 80,
+            "numberRemaining": 2,
+            "maxNumberAvailable": 4,
+        },
     ]
     assert evt.has_open_seats_below_price(100) == 5
     assert evt.has_open_seats_below_price(49) == 0
