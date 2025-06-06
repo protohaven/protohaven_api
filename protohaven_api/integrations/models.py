@@ -446,31 +446,53 @@ class Member:  # pylint:disable=too-many-public-methods
 
 @dataclass
 class Attendee:
-    """A canonical format for Neon event data"""
+    """A canonical format for event data"""
 
     neon_raw_data: dict = field(default_factory=dict)
+    eventbrite_data: dict = field(default_factory=dict)
 
     @property
     def neon_id(self):
-        """Neon ID of the attendee account"""
-        return self.neon_raw_data.get("accountId") or self.neon_raw_data.get(
-            "registrantAccountId"
+        """ID of the attendee account"""
+        return (
+            self.neon_raw_data.get("accountId")
+            or self.neon_raw_data.get("registrantAccountId")
+            or self.eventbrite_data.get("id")
         )
 
     @property
     def email(self):
         """Email address of the attendee"""
-        return self.neon_raw_data.get("email")
+        return self.neon_raw_data.get("email") or self.eventbrite_data.get(
+            "profile", {}
+        ).get("email")
 
     @property
     def fname(self):
         """First name of the attendee"""
-        return self.neon_raw_data.get("firstName")
+        return self.neon_raw_data.get("firstName") or self.eventbrite_data.get(
+            "profile", {}
+        ).get("first_name")
 
     @property
     def name(self):
         """Full name of the attendee"""
-        return self.name + self.neon_raw_data.get("lastName")
+        return (
+            self.fname
+            + " "
+            + (
+                self.neon_raw_data.get("lastName")
+                or self.eventbrite_data.get("profile", {}).get("last_name")
+            )
+        )
+
+    @property
+    def valid(self):
+        """Return true if the attendee has paid successfully and not cancelled"""
+        return self.neon_raw_data.get("registrationStatus") == "SUCCEEDED" or (
+            not self.eventbrite_data.get("cancelled")
+            and not self.eventbrite_data.get("refunded")
+        )
 
 
 @dataclass
@@ -482,6 +504,7 @@ class Event:
     neon_attendee_data: dict = field(default_factory=dict)
     neon_ticket_data: dict = field(default_factory=dict)
     eventbrite_data: dict = field(default_factory=dict)
+    eventbrite_attendee_data: list = field(default_factory=list)
     airtable_data: dict = field(default_factory=dict)
 
     @classmethod
@@ -515,7 +538,10 @@ class Event:
     def set_attendee_data(self, data):
         """Adds attendee data to an existing Event instance"""
         if data:
-            self.neon_attendee_data = data
+            if self.eventbrite_data:
+                self.eventbrite_attendee_data = data
+            else:
+                self.neon_attendee_data = data
 
     def set_airtable_data(self, data):
         """Adds airtable data to an existing Event instance"""
@@ -550,7 +576,9 @@ class Event:
         Only called when self.attr doesn't exist - instance attribute access only.
         """
         resolvable_fields = {
-            "neon_id": ("id", "Event ID", ["id"]),  # TODO rename to evt_id
+            # We should eventually rename neon_id to event_id
+            # since we support Eventbrite as well
+            "neon_id": ("id", "Event ID", ["id"]),
             "name": ("name", "Event Name", ["name", "text"]),
             "description": (
                 "description",
@@ -558,7 +586,6 @@ class Event:
                 ["description", "html"],
             ),
             "capacity": ("maximumAttendees", "Event Capacity", ["capacity"]),
-            "archived": ("archived", "Event Archive"),
         }
         if attr in resolvable_fields:
             return self._resolve(*resolvable_fields[attr])
@@ -613,6 +640,16 @@ class Event:
         return (
             self.neon_raw_data.get("publishEvent")
             or (self.neon_search_data.get("Event Web Publish") == "Yes")
+            or self.eventbrite_data.get("listed")
+            or False
+        )
+
+    @property
+    def archived(self) -> bool:
+        """Return True if archived"""
+        return (
+            self.neon_raw_data.get("archived")
+            or (self.neon_search_data.get("Event Archive") == "Yes")
             or False
         )
 
@@ -622,6 +659,7 @@ class Event:
         return (
             self.neon_raw_data.get("enableEventRegistrationForm")
             or (self.neon_search_data.get("Event Web Register") == "Yes")
+            or (self.eventbrite_data.get("status") == "live")
             or False
         )
 
@@ -644,23 +682,22 @@ class Event:
     @property
     def attendees(self) -> Generator[Attendee, None, None]:
         """With attendee data, returns Attendee instances"""
-        if not self.neon_attendee_data:
-            raise RuntimeError("Missing attendee data for call to attendees()")
+        for a in self.eventbrite_attendee_data:
+            at = Attendee()
+            at.eventbrite_data = a
+            yield at
         for a in self.neon_attendee_data:
             at = Attendee()
             at.neon_raw_data = a
             yield at
 
     @property
-    def signups(self) -> list[int]:
+    def signups(self) -> set[int]:
         """With attendee data, compute number of unique registrants for the event"""
-        if not self.neon_attendee_data:
+        if not self.neon_attendee_data and not self.eventbrite_attendee_data:
             raise RuntimeError("Missing attendee data for call to occupancy()")
-        return {
-            a["accountId"]
-            for a in self.neon_attendee_data
-            if a["registrationStatus"] == "SUCCEEDED"
-        }
+
+        return {at.neon_id for at in self.attendees if at.valid}
 
     @property
     def attendee_count(self) -> int:
@@ -671,13 +708,13 @@ class Event:
                 n += tc["quantity_sold"]
             return n
         return self.neon_search_data.get("Event Registration Attendee Count") or len(
-            self.signups()
+            self.signups
         )
 
     @property
     def occupancy(self):
         """With attendee data, compute occupancy of the event"""
-        if not self.neon_attendee_data:
+        if not self.neon_attendee_data and not self.eventbrite_data:
             raise RuntimeError("Missing attendee data for call to occupancy()")
         return 0 if not self.capacity else len(self.signups) / self.capacity
 
@@ -691,25 +728,30 @@ class Event:
 
     def has_open_seats_below_price(self, max_price):
         """Returns a count if the event has open seats within max_price"""
-        if not self.neon_ticket_data:
+        if not self.neon_ticket_data and not self.eventbrite_data:
             raise RuntimeError(
                 "Missing ticket data for call to has_open_seats_below_price"
             )
-        for t in self.neon_ticket_data:
+        for t in self.ticket_options:
             if (
-                t["name"] == "Single Registration"
-                and t["fee"] > 0
-                and t["fee"] <= max_price
-                and t["numberRemaining"] > 0
+                # Neon offers discounted rates for special groups; eventbrite has no restriction
+                (t["name"] == "Single Registration" if self.neon_ticket_data else True)
+                and t["price"] > 0
+                and t["price"] <= max_price
+                and t["sold"] < t["total"]
             ):
-                return t["numberRemaining"]
+                return t["total"] - t["sold"]
         return 0
 
     @property
     def single_registration_ticket_id(self):
         """Get the ticket ID for a "single registration" style event ticket"""
-        for t in self.neon_ticket_data:
-            if t["name"] == "Single Registration":
+        if not self.neon_ticket_data and not self.eventbrite_data:
+            raise RuntimeError(
+                "Missing ticket data for call to single_registration_ticket_id"
+            )
+        for t in self.ticket_options:
+            if t["name"] in ("Single Registration", "General"):
                 return t["id"]
         return None
 

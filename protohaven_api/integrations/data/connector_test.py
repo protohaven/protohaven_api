@@ -174,3 +174,58 @@ def test_bookstack_request_failure(mocker):
         c.bookstack_request("GET", "/api/data")
 
     assert "404: Not Found" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "response_content,json_error,expected_result,expected_error",
+    [
+        (
+            {"success": True},
+            None,
+            {"success": True},
+            None,
+        ),
+        (
+            b"Server Error",
+            None,
+            None,
+            "returned 500",
+        ),
+        (
+            b"Non-JSON response",
+            con.requests.exceptions.JSONDecodeError("Error", "doc", 0),
+            b"Non-JSON response",
+            None,
+        ),
+    ],
+)
+def test_eventbrite_request(
+    mocker, response_content, json_error, expected_result, expected_error
+):
+    """Test Eventbrite request with various scenarios"""
+    mock_response = mocker.Mock()
+    mock_response.status_code = 200 if expected_result else 500
+    mock_response.json.return_value = response_content
+    mock_response.content = response_content
+    if json_error:
+        mock_response.json.side_effect = json_error
+
+    mocker.patch.object(con.requests, "request", return_value=mock_response)
+    mocker.patch.object(
+        con,
+        "get_config",
+        side_effect={
+            "connector/timeout": 5.0,
+            "eventbrite/base_url": "https://api.eventbrite.com/",
+            "eventbrite/token": "test_token",
+        }.get,
+    )
+
+    connector = con.Connector()
+    if expected_error:
+        with pytest.raises(RuntimeError) as excinfo:
+            connector.eventbrite_request("GET", "/test")
+        assert expected_error in str(excinfo.value)
+    else:
+        result = connector.eventbrite_request("GET", "/test")
+        assert result == expected_result

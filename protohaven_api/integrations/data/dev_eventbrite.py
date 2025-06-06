@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Flask, Response, request
+from flask import Flask, Response
 
 from protohaven_api.integrations import airtable_base
 
@@ -10,8 +10,9 @@ app = Flask(__file__)
 
 log = logging.getLogger("integrations.data.dev_eventbrite")
 
+
 @app.route("/organizations/<org_id>/events/", methods=["GET"])
-def get_events(org_id):
+def get_events(org_id):  # pylint: disable=unused-argument
     """Mock events endpoint for Neon - needs to be completed"""
     return {
         "events": [
@@ -28,13 +29,15 @@ def get_event(evt_id):
     for row in airtable_base.get_all_records("fake_eventbrite", "events"):
         if str(row["fields"]["event_id"]) == str(evt_id):
             return row["fields"]["data"]
-    Response("Not found", status=404)
+
+    return Response("Not found", status=404)
+
 
 client = app.test_client()
 
-def handle(mode, url, json=None, params=None):
+
+def handle(mode, url):
     """Local execution of mock flask endpoints for Eventbrite"""
     if mode == "GET":
         return client.get(url)
     raise RuntimeError(f"mode not supported: {mode}")
-
