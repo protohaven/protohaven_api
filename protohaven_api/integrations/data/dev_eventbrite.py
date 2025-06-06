@@ -36,7 +36,7 @@ def get_event(evt_id):
 client = app.test_client()
 
 
-def handle(mode, url):
+def handle(mode, url, params=None):  # pylint: disable=unused-argument
     """Local execution of mock flask endpoints for Eventbrite"""
     if mode == "GET":
         return client.get(url)

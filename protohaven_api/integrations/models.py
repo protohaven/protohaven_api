@@ -496,7 +496,7 @@ class Attendee:
 
 
 @dataclass
-class Event:
+class Event:  # pylint: disable=too-many-public-methods
     """A canonical format for Neon event data"""
 
     neon_raw_data: dict = field(default_factory=dict)
@@ -585,7 +585,6 @@ class Event:
                 "Event Description",
                 ["description", "html"],
             ),
-            "capacity": ("maximumAttendees", "Event Capacity", ["capacity"]),
         }
         if attr in resolvable_fields:
             return self._resolve(*resolvable_fields[attr])
@@ -633,6 +632,17 @@ class Event:
             except dateparser.ParserError as e:
                 log.error(e)
         return None
+
+    @property
+    def capacity(self):
+        """Return capcaity of the event"""
+        return (
+            self.neon_raw_data.get("capacity")
+            or self.neon_raw_data.get("maximumAttendees")
+            or self.neon_search_data.get("Event Capacity")
+            or self.eventbrite_data.get("capacity")
+            or None
+        )
 
     @property
     def published(self) -> bool:

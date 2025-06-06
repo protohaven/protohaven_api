@@ -19,6 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $PH_OPTIONS_GROUP_ID = 'ph_events_api_settings';
 $PH_PROTOHAVEN_API_URL_OPTION_ID = 'ph_events_protohaven_api_url';
+$PH_NEON_TOKEN_OPTION_ID = 'ph_events_api_key';
 $PH_SETTINGS_SLUG = 'ph-events-custom-settings-page';
 
 function ph_events_register_custom_settings_page() {
@@ -51,11 +52,18 @@ function ph_events_render_settings_section(){
 	echo '<p>Settings for Neon CRM events integration. See <a href="https://github.com/protohaven/protohaven_api" target="_blank">github.com/protohaven/protohaven_api</a> for details.</p>';
 }
 
-function ph_events_render_api_key_settings_field() {
+function ph_events_render_url_settings_field() {
 	global $PH_OPTIONS_GROUP_ID;
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
   echo "<input name='$PH_PROTOHAVEN_API_URL_OPTION_ID' type='text' value='" . esc_attr(get_option($PH_PROTOHAVEN_API_URL_OPTION_ID)) . "' />";
 }
+
+function ph_events_render_api_key_settings_field() {
+	global $PH_OPTIONS_GROUP_ID;
+	global $PH_NEON_TOKEN_OPTION_ID;
+  echo "<input name='$PH_NEON_TOKEN_OPTION_ID' type='text' value='" . esc_attr(get_option($PH_NEON_TOKEN_OPTION_ID)) . "' />";
+}
+
 
 function ph_events_validate_options( $input ) {
   return $input; // Passthrough
@@ -65,6 +73,7 @@ function ph_events_register_settings() {
 	global $PH_SETTINGS_SLUG;
 	global $PH_OPTIONS_GROUP_ID;
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
+	global $PH_NEON_TOKEN_OPTION_ID;
 
   register_setting(
 			$PH_OPTIONS_GROUP_ID, // option group
@@ -82,6 +91,14 @@ function ph_events_register_settings() {
 	add_settings_field(
 		$PH_PROTOHAVEN_API_URL_OPTION_ID, // settings field id
 		'protohaven_api server base url (e.g. http://protohaven_api:5000/', // title
+		'ph_events_render_url_settings_field', // callback
+		$PH_SETTINGS_SLUG, // settings page
+		$PH_OPTIONS_GROUP_ID// section
+	);
+
+	add_settings_field(
+		$PH_NEON_TOKEN_OPTION_ID, // settings field id
+		'Neon CRM user token', // title
 		'ph_events_render_api_key_settings_field', // callback
 		$PH_SETTINGS_SLUG, // settings page
 		$PH_OPTIONS_GROUP_ID// section
@@ -124,6 +141,42 @@ function ph_neon_register_routes() {
     );
 }
 
+function ph_neon_events_fallback() {
+	// Note: this is a fallback option for if the API server is down.
+	// It's normally paginated, but since we're in a degraded state
+	// we can ignore that to reduce complexity.
+	global $PH_NEON_TOKEN_OPTION_ID;
+	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
+	$url = "https://protohaven:$token@api.neoncrm.com/v2/events";
+	$query_params = [
+			'endDateAfter' => date('Y-m-d'),
+			'publishedEvent' => true,
+			'archived' => false,
+			'pageSize' => 200,
+	];
+	$url .= '?' . http_build_query($query_params);
+	$response = wp_remote_get($url);
+	if (is_wp_error($response)) {
+		error_log( "Fallback error: " . $response->get_error_message() );
+		return "Fallback error: " . $response->get_error_message();
+	}
+	$response = json_decode(wp_remote_retrieve_body($response), true);
+
+	foreach ($response["events"] as $evt) {
+		$result[] = array(
+				"id" => $evt["id"],
+				"name" => $evt["name"],
+				"description" => $evt["description"],
+				"start" => $evt["startDate"] . " " . $evt["startTime"],
+				"end" => $evt["endDate"] . " " . $evt["endTime"],
+				"capacity" => $evt["capacity"],
+				"url" => "https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=" . $evt["id"],
+		);
+	}
+	return array("events" => $result);
+}
+
+
 function ph_neon_events() {
 	error_log("Fetching /events/upcoming");
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
@@ -131,12 +184,41 @@ function ph_neon_events() {
 	$url = $baseurl."/events/upcoming";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		# TODO fallback to direct Neon API calls
 		error_log( "Error fetching /events/upcoming: " . $response->get_error_message() );
-		return "Events fetch error: " . $response->get_error_message();
+		error_log( "Trying fallback method" );
+		return ph_neon_events_fallback();
 	}
-	// Wish we didn't have to do this decode step just to encode it again...
-	return json_decode(wp_remote_retrieve_body($response), true);
+	$result = json_decode(wp_remote_retrieve_body($response), true);
+	if (is_null($result) || !$result) {
+		error_log("Empty result; trying fallback");
+		return ph_neon_events_fallback();
+	}
+	return $result;
+}
+
+function ph_neon_event_tickets_fallback($neon_id) {
+	global $PH_NEON_TOKEN_OPTION_ID;
+	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
+	$url = "https://protohaven:$token@api.neoncrm.com/v2/events/$neon_id/tickets";
+	$response = wp_remote_get($url);
+	if (is_wp_error($response)) {
+		error_log( "Fallback error: " . $response->get_error_message() );
+		return "Ticket fetch error: " . $response->get_error_message();
+	}
+
+	$result = [];
+	$response = json_decode(wp_remote_retrieve_body($response), true);
+	foreach($response as $t) {
+		$result[] = array(
+				"id" => $t["id"],
+				"name" => $t["name"],
+				"price" => $t["fee"],
+				"total" => $t["maxNumberAvailable"],
+				"sold" => $t["maxNumberAvailable"] - $t["numberRemaining"],
+		);
+	}
+	error_log("Fallback complete");
+	return $result;
 }
 
 function ph_neon_event_tickets($evt_id) {
@@ -145,12 +227,16 @@ function ph_neon_event_tickets($evt_id) {
 	$url = $baseurl."/events/tickets?id=$evt_id";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		# TODO fallback to direct Neon API calls
 		error_log( "Error fetching /events/attendees?id=$evt_id: " . $response->get_error_message() );
-		return "Ticket fetch error: " . $response->get_error_message();
+	  error_log( "Trying fallback method" );
+		return ph_neon_event_tickets_fallback($evt_id);
 	}
-	// Wish we didn't have to do this decode step just to encode it again...
-	return json_decode(wp_remote_retrieve_body($response), true);
+	$result = json_decode(wp_remote_retrieve_body($response), true);
+	if (is_null($result) || !$result) {
+		error_log("Empty result; trying fallback");
+		return ph_neon_event_tickets_fallback($evt_id);
+	}
+	return $result;
 }
 
 function ph_neon_event_tickets_cached() {

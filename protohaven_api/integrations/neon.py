@@ -570,9 +570,7 @@ class AccountCache(WarmDict):
         d = super().get(a.email, {})  # Don't trigger cache miss
         d[a.neon_id] = a
         self[a.email] = d
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a.fname} {a.lname}")] = a[
-            "Email 1"
-        ]
+        self.fuzzy[rapidfuzz.utils.default_process(f"{a.fname} {a.lname}")] = a.email
         self.fuzzy[rapidfuzz.utils.default_process(f"{a.email}")] = a.email
         if a.booked_id:
             self.by_booked_id[a.booked_id] = a
