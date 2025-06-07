@@ -18,6 +18,29 @@ def test_send_discord_message_with_role_embed(mocker):
     )
 
 
+def test_send_discord_message_with_user_embed(mocker):
+    """Ensure that @user mentions are properly converted to user IDs"""
+    mocker.patch.object(c, "get_connector")
+    c.get_connector().discord_bot_fn.return_value = "userid"
+    c.send_discord_message("Hello @displayname", "#techs-live")
+    c.get_connector().discord_bot_fn.assert_called_with(
+        "resolve_user_id", "displayname"
+    )
+    c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
+        mocker.ANY, "Hello <@userid>"
+    )
+
+
+def test_send_discord_message_with_user_embed_error(mocker):
+    """Ensure that errors when resolving user IDs are ignored"""
+    mocker.patch.object(c, "get_connector")
+    c.get_connector().discord_bot_fn.side_effect = RuntimeError("test")
+    c.send_discord_message("Hello @displayname", "#techs-live")
+    c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
+        mocker.ANY, "Hello @displayname"
+    )
+
+
 def test_send_discord_message_dm(mocker):
     """Ensure #user targets are sent via DM"""
     mocker.patch.object(

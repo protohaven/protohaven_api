@@ -139,11 +139,14 @@ def send_discord_message(content, channel=None, blocking=True):
             if user_id is not None:
                 log.info(f"Replacing {s} with user id tag {user_id}")
                 return f"<@{user_id}>"
-
             log.info("No user or role match; leaving it alone")
-        except AttributeError:
-            traceback.print_exc()  # We shouldn't let substitution failing prevent message sending
-        return s
+            return s
+        except Exception:  # pylint: disable=broad-exception-caught
+            traceback.print_exc() # We shouldn't let substitution failing prevent message sending
+            log.info(
+                "Ignoring discord role/user resolution failure; continuing anyways..."
+            )
+            return s
 
     # Usernames are alphanumeric and can contain periods and underscores
     # https://gamertweak.com/new-username-system-discord/
