@@ -3,6 +3,11 @@ import {Item} from './item';
 import { useEffect, useState } from '@wordpress/element';
 
 export function App( { imgSize, initialData } ) {
+	if (!initialData) {
+		console.error("initialData is", initialData);
+		return <div style={{textAlign: "center", fontWeight: "bold"}}>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohave.norg">hello@protohaven.org</a></div>;
+	}
+
 	const [classes, setClasses] = useState([]);
 	const [areas, setAreas] = useState(new Set());
 	const [levels, setLevels] = useState(new Set());
@@ -15,35 +20,30 @@ export function App( { imgSize, initialData } ) {
 		let tmpAreas = new Set();
 		let tmpLevels = new Set();
 		console.log(initialData);
-		function processPartial(partial) {
-			const [c2, a2, l2] = process(partial, tmpClasses, tmpAreas, tmpLevels);
-			setClasses(Object.values(c2));
-			setAreas(tmpAreas);
-			setLevels(tmpLevels);
-			Object.values(c2).forEach((c) => {
-				Object.entries(c.times).forEach(([tid, t]) => {
-					get_event_tickets(tid).then((data) => {
-						let price = null;
-						let discount = null;
-						data.forEach((p) => {
-							if (p.name === 'Single Registration') {
-								t.price = p.fee;
-							} else if (p.name === 'Member Rate') {
-								t.discount = p.fee;
-							}
-							t.sold = (t.sold || 0) + (p.maxNumberAvailable - p.numberRemaining);
-						});
-						setClasses(Object.values(c2)); // Trigger rerender
+		const [c2, a2, l2] = process(initialData.events, tmpClasses, tmpAreas, tmpLevels);
+		setClasses(Object.values(c2));
+		setAreas(tmpAreas);
+		setLevels(tmpLevels);
+		Object.values(c2).forEach((c) => {
+			Object.entries(c.times).forEach(([tid, t]) => {
+				get_event_tickets(tid).then((data) => {
+					let price = null;
+					let discount = null;
+					data.forEach((p) => {
+						if (p.name === 'Single Registration') {
+							t.price = p.price;
+						} else if (p.name === 'Member Rate') {
+							t.discount = p.price;
+						} else if (!t.price) {
+							t.price = p.price; // Fall back to any price data if present
+						}
+						t.sold = (t.sold || 0) + p.sold;
 					});
+					console.log("t.sold", t.sold);
+					setClasses(Object.values(c2)); // Trigger rerender
 				});
 			});
-		}
-
-		processPartial(initialData.events);
-		if (initialData.pagination.totalResults > initialData.pagination.pageSize) {
-			fetch_remaining_events(initialData.pagination.pageSize, processPartial);
-		}
-
+		});
 	}, []);
 	const items = classes.map((c) => {
 		const p = pricing[c.name] || {remaining: null, price: null, discount: null};

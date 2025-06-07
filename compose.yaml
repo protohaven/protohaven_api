@@ -12,8 +12,8 @@ services:
       PH_CONFIG: "config.yaml"
       PH_SERVER_MODE: "dev"
       UNSAFE_NO_RBAC: true
-      NOCODB_HOST: "nocodb"
-      NOCODB_PORT: "9090"
+      NOCODB_HOST: "nocodb_frontend"
+      NOCODB_PORT: "8080" # Note: we're using the internal port since we're operating inside the docker network
     configs:
       - source: ph-config
         target: /config.yaml
@@ -123,6 +123,7 @@ services:
       - WORDPRESS_DB_HOST=wordpress_db
       - WORDPRESS_DB_USER=root
       - WORDPRESS_DB_PASSWORD=password
+      - WORDPRESS_DEBUG=1
     depends_on:
       - wordpress_db
       - flask
@@ -146,6 +147,8 @@ services:
       context: ./wordpress/protohaven-events/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_events_plugin_dev
+    volumes:
+      - ./wordpress/protohaven-events/build:/code/build
     develop:
       watch:
         - action: sync
@@ -168,6 +171,8 @@ services:
       context: ./wordpress/protohaven-airtable-grid/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_airtable-grid_plugin_dev
+    volumes:
+      - ./wordpress/protohaven-airtable-grid/build:/code/build
     develop:
       watch:
         - action: sync
@@ -190,6 +195,8 @@ services:
       context: ./wordpress/protohaven-class-ticker/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_class-ticker_plugin_dev
+    volumes:
+      - ./wordpress/protohaven-class-ticker/build:/code/build
     develop:
       watch:
         - action: sync

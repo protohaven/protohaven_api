@@ -151,8 +151,20 @@ def test_has_open_seats_below_price():
     """Test ticket quanty is returned if under max price"""
     evt = Event()
     evt.neon_ticket_data = [
-        {"name": "Single Registration", "fee": 50, "numberRemaining": 5},
-        {"name": "VIP Registration", "fee": 80, "numberRemaining": 2},
+        {
+            "id": 123,
+            "name": "Single Registration",
+            "fee": 50,
+            "numberRemaining": 5,
+            "maxNumberAvailable": 7,
+        },
+        {
+            "id": 345,
+            "name": "VIP Registration",
+            "fee": 80,
+            "numberRemaining": 2,
+            "maxNumberAvailable": 4,
+        },
     ]
     assert evt.has_open_seats_below_price(100) == 5
     assert evt.has_open_seats_below_price(49) == 0
@@ -201,3 +213,150 @@ def test_volunteer_bio_and_picture():
         },
     }
     assert member.volunteer_picture == "http://localhost:8080/abc"
+
+
+def test_event_properties():
+    """Test all public @property methods of Event class"""
+    # Setup test data
+    start = d(0, 18)
+    end = d(0, 21)
+    neon_raw = {
+        "id": 123,
+        "name": "Test Event",
+        "description": "Test Description",
+        "maximumAttendees": 10,
+        "archived": False,
+        "publishEvent": True,
+        "enableEventRegistrationForm": True,
+        "eventDates": {
+            "startDate": start.strftime("%Y-%m-%d"),
+            "startTime": start.strftime("%H:00"),
+            "endDate": end.strftime("%Y-%m-%d"),
+            "endTime": end.strftime("%H:00"),
+        },
+    }
+    neon_search = {
+        "Event ID": 123,
+        "Event Name": "Test Event",
+        "Event Description": "Test Description",
+        "Event Capacity": 10,
+        "Event Archive": "No",
+        "Event Web Publish": "Yes",
+        "Event Web Register": "Yes",
+        "Event Start Date": start.strftime("%Y-%m-%d"),
+        "Event Start Time": start.strftime("%H:00"),
+        "Event End Date": end.strftime("%Y-%m-%d"),
+        "Event End Time": end.strftime("%H:00"),
+        "Event Registration Attendee Count": 1,
+    }
+
+    eventbrite = {
+        "id": "456",
+        "name": {"text": "Test Event"},
+        "description": {"html": "Test Description"},
+        "capacity": 10,
+        "start": {"utc": start.isoformat()},
+        "end": {"utc": end.isoformat()},
+        "url": "https://example.com",
+        "status": "live",
+        "listed": True,
+        "ticket_classes": [
+            {
+                "id": 111,
+                "name": "General",
+                "cost": {"major_value": "10.00"},
+                "quantity_total": 10,
+                "quantity_sold": 1,
+            }
+        ],
+    }
+    airtable = {
+        "fields": {
+            "Email": "test@example.com",
+            "Instructor": "Test Instructor",
+            "Supply Cost (from Class)": "10.00",
+            "Volunteer": ["Yes"],
+            "Supply State": "Ordered",
+        }
+    }
+    attendees = [
+        {
+            "accountId": 1,
+            "registrationStatus": "SUCCEEDED",
+            "email": "a@b.com",
+            "firstName": "first",
+            "lastName": "last",
+        }
+    ]
+    eb_attendees = [
+        {
+            "id": 1,
+            "cancelled": False,
+            "refunded": False,
+            "profile": {"first_name": "first", "last_name": "last", "email": "a@b.com"},
+        }
+    ]
+    tickets = [
+        {
+            "id": 111,
+            "name": "Single Registration",
+            "fee": 10,
+            "maxNumberAvailable": 10,
+            "numberRemaining": 9,
+        }
+    ]
+
+    # Test each data source
+    for source, data in [
+        ("neon_raw", neon_raw),
+        ("neon_search", neon_search),
+        ("eventbrite", eventbrite),
+    ]:
+        if source == "neon_raw":
+            evt = Event.from_neon_fetch(data)
+        elif source == "neon_search":
+            evt = Event.from_neon_search(data)
+        else:
+            evt = Event.from_eventbrite_search(data)
+
+        if "neon" in source:
+            evt.set_attendee_data(attendees)
+            evt.set_ticket_data(tickets)
+        else:
+            evt.set_attendee_data(eb_attendees)
+        evt.set_airtable_data(airtable)
+
+        # Test properties
+        assert evt.neon_id == (123 if source != "eventbrite" else "456")
+        assert evt.name == "Test Event"
+        assert evt.description
+        assert evt.capacity == 10
+        assert evt.archived is False
+        assert evt.published is True
+        assert evt.registration is True
+        assert evt.start_date == start
+        assert evt.end_date == end
+        at = list(evt.attendees)[0]
+        assert at.name == "first last"
+        assert at.email == "a@b.com"
+        assert evt.signups == {1}
+        assert list(evt.ticket_options) == [
+            {
+                "id": 111,
+                "name": "Single Registration" if "neon" in source else "General",
+                "price": 10,
+                "sold": 1,
+                "total": 10,
+            }
+        ]
+        assert evt.attendee_count == 1
+        assert evt.occupancy == 0.1
+        assert evt.in_blocklist is False
+        assert evt.has_open_seats_below_price(15) == 9
+        assert evt.single_registration_ticket_id == 111
+        assert evt.url
+        assert evt.instructor_email == "test@example.com"
+        assert evt.instructor_name == "Test Instructor"
+        assert evt.supply_cost == "10.00"
+        assert evt.volunteer == "Yes"
+        assert evt.supply == "Ordered"

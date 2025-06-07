@@ -28,7 +28,7 @@ class Approval {
   public static function getPageState(Page $page, int $rev_id, int $thresh) {
     $cc = $page->comments()->with('createdBy')->get()->all();
     $approvers = getApproverIDs();
-    $cc = array_map(function($c) { return ["html" => $c->html, "author" => $c['updated_by']]; }, $cc);
+    $cc = array_map(function($c) { return ["html" => $c->html, "author" => $c['updated_by'], "timestamp" => $c->updated_at->timestamp]; }, $cc);
 
     $result = Approval::resolveState($cc, $approvers, $thresh);
     if (!$rev_id) {
@@ -68,6 +68,7 @@ class Approval {
 
   public static function resolveState($cc, $approvers, $thresh) {
     $latest_approved = null;
+    $approval_timestamp = null;
     $revs_approval = array();
     foreach ($cc as $c) {
       if (!array_key_exists($c['author'], $approvers)) {
@@ -91,19 +92,31 @@ class Approval {
         }
         if (count($revs_approval[$m['rev']]) >= $thresh && (is_null($latest_approved) || $m['rev'] > $latest_approved)) {
           $latest_approved = $m['rev'];
+          $approval_timestamp = $c["timestamp"];
         }
       }
     }
     return array(
       "approved_revision" => $latest_approved,
+      "approval_timestamp" => $approval_timestamp,
       "approvals" => $revs_approval,
     );
   }
 }
 
-function requiresApproval($book_slug, $page_slug) {
+
+function approvalThresh($page) {
+  // Return the number of approvals needed for the given page, or 0 if none are needed.
+  foreach ($page->tags as $tag) {
+    if (strpos($tag->name, 'maint_') === 0) {
+      return 1; // Just one approval needed
+    }
+  }
   $APPROVAL_RE = getenv("PAGE_APPROVAL_REGEXP", "/tools\\/*/");
-  return preg_match($APPROVAL_RE, "$book_slug/$page_slug", $matches);
+  if (preg_match($APPROVAL_RE, $page->getUrl(), $matches)) {
+    return Approval::DEFAULT_APPROVAL_THRESH;
+  }
+  return 0;
 }
 
 Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
@@ -112,11 +125,12 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
   Log::info("Registering Protohaven custom routes");
 
   $router->get('/approvals/{book_slug}/{page_slug}/{rev_id}', function ($book_slug, $page_slug, $rev_id) {
-    if (requiresApproval($book_slug, $page_slug)) {
-      $pq = new PageQueries();
-      $page = $pq->findVisibleBySlugsOrFail($book_slug, $page_slug);
+    $pq = new PageQueries();
+    $page = $pq->findVisibleBySlugsOrFail($book_slug, $page_slug);
+    $thresh = approvalThresh($page);
+    if ($thresh > 0) {
       Log::info($page->id);
-      echo json_encode(Approval::getPageState($page, (int)$rev_id, Approval::DEFAULT_APPROVAL_THRESH));
+      echo json_encode(Approval::getPageState($page, (int)$rev_id, $thresh));
     } else {
       echo json_encode(["ignore" => true]);
     }
@@ -127,21 +141,22 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
     $items = [];
     $uniqueTags = [];
     foreach (Page::select('*')->get()->all() as $page) {
-        if (!$page->slug) continue; // Skip book headers
+      if (!$page->slug) continue; // Skip book headers
 
-        $book = $page->book()->first();
-        if (!requiresApproval($book->slug, $page->slug)) continue;
+      $thresh = approvalThresh($page);
+      if ($thresh <= 0) continue;
 
-        $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
-        if ($state['current_revision'] == $state['approved_revision'] || $state['approved_revision'] == "all") continue;
+      $state = Approval::getPageState($page, 0, $thresh);
+      if ($state['current_revision'] == $state['approved_revision'] || $state['approved_revision'] == "all") continue;
 
-        $needed = $state['thresh'] - count($state['approvals'][$state['current_revision']] ?? []);
-        $chapname = $page->chapter()->first()->name ?? '';
-        $items[] = [$book, $chapname, $page, $needed, $state['approved_revision']];
+      $needed = $state['thresh'] - count($state['approvals'][$state['current_revision']] ?? []);
+      $chapname = $page->chapter()->first()->name ?? '';
+      $book = $page->book()->first();
+      $items[] = [$book, $chapname, $page, $needed, $state['approved_revision']];
 
-        foreach ($page->tags as $tag) {
-            $uniqueTags["{$tag->name}=" . strtoupper($tag->value)] = true;
-        }
+      foreach ($page->tags as $tag) {
+          $uniqueTags["{$tag->name}=" . strtoupper($tag->value)] = true;
+      }
     }
     ?>
     <!DOCTYPE html>

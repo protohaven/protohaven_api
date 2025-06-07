@@ -12,7 +12,7 @@ from flask_sock import Sock
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
-from protohaven_api.integrations import airtable, mqtt, neon
+from protohaven_api.integrations import airtable, eventbrite, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -174,11 +174,34 @@ def events_dashboard_attendee_count():
     event_id = request.args.get("id")
     if event_id is None:
         raise RuntimeError("Requires param id")
+    if eventbrite.is_valid_id(event_id):
+        evt = eventbrite.fetch_event(event_id)
+        if evt:
+            return str(evt.attendee_count)
     attendees = 0
     for a in neon.fetch_attendees(event_id):
         if a["registrationStatus"] == "SUCCEEDED":
             attendees += 1
     return str(attendees)
+
+
+@page.route("/events/tickets")
+def event_ticket_info():
+    """Gets the attendee count for a given event, by its neon ID"""
+    event_id = request.args.get("id")
+    if event_id is None:
+        raise RuntimeError("Requires param id")
+    if eventbrite.is_valid_id(event_id):
+        evt = eventbrite.fetch_event(event_id)
+    else:
+        evt = neon.fetch_event(event_id, fetch_tickets=True)
+    tickets = []
+    for t in evt.ticket_options:
+        # While this is technically a no-op, it's a reminder that this response
+        # format is expected to have exactly these fields when fetched from the
+        # protohaven-events wordpress plugin.
+        tickets.append({k: t[k] for k in ("id", "name", "price", "total", "sold")})
+    return tickets
 
 
 @page.route("/events/upcoming")
@@ -189,26 +212,26 @@ def upcoming_events():
     for evt in eauto.fetch_upcoming_events(merge_airtable=True):
         # Don't list private instruction, expired classes,
         # or classes without dates
-        if not evt.start_date or evt.in_blocklist() or evt.end_date < now:
+        log.info(str(evt.end_date))
+        if not evt.start_date or evt.in_blocklist or evt.end_date < now:
             continue
         events.append(
             {
                 "id": evt.neon_id,
                 "name": evt.name,
-                "date": evt.start_date,
+                "description": evt.description,
                 "instructor": evt.instructor_name,
-                "start_date": evt.start_date.strftime("%a %b %d"),
-                "start_time": evt.start_date.strftime("%-I:%M %p"),
-                "end_date": evt.end_date.strftime("%a %b %d"),
-                "end_time": evt.end_time.strftime("%-I:%M %p"),
+                "start": evt.start_date.isoformat(),
+                "end": evt.end_date.isoformat(),
                 "capacity": evt.capacity,
+                "url": evt.url,
                 "registration": evt.registration
                 and evt.start_date - datetime.timedelta(hours=24) > now,
             }
         )
 
-    events.sort(key=lambda e: e["date"])
-    return {"now": now, "events": events}
+    events.sort(key=lambda e: e["start"])
+    return {"now": now.isoformat(), "events": events}
 
 
 @page.route("/events/shop")

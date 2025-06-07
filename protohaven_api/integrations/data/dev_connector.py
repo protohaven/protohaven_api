@@ -5,7 +5,13 @@ from json import loads
 from urllib.parse import urljoin
 
 from protohaven_api.config import get_config
-from protohaven_api.integrations.data import dev_booked, dev_discord, dev_neon, dev_wyze
+from protohaven_api.integrations.data import (
+    dev_booked,
+    dev_discord,
+    dev_eventbrite,
+    dev_neon,
+    dev_wyze,
+)
 from protohaven_api.integrations.data.connector import Connector
 
 log = logging.getLogger("integrations.data.dev_connector")
@@ -110,6 +116,10 @@ class DevConnector(Connector):
     def booked_request(self, *args, **kwargs):
         """Make a request to the Booked reservation system"""
         return self._must_json(dev_booked.handle, *args, **kwargs)
+
+    def eventbrite_request(self, *args, **kwargs):
+        """Make a request to the Booked reservation system"""
+        return self._must_json(dev_eventbrite.handle, *args, **kwargs)
 
     def square_client(self):
         """Create and return Square API client"""

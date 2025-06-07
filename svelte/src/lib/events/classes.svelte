@@ -9,6 +9,8 @@ import FetchError from '../fetch_error.svelte';
     promise = get("/events/upcoming").then((data) => {
       for (let e of data.events) {
         e.attendees = get(`/events/attendees?id=${encodeURIComponent(e.id)}`);
+        e.start= new Date(e.start);
+        e.end= new Date(e.end);
       }
       return data;
     });
@@ -47,10 +49,10 @@ import FetchError from '../fetch_error.svelte';
         <tr id="{event['id']}">
           <td>{event['name']}</td>
 	  <td>{event['instructor']}</td>
-          <td style="text-align: right">{event['start_date']}</td>
-          <td style="text-align: right">{event['start_time']}</td>
-          <td style="text-align: right">{event['end_date']}</td>
-          <td style="text-align: right">{event['end_time']}</td>
+          <td style="text-align: right">{event.start.toLocaleDateString()}</td>
+          <td style="text-align: right">{event.start.toLocaleTimeString()}</td>
+          <td style="text-align: right">{event.end.toLocaleDateString()}</td>
+          <td style="text-align: right">{event.end.toLoacelTimeString()}</td>
           <td class="attendees">
           {#await event.attendees}
           Loading...

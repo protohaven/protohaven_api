@@ -11,14 +11,11 @@ function dateStr(d1) {
 	return `${d1.toLocaleString('default', { weekday: 'short' })}, ${d1.toLocaleString('default', { month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
 }
 
-function infoLink(eid) {
-	return `https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=${eid}`;
-}
 function FmtTimes( { times, expanded, onExpand } ) {
 	times.sort((a, b) => a[1].d0 - b[1].d0);
 	let expand = [];
 	const EXPAND_THRESH = 2;
-	for (let [neon_id, dd] of times) {
+	for (let [evt_id, dd] of times) {
 		let left = "";
 		if (dd.capacity !== null && dd.sold != null) {
 			if (dd.capacity - dd.sold > 0) {
@@ -27,8 +24,8 @@ function FmtTimes( { times, expanded, onExpand } ) {
 				left = <span className="ph-discount">(sold out)</span>;
 			}
 		}
-		expand.push(<div key={neon_id}>
-			<a href={infoLink(neon_id)} target="_blank">{dateStr(dd.d0)}</a>
+		expand.push(<div key={evt_id}>
+			<a href={dd.url} target="_blank">{dateStr(dd.d0)}</a>
 			&nbsp;{left}
 		</div>);
 		if (!expanded && expand.length >= EXPAND_THRESH) {
@@ -58,7 +55,7 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 		imgElem = <div className="ph-tag">{area}</div>;
 		containerClass += " fullbleed";
 	}
-	const link = (times.length > 0) ? infoLink(times[0][0]) : null;
+	const link = (times.length > 0) ? times[0][1].url : null;
 	const hours = (times.length > 0) ? `${times[0][1].d1.getHours() - times[0][1].d0.getHours()} hours` : null;
 	const price = ((times.length > 0) ? times[0][1].price : null) || null;
 	const discount = ((times.length > 0) ? times[0][1].discount : null) || null;

@@ -1,30 +1,3 @@
-export function get_events(pagination) {
-    let q_params = {
-	rest_route: "/protohaven-events-plugin-api/v1/events",
-        endDateAfter: new Date().toISOString().split('T')[0],
-        publishedEvent: true,
-        archived: false,
-        ...pagination,
-    };
-    const queryString = new URLSearchParams(q_params).toString();
-    return fetch('/?' + queryString).then(rep => rep.json());
-}
-
-export function fetch_remaining_events(pageSize, cb) {
-	return fetch_all_events(cb, 1, 2, pageSize);
-}
-
-function fetch_all_events(cb, cur=0, tot=1, pageSize=30) {
-	if (cur >= tot) {
-		return;
-	}
-	get_events({currentPage: cur, pageSize}).then((rep) => {
-		cb(rep.events);
-		return fetch_all_events(cb, cur+1, pageSize, Math.min(rep.pagination.totalPages, 50));
-	});
-}
-
-
 // Inspired by https://github.com/rhashimoto/promise-throttle
 let tix = {queue: [], cplt: [], inflight: []};
 const MS = 1000;
@@ -37,9 +10,9 @@ function processTix() {
 	while (tix.queue.length && tix.cplt.length + tix.inflight < MAXCALL) {
 		const {event_id, resolve, reject} = tix.queue.shift();
 		tix.inflight++;
-		fetch(`/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&neon_id=${event_id}`).then(rep => rep.json()).catch(reject).then((data) => {
+		fetch(`/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&evt_id=${event_id}`).then(rep => rep.json()).catch(reject).then((data) => {
 			tix.inflight--;
-			console.log(data);
+			console.log(`Ticket data for ${event_id}:`, data);
 			tix.cplt.push((data.cached) ? null : Date.now());
 			if (tix.queue.length && tix.cplt.length === 1) {
 				setTimeout(processTix, MS/10);
@@ -121,8 +94,8 @@ function parseDesc(desc) {
 	};
 }
 
-export function process(partial, classes, areas, levels) {
-	for (let e of partial) {
+export function process(events, classes, areas, levels) {
+	for (let e of events) {
 		if (e.name.startsWith("Private Instruction Session")) {
 			continue;
 		}
@@ -165,9 +138,10 @@ export function process(partial, classes, areas, levels) {
 		}
 
 		c.times[e.id] = {
-			d0: new Date(e.startDate + ' ' + e.startTime),
-			d1: new Date(e.endDate + ' ' + e.endTime),
+			d0: new Date(e.start),
+			d1: new Date(e.end),
 			capacity: e.capacity,
+			url: e.url,
 			sold: null,
 		};
 		if (!classes[e.name]) {
