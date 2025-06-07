@@ -6,6 +6,7 @@ see https://myaccount.google.com/u/3/lesssecureapps
 
 import logging
 import re
+import traceback
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -125,21 +126,27 @@ def send_discord_message(content, channel=None, blocking=True):
     # For convenience, any recognizable @role mentions are converted
     # See https://discord.com/developers/docs/reference#message-formatting
     def sub_roles_and_users(m):
-        s = m.group()
-        name = m.group()[1:]
-        log.info(f"Found potential role/user name in content: @{name}")
-        role_id = cfg["discord_roles"].get(name, None)
-        if role_id is not None:
-            log.info(f"Replacing {s} with role id tag {role_id}")
-            return f"<@&{role_id}>"
+        try:
+            s = m.group()
+            name = m.group()[1:]
+            log.info(f"Found potential role/user name in content: @{name}")
+            role_id = cfg["discord_roles"].get(name, None)
+            if role_id is not None:
+                log.info(f"Replacing {s} with role id tag {role_id}")
+                return f"<@&{role_id}>"
 
-        user_id = get_connector().discord_bot_fn("resolve_user_id", name)
-        if user_id is not None:
-            log.info(f"Replacing {s} with user id tag {user_id}")
-            return f"<@{user_id}>"
-
-        log.info("No user or role match; leaving it alone")
-        return s
+            user_id = get_connector().discord_bot_fn("resolve_user_id", name)
+            if user_id is not None:
+                log.info(f"Replacing {s} with user id tag {user_id}")
+                return f"<@{user_id}>"
+            log.info("No user or role match; leaving it alone")
+            return s
+        except Exception:  # pylint: disable=broad-exception-caught
+            traceback.print_exc()
+            log.info(
+                "Ignoring discord role/user resolution failure; continuing anyways..."
+            )
+            return s
 
     # Usernames are alphanumeric and can contain periods and underscores
     # https://gamertweak.com/new-username-system-discord/
