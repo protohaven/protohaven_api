@@ -40,6 +40,8 @@ services:
       # interferes with initial setup and DB creation with obscure errors.
       # bookstack_initial_setup should be run before this service
       - ./theme:/config/www/themes/protohaven
+      - ./pdfjs:/app/www/public/pdfjs
+      - ./nginx.conf:/config/nginx/nginx.conf`
     environment:
       # This is a custom theme that supplies OAuth2 authentication using
       # Neon CRM as a third party OAuth provider.
