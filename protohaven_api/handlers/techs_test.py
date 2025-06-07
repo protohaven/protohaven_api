@@ -6,7 +6,8 @@ import json
 import pytest
 
 from protohaven_api.handlers import techs as tl
-from protohaven_api.rbac import Role, set_rbac
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import set_rbac
 from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
 
@@ -23,63 +24,11 @@ def lead_client(client):
 
 
 def test_techs_all_status(lead_client, mocker):
-    mocker.patch.object(tl.neon, "fetch_techs_list", return_value=[])
+    mocker.patch.object(tl.neon, "search_members_with_role", return_value=[])
     mocker.patch.object(tl.airtable, "get_all_tech_bios", return_value=[])
     response = lead_client.get("/techs/list")
     rep = json.loads(response.data.decode("utf8"))
     assert rep == {"tech_lead": True, "techs": []}
-
-
-def test_techs_picture_url(lead_client, mocker):
-    """Ensure that both Nocodb and Airtable URL paths are observed"""
-    mocker.patch.object(
-        tl.neon,
-        "fetch_techs_list",
-        return_value=[
-            {"email": "asdf"},
-        ],
-    )
-    mocker.patch.object(
-        tl.airtable,
-        "get_all_tech_bios",
-        return_value=[
-            {
-                "fields": {
-                    "Email": "asdf",
-                    "Picture": [{"thumbnails": {"large": {"url": "want"}}}],
-                }
-            },
-        ],
-    )
-    response = lead_client.get("/techs/list")
-    rep = json.loads(response.data.decode("utf8"))
-    assert rep == {
-        "tech_lead": True,
-        "techs": [
-            {"bio": "", "email": "asdf", "picture": "want"},
-        ],
-    }
-
-    mocker.patch.object(
-        tl.airtable,
-        "get_all_tech_bios",
-        return_value=[
-            {
-                "fields": {
-                    "Email": "asdf",
-                    "Picture": [{"thumbnails": {"large": {"signedPath": "want"}}}],
-                }
-            },
-        ],
-    )
-    response = lead_client.get("/techs/list")
-    rep = json.loads(response.data.decode("utf8"))
-    assert rep == {
-        "tech_lead": True,
-        "techs": [
-            {"bio": "", "email": "asdf", "picture": "http://localhost:8080/want"},
-        ],
-    }
 
 
 def test_tech_update(lead_client, mocker):
@@ -104,21 +53,14 @@ def test_techs_event_registration_success_register(tech_client, mocker):
     mocker.patch.object(tl.neon, "delete_single_ticket_registration")
     mocker.patch.object(tl.comms, "send_discord_message")
     mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=(
-            {"primaryContact": {"firstName": "First", "lastName": "Last"}},
-            True,
-        ),
+        tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
     )
+    m = mocker.MagicMock(capacity=6, start_date=d(0))
+    m.name = "Event Name"
     mocker.patch.object(
         tl.neon,
         "fetch_event",
-        return_value={
-            "name": "Event Name",
-            "eventDates": {"startDate": "YYYY-MM-DD", "startTime": "HH:MM"},
-            "maximumAttendees": 6,
-        },
+        return_value=m,
     )
     mocker.patch.object(
         tl.neon,
@@ -149,21 +91,14 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     mocker.patch.object(tl.neon, "delete_single_ticket_registration", return_value=b"")
     mocker.patch.object(tl.comms, "send_discord_message")
     mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=(
-            {"primaryContact": {"firstName": "First", "lastName": "Last"}},
-            True,
-        ),
+        tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
     )
+    m = mocker.MagicMock(capacity=6, start_date=d(0))
+    m.name = "Event Name"
     mocker.patch.object(
         tl.neon,
         "fetch_event",
-        return_value={
-            "name": "Event Name",
-            "eventDates": {"startDate": "YYYY-MM-DD"},
-            "maximumAttendees": 6,
-        },
+        return_value=m,
     )
     mocker.patch.object(
         tl.neon,
@@ -243,95 +178,61 @@ def test_techs_forecast_override_delete(mocker, tech_client):
 
 def test_techs_backfill_events(mocker, tech_client):
     """Test the techs_backfill_events handler for expected output."""
+    events = []
+    for name, ovr in [
+        ("Event A", {"supply_cost": 10}),
+        (
+            f"{tl.TECH_ONLY_PREFIX} no registants",
+            {
+                "neon_id": "999",
+                "published": False,
+                "signups": [],
+                "single_registration_ticket_id": None,
+            },
+        ),
+        (
+            "Upcoming event with no registants",
+            {"neon_id": "875", "signups": [], "attendee_count": 0},
+        ),
+        (
+            "Private Instruction - ignored",
+            {"neon_id": "17631", "in_blocklist": lambda: True},
+        ),
+        ("Event B, too early", {"neon_id": "124", "start_date": d(-5)}),
+    ]:
+        m = mocker.MagicMock(
+            neon_id="123",
+            in_blocklist=lambda: False,
+            single_registration_ticket_id="t1",
+            published=True,
+            registration=True,
+            attendee_count=1,
+            signups=[1],
+            capacity=10,
+            start_date=d(0),
+            supply_cost=0,
+        )
+        m.name = name
+        for k, v in ovr.items():
+            setattr(m, k, v)
+        events.append(m)
+
     mocker.patch.object(
-        tl.airtable,
-        "get_class_automation_schedule",
-        return_value=[
-            {"fields": {"Neon ID": "123", "Supply Cost (from Class)": [10]}},
-            {"fields": {"Neon ID": "17631", "Supply Cost (from Class)": [15]}},
-            {"fields": {"Neon ID": "124"}},
-        ],
-    )
-    mocker.patch.object(
-        tl.neon,
+        tl.eauto,
         "fetch_upcoming_events",
-        return_value=[
-            {
-                "id": "123",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Event A",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-            {  # Tech event gets shown even if no registrants
-                "id": "999",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": f"{tl.TECH_ONLY_PREFIX} no registants",
-                "publishEvent": False,
-                "enableEventRegistrationForm": True,
-            },
-            {  # No registrants event gets hidden as it's not paid off
-                "id": "999",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Upcoming event with no registants",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-            {
-                "id": "17631",
-                "startDate": d(0).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Private Event",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-            {
-                "id": "124",
-                "startDate": d(-5).strftime("%Y-%m-%d"),
-                "startTime": "10:00",
-                "capacity": 10,
-                "name": "Event B, too early",
-                "publishEvent": True,
-                "enableEventRegistrationForm": True,
-            },
-        ],
+        return_value=events,
     )
-    mocker.patch.object(
-        tl.neon,
-        "fetch_attendees",
-        side_effect=[
-            [{"accountId": "1", "registrationStatus": "SUCCEEDED"}],
-            [],
-            [],
-            [],
-        ],
-    )
-    mocker.patch.object(
-        tl.neon,
-        "fetch_tickets",
-        return_value=[
-            {"id": "t1", "name": "Single Registration"},
-            {"id": "t2", "name": "Other Ticket"},
-        ],
-    )
-    mocker.patch.object(tl, "tznow", return_value=d(0))
+    mocker.patch.object(tl, "tznow", return_value=d(-1, 10))
 
     response = tech_client.get("/techs/events")
     assert response.status_code == 200
     assert response.json["events"] == [
         {
-            "attendees": ["1"],
+            "attendees": [1],
             "capacity": 10,
             "id": "123",
             "name": "Event A",
-            "start": "Wed, 01 Jan 2025 15:00:00 GMT",
+            "start": d(0).isoformat(),
             "supply_cost": 10,
             "ticket_id": "t1",
         },
@@ -340,7 +241,7 @@ def test_techs_backfill_events(mocker, tech_client):
             "capacity": 10,
             "id": "999",
             "name": "(SHOP TECH ONLY) no registants",
-            "start": "Wed, 01 Jan 2025 15:00:00 GMT",
+            "start": d(0).isoformat(),
             "supply_cost": 0,
             "ticket_id": None,
         },
@@ -384,29 +285,30 @@ def test_techs_event_registration_unregister(mocker, tech_client):
 def test_techs_area_leads(mocker, tech_client):
     """Tests the techs_area_leads function"""
     mock_areas = ["Area1", "Area2"]
-    mock_techs = [
-        {"name": "Tech1", "area_lead": "Area1, ExtraArea"},
-        {"name": "Tech2", "area_lead": "Area2"},
-        {"name": "Tech3", "area_lead": "NonExistentArea"},
-    ]
+    t1 = mocker.MagicMock(area_lead=["Area1", "ExtraArea"], email="a@b.com", shop_tech_shift="a")
+    t1.name = "Tech1"
+    t2 = mocker.MagicMock(area_lead=["Area2"], email="c@d.com", shop_tech_shift="b")
+    t2.name = "Tech2"
+    t3 = mocker.MagicMock(area_lead=["NonExistentArea"], email="e@f.com", shop_tech_shift="c")
+    t3.name = "Tech3"
     mocker.patch.object(
         tl,
         "_fetch_tool_states_and_areas",
         return_value=(None, mock_areas),
     )
-    mocker.patch.object(tl.neon, "fetch_techs_list", return_value=mock_techs)
+    mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1, t2, t3])
 
     response = tech_client.get("/techs/area_leads")
     assert response.status_code == 200
 
     expected_response = {
         "area_leads": {
-            "Area1": [{"name": "Tech1", "area_lead": "Area1, ExtraArea"}],
-            "Area2": [{"name": "Tech2", "area_lead": "Area2"}],
+            "Area1": [{'name': 'Tech1', 'email': 'a@b.com', 'shift': 'a'}],
+            "Area2": [{'name': 'Tech2', 'email': 'c@d.com', 'shift': 'b'}],
         },
         "other_leads": {
-            "ExtraArea": [{"name": "Tech1", "area_lead": "Area1, ExtraArea"}],
-            "NonExistentArea": [{"name": "Tech3", "area_lead": "NonExistentArea"}],
+            "ExtraArea": [{'name': 'Tech1', 'email': 'a@b.com', 'shift': 'a'}],
+            "NonExistentArea": [{'name': 'Tech3', 'email': 'e@f.com', 'shift': 'c'}],
         },
     }
 
@@ -493,7 +395,8 @@ def test_new_tech_event(mocker, lead_client):
 def test_rm_tech_event(mocker, lead_client):
     """Test deleting a techs-only event in Neon"""
     eid = "12345"
-    mock_event = {"id": eid, "name": tl.TECH_ONLY_PREFIX + "Test Event"}
+    mock_event = mocker.MagicMock(neon_id=eid)
+    mock_event.name = tl.TECH_ONLY_PREFIX + "Test Event"
 
     mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
     mocker.patch.object(tl.neon, "set_event_scheduled_state", return_value={})
@@ -525,7 +428,8 @@ def test_rm_tech_event_not_found(mocker, lead_client):
 def test_rm_tech_event_non_tech_only(mocker, lead_client):
     """Test deleting a non-tech-only event"""
     eid = "12345"
-    mock_event = {"id": eid, "name": "Test Event"}
+    mock_event = mocker.MagicMock(neon_id=eid)
+    mock_event.name = "Test Event"
 
     mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
 

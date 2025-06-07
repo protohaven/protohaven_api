@@ -227,7 +227,7 @@ Theme::listen(ThemeEvents::WEB_MIDDLEWARE_BEFORE, function(Request $request) {
 Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
   // For dev environment, we allow arbitrary logins
   if (getenv('APP_URL') == "http://localhost:6875") {
-    $router->get('/login_as', function(Request $request) {
+    $router->get('/admin/login_as', function(Request $request) {
       $email = $request->input('email', null);
       $user = User::query()->where('email', '=', $email)->first();
       if ($user) {

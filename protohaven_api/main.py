@@ -58,7 +58,7 @@ def _on_reservations(cache):
     rr = cache.get_today_reservations_by_tool()
     log.info(f"Reservation cache by tool: {rr}")
     for tool_code, data in rr.items():
-        neon_id = neon.cache.neon_id_from_booked_id(data["user"])
+        neon_id = neon.cache.neon_id_from_booked_id(int(data["user"]))
         log.info(f"Reservation: {tool_code} {neon_id} {data}")
         mqtt.notify_reservation(
             tool_code,

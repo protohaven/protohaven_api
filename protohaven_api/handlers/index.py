@@ -9,11 +9,12 @@ from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import tz, tznow
-from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, mqtt, neon
+from protohaven_api.integrations import airtable, eventbrite, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
+from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
@@ -35,20 +36,13 @@ def whoami():
     neon_account = session.get("neon_account")
     if not neon_account:
         return Response("You are not logged in", status=400)
-    clearances = []
-    roles = []
-    for cf in neon_account.get("accountCustomFields", []):
-        if cf["name"] == "Clearances":
-            clearances = [v["name"] for v in cf["optionValues"]]
-        if cf["name"] == "API server role":
-            roles = [v["name"] for v in cf["optionValues"]]
-
+    acct = Member.from_neon_fetch(neon_account)
     return {
-        "fullname": user_fullname(),
-        "email": user_email(),
-        "neon_id": session.get("neon_id", ""),
-        "clearances": clearances,
-        "roles": roles,
+        "fullname": acct.name,
+        "email": acct.email,
+        "neon_id": acct.neon_id,
+        "clearances": acct.clearances,
+        "roles": [v["name"] for v in acct.roles],
     }
 
 
@@ -105,10 +99,10 @@ def acknowledge_announcements():
     """Set the acknowledgement date to `now` so prior announcements
     are no longer displayed"""
     data = request.json
-    m = list(neon.search_member(data["email"]))
+    m = list(neon.search_members_by_email(data["email"]))
     if len(m) == 0:
         raise KeyError("Member not found")
-    neon.update_announcement_status(m[0]["Account ID"])
+    neon.update_announcement_status(m[0].neon_id)
     return {"status": "OK"}
 
 
@@ -119,9 +113,9 @@ def survey_response():
     data = request.json
 
     neon_id = None
-    m = list(neon.search_member(data["email"]))
+    m = list(neon.search_members_by_email(data["email"]))
     if len(m) != 0:
-        neon_id = m[0]["Account ID"]
+        neon_id = m[0].neon_id
     status, content = airtable.insert_simple_survey_response(
         data["rec_id"], data["email"], neon_id, data["response"]
     )
@@ -133,19 +127,19 @@ def survey_response():
 @page.route("/class_listing", methods=["GET"])
 def class_listing():
     """Returns a list of classes that are upcoming"""
-    result = list(neon.fetch_upcoming_events(back_days=0))
-    sched = {
-        str(s["fields"]["Neon ID"]): s
-        for s in airtable.get_class_automation_schedule()
-        if s["fields"].get("Neon ID")
-    }
-    for c in result:
-        c["timestamp"] = dateparser.parse(
-            f"{c['startDate']} {c.get('startTime') or ''}"
-        ).astimezone(tz)
-        c["day"] = c["timestamp"].strftime("%A, %b %-d")
-        c["time"] = c["timestamp"].strftime("%-I:%M %p")
-        c["airtable_data"] = sched.get(str(c["id"]))
+    result = []
+    for evt in eauto.fetch_upcoming_events(back_days=0, merge_airtable=True):
+        result.append(
+            {
+                "id": evt.neon_id,
+                "name": evt.name,
+                "timestamp": evt.start_date.isoformat(),
+                "description": evt.description,
+                "day": evt.start_date.strftime("%A, %b %-d"),
+                "time": evt.start_date.strftime("%-I:%M %p"),
+                "airtable_data": evt.airtable_data,
+            }
+        )
     result.sort(key=lambda c: c["timestamp"])
     return result
 
@@ -158,7 +152,7 @@ def neon_id_lookup():
     if search is None:
         return result
     for i in neon.cache.find_best_match(search):
-        result.append(f"{i['First Name']} {i['Last Name']} (#{i['Account ID']})")
+        result.append(f"{i.fname} {i.lname} (#{i.neon_id})")
     return result
 
 
@@ -180,6 +174,10 @@ def events_dashboard_attendee_count():
     event_id = request.args.get("id")
     if event_id is None:
         raise RuntimeError("Requires param id")
+    if eventbrite.is_valid_id(event_id):
+        evt = eventbrite.fetch_event(event_id)
+        if evt:
+            return str(evt.attendee_count)
     attendees = 0
     for a in neon.fetch_attendees(event_id):
         if a["registrationStatus"] == "SUCCEEDED":
@@ -187,54 +185,53 @@ def events_dashboard_attendee_count():
     return str(attendees)
 
 
+@page.route("/events/tickets")
+def event_ticket_info():
+    """Gets the attendee count for a given event, by its neon ID"""
+    event_id = request.args.get("id")
+    if event_id is None:
+        raise RuntimeError("Requires param id")
+    if eventbrite.is_valid_id(event_id):
+        evt = eventbrite.fetch_event(event_id)
+    else:
+        evt = neon.fetch_event(event_id, fetch_tickets=True)
+    tickets = []
+    for t in evt.ticket_options:
+        # While this is technically a no-op, it's a reminder that this response
+        # format is expected to have exactly these fields when fetched from the
+        # protohaven-events wordpress plugin.
+        tickets.append({k: t[k] for k in ("id", "name", "price", "total", "sold")})
+    return tickets
+
+
 @page.route("/events/upcoming")
 def upcoming_events():
     """Show relevant upcoming events."""
     events = []
     now = tznow()
-
-    try:
-        instructors_map = {
-            str(s["fields"]["Neon ID"]): s["fields"]["Instructor"]
-            for s in airtable.get_class_automation_schedule()
-            if s["fields"].get("Neon ID")
-        }
-    except Exception:  # pylint: disable=broad-exception-caught
-        log.error("Failed to fetch instructor map, proceeding anyways")
-        instructors_map = {}
-
-    for e in neon.fetch_upcoming_events():
-        if not e.get("startDate"):
-            continue
-        if e["id"] == 17631:
-            continue  # Don't list private instruction
-        start = dateparser.parse(
-            e["startDate"] + " " + (e.get("startTime") or "")
-        ).astimezone(tz)
-        end = dateparser.parse(
-            e["endDate"] + " " + (e.get("endTime") or "")
-        ).astimezone(tz)
-
-        if end < now:
+    for evt in eauto.fetch_upcoming_events(merge_airtable=True):
+        # Don't list private instruction, expired classes,
+        # or classes without dates
+        log.info(str(evt.end_date))
+        if not evt.start_date or evt.in_blocklist or evt.end_date < now:
             continue
         events.append(
             {
-                "id": e["id"],
-                "name": e["name"],
-                "date": start,
-                "instructor": instructors_map.get(str(e["id"]), ""),
-                "start_date": start.strftime("%a %b %d"),
-                "start_time": start.strftime("%-I:%M %p"),
-                "end_date": end.strftime("%a %b %d"),
-                "end_time": end.strftime("%-I:%M %p"),
-                "capacity": e["capacity"],
-                "registration": e["enableEventRegistrationForm"]
-                and start - datetime.timedelta(hours=24) > now,
+                "id": evt.neon_id,
+                "name": evt.name,
+                "description": evt.description,
+                "instructor": evt.instructor_name,
+                "start": evt.start_date.isoformat(),
+                "end": evt.end_date.isoformat(),
+                "capacity": evt.capacity,
+                "url": evt.url,
+                "registration": evt.registration
+                and evt.start_date - datetime.timedelta(hours=24) > now,
             }
         )
 
-    events.sort(key=lambda e: e["date"])
-    return {"now": now, "events": events}
+    events.sort(key=lambda e: e["start"])
+    return {"now": now.isoformat(), "events": events}
 
 
 @page.route("/events/shop")

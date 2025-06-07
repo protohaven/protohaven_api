@@ -16,15 +16,10 @@ from protohaven_api.testing import MatchStr, d
 def test_activate_membership_ok(mocker):
     """Test activate_membership when activation is successful"""
     email = "a@b.com"
-    mock_response = mocker.Mock()
-    mock_response.status_code = 200
-
-    mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(
-        s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
-    )
     m1 = mocker.patch.object(
-        s.neon, "set_membership_date_range", return_value=mock_response
+        s.neon,
+        "set_membership_date_range",
+        return_value=mocker.MagicMock(status_code=200),
     )
     m2 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(
@@ -35,10 +30,21 @@ def test_activate_membership_ok(mocker):
     m3 = mocker.patch.object(s.comms, "send_email")
     mocker.patch.object(s, "notify_async")
 
-    s.activate_membership("12345", "John", email)
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=12345,
+            fname="John",
+            email=email,
+            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            account_automation_ran="deferred YYYY-MM-DD",
+        ),
+    )
+    s.activate_membership(mocker.MagicMock(neon_id="123"))
 
-    m1.assert_called_once_with("5678", mocker.ANY, mocker.ANY)
-    m2.assert_called_once_with("12345", "activated")
+    m1.assert_called_once_with(5678, mocker.ANY, mocker.ANY)
+    m2.assert_called_once_with(12345, "activated")
     s.comms.Msg.tmpl.assert_called_once_with(
         "membership_activated", fname="John", target=email
     )
@@ -48,18 +54,24 @@ def test_activate_membership_ok(mocker):
 
 def test_activate_membership_fail(mocker):
     """Test activate_membership when activation fails"""
-    mocker.patch.object(s.neon_base, "get_custom_field", return_value="* deferred *")
-    mocker.patch.object(
-        s.neon, "get_latest_membership_id_and_name", return_value=("5678", "General")
-    )
     mocker.patch.object(
         s.neon, "set_membership_date_range", side_effect=RuntimeError("Error 500")
     )
     mocker.patch.object(s.neon, "update_account_automation_run_status")
     mocker.patch.object(s.comms, "send_email")
     mocker.patch.object(s, "notify_async")
-
-    s.activate_membership("12345", "John", "a@b.com")
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=12345,
+            fname="John",
+            email="a@b.com",
+            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            account_automation_ran="deferred YYYY-MM-DD",
+        ),
+    )
+    s.activate_membership(mocker.MagicMock(neon_id=12345))
 
     s.notify_async.assert_called_once_with(MatchStr("Error 500"))
     s.comms.send_email.assert_not_called()
@@ -72,13 +84,24 @@ def test_activate_membership_no_redo(mocker):
     This test confirms when "deferred" isn't in Account Automation Ran then
     no activation is done."""
     m0 = mocker.patch.object(s, "notify_async", return_value=None)
-    m1 = mocker.patch.object(s.neon_base, "get_custom_field", return_value="asdf")
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(account_automation_ran="activated"),
+    )
     m2 = mocker.patch.object(s.neon, "set_membership_date_range")
     m3 = mocker.patch.object(s.neon, "update_account_automation_run_status")
     m4 = mocker.patch.object(s.comms, "send_email")
-    s.activate_membership("123", "fname", "a@b.com")
+    s.activate_membership(
+        mocker.MagicMock(
+            neon_id=12345,
+            fname="John",
+            email="a@b.com",
+            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            account_automation_ran="deferred YYYY-MM-DD",
+        )
+    )
     m0.assert_not_called()
-    m1.assert_called()
     m2.assert_not_called()
     m3.assert_not_called()
     m4.assert_not_called()
@@ -107,9 +130,9 @@ def test_get_member_multiple_accounts(mocker):
     email = "a@b.com"
     member_email_cache = {
         email: {
-            "1": {"Account ID": "1", "Company ID": "1"},
-            "2": {"Account ID": "2", "Company ID": "3"},
-            "3": {"Account ID": "3", "Company ID": "4"},
+            "1": mocker.MagicMock(neon_id="1", company_id="1"),
+            "2": mocker.MagicMock(neon_id="2", company_id="3"),
+            "3": mocker.MagicMock(neon_id="3", company_id="4"),
         }
     }
     mocker.patch.object(s.neon, "cache", member_email_cache)
@@ -128,11 +151,11 @@ def test_get_member_deferred_account(mocker):
         "cache",
         {
             email: {
-                "1": {
-                    "Account ID": "1",
-                    "Account Automation Ran": "deferred_do_something",
-                    "Account Current Membership Status": "Future",
-                },
+                "1": mocker.MagicMock(
+                    neon_id="1",
+                    account_automation_ran="deferred_do_something",
+                    account_current_membership_status="Future",
+                ),
             }
         },
     )
@@ -150,13 +173,14 @@ def test_get_member_deferred_amp_verified(mocker):
         "cache",
         {
             email: {
-                "1": {
-                    "Account ID": "1",
-                    "Account Automation Ran": "deferred_do_something",
-                    "Account Current Membership Status": "Future",
-                    "Membership Level": "General Membership - AMP",
-                    "Income Based Rate": "Low Income - 20%",  # presence indicates verification
-                },
+                # presence of income_based_rate indicates verification
+                "1": mocker.MagicMock(
+                    neon_id="1",
+                    account_automation_ran="deferred_do_something",
+                    account_current_membership_status="Future",
+                    membership_level="General Membership - AMP",
+                    income_based_rate="Low Income - 20%",
+                ),
             }
         },
     )
@@ -175,13 +199,14 @@ def test_get_member_deferred_amp_unverified(mocker):
         "cache",
         {
             email: {
-                "1": {
-                    "Account ID": "1",
-                    "Account Automation Ran": "deferred_do_something",
-                    "Account Current Membership Status": "Future",
-                    "Membership Level": "General Membership - AMP",
-                    # No Income Based Rate => unverified
-                },
+                # No Income Based Rate => unverified
+                "1": mocker.MagicMock(
+                    neon_id="1",
+                    account_automation_ran="deferred_do_something",
+                    account_current_membership_status="Future",
+                    membership_level="General Membership - AMP",
+                    income_based_rate=None,
+                ),
             }
         },
     )
@@ -200,7 +225,11 @@ def test_get_member_active_membership(mocker):
         "cache",
         {
             email: {
-                "1": {"Account ID": "1", "Account Current Membership Status": "ACTIVE"},
+                "1": mocker.MagicMock(
+                    neon_id="1",
+                    account_current_membership_status="ACTIVE",
+                    account_automation_ran=None,
+                ),
             },
         },
     )
@@ -305,8 +334,7 @@ def test_handle_announcements_is_active(mocker):
 
 TEST_USER = 1234
 NOW = d(0)
-NOWSTR = NOW.strftime("%Y-%m-%d")
-OLDSTR = (NOW - datetime.timedelta(days=90)).strftime("%Y-%m-%d")
+OLD = NOW - datetime.timedelta(days=90)
 
 
 @pytest.mark.parametrize(
@@ -321,7 +349,7 @@ def test_handle_waiver_no_data(mocker, ack, called):
     true if the user has just acknowledged the waiver"""
     m = mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "get_config", side_effect=["2024-01-01", 30])
-    assert s.handle_waiver(TEST_USER, None, ack) is ack
+    assert s.handle_waiver(TEST_USER, None, None, ack) is ack
     if called:
         m.assert_called()
     else:
@@ -331,9 +359,9 @@ def test_handle_waiver_no_data(mocker, ack, called):
 @pytest.mark.parametrize(
     "ver,ack_date,ack,ok,called",
     [
-        (OLDSTR, NOWSTR, False, False, False),
-        (NOWSTR, NOWSTR, False, True, False),
-        (OLDSTR, NOWSTR, True, True, True),
+        (OLD, NOW, False, False, False),
+        (NOW, NOW, False, True, False),
+        (OLD, NOW, True, True, True),
     ],
 )
 def test_handle_waiver_checks_version(mocker, ver, ack_date, ack, ok, called):
@@ -343,9 +371,10 @@ def test_handle_waiver_checks_version(mocker, ver, ack_date, ack, ok, called):
     assert (
         s.handle_waiver(
             TEST_USER,
-            f"version {ver} on {ack_date}",
+            ver,
+            ack_date,
             ack,
-            current_version=NOWSTR,
+            current_version=NOW,
             expiration_days=30,
             now=NOW,
         )
@@ -361,8 +390,8 @@ def test_handle_waiver_checks_expiration(mocker):
     """handle_waiver returns false if the most recent signed
     waiver data of the user is older than `expiration_days`"""
     m = mocker.patch.object(s, "_apply_async")
-    args = [TEST_USER, f"version {OLDSTR} on {OLDSTR}", False]
-    kwargs = {"now": NOW, "current_version": OLDSTR}
+    args = [TEST_USER, "oldver", OLD, False]
+    kwargs = {"now": NOW, "current_version": "oldver"}
 
     assert s.handle_waiver(*args, **kwargs, expiration_days=1000) is True
     assert s.handle_waiver(*args, **kwargs, expiration_days=30) is False
@@ -372,7 +401,7 @@ def test_handle_waiver_checks_expiration(mocker):
     args[-1] = True
     assert s.handle_waiver(*args, **kwargs, expiration_days=30) is True
     m.assert_called_with(
-        s.neon.set_waiver_status, (1234, "version 2024-10-03 on 2025-01-01")
+        s.neon.set_waiver_status, (1234, "version oldver on 2025-01-01")
     )
 
 
@@ -402,7 +431,7 @@ def test_as_guest_referrer(mocker):
 def test_as_member_notfound(mocker):
     """Ensure form does not get called if member not found"""
     m = mocker.patch.object(s, "_apply_async")
-    mocker.patch.object(s.neon, "search_member", return_value=[])
+    mocker.patch.object(s.neon.cache, "get", return_value=None)
     got = s.as_member(
         {
             "person": "member",
@@ -430,17 +459,24 @@ def test_as_member_activate_deferred(mocker):
     m = mocker.patch.object(s, "_apply_async")
     l = mocker.patch.object(s, "log_sign_in")
     mocker.patch.object(s, "notify_async")
+
+    mem = mocker.MagicMock(
+        neon_id=12345,
+        company_id=None,
+        account_current_membership_status="Future",
+        account_automation_ran="deferred FOO",
+        fname="First",
+        roles=[],
+        clearances=[],
+        waiver_accepted=(None, None),
+        announcements_acknowledged=None,
+    )
     mocker.patch.object(
         s.neon,
         "cache",
         {
             "a@b.com": {
-                12345: {
-                    "Account ID": 12345,
-                    "Account Current Membership Status": "Future",
-                    "Account Automation Ran": "deferred FOO",
-                    "First Name": "First",
-                }
+                12345: mem,
             },
         },
     )
@@ -457,9 +493,7 @@ def test_as_member_activate_deferred(mocker):
         mocker.MagicMock(),
     )
     assert rep["status"] == "Active"
-    m.assert_has_calls(
-        [mocker.call(s.activate_membership, args=(12345, "First", "a@b.com"))]
-    )
+    m.assert_has_calls([mocker.call(s.activate_membership, args=(mem,))])
 
 
 def test_as_member_expired(mocker):
@@ -472,12 +506,16 @@ def test_as_member_expired(mocker):
         "cache",
         {
             "a@b.com": {
-                12345: {
-                    "Account ID": 12345,
-                    "Account Current Membership Status": "Inactive",
-                    "First Name": "First",
-                    "API server role": None,  # This can happen
-                }
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    account_current_membership_status="Inactive",
+                    roles=[],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
             },
         },
     )
@@ -512,11 +550,16 @@ def test_as_member_violations(mocker):
         "cache",
         {
             "a@b.com": {
-                12345: {
-                    "Account ID": 12345,
-                    "Account Current Membership Status": "Active",
-                    "First Name": "First",
-                }
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    account_current_membership_status="Active",
+                    roles=[],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
             }
         },
     )
@@ -554,15 +597,26 @@ def test_as_member_duplicates(mocker):
         "cache",
         {
             "a@b.com": {
-                12346: {
-                    "Account ID": 12346,  # Extra membership, makes things ambiguous
-                },
-                12345: {
-                    "Account ID": 12345,
-                    "Account Current Membership Status": "Active",
-                    "First Name": "First",
-                    "API server role": "Shop Tech",
-                },
+                12346: mocker.MagicMock(
+                    neon_id=12346,
+                    account_current_membership_status="Inctive",
+                    roles=[],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    account_current_membership_status="Active",
+                    roles=[{"name": "Shop Tech"}],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
             }
         },
     )
@@ -593,14 +647,17 @@ def test_as_member_announcements_ok(mocker):
         "cache",
         {
             "a@b.com": {
-                12346: {
-                    "Account ID": 12345,
-                    "Clearances": "Clearance A|Clearance B",
-                    "Account Current Membership Status": "Active",
-                    "First Name": "First",
-                    "Last Name": "Last",
-                    "API server role": "Shop Tech",
-                }
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    account_current_membership_status="Active",
+                    roles=[{"name": "Shop Tech"}],
+                    fname="First",
+                    lname="Last",
+                    clearances=["Clearance A", "Clearance B"],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
             }
         },
     )
@@ -663,12 +720,16 @@ def test_as_member_announcements_exception(mocker):
         "cache",
         {
             "a@b.com": {
-                12346: {
-                    "Account ID": 12345,
-                    "Account Current Membership Status": "Active",
-                    "First Name": "First",
-                    "API server role": "Shop Tech",
-                }
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    account_current_membership_status="Active",
+                    roles=[{"name": "Shop Tech"}],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
             }
         },
     )
@@ -699,17 +760,27 @@ def test_as_member_company_id(mocker):
         "cache",
         {
             "a@b.com": {
-                12346: {
-                    "Account ID": 12346,
-                    "Company ID": 12346,  # Matches account ID, so ignored
-                },
-                12345: {
-                    "Account ID": 12345,
-                    "Company ID": 12346,
-                    "Account Current Membership Status": "Active",
-                    "First Name": "First",
-                    "API server role": "Shop Tech",
-                },
+                12346: mocker.MagicMock(
+                    neon_id=12346,
+                    company_id=12346,  # Matches account ID, so ignored
+                    account_current_membership_status="Active",
+                    roles=[],
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    company_id=12346,
+                    account_current_membership_status="Active",
+                    roles=[{"name": "Shop Tech"}],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
             }
         },
     )
@@ -744,12 +815,18 @@ def test_as_member_notify_board_and_staff(mocker, status):
         "cache",
         {
             "a@b.com": {
-                12345: {
-                    "Account ID": 12345,
-                    "Account Current Membership Status": status,
-                    "First Name": "First",
-                    "Notify Board & Staff": f"On Sign In|Other Unrelated Condition",
-                },
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    company_id=12346,
+                    account_current_membership_status=status,
+                    roles=[{"name": "Shop Tech"}],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    waiver_accepted=(None, None),
+                    notify_board_and_staff=["On Sign In", "Other Unrelated Condition"],
+                    announcements_acknowledged=None,
+                ),
             }
         },
     )

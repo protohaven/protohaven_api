@@ -142,7 +142,7 @@ def send_discord_message(content, channel=None, blocking=True):
             log.info("No user or role match; leaving it alone")
             return s
         except Exception:  # pylint: disable=broad-exception-caught
-            traceback.print_exc()
+            traceback.print_exc() # We shouldn't let substitution failing prevent message sending
             log.info(
                 "Ignoring discord role/user resolution failure; continuing anyways..."
             )

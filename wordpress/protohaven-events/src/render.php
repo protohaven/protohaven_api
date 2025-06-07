@@ -18,12 +18,7 @@
 	$CACHE_ID = "ph_events_data";
 	$result = wp_cache_get($CACHE_ID);
 	if ( false === $result || $result[1] < (time() - (60*60*24)) || isset($_GET['nocache']) ) {
-		$result = array(json_encode(ph_neon_events_internal([
-						'endDateAfter' => date('Y-m-d'),
-						'publishedEvent' => true,
-			'archived' => false,
-			'pageSize' => 200,
-		])), time());
+		$result = array(json_encode(ph_neon_events()), time());
 		wp_cache_set($CACHE_ID, $result );
 	}
 	echo $result[0];

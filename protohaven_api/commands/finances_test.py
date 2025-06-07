@@ -10,6 +10,7 @@ from dateutil import parser as dateparser
 from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error
 from protohaven_api.integrations import neon  # pylint: disable=import-error
+from protohaven_api.rbac import Role
 from protohaven_api.testing import MatchStr, d, mkcli
 
 
@@ -52,223 +53,342 @@ def test_transaction_alerts_ok(mocker, cli):
 
 def test_validate_memberships_empty(mocker):
     """Empty search shoud pass by default"""
-    mocker.patch.object(neon, "search_member", return_value=[])
+    mocker.patch.object(neon, "search_active_members", return_value=[])
     got = list(f.Commands()._validate_memberships_internal())
     assert not got
 
 
-def test_validate_membership_amp_ok():
+def test_validate_membership_amp_ok(mocker):
     """Amp member should pass validation if they are marked appropriately for their term"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "AMP",
-            "term": "Extremely Low Income",
-            "amp": {"optionValues": ["ELI"]},
-            "active_memberships": [{"fee": 1, "end_date": d(5)}],
-        },
-        d(0),
+    mem = mocker.Mock(
+        fee=1, term="ELI", level="AMP General", start_date=d(0), end_date=d(5)
+    )
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                income_based_rate="Extremely Low Income",
+                memberships=lambda active_only: [mem],
+                latest_membership=lambda active_only: mem,
+            ),
+            0,
+            0,
+            d(0),
+        )
     )
     assert not got
 
 
-def test_validate_multi_membership_bad():
+def test_validate_multi_membership_bad(mocker):
     """All memberships should have an end date"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "General Membership",
-            "active_memberships": [
-                {"fee": 1, "end_date": d(5), "level": "General Membership"},
-                {"fee": 1, "end_date": d(5), "level": "General Membership"},
-            ],
-        },
-        d(0),
+    mem = mocker.Mock(fee=1, start_date=d(0), end_date=d(5), status="SUCCEEDED")
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level="General Membership",
+                memberships=lambda active_only: [mem, mem],
+            ),
+            0,
+            0,
+            d(1),
+        )
     )
-    assert got == ["Multiple active memberships: 2 total"]
+    assert got == ["Multiple active memberships: want 1, got 2"]
 
 
-def test_validate_multi_membership_future_start_date_ok():
-    """All memberships should have an end date"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "General Membership",
-            "active_memberships": [
-                {"fee": 1, "end_date": d(5), "level": "General Membership"},
-                {
-                    "fee": 1,
-                    "start_date": d(1),
-                    "end_date": d(10),
-                    "level": "General Membership",
-                },
-            ],
-        },
-        d(0),
-    )
-    assert not got
-
-
-def test_validate_multi_membership_refunded_ok():
-    """All memberships should have an end date"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "General Membership",
-            "active_memberships": [
-                {"fee": 1, "end_date": d(5), "level": "General Membership"},
-                {
-                    "fee": 1,
-                    "end_date": d(5),
-                    "level": "General Membership",
-                    "status": "REFUNDED",
-                },
-            ],
-        },
-        d(0),
+def test_validate_multi_membership_future_start_date_ok(mocker):
+    """Should be OK with exactly one valid membership even if future memberships exist"""
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level="General Membership",
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1, start_date=None, end_date=d(5), status="SUCCEEDED"
+                    ),
+                    mocker.Mock(
+                        fee=1, start_date=d(3), end_date=d(5), status="SUCCEEDED"
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
     )
     assert not got
 
 
-def test_validate_membership_no_end_date_bad():
+def test_validate_multi_membership_refunded_ok(mocker):
+    """Refunded memberships should not count for validation"""
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level="General Membership",
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1, start_date=d(0), end_date=d(5), status="SUCCEEDED"
+                    ),
+                    mocker.Mock(
+                        fee=1, start_date=d(0), end_date=d(5), status="REFUNDED"
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
+    )
+    assert not got
+
+
+def test_validate_membership_no_end_date_bad(mocker):
     """All memberships should have an end date"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "General Membership",
-            "active_memberships": [{"fee": 1, "level": "General Membership"}],
-        }
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level="General Membership",
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level="General Membership",
+                        start_date=d(0),
+                        end_date=datetime.datetime.max,
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
     )
     assert got == ["Membership General Membership with no end date (infinite duration)"]
 
 
-def test_validate_membership_zero_cost_roles_ok():
+def test_validate_membership_zero_cost_roles_ok(mocker):
     """Various roles that are $0 memberships should validate OK"""
     for l, r in [
-        ("Shop Tech", "Shop Tech"),
-        ("Board Member", "Board Member"),
-        ("Staff", "Staff"),
-        ("Software Developer", "Software Dev"),
+        ("Shop Tech", Role.SHOP_TECH),
+        ("Board Member", Role.BOARD_MEMBER),
+        ("Staff", Role.STAFF),
+        ("Software Developer", Role.SOFTWARE_DEV),
     ]:
-        got = f.Commands()._validate_membership_singleton(
-            {
-                "level": l,
-                "roles": [r],
-                "active_memberships": [{"fee": 0, "level": l, "end_date": d(1)}],
-            },
+        got = list(
+            f.Commands()._validate_membership_singleton(
+                mocker.MagicMock(
+                    level=l,
+                    roles=[r],
+                    memberships=lambda active_only: [
+                        mocker.Mock(
+                            fee=0,
+                            level=l,
+                            start_date=d(0),
+                            end_date=d(5),
+                            status="SUCCEEDED",
+                        ),
+                    ],
+                ),
+                0,
+                0,
+                d(0),
+            )
+        )
+        assert not got
+
+
+def test_validate_membership_general_zero_cost_bad(mocker):
+    """General membership should always cost money, unless explicitly marked"""
+    l = "General Membership"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=l,
+                zero_cost_ok_until=tznow() - datetime.timedelta(days=1),
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=0,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
             d(0),
         )
-    assert not got
-
-
-def test_validate_membership_general_zero_cost_bad():
-    """General membership should always cost money, unless explicitly marked"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "General Membership",
-            "active_memberships": [
-                {"fee": 0, "level": "General Membership", "end_date": d(1)}
-            ],
-            "zero_cost_ok_until": tznow() - datetime.timedelta(days=1),
-        },
-        d(0),
     )
     assert got == [MatchStr("Abnormal zero-cost membership General Membership")]
 
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "General Membership",
-            "active_memberships": [
-                {"fee": 0, "level": "General Membership", "end_date": d(1)}
-            ],
-            "zero_cost_ok_until": tznow() + datetime.timedelta(days=1),
-        },
-        d(0),
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=l,
+                zero_cost_ok_until=tznow() + datetime.timedelta(days=1),
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=0,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
     )
     assert not got
 
 
-def test_validate_membership_instructor_ok():
+def test_validate_membership_instructor_ok(mocker):
     """Instructor should validate when role is applied"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "Instructor",
-            "roles": ["Instructor"],
-            "active_memberships": [{"fee": 1, "end_date": d(1)}],
-        },
-        d(0),
+    l = "Instructor"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=l,
+                roles=[Role.INSTRUCTOR],
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
     )
     assert not got
 
 
-def test_validate_membership_instructor_no_role():
+def test_validate_membership_instructor_no_role(mocker):
     """Raise validation error for instructor without role"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "level": "Instructor",
-            "roles": [],
-            "active_memberships": [{"fee": 1, "end_date": d(1)}],
-        },
-        d(0),
+    l = "Instructor"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=l,
+                roles=[],
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
     )
-    assert got == ["Needs role Instructor, has []"]
+    assert got == ["Needs role Instructor, has none"]
 
 
-def test_validate_membership_addl_family_ok():
+def test_validate_membership_addl_family_ok(mocker):
     """Conforming additional family member"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "hid": "123",
-            "household_paying_member_count": 1,
-            "household_num_addl_members": 1,
-            "level": "Additional Family Membership",
-            "active_memberships": [{"fee": 1, "end_date": d(1)}],
-        },
-        d(0),
+    l = "Additional Family Membership"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                household_id=1234,
+                level=l,
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            1,
+            0,
+            d(0),
+        )
     )
     assert not got
 
 
-def test_validate_membership_addl_family_no_fullprice_bad():
+@pytest.mark.parametrize("paying_member_count", [1, 0])
+def test_validate_membership_addl_family_no_fullprice_bad(mocker, paying_member_count):
     """Addl membership without a paid membership in the household is a no-no"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "hid": "123",
-            "household_paying_member_count": 0,
-            "household_num_addl_members": 2,
-            "level": "Additional Family Membership",
-            "active_memberships": [{"fee": 1, "end_date": d(1)}],
-        },
-        d(0),
+    l = "Additional Family Membership"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                household_id=1234,
+                level=l,
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            paying_member_count,
+            0,
+            d(0),
+        )
     )
-    assert got == ["Missing required non-additional paid member in household #123"]
+    if paying_member_count == 0:
+        assert got == [
+            "Missing required non-additional paid member in household [#1234](https://protohaven.app.neoncrm.com/np/admin/account/householdDetails.do?householdId=1234)"
+        ]
+    else:
+        assert not got
 
 
-def test_validate_membership_employer_ok():
-    """Corporate memberships with two members are OK"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "company_member_count": 2,
-            "level": "Corporate Membership",
-            "active_memberships": [{"fee": 1, "end_date": d(1)}],
-        },
-        d(0),
+@pytest.mark.parametrize("company_member_count", [2, 1])
+def test_validate_membership_employer(mocker, company_member_count):
+    """Corporate memberships with two members are OK, but one fails validation"""
+    l = "Company Membership"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                company_id=1234,
+                level=l,
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=l,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            company_member_count,
+            d(0),
+        )
     )
-    assert not got
-
-
-def test_validate_membership_employer_too_few_bad():
-    """Singleton corporate memberships fail validation"""
-    got = f.Commands()._validate_membership_singleton(
-        {
-            "cid": "123",
-            "company_member_count": 1,
-            "level": "Corporate Membership",
-            "active_memberships": [{"fee": 1, "end_date": d(1)}],
-        },
-        d(0),
-    )
-    assert got == ["Missing required 2+ members in company #123"]
+    if company_member_count > 1:
+        assert not got
+    else:
+        assert got == [
+            "Missing required 2+ members in company [#1234](https://protohaven.app.neoncrm.com/admin/accounts/1234)"
+        ]
 
 
 def test_init_new_memberships(mocker, cli):
     """Test init_new_memberships"""
-    mocker.patch.object(neon, "get_new_members_needing_setup", return_value=[])
+    mocker.patch.object(neon, "search_new_members_needing_setup", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
     assert not got
 
@@ -276,8 +396,17 @@ def test_init_new_memberships(mocker, cli):
 def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(
         neon,
-        "get_new_members_needing_setup",
-        return_value=[{"Account ID": "123", "First Name": "Foo", "Email 1": "a@b.com"}],
+        "search_new_members_needing_setup",
+        return_value=[
+            mocker.MagicMock(
+                neon_id=123,
+                fname="Foo",
+                email="a@b.com",
+                latest_membership=lambda: mocker.MagicMock(
+                    start_date=d(0), neon_id=456, level="testname"
+                ),
+            )
+        ],
     )
     m1 = mocker.patch.object(f.memauto, "try_cached_coupon", return_value="test_coupon")
     m2 = mocker.patch.object(
@@ -285,18 +414,6 @@ def test_init_new_memberships_e2e(mocker, cli):
         "set_membership_date_range",
         return_value=mocker.MagicMock(status_code=200),
     )
-    mocker.patch.object(
-        neon,
-        "fetch_memberships",
-        return_value=[
-            {
-                "termStartDate": d(0).isoformat(),
-                "id": "456",
-                "membershipLevel": {"name": "testname"},
-            }
-        ],
-    )
-
     m3 = mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -306,72 +423,75 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
     m1.assert_called_with(75, "a@b.com", True)
-    m2.assert_called_with("456", mocker.ANY, mocker.ANY)
-    m3.assert_called_with("123", "deferred")
+    m2.assert_called_with(456, mocker.ANY, mocker.ANY)
+    m3.assert_called_with(123, "deferred")
 
 
 def test_init_new_memberships_limit(mocker, cli):
+    """--limit is observed in invocation"""
     mocker.patch.object(
         neon,
-        "get_new_members_needing_setup",
-        return_value=[
-            {"Account ID": str(i), "First Name": "Foo", "Email 1": "a@b.com"}
-            for i in range(5)
-        ],
+        "search_new_members_needing_setup",
+        return_value=[mocker.MagicMock(neon_id=i) for i in range(5)],
     )
-    m1 = mocker.patch.object(
-        f.memauto.neon,
-        "get_latest_membership_id_and_name",
-        return_value=("123", "General"),
+    mocker.patch.object(
+        f.neon_base,
+        "fetch_account",
+        side_effect=lambda neon_id: mocker.MagicMock(
+            neon_id=neon_id,
+            fname="Foo",
+            email="a@b.com",
+            latest_membership=lambda: mocker.MagicMock(
+                start_date=d(0), neon_id=456, level="testname"
+            ),
+        ),
     )
+
     m2 = mocker.patch.object(f.memauto, "init_membership", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--limit=2"])
     assert got == []
-    m1.assert_has_calls(
-        [
-            mocker.call("0"),
-            mocker.call("1"),
-        ]
-    )
+    assert len(m2.mock_calls) == 2
 
 
 def test_refresh_volunteer_memberships(mocker, cli):
     """Test refresh_volunteer_memberships command"""
     mocker.patch.object(f, "tznow", return_value=d(0))
+    ld = (d(0, 23), False)
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: ld,
+                )
             ],
             [
-                {
-                    "Account ID": "456",
-                    "First Name": "Jane",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(
+                    neon_id=456,
+                    fname="Jane",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: ld,
+                )
             ],
             [
-                {
-                    "Account ID": "789",
-                    "First Name": "Jorb",
-                    "Last Name": "Dorb",
-                },
-                {
-                    "Account ID": "999",
-                    "First Name": "Past",
-                    "Last Name": "DeLimit",
-                },
+                mocker.MagicMock(
+                    neon_id=789,
+                    fname="Jorb",
+                    lname="Dorb",
+                    last_membership_expiration_date=lambda: ld,
+                ),
+                mocker.MagicMock(
+                    neon_id=999,
+                    fname="Past",
+                    lname="DeLimit",
+                    last_membership_expiration_date=lambda: ld,
+                ),
             ],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(d(0, 23), False)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
@@ -383,21 +503,21 @@ def test_refresh_volunteer_memberships(mocker, cli):
     f.neon.create_zero_cost_membership.assert_has_calls(
         [
             mocker.call(
-                "123",
+                123,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
                 term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
             mocker.call(
-                "456",
+                456,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
                 term={"id": mocker.ANY, "name": "Shop Tech"},
             ),
             mocker.call(
-                "789",
+                789,
                 d(1, 23),
                 d(31, 23),
                 level={"id": mocker.ANY, "name": "Software Developer"},
@@ -412,21 +532,19 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, None),
+                )
             ],
             [],
             [],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, None)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
@@ -438,7 +556,7 @@ def test_refresh_volunteer_memberships_no_latest_membership(mocker, cli):
     f.neon.create_zero_cost_membership.assert_has_calls(
         [
             mocker.call(
-                "123",
+                123,
                 d(1, 0),
                 d(31, 0),
                 level={"id": mocker.ANY, "name": "Shop Tech"},
@@ -453,21 +571,19 @@ def test_refresh_volunteer_memberships_autorenew(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, True),
+                )
             ],
             [],
             [],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, True)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership")
 
@@ -481,21 +597,19 @@ def test_refresh_volunteer_memberships_exclude(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, None),
+                )
             ],
             [],
             [],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, None)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 
@@ -509,21 +623,19 @@ def test_refresh_volunteer_memberships_filter_dev(mocker, cli):
     mocker.patch.object(f, "tznow", return_value=d(0))
     mocker.patch.object(
         f.neon,
-        "get_members_with_role",
+        "search_members_with_role",
         side_effect=[
             [],
             [],
             [  # Dev comes last
-                {
-                    "Account ID": "123",
-                    "First Name": "John",
-                    "Last Name": "Doe",
-                }
+                mocker.MagicMock(
+                    neon_id=123,
+                    fname="John",
+                    lname="Doe",
+                    last_membership_expiration_date=lambda: (None, None),
+                )
             ],
         ],
-    )
-    mocker.patch.object(
-        f.Commands, "_last_expiring_membership", return_value=(None, None)
     )
     mocker.patch.object(f.neon, "create_zero_cost_membership", return_value={"id": 456})
 

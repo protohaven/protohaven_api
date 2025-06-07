@@ -5,6 +5,7 @@ from flask import Blueprint, redirect, request, session
 
 from protohaven_api import oauth
 from protohaven_api.integrations import neon_base
+from protohaven_api.integrations.models import Member
 
 page = Blueprint("auth", __name__, template_folder="templates")
 
@@ -14,7 +15,7 @@ log = logging.getLogger("handlers.auth")
 def user_email():
     """Get the logged in user's email"""
     try:
-        return session.get("neon_account")["primaryContact"]["email1"]
+        return Member.from_neon_fetch(session.get("neon_account")).email
     except TypeError:
         return None
 
@@ -22,8 +23,7 @@ def user_email():
 def user_fullname():
     """Get the logged in user's full name"""
     try:
-        c = session.get("neon_account")["primaryContact"]
-        return f"{c['firstName']} {c['lastName']}"
+        return Member.from_neon_fetch(session.get("neon_account")).name
     except TypeError:
         return None
 
@@ -62,7 +62,7 @@ def login_with_neon_id(neon_id):
     """Sets the session based on a Neon user ID"""
     session["neon_id"] = neon_id
     session["neon_account"], _ = neon_base.fetch_account(
-        session["neon_id"], required=True
+        session["neon_id"], required=True, raw=True
     )
 
 

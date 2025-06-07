@@ -138,7 +138,7 @@ def test_enforce_discord_nicknames_zero_comms(mocker, cli):
     """Ensure that no comms are sent if there were no problems"""
     mocker.patch.object(r.comms, "get_all_members", return_value=[])
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
     mocker.patch.object(r.airtable, "get_notifications_after", return_value={})
     assert not cli("enforce_discord_nicknames", ["--apply", "--warn_not_associated"])
@@ -158,13 +158,15 @@ def test_enforce_discord_nicknames(mocker, cli):
     )
     mocker.patch.object(r.airtable, "get_notifications_after", return_value={})
     mocker.patch.object(r.comms, "set_discord_nickname")
+
+    m0 = mocker.MagicMock(discord_user="usr1")
+    m0.name = "first last"
+    m1 = mocker.MagicMock(discord_user="usr2")
+    m1.name = "a b"
     mocker.patch.object(
         r.neon,
-        "get_all_accounts_with_discord_association",
-        return_value=[
-            {"Discord User": "usr1", "First Name": "first", "Last Name": "last"},
-            {"Discord User": "usr2", "First Name": "a", "Last Name": "b"},
-        ],
+        "search_members_with_discord_association",
+        return_value=[m0, m1],
     )
 
     assert cli(
@@ -205,7 +207,7 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
     )
     mocker.patch.object(r.comms, "set_discord_nickname")
     mocker.patch.object(
-        r.neon, "get_all_accounts_with_discord_association", return_value=[]
+        r.neon, "search_members_with_discord_association", return_value=[]
     )
 
     assert (
@@ -219,23 +221,16 @@ def test_enforce_discord_nicknames_warning_period_observed(mocker, cli):
 
 def test_setup_discord_user_nickname_change(mocker):
     """Test notification is sent when the nickname is changed"""
+    m = mocker.MagicMock(
+        neon_id="123", account_current_membership_status="Active", roles=[]
+    )
+    m.name = "Johnny Doe"
     mocker.patch.object(
         ra.neon,
-        "get_members_with_discord_id",
-        return_value=[
-            {
-                "Account ID": "123",
-                "Account Current Membership Status": "Active",
-                "API server role": "",
-                "First Name": "John",
-                "Preferred Name": "Johnny",
-                "Last Name": "Doe",
-                "Pronouns": "he/him",
-            }
-        ],
+        "search_members_with_discord_id",
+        return_value=[m],
     )
     mocker.patch.object(ra.airtable, "log_comms")
-    mocker.patch.object(ra, "resolve_nickname", return_value="Johnny Doe")
 
     discord_details = ("discord_user_id", "Old Nickname", None, [])
     actions = list(ra.setup_discord_user(discord_details))

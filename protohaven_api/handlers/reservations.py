@@ -4,7 +4,8 @@ import logging
 from flask import Blueprint, request
 
 from protohaven_api.integrations import booked
-from protohaven_api.rbac import Role, require_login_role
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import require_login_role
 
 log = logging.getLogger("handlers.reservations")
 

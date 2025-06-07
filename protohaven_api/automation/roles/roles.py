@@ -1,15 +1,13 @@
 """Commands related operations on Dicsord"""
 
 import logging
-import sys
-from collections import defaultdict
 from dataclasses import asdict, dataclass, replace
 
 from dateutil import parser as dateparser
 
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.rbac import Role
+from protohaven_api.integrations.models import Role
 
 log = logging.getLogger("role_automation.roles")
 
@@ -152,29 +150,21 @@ def gen_role_intents(
     user_filter, exclude_users, destructive, max_user_intents
 ):  # pylint: disable=too-many-locals, too-many-branches
     """Generate all intents based on data from discord and neon"""
-    state = defaultdict(lambda: [[], None])  # map discord ID to Neon data & roles
     log.info("Fetching all active members")
     rev_roles = {v: k for k, v in SYNC_ROLES.items()}
-    for m in neon.get_all_accounts_with_discord_association(
-        [
-            neon.CustomField.DISCORD_USER,
-            neon.CustomField.API_SERVER_ROLE,
-            "Account Current Membership Status",
-            "Email 1",
-            "First Name",
-            "Last Name",
-        ]
-    ):
-        sys.stderr.write(".")
-        sys.stderr.flush()
-        discord_user = (m.get("Discord User") or "").strip()
-        roles = {}
-        if m.get("API server role"):
-            roles = {rev_roles.get(r) for r in m["API server role"].split("|")}
-        if discord_user != "":
-            state[discord_user][0] = {r for r in roles if r is not None}
-            state[discord_user][1] = m
-    sys.stderr.write("\n")
+    state = {
+        m.discord_user: m
+        for m in neon.search_members_with_discord_association(
+            [
+                neon.CustomField.DISCORD_USER,
+                neon.CustomField.API_SERVER_ROLE,
+                "Account Current Membership Status",
+                "Email 1",
+                "First Name",
+                "Last Name",
+            ]
+        )
+    }
     log.info(f"Got {len(state)} total Neon members (with Discord association)")
     log.debug(f"Discord users: {', '.join(state.keys())}")
 
@@ -200,19 +190,20 @@ def gen_role_intents(
             log.debug(f"Skipping {discord_id} (not in filter)")
             continue
         intent = DiscordIntent(discord_id=discord_id, discord_nick=nickname)
-        neon_roles, neon_data = state.get(discord_id, (None, None))
-        if neon_data:
-            intent.neon_id = neon_data["Account ID"]
-            intent.name = neon_data["First Name"] + " " + neon_data["Last Name"]
-            intent.email = neon_data["Email 1"]
-        neon_member = (
-            neon_data["Account Current Membership Status"].upper()
-            if neon_data
-            else "NOT_FOUND"
-        )
-        neon_roleset = set(neon_roles) if neon_roles else set()
+        neon_roleset = set()
+        neon_member = "NOT_FOUND"
+        m = state.get(discord_id)
+        if m:
+            intent.neon_id = m.neon_id
+            intent.name = f"{m.fname} {m.lname}"
+            intent.email = m.email
+            neon_member = (m.account_current_membership_status or "NOT_FOUND").upper()
+            neon_roleset = {
+                rev_roles.get(r["name"]) for r in m.roles if r["name"] in rev_roles
+            }
 
         discord_roleset = {r for r, _ in assigned_roles if r in SYNC_ROLES}
+        log.info(f"singleton_role_sync {neon_member} {neon_roleset} {discord_roleset}")
         for action, role, reason in singleton_role_sync(
             neon_member, neon_roleset, discord_roleset
         ):
@@ -374,19 +365,6 @@ def gen_role_comms(user_log, roles_assigned, roles_revoked):
         )
 
 
-def resolve_nickname(first, preferred, last, pronouns):
-    """Convert neon values into a single string of Discord nickname for user"""
-    first = first.strip() if first else ""
-    preferred = preferred.strip() if preferred else ""
-    last = last.strip() if last else ""
-    pronouns = pronouns.strip() if pronouns else ""
-    first = preferred if preferred != "" else first
-    nick = f"{first} {last}".strip() if first != last else first
-    if pronouns != "":
-        nick += f" ({pronouns})"
-    return nick
-
-
 def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     """Given a user's discord ID and roles, carry out initial association
     and role assignment. While the periodic discord automation will
@@ -406,9 +384,9 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     rev_roles = {v: k for k, v in SYNC_ROLES.items()}
     log.info(f"Setting up discord user '{discord_id}'; checking for Neon assoc")
     mm = list(
-        neon.get_members_with_discord_id(
+        neon.search_members_with_discord_id(
             discord_id,
-            extra_fields=[
+            [
                 "Preferred Name",
                 neon.CustomField.PRONOUNS,
                 neon.CustomField.API_SERVER_ROLE,
@@ -416,7 +394,6 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
             ],
         )
     )
-    log.info(mm)
     if len(mm) == 0:
         log.info("Neon user not found; issuing association request")
         msg = Msg.tmpl("not_associated", target=f"@{discord_id}", discord_id=discord_id)
@@ -429,27 +406,15 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
     neon_roles = set()
     for m in mm:
         neon_roles = neon_roles.union(
-            {
-                rev_roles.get(r)
-                for r in (m.get("API server role") or "").split("|")
-                if r.strip() != ""
-            }
+            {rev_roles.get(r["name"]) for r in m.roles if r["name"] in rev_roles}
         )
         if neon_member != "ACTIVE":
-            neon_member = m["Account Current Membership Status"].upper()
-    log.info(f"Found matching Neon account {m['Account ID']}, status {neon_member}")
-
-    # Sync display/nickname
-    nick = resolve_nickname(
-        m.get("First Name"),
-        m.get("Preferred Name"),
-        m.get("Last Name"),
-        m.get("Pronouns"),
-    )
-    if nick != display_name:
-        log.info(f"{discord_id} display name: {display_name} -> {nick}")
-        yield "set_nickname", discord_id, nick
-        msg = discord_nick_change_dm(display_name, nick, discord_id)
+            neon_member = m.account_current_membership_status.upper()
+    log.info(f"Found matching Neon account {m.neon_id}, status {neon_member}")
+    if m.name != display_name:
+        log.info(f"{discord_id} display name: {display_name} -> {m.name}")
+        yield "set_nickname", discord_id, m.name
+        msg = discord_nick_change_dm(display_name, m.name, discord_id)
         yield "send_dm", discord_id, f"**{msg.subject}**\n\n{msg.body}"
 
     # Go through intents and apply any that are additive.

@@ -149,10 +149,12 @@ def _neon_dev_search_filter(
 @app.route("/v2/events/<event_id>", methods=["GET", "PATCH", "DELETE"])
 def get_event(event_id):
     """Mock event endpoint for Neon"""
+    # Note that fetching an event directly returns structured data,
+    # while searching for events returns a flattened and reduced set of data
     for row in airtable_base.get_all_records("fake_neon", "events"):
         if str(row["fields"]["eventId"]) == str(event_id):
             if request.method == "GET":
-                return row["fields"]["data"]
+                return row["fields"]["fetch_data"]
             if request.method == "DELETE":
                 _, content = airtable_base.delete_record(
                     "fake_neon", "events", row["id"]
@@ -283,12 +285,6 @@ def get_account_memberships(account_id):
                 },
             }
     return Response("Memberships not found for account", status=404)
-
-
-@app.route("/v2/customFields/<field_id>", methods=["GET", "PUT"])
-def get_custom_field(field_id):
-    """Mock custom field endpoint for Neon"""
-    raise NotImplementedError("TODO")
 
 
 @app.route("/login", methods=["GET", "POST"])

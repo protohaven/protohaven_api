@@ -9,7 +9,7 @@ from protohaven_api.automation.membership import clearances as mclearance
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
-from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
+from protohaven_api.integrations import airtable, comms, mqtt, neon_base, tasks
 from protohaven_api.rbac import (
     Role,
     require_dev_environment,
@@ -102,24 +102,6 @@ def user_clearances():
     )
 
 
-def _get_account_details(account_id):
-    """Gets the matching email for a Neon account, by ID"""
-    content, _ = neon_base.fetch_account(account_id, required=True)
-    auto_field_value = None
-    for cf in content.get("accountCustomFields", []):
-        if cf["name"] == "Account Automation Ran":
-            auto_field_value = cf.get("value")
-
-    content = content.get("primaryContact", {})
-    return {
-        "fname": content.get("firstName") or "new member",
-        "email": content.get("email1")
-        or content.get("email2")
-        or content.get("email3"),
-        "auto_field_value": auto_field_value,
-    }
-
-
 @page.route("/admin/neon_membership_created_callback", methods=["POST"])
 def neon_membership_created_callback():
     """Called whenever a new membership is created in Neon CRM.
@@ -155,17 +137,17 @@ def neon_membership_created_callback():
         return Response("Fee below threshold", 400)
 
     # We must make sure this is the only (i.e. first) membership for the account
-    num_memberships = len(list(neon.fetch_memberships(account_id)))
+    acct = neon_base.fetch_account(account_id, fetch_memberships=True, required=True)
+    num_memberships = len(acct.memberships())
     if num_memberships != 1:
         log.info(
             f"Member has {num_memberships} memberships; skipping new member init automation"
         )
         return Response("not a new member", status=200)
 
-    details = _get_account_details(account_id)
-    if details["auto_field_value"] is not None:
+    if acct.account_automation_ran is not None:
         log.info(
-            f"Skipping init of membership with auto_field_value={details['auto_field_value']}"
+            f"Skipping init of membership with auto_field_value={acct.account_automation_ran}"
         )
         return Response("Account already deferred", status=400)
     try:
@@ -173,8 +155,8 @@ def neon_membership_created_callback():
             account_id=account_id,
             membership_name=membership_name,
             membership_id=membership_id,
-            email=details["email"],
-            fname=details["fname"],
+            email=acct.email,
+            fname=acct.fname,
         )
     except Exception:
         comms.send_discord_message(
@@ -182,18 +164,16 @@ def neon_membership_created_callback():
             f"[#{membership_id}](https://protohaven.app.neoncrm.com/"
             f"np/admin/account/membershipDetail.do?id={membership_id}) for "
             f"[#{account_id}](https://protohaven.app.neoncrm.com/admin/accounts/{account_id}) "
-            f"({details['email']}, {details['fname']}); see server logs for details. "
+            f"({acct.email}, {acct.fname}); see server logs for details. "
             "Account intervention may be needed.",
             "#membership-automation",
             blocking=False,
         )
         raise
     for msg in msgs:
-        comms.send_email(msg.subject, msg.body, [details["email"]], msg.html)
-        log.info(f"Sent to {details['email']}: '{msg.subject}'")
-        airtable.log_comms(
-            "neon_new_member_webhook", details["email"], msg.subject, "Sent"
-        )
+        comms.send_email(msg.subject, msg.body, [acct.email], msg.html)
+        log.info(f"Sent to {acct.email}: '{msg.subject}'")
+        airtable.log_comms("neon_new_member_webhook", acct.email, msg.subject, "Sent")
         log.info("Logged to airtable")
     return Response("ok", status=200)
 

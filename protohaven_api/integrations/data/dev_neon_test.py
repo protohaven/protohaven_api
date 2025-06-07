@@ -28,16 +28,16 @@ def test_get_event_dev(mocker):
         return_value=[
             {"fields": f}
             for f in (
-                {"eventId": 1, "data": {"id": 1}},
-                {"eventId": 2, "data": {"id": 2}},
-                {"eventId": 3, "data": {"id": 3}},
+                {"eventId": 1, "data": {"id": 1}, "fetch_data": "a"},
+                {"eventId": 2, "data": {"id": 2}, "fetch_data": "b"},
+                {"eventId": 3, "data": {"id": 3}, "fetch_data": "c"},
             )
         ],
     )
     e = n.handle("GET", "/v2/events").get_json()["events"][0]
     got = n.handle("GET", f"/v2/events/{e['id']}")
     assert got.status_code == 200
-    assert got.get_json()["id"] == e["id"]
+    assert got.text == "a"
 
 
 def test_search_accounts_dev(mocker):

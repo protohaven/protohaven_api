@@ -8,7 +8,8 @@ from functools import lru_cache
 
 from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tz
+from protohaven_api.automation.classes import events as eauto
+from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -30,18 +31,16 @@ def generate_coupon_id(n=8):
 def get_sample_classes(coupon_amount):
     """Fetch sample classes within the coupon amount for advertising in the welcome email"""
     sample_classes = []
-    for e in neon.fetch_upcoming_events(back_days=-1):
-        ok, num_remaining = event_is_suggestible(e["id"], coupon_amount)
-        if not ok:
+    for evt in eauto.fetch_upcoming_events(back_days=-1, fetch_tickets=True):
+        num_remaining = evt.has_open_seats_below_price(coupon_amount)
+        if not num_remaining:
             continue
         sample_classes.append(
             {
-                "date": dateparser.parse(
-                    e["startDate"] + " " + e["startTime"]
-                ).astimezone(tz),
-                "name": e["name"],
+                "date": evt.start_date,
+                "name": evt.name,
                 "remaining": num_remaining,
-                "id": e["id"],
+                "id": evt.neon_id,
             }
         )
         log.info(sample_classes[-1])
@@ -49,19 +48,6 @@ def get_sample_classes(coupon_amount):
             break
     sample_classes.sort(key=lambda s: s["date"])
     return sample_classes
-
-
-def event_is_suggestible(event_id, max_price):
-    """Return True if the event with `event_id` has open seats within $`max_price`"""
-    for t in neon.fetch_tickets(event_id):
-        if (
-            t["name"] == "Single Registration"
-            and t["fee"] > 0
-            and t["fee"] <= max_price
-            and t["numberRemaining"] > 0
-        ):
-            return True, t["numberRemaining"]
-    return False, 0
 
 
 def try_cached_coupon(coupon_amount, assignee, apply):

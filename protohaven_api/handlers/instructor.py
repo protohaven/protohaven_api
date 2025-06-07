@@ -13,7 +13,8 @@ from protohaven_api.automation.classes.scheduler import push_schedule, solve_wit
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import airtable, booked, comms, neon, neon_base
-from protohaven_api.rbac import Role, am_role, require_login_role
+from protohaven_api.integrations.models import Role
+from protohaven_api.rbac import am_role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
 
@@ -93,16 +94,14 @@ def get_instructor_readiness(inst, caps=None):
         result["email"] = f"{len(inst)} duplicate accounts in Neon"
     inst = inst[0]
 
-    result["neon_id"] = inst.get("Account ID")
-    if inst["Account Current Membership Status"] == "Active":
+    result["neon_id"] = inst.neon_id
+    if inst.account_current_membership_status == "Active":
         result["active_membership"] = "OK"
     else:
-        result["active_membership"] = inst["Account Current Membership Status"]
-    if inst.get("Discord User"):
+        result["active_membership"] = inst.account_current_membership_status
+    if inst.discord_user:
         result["discord_user"] = "OK"
-    result[
-        "fullname"
-    ] = f"{inst['First Name'].strip()} {inst['Last Name'].strip()}".strip()
+    result["fullname"] = f"{inst.fname} {inst.lname}"
 
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
@@ -154,9 +153,9 @@ def instructor_class_attendees():
     for a in result:
         if a["accountId"]:
             try:
-                acc, _ = neon_base.fetch_account(a["accountId"])
-                if acc is not None:
-                    a["email"] = acc["primaryContact"]["email1"]
+                m = neon_base.fetch_account(a["accountId"])
+                if m is not None:
+                    a["email"] = m.email
             except RuntimeError:
                 pass
 
@@ -218,7 +217,7 @@ def instructor_about():
         email = user_email()
         if not email:
             return Response("You are not logged in.", status=401)
-    inst = list(neon.search_member(email.lower()))
+    inst = list(neon.search_members_by_email(email.lower()))
     if len(inst) == 0:
         return Response(
             f"Instructor data not found for email {email.lower()}", status=404
@@ -413,7 +412,11 @@ def class_neon_state():
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
-    return neon.fetch_event(event_id)
+    evt = neon.fetch_event(event_id)
+    return {
+        "publishEvent": evt.published,
+        "archived": evt.archived,
+    }
 
 
 @page.route("/instructor/class/cancel", methods=["POST"])

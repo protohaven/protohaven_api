@@ -89,7 +89,7 @@ connector:
   max_retry_delay_sec: 3.0
 nocodb:
   requests:
-    url: "http://localhost:8080"
+    url: "${NOCODB_SCHEME}://${NOCODB_HOST}:${NOCODB_PORT}"
     token: "LjsLEB_Iyi_BVk2fO26X5LJOI-hCnw7k4jIC4G7r" # pragma: allowlist secret
   data:
     tools_and_equipment:
@@ -134,6 +134,8 @@ nocodb:
       devices: "mhjg19llr23inaa"
     fake_booked:
       reservations: "mkbmiwjyi3ow1ae"
+    fake_eventbrite:
+      events: "m90g2ef9xvyfynt"
   link_field_ids:
     class_automation:
       availability:
@@ -234,6 +236,10 @@ sheets:
   instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
   welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+eventbrite:
+  base_url: "https://www.eventbriteapi.com/v3/"
+  token: ${EVENTBRITE_TOKEN}
+  organization_id: ${EVENTBRITE_ORG_ID}
 booked:
   id: ${BOOKED_ID}
   key: ${BOOKED_KEY}
