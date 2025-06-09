@@ -371,10 +371,13 @@ def get_policy_fees():
     return [f for f in rows if f["fields"].get("Created")]
 
 
-def create_fees(fees):
+def create_fees(fees, batch_size=10):
     """Create fees for each violation and fee amount in the map"""
     data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
-    return insert_records(data, "policy_enforcement", "fees")
+    for i in range(0, len(data), batch_size):
+        batch = data[i:i + batch_size]
+        rep = insert_records(batch, "policy_enforcement", "fees")
+    return rep
 
 
 def create_coupon(code, amount, use_by, expires):
