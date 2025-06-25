@@ -62,26 +62,27 @@
           return;
         }
         console.log("cur_id", d.current_id, "vs approved_id", d.approved_id);
+        const elem = document.getElementsByTagName("main")[0];
+        let c = document.createElement("div");
+        let inner = "";
         if (d.current_id != d.approved_id) {
-          const elem = document.getElementsByTagName("main")[0];
-          let c = document.createElement("div");
           c.style =
             "color:white; background-color: #D9381E; width: 100%; font-weight: bold; font-size: 2em; padding: 20px;";
-          let inner = "There is a newer approved revision.";
+          inner = "There is a newer approved revision.";
           let num_approvals = (d.approvals[d.current_revision] || []).length;
           if (num_approvals < d.thresh) {
             const inparens = `${num_approvals} of ${d.thresh} given`;
             inner = `This revision (#${d.current_revision}) is pending approval (<a href="/approvals">${inparens}</a>).`;
           }
           if (d.approved_revision && d.approved_id) {
-            inner += `<br/>See <a href="/books/${book_slug}/page/${page_slug}/revisions/${d.approved_id}">Revision ${d.approved_revision}</a> for most recent approved content.`;
-          } else {
-            c.style = "float: right";
-            inner = `<em><a href="/approvals">Approved ${new Date(d.approval_timestamp * 1000).toLocaleString()}</a></em>`;
+            inner += `<br/>See <a href="/books/${book_slug}/page/${page_slug}/revisions/${d.approved_id}">Revision${d.approved_revision}</a> for most recent approved content.`;
           }
-          c.innerHTML = inner;
-          elem.prepend(c);
+        } else {
+          c.style = "float: right";
+          inner = `<em><a href="/approvals">Approved ${new Date(d.approval_timestamp * 1000).toLocaleString()}</a></em>`;
         }
+        c.innerHTML = inner;
+        elem.prepend(c);
       });
   }
 </script>
