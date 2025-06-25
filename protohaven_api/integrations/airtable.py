@@ -231,21 +231,6 @@ def get_tool_id_and_name(tool_code: str):
     return None, None
 
 
-def get_all_maintenance_tasks():
-    """Get all recurring maintenance tasks in the tool DB"""
-    return get_all_records("tools_and_equipment", "recurring_tasks")
-
-
-def update_recurring_task_date(task_id, date):
-    """Updates the last-scheduled date on a specific recurring task"""
-    return update_record(
-        {"Last Scheduled": date.strftime("%Y-%m-%d")},
-        "tools_and_equipment",
-        "recurring_tasks",
-        task_id,
-    )
-
-
 @lru_cache(maxsize=1)
 def get_clearance_to_tool_map():
     """Returns a mapping of clearance codes (e.g. MWB) to individual tool codes"""
@@ -375,7 +360,7 @@ def create_fees(fees, batch_size=10):
     """Create fees for each violation and fee amount in the map"""
     data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
     for i in range(0, len(data), batch_size):
-        batch = data[i:i + batch_size]
+        batch = data[i : i + batch_size]
         rep = insert_records(batch, "policy_enforcement", "fees")
     return rep
 
