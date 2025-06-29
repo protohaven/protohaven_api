@@ -30,10 +30,10 @@ docker volume rm protohaven_api_pg_data protohaven_api_nc_data
 echo -e "$HDR Loading postgres data from dump.sql... $HDR"
 docker compose up -d nocodb_db
 sleep 5 # Wait for container to be online
-cat dump.sql | docker exec -i nocodb_db psql -U postgres -d root_db
+cat nocodb/dump.sql | docker exec -i nocodb_db psql -U postgres -d root_db
 
 # Load the other nocodb data into the volume before nocodb inits it
 echo -e "$HDR Unpacking Nocodb nc_data.tar... $HDR"
-docker run --rm --volume protohaven_api_nc_data:/usr/app/data -v $(pwd):/backup ubuntu bash -c "cd /usr/app/data && tar xvf /backup/nc_data.tar --strip 1"
+docker run --rm --volume protohaven_api_nc_data:/usr/app/data -v $(pwd)/nocodb:/backup ubuntu bash -c "cd /usr/app/data && tar xvf /backup/nc_data.tar --strip 1"
 
 echo -e "\n\nDone! Run 'docker compose watch', then browse to http://localhost:9090 and login with:\n- username: admin@example.com\n- password: password"
