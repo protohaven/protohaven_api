@@ -61,7 +61,7 @@ def logout():
 def login_with_neon_id(neon_id):
     """Sets the session based on a Neon user ID"""
     session["neon_id"] = neon_id
-    session["neon_account"], _ = neon_base.fetch_account(
+    session["neon_account"] = neon_base.fetch_account(
         session["neon_id"], required=True, raw=True
     )
 
