@@ -21,6 +21,7 @@ from protohaven_api.integrations.airtable_base import (
     update_record,
 )
 from protohaven_api.integrations.data.warm_cache import WarmDict
+from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
 
@@ -282,19 +283,14 @@ def get_all_tech_bios():
     return list(get_all_records("people", "volunteers_staff"))
 
 
-def get_signins_after(after):
-    """Fetches all sign-in data after a specific datetime"""
-    for rec in get_all_records_after("people", "sign_ins", after):
-        yield rec["fields"]
-
-
 def get_signins_between(start, end):
-    """Fetches all sign-in data between two dates; falls back to
-    get_signins_after if end=None"""
+    """Fetches all sign-in data between two dates; or after `start` if `end` is None"""
     if not end:
-        yield from get_signins_after(start)
-    for rec in get_all_records_between("people", "sign_ins", start, end):
-        yield rec["fields"]
+        for rec in get_all_records_after("people", "sign_ins", start):
+            yield SignInEvent.from_airtable(rec)
+    else:
+        for rec in get_all_records_between("people", "sign_ins", start, end):
+            yield SignInEvent.from_airtable(rec)
 
 
 def insert_simple_survey_response(announcement_id, email, neon_id, response):
@@ -375,7 +371,7 @@ def create_fees(fees, batch_size=10):
     """Create fees for each violation and fee amount in the map"""
     data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
     for i in range(0, len(data), batch_size):
-        batch = data[i:i + batch_size]
+        batch = data[i : i + batch_size]
         rep = insert_records(batch, "policy_enforcement", "fees")
     return rep
 

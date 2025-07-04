@@ -7,6 +7,7 @@ from typing import Generator
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
+from dateutil import tz as dtz
 
 from protohaven_api.config import tz, tznow
 
@@ -342,7 +343,10 @@ class Member:  # pylint:disable=too-many-public-methods
         """Fetches clearances for the account"""
         if self.neon_search_data and self.neon_search_data.get("Clearances"):
             return [v.strip() for v in self.neon_search_data["Clearances"]]
-        return [v["name"] for v in self._get_custom_field("Clearances", "optionValues")]
+        return [
+            v["name"]
+            for v in (self._get_custom_field("Clearances", "optionValues") or [])
+        ]
 
     @property
     def roles(self):
@@ -363,14 +367,14 @@ class Member:  # pylint:disable=too-many-public-methods
     def volunteer_bio(self):
         """With bio data, get member bio string"""
         if not self.airtable_bio_data:
-            raise RuntimeError("Missing bio data for call to volunteer_bio()")
+            return None
         return self.airtable_bio_data["fields"].get("Bio") or ""
 
     @property
     def volunteer_picture(self):
         """With bio data, get member's profile picture"""
         if not self.airtable_bio_data:
-            raise RuntimeError("Missing bio data for call to volunteer_picture()")
+            return None
         thumbs = self.airtable_bio_data["fields"].get("Picture")[0]["thumbnails"][
             "large"
         ]
@@ -386,6 +390,7 @@ class Member:  # pylint:disable=too-many-public-methods
         custom_fields = {
             "discord_user": ("Discord User", "value"),
             "interest": ("Interest", "value"),
+            "expertise": ("Interest", "value"),
             "account_automation_ran": ("Account Automation Ran", "value"),
         }
         if attr in custom_fields:
@@ -409,6 +414,8 @@ class Member:  # pylint:disable=too-many-public-methods
         }
         if attr in day_custom_fields:
             val = self._get_custom_field(day_custom_fields[attr], "value")
+            if val is None:
+                return None
             try:
                 return (
                     dateparser.parse(val)
@@ -432,7 +439,7 @@ class Member:  # pylint:disable=too-many-public-methods
         """Returns the tuple of ("weekday", AM|PM) indicating the
         member's shop tech shift"""
         v = self._get_custom_field("Shop Tech Shift", "value")
-        if not v:
+        if not isinstance(v, str) or "," not in v:
             return (None, None)
         v = [s.strip() for s in v.split(",")]
         return v[0], v[1]
@@ -571,43 +578,6 @@ class Event:  # pylint: disable=too-many-public-methods
             or None
         )
 
-    def __getattr__(self, attr):
-        """Resolves simple calls to _get_custom_field and _resolve for account data.
-        Only called when self.attr doesn't exist - instance attribute access only.
-        """
-        resolvable_fields = {
-            # We should eventually rename neon_id to event_id
-            # since we support Eventbrite as well
-            "neon_id": ("id", "Event ID", ["id"]),
-            "name": ("name", "Event Name", ["name", "text"]),
-            "description": (
-                "description",
-                "Event Description",
-                ["description", "html"],
-            ),
-        }
-        if attr in resolvable_fields:
-            return self._resolve(*resolvable_fields[attr])
-
-        airtable_fields = {
-            "instructor_email": "Email",
-            "instructor_name": "Instructor",
-            "supply_cost": "Supply Cost (from Class)",
-            "volunteer": "Volunteer",
-            "supply": "Supply State",
-        }
-        if attr in airtable_fields:
-            if not self.airtable_data:
-                return None
-            v = self.airtable_data["fields"].get(airtable_fields[attr])
-            if isinstance(v, list) and len(v) == 1:
-                v = v[0]
-            if isinstance(v, str):
-                v = v.strip()
-            return v
-
-        raise AttributeError(attr)
-
     def _resolve_date(self, dtfetch, dtsearch, eb):
         """Returns the start date of the event"""
         if self.eventbrite_data:
@@ -675,7 +645,10 @@ class Event:  # pylint: disable=too-many-public-methods
 
     @property
     def start_date(self):
-        """Get the start date of the event"""
+        """Get the start date of the event
+
+        NOTE: Prefer `start_utc` to reduce DST bugs
+        """
         return self._resolve_date(
             ("startDate", "startTime"),
             ("Event Start Date", "Event Start Time"),
@@ -684,10 +657,23 @@ class Event:  # pylint: disable=too-many-public-methods
 
     @property
     def end_date(self):
-        """Get the end date of the event"""
+        """Get the end date of the event
+
+        NOTE: Prefer `end_utc` to reduce DST bugs
+        """
         return self._resolve_date(
             ("endDate", "endTime"), ("Event End Date", "Event End Time"), "end"
         )
+
+    @property
+    def start_utc(self):
+        """Get the start date of the event in UTC"""
+        return self.start_date.astimezone(dtz.UTC) if self.start_date else None
+
+    @property
+    def end_utc(self):
+        """Get the end date of the event in UTC"""
+        return self.end_date.astimezone(dtz.UTC) if self.end_date else None
 
     @property
     def attendees(self) -> Generator[Attendee, None, None]:
@@ -794,3 +780,92 @@ class Event:  # pylint: disable=too-many-public-methods
         if nid:
             return f"https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event={nid}"
         return None
+
+    def __getattr__(self, attr):
+        """Resolves simple calls to _get_custom_field and _resolve for account data.
+        Only called when self.attr doesn't exist - instance attribute access only.
+        """
+        resolvable_fields = {
+            # We should eventually rename neon_id to event_id
+            # since we support Eventbrite as well
+            "neon_id": ("id", "Event ID", ["id"]),
+            "name": ("name", "Event Name", ["name", "text"]),
+            "description": (
+                "description",
+                "Event Description",
+                ["description", "html"],
+            ),
+        }
+        if attr in resolvable_fields:
+            return self._resolve(*resolvable_fields[attr])
+
+        airtable_fields = {
+            "instructor_email": "Email",
+            "instructor_name": "Instructor",
+            "supply_cost": "Supply Cost (from Class)",
+            "volunteer": "Volunteer",
+            "supply": "Supply State",
+        }
+        if attr in airtable_fields:
+            if not self.airtable_data:
+                return None
+            v = self.airtable_data["fields"].get(airtable_fields[attr])
+            if isinstance(v, list) and len(v) == 1:
+                v = v[0]
+            if isinstance(v, str):
+                v = v.strip()
+            return v
+
+        raise AttributeError(attr)
+
+
+@dataclass
+class SignInEvent:
+    """A sign-in event from the front desk."""
+
+    airtable_data: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_airtable(cls, data):
+        """Creates a SignInEvent from a row in the people/sign_ins airtable"""
+        if not data:
+            return None
+        m = cls()
+        m.airtable_data = data
+        return m
+
+    @property
+    def created(self):
+        """Returns the date the sign in was recorded, in UTC"""
+        if not self.airtable_data["fields"]["Created"]:
+            return None
+        return dateparser.parse(self.airtable_data["fields"]["Created"]).astimezone(
+            dtz.UTC
+        )
+
+    @property
+    def clearances(self):
+        """Returns list of clearances"""
+        cc = self.airtable_data["fields"]["Clearances"]
+        return [c.strip() for c in cc.split(",")] if cc else []
+
+    @property
+    def violations(self):
+        """Returns listed violations"""
+        vv = self.airtable_data["fields"]["Violations"]
+        return [v.strip() for v in vv.split(",")] if vv else []
+
+    def __getattr__(self, attr):
+        """Resolves simple calls to _get_custom_field and _resolve for account data.
+        Only called when self.attr doesn't exist - instance attribute access only.
+        """
+        resolvable_fields = {
+            "member": ("Am Member", False),
+            "email": ("Email", "UNKNOWN"),
+            "status": ("Status", "UNKNOWN"),
+            "name": ("Full Name", ""),
+        }
+        if attr in resolvable_fields:
+            k, d = resolvable_fields[attr]
+            return self.airtable_data["fields"].get(k) or d
+        raise AttributeError(attr)
