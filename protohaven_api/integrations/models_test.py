@@ -2,9 +2,11 @@
 from collections import namedtuple
 
 import pytest
+from dateutil import parser as dateparser
+from dateutil import tz as dtz
 
 from protohaven_api.integrations import models
-from protohaven_api.integrations.models import Event, Member, Role
+from protohaven_api.integrations.models import Event, Member, Role, SignInEvent
 from protohaven_api.testing import d, idfn
 
 
@@ -334,6 +336,8 @@ def test_event_properties():
         assert evt.archived is False
         assert evt.published is True
         assert evt.registration is True
+        assert evt.start_utc == start.astimezone(dtz.UTC)
+        assert evt.end_utc == end.astimezone(dtz.UTC)
         assert evt.start_date == start
         assert evt.end_date == end
         at = list(evt.attendees)[0]
@@ -360,3 +364,63 @@ def test_event_properties():
         assert evt.supply_cost == "10.00"
         assert evt.volunteer == "Yes"
         assert evt.supply == "Ordered"
+
+
+def test_sign_in_event_from_airtable():
+    """Test creating SignInEvent from airtable data"""
+    data = {
+        "fields": {
+            "Created": "2024-01-01T12:00:00Z",
+            "Clearances": "laser, 3dprinter",
+            "Violations": "safety, cleanup",
+            "Am Member": True,
+            "Email": "test@example.com",
+            "Status": "active",
+            "Full Name": "Test User",
+        }
+    }
+    event = SignInEvent.from_airtable(data)
+    assert event is not None
+    assert event.member is True
+    assert event.email == "test@example.com"
+    assert event.status == "active"
+    assert event.name == "Test User"
+    assert event.clearances == ["laser", "3dprinter"]
+    assert event.violations == ["safety", "cleanup"]
+    assert event.created == dateparser.parse("2024-01-01T12:00:00Z").astimezone(dtz.UTC)
+
+
+def test_sign_in_event_empty_airtable():
+    """Test creating SignInEvent from empty airtable data"""
+    event = SignInEvent.from_airtable(None)
+    assert event is None
+
+
+def test_sign_in_event_empty_fields():
+    """Test SignInEvent with empty optional fields"""
+    data = {
+        "fields": {
+            "Created": "2024-01-01T12:00:00Z",
+            "Clearances": None,
+            "Violations": None,
+            "Am Member": False,
+            "Email": None,
+            "Status": None,
+            "Full Name": None,
+        }
+    }
+    event = SignInEvent.from_airtable(data)
+    assert event.clearances == []
+    assert event.violations == []
+    assert event.member is False
+    assert event.email == "UNKNOWN"
+    assert event.status == "UNKNOWN"
+    assert event.name == ""
+
+
+def test_sign_in_event_invalid_attribute():
+    """Test accessing invalid attribute raises AttributeError"""
+    data = {"fields": {"Created": "2024-01-01T12:00:00Z"}}
+    event = SignInEvent.from_airtable(data)
+    with pytest.raises(AttributeError):
+        _ = event.invalid_attr

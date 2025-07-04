@@ -19,24 +19,16 @@ function refresh() {
     loaded = true;
     let by_email = {};
     for (let d of data) {
-      const t = new Date(d['Created']);
+      d.created = new Date(d.created);
+      console.log(d);
       if (!by_email[d['Email']]) {
-        by_email[d['Email']] = {
-          "first_timestamp": t,
-          "timestamps": new Set(),
-          "member": d['Am Member'],
-          "email": d['Email'],
-          "clearances": (d['Clearances']) ? d['Clearances'].split(',').map(entry => entry.trim()) : [],
-          "status": d['Status'] || 'UNKNOWN',
-          "name": d['Full Name'] || null,
-          "violations": (d['Violations']) ? d['Violations'].split(',').map(entry => entry.trim()): [],
-        };
+        by_email[d['Email']] = {...d, "timestamps": new Set()};
       }
-      by_email[d['Email']]['timestamps'].add(t.toLocaleTimeString());
+      by_email[d['Email']]['timestamps'].add(d.created.toLocaleTimeString());
     }
     let results = Object.values(by_email);
     // Sort descending, newest on top
-    results.sort((a, b) => b.first_timestamp - a.first_timestamp);
+    results.sort((a, b) => b.created - a.created);
     return results;
   });
 }
@@ -67,7 +59,7 @@ $: {
     {#each p as r}
       <ListGroupItem>
         <p><strong>{r.email}{#if r.name}&nbsp;({r.name}){/if}</strong>
-          {r.first_timestamp.toLocaleTimeString()} -
+          {r.created.toLocaleTimeString()} -
               {#if !r.member}
                 Guest
               {:else}
