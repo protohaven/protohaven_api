@@ -439,10 +439,12 @@ class Member:  # pylint:disable=too-many-public-methods
         """Returns the tuple of ("weekday", AM|PM) indicating the
         member's shop tech shift"""
         v = self._get_custom_field("Shop Tech Shift", "value")
-        if not isinstance(v, str) or "," not in v:
+        if not isinstance(v, str) or " " not in v:
             return (None, None)
-        v = [s.strip() for s in v.split(",")]
-        return v[0], v[1]
+        v = [s.strip() for s in v.split(" ") if s.strip() != ""]
+        if len(v) != 2:
+            return (None, None)
+        return v[0].title(), v[1].upper()
 
     @property
     def booked_id(self):

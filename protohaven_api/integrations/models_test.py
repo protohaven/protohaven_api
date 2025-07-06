@@ -49,6 +49,22 @@ def test_lname():
     assert m.lname == "Test"
 
 
+def test_shop_tech_shift_spelling_correction():
+    """Test Member.fname property"""
+    data = {
+        "individualAccount": {
+            "accountCustomFields": [
+                {
+                    "name": "Shop Tech Shift",
+                    "value": "  SuNdAy   am   ",
+                }
+            ]
+        }
+    }
+    m = Member(neon_raw_data=data)
+    assert m.shop_tech_shift == ("Sunday", "AM")
+
+
 Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
 
 
