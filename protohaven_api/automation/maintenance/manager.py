@@ -4,13 +4,13 @@ import datetime
 import logging
 
 from protohaven_api.config import get_config, tznow
-from protohaven_api.integrations import airtable, tasks, wiki
+from protohaven_api.integrations import tasks, wiki
 
 log = logging.getLogger("maintenance.manager")
 
 
 def get_maintenance_needed_tasks(now=None):
-    """Fetches a list of recurring tasks from Airtable and Bookstack that are due to be
+    """Fetches a list of recurring tasks from Bookstack that are due to be
     scheduled into asana for action.
 
     "Due"-ness is determined by the last completion of an Asana task with the same
@@ -42,21 +42,6 @@ def get_maintenance_needed_tasks(now=None):
         if m["approval_state"].get("approved_revision")
     ]
     log.info(f"Loaded {len(candidates)} task(s)")
-    log.info("Loading candidate tasks from Airtable recurring tasks table")
-    candidates += [
-        {
-            "id": t["id"],
-            "origin": "Airtable",
-            "name": t["fields"]["Task Name"],
-            "detail": t["fields"]["Task Detail"],
-            "freq": int(t["fields"]["Frequency"]),
-            "level": t["fields"]["Skill Level"],
-            "section": t["fields"]["Asana Section"],
-        }
-        for t in airtable.get_all_maintenance_tasks()
-        if "REVIEW NEEDED" not in t["fields"]["Skill Level"]
-    ]
-    log.info(f"Loaded {len(candidates)} total task(s)")
 
     needed = []
     for c in candidates:
