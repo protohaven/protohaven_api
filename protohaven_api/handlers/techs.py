@@ -114,11 +114,25 @@ def techs_members():
     """Fetches today's sign-in information for members"""
     start = request.values.get("start")
     start = (dateparser.parse(start) if start else tznow()).replace(
-        hour=0, minute=0, second=0
+        hour=0, minute=0, second=0, tzinfo=tz
     )
     end = start.replace(hour=23, minute=59, second=59)
     log.info(f"Fetching signins from {start} to {end}")
-    return list(airtable.get_signins_between(start, end))
+    return [
+        {
+            k: getattr(s, k)
+            for k in (
+                "name",
+                "status",
+                "email",
+                "member",
+                "clearances",
+                "violations",
+                "created",
+            )
+        }
+        for s in airtable.get_signins_between(start, end)
+    ]
 
 
 @page.route("/techs/area_leads")

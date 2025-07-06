@@ -18,7 +18,7 @@ services:
       - source: ph-config
         target: /config.yaml
     depends_on:
-      nocodb:
+      nocodb_frontend:
         condition: service_healthy
     develop:
       watch:
@@ -73,7 +73,7 @@ services:
       test: "curl localhost:5173"
       timeout: 2s
 
-  nocodb:
+  nocodb_frontend:
     image: "nocodb/nocodb:latest"
     container_name: nocodb_frontend
     volumes:

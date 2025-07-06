@@ -285,11 +285,15 @@ def test_techs_event_registration_unregister(mocker, tech_client):
 def test_techs_area_leads(mocker, tech_client):
     """Tests the techs_area_leads function"""
     mock_areas = ["Area1", "Area2"]
-    t1 = mocker.MagicMock(area_lead=["Area1", "ExtraArea"], email="a@b.com", shop_tech_shift="a")
+    t1 = mocker.MagicMock(
+        area_lead=["Area1", "ExtraArea"], email="a@b.com", shop_tech_shift="a"
+    )
     t1.name = "Tech1"
     t2 = mocker.MagicMock(area_lead=["Area2"], email="c@d.com", shop_tech_shift="b")
     t2.name = "Tech2"
-    t3 = mocker.MagicMock(area_lead=["NonExistentArea"], email="e@f.com", shop_tech_shift="c")
+    t3 = mocker.MagicMock(
+        area_lead=["NonExistentArea"], email="e@f.com", shop_tech_shift="c"
+    )
     t3.name = "Tech3"
     mocker.patch.object(
         tl,
@@ -303,12 +307,12 @@ def test_techs_area_leads(mocker, tech_client):
 
     expected_response = {
         "area_leads": {
-            "Area1": [{'name': 'Tech1', 'email': 'a@b.com', 'shift': 'a'}],
-            "Area2": [{'name': 'Tech2', 'email': 'c@d.com', 'shift': 'b'}],
+            "Area1": [{"name": "Tech1", "email": "a@b.com", "shift": "a"}],
+            "Area2": [{"name": "Tech2", "email": "c@d.com", "shift": "b"}],
         },
         "other_leads": {
-            "ExtraArea": [{'name': 'Tech1', 'email': 'a@b.com', 'shift': 'a'}],
-            "NonExistentArea": [{'name': 'Tech3', 'email': 'e@f.com', 'shift': 'c'}],
+            "ExtraArea": [{"name": "Tech1", "email": "a@b.com", "shift": "a"}],
+            "NonExistentArea": [{"name": "Tech3", "email": "e@f.com", "shift": "c"}],
         },
     }
 
@@ -442,21 +446,33 @@ def test_rm_tech_event_non_tech_only(mocker, lead_client):
 
 def test_techs_members(mocker, tech_client):
     """Test fetching member sign-ins for techs view"""
-    mock_signins = [{"id": "1", "name": "Test User"}]
-    mocker.patch.object(tl.airtable, "get_signins_between", return_value=mock_signins)
-    mocker.patch.object(tl, "tznow", return_value=d(0))
+    m = mocker.MagicMock(
+        status="foo",
+        email="bar",
+        member=True,
+        clearances=[],
+        violations=[],
+        created=d(0),
+    )
+    m.name = "Test User"
+    mocker.patch.object(tl.airtable, "get_signins_between", return_value=[m])
+    mocker.patch.object(tl, "tznow", return_value=d(0, 14))
     mocker.patch.object(tl.dateparser, "parse", return_value=d(1))
 
     rep = tech_client.get("/techs/members?start=2024-01-01")
-    assert rep.json == mock_signins
     tl.airtable.get_signins_between.assert_called_once_with(
         d(1).replace(hour=0, minute=0, second=0),
         d(1).replace(hour=23, minute=59, second=59),
     )
+    got = rep.json
+    assert len(got) == 1
+    assert got[0]["name"] == m.name
 
     got = tech_client.get("/techs/members")
-    assert rep.json == mock_signins
     tl.airtable.get_signins_between.assert_called_with(
         d(0).replace(hour=0, minute=0, second=0),
         d(0).replace(hour=23, minute=59, second=59),
     )
+    got = rep.json
+    assert len(got) == 1
+    assert got[0]["name"] == m.name

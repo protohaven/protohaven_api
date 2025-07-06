@@ -3,8 +3,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vitest/config';
 
 // Base URL of the flask backend server
-const SERVER_BASE = 'http://127.0.0.1:5000';
-const WS_SERVER_BASE = 'ws://127.0.0.1:5000';
+const SERVER_BASE = 'http://flask:5000';
+const WS_SERVER_BASE = 'ws://flask:5000';
 
 // Paths to proxy to the backend.
 // See https://vitejs.dev/config/server-options#server-proxy

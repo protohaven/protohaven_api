@@ -46,6 +46,7 @@ def _neon_dev_outputify(rec, field):
         "Account ID": lambda a: a["accountId"],
         "First Name": lambda a: a["primaryContact"]["firstName"],
         "Last Name": lambda a: a["primaryContact"]["lastName"],
+        "Preferred Name": lambda a: a["primaryContact"].get("preferredName"),
         "Household ID": lambda a: a.get("householdId"),
         "Company ID": lambda a: a.get("companyId"),
         "Email 1": lambda a: a["primaryContact"].get("email1"),
