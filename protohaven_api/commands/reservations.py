@@ -346,19 +346,20 @@ class Commands:
 
     def _fetch_neon_sources(self):
         neon_members = {}
-        for m in neon.search_active_members(
+        for m in neon.search_all_members(
             [
                 "Company ID",
                 "First Name",
                 "Last Name",
                 "Email 1",
+                "Account Current Membership Status",
                 neon.CustomField.BOOKED_USER_ID,
             ]
         ):
-            if m.neon_id == m.company_id:
+            if not m.can_reserve_tools():
                 continue
             neon_members[(m.fname, m.lname, m.email)] = (m.neon_id, m.booked_id)
-        log.info(f"Fetched {len(neon_members)} neon members")
+        log.info(f"Fetched {len(neon_members)} neon members that can reserve tools")
         return neon_members
 
     def _fetch_booked_sources(self):
