@@ -35,6 +35,23 @@ def test_is_company():
     assert not m.is_company()
 
 
+@pytest.mark.parametrize(
+    "is_company, status, want",
+    [
+        (True, "Active", False),
+        (False, "Active", True),
+        (False, "Future", True),
+        (False, "Inactive", False),
+    ],
+)
+def test_can_reserve_tools(mocker, is_company, status, want):
+    """Test various member conditions and whether they are allowed to reserve tools"""
+    m = Member()
+    mocker.patch.object(m, "account_current_membership_status", status)
+    mocker.patch.object(m, "is_company", return_value=is_company)
+    assert m.can_reserve_tools() == want
+
+
 def test_fname():
     """Test Member.fname property"""
     data = {"individualAccount": {"primaryContact": {"firstName": "Test"}}}

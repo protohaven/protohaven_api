@@ -60,9 +60,9 @@ def _neon_dev_outputify(rec, field):
     raise NotImplementedError(f"Extract search outputField {field} from account {acc}")
 
 
-def _neon_dev_search_filter(
+def _neon_dev_search_filter(  # pylint: disable=too-many-return-statements, too-many-branches
     field, operator, value
-):  # pylint: disable=too-many-return-statements
+):
     """Construct a filter on canned records"""
     if operator == "CONTAIN":
         if field.isdigit():  # Custom fields all indexed by number
@@ -129,6 +129,13 @@ def _neon_dev_search_filter(
                 ]
 
             return email_ne_filter
+        if field == "Account ID":
+
+            def aid_ne_filter(rec):
+                acc = first(rec, "individualAccount", "companyAccount")
+                return str(acc.get("accountId")) != str(value)
+
+            return aid_ne_filter
 
     if operator == "NOT_BLANK":
         if str(field) == "150":

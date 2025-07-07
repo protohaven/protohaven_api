@@ -192,6 +192,13 @@ class Member:  # pylint:disable=too-many-public-methods
                 continue
             yield ms
 
+    def can_reserve_tools(self):
+        """True if the member is allowed to reserve tools, false otherwise"""
+        return not self.is_company() and self.account_current_membership_status in (
+            "Active",
+            "Future",
+        )
+
     def is_company(self):
         """True if this is a Neon company account and not an individual account"""
         return self.neon_raw_data.get("companyAccount") or (

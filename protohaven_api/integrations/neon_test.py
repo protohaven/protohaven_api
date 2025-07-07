@@ -18,9 +18,11 @@ TEST_USER = 1234
 def test_patch_member_role(mocker):
     """Member role patch adds to existing roles"""
     mocker.patch.object(
-        n, "search_members_by_email", return_value=[
+        n,
+        "search_members_by_email",
+        return_value=[
             mocker.MagicMock(neon_id=1324, roles=[{"name": "TEST", "id": "1234"}])
-         ]
+        ],
     )
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
     n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
@@ -39,13 +41,17 @@ def test_patch_member_role(mocker):
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
     mocker.patch.object(
-        n, "search_members_by_email", return_value=[mocker.MagicMock(neon_id=1324,
-
-            roles=[
-                {"name": "TEST", "id": "1234"},
-                {"name": "Instructor", "id": "75"},
-            ]
-                                                                     )]
+        n,
+        "search_members_by_email",
+        return_value=[
+            mocker.MagicMock(
+                neon_id=1324,
+                roles=[
+                    {"name": "TEST", "id": "1234"},
+                    {"name": "Instructor", "id": "75"},
+                ],
+            )
+        ],
     )
     mocker.patch.object(n.neon_base, "get_connector")
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
@@ -111,7 +117,6 @@ def test_delete_single_ticket_registration(mocker):
 def test_account_cache_case_insensitive(mocker):
     """Confirm that lookups are case insensitive, and that non-string
     types are handled safely"""
-    mocker.patch.object(n, "search_inactive_members", return_value=[])
     want1 = mocker.MagicMock(
         email="aSdF",
         fname="foo",
@@ -119,7 +124,7 @@ def test_account_cache_case_insensitive(mocker):
         neon_id=123,
         account_current_membership_status="Active",
     )
-    mocker.patch.object(n, "search_active_members", return_value=[want1])
+    mocker.patch.object(n, "search_all_members", return_value=[want1])
     mocker.patch.object(n, "search_members_by_email", return_value=[])
     c = n.AccountCache()
     c.refresh()
@@ -137,7 +142,9 @@ def test_find_best_match(mocker):
     """Test find_best_match returns the best matches based on fuzzy ratio."""
     c = n.AccountCache()
     mocker.patch.object(
-        n, "search_members_by_email", side_effect=AssertionError("Should never be called")
+        n,
+        "search_members_by_email",
+        side_effect=AssertionError("Should never be called"),
     )
     c.update(
         mocker.MagicMock(email="a@b.com", fname="Albert", lname="Einstein", neon_id=123)
@@ -196,7 +203,9 @@ def test_account_update_causes_cache_hit(mocker):
     )
 
     mocker.patch.object(
-        n, "search_members_by_email", side_effect=AssertionError("should never be called")
+        n,
+        "search_members_by_email",
+        side_effect=AssertionError("should never be called"),
     )
     c = n.AccountCache()
     c.update(want)
@@ -224,4 +233,3 @@ def test_account_cache_miss_keyerror(mocker):
     mocker.patch.object(n, "search_members_by_email", return_value=[])
     with pytest.raises(KeyError):
         c["asdf"]
-
