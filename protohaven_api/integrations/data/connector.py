@@ -2,6 +2,7 @@
 configured state of the server"""
 
 import base64
+import datetime
 import json
 import logging
 import random
@@ -25,7 +26,7 @@ from protohaven_api.integrations import discord_bot
 log = logging.getLogger("integrations.data.connector")
 
 
-class Connector:
+class Connector:  # pylint: disable=too-many-public-methods
     """Provides production access to dependencies."""
 
     def __init__(self):
@@ -74,7 +75,7 @@ class Connector:
         """Create a new session using the requests lib"""
         return requests.Session()
 
-    def _construct_db_request_url_and_headers(self, base, tbl, rec, suffix, _):
+    def _construct_db_request_url_and_headers(self, _1, base, tbl, rec, suffix, _2):
         cfg = get_config("airtable")
         path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
         path += (f"/{rec}" if rec else "") + (suffix or "")
@@ -89,6 +90,7 @@ class Connector:
         return "airtable"
 
     def _format_db_request_data(self, _1, _2, data):
+        """This is a shim layer to allow DevConnector to reformat data to match NocoDB's API"""
         return data
 
     def db_request(  # pylint: disable=too-many-arguments
@@ -96,11 +98,10 @@ class Connector:
     ):
         """Make an airtable request using the requests module"""
         url, headers = self._construct_db_request_url_and_headers(
-            base, tbl, rec, suffix, link_field
+            mode, base, tbl, rec, suffix, link_field
         )
         if data is not None:
             data = json.dumps(self._format_db_request_data(mode, rec, data))
-            log.info(f"{mode} data {data}")
         for i in range(self.max_attempts):
             try:
                 rep = requests.request(
@@ -294,6 +295,29 @@ class Connector:
             api_key=get_config("wyze/api_key"),
         )
         return cli
+
+    def gcal_request(
+        self, calendar_id: str, time_min: datetime.datetime, time_max: datetime.datetime
+    ):
+        """Sends a calendar read request to Google Calendar"""
+
+        creds = service_account.Credentials.from_service_account_file(
+            get_config("calendar/credentials_path"),
+            scopes=get_config("calendar/scopes"),
+        )
+        service = build("calendar", "v3", credentials=creds)
+        return (
+            service.events()  # pylint: disable=no-member
+            .list(
+                calendarId=calendar_id,
+                timeMin=time_min.isoformat() + "Z",  # 'Z' indicates UTC time
+                timeMax=time_max.isoformat() + "Z",
+                maxResults=10000,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
 
 
 C = None

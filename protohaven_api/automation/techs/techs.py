@@ -58,14 +58,14 @@ def create_calendar_view(
         dstr = d.strftime("%Y-%m-%d")
         day = {"date": dstr}
         for ap in ["AM", "PM"]:
-            s = f"{d.strftime('%A')} {ap}"
+            wd = d.strftime("%A")
 
             ovr_id, ovr_people, ovr_editor = resolve_overrides(
                 overrides, f"{dstr} {ap}"
             )
 
             # On holidays, we assume by default that nobody is on duty.
-            people = shift_map.get(s, []) if d not in us_holidays else []
+            people = shift_map.get((wd, ap), []) if d not in us_holidays else []
 
             final_people = []
             for p in people:  # remove if outside of the tech's tenure

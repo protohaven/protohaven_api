@@ -441,7 +441,10 @@ def cancel_class():
 def _safe_date(v):
     if v is None:
         return v
-    return dateparser.parse(v).astimezone(tz)
+    d = dateparser.parse(v)
+    if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+        return d.replace(tzinfo=tz)
+    return d.astimezone(tz)
 
 
 @page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
@@ -487,7 +490,7 @@ def inst_availability():  # pylint: disable=too-many-return-statements
         t0 = _safe_date(request.json.get("t0"))
         t1 = _safe_date(request.json.get("t1"))
         inst_id = request.json.get("inst_id")
-        if not t0 or not t1:
+        if not t0 or not t1 or not inst_id:
             return Response(
                 "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
                 status=400,

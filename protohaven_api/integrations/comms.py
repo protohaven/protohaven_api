@@ -142,7 +142,7 @@ def send_discord_message(content, channel=None, blocking=True):
             log.info("No user or role match; leaving it alone")
             return s
         except Exception:  # pylint: disable=broad-exception-caught
-            traceback.print_exc() # We shouldn't let substitution failing prevent message sending
+            traceback.print_exc()  # We shouldn't let substitution failing prevent message sending
             log.info(
                 "Ignoring discord role/user resolution failure; continuing anyways..."
             )
@@ -152,10 +152,9 @@ def send_discord_message(content, channel=None, blocking=True):
     # https://gamertweak.com/new-username-system-discord/
     content = re.sub(r"@[\w\._]+", sub_roles_and_users, content, flags=re.MULTILINE)
 
-    log.info(f"Message is {len(content)} chars")
     for i in range(0, len(content), DISCORD_CHAR_LIMIT):
         chunk = content[i : i + DISCORD_CHAR_LIMIT]
-        log.info(f"Sending msg {len(chunk)} chars")
+        log.info(f"Sending msg ({len(chunk)}/{len(content)} chars)")
         result = get_connector().discord_webhook(channel, chunk)
         if blocking:
             result.raise_for_status()

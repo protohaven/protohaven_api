@@ -388,7 +388,7 @@ def test_event_properties():
         ]
         assert evt.attendee_count == 1
         assert evt.occupancy == 0.1
-        assert evt.in_blocklist is False
+        assert evt.in_blocklist() is False
         assert evt.has_open_seats_below_price(15) == 9
         assert evt.single_registration_ticket_id == 111
         assert evt.url

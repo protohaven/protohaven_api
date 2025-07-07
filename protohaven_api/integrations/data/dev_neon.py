@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from random import random
 from urllib.parse import urlparse
 
+from dateutil import parser as dateparser
 from flask import Flask, Response, request
 
+from protohaven_api.config import tz
 from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.neon import CustomField
 
@@ -152,6 +154,55 @@ def _neon_dev_search_filter(  # pylint: disable=too-many-return-statements, too-
     raise NotImplementedError(
         f"dev search filter with operator {operator}, field {field}"
     )
+
+
+@app.route("/v2/events/search", methods=["POST"])
+def search_event():
+    """Crude search mocker for events - does not respect output fields"""
+    data = request.json
+    from_date = None
+    until_date = None
+    for f in data["searchFields"]:
+        if f["field"] == "Event Start Date":
+            if f["operator"] == "GREATER_AND_EQUAL":
+                from_date = dateparser.parse(f["value"]).replace(tzinfo=tz)
+            elif f["operator"] == "LESS_AND_EQUAL":
+                until_date = dateparser.parse(f["value"]).replace(tzinfo=tz)
+            else:
+                raise RuntimeError(
+                    f"Unhandled operator {f['operator']} for field {f['field']}"
+                )
+
+    assert from_date and until_date
+    output_map = {
+        "Event ID": "id",
+        "Event Name": "name",
+        "Event Capacity": "capacity",
+        "Event Start Date": "startDate",
+        "Event Start Time": "startTime",
+    }
+    result = []
+    for row in airtable_base.get_all_records("fake_neon", "events"):
+        row = row["fields"]["data"]
+        if not row:
+            continue
+        assert isinstance(row, dict)
+        d = dateparser.parse(f"{row['startDate']} {row['startTime']}").replace(
+            tzinfo=tz
+        )
+        if from_date <= d <= until_date:
+            result.append({name: row[field] for name, field in output_map.items()})
+            result[-1][
+                "Event Registration Attendee Count"
+            ] = 1  # Need to actually handle this eventually
+            result[-1]["Event Web Publish"] = "Yes" if row["publishEvent"] else "No"
+            result[-1]["Event Web Register"] = (
+                "Yes" if row["enableEventRegistrationForm"] else "No"
+            )
+    return {
+        "searchResults": result,
+        "pagination": {"totalResults": len(result), "totalPages": 1},
+    }
 
 
 @app.route("/v2/events/<event_id>", methods=["GET", "PATCH", "DELETE"])

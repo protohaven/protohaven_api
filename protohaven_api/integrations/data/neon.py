@@ -36,9 +36,15 @@ class CustomField:
         """Converts to a CustomField from a neon ID"""
         for k in dir(cls):
             if int(v) == getattr(cls, k):
-                return " ".join(
+                result = " ".join(
                     [w.capitalize() for w in k.split("_")]
                 )  # Neon uses capital case names for custom fields
+
+                # Small correction to include ampersand
+                # since it cannot be used in a variable name
+                if result == "Notify Board And Staff":
+                    return "Notify Board & Staff"
+                return result
         raise CustomFieldNotFoundError(f"No CustomField ID {v}")
 
 

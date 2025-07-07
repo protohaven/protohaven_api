@@ -34,7 +34,7 @@ $: {
 	{#each p['area_leads'][area] as tech}
 	  <div>{tech.name}</div>
 	  <div>{tech.email}</div>
-	  <div>Shift: {tech.shift}</div>
+	  <div>Shift: {tech.shift.join(' ')}</div>
 	{/each}
       </CardBody>
       </Card>

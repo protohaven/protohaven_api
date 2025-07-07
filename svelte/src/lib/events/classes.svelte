@@ -52,7 +52,7 @@ import FetchError from '../fetch_error.svelte';
           <td style="text-align: right">{event.start.toLocaleDateString()}</td>
           <td style="text-align: right">{event.start.toLocaleTimeString()}</td>
           <td style="text-align: right">{event.end.toLocaleDateString()}</td>
-          <td style="text-align: right">{event.end.toLoacelTimeString()}</td>
+          <td style="text-align: right">{event.end.toLocaleTimeString()}</td>
           <td class="attendees">
           {#await event.attendees}
           Loading...

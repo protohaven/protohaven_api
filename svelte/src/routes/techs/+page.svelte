@@ -7,7 +7,6 @@
   import ToolState from '$lib/techs/tool_state.svelte';
   import Shifts from '$lib/techs/shifts.svelte';
   import Members from '$lib/techs/members.svelte';
-  import Assignments from '$lib/techs/assignments.svelte';
   import AreaLeads from '$lib/techs/area_leads.svelte';
   import Storage from '$lib/techs/storage.svelte';
   import Events from '$lib/techs/events.svelte';
@@ -71,7 +70,6 @@
 <Nav tabs>
   <NavItem><NavLink href="#cal" on:click={on_tab}>Cal</NavLink></NavItem>
   <NavItem><NavLink href="#members" on:click={on_tab}>Members</NavLink></NavItem>
-  <NavItem><NavLink href="#shifts" on:click={on_tab}>Shifts</NavLink></NavItem>
   <NavItem><NavLink href="#tools" on:click={on_tab}>Tools</NavLink></NavItem>
   <NavItem><NavLink href="#storage" on:click={on_tab}>Storage</NavLink></NavItem>
   <NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
@@ -80,7 +78,6 @@
 </Nav>
 <Shifts {user} visible={activeTab == 'cal'}/>
 <Members {user} visible={activeTab == 'members'}/>
-<Assignments visible={activeTab == 'shifts'}/>
 <ToolState visible={activeTab == 'tools'}/>
 <Storage visible={activeTab == 'storage'}/>
 <AreaLeads visible={activeTab == 'areas'}/>
