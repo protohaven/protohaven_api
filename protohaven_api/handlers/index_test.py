@@ -161,7 +161,7 @@ def test_upcoming_events(mocker, client):
     mock_blocked_event = mocker.Mock(
         start_date=d(1, 16),
         end_date=d(1, 19),
-        in_blocklist=True,
+        in_blocklist=lambda: True,
     )
 
     mocker.patch.object(
