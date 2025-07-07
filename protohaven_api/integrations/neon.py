@@ -196,19 +196,6 @@ def fetch_output_fields():
     return content
 
 
-def search_inactive_members(
-    fields: list[str], fetch_memberships=False
-) -> Generator[Member, None, None]:
-    """Lookup all accounts with inactive memberships"""
-    yield from _search_members_internal(
-        [
-            ("Account Current Membership Status", "NOT_EQUAL", "Active"),
-        ],
-        fields,
-        fetch_memberships,
-    )
-
-
 def search_active_members(
     fields: list[str],
     fetch_memberships=False,
@@ -218,6 +205,20 @@ def search_active_members(
     yield from _search_members_internal(
         [
             ("Account Current Membership Status", "EQUAL", "Active"),
+        ],
+        fields,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
+    )
+
+
+def search_all_members(
+    fields: list[str], fetch_memberships=False, also_fetch=False
+) -> Generator[Member, None, None]:
+    """Lookup all accounts"""
+    yield from _search_members_internal(
+        [
+            ("Account ID", "NOT_EQUAL", 1),  # There is no account #1
         ],
         fields,
         fetch_memberships=fetch_memberships,
@@ -579,12 +580,7 @@ class AccountCache(WarmDict):
         """Refresh values; called every REFRESH_PD"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
-        for a in search_inactive_members(self.FIELDS, fetch_memberships=True):
-            self.update(a)
-            n += 1
-            if n % 100 == 0:
-                self.log.info(n)
-        for a in search_active_members(self.FIELDS):
+        for a in search_all_members(self.FIELDS, fetch_memberships=True):
             self.update(a)
             n += 1
             if n % 100 == 0:
