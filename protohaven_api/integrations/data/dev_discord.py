@@ -21,3 +21,21 @@ def get_all_members():
             dateparser.parse(row["fields"]["joined_at"]),
             [(a, a) for a in row["fields"]["roles"].split(",")],
         )
+
+
+def resolve_user_id(name):
+    """Resolve user ID from display name"""
+    for row in airtable_base.get_all_records("fake_discord", "members"):
+        if name in (row["fields"]["name"], row["fields"]["display_name"]):
+            return row["id"]
+    return None
+
+
+def get_member_channels():
+    """Fetches all channels with members role"""
+    result = []
+    for row in airtable_base.get_all_records("fake_discord", "channels"):
+        if "Members" not in row["fields"]["roles"]:
+            continue
+        result.append((row["id"], row["fields"]["name"]))
+    return result

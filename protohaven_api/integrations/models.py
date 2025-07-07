@@ -716,7 +716,6 @@ class Event:  # pylint: disable=too-many-public-methods
             raise RuntimeError("Missing attendee data for call to occupancy()")
         return 0 if not self.capacity else len(self.signups) / self.capacity
 
-    @property
     def in_blocklist(self):
         """Return True if this event is in a blocklist of not-useful events"""
         return self.neon_id in (

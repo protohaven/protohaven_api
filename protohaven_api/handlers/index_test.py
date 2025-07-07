@@ -108,7 +108,7 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
         capacity=10,
         url="http://example.com",
         registration=True,
-        in_blocklist=False,
+        in_blocklist=lambda: False,
     )
     mocker.patch.object(
         index.eauto,
@@ -144,7 +144,7 @@ def test_upcoming_events(mocker, client):
         capacity=10,
         url="http://example.com",
         registration=True,
-        in_blocklist=False,
+        in_blocklist=lambda: False,
     )
     mock_event.name = "Test Event"
 
@@ -155,7 +155,7 @@ def test_upcoming_events(mocker, client):
     mock_past_event = mocker.Mock(
         start_date=d(-2),
         end_date=d(-1),
-        in_blocklist=False,
+        in_blocklist=lambda: False,
     )
 
     mock_blocked_event = mocker.Mock(

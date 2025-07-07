@@ -150,6 +150,7 @@ def techs_area_leads():
             "Email 1",
             neon.CustomField.AREA_LEAD,
             neon.CustomField.PRONOUNS,
+            neon.CustomField.SHOP_TECH_SHIFT,
         ],
     ):
         for a in t.area_lead:
@@ -181,7 +182,7 @@ def techs_forecast():
     )
     for d in result["calendar_view"]:
         for ap in ("AM", "PM"):
-            d[ap].people = [p.name for p in d[ap].people]
+            d[ap]["people"] = [p.name for p in d[ap]["people"]]
     return result
 
 
@@ -300,7 +301,7 @@ def new_tech_event():
         log.info("Name field required")
         return Response("name field is required", status=401)
     log.info("Parsing date")
-    d = dateparser.parse(data["start"]).astimezone(tz)
+    d = dateparser.parse(data["start"]).replace(tzinfo=tz)
     log.info(f"Parsed {d}")
     if not d or d < tznow() or d.hour < 10 or d.hour + data["hours"] > 22:
         return Response(

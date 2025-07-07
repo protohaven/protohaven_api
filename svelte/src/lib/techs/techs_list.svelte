@@ -30,7 +30,9 @@ $: {
 function refresh() {
   promise = get("/techs/list").then((data) => {
     loaded = true;
-    techs = data.techs;
+    techs = data.techs.map((t) => {
+      return {...t, shop_tech_shift: t.shop_tech_shift.join(' ')};
+    });
     return data;
   });
 }

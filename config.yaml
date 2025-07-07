@@ -122,6 +122,7 @@ nocodb:
       private_instruction: "mzvlt891rbk8gis"
     fake_discord:
       members: "m63a1kzdhf4yepz"
+      channels: "mbv0l6lew4hr863"
     fake_neon:
       accounts: "mnk0ozc78npm418"
       memberships: "mv3lhkooul6is39"
@@ -135,6 +136,8 @@ nocodb:
       reservations: "mkbmiwjyi3ow1ae"
     fake_eventbrite:
       events: "m90g2ef9xvyfynt"
+    fake_google:
+      calendar: "mafe10fw4jk19u6"
   link_field_ids:
     class_automation:
       availability:

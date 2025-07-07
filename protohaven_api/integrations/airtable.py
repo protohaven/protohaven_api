@@ -426,7 +426,8 @@ def _day_trunc(d):
 def get_instructor_availability(inst_rec):
     """Fetches all rows from Availability airtable matching `inst` as instructor"""
     for row in get_all_records("class_automation", "availability"):
-        if inst_rec in row["fields"]["Instructor (from Instructor)"][0].lower():
+        row_inst = (row["fields"]["Instructor (from Instructor)"] or [""])[0].lower()
+        if inst_rec in row_inst:
             yield row
 
 
@@ -536,10 +537,8 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
 ):
     """Upserts a shop tech shift override"""
     ap = ap.lower()
-    date = (
-        dateparser.parse(date)
-        .astimezone(tz)
-        .replace(hour=10 if ap.lower() == "am" else 16, minute=0, second=0)
+    date = dateparser.parse(date).replace(
+        hour=10 if ap.lower() == "am" else 16, minute=0, second=0, tzinfo=tz
     )
     data = {
         "Shift Start": date.isoformat(),

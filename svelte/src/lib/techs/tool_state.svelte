@@ -64,7 +64,13 @@ function resolve_docs_category(docs, cat) {
 }
 
 function refresh() {
-  promise = Promise.all([get("/techs/tool_state"), get("/techs/docs_state")]).then((data) => {
+  let docs_promise = get("/techs/docs_state").catch((e) => {
+    console.error(e);
+    console.warn("Continuing without docs info");
+    return null;
+  });
+
+  promise = Promise.all([get("/techs/tool_state"), docs_promise]).then((data) => {
     tool_state = [];
     let docs_state = data[1];
     areas = new Set();
@@ -72,9 +78,13 @@ function refresh() {
       if (tool.status === "Grey (N/A)") {
         continue;
       }
-      let docs = docs_state['by_code'][tool.code] || {};
-      tool.clearance_doc = resolve_docs_category(docs, 'clearance');
-      tool.tutorial_doc = resolve_docs_category(docs, 'tool_tutorial');
+      if (docs_state) {
+        let docs = docs_state['by_code'][tool.code] || {};
+        tool.clearance_doc = resolve_docs_category(docs, 'clearance');
+        tool.tutorial_doc = resolve_docs_category(docs, 'tool_tutorial');
+      } else {
+        tool.docs_err = true;
+      }
       tool_state.push(tool);
       for (let area of tool.area) {
         areas.add(area.trim());
@@ -144,8 +154,12 @@ $: {
             <div>Code: {tool.code}</div>
             <div>Area: {tool.area}</div>
             <div>Status: {tool.message}</div>
+            {#if tool.docs_err}
+            <em>Error fetching documentation state - see browser console</em>
+            {:else}
             <div>Clearance doc: <Badge color={tool.clearance_doc.color} href={tool.clearance_doc.url} target="_blank">{tool.clearance_doc.status}</Badge></div>
             <div>Tutorial doc: <Badge color={tool.tutorial_doc.color} href={tool.tutorial_doc.url} target="_blank">{tool.tutorial_doc.status}</Badge></div>
+            {/if}
             <div><a href="https://airtable.com/appbIlORlmbIxNU1L/shr9Hbyf7tdf7Y5LD/tblalZYdLVoTICzE6?filter_Tool Name={tool.name}" target="_blank">history</a></div>
           </CardBody>
         </Card>

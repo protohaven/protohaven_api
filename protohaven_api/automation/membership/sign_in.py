@@ -112,7 +112,7 @@ def log_sign_in(data, result, meta):
         dependent_info=data["dependent_info"],
         waiver_ack=result["waiver_signed"],
         referrer=data.get("referrer"),
-        purpose="I'm a member, just signing in!",
+        purpose="I'm a member, just signing in!",  # Deprecated
         am_member=(data["person"] == "member"),
         full_name=meta.get("full_name") or "",
         clearances=meta.get("clearances") or [],
@@ -295,7 +295,7 @@ def as_member(data, send):
         meta["clearances"] = m.clearances
         result["announcements"] = handle_announcements(
             last_ack=m.announcements_acknowledged,
-            roles=[r["name"] for r in m.roles],
+            roles=[r["name"] for r in (m.roles or [])],
             is_active=result["status"] == "Active",
             testing=data.get("testing"),
             clearances=meta["clearances"],

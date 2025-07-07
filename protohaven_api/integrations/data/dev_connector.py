@@ -9,6 +9,7 @@ from protohaven_api.integrations.data import (
     dev_booked,
     dev_discord,
     dev_eventbrite,
+    dev_google,
     dev_neon,
     dev_wyze,
 )
@@ -22,8 +23,6 @@ class DevConnector(Connector):
 
     def __init__(self):
         Connector.__init__(self)
-        self.mutated = False
-        self.sent_comms = False
         log.warning("DevConnector in use; mutations will not reach production")
 
     def _must_json(self, fn, *args, **kwargs):
@@ -38,8 +37,6 @@ class DevConnector(Connector):
 
     def neon_request(self, api_key, *args, **kwargs):
         """Make a neon request"""
-        if len(args) > 1 and args[1] != "GET":
-            self.mutated = True
         return self._must_json(dev_neon.handle, *args, **kwargs)
 
     def neon_session(self):
@@ -50,7 +47,7 @@ class DevConnector(Connector):
         return "nocodb"
 
     def _construct_db_request_url_and_headers(  # pylint: disable=too-many-arguments
-        self, base, tbl, rec, suffix, link_field
+        self, mode, base, tbl, rec, suffix, link_field
     ):
         cfg = get_config("nocodb")
         if link_field:
@@ -59,7 +56,8 @@ class DevConnector(Connector):
         else:
             path = f"/api/v2/tables/{cfg['data'][base][tbl]}/records"
 
-        if rec:
+        # Patch includes record ID in data, others append the ID to URL
+        if rec and mode != "PATCH":
             path += f"/{rec}"
         if suffix:
             path += suffix
@@ -69,36 +67,48 @@ class DevConnector(Connector):
         }
         return urljoin(cfg["requests"]["url"], path), headers
 
-    def _format_db_request_data(self, mode, _, data):
+    def _format_db_request_data(self, mode, rec, data):
         if mode == "POST" and not isinstance(data, list):
-            return [r["fields"] for r in data["records"]]
+            # De-encapsulate data, see
+            # https://nocodb.com/apis/v2/data#tag/Table-Records/operation/db-data-table-row-create
+            data = [r["fields"] for r in data["records"]]
+        elif mode == "PATCH":
+            # Record ID lives in row when patching
+            # We also unwrap from "fields" - see
+            # https://nocodb.com/apis/v2/data#tag/Table-Records/operation/db-data-table-row-update
+            data = [{**data["fields"], "Id": int(rec)}]
         return data
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
-        log.info(f"Suppressing google form submission: {url}, params {params}")
-        self.mutated = True
+        log.info(
+            f"\n============= DEV GOOGLE FORM SUBMISSION (FAKE) ===============\n"
+            f"{url}\nparams {params}\n"
+            "==========================================================\n"
+        )
 
     def discord_webhook(self, webhook, content):
         """Send content to a Discord webhook"""
         log.info(
-            f"\n============= DEV DISCORD MESSAGE {webhook} ===============\n"
+            f"\n============= DEV DISCORD MESSAGE {webhook} (FAKE) ===============\n"
             f"{content}\n"
             "==========================================================\n"
         )
-        self.sent_comms = True
         return dev_discord.Response()
 
     def email(self, subject, body, recipients, _):
         """Send an email via GMail SMTP"""
         log.info(
-            f"Suppressing email sending to {recipients}:\nSubject: {subject}\n{body}"
+            f"\n============= DEV EMAIL MESSAGE (FAKE) ==========\n"
+            f"To: {recipients}\n"
+            f"Subject: {subject}\n\n"
+            f"{body}\n\n"
+            "==========================================================\n"
         )
-        self.sent_comms = True
 
     def _discord_fn(self, fn, args, kwargs):
         if not hasattr(dev_discord, fn):
-            raise NotImplementedError("Function {fn} not implemented in dev_discord")
+            raise NotImplementedError(f"Function {fn} not implemented in dev_discord")
         return getattr(dev_discord, fn)(*args, **kwargs)
 
     def discord_bot_fn(self, fn, *args, **kwargs):
@@ -131,3 +141,7 @@ class DevConnector(Connector):
 
     def wyze_client(self):
         return dev_wyze.Client()
+
+    def gcal_request(self, calendar_id, time_min, time_max):
+        """Sends a calendar read request to Google Calendar"""
+        return dev_google.get_calendar(calendar_id, time_min, time_max)
