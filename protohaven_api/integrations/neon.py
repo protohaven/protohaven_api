@@ -281,12 +281,15 @@ def _search_members_internal(
 
 
 def search_members_by_email(
-    email, operator="EQUAL", fields=None, fetch_memberships=False
+    email, operator="EQUAL", fields=None, also_fetch=False, fetch_memberships=False
 ) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
     yield from _search_members_internal(
-        [("Email", operator, email)], fields, fetch_memberships
+        [("Email", operator, email)],
+        fields,
+        fetch_memberships=fetch_memberships,
+        also_fetch=also_fetch,
     )
 
 
@@ -520,6 +523,7 @@ class AccountCache(WarmDict):
     FIELDS = [
         *MEMBER_SEARCH_OUTPUT_FIELDS,
         "Email 1",
+        "Membership Level",
         CustomField.ACCOUNT_AUTOMATION_RAN,
         CustomField.BOOKED_USER_ID,
         CustomField.INCOME_BASED_RATE,
