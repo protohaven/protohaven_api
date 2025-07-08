@@ -295,8 +295,11 @@ class Member:  # pylint:disable=too-many-public-methods
     def income_based_rate(self):
         """Return Income Based Rate custom neon field"""
         val = self._get_custom_field("Income Based Rate", "optionValues")
-        if val:
-            return val[0]["name"]
+        log.info(f"{val}")
+        if isinstance(val, list):
+            val = val[0]
+        if isinstance(val, dict):
+            return val["name"]
         return None
 
     @property
