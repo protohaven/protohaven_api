@@ -407,7 +407,7 @@ def test_sign_in_event_from_airtable():
             "Clearances": "laser, 3dprinter",
             "Violations": "safety, cleanup",
             "Am Member": True,
-            "Email": "test@example.com",
+            "Email": "test@EXAMPLE.com    ",
             "Status": "active",
             "Full Name": "Test User",
         }

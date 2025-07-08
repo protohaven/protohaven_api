@@ -168,7 +168,7 @@ def test_send_class_emails(cronicle_evt_id: str, image: str):
                 image,
                 {
                     # Only act on the event we created; it's unpublished.
-                    "ARGS": f"--filter={evt_id} --no-published_only --no-cache",
+                    "ARGS": f"--filter={evt_id} --no-published_only",
                     "ARGS_CHAN_OVERRIDE": COVR,
                     "ARGS_EMAIL_OVERRIDE": EOVR,
                 },

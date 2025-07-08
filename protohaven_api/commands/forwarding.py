@@ -200,7 +200,7 @@ class Commands:
 
         avail = form["Availability"].replace("\n", ", ")
         if len(avail) > summary_limit / 2:
-            avail = avail[: summary_limit / 2 - 3] + "..."
+            avail = avail[: int(summary_limit / 2 - 3)] + "..."
         fmt = (
             f"- {d.strftime('%b %-d'):6} {'(' + duration + ' ago)':14} "
             f"{form['Name'].strip()}, {form['Email'].strip()}: "
@@ -331,25 +331,22 @@ class Commands:
 
         # Current day from calendar
         techs_on_duty = forecast.generate(now, 1, include_pii=True)["calendar_view"][0]
-        log.info(f"Forecast: {techs_on_duty}")
         # Pick AM vs PM shift
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
         log.info(f"Expecting on-duty techs: {techs_on_duty}")
         email_map = {t.email: t for t in techs_on_duty}
-        log.info(f"Email map: {email_map}")
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(airtable.get_signins_between(start, end)):
-            email = s["Email"].strip().lower()
-            t = email_map.get(email)
+            t = email_map.get(s.email)
             if t in techs_on_duty:
                 on_duty_ok = True
-                timestamp = s.get("Created") or now
-                if isinstance(timestamp, str):
-                    timestamp = dateparser.parse(timestamp)
-                log.info(f"{t.name} ({email}, signed in {timestamp.strftime('%-I%p')})")
+                timestamp = s.created or now
+                log.info(
+                    f"{t.name} ({s.email}, signed in {timestamp.strftime('%-I%p')})"
+                )
             else:
-                log.info(email)
+                log.info(s.email)
 
         result = []
         if not on_duty_ok:

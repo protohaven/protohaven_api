@@ -863,6 +863,14 @@ class SignInEvent:
         vv = self.airtable_data["fields"]["Violations"]
         return [v.strip() for v in vv.split(",")] if vv else []
 
+    @property
+    def email(self):
+        """Returns email, canonicalized"""
+        v = self.airtable_data["fields"]["Email"]
+        if not v:
+            return "UNKNOWN"
+        return v.strip().lower()
+
     def __getattr__(self, attr):
         """Resolves simple calls to _get_custom_field and _resolve for account data.
         Only called when self.attr doesn't exist - instance attribute access only.
