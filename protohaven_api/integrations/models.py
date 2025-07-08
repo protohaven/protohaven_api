@@ -268,9 +268,9 @@ class Member:  # pylint:disable=too-many-public-methods
             self.neon_search_data.get("Email 1")
             or self.neon_search_data.get("Email 2")
             or self.neon_search_data.get("Email 3")
-            or self._raw_account()["primaryContact"]["email1"]
-            or self._raw_account()["primaryContact"]["email2"]
-            or self._raw_account()["primaryContact"]["email3"]
+            or self._raw_account().get("primaryContact", {}).get("email1")
+            or self._raw_account().get("primaryContact", {}).get("email2")
+            or self._raw_account().get("primaryContact", {}).get("email3")
         )
         return v.strip().lower() if v else None
 

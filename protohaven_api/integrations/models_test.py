@@ -119,6 +119,9 @@ def test_email():
     data["individualAccount"]["primaryContact"]["email1"] = None
     assert m.email == "two@test.com"
 
+    del data["individualAccount"]["primaryContact"]
+    assert m.email is None
+
 
 def test_zero_cost_ok_until():
     """Test zero_cost_ok_until property with valid and invalid dates"""

@@ -16,39 +16,39 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 After deployment, verify that:
 
 * https://api.protohaven.org/
-  * [x] Page redirects to /member, loads and displays clearances + links
+  * [ ] Page redirects to /member, loads and displays clearances + links
 * https://api.protohaven.org/welcome
-  * [x] Member sign in fails with hello+testnonmember@protohaven.org
-  * [x] Member sign in with hello+testalert@protohaven.org sends the notice
-  * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [x] Member sign in with hello+testamp@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
-  * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
+  * [ ] Member sign in fails with hello+testnonmember@protohaven.org
+  * [ ] Member sign in with hello+testalert@protohaven.org sends the notice
+  * [ ] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
+  * [ ] Member sign in with hello+testamp@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
+  * [ ] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
-  * [x] Displays upcoming calendar events
-  * [x] Shows reservations
-  * [x] Shows classes including attendee data
+  * [ ] Displays upcoming calendar events
+  * [ ] Shows reservations
+  * [ ] Shows classes including attendee data
 * https://api.protohaven.org/techs
-  * [x] Cal loads, individual shifts can be clicked and overridden, highlights current day
-  * [x] Full name is visible when logged in as a tech / tech lead
-  * [x] Cal can change date range, highlights current day
-  * [x] Cal swap overrides send an alert to the #techs channel
-  * [x] Members tab shows today's sign-ins
-  * [x] Tool states load, clicking a tool shows info
-  * [x] Storage tab allows for looking up Neon ID by name/email
-  * [x] Areas have some leads assigned to them
-  * [x] Areas has populated "additional contacts" section at the bottom of the pane
-  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
-  * [x] Events tab can create, register, unregister, and delete a techs-only class
-  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [ ] Cal loads, individual shifts can be clicked and overridden, highlights current day
+  * [ ] Full name is visible when logged in as a tech / tech lead
+  * [ ] Cal can change date range, highlights current day
+  * [ ] Cal swap overrides send an alert to the #techs channel
+  * [ ] Members tab shows today's sign-ins
+  * [ ] Tool states load, clicking a tool shows info
+  * [ ] Storage tab allows for looking up Neon ID by name/email
+  * [ ] Areas have some leads assigned to them
+  * [ ] Areas has populated "additional contacts" section at the bottom of the pane
+  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [ ] Events tab can create, register, unregister, and delete a techs-only class
+  * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
-  * [x] Loads profile data for instructor
-  * [x] Loads classes for instructor, including attendance data
-  * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
+  * [ ] Loads profile data for instructor
+  * [ ] Loads classes for instructor, including attendance data
+  * [ ] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
   * [ ] Scheduler runs and proposes classes
   * [ ] Can confirm/unconfirm a class
   * [ ] Log submission button works
 * https://api.protohaven.org/event_ticker
-  * [x] Returns JSON of sample classes
+  * [ ] Returns JSON of sample classes
 * https://api.protohaven.org/staff
   * [ ] Can summarize one or more discord channels, and view photos
   * [ ] Access denied if logged in as hello+testmember@protohaven.org
