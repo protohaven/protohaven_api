@@ -183,12 +183,24 @@ class Commands:
         # data before analysis in order to count paying household & company members
         log.info("Collecting members")
         n = 0
+
+        def filter_acct(acct):
+            if acct.account_current_membership_status.lower() != "active":
+                return False
+            if member_ids is not None and str(acct.neon_id) not in member_ids:
+                return False
+            if acct.is_company():
+                return False
+            return True
+
         for i, acct in enumerate(
             neon.search_active_members(
                 [
                     "Account Current Membership Status",
                     "Company ID",
                 ],
+                also_fetch=filter_acct,
+                fetch_memberships=filter_acct,
                 also_fetch=True,
                 fetch_memberships=True,
             )
@@ -196,11 +208,7 @@ class Commands:
             # This should really pull total from paginated_search
             pct[0] = max(0.5, i / 6000)
             log.info(f"#{acct.neon_id}")
-            if acct.account_current_membership_status.lower() != "active":
-                continue
-            if member_ids is not None and acct.neon_id not in member_ids:
-                continue
-            if acct.is_company():
+            if not filter_acct(acct):
                 continue
             member_data[acct.neon_id] = acct
             for ms in acct.memberships(active_only=True):
@@ -274,7 +282,7 @@ class Commands:
             yield f"Multiple active memberships: want 1, got {num}"
             log.info(f"Multiple active memberships: {acct.neon_id}")
 
-        if acct.level in (
+        if am.level in (
             "General Membership",
             "Weekend Membership",
             "Weeknight Membership",

@@ -18,7 +18,7 @@ log = logging.getLogger("main")
 base_url = None  # pylint: disable=invalid-name
 api_key = None  # pylint: disable=invalid-name
 REQ_TIMEOUT = 30
-JOB_TIMEOUT = 60 * 15
+JOB_TIMEOUT = 60 * 30
 
 COVR = "#cronicle-automation"
 EOVR = "scott@protohaven.org"
