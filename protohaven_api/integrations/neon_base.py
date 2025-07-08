@@ -76,7 +76,7 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
 
 def fetch_memberships_internal_do_not_call_directly(account_id):
     """Fetch membership history of an account in Neon"""
-    return paginated_fetch("api_key2", f"/accounts/{account_id}/memberships")
+    return list(paginated_fetch("api_key2", f"/accounts/{account_id}/memberships"))
 
 
 def fetch_account(account_id, required=False, raw=False, fetch_memberships=False):
@@ -94,6 +94,10 @@ def fetch_account(account_id, required=False, raw=False, fetch_memberships=False
     if raw:
         return content
     m = Member.from_neon_fetch(content)
+
+    if callable(fetch_memberships):
+        fetch_memberships = fetch_memberships(m)
+
     if fetch_memberships:
         m.set_membership_data(
             fetch_memberships_internal_do_not_call_directly(account_id)

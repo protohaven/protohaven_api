@@ -264,10 +264,14 @@ def _search_members_internal(
         ],
     ):
         m = Member.from_neon_search(acct)
-        if also_fetch:
+        if (callable(also_fetch) and also_fetch(m)) or (
+            isinstance(also_fetch, bool) and also_fetch
+        ):
             m.neon_fetch_data = neon_base.fetch_account(m.neon_id, raw=True)
 
-        if fetch_memberships:
+        if (callable(fetch_memberships) and fetch_memberships(m)) or (
+            isinstance(fetch_memberships, bool) and fetch_memberships
+        ):
             m.set_membership_data(
                 neon_base.fetch_memberships_internal_do_not_call_directly(m.neon_id)
             )
