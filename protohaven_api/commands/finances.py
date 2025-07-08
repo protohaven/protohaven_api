@@ -201,8 +201,6 @@ class Commands:
                 ],
                 also_fetch=filter_acct,
                 fetch_memberships=filter_acct,
-                also_fetch=True,
-                fetch_memberships=True,
             )
         ):
             # This should really pull total from paginated_search

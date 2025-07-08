@@ -583,7 +583,8 @@ class AirtableCache(WarmDict):
 
         # Neon clearance data is of the format `<TOOL_CODE>: <TOOL_NAME>`.
         # announcements_after expects a set of tool names.
-        clearances = [n.split(":")[1].strip() for n in clearances]
+        log.info(f"Clearances: {clearances}")
+        clearances = [n.split(":")[1].strip() for n in clearances if ":" in n]
 
         for row in self["announcements"]:
             adate = dateparser.parse(

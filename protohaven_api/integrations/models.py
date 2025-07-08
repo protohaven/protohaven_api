@@ -268,9 +268,9 @@ class Member:  # pylint:disable=too-many-public-methods
             self.neon_search_data.get("Email 1")
             or self.neon_search_data.get("Email 2")
             or self.neon_search_data.get("Email 3")
-            or self._raw_account()["primaryContact"]["email1"]
-            or self._raw_account()["primaryContact"]["email2"]
-            or self._raw_account()["primaryContact"]["email3"]
+            or self._raw_account().get("primaryContact", {}).get("email1")
+            or self._raw_account().get("primaryContact", {}).get("email2")
+            or self._raw_account().get("primaryContact", {}).get("email3")
         )
         return v.strip().lower() if v else None
 
@@ -295,8 +295,11 @@ class Member:  # pylint:disable=too-many-public-methods
     def income_based_rate(self):
         """Return Income Based Rate custom neon field"""
         val = self._get_custom_field("Income Based Rate", "optionValues")
-        if val:
-            return val[0]["name"]
+        log.info(f"{val}")
+        if isinstance(val, list):
+            val = val[0]
+        if isinstance(val, dict):
+            return val["name"]
         return None
 
     @property
