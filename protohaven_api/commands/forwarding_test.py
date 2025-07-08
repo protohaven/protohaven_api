@@ -26,14 +26,14 @@ Tc = namedtuple("TC", "desc,now,signins,want")
             [],
             ["a@b.com", "no techs assigned for Monday AM"],
         ),
-        Tc("AM shift with signin", t(11, 0), ["a@b.com  "], []),
+        Tc("AM shift with signin", t(11, 0), ["a@b.com"], []),
         Tc(
             "PM shift without signin",
             t(17, 0),
             [],
             ["c@d.com", "no techs assigned for Monday PM"],
         ),
-        Tc("PM shift with signin", t(17, 0), ["C@D.COM"], []),
+        Tc("PM shift with signin", t(17, 0), ["c@d.com"], []),
         Tc("No techs", t(11, 0), [], ["no techs assigned"]),
     ],
     ids=idfn,
@@ -46,7 +46,7 @@ def test_tech_sign_ins(mocker, tc, cli):
     mocker.patch.object(
         F.airtable,
         "get_signins_between",
-        return_value=[{"Email": s} for s in tc.signins],
+        return_value=[mocker.MagicMock(email=s) for s in tc.signins],
     )
     mocker.patch.object(
         F.forecast,
@@ -146,6 +146,7 @@ def test_instructor_applications(mocker, cli):
 
 def test_private_instruction_email(mocker, cli):
     """Test `private_instruction` sends to email"""
+    avail = "".join(["whenever"] * 100)
     mocker.patch.object(
         F.tasks,
         "get_private_instruction_requests",
@@ -156,7 +157,7 @@ def test_private_instruction_email(mocker, cli):
                 "created_at": d(0).isoformat(),
                 "notes": (
                     "Name:\nFoo\nDetails:\ntest details\nAvailability:"
-                    "\nwhenever\nEmail:\na@b.com\n———————Footer to ignore"
+                    f"\n{avail}\nEmail:\na@b.com\n———————Footer to ignore"
                 ),
             }
         ],

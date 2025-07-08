@@ -190,6 +190,7 @@ class Commands:
                     "Company ID",
                 ],
                 also_fetch=True,
+                fetch_memberships=True,
             )
         ):
             # This should really pull total from paginated_search
@@ -315,7 +316,9 @@ class Commands:
         self, args, summary, role, level, term
     ):  # pylint: disable=too-many-arguments
         now = tznow()
-        for acct in neon.search_members_with_role(role, also_fetch=True):
+        for acct in neon.search_members_with_role(
+            role, also_fetch=True, fetch_memberships=True
+        ):
             if len(summary) >= args.limit:
                 log.info("Processing limit reached; exiting")
                 break
