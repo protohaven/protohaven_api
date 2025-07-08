@@ -187,7 +187,7 @@ class Commands:
         def filter_acct(acct):
             if acct.account_current_membership_status.lower() != "active":
                 return False
-            if member_ids is not None and acct.neon_id not in member_ids:
+            if member_ids is not None and str(acct.neon_id) not in member_ids:
                 return False
             if acct.is_company():
                 return False
@@ -205,14 +205,8 @@ class Commands:
         ):
             # This should really pull total from paginated_search
             pct[0] = max(0.5, i / 6000)
-            if filter_acct(acct):
-                continue
             log.info(f"#{acct.neon_id}")
-            if acct.account_current_membership_status.lower() != "active":
-                continue
-            if member_ids is not None and acct.neon_id not in member_ids:
-                continue
-            if acct.is_company():
+            if not filter_acct(acct):
                 continue
             member_data[acct.neon_id] = acct
             for ms in acct.memberships(active_only=True):
