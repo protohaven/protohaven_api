@@ -94,6 +94,10 @@ def fetch_account(account_id, required=False, raw=False, fetch_memberships=False
     if raw:
         return content
     m = Member.from_neon_fetch(content)
+
+    if callable(fetch_memberships):
+        fetch_memberships = fetch_memberships(m)
+
     if fetch_memberships:
         m.set_membership_data(
             fetch_memberships_internal_do_not_call_directly(account_id)
