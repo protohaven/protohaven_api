@@ -201,6 +201,10 @@ class Commands:
                 [
                     "Account Current Membership Status",
                     "Company ID",
+                    "First Name",
+                    "Last Name",
+                    "Preferred Name",
+                    neon.CustomField.PRONOUNS,
                     neon.CustomField.API_SERVER_ROLE,
                     neon.CustomField.ZERO_COST_OK_UNTIL,
                     neon.CustomField.INCOME_BASED_RATE,
@@ -218,6 +222,7 @@ class Commands:
             for ms in acct.memberships(active_only=True):
                 if "Additional" not in ms.level and ms.fee > 0:
                     household_paying_member_count[acct.household_id] += 1
+
             company_member_count[acct.company_id] += 1
             n += 1
 
@@ -237,7 +242,7 @@ class Commands:
             for r in self._validate_membership_singleton(
                 acct,
                 household_paying_member_count.get(acct.household_id, 0),
-                company_member_count.get(acct.household_id, 0),
+                company_member_count.get(acct.company_id, 0),
             ):
                 yield {
                     "name": acct.name,
