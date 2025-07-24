@@ -201,6 +201,7 @@ class Commands:
                 [
                     "Account Current Membership Status",
                     "Company ID",
+                    neon.CustomField.API_SERVER_ROLE,
                 ],
                 also_fetch=filter_acct,
                 fetch_memberships=filter_acct,
