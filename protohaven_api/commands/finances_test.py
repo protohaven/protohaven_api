@@ -80,7 +80,13 @@ def test_validate_membership_amp_ok(mocker):
 
 def test_validate_multi_membership_bad(mocker):
     """All memberships should have an end date"""
-    mem = mocker.Mock(fee=1, start_date=d(0), end_date=d(5), status="SUCCEEDED")
+    mem = mocker.MagicMock(
+        fee=1,
+        start_date=d(0),
+        end_date=d(5),
+        status="SUCCEEDED",
+        level="General Membership",
+    )
     got = list(
         f.Commands()._validate_membership_singleton(
             mocker.MagicMock(
@@ -102,11 +108,19 @@ def test_validate_multi_membership_future_start_date_ok(mocker):
             mocker.MagicMock(
                 level="General Membership",
                 memberships=lambda active_only: [
-                    mocker.Mock(
-                        fee=1, start_date=None, end_date=d(5), status="SUCCEEDED"
+                    mocker.MagicMock(
+                        fee=1,
+                        start_date=None,
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                        level="General Membership",
                     ),
-                    mocker.Mock(
-                        fee=1, start_date=d(3), end_date=d(5), status="SUCCEEDED"
+                    mocker.MagicMock(
+                        fee=1,
+                        start_date=d(3),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                        level="General Membership",
                     ),
                 ],
             ),
@@ -125,11 +139,19 @@ def test_validate_multi_membership_refunded_ok(mocker):
             mocker.MagicMock(
                 level="General Membership",
                 memberships=lambda active_only: [
-                    mocker.Mock(
-                        fee=1, start_date=d(0), end_date=d(5), status="SUCCEEDED"
+                    mocker.MagicMock(
+                        fee=1,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                        level="General Membership",
                     ),
-                    mocker.Mock(
-                        fee=1, start_date=d(0), end_date=d(5), status="REFUNDED"
+                    mocker.MagicMock(
+                        fee=1,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="REFUNDED",
+                        level="General Membership",
                     ),
                 ],
             ),
