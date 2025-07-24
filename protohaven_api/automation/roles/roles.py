@@ -200,7 +200,9 @@ def gen_role_intents(
             intent.email = m.email
             neon_member = (m.account_current_membership_status or "NOT_FOUND").upper()
             neon_roleset = {
-                rev_roles.get(r["name"]) for r in m.roles if r["name"] in rev_roles
+                rev_roles.get(r["name"])
+                for r in (m.roles or [])
+                if r["name"] in rev_roles
             }
 
         discord_roleset = {r for r, _ in assigned_roles if r in SYNC_ROLES}

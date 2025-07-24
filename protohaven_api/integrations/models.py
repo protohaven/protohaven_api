@@ -364,7 +364,7 @@ class Member:  # pylint:disable=too-many-public-methods
     def clearances(self):
         """Fetches clearances for the account"""
         if self.neon_search_data and self.neon_search_data.get("Clearances"):
-            return [v.strip() for v in self.neon_search_data["Clearances"]]
+            return [v.strip() for v in self.neon_search_data["Clearances"].split("|")]
         return [
             v["name"]
             for v in (self._get_custom_field("Clearances", "optionValues") or [])
@@ -827,7 +827,7 @@ class Event:  # pylint: disable=too-many-public-methods
             "instructor_name": "Instructor",
             "supply_cost": "Supply Cost (from Class)",
             "volunteer": "Volunteer",
-            "supply": "Supply State",
+            "supply_state": "Supply State",
         }
         if attr in airtable_fields:
             if not self.airtable_data:

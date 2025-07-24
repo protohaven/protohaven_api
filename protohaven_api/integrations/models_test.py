@@ -399,7 +399,7 @@ def test_event_properties():
         assert evt.instructor_name == "Test Instructor"
         assert evt.supply_cost == "10.00"
         assert evt.volunteer == "Yes"
-        assert evt.supply == "Ordered"
+        assert evt.supply_state == "Ordered"
 
 
 def test_sign_in_event_from_airtable():
