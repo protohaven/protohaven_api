@@ -89,6 +89,8 @@ class Commands:
                     target="#tech-automation",
                 )
             )
+        else:
+            print_yaml([])
 
     @command()
     def instructor_applications(self, _1, _2):
@@ -111,6 +113,8 @@ class Commands:
                     target="#edu-automation",
                 )
             )
+        else:
+            print_yaml([])
 
     @command()
     def donation_requests(self, _1, _2):
@@ -131,6 +135,8 @@ class Commands:
                     target="#donation-automation",
                 )
             )
+        else:
+            print_yaml([])
 
     @command()
     def supply_requests(self, _1, _2):
@@ -162,6 +168,8 @@ class Commands:
                     target="#supply-automation",
                 )
             )
+        else:
+            print_yaml([])
 
     def _form_from_task_notes(self, notes):
         """Extract Asana form data from the Notes field of the task"""
@@ -241,7 +249,10 @@ class Commands:
                 formatted_past_day.append(fmt)
             num += 1
 
-        log.info(f"Found {num} open private instruction requests")
+        log.info(
+            f"Found {num} open private instruction requests "
+            f"({len(formatted_past_day)} in the past day)"
+        )
 
         results = []
         if not args.daily and len(formatted) > 0:

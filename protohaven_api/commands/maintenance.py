@@ -124,8 +124,8 @@ class Commands:
             if len(scheduled) >= args.num:
                 break
 
-        if len(errs) > 0:
-            tasks_str = "\n".join([str(e) for e in errs])
+        tasks_str = "\n".join([str(e) for e in errs]).strip()
+        if tasks_str:
             comms.send_discord_message(
                 f"Errors when scheduling maintenance tasks:\n\n"
                 f"{tasks_str}\nCheck Cronicle logs for details",
@@ -223,6 +223,7 @@ class Commands:
             elif d.get("open_close_state"):
                 warnings.append(f"**IMPORTANT**: Door {d['name']} is open")
         if len(warnings) > 0:
+            log.info(f"Found {warnings} warning event(s)")
             print_yaml(
                 Msg.tmpl(
                     "door_sensor_warnings",
@@ -231,6 +232,7 @@ class Commands:
                 )
             )
         else:
+            log.info("Nothing to report - we're all clear.")
             print_yaml([])
 
     @command(

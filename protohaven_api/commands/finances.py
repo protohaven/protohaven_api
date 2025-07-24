@@ -93,8 +93,9 @@ class Commands:
         log.info("Done")
 
     def _validate_role_membership(self, acct, role):
-        if role not in acct.roles:
-            has = ",".join([r["name"] for r in acct.roles]) or "none"
+        roles = acct.roles or []
+        if role not in roles:
+            has = ",".join([r["name"] for r in roles]) or "none"
             yield f"Needs role {role['name']}, has {has}"
             log.info(f"Missing role {role['name']}: {acct.neon_id}")
 
@@ -165,6 +166,8 @@ class Commands:
                     target="#membership-automation",
                 )
             )
+        else:
+            print_yaml([])
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def _validate_memberships_internal(
@@ -198,6 +201,13 @@ class Commands:
                 [
                     "Account Current Membership Status",
                     "Company ID",
+                    "First Name",
+                    "Last Name",
+                    "Preferred Name",
+                    neon.CustomField.PRONOUNS,
+                    neon.CustomField.API_SERVER_ROLE,
+                    neon.CustomField.ZERO_COST_OK_UNTIL,
+                    neon.CustomField.INCOME_BASED_RATE,
                 ],
                 also_fetch=filter_acct,
                 fetch_memberships=filter_acct,
@@ -212,6 +222,7 @@ class Commands:
             for ms in acct.memberships(active_only=True):
                 if "Additional" not in ms.level and ms.fee > 0:
                     household_paying_member_count[acct.household_id] += 1
+
             company_member_count[acct.company_id] += 1
             n += 1
 
@@ -231,7 +242,7 @@ class Commands:
             for r in self._validate_membership_singleton(
                 acct,
                 household_paying_member_count.get(acct.household_id, 0),
-                company_member_count.get(acct.household_id, 0),
+                company_member_count.get(acct.company_id, 0),
             ):
                 yield {
                     "name": acct.name,
@@ -262,7 +273,7 @@ class Commands:
                 "Staff",
                 "Software Developer",
             ):
-                if acct.zero_cost_ok_Until is None or acct.zero_cost_ok_until < tznow():
+                if acct.zero_cost_ok_until is None or acct.zero_cost_ok_until < tznow():
                     yield (
                         f"Abnormal zero-cost membership {am.level} "
                         "('Zero Cost OK Until' date missing, expired, invalid, or not YYYY-MM-DD)"
@@ -296,7 +307,7 @@ class Commands:
             yield from self._validate_role_membership(acct, Role.SHOP_TECH)
         elif am.level == "Instructor":
             yield from self._validate_role_membership(acct, Role.INSTRUCTOR)
-        elif am.level in "Board Member":
+        elif am.level == "Board Member":
             yield from self._validate_role_membership(acct, Role.BOARD_MEMBER)
         elif am.level == "Software Developer":
             yield from self._validate_role_membership(acct, Role.SOFTWARE_DEV)

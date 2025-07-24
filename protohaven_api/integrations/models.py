@@ -300,6 +300,8 @@ class Member:  # pylint:disable=too-many-public-methods
             val = val[0]
         if isinstance(val, dict):
             return val["name"]
+        if isinstance(val, str):  # Such as from search results
+            return val.strip()
         return None
 
     @property
