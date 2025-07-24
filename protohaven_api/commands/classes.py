@@ -129,6 +129,12 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=True,
         ),
+        arg(
+            "--cache",
+            help="Deprecated; no longer used but included to prevent breakage",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
     )
     def gen_class_emails(self, args, _):
         """Reads schedule of classes from Neon and Airtable and outputs

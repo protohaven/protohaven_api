@@ -21,8 +21,8 @@ After deployment, verify that:
   * [x] Member sign in fails with hello+testnonmember@protohaven.org
   * [x] Member sign in with hello+testalert@protohaven.org sends the notice
   * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [ ] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
-  * [ ] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
+  * [x] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
+  * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
   * [ ] Displays upcoming calendar events
   * [ ] Shows reservations

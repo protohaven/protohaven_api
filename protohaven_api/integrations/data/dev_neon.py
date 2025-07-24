@@ -333,17 +333,18 @@ def get_account(account_id):
 @app.route("/v2/accounts/<account_id>/memberships")
 def get_account_memberships(account_id):
     """Mock account membership endpoint for Neon"""
+    m = []
     for row in airtable_base.get_all_records("fake_neon", "memberships"):
         if str(row["fields"]["accountId"]) == str(account_id):
             m = row["fields"]["data"]
-            return {
-                "memberships": m,
-                "pagination": {
-                    "totalPages": 1,
-                    "totalResults": len(m),
-                },
-            }
-    return Response("Memberships not found for account", status=404)
+            break
+    return {
+        "memberships": m,
+        "pagination": {
+            "totalPages": 1,
+            "totalResults": len(m),
+        },
+    }
 
 
 @app.route("/login", methods=["GET", "POST"])

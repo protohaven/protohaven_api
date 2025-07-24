@@ -305,7 +305,13 @@ class Member:  # pylint:disable=too-many-public-methods
     @property
     def membership_level(self):
         """Fetches membership level - note that this is only available via search result"""
-        return self.neon_search_data.get("Membership Level") or ""
+        mem = self.neon_search_data.get("Membership Level")
+        if mem:
+            return mem
+        mem = self.latest_membership(active_only=True)
+        if mem:
+            return mem.level
+        return ""
 
     @property
     def household_id(self):
@@ -315,7 +321,13 @@ class Member:  # pylint:disable=too-many-public-methods
     @property
     def membership_term(self):
         """Fetches membership term - note that this is only available via search result"""
-        return self.neon_search_data.get("Membership Term") or ""
+        mem = self.neon_search_data.get("Membership Term")
+        if mem:
+            return mem
+        mem = self.latest_membership(active_only=True)
+        if mem:
+            return mem.term
+        return ""
 
     @property
     def proof_of_income(self):
@@ -352,7 +364,7 @@ class Member:  # pylint:disable=too-many-public-methods
     def clearances(self):
         """Fetches clearances for the account"""
         if self.neon_search_data and self.neon_search_data.get("Clearances"):
-            return [v.strip() for v in self.neon_search_data["Clearances"]]
+            return [v.strip() for v in self.neon_search_data["Clearances"].split("|")]
         return [
             v["name"]
             for v in (self._get_custom_field("Clearances", "optionValues") or [])
@@ -815,7 +827,7 @@ class Event:  # pylint: disable=too-many-public-methods
             "instructor_name": "Instructor",
             "supply_cost": "Supply Cost (from Class)",
             "volunteer": "Volunteer",
-            "supply": "Supply State",
+            "supply_state": "Supply State",
         }
         if attr in airtable_fields:
             if not self.airtable_data:
