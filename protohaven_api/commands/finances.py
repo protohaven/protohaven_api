@@ -202,6 +202,8 @@ class Commands:
                     "Account Current Membership Status",
                     "Company ID",
                     neon.CustomField.API_SERVER_ROLE,
+                    neon.CustomField.ZERO_COST_OK_UNTIL,
+                    neon.CustomField.INCOME_BASED_RATE,
                 ],
                 also_fetch=filter_acct,
                 fetch_memberships=filter_acct,
