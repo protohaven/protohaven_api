@@ -265,7 +265,7 @@ class Commands:
                 "Staff",
                 "Software Developer",
             ):
-                if acct.zero_cost_ok_Until is None or acct.zero_cost_ok_until < tznow():
+                if acct.zero_cost_ok_until is None or acct.zero_cost_ok_until < tznow():
                     yield (
                         f"Abnormal zero-cost membership {am.level} "
                         "('Zero Cost OK Until' date missing, expired, invalid, or not YYYY-MM-DD)"
