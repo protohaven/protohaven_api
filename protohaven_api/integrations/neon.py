@@ -218,7 +218,7 @@ def search_all_members(
     """Lookup all accounts"""
     yield from _search_members_internal(
         [
-            ("Account ID", "NOT_EQUAL", 1),  # There is no account #1
+            ("Account ID", "NOT_EQUAL", "1"),  # There is no account #1
         ],
         fields,
         fetch_memberships=fetch_memberships,
@@ -523,7 +523,7 @@ class AccountCache(WarmDict):
     FIELDS = [
         *MEMBER_SEARCH_OUTPUT_FIELDS,
         "Email 1",
-        "Membership Level",
+        # "Membership Level", # Included in MEMBER_SEARCH_OUTPUT_FIELDS
         CustomField.ACCOUNT_AUTOMATION_RAN,
         CustomField.BOOKED_USER_ID,
         CustomField.INCOME_BASED_RATE,
