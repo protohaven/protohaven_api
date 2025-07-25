@@ -131,3 +131,20 @@ def test_do_login(mocker):
         data={"_token": "mfa_token", "mfa_code": "123456"},
     )
     mock_session.get.assert_called_once_with("https://app.neoncrm.com/np/ssoAuth")
+
+
+def test_patch_account(mocker):
+    """Test patching an account with Neon V2 API"""
+    mock_acct = mocker.MagicMock()
+    mock_acct.is_company.return_value = False
+    fa = mocker.patch.object(nb, "fetch_account", return_value=mock_acct)
+    p = mocker.patch.object(nb, "patch", return_value={"success": True})
+
+    test_data = {"name": "Test User"}
+    got = nb.patch_account("acc_123", test_data)
+
+    fa.assert_called_once_with("acc_123", required=True)
+    p.assert_called_once_with(
+        "api_key2", "/accounts/acc_123", {"individualAccount": test_data}
+    )
+    assert got == {"success": True}
