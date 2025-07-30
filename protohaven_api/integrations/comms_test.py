@@ -90,10 +90,10 @@ TEST_ATTENDEE = {
     "email": "test@attendee.com",
 }
 
-tech1=MagicMock(email="a@a.com")
-tech1.name="Tech A"
-tech2=MagicMock(email="b@b.com")
-tech2.name="Tech B"
+tech1 = MagicMock(email="a@a.com")
+tech1.name = "Tech A"
+tech2 = MagicMock(email="b@b.com")
+tech2.name = "Tech B"
 
 TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}),

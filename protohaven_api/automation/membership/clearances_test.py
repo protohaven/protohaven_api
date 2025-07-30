@@ -17,9 +17,7 @@ def test_update_patch(mocker):
         c.neon,
         "search_members_by_email",
         return_value=[
-            mocker.MagicMock(
-                neon_id=123, company_id=456, clearances=["CLEAR1"]
-            )
+            mocker.MagicMock(neon_id=123, company_id=456, clearances=["CLEAR1"])
         ],
     )
     mocker.patch.object(

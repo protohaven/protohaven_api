@@ -38,4 +38,4 @@ repos:
     hooks:
     -   id: detect-secrets
         args: ['--baseline', '.secrets.baseline', '--exclude-files', 'dump.sql']
-        exclude: package.lock.json
+        exclude: "package.lock.json,pnpm-lock.yaml,block.json"
