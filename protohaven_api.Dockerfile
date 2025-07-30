@@ -6,7 +6,7 @@ WORKDIR /code
 ENV FLASK_APP=protohaven_api.main
 ENV FLASK_RUN_HOST=0.0.0.0
 
-RUN apk add --no-cache gcc musl-dev linux-headers git curl
+RUN apk add --no-cache gcc musl-dev linux-headers git curl bash
 
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt

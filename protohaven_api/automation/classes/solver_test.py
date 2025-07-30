@@ -10,11 +10,11 @@ from protohaven_api.automation.classes import (
 from protohaven_api.testing import d, idfn
 
 TEST_CLASSES = [
-    s.Class(cid, name, hours, days, areas, exclusions=[], score=1)
-    for cid, name, hours, days, areas in [
-        ("SB", "Sewing Basics", 3, 1, ["textiles"]),
-        ("AE", "Advanced embroidery", 3, 3, ["textiles"]),
-        ("BW", "Basic Woodshop", 6, 2, ["wood"]),
+    s.Class(cid, name, hours, areas, recurrence=recurrence, exclusions=[], score=1)
+    for cid, name, hours, recurrence, areas in [
+        ("SB", "Sewing Basics", 3, None, ["textiles"]),
+        ("AE", "Advanced embroidery", 3, "RRULE:FREQ=WEEKLY;COUNT=3", ["textiles"]),
+        ("BW", "Basic Woodshop", 6, "RRULE:FREQ=WEEKLY;COUNT=2", ["wood"]),
     ]
 ]
 TEST_TIMES = [d(0), d(7), d(14)]
@@ -101,9 +101,7 @@ def test_get_overlapping_by_area(tc):
 
 def test_solve_simple():
     """An instructor can schedule a class at a time"""
-    c = s.Class(
-        1, "Embroidery", days=1, hours=1, areas=["textiles"], exclusions=[], score=0.7
-    )
+    c = s.Class(1, "Embroidery", hours=1, areas=["textiles"], exclusions=[], score=0.7)
     got, score = s.solve(
         classes=[c],
         instructors=[s.Instructor("A", {c.class_id: [d(0)]})],
@@ -114,9 +112,7 @@ def test_solve_simple():
 
 def test_solve_prefer_earlier():
     """Given the same class at two times, the earlier one is scheduled"""
-    c = s.Class(
-        1, "Embroidery", days=1, hours=1, areas=["textiles"], exclusions=[], score=0.7
-    )
+    c = s.Class(1, "Embroidery", hours=1, areas=["textiles"], exclusions=[], score=0.7)
     got, _ = s.solve(
         classes=[c],
         instructors=[s.Instructor("A", {c.class_id: [d(2), d(0), d(1)]})],
@@ -129,12 +125,12 @@ def test_solve_complex():
     classes = [
         s.Class(*v)
         for v in [
-            (1, "Embroidery", 1, 1, ["textiles"], [], 0.7),
-            (2, "Sewing Basics", 2, 1, ["textiles"], [], 0.6),
-            (3, "Basic Woodshop", 2, 1, ["wood"], [], 0.5),
-            (4, "Millwork", 1, 1, ["wood"], [], 0.7),
-            (5, "Basic Metals", 2, 1, ["metal"], [], 0.8),
-            (6, "Metal Workshop", 1, 1, ["metal"], [], 0.4),
+            (1, "Embroidery", 1, ["textiles"], [], 0.7),
+            (2, "Sewing Basics", 2, ["textiles"], [], 0.6),
+            (3, "Basic Woodshop", 2, ["wood"], [], 0.5),
+            (4, "Millwork", 1, ["wood"], [], 0.7),
+            (5, "Basic Metals", 2, ["metal"], [], 0.8),
+            (6, "Metal Workshop", 1, ["metal"], [], 0.4),
         ]
     ]
 
@@ -175,8 +171,8 @@ def test_solve_no_concurrent_overlap():
     when scheduled concurrently. Higher score classes win."""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 1, 1, ["textiles"], [], 0.7),
-            s.Class(2, "Embroidery but cooler", 1, 1, ["textiles"], [], 0.8),
+            s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
+            s.Class(2, "Embroidery but cooler", 1, ["textiles"], [], 0.8),
         ],
         instructors=[
             s.Instructor("A", {1: [d(0)]}),
@@ -192,8 +188,8 @@ def test_solve_no_double_booking():
     Higher score classes should be preferred"""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 1, 1, ["textiles"], [], 0.7),
-            s.Class(2, "Lasers", 1, 1, ["lasers"], [], 0.8),
+            s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
+            s.Class(2, "Lasers", 1, ["lasers"], [], 0.8),
         ],
         instructors=[
             s.Instructor("A", {1: [d(0)], 2: [d(0)]}),
@@ -208,8 +204,8 @@ def test_solve_no_overlap():
     do not both get scheduled"""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 3, 1, ["textiles"], [], 0.7),
-            s.Class(2, "Lasers", 3, 1, ["lasers"], [], 0.8),
+            s.Class(1, "Embroidery", 3, ["textiles"], [], 0.7),
+            s.Class(2, "Lasers", 3, ["lasers"], [], 0.8),
         ],
         instructors=[
             s.Instructor("A", {1: [d(0)], 2: [d(0, 2)]}),
@@ -223,7 +219,7 @@ def test_solve_at_most_once():
     """Classes run at most once per run of the solver"""
     got, score = s.solve(
         classes=[
-            s.Class(1, "Embroidery", 1, 1, ["textiles"], [], 0.7),
+            s.Class(1, "Embroidery", 1, ["textiles"], [], 0.7),
         ],
         instructors=[
             s.Instructor("A", {1: [d(0)]}),
@@ -232,3 +228,10 @@ def test_solve_at_most_once():
     )
     assert got == {"A": [[1, "Embroidery", d(0).isoformat()]]}
     assert score == 0.7
+
+
+def test_expand_recurrence_single_count():
+    """Tests that expand_recurrence returns something even when COUNT is small"""
+    assert len(list(s.expand_recurrence("RRULE:FREQ=WEEKLY;COUNT=1", 3, d(0)))) == 1
+
+    assert len(list(s.expand_recurrence("RRULE:FREQ=WEEKLY;COUNT=0", 3, d(0)))) == 1

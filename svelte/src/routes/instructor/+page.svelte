@@ -4,11 +4,12 @@ import '../../app.scss';
 import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
-import { Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
+import { Card, CardHeader, CardTitle, CardBody, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
 import Calendar from '$lib/dashboard/calendar.svelte';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
+import AdminPanel from '$lib/dashboard/admin_panel.svelte';
 import FetchError from '$lib/fetch_error.svelte';
 
 
@@ -18,15 +19,19 @@ start = start.toJSON().slice(0, 10);
 let end = new Date();
 end.setDate(end.getDate() + 40);
 end = end.toJSON().slice(0,10);
-let promise = new Promise((resolve,reject)=>{});
+let promise = new Promise((resolve,reject) => {});
+let admin = false;
 onMount(() => {
-
   const urlParams = new URLSearchParams(window.location.search);
-  let e= urlParams.get("email");
+  let e = urlParams.get("email");
+  console.log(`E is ${e}`);
   if (!e) {
-	promise = get("/whoami").then((data) => data.email);
+	  promise = get("/whoami").then((d) => {
+      admin = (d.roles || []).indexOf("Education Lead") !== -1;
+      return d;
+    });
   } else {
-    promise = Promise.resolve(e);
+    promise = Promise.resolve({email: e});
   }
 });
 
@@ -46,26 +51,29 @@ let airtable_id = "";
     </NavItem>
   </Nav>
 </Navbar>
-<main>
-  {#await promise}
-    <Spinner/>
-    <h3>Resolving instructor data...</h3>
-  {:then email}
-  <Scheduler {email} inst={fullname} inst_id={airtable_id} bind:open={scheduler_open}/>
-  <Container>
-  <Row>
-  <Col>
-    <Profile {email} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
-  </Col>
-  <Col>
-    <ClassDetails {email} {scheduler_open}/>
-  </Col>
-  </Row>
-  </Container>
-  {:catch error}
-    <FetchError {error}/>
-  {/await}
-</main>
+{#await promise}
+  <Spinner/>
+  <strong>Resolving instructor data...</strong>
+{:then p}
+  {#if admin}
+    <AdminPanel/>
+  {/if}
+  <main>
+    <Scheduler email={p.email} inst={fullname} inst_id={airtable_id} bind:open={scheduler_open}/>
+    <Container>
+    <Row>
+    <Col>
+      <Profile email={p.email} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
+    </Col>
+    <Col>
+      <ClassDetails email={p.email} {scheduler_open}/>
+    </Col>
+    </Row>
+    </Container>
+  </main>
+{:catch error}
+  <FetchError {error}/>
+{/await}
 
 <style>
 main {

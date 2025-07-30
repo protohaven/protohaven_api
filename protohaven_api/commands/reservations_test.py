@@ -122,7 +122,6 @@ def test_reserve_equipment_for_class(mocker, cli):
                     "ID": 123,
                     "Name (from Area) (from Class)": ["a1"],
                     "Name (from Class)": "Test Class",
-                    "Days (from Class)": [1],
                     "Hours (from Class)": [3],
                     "Start Time": d(0).isoformat(),
                 },
@@ -159,7 +158,6 @@ def test_reserve_equipment_from_template(mocker, cli):
                     "ID": 123,
                     "Name (from Area)": ["a1"],
                     "Name": "Test Class",
-                    "Days": 1,
                     "Hours": 3,
                 }
             }

@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+from collections import defaultdict
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
@@ -10,9 +11,17 @@ from protohaven_api.automation.classes.scheduler import (
     generate_env as generate_scheduler_env,
 )
 from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
+from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, booked, comms, neon, neon_base
+from protohaven_api.integrations import (
+    airtable,
+    airtable_base,
+    booked,
+    comms,
+    neon,
+    neon_base,
+)
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_role, require_login_role
 
@@ -102,7 +111,6 @@ def get_instructor_readiness(inst, caps=None):
     if inst.discord_user:
         result["discord_user"] = "OK"
     result["fullname"] = f"{inst.fname} {inst.lname}"
-
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:
@@ -188,9 +196,14 @@ def get_dashboard_schedule_sorted(email, now=None):
             continue
 
         start_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(tz)
-        end_date = start_date + datetime.timedelta(
-            days=7 * (s["fields"]["Days (from Class)"][0] - 1)
+        dates = list(
+            expand_recurrence(
+                (s["fields"].get("Recurrence (from Class)") or [None])[0],
+                (s["fields"].get("Hours (from Class)") or [0])[0],
+                start_date,
+            )
         )
+        end_date = dates[-1][0]
         confirmed = s["fields"].get("Confirmed", None) is not None
         if confirmed and end_date <= age_out_thresh:
             continue
@@ -246,10 +259,14 @@ def _annotate_schedule_class(e):
     for date_field in ("Confirmed", "Instructor Log Date"):
         if e.get(date_field):
             e[date_field] = dateparser.parse(e[date_field])
-    e["Dates"] = []
-    for _ in range((e.get("Days (from Class)") or [0])[0]):
-        e["Dates"].append(date.strftime("%A %b %-d, %-I%p"))
-        date += datetime.timedelta(days=7)
+    e["Dates"] = [
+        d[0].strftime("%A %b %-d, %-I%p")
+        for d in expand_recurrence(
+            (e.get("Recurrence (from Class)") or [None])[0],
+            (e.get("Hours (from Class)") or [0])[0],
+            date,
+        )
+    ]
     return e
 
 
@@ -348,6 +365,40 @@ def instructor_class_volunteer():
     if status != 200:
         raise RuntimeError(result)
     return _annotate_schedule_class(result["fields"])
+
+
+@page.route("/instructor/admin_data", methods=["GET"])
+@require_login_role(Role.EDUCATION_LEAD, Role.BOARD_MEMBER, Role.STAFF)
+def admin_data():
+    """Fetches and returns admin info for Edu Leads and other privileged roles"""
+    result = defaultdict(list)
+    for inst in airtable_base.get_all_records("class_automation", "capabilities"):
+        result["capabilities"].append(
+            {
+                "name": inst["fields"]["Instructor"],
+                "email": inst["fields"]["Email"],
+                "active": inst["fields"]["Active"],
+            }
+        )
+    for tmpl in airtable_base.get_all_records("class_automation", "classes"):
+        result["classes"].append(
+            {
+                "name": tmpl["fields"]["Name"],
+                "approved": tmpl["fields"]["Approved"],
+                "schedulable": tmpl["fields"]["Schedulable"],
+                "clearances earned": tmpl["fields"]["Clearances Earned"],
+                "age requirement": tmpl["fields"]["Age Requirement"],
+                "capacity": tmpl["fields"]["Capacity"],
+                "supply_cost": tmpl["fields"]["Supply Cost"],
+                "price": tmpl["fields"]["Price"],
+                "hours": tmpl["fields"]["Hours"],
+                "recurrence": tmpl["fields"]["Recurrence"],
+                "period": tmpl["fields"]["Period"],
+                "name (from area)": tmpl["fields"]["Name (from Area)"],
+                "image link": tmpl["fields"]["Image Link"],
+            }
+        )
+    return dict(result)
 
 
 @page.route("/instructor/setup_scheduler_env", methods=["GET"])
