@@ -1,4 +1,4 @@
-""" Methods for scheduling new classes """
+"""Methods for scheduling new classes"""
 
 import datetime
 import logging

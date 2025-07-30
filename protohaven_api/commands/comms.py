@@ -1,4 +1,5 @@
 """Commands related to sending communications"""
+
 import argparse
 import logging
 import re

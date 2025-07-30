@@ -1,5 +1,5 @@
-""" Build and output a list of email and other communications for informing
- techs, instructors, and event registrants about their classes and events"""
+"""Build and output a list of email and other communications for informing
+techs, instructors, and event registrants about their classes and events"""
 
 import datetime
 import logging

@@ -1,4 +1,5 @@
 """OAuth integration with Neon CRM"""
+
 import urllib.parse
 
 import requests

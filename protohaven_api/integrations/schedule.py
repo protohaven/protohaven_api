@@ -2,6 +2,7 @@
 
 Requires access to be granted: https://calendar.google.com/calendar/u/0/embed?src=c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com&ctz=America/New_York          #pylint: disable=line-too-long
 """
+
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta

@@ -1,4 +1,5 @@
 """Objects modeling particular entities that are commonly passed between systems"""
+
 import datetime
 import logging
 import re

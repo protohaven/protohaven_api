@@ -1,4 +1,5 @@
 """Commands related to classes in Neon and Airtable"""
+
 import argparse
 import datetime
 import logging

@@ -1,4 +1,5 @@
 """Form submission methods"""
+
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
 

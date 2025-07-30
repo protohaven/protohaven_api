@@ -84,9 +84,11 @@ def _fetch_tool_states_and_areas(now):
                 "status": status,
                 "name": t["fields"]["Tool Name"],
                 "area": t["fields"]["Name (from Shop Area)"],
-                "code": t["fields"]["Tool Code"].strip().upper()
-                if t["fields"]["Tool Code"]
-                else None,
+                "code": (
+                    t["fields"]["Tool Code"].strip().upper()
+                    if t["fields"]["Tool Code"]
+                    else None
+                ),
                 "modified": modified,
                 "message": msg,
                 "date": date,

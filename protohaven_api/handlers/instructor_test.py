@@ -56,9 +56,9 @@ def _sched(_id, email=TEST_EMAIL, start=now, days=1, confirmed=None):
             "Email": email,
             "Start Time": start.isoformat(),
             "Confirmed": None if not confirmed else confirmed.isoformat(),
-            "Recurrence (from Class)": [f"RRULE:FREQ=WEEKLY;COUNT={days}"]
-            if days > 1
-            else None,
+            "Recurrence (from Class)": (
+                [f"RRULE:FREQ=WEEKLY;COUNT={days}"] if days > 1 else None
+            ),
         },
     }
 

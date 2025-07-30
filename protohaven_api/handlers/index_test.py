@@ -1,4 +1,5 @@
 """Verify proper behavior of public access pages"""
+
 # pylint: skip-file
 import json
 

@@ -1,4 +1,5 @@
 """Handlers for equipment reservation"""
+
 import logging
 
 from flask import Blueprint, request

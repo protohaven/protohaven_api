@@ -1,4 +1,5 @@
 """Mock implementation of Wyze integration using Nocodb"""
+
 from dataclasses import dataclass
 
 from protohaven_api.integrations import airtable_base

@@ -1,4 +1,5 @@
 """Test for class command logic"""
+
 # pylint: skip-file
 import datetime
 from collections import namedtuple

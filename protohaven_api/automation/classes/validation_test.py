@@ -1,4 +1,5 @@
 """Tests for validation module"""
+
 from collections import namedtuple
 
 import pytest

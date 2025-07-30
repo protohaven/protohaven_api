@@ -1,4 +1,5 @@
 """Test methods for comms-oriented CLI commands"""
+
 # pylint: skip-file
 from collections import namedtuple
 from unittest.mock import call
@@ -133,9 +134,9 @@ def test_send_comms(mocker, tc, cli):
     mocker.patch.object(
         c.Commands,
         "_load_comms_data",
-        return_value=tc.data
-        if isinstance(tc.data, list) or tc.data is None
-        else [tc.data],
+        return_value=(
+            tc.data if isinstance(tc.data, list) or tc.data is None else [tc.data]
+        ),
     )
     cli("send_comms", ["--path", "/asdf/ghsdf", "--confirm", *tc.args])
     for fn, tcall in [

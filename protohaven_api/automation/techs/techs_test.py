@@ -1,4 +1,5 @@
 """Test tech automation (e.g. shift forecast generation"""
+
 import pytest
 
 from protohaven_api.automation.techs import techs as t
@@ -32,9 +33,11 @@ def test_create_calendar_view(mocker, test_date, ovr, want_am):
     mocker.patch.object(
         t,
         "resolve_overrides",
-        return_value=("123", [_mock_tech(n) for n in ovr], "Foo")
-        if ovr is not None
-        else (None, [], None),
+        return_value=(
+            ("123", [_mock_tech(n) for n in ovr], "Foo")
+            if ovr is not None
+            else (None, [], None)
+        ),
     )
     result = t.create_calendar_view(test_date, {shift: [mock_tech]}, ovr, 1)
     assert [p.name for p in result[0]["AM"]["people"]] == want_am

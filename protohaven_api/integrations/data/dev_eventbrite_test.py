@@ -1,4 +1,5 @@
 """Unit tests for eventbrite dev mock"""
+
 import json
 
 from protohaven_api.integrations.data import dev_eventbrite as e

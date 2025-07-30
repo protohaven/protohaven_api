@@ -1,4 +1,5 @@
 """Provide date and availability validation methods for class scheduling"""
+
 from functools import reduce
 
 import holidays

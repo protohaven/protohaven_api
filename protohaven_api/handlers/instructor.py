@@ -10,7 +10,10 @@ from flask import Blueprint, Response, current_app, redirect, request
 from protohaven_api.automation.classes.scheduler import (
     generate_env as generate_scheduler_env,
 )
-from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
+from protohaven_api.automation.classes.scheduler import (
+    push_schedule,
+    solve_with_env,
+)
 from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname

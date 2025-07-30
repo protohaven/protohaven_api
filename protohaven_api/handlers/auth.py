@@ -1,4 +1,5 @@
 """User auth handlers for login/logout and metadata"""
+
 import logging
 
 from flask import Blueprint, redirect, request, session

@@ -1,4 +1,5 @@
 """Create the protohaven_api module"""
+
 from setuptools import find_packages, setup
 
 setup(
