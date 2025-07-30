@@ -27,11 +27,15 @@ jobs:
         pip install pylint pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         pip install -e .
-    - name: Lint with pylint
+
+    - name: run pre-commit
       run: |
-        pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error,duplicate-code
+        pre-commit run --show-diff-on-failure --color=always --all-files
     - name: Test with pytest
       run: |
         TZ=US/Eastern python -m pytest
-    - name: Check for unintentional secrets
-      uses: secret-scanner/action@0.2.1
+    # - name: Lint with pylint
+    #   run: |
+    #     pylint -rn -sn --generated-members=client.tasks,client.projects $(git ls-files '*.py') --disable=logging-fstring-interpolation,import-error,duplicate-code
+    # - name: Check for unintentional secrets
+    #   uses: secret-scanner/action@0.2.1
