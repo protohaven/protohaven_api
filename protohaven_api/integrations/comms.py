@@ -37,7 +37,7 @@ def get_all_templates() -> List[str]:
     return [e.replace(".jinja2", "") for e in _env()[0].list_templates()]
 
 
-def render(template_name: str, **kwargs: Any) -> Tuple[str, str]:
+def render(template_name: str, **kwargs: Any) -> Tuple[str, str, bool]:
     """Returns a rendered template in two parts - subject and body.
     Template must be of the form:
 

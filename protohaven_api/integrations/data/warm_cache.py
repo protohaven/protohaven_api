@@ -18,8 +18,8 @@ class WarmDict:
     """
 
     NAME = ""
-    REFRESH_PD_SEC = None
-    RETRY_PD_SEC = None
+    REFRESH_PD_SEC: float | None = None
+    RETRY_PD_SEC: float | None = None
     NOTIFY_AFTER_FAILURES = 3
     NOTIFY_CHANNEL = None
 

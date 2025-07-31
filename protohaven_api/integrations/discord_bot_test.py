@@ -8,7 +8,7 @@ from discord import HTTPException
 from protohaven_api.integrations import discord_bot as db
 from protohaven_api.testing import idfn
 
-Tc = namedtuple("tc", "desc,usr,enabled,include,exclude,want")
+Tc = namedtuple("Tc", "desc,usr,enabled,include,exclude,want")
 
 
 @pytest.mark.parametrize(

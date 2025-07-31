@@ -4,8 +4,12 @@ import argparse
 import datetime
 import logging
 import time
+from typing import Any, Callable, Dict, List, Tuple
 
 import requests
+
+# Disables InsecureRequestWarning spam due to use of `verify=false` in requests
+import urllib3
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, airtable_base, neon_base
@@ -25,8 +29,7 @@ EOVR = "scott@protohaven.org"
 DOVR = "@pwacata"
 
 
-# Disables InsecureRequestWarning spam due to use of `verify=false` in requests
-requests.packages.urllib3.disable_warnings()  # pylint: disable=no-member
+urllib3.disable_warnings()
 
 
 def cronicle_event_schedule():
@@ -401,7 +404,7 @@ if __name__ == "__main__":
             },
         ),
     ]
-    prober_commands = [
+    prober_commands: List[Tuple[str, Callable, str, Dict[str, Any]]] = [
         ("probe_events", test_simple, "em3xcyglgdj", {}),
         ("probe_homepage", test_simple, "em403g0czew", {}),
     ]
@@ -446,7 +449,10 @@ if __name__ == "__main__":
         raise RuntimeError(f"Some IDs in Cronicle are not tested: {all_ids-tested_ids}")
 
     for i, tc in enumerate(tests):
-        name, fn, eid = tc[:3]
+        # Type ignore because tests is a complex concatenation that mypy can't infer
+        name: str = tc[0]  # type: ignore[assignment]
+        fn: Callable = tc[1]  # type: ignore[assignment]
+        eid: str = tc[2]  # type: ignore[assignment]
         if args.command and args.command != name:
             continue
         if args.after:

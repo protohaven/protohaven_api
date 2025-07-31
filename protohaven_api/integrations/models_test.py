@@ -83,7 +83,7 @@ def test_shop_tech_shift_spelling_correction():
     assert m.shop_tech_shift == ("Sunday", "AM")
 
 
-Tc = namedtuple("TC", "desc,first,preferred,last,pronouns,want")
+Tc = namedtuple("Tc", "desc,first,preferred,last,pronouns,want")
 
 
 @pytest.mark.parametrize(
