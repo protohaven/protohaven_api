@@ -173,3 +173,4 @@ bookstack/db_env.secret
 bookstack/bookstack_app_data
 bookstack/bookstack_db_data
 wordpress/wordpress
+svelte/package-lock.json
