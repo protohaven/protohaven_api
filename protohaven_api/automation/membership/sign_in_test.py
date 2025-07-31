@@ -5,8 +5,6 @@
 import datetime
 
 import pytest
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.membership import sign_in as s
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations.data.models import SignInEvent

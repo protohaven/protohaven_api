@@ -68,7 +68,7 @@ def get_tech_ready_tasks(modified_before):
             ),
         },
     ):
-        yield (t["name"], dateparser.parse(t["modified_at"].astimezone(tz)))
+        yield (t["name"], safe_parse_datetime(t["modified_at"].astimezone(tz)))
 
 
 def get_project_requests():
@@ -173,7 +173,7 @@ def last_maintenance_completion_map():
         if not completed:
             result[aid] = now
             return
-        mod = dateparser.parse(modified_at)
+        mod = safe_parse_datetime(modified_at)
         if aid not in result or mod > result[aid]:
             result[aid] = mod
 

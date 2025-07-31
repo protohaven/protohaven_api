@@ -3,9 +3,9 @@
 from collections import namedtuple
 
 import pytest
-from dateutil import parser as dateparser
 from dateutil import tz as dtz
 
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import models
 from protohaven_api.integrations.models import Event, Member, Role, SignInEvent
 from protohaven_api.testing import d, idfn
@@ -424,7 +424,7 @@ def test_sign_in_event_from_airtable():
     assert event.name == "Test User"
     assert event.clearances == ["laser", "3dprinter"]
     assert event.violations == ["safety", "cleanup"]
-    assert event.created == dateparser.parse("2024-01-01T12:00:00Z").astimezone(dtz.UTC)
+    assert event.created == safe_parse_datetime("2024-01-01T12:00:00Z").astimezone(dtz.UTC)
 
 
 def test_sign_in_event_empty_airtable():

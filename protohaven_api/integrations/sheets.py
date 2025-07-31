@@ -2,11 +2,10 @@
 
 import logging
 
-from dateutil import parser as dateparser
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-from protohaven_api.config import get_config, tz
+from protohaven_api.config import get_config, safe_parse_datetime, tz
 
 log = logging.getLogger("integrations.sheets")
 
@@ -39,7 +38,7 @@ def get_instructor_submissions(from_row=800):
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
     for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
         data = dict(zip(headers, row))
-        data["Timestamp"] = dateparser.parse(data["Timestamp"])
+        data["Timestamp"] = safe_parse_datetime(data["Timestamp"])
         yield data
 
 
@@ -59,7 +58,7 @@ def get_sign_ins_between(start, end):
     ]
     for row in get_sheet_range(sheet_id, "Form Responses 1!A12200:D"):
         data = dict(zip(headers, row))
-        t = dateparser.parse(data["timestamp"]).astimezone(tz)
+        t = safe_parse_datetime(data["timestamp"])
         if start <= t <= end:
             data["timestamp"] = t
             yield data

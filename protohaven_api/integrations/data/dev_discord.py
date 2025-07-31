@@ -1,7 +1,6 @@
 """Dev environment mock of discord functionality"""
 
-from dateutil import parser as dateparser
-
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import airtable_base
 
 
@@ -18,7 +17,7 @@ def get_all_members():
         yield (
             row["fields"]["name"],
             row["fields"]["display_name"],
-            dateparser.parse(row["fields"]["joined_at"]),
+            safe_parse_datetime(row["fields"]["joined_at"]),
             [(a, a) for a in row["fields"]["roles"].split(",")],
         )
 

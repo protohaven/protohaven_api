@@ -1,8 +1,7 @@
 """Unit tests for policy enforcement methods"""
 
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.policy import enforcer
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.automation.policy.testing import (
     TESTFEE,
     TESTMEMBER,
@@ -42,8 +41,8 @@ def test_gen_fees_new_violation():
 def test_gen_fees_applied_by_day(mocker):
     """Application boundary for fees is the turnover of the day, not
     actually 24 hours"""
-    t1 = dateparser.parse("2024-03-01 12:30pm")
-    t2 = dateparser.parse("2024-03-02 7:30am")
+    t1 = safe_parse_datetime("2024-03-01 12:30pm")
+    t2 = safe_parse_datetime("2024-03-02 7:30am")
     print(t1)
     print(t2)
     print(t2 - t1)

@@ -2,10 +2,9 @@
 
 import logging
 
-from dateutil import parser as dateparser
 from flask import Flask, request
 
-from protohaven_api.config import tz
+from protohaven_api.config import safe_parse_datetime, tz
 from protohaven_api.integrations import airtable_base
 
 app = Flask(__file__)
@@ -21,13 +20,13 @@ def get_reservations():
             f"Unhandled dev POST to /Reservations/: {request.data}"
         )
 
-    start = dateparser.parse(request.values.get("startDateTime")).astimezone(tz)
-    end = dateparser.parse(request.values.get("endDateTime")).astimezone(tz)
+    start = safe_parse_datetime(request.values.get("startDateTime"))
+    end = safe_parse_datetime(request.values.get("endDateTime"))
     return {
         "reservations": [
             row["fields"]["data"]
             for row in airtable_base.get_all_records("fake_booked", "reservations")
-            if start <= dateparser.parse(row["fields"]["start"]).astimezone(tz) <= end
+            if start <= safe_parse_datetime(row["fields"]["start"]) <= end
         ],
         "startDateTime": start,
         "endDateTime": end,
