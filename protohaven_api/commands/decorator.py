@@ -3,7 +3,7 @@
 import argparse
 import functools
 import logging
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 import yaml
 

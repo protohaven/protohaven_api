@@ -8,7 +8,6 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from protohaven_api.config import get_config
-
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
 from protohaven_api.handlers.index import page as index_pages
@@ -22,9 +21,9 @@ from protohaven_api.handlers.techs import page as techs_pages
 
 
 def configure_app(
-    behind_proxy: bool = False, 
-    cors_all_routes: bool = False, 
-    session_secret: Optional[str] = None
+    behind_proxy: bool = False,
+    cors_all_routes: bool = False,
+    session_secret: Optional[str] = None,
 ) -> Flask:
     """Configures the Flask app and returns it"""
     log = logging.getLogger("main")
@@ -39,10 +38,10 @@ def configure_app(
         CORS(app)
     else:
         # We do need CORS for requests hit by our wordpress page.
-        protohaven_main = get_config("general/external_urls/protohaven_main", "https://www.protohaven.org")
-        CORS(
-            app, resources={r"/event_ticker": {"origins": protohaven_main}}
+        protohaven_main = get_config(
+            "general/external_urls/protohaven_main", "https://www.protohaven.org"
         )
+        CORS(app, resources={r"/event_ticker": {"origins": protohaven_main}})
 
     log.info("Registering routes")
     app.secret_key = session_secret

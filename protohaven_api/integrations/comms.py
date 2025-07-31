@@ -9,7 +9,7 @@ import re
 import traceback
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Tuple
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 

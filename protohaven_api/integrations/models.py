@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Dict, Generator, Optional
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser

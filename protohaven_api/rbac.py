@@ -3,7 +3,7 @@
 import base64
 import logging
 from binascii import Error as B64Error
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from flask import (  # pylint: disable=import-error
     Response,
@@ -91,7 +91,9 @@ def require_dev_environment() -> Callable:
     return fn_setup
 
 
-def require_login_role(*role: Dict[str, Any], redirect_to_login: bool = True) -> Callable:
+def require_login_role(
+    *role: Dict[str, Any], redirect_to_login: bool = True
+) -> Callable:
     """Decorator that requires the use to be logged in and have a particular role"""
 
     def fn_setup(fn: Callable) -> Callable:
@@ -102,7 +104,10 @@ def require_login_role(*role: Dict[str, Any], redirect_to_login: bool = True) ->
             roles = get_roles()
             if roles is None:
                 if not redirect_to_login:
-                    api_base = get_config("general/external_urls/protohaven_api", "https://api.protohaven.org")
+                    api_base = get_config(
+                        "general/external_urls/protohaven_api",
+                        "https://api.protohaven.org",
+                    )
                     return Response(
                         "Access Denied - you are not logged in. "
                         f"Please visit {api_base}/login to see this content.",
@@ -122,7 +127,9 @@ def require_login_role(*role: Dict[str, Any], redirect_to_login: bool = True) ->
                 ):
                     return fn(*args, **kwargs)
 
-            api_base = get_config("general/external_urls/protohaven_api", "https://api.protohaven.org")
+            api_base = get_config(
+                "general/external_urls/protohaven_api", "https://api.protohaven.org"
+            )
             return Response(
                 "Access Denied - if you think this is an error, try going to "
                 f"{api_base}/logout and then log in again.",

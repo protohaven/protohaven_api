@@ -4,7 +4,7 @@ import datetime
 import os
 from functools import lru_cache
 from string import Template
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import yaml
 from dateutil import tz as dtz
@@ -65,9 +65,7 @@ def _find(rv: Dict[str, Any], path: str) -> Any:
 
 
 def get_config(
-    path: Optional[str] = None, 
-    default: Any = None, 
-    as_bool: bool = False
+    path: Optional[str] = None, default: Any = None, as_bool: bool = False
 ) -> Any:
     """Fetches the config, defined either as PH_CONFIG env var or default config.yaml.
     If path is defined, returns the value located down the tree at that path, or

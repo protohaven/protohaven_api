@@ -5,7 +5,7 @@ import datetime
 import logging
 import re
 from collections import defaultdict
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator
 
 from dateutil import parser as dateparser
 
@@ -28,7 +28,9 @@ class Commands:
     """Commands for managing classes in Airtable and Neon"""
 
     @command()
-    def transaction_alerts(self, _1: Any, _2: Any) -> None:
+    def transaction_alerts(  # pylint: disable=too-many-locals
+        self, _1: Any, _2: Any
+    ) -> None:
         """Send alerts about recent/unresolved transaction issues"""
         log.info("Fetching customer mapping")
         cust_map = sales.get_customer_name_map()
@@ -49,7 +51,10 @@ class Commands:
             n += 1
 
             sub_id = sub["id"]
-            square_base = get_config("general/external_urls/square_dashboard", "https://squareup.com/dashboard")
+            square_base = get_config(
+                "general/external_urls/square_dashboard",
+                "https://squareup.com/dashboard",
+            )
             url = f"{square_base}/subscriptions-list/{sub_id}"
             log.debug(f"Subscription {sub_id}: {sub}")
             plan, price = sub_plan_map.get(
@@ -96,7 +101,9 @@ class Commands:
         print_yaml(result)
         log.info("Done")
 
-    def _validate_role_membership(self, acct: Any, role: Dict[str, str]) -> Generator[str, None, None]:
+    def _validate_role_membership(
+        self, acct: Any, role: Dict[str, str]
+    ) -> Generator[str, None, None]:
         roles = acct.roles or []
         if role not in roles:
             has = ",".join([r["name"] for r in roles]) or "none"
@@ -107,18 +114,24 @@ class Commands:
         self, household_id: str, household_paying_member_count: int
     ) -> Generator[str, None, None]:
         if household_paying_member_count <= 0:
-            neon_admin = get_config("neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/")
+            base = get_config(
+                "neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/"
+            )
             yield (
                 "Missing required non-additional paid member in household "
-                + f"[#{household_id}]({neon_admin}account/householdDetails.do?householdId={household_id})"
+                + f"[#{household_id}]({base}account/householdDetails.do?householdId={household_id})"
             )
             log.info(
                 f"Missing paid family member: #{household_id} has {household_paying_member_count}"
             )
 
-    def _validate_employer_membership(self, company_id: str, company_member_count: int) -> Generator[str, None, None]:
+    def _validate_employer_membership(
+        self, company_id: str, company_member_count: int
+    ) -> Generator[str, None, None]:
         if company_member_count < 2:
-            neon_admin = get_config("neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/")
+            neon_admin = get_config(
+                "neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/"
+            )
             yield (
                 "Missing required 2+ members in company "
                 + f"[#{company_id}]({neon_admin}../admin/accounts/{company_id})"

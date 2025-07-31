@@ -35,11 +35,15 @@ page = Blueprint("instructor", __name__, template_folder="templates")
 
 
 # UI display constants from config
-HIDE_UNCONFIRMED_DAYS_AHEAD = get_config("general/ui_constants/hide_unconfirmed_days_ahead", 10)
-HIDE_CONFIRMED_DAYS_AFTER = get_config("general/ui_constants/hide_confirmed_days_after", 10)
+HIDE_UNCONFIRMED_DAYS_AHEAD = get_config(
+    "general/ui_constants/hide_unconfirmed_days_ahead", 10
+)
+HIDE_CONFIRMED_DAYS_AFTER = get_config(
+    "general/ui_constants/hide_confirmed_days_after", 10
+)
 
 
-def prefill_form(
+def prefill_form(  # pylint: disable=too-many-locals, too-many-arguments
     instructor: str,
     start_date: datetime.datetime,
     hours: float,
@@ -63,7 +67,7 @@ def prefill_form(
     form_base = get_config("forms/instructor_log/base_url")
     form_keys = get_config("forms/instructor_log/keys")
     form_values = get_config("forms/instructor_log/values")
-    
+
     start_yyyy_mm_dd = start_date.strftime("%Y-%m-%d")
     result = f"{form_base}?usp=pp_url"
     result += f"&{form_keys['instructor']}={instructor}"
@@ -76,7 +80,11 @@ def prefill_form(
     result += f"&{form_keys['pass_emails']}={', '.join(pass_emails)}"
     for cc in clearance_codes:
         result += f"&{form_keys['clearance_codes']}={cc}"
-    tool_usage_value = form_values['tool_usage_yes'] if len(tool_codes) > 0 else form_values['tool_usage_no']
+    tool_usage_value = (
+        form_values["tool_usage_yes"]
+        if len(tool_codes) > 0
+        else form_values["tool_usage_no"]
+    )
     result += f"&{form_keys['tool_usage']}={tool_usage_value}"
     result += f"&{form_keys['event_id']}={event_id}"
     for tc in tool_codes:
@@ -417,7 +425,9 @@ def setup_scheduler_env():
         return generate_scheduler_env(
             dateparser.parse(request.args.get("start")).astimezone(tz),
             dateparser.parse(request.args.get("end")).astimezone(tz)
-            + datetime.timedelta(hours=get_config("general/ui_constants/hours_in_day", 24)),  # End of final day
+            + datetime.timedelta(
+                hours=get_config("general/ui_constants/hours_in_day", 24)
+            ),  # End of final day
             [request.args.get("inst")],
         )
     except dateparser.ParserError:
@@ -519,7 +529,9 @@ def inst_availability():  # pylint: disable=too-many-return-statements
                 "Both t0 and t1 required in request to /instructor/calendar/availability",
                 status=400,
             )
-        t1 += datetime.timedelta(hours=get_config("general/ui_constants/hours_in_day", 24))  # End date is inclusive
+        t1 += datetime.timedelta(
+            hours=get_config("general/ui_constants/hours_in_day", 24)
+        )  # End date is inclusive
         avail = list(airtable.get_instructor_availability(inst))
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
         sched = [
