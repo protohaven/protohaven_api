@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Generator
+from typing import Dict, Generator, Optional
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
@@ -45,7 +45,7 @@ class Role:
     AUTOMATION = {"name": "Automation", "id": None}
 
     @classmethod
-    def as_dict(cls):
+    def as_dict(cls) -> Dict[str, Dict[str, Optional[str]]]:
         """Return dictionary mapping name to the value of each field"""
         results = {}
         for f in dir(cls()):

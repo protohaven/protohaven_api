@@ -9,6 +9,7 @@ import re
 import traceback
 from dataclasses import dataclass, field
 from functools import lru_cache
+from typing import Any, List, Tuple
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -31,12 +32,12 @@ def _env():
     )
 
 
-def get_all_templates():
+def get_all_templates() -> List[str]:
     """Returns a list of all templates callable by `render()`"""
     return [e.replace(".jinja2", "") for e in _env()[0].list_templates()]
 
 
-def render(template_name, **kwargs):
+def render(template_name: str, **kwargs: Any) -> Tuple[str, str]:
     """Returns a rendered template in two parts - subject and body.
     Template must be of the form:
 

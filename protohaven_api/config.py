@@ -4,6 +4,7 @@ import datetime
 import os
 from functools import lru_cache
 from string import Template
+from typing import Any, Dict, Optional
 
 import yaml
 from dateutil import tz as dtz
@@ -14,25 +15,26 @@ from dotenv import dotenv_values
 # See https://blog.ganssle.io/articles/2018/03/pytz-fastest-footgun.html for more details.
 tz = dtz.gettz("America/New_York")
 
+# Configuration file paths
 ENV_DEFAULTS_PATH = ".env.default"
 ENV_SECRETS_PATH = ".env.secret"
 CONFIG_YAML_PATH = "config.yaml"
 CONFIG_YAML_ENV = "PH_CONFIG"
 
 
-def utcnow():
+def utcnow() -> datetime.datetime:
     """Returns current time in UTC"""
     return datetime.datetime.now(dtz.UTC)
 
 
-def tznow():
+def tznow() -> datetime.datetime:
     """Return current time bound to time zone; prevents datetime skew due to different
     location of server"""
     return datetime.datetime.now(tz)
 
 
 @lru_cache(maxsize=1)
-def load_yaml_with_env_substitution(yaml_path):
+def load_yaml_with_env_substitution(yaml_path: str) -> Dict[str, Any]:
     """
     Loads a YAML file and substitutes placeholder values with corresponding environment variables.
     Placeholders in the YAML should be denoted as $VARIABLE_NAME or ${VARIABLE_NAME}.
@@ -56,13 +58,15 @@ def load_yaml_with_env_substitution(yaml_path):
     return yaml.safe_load(yaml_content_with_env)
 
 
-def _find(rv: dict, path: str):
+def _find(rv: Dict[str, Any], path: str) -> Any:
     for key in path.split("/"):
         rv = rv[key]
     return rv
 
 
-def get_config(path=None, default=None, as_bool=False):
+def get_config(
+    path: Optional[str] = None, default: Any = None, as_bool: bool = False
+) -> Any:
     """Fetches the config, defined either as PH_CONFIG env var or default config.yaml.
     If path is defined, returns the value located down the tree at that path, or
     the default if there was an error.

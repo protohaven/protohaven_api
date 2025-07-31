@@ -3,6 +3,7 @@
 import base64
 import logging
 from binascii import Error as B64Error
+from typing import Any, Callable, Dict, List, Optional
 
 from flask import (  # pylint: disable=import-error
     Response,
@@ -20,21 +21,21 @@ enabled = True  # pylint: disable=invalid-name
 log = logging.getLogger("rbac")
 
 
-def set_rbac(en):
+def set_rbac(en: bool) -> None:
     """Changes global RBAC enabled state"""
     global enabled  # pylint: disable=global-statement
     enabled = en
 
 
-def is_enabled():
+def is_enabled() -> bool:
     """Return whether RBAC is currently enabled"""
     return enabled
 
 
-def require_login(fn):
+def require_login(fn: Callable) -> Callable:
     """Decorator that requires the user to be logged in"""
 
-    def do_login_check(*args, **kwargs):
+    def do_login_check(*args: Any, **kwargs: Any) -> Any:
         if is_enabled():
             if session.get("neon_id") is None:
                 session["redirect_to_login_url"] = request.url
@@ -45,7 +46,7 @@ def require_login(fn):
     return do_login_check
 
 
-def roles_from_api_key(api_key):
+def roles_from_api_key(api_key: Optional[str]) -> Optional[str]:
     """Gets roles from the passed API key"""
     if api_key is None:
         return None
@@ -57,7 +58,7 @@ def roles_from_api_key(api_key):
     return codes.get(api_key)
 
 
-def get_roles():
+def get_roles() -> Optional[List[str]]:
     """Gets all the roles accessible by the incoming request/user.
     The payload and headers are searched for API keys"""
     api_key = request.values.get("api_key", None)
@@ -75,11 +76,11 @@ def get_roles():
     return [v["name"] for v in acct.roles] if acct.roles else []
 
 
-def require_dev_environment():
+def require_dev_environment() -> Callable:
     """Require the server to be running a non-prod (i.e. Dev) environment"""
 
-    def fn_setup(fn):
-        def do_dev_check(*args, **kwargs):
+    def fn_setup(fn: Callable) -> Callable:
+        def do_dev_check(*args: Any, **kwargs: Any) -> Any:
             if get_config("general/server_mode").lower() == "prod":
                 return Response("Access Denied", status=401)
             return fn(*args, **kwargs)
@@ -90,20 +91,26 @@ def require_dev_environment():
     return fn_setup
 
 
-def require_login_role(*role, redirect_to_login=True):
+def require_login_role(
+    *role: Dict[str, Any], redirect_to_login: bool = True
+) -> Callable:
     """Decorator that requires the use to be logged in and have a particular role"""
 
-    def fn_setup(fn):
-        def do_role_check(*args, **kwargs):
+    def fn_setup(fn: Callable) -> Callable:
+        def do_role_check(*args: Any, **kwargs: Any) -> Any:
             if not is_enabled():
                 log.warning(f"BYPASS for {role}")
                 return fn(*args, **kwargs)
             roles = get_roles()
             if roles is None:
                 if not redirect_to_login:
+                    api_base = get_config(
+                        "general/external_urls/protohaven_api",
+                        "https://api.protohaven.org",
+                    )
                     return Response(
                         "Access Denied - you are not logged in. "
-                        "Please visit https://api.protohaven.org/login to see this content.",
+                        f"Please visit {api_base}/login to see this content.",
                         status=401,
                     )
 
@@ -120,9 +127,12 @@ def require_login_role(*role, redirect_to_login=True):
                 ):
                     return fn(*args, **kwargs)
 
+            api_base = get_config(
+                "general/external_urls/protohaven_api", "https://api.protohaven.org"
+            )
             return Response(
                 "Access Denied - if you think this is an error, try going to "
-                "https://api.protohaven.org/logout and then log in again.",
+                f"{api_base}/logout and then log in again.",
                 status=401,
             )
 
@@ -132,12 +142,12 @@ def require_login_role(*role, redirect_to_login=True):
     return fn_setup
 
 
-def am_role(*role):
+def am_role(*role: Dict[str, Any]) -> bool:
     """Returns True if the current session is one of the roles provided"""
     return (not is_enabled()) or require_login_role(*role)(lambda: True)() is True
 
 
-def am_lead_role():
+def am_lead_role() -> bool:
     """Returns True if the current session is a priviliged role"""
     return am_role(
         Role.ADMIN,

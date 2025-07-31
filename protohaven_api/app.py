@@ -1,11 +1,13 @@
 """WSGI app construction"""
 
 import logging
+from typing import Optional
 
 from flask import Flask  # pylint: disable=import-error
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from protohaven_api.config import get_config
 from protohaven_api.handlers.admin import page as admin_pages
 from protohaven_api.handlers.auth import page as auth_pages
 from protohaven_api.handlers.index import page as index_pages
@@ -18,7 +20,11 @@ from protohaven_api.handlers.staff import setup_sock_routes as staff_ws_setup
 from protohaven_api.handlers.techs import page as techs_pages
 
 
-def configure_app(behind_proxy=False, cors_all_routes=False, session_secret=None):
+def configure_app(
+    behind_proxy: bool = False,
+    cors_all_routes: bool = False,
+    session_secret: Optional[str] = None,
+) -> Flask:
     """Configures the Flask app and returns it"""
     log = logging.getLogger("main")
     app = Flask(__name__)
@@ -32,9 +38,10 @@ def configure_app(behind_proxy=False, cors_all_routes=False, session_secret=None
         CORS(app)
     else:
         # We do need CORS for requests hit by our wordpress page.
-        CORS(
-            app, resources={r"/event_ticker": {"origins": "https://www.protohaven.org"}}
+        protohaven_main = get_config(
+            "general/external_urls/protohaven_main", "https://www.protohaven.org"
         )
+        CORS(app, resources={r"/event_ticker": {"origins": protohaven_main}})
 
     log.info("Registering routes")
     app.secret_key = session_secret
