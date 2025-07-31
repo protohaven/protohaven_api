@@ -8,6 +8,9 @@ from typing import Any, Callable, Dict, List, Tuple
 
 import requests
 
+# Disables InsecureRequestWarning spam due to use of `verify=false` in requests
+import urllib3
+
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, airtable_base, neon_base
 from protohaven_api.integrations.data.connector import Connector
@@ -25,9 +28,6 @@ COVR = "#cronicle-automation"
 EOVR = "scott@protohaven.org"
 DOVR = "@pwacata"
 
-
-# Disables InsecureRequestWarning spam due to use of `verify=false` in requests
-import urllib3
 
 urllib3.disable_warnings()
 
