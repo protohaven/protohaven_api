@@ -8,10 +8,8 @@ from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
 
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.classes import events as eauto
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import safe_parse_datetime, tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon_base,
@@ -41,11 +39,7 @@ def get_unscheduled_instructors(start, end, require_active=True):
     
     already_scheduled = defaultdict(bool)
     for cls in airtable.get_class_automation_schedule():
-        d = dateparser.parse(cls["fields"]["Start Time"])
-        if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
-            d = d.replace(tzinfo=tz)
-        else:
-            d = d.astimezone(tz)
+        d = safe_parse_datetime(cls["fields"]["Start Time"])
         if start <= d <= end:
             already_scheduled[cls["fields"]["Email"].lower()] = True
     log.info(
@@ -65,11 +59,7 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
     results = []
 
     def format_class(cls, inst=False):
-        start = dateparser.parse(cls["fields"]["Start Time"])
-        if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            start = start.replace(tzinfo=tz)
-        else:
-            start = start.astimezone(tz)
+        start = safe_parse_datetime(cls["fields"]["Start Time"])
         return {
             "t": start,
             "start": start.strftime("%b %d %Y, %-I%P"),
@@ -96,14 +86,8 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         channel_class_list += classes
 
     if len(results) > 0:
-        def _safe_parse_time(c):
-            d = dateparser.parse(c["fields"]["Start Time"])
-            if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
-                return d.replace(tzinfo=tz)
-            return d.astimezone(tz)
-        
         channel_class_list.sort(
-            key=lambda c: _safe_parse_time(c)
+            key=lambda c: safe_parse_datetime(c["fields"]["Start Time"])
         )
         results.append(
             Msg.tmpl(

@@ -9,13 +9,12 @@ from collections import defaultdict
 from functools import lru_cache
 
 import markdown
-from dateutil import parser as dateparser
 
 from protohaven_api.automation.classes import builder, scheduler
 from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict_from_record
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import safe_parse_datetime, tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     comms,
@@ -60,12 +59,12 @@ class Commands:
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
         start = (
-            dateparser.parse(args.start).astimezone(tz)
+            safe_parse_datetime(args.start).astimezone(tz)
             if args.start
             else tznow() + datetime.timedelta(days=30)
         )
         end = (
-            dateparser.parse(args.end).astimezone(tz)
+            safe_parse_datetime(args.end).astimezone(tz)
             if args.end
             else start + datetime.timedelta(days=30)
         )
@@ -178,8 +177,8 @@ class Commands:
     )
     def build_scheduler_env(self, args, _):
         """Construct an environment for assigning classes at times to instructors"""
-        start = dateparser.parse(args.start).astimezone(tz)
-        end = dateparser.parse(args.end).astimezone(tz)
+        start = safe_parse_datetime(args.start).astimezone(tz)
+        end = safe_parse_datetime(args.end).astimezone(tz)
         inst = {a.strip() for a in args.filter.split(",")} if args.filter else None
         env = scheduler.generate_env(start, end, inst)
         print_yaml(env)
@@ -266,7 +265,7 @@ class Commands:
     def _schedule_event(  # pylint: disable=too-many-arguments
         self, event, desc, published=True, registration=True, dry_run=True
     ):
-        start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
+        start = safe_parse_datetime(event["fields"]["Start Time"]).astimezone(tz)
         dates = list(
             expand_recurrence(
                 (event["fields"].get("Recurrence (from Class)") or [None])[0],
@@ -304,7 +303,7 @@ class Commands:
 
     def _format_class_sessions(self, cls, suf=" (from Class)"):
         """Format the dates and times for an airtable class"""
-        start = dateparser.parse(cls["fields"]["Start Time"])
+        start = safe_parse_datetime(cls["fields"]["Start Time"])
         lines = []
         for d0, d1 in expand_recurrence(
             (cls["fields"].get("Recurrence" + suf) or [None])[0],
@@ -360,7 +359,7 @@ class Commands:
         now = tznow()
         for event in airtable.get_class_automation_schedule():
             cid = event["fields"].get("ID") or event["fields"].get("ID_1")
-            start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
+            start = safe_parse_datetime(event["fields"]["Start Time"]).astimezone(tz)
             if overrides:
                 if str(cid) in overrides:
                     log.warning(f"Adding override class with ID {cid}")

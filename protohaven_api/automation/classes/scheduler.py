@@ -4,8 +4,6 @@ import datetime
 import logging
 from collections import defaultdict
 
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.classes.solver import (
     Class,
     Instructor,
@@ -17,7 +15,7 @@ from protohaven_api.automation.classes.validation import (
     sort_and_merge_date_ranges,
     validate_candidate_class_time,
 )
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, booked
 from protohaven_api.integrations.airtable_base import _idref, get_all_records
 from protohaven_api.integrations.comms import Msg
@@ -45,8 +43,8 @@ def get_reserved_area_occupancy(from_date, to_date):
             # the future for reservations though.
             occupancy[area].append(
                 [
-                    dateparser.parse(res["bufferedStartDate"]),
-                    dateparser.parse(res["bufferedEndDate"]),
+                    safe_parse_datetime(res["bufferedStartDate"]),
+                    safe_parse_datetime(res["bufferedEndDate"]),
                     f"{res['resourceName']} reservation by "
                     + f"{res['firstName']} {res['lastName']}, "
                     + "https://reserve.protohaven.org/Web/reservation/?rn="
@@ -121,13 +119,7 @@ def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
 
     # Convert instructor-provided availability ranges into discrete "class at time" candidates,
     # making notes on which candidates are rejected and why
-    def _safe_parse_tz(date_str):
-        d = dateparser.parse(date_str)
-        if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
-            return d.replace(tzinfo=tz)
-        return d.astimezone(tz)
-    
-    avail = [[_safe_parse_tz(a) for a in aa[:2]] for aa in avail]
+    avail = [[safe_parse_datetime(a) for a in aa[:2]] for aa in avail]
     for t0, t1 in avail:
         for c in caps:
             cbid = class_by_id.get(c)
@@ -185,11 +177,7 @@ def gen_class_and_area_stats(
     )
 
     for c in cur_sched:
-        t_parsed = dateparser.parse(c["fields"]["Start Time"])
-        if t_parsed.tzinfo is None or t_parsed.tzinfo.utcoffset(t_parsed) is None:
-            t = t_parsed.replace(tzinfo=tz)
-        else:
-            t = t_parsed.astimezone(tz)
+        t = safe_parse_datetime(c["fields"]["Start Time"])
         pd = (c["fields"].get("Period (from Class)") or [None])[0]
         if not pd:
             log.warning(f"Class missing template info: {c}")
@@ -422,11 +410,7 @@ def solve_with_env(env):
 def format_class(cls):
     """Convert a class into bulleted representation, for email summary"""
     _, name, date = cls
-    start_parsed = dateparser.parse(date)
-    if start_parsed.tzinfo is None or start_parsed.tzinfo.utcoffset(start_parsed) is None:
-        start = start_parsed.replace(tzinfo=tz)
-    else:
-        start = start_parsed.astimezone(tz)
+    start = safe_parse_datetime(date)
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
@@ -437,11 +421,7 @@ def push_schedule(sched, autoconfirm=False):
     email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
     for inst, classes in sched.items():
         for record_id, _, date in classes:
-            date = dateparser.parse(date)
-            if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
-                date = date.replace(tzinfo=tz)
-            else:
-                date = date.astimezone(tz)
+            date = safe_parse_datetime(date)
             payload.append(
                 {
                     "Instructor": inst,

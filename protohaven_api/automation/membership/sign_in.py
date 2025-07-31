@@ -5,9 +5,9 @@ import logging
 import multiprocessing as mp
 import traceback
 
-from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tz, tznow
+
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
@@ -248,7 +248,7 @@ def handle_announcements(last_ack, roles: list, clearances: list, is_active, tes
     """Handle fetching and display of announcements, plus updating
     acknowledgement date"""
     if last_ack:
-        last_ack = dateparser.parse(last_ack).astimezone(tz)
+        last_ack = safe_parse_datetime(last_ack)
     else:
         last_ack = tznow() - datetime.timedelta(30)
 

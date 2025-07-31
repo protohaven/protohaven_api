@@ -4,9 +4,9 @@ import datetime
 import json
 from functools import lru_cache
 
-from dateutil import parser as dateparser
 
-from protohaven_api.config import get_config, tz, tznow
+
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.connector import get as get_connector
 
@@ -46,7 +46,7 @@ def get_tech_ready_tasks(modified_before):
         for rec in airtable_base.get_all_records("tasks", "shop_and_maintenance_tasks"):
             yield (
                 rec["fields"]["Name"],
-                dateparser.parse(rec["fields"]["UpdatedAt"]).astimezone(tz),
+                safe_parse_datetime(rec["fields"]["UpdatedAt"]),
             )
         return
 

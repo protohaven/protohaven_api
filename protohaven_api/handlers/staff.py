@@ -4,7 +4,6 @@ import json
 import logging
 
 import markdown
-from dateutil import parser as dateparser
 from flask import Blueprint, current_app
 from flask_sock import Sock
 
@@ -41,8 +40,8 @@ def discord_channels():
 def summarizer_ws(ws):
     """Fetch discord messages in a given interval of time and summarize them"""
     data = json.loads(ws.receive())
-    start_date = dateparser.parse(data["start_date"])
-    end_date = dateparser.parse(data["end_date"])
+    start_date = safe_parse_datetime(data["start_date"])
+    end_date = safe_parse_datetime(data["end_date"])
     channels = set(data["channels"])
     channels = {c for c in comms.get_member_channels() if c[1] in channels}
     summaries = []

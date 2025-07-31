@@ -5,7 +5,6 @@ import logging
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
-from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.automation.classes.scheduler import (
@@ -16,7 +15,7 @@ from protohaven_api.automation.classes.scheduler import (
     solve_with_env,
 )
 from protohaven_api.automation.classes.solver import expand_recurrence
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import safe_parse_datetime, get_config, tz, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import (
     airtable,
@@ -211,7 +210,7 @@ def get_dashboard_schedule_sorted(email, now=None):
         if s["fields"]["Email"].lower() != email or s["fields"].get("Rejected"):
             continue
 
-        start_date = dateparser.parse(s["fields"]["Start Time"]).astimezone(tz)
+        start_date = safe_parse_datetime(s["fields"]["Start Time"]).astimezone(tz)
         dates = list(
             expand_recurrence(
                 (s["fields"].get("Recurrence (from Class)") or [None])[0],
@@ -255,7 +254,7 @@ def instructor_about():
 
 
 def _annotate_schedule_class(e):
-    date = dateparser.parse(e["Start Time"]).astimezone(tz)
+    date = safe_parse_datetime(e["Start Time"]).astimezone(tz)
 
     # If it's in neon, generate a log URL.
     # Placeholder for attendee names/emails as that's loaded
@@ -274,7 +273,7 @@ def _annotate_schedule_class(e):
 
     for date_field in ("Confirmed", "Instructor Log Date"):
         if e.get(date_field):
-            e[date_field] = dateparser.parse(e[date_field])
+            e[date_field] = safe_parse_datetime(e[date_field])
     e["Dates"] = [
         d[0].strftime("%A %b %-d, %-I%p")
         for d in expand_recurrence(
@@ -359,7 +358,7 @@ def instructor_class_supply_req():
     if status != 200:
         raise RuntimeError(f"Error setting supply state: {result}")
 
-    d = dateparser.parse(c["fields"]["Start Time"])
+    d = safe_parse_datetime(c["fields"]["Start Time"])
     comms.send_discord_message(
         f"{user_fullname()} set {state} for "
         f"{', '.join(c['fields']['Name (from Class)'])} with {c['fields']['Instructor']} "
@@ -423,8 +422,8 @@ def setup_scheduler_env():
     """Create a class scheduler environment to run"""
     try:
         return generate_scheduler_env(
-            dateparser.parse(request.args.get("start")).astimezone(tz),
-            dateparser.parse(request.args.get("end")).astimezone(tz)
+            safe_parse_datetime(request.args.get("start")).astimezone(tz),
+            safe_parse_datetime(request.args.get("end")).astimezone(tz)
             + datetime.timedelta(
                 hours=get_config("general/ui_constants/hours_in_day", 24)
             ),  # End of final day
@@ -510,7 +509,7 @@ def cancel_class():
 def _safe_date(v):
     if v is None:
         return v
-    d = dateparser.parse(v)
+    d = safe_parse_datetime(v)
     if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
         return d.replace(tzinfo=tz)
     return d.astimezone(tz)
@@ -537,7 +536,7 @@ def inst_availability():  # pylint: disable=too-many-return-statements
         sched = [
             s
             for s in airtable.get_class_automation_schedule()
-            if dateparser.parse(s["fields"]["Start Time"]) >= t0
+            if safe_parse_datetime(s["fields"]["Start Time"]) >= t0
             and not s["fields"].get("Rejected")
         ]
         return {
