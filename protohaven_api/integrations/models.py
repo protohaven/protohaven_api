@@ -10,7 +10,7 @@ from urllib.parse import urljoin
 from dateutil import parser as dateparser
 from dateutil import tz as dtz
 
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 
 log = logging.getLogger("integrations.models")
 
@@ -444,9 +444,8 @@ class Member:  # pylint:disable=too-many-public-methods
             if val is None:
                 return None
             try:
-                return (
-                    safe_parse_datetime(val)
-                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                return safe_parse_datetime(val).replace(
+                    hour=0, minute=0, second=0, microsecond=0
                 )
             except dateparser.ParserError as e:
                 log.error(e)

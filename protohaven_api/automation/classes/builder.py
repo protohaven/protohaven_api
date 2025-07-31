@@ -9,7 +9,11 @@ from enum import Enum
 from functools import lru_cache
 
 from protohaven_api.automation.classes import events as eauto
-from protohaven_api.config import safe_parse_datetime, tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import (  # pylint: disable=import-error
+    safe_parse_datetime,
+    tz,
+    tznow,
+)
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon_base,
@@ -36,7 +40,7 @@ def get_unscheduled_instructors(start, end, require_active=True):
         start = start.replace(tzinfo=tz)
     if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
         end = end.replace(tzinfo=tz)
-    
+
     already_scheduled = defaultdict(bool)
     for cls in airtable.get_class_automation_schedule():
         d = safe_parse_datetime(cls["fields"]["Start Time"])

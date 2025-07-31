@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, Response, request
 
-from protohaven_api.config import safe_parse_datetime, tz
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.neon import CustomField
 

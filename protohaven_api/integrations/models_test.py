@@ -424,7 +424,9 @@ def test_sign_in_event_from_airtable():
     assert event.name == "Test User"
     assert event.clearances == ["laser", "3dprinter"]
     assert event.violations == ["safety", "cleanup"]
-    assert event.created == safe_parse_datetime("2024-01-01T12:00:00Z").astimezone(dtz.UTC)
+    assert event.created == safe_parse_datetime("2024-01-01T12:00:00Z").astimezone(
+        dtz.UTC
+    )
 
 
 def test_sign_in_event_empty_airtable():

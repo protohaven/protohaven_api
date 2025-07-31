@@ -5,7 +5,7 @@ import datetime
 import logging
 from collections import defaultdict
 
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, neon_base
 from protohaven_api.integrations.comms import Msg
 

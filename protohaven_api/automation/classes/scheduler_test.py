@@ -5,9 +5,8 @@
 import datetime
 
 from protohaven_api.automation.classes import scheduler as s
-from protohaven_api.config import safe_parse_datetime
 from protohaven_api.automation.classes.solver import Class
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import safe_parse_datetime, tz, tznow
 from protohaven_api.testing import MatchStr, d, t
 
 

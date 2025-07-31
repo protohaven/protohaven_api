@@ -28,25 +28,29 @@ def test_get_resource_singleton(mocker):
 def test_get_reservations(mocker):
     """Ensure the correct URL is formed when checking reservations"""
     mocker.patch.object(booked, "get_connector")
-    booked.get_reservations(safe_parse_datetime("2024-01-01"), safe_parse_datetime("2024-02-02"))
+    booked.get_reservations(
+        safe_parse_datetime("2024-01-01"), safe_parse_datetime("2024-02-02")
+    )
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
         "GET",
-        "/Reservations/?startDateTime=2024-01-01T00:00:00&endDateTime=2024-02-02T00:00:00",  # pylint: disable=line-too-long
+        "/Reservations/?startDateTime=2024-01-01T00:00:00-05:00&endDateTime=2024-02-02T00:00:00-05:00",  # pylint: disable=line-too-long
     )
 
 
 def test_reserve_resource(mocker):
     """Ensure data is properly formatted when submitting a reservation"""
     mocker.patch.object(booked, "get_connector")
-    booked.reserve_resource(123, safe_parse_datetime("2024-01-01"), safe_parse_datetime("2024-01-02"))
+    booked.reserve_resource(
+        123, safe_parse_datetime("2024-01-01"), safe_parse_datetime("2024-01-02")
+    )
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
         "POST",
         "/Reservations/",
         json={
             "description": "api.protohaven.org reservation",
-            "endDateTime": "2024-01-02T00:00:00",
+            "endDateTime": "2024-01-02T00:00:00-05:00",
             "resourceId": 123,
-            "startDateTime": "2024-01-01T00:00:00",
+            "startDateTime": "2024-01-01T00:00:00-05:00",
             "title": "System Reserved",
             "userId": 103,  # a specific "robot" user, configured in Booked
         },

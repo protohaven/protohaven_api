@@ -53,7 +53,8 @@ class Class:
         if len(exclusions) > 0 and isinstance(exclusions[0][0], str):
             # Convert from string to Date if required
             self.exclusions = [
-                [*[safe_parse_datetime(e) for e in ee[:-1]], ee[-1]] for ee in exclusions
+                [*[safe_parse_datetime(e) for e in ee[:-1]], ee[-1]]
+                for ee in exclusions
             ]
         else:
             self.exclusions = exclusions

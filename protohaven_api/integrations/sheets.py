@@ -5,7 +5,7 @@ import logging
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-from protohaven_api.config import get_config, safe_parse_datetime, tz
+from protohaven_api.config import get_config, safe_parse_datetime
 
 log = logging.getLogger("integrations.sheets")
 

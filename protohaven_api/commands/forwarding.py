@@ -5,7 +5,6 @@ import datetime
 import logging
 import re
 
-
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import safe_parse_datetime, tz, tznow

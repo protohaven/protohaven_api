@@ -77,8 +77,12 @@ if __name__ == "__main__":
 
         if not event.get("start") or not event.get("end"):
             raise Exception(f"Weird event {event}")
-        start = safe_parse_datetime(event["start"].get("dateTime", event["start"].get("date")))
-        end = safe_parse_datetime(event["end"].get("dateTime", event["end"].get("date")))
+        start = safe_parse_datetime(
+            event["start"].get("dateTime", event["start"].get("date"))
+        )
+        end = safe_parse_datetime(
+            event["end"].get("dateTime", event["end"].get("date"))
+        )
         for rrule in event.get("recurrence", [None]):
             print(inst_id, start, end, rrule)
             print(airtable.add_availability(inst_id, start, end, rrule or ""))

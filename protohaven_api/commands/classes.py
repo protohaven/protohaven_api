@@ -14,7 +14,11 @@ from protohaven_api.automation.classes import builder, scheduler
 from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict_from_record
-from protohaven_api.config import safe_parse_datetime, tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import (  # pylint: disable=import-error
+    safe_parse_datetime,
+    tz,
+    tznow,
+)
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     comms,

@@ -63,7 +63,7 @@ def test_safe_parse_datetime_naive():
     expected = datetime.datetime(2025, 1, 1, 18, 0, 0, tzinfo=c.tz)
     assert result == expected
     assert result.tzinfo == c.tz
-    
+
     # Test date-only string
     result = c.safe_parse_datetime("2025-01-01")
     expected = datetime.datetime(2025, 1, 1, 0, 0, 0, tzinfo=c.tz)
@@ -75,10 +75,12 @@ def test_safe_parse_datetime_aware():
     """Test safe_parse_datetime with timezone-aware strings"""
     # Test UTC datetime string - should be converted to Eastern
     result = c.safe_parse_datetime("2025-01-01T18:00:00Z")
-    expected = datetime.datetime(2025, 1, 1, 13, 0, 0, tzinfo=c.tz)  # 18:00 UTC = 13:00 EST
+    expected = datetime.datetime(
+        2025, 1, 1, 13, 0, 0, tzinfo=c.tz
+    )  # 18:00 UTC = 13:00 EST
     assert result == expected
     assert result.tzinfo == c.tz
-    
+
     # Test datetime with explicit timezone
     result = c.safe_parse_datetime("2025-01-01T18:00:00-05:00")
     expected = datetime.datetime(2025, 1, 1, 18, 0, 0, tzinfo=c.tz)
@@ -91,7 +93,7 @@ def test_safe_parse_datetime_dst_boundary():
     # Before DST (EST)
     result = c.safe_parse_datetime("2025-01-01 18:00:00")
     assert result.strftime("%z") == "-0500"  # EST
-    
-    # After DST transition (EDT) 
+
+    # After DST transition (EDT)
     result = c.safe_parse_datetime("2025-07-01 18:00:00")
     assert result.strftime("%z") == "-0400"  # EDT

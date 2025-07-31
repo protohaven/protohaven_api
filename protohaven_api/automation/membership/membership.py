@@ -6,10 +6,8 @@ import random
 import string
 from functools import lru_cache
 
-from protohaven_api.config import safe_parse_datetime
-
 from protohaven_api.automation.classes import events as eauto
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
 

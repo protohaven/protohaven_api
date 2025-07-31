@@ -6,7 +6,6 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 
-
 from dateutil.rrule import rrulestr
 
 from protohaven_api.config import safe_parse_datetime, tz, tznow
@@ -585,9 +584,7 @@ class AirtableCache(WarmDict):
         clearances = [n.split(":")[1].strip() for n in clearances if ":" in n]
 
         for row in self["announcements"]:
-            adate = safe_parse_datetime(
-                row["fields"].get("Published", "2024-01-01")
-            )
+            adate = safe_parse_datetime(row["fields"].get("Published", "2024-01-01"))
             if adate <= d or adate > now:
                 continue
 

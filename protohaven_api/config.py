@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 import yaml
 from dateutil import parser as dateparser
 from dateutil import tz as dtz
+from dateutil.parser import ParserError  # pylint: disable=unused-import
 from dotenv import dotenv_values
 
 # Using dateutil.tz instead of pytz here is a deliberate choice - multiple DST issues have occurred
@@ -19,21 +20,22 @@ tz = dtz.gettz("America/New_York")
 
 def safe_parse_datetime(date_str: str) -> datetime.datetime:
     """Safely parse a datetime string, handling timezone-naive strings correctly.
-    
+
     Timezone-naive strings are interpreted as being in the target timezone (Eastern)
     rather than UTC, which prevents DST-related bugs.
-    
+
     Args:
         date_str: A datetime string to parse
-        
+
     Returns:
         A timezone-aware datetime object in Eastern time
     """
     parsed = dateparser.parse(date_str)
     if parsed.tzinfo is None or parsed.tzinfo.utcoffset(parsed) is None:
         return parsed.replace(tzinfo=tz)
-    else:
-        return parsed.astimezone(tz)
+
+    return parsed.astimezone(tz)
+
 
 # Configuration file paths
 ENV_DEFAULTS_PATH = ".env.default"

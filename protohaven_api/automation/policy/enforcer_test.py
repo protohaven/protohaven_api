@@ -1,7 +1,6 @@
 """Unit tests for policy enforcement methods"""
 
 from protohaven_api.automation.policy import enforcer
-from protohaven_api.config import safe_parse_datetime
 from protohaven_api.automation.policy.testing import (
     TESTFEE,
     TESTMEMBER,
@@ -9,6 +8,7 @@ from protohaven_api.automation.policy.testing import (
     now,
     violation,
 )
+from protohaven_api.config import safe_parse_datetime
 
 
 def test_gen_fees_closed_violation_subday():

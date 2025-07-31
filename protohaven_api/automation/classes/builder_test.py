@@ -4,6 +4,7 @@ import logging
 from collections import namedtuple
 
 import pytest
+
 from protohaven_api.automation.classes import builder  # pylint: disable=import-error
 from protohaven_api.config import safe_parse_datetime
 from protohaven_api.testing import d, idfn

@@ -7,6 +7,7 @@ import markdown
 from flask import Blueprint, current_app
 from flask_sock import Sock
 
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import comms, gpt
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import require_login_role

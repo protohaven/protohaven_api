@@ -5,6 +5,7 @@ import re
 from collections import namedtuple
 
 import pytest
+
 from protohaven_api.config import safe_parse_datetime, tz
 from protohaven_api.integrations import airtable as a
 from protohaven_api.integrations import airtable_base as ab
@@ -120,30 +121,30 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
             [(123, d(0, 18), d(0, 21))],
         ),
         Tc(
-                "OK across daylight savings time boundary",  # Boundary at 2024-11-03, 3AM EST
-                [
-                    _arec(
-                        "a",
-                        safe_parse_datetime("2024-11-02T18:00"),
-                        safe_parse_datetime("2024-11-02T21:00"),
-                        "RRULE:FREQ=DAILY",
-                    )
-                ],
-                safe_parse_datetime("2024-11-02"),
-                safe_parse_datetime("2024-11-04"),
-                [
-                    (
-                        123,
-                        safe_parse_datetime("2024-11-02T18:00"),
-                        safe_parse_datetime("2024-11-02T21:00"),
-                    ),
-                    (
-                        123,
-                        safe_parse_datetime("2024-11-03T18:00"),
-                        safe_parse_datetime("2024-11-03T21:00"),
-                    ),
-                ],
-            ),
+            "OK across daylight savings time boundary",  # Boundary at 2024-11-03, 3AM EST
+            [
+                _arec(
+                    "a",
+                    safe_parse_datetime("2024-11-02T18:00"),
+                    safe_parse_datetime("2024-11-02T21:00"),
+                    "RRULE:FREQ=DAILY",
+                )
+            ],
+            safe_parse_datetime("2024-11-02"),
+            safe_parse_datetime("2024-11-04"),
+            [
+                (
+                    123,
+                    safe_parse_datetime("2024-11-02T18:00"),
+                    safe_parse_datetime("2024-11-02T21:00"),
+                ),
+                (
+                    123,
+                    safe_parse_datetime("2024-11-03T18:00"),
+                    safe_parse_datetime("2024-11-03T21:00"),
+                ),
+            ],
+        ),
     ],
     ids=idfn,
 )
@@ -305,9 +306,7 @@ def test_get_announcements_after(mocker, tc):
     """Test announcement fetching"""
     ac = a.AirtableCache()
     ac["announcements"] = [{"fields": tc.data, "id": "123"}]
-    mocker.patch.object(
-        a, "tznow", return_value=safe_parse_datetime("2024-04-02")
-    )
+    mocker.patch.object(a, "tznow", return_value=safe_parse_datetime("2024-04-02"))
     got = list(
         ac.announcements_after(
             safe_parse_datetime("2024-03-14"),

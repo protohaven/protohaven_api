@@ -15,7 +15,13 @@ from protohaven_api.automation.classes.scheduler import (
     solve_with_env,
 )
 from protohaven_api.automation.classes.solver import expand_recurrence
-from protohaven_api.config import safe_parse_datetime, get_config, tz, tznow
+from protohaven_api.config import (
+    ParserError,
+    get_config,
+    safe_parse_datetime,
+    tz,
+    tznow,
+)
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import (
     airtable,
@@ -429,7 +435,7 @@ def setup_scheduler_env():
             ),  # End of final day
             [request.args.get("inst")],
         )
-    except dateparser.ParserError:
+    except ParserError:
         return Response(
             "Please select valid dates, with the start date before the end date",
             status=400,

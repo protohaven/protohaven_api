@@ -5,9 +5,7 @@ import logging
 import multiprocessing as mp
 import traceback
 
-
-
-from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
