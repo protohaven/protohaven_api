@@ -162,7 +162,9 @@ class Member:  # pylint:disable=too-many-public-methods
 
         return False
 
-    def last_membership_expiration_date(self) -> Tuple[datetime.datetime | None, bool | None]:
+    def last_membership_expiration_date(
+        self,
+    ) -> Tuple[datetime.datetime | None, bool | None]:
         """Returns a tuple of (expiration_date, autorenewal) based on
         membership data. Unspecified end date will be treated as "infinite".
         A value of (None, None) will be returned if the account has no memberships

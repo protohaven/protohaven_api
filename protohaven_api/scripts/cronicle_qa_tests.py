@@ -28,6 +28,7 @@ DOVR = "@pwacata"
 
 # Disables InsecureRequestWarning spam due to use of `verify=false` in requests
 import urllib3
+
 urllib3.disable_warnings()
 
 
