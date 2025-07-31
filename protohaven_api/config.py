@@ -85,3 +85,6 @@ def get_config(
             isinstance(data, str) and data.strip().lower() in ("1", "true")
         ) or data is True
     return data
+
+
+# Test comment
