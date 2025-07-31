@@ -179,13 +179,13 @@ def instructor_class_attendees() -> Union[Response, str]:
 
 
 @page.route("/instructor/class")
-def instructor_class_selector_redirect1():
+def instructor_class_selector_redirect1() -> Any:
     """Used previously. This redirects to the new endpoint"""
     return redirect("/instructor")
 
 
 @page.route("/instructor/class_selector")
-def instructor_class_selector_redirect2():
+def instructor_class_selector_redirect2() -> Any:
     """Used previously. This redirects to the new endpoint"""
     return redirect("/instructor")
 
