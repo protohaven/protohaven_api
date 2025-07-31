@@ -61,13 +61,14 @@ function handle_data(data) {
 
   let s = new Date(start);
   let d = new Date(start);
-  d.setHours(12); // Select Noon to prevent DST bugs changing the date
+  d.setHours(12, 0, 0, 0); // Select Noon to prevent DST bugs changing the date
   d.setDate(d.getDate() - d.getDay()); // Set to start of the week
   let e = new Date(end);
 
   let weeks = [];
   let darr = [];
   for (; d < s; d.setDate(d.getDate() + 1)) {
+    d.setHours(12, 0, 0, 0); // Ensure consistent time to prevent DST issues
     let dstr = isodate(d);
     darr.push({'date': dstr, 'filler': true, 'events': []});
     if (darr.length >= 7) {
@@ -77,6 +78,7 @@ function handle_data(data) {
   }
 
   for (; d <= e; d.setDate(d.getDate() + 1)) {
+    d.setHours(12, 0, 0, 0); // Ensure consistent time to prevent DST issues
     let dstr = isodate(d);
     darr.push({
       'date': dstr,
@@ -89,7 +91,7 @@ function handle_data(data) {
       darr = [];
     }
   }
-  if (darr.length >= 0) {
+  if (darr.length > 0) {
     weeks.push(darr);
   }
   let result = {'start': new Date(start), 'end': e, weeks, 'events': data.records};
