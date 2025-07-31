@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional
+from typing import Dict, Generator, Optional, Tuple
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
@@ -74,7 +74,7 @@ class Membership:
     def is_lapsed(self, now=None) -> bool:
         """Return true if the membership window is in the past, false otherwise"""
         now = (now or tznow()).replace(hour=0, minute=0, second=0, microsecond=0)
-        return self.end_date and self.end_date < now
+        return bool(self.end_date and self.end_date < now)
 
     @property
     def start_date(self) -> datetime.datetime:
@@ -162,14 +162,14 @@ class Member:  # pylint:disable=too-many-public-methods
 
         return False
 
-    def last_membership_expiration_date(self) -> (datetime.datetime, bool):
+    def last_membership_expiration_date(self) -> Tuple[datetime.datetime | None, bool | None]:
         """Returns a tuple of (expiration_date, autorenewal) based on
         membership data. Unspecified end date will be treated as "infinite".
         A value of (None, None) will be returned if the account has no memberships
         """
-        result = (None, None)
+        result: Tuple[datetime.datetime | None, bool | None] = (None, None)
         for m in self.memberships():
-            if not result[0] or result[0] < m.end_date:
+            if not result[0] or (m.end_date and result[0] < m.end_date):
                 result = (m.end_date, m.autoRenewal or False)
         return result
 
@@ -343,7 +343,7 @@ class Member:  # pylint:disable=too-many-public-methods
         return self._get_custom_field("Announcements Acknowledged", "value") or ""
 
     @property
-    def waiver_accepted(self) -> (str | None, datetime.datetime | None):
+    def waiver_accepted(self) -> Tuple[str | None, datetime.datetime | None]:
         """Return version and date of waiver acceptance via custom neon field"""
         v = self._get_custom_field("Waiver Accepted", "value") or ""
         match = re.match(WAIVER_REGEX, v)

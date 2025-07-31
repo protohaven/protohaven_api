@@ -461,5 +461,6 @@ def test_all_templates_tested(tmpl):
 if __name__ == "__main__":
     hashes = {}
     for i, ttt in enumerate(TESTED_TEMPLATES):
-        hashes[ttt[0]] = _gethash(c.render(*ttt))
+        template_name, kwargs = ttt
+        hashes[template_name] = _gethash(c.render(template_name, **kwargs))  # type: ignore[arg-type]
     print(hashes)

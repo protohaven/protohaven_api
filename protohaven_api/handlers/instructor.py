@@ -99,7 +99,7 @@ def _classes_in_caps(caps: Dict[str, Any]) -> bool:
     return True
 
 
-def get_instructor_readiness(inst: str, caps: Optional[Any] = None) -> List[str]:
+def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
@@ -117,16 +117,16 @@ def get_instructor_readiness(inst: str, caps: Optional[Any] = None) -> List[str]
 
     if len(inst) > 1:
         result["email"] = f"{len(inst)} duplicate accounts in Neon"
-    inst = inst[0]
+    inst_member = inst[0]  # Get the first member from the list
 
-    result["neon_id"] = inst.neon_id
-    if inst.account_current_membership_status == "Active":
+    result["neon_id"] = inst_member.neon_id
+    if inst_member.account_current_membership_status == "Active":
         result["active_membership"] = "OK"
     else:
-        result["active_membership"] = inst.account_current_membership_status
-    if inst.discord_user:
+        result["active_membership"] = inst_member.account_current_membership_status
+    if inst_member.discord_user:
         result["discord_user"] = "OK"
-    result["fullname"] = f"{inst.fname} {inst.lname}"
+    result["fullname"] = f"{inst_member.fname} {inst_member.lname}"
     if not caps:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:

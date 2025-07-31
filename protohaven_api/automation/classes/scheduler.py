@@ -72,7 +72,7 @@ def fetch_formatted_availability(inst_filter, time_min, time_max):
     return result
 
 
-def slice_date_range(start_date: datetime, end_date: datetime, class_duration: int):
+def slice_date_range(start_date: datetime.datetime, end_date: datetime.datetime, class_duration: int):
     """Convert all time between two datetime values into a set of
     discrete datetimes marking the potential onset of a class"""
     # Would be best to switch to time-bucketed scheduling that would allow for
