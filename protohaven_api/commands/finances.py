@@ -129,12 +129,10 @@ class Commands:
         self, company_id: str, company_member_count: int
     ) -> Generator[str, None, None]:
         if company_member_count < 2:
-            neon_admin = get_config(
-                "neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/"
-            )
+            base = get_config("neon/app_url", "https://protohaven.app.neoncrm.com/")
             yield (
                 "Missing required 2+ members in company "
-                + f"[#{company_id}]({neon_admin}../admin/accounts/{company_id})"
+                + f"[#{company_id}]({base}admin/accounts/{company_id})"
             )
             log.info(
                 f"Missing company members: #{company_id} has {company_member_count}"

@@ -35,6 +35,7 @@ openai:
 neon:
   domain: "protohaven"
   base_url: "https://api.neoncrm.com/v2/"
+  app_url: "https://protohaven.app.neoncrm.com/"
   admin_url: "https://protohaven.app.neoncrm.com/np/admin/"
   sso_url: "https://app.neonsso.com"
   oauth_client_id: ${NEON_OAUTH_CLIENT_ID}
