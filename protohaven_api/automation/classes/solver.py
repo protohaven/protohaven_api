@@ -7,6 +7,7 @@ import logging
 from collections import defaultdict
 
 from dateutil import parser as dateparser
+from dateutil.rrule import rrulestr
 from pulp import constants as pulp_constants
 from pulp import pulp
 
@@ -15,16 +16,34 @@ from protohaven_api.automation.classes.validation import date_range_overlaps
 log = logging.getLogger("class_automation.solver")
 
 
+def expand_recurrence(recurrence, hours, start_time, max_expansion=10):
+    """Generate a list of time intervals based on a given `start_time` for
+    which the class would be active"""
+    if not isinstance(recurrence, str) and recurrence != "":
+        yield (start_time, start_time + datetime.timedelta(hours=hours))
+    else:
+        rr = rrulestr(recurrence, dtstart=start_time)
+        i = 0
+        for t0 in rr.xafter(start_time, count=max_expansion, inc=True):
+            t1 = t0 + datetime.timedelta(hours=hours)
+            yield (t0, t1)
+            i += 1
+
+        if i == 0:
+            # Backstop to generate a date if the recurrence rule evaluates empty
+            yield (start_time, start_time + datetime.timedelta(hours=hours))
+
+
 class Class:
     """Represents a class template schedulable, in one or more areas, with score"""
 
     def __init__(  # pylint: disable=too-many-arguments
-        self, class_id, name, hours, days, areas, exclusions, score
+        self, class_id, name, hours, areas, exclusions, score, recurrence=None
     ):
         self.class_id = class_id  # The ID in airtable
         self.name = name
         self.hours = hours
-        self.days = days
+        self.recurrence = recurrence
 
         assert isinstance(areas, list)
         self.areas = areas
@@ -42,13 +61,12 @@ class Class:
         # cost of materials etc.
         self.score = score
 
-    def expand(self, start_time):
+    def expand(self, start_time, max_expansion=10):
         """Generate a list of time intervals based on a given `start_time` for
         which the class would be active"""
-        for d in range(self.days):
-            t0 = start_time + datetime.timedelta(days=7 * d)
-            t1 = t0 + datetime.timedelta(hours=self.hours)
-            yield (t0, t1)
+        yield from expand_recurrence(
+            self.recurrence, self.hours, start_time, max_expansion
+        )
 
     def __repr__(self):
         return (
@@ -63,7 +81,7 @@ class Class:
             "class_id": self.class_id,
             "name": self.name,
             "hours": self.hours,
-            "days": self.days,
+            "recurrence": self.recurrence,
             "areas": self.areas,
             "exclusions": self.exclusions,
             "score": self.score,

@@ -8,5 +8,3 @@ echo "Snapshot complete"
 echo "Snapshotting nocodb postgres DB..."
 docker exec -it 2_pg-root_db-1 pg_dump -U postgres -d root_db > dump.sql
 echo "Snapshot complete"
-
-

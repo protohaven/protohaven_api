@@ -1,4 +1,5 @@
 """Commands related to classes in Neon and Airtable"""
+
 import argparse
 import datetime
 import logging
@@ -11,6 +12,7 @@ import markdown
 from dateutil import parser as dateparser
 
 from protohaven_api.automation.classes import builder, scheduler
+from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
 from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
@@ -265,17 +267,20 @@ class Commands:
         self, event, desc, published=True, registration=True, dry_run=True
     ):
         start = dateparser.parse(event["fields"]["Start Time"]).astimezone(tz)
-        end = start + datetime.timedelta(hours=event["fields"]["Hours (from Class)"][0])
-        days = event["fields"]["Days (from Class)"][0]
-        if days > 1:
-            end += datetime.timedelta(days=days)
+        dates = list(
+            expand_recurrence(
+                (event["fields"].get("Recurrence (from Class)") or [None])[0],
+                event["fields"]["Hours (from Class)"][0],
+                start,
+            )
+        )
         name = event["fields"]["Name (from Class)"][0]
         capacity = event["fields"]["Capacity (from Class)"][0]
         return neon_base.create_event(
             name,
             desc,
             start,
-            end,
+            dates[-1][1],
             category=self._neon_category_from_event_name(name),
             max_attendees=capacity,
             dry_run=dry_run,
@@ -296,6 +301,20 @@ class Commands:
                 "Age Requirement",
             )
         ]
+
+    def _format_class_sessions(self, cls, suf=" (from Class)"):
+        """Format the dates and times for an airtable class"""
+        start = dateparser.parse(cls["fields"]["Start Time"])
+        lines = []
+        for d0, d1 in expand_recurrence(
+            (cls["fields"].get("Recurrence" + suf) or [None])[0],
+            cls["fields"]["Hours" + suf][0],
+            start,
+        ):
+            lines.append(f"{d0.strftime('%A %b %-d, %-I%p')} - {d1.strftime('%-I%p')}")
+        result = "**Class Dates**\n\n"
+        result += "\n".join([f"* {l}" for l in lines])
+        return result
 
     def _format_class_description(self, cls, suf=" (from Class)"):
         """Construct description of class from airtable columns; strip 'from Class' suffix"""
@@ -332,6 +351,7 @@ class Commands:
         result += "\n\n".join(
             [markdown.markdown(f"**{hdr}**\n\n{body}") for hdr, body in sections]
         )
+        result += markdown.markdown(self._format_class_sessions(cls, suf))
         result += markdown.markdown(rules_and_expectations)
         result += markdown.markdown(cancellation_policy)
         return result

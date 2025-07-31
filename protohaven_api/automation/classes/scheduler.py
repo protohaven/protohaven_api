@@ -1,4 +1,4 @@
-""" Methods for scheduling new classes """
+"""Methods for scheduling new classes"""
 
 import datetime
 import logging
@@ -6,7 +6,12 @@ from collections import defaultdict
 
 from dateutil import parser as dateparser
 
-from protohaven_api.automation.classes.solver import Class, Instructor, solve
+from protohaven_api.automation.classes.solver import (
+    Class,
+    Instructor,
+    expand_recurrence,
+    solve,
+)
 from protohaven_api.automation.classes.validation import (
     date_range_overlaps,
     sort_and_merge_date_ranges,
@@ -179,16 +184,25 @@ def gen_class_and_area_stats(
             continue
         rec = _idref(c, "Class")[0]
 
+        dates = list(
+            expand_recurrence(
+                (c["fields"].get("Recurrence (from Class)") or [None])[0],
+                c["fields"]["Hours (from Class)"][0],
+                t,
+            )
+        )
+
+        # Repeats of the class are excluded based on the start and end run date
         exclusion_window = [
-            t - datetime.timedelta(days=pd),
-            t
-            + datetime.timedelta(days=7 * (c["fields"]["Days (from Class)"][0] - 1))
-            + datetime.timedelta(days=pd),
+            dates[0][0] - datetime.timedelta(days=pd),
+            dates[-1][0] + datetime.timedelta(days=pd),
             t,  # Main date is included for reference
         ]
+
+        # Clearances are excluded only based on start date
         clearance_exclusion_window = [
-            t - datetime.timedelta(days=clearance_exclusion_range),
-            t + datetime.timedelta(days=clearance_exclusion_range),
+            dates[0][0] - datetime.timedelta(days=clearance_exclusion_range),
+            dates[0][0] + datetime.timedelta(days=clearance_exclusion_range),
             t,  # Main date is included for reference
         ]
         if exclusion_window[0] <= end_date or exclusion_window[1] >= start_date:
@@ -202,17 +216,12 @@ def gen_class_and_area_stats(
                 if mapped:
                     clearance_exclusion[mapped].append(clearance_exclusion_window)
 
-        for i in range(c["fields"]["Days (from Class)"][0]):
-            ao = [
-                t + datetime.timedelta(days=7 * i),
-                t
-                + datetime.timedelta(
-                    days=7 * i, hours=c["fields"]["Hours (from Class)"][0]
-                ),
-            ]
-            if date_range_overlaps(ao[0], ao[1], start_date, end_date):
-                aoc = ao + [
-                    c["fields"]["Name (from Class)"]
+        for t0, t1 in dates:
+            if date_range_overlaps(t0, t1, start_date, end_date):
+                aoc = [
+                    t0,
+                    t1,
+                    c["fields"]["Name (from Class)"],
                 ]  # Include class name for later reference
                 area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
                     aoc
@@ -238,9 +247,7 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
             missing = [
-                f
-                for f in ("Name", "Hours", "Days", "Name (from Area)")
-                if f not in c["fields"]
+                f for f in ("Name", "Hours", "Name (from Area)") if f not in c["fields"]
             ]
             if len(missing) > 0:
                 notices[c["id"]].append(
@@ -266,7 +273,7 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
                     str(c["id"]),
                     c["fields"]["Name"],
                     hours=c["fields"]["Hours"],
-                    days=c["fields"]["Days"],
+                    recurrence=c["fields"].get("Recurrence") or None,
                     areas=c["fields"]["Name (from Area)"],
                     exclusions=exclusions,
                     score=compute_score(c),

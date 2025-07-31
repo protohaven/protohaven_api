@@ -1,4 +1,5 @@
 """WSGI app construction"""
+
 import logging
 
 from flask import Flask  # pylint: disable=import-error

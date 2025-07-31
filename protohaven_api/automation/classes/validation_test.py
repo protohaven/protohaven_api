@@ -1,4 +1,5 @@
 """Tests for validation module"""
+
 from collections import namedtuple
 
 import pytest
@@ -39,7 +40,7 @@ fields = {
     "avail": [(d(0), d(2))],
     "want_reason": None,
     "class_hours": 3,
-    "class_days": 1,
+    "recurrence": None,
 }
 Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
 
@@ -83,13 +84,13 @@ Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
             "pass, multi-day",
             t0=d(20),
             avail=[(d(20), d(21)), (d(27), d(28)), (d(34), d(35))],
-            class_days=3,
+            recurrence="RRULE:FREQ=WEEKLY;COUNT=3",
         ),
         Tc(
             "fail, multi-day but unavailable on second session",
             t0=d(20),
             avail=[(d(20), d(21)), (d(27), d(28))],
-            class_days=3,
+            recurrence="RRULE:FREQ=WEEKLY;COUNT=3",
             want_reason=(
                 "Class time (2025-02-04 00:00:00-05:00 - 2025-02-04 03:00:00-05:00) "
                 "does not fall within instructor availability"
@@ -104,7 +105,7 @@ def test_validate_candidate_class_time(tc):
         "test_id",
         "Test Class",
         hours=tc.class_hours,
-        days=tc.class_days,
+        recurrence=tc.recurrence,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7), "class"]],
         score=1.0,

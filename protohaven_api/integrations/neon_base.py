@@ -154,7 +154,7 @@ def patch_account(account_id, data, is_company=None):
     if is_company is None:
         acct = fetch_account(account_id, required=True)
         if acct:
-            is_company = acct.is_company
+            is_company = acct.is_company()
     return patch(
         "api_key2",
         f"/accounts/{account_id}",

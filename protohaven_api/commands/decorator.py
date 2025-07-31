@@ -1,4 +1,5 @@
 """Basic decorator for argparse commands that wraps functions so they can be executed in cli."""
+
 import argparse
 import functools
 import logging

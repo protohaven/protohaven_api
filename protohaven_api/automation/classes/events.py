@@ -1,4 +1,4 @@
-""" Methods for manipulating merged event data (from Neon and Airtable) """
+"""Methods for manipulating merged event data (from Neon and Airtable)"""
 
 import datetime
 

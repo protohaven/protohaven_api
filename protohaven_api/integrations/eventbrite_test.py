@@ -1,4 +1,5 @@
-""" Tests for eventbrite integration """
+"""Tests for eventbrite integration"""
+
 from protohaven_api.integrations import eventbrite as e
 
 

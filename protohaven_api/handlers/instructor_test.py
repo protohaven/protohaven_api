@@ -56,7 +56,9 @@ def _sched(_id, email=TEST_EMAIL, start=now, days=1, confirmed=None):
             "Email": email,
             "Start Time": start.isoformat(),
             "Confirmed": None if not confirmed else confirmed.isoformat(),
-            "Days (from Class)": [days],
+            "Recurrence (from Class)": (
+                [f"RRULE:FREQ=WEEKLY;COUNT={days}"] if days > 1 else None
+            ),
         },
     }
 
@@ -136,7 +138,6 @@ def test_get_dashboard_schedule_sorted(mocker):
                 "fields": {
                     "Email": "match",
                     "Start Time": "2024-01-01",
-                    "Days (from Class)": [1],
                     "Confirmed": "2024-01-01",
                 },
             },
@@ -162,7 +163,9 @@ def test_instructor_about_both_email_and_session(mocker, inst_client):
     the url param if it's their own email"""
     rbac.set_rbac(True)
     mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.INSTRUCTOR["name"]])
-    mocker.patch.object(instructor.neon, "search_members_by_email", return_value=["test"])
+    mocker.patch.object(
+        instructor.neon, "search_members_by_email", return_value=["test"]
+    )
     mocker.patch.object(instructor, "get_instructor_readiness")
 
     rep = inst_client.get("/instructor/about?email=a@b.com")

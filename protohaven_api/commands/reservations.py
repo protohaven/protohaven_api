@@ -1,12 +1,12 @@
 """Commands related to reserving equipment and the Booked reservation system"""
 
 import argparse
-import datetime
 import logging
 from functools import lru_cache
 
 from dateutil import parser as dateparser
 
+from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import get_config, tz
 from protohaven_api.integrations import airtable, booked, neon
@@ -21,23 +21,15 @@ def reservation_dict_from_record(event):
         event["fields"]["Name (from Area) (from Class)"],
         event["fields"]["Name (from Class)"],
         event["fields"]["Start Time"],
-        event["fields"]["Days (from Class)"][0],
+        (event["fields"].get("Recurrence (from Class)") or [None])[0],
         event["fields"]["Hours (from Class)"][0],
     )
 
 
-def reservation_dict(areas, name, start, days, hours):
+def reservation_dict(areas, name, start, recurrence, hours):
     """Convert params into a 'reservation dict' used to reserve resources at particular intervals"""
     start = dateparser.parse(start).astimezone(tz)
-    intervals = []
-    for d in range(days):
-        offs = start + datetime.timedelta(days=7 * d)
-        intervals.append(
-            [
-                offs,
-                offs + datetime.timedelta(hours=hours),
-            ]
-        )
+    intervals = list(expand_recurrence(recurrence, hours, start))
     return {"areas": set(areas), "name": name, "intervals": intervals, "resources": []}
 
 
@@ -81,7 +73,7 @@ class Commands:
                 cls["fields"]["Name (from Area)"],
                 cls["fields"]["Name"],
                 args.start,
-                cls["fields"]["Days"],
+                cls["fields"].get("Recurrence") or None,
                 cls["fields"]["Hours"],
             ),
             args.apply,

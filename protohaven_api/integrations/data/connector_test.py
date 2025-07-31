@@ -1,4 +1,5 @@
 """Tests for data connector"""
+
 import json
 
 import pytest

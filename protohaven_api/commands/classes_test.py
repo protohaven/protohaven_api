@@ -1,4 +1,5 @@
 """Test for class command logic"""
+
 # pylint: skip-file
 import datetime
 from collections import namedtuple
@@ -141,7 +142,6 @@ def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
             "Short Description (from Class)": ["testdesc"],
             "Image Link (from Class)": ["http://testimg"],
             "Hours (from Class)": [3],
-            "Days (from Class)": [1],
             "Capacity (from Class)": [6],
             "Price (from Class)": [90],
             "Name (from Area) (from Class)": [90],
@@ -177,6 +177,40 @@ def test_post_classes_to_neon_no_actions(cli, mocker, tc):
     )
     mocker.patch.object(C, "tznow", return_value=d(0))
     assert cli("post_classes_to_neon", ["--apply"]) == []
+
+
+def test_format_class_description(mocker):
+    cmd = C.Commands()
+    mocker.patch.object(
+        cmd,
+        "_fetch_boilerplate",
+        return_value=(
+            "rules_and_expectations",
+            "cancellation_policy",
+            "age_section_fmt",
+        ),
+    )
+
+    result = cmd._format_class_description(
+        {
+            "fields": {
+                "Image Link": ["link"],
+                "Short Description": ["short_desc"],
+                "What you Will Create": ["what_create"],
+                "What to Bring/Wear": ["what_bring"],
+                "Clearances Earned": ["clearances"],
+                "Age Requirement": ["16+"],
+                "Start Time": d(0, 8).isoformat(),
+                "Hours": [3],
+                "Recurrence": ["RRULE:FREQ=WEEKLY;COUNT=3"],
+            }
+        },
+        suf="",
+    )
+    assert (
+        result
+        == '<p><img height="200" src="link"/></p>\n<p>short_desc</p>\n<p><strong>What you Will Create</strong></p>\n<p>what_create</p>\n\n<p><strong>What to Bring/Wear</strong></p>\n<p>what_bring</p>\n\n<p><strong>Clearances Earned</strong></p>\n<p>clearances</p>\n\n<p><strong>Age Requirement</strong></p>\n<p>age_section_fmt</p><p><strong>Class Dates</strong></p>\n<ul>\n<li>Wednesday Jan 1, 8AM - 11AM</li>\n<li>Wednesday Jan 8, 8AM - 11AM</li>\n<li>Wednesday Jan 15, 8AM - 11AM</li>\n</ul><p>rules_and_expectations</p><p>cancellation_policy</p>'
+    )
 
 
 Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")

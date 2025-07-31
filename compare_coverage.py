@@ -1,5 +1,5 @@
 """Diffs per-file coverage between baseline and updates; fails
-    with error if the coverage noticeably decreases"""
+with error if the coverage noticeably decreases"""
 
 import json
 import sys

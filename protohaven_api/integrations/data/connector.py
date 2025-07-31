@@ -1,4 +1,4 @@
-""" Connects to various dependencies, or serves mock data depending on the
+"""Connects to various dependencies, or serves mock data depending on the
 configured state of the server"""
 
 import base64

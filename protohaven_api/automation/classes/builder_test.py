@@ -1,4 +1,5 @@
 """Unit tests for builder module"""
+
 import logging
 from collections import namedtuple
 

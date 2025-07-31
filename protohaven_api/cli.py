@@ -1,4 +1,4 @@
-""" A set of command line tools to be run manually or via Cronicle"""
+"""A set of command line tools to be run manually or via Cronicle"""
 
 import argparse
 import logging

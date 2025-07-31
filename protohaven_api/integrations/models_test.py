@@ -1,4 +1,5 @@
 """Various objects representing physical and digital entities."""
+
 from collections import namedtuple
 
 import pytest

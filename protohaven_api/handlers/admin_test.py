@@ -47,7 +47,9 @@ def test_user_clearances(mocker, client):
     )
 
     assert rep.status_code == 200
-    a.mclearance.update.assert_called_with("test@example.com", "PATCH", [c1, c2]) # pylint: disable=no-member
+    a.mclearance.update.assert_called_with(  # pylint: disable=no-member
+        "test@example.com", "PATCH", [c1, c2]
+    )
 
 
 NEW_MEMBERSHIP_WEBHOOK_DATA = {

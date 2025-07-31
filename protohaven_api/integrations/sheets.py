@@ -1,4 +1,5 @@
 """Read from google spreadsheets"""
+
 import logging
 
 from dateutil import parser as dateparser

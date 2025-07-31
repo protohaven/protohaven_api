@@ -1,4 +1,5 @@
 """Functions invoking LLMs and passing prompts"""
+
 from openai import OpenAI
 
 from protohaven_api.config import get_config

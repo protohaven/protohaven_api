@@ -1,4 +1,4 @@
-""" Neon CRM integration methods """  # pylint: disable=too-many-lines
+"""Neon CRM integration methods"""  # pylint: disable=too-many-lines
 
 import datetime
 import logging

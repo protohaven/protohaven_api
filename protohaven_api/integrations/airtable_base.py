@@ -1,4 +1,5 @@
 """Airtable basic API commands"""
+
 import logging
 
 from protohaven_api.integrations.data.connector import get as get_connector

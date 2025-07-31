@@ -10,7 +10,9 @@ import {get, post} from '$lib/api.ts';
   let profile = null;
   let promise;
   function refresh() {
-	promise = get("/instructor/about?email=" + encodeURIComponent(email));
+    const url = "/instructor/about?email=" + encodeURIComponent(email);
+    console.log(`getting profile data for email ${email} -> ${url}`);
+	  promise = get(url);
   }
   onMount(refresh);
 

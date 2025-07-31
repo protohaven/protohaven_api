@@ -57,7 +57,6 @@ def test_build_instructor_basic():
     TEST_CLASS = Class(
         "test_id",
         "Test Class",
-        days=1,
         hours=3,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7), "class"]],
@@ -78,7 +77,6 @@ def test_build_instructor_exclusion():
     TEST_CLASS = Class(
         "test_id",
         "Test Class",
-        days=1,
         hours=3,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7), "class"]],
@@ -135,7 +133,6 @@ def test_build_instructor_daterange_not_supported():
         "test_id",
         "Test Class",
         hours=3,
-        days=1,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7)]],
         score=1.0,
@@ -161,7 +158,6 @@ def test_build_instructor_no_caps():
         "test_id",
         "Test Class",
         hours=3,
-        days=1,
         areas=["a0"],
         exclusions=[[d(5), d(10), d(7)]],
         score=1.0,
@@ -220,7 +216,7 @@ def test_gen_class_and_area_stats_exclusions(mocker):
                     "Start Time": "2024-04-01",
                     "Class": ["r1"],
                     "Clearance (from Class)": [12345],
-                    "Days (from Class)": [1],
+                    "Recurrence (from Class)": None,
                     "Hours (from Class)": [3],
                     "Period (from Class)": [30],
                     "Name (from Class)": "Class1",
@@ -233,8 +229,8 @@ def test_gen_class_and_area_stats_exclusions(mocker):
                     "Start Time": "2024-03-01",
                     "Class": ["r1"],
                     "Clearance (from Class)": [12345],
-                    "Days (from Class)": [
-                        2
+                    "Recurrence (from Class)": [
+                        "RRULE:FREQ=WEEKLY;COUNT=2"
                     ],  # End of exclusion should be from last session
                     "Hours (from Class)": [3],
                     "Period (from Class)": [30],
@@ -296,7 +292,7 @@ def test_load_schedulable_classes(mocker):
                     "Name": "Class One",
                     "Schedulable": True,
                     "Hours": 5,
-                    "Days": 2,
+                    "Recurrence": "RRULE:FREQ=WEEKLY;COUNT=2",
                     "Name (from Area)": ["Area 1"],
                     "Clearance": ["C1", "C2"],
                     "Image Link": "http://example.com/image1",
@@ -307,7 +303,7 @@ def test_load_schedulable_classes(mocker):
                 "fields": {
                     "Name": "Class Two",
                     "Schedulable": True,
-                    # Missing "Hours", "Days", "Name (from Area)"; rejected
+                    # Missing "Hours", "Recurrence", "Name (from Area)"; rejected
                 },
             },
             {
@@ -316,7 +312,7 @@ def test_load_schedulable_classes(mocker):
                     "Name": "Class Three",
                     "Schedulable": True,
                     "Hours": 3,
-                    "Days": 1,
+                    "Recurrence": None,
                     "Name (from Area)": ["Area 2"],
                     # Missing "Image Link"
                 },
@@ -333,9 +329,11 @@ def test_load_schedulable_classes(mocker):
         "class2": [MatchStr("missing required fields")],
         "class3": [MatchStr("missing a promo image")],
     }
-    assert len(classes) == 2
+    assert len(classes) == 2  # Expansion of multi day class
     assert classes[0].name == "Class One"
+    assert classes[0].recurrence == "RRULE:FREQ=WEEKLY;COUNT=2"
     assert classes[1].name == "Class Three"
+    assert classes[1].recurrence == None
     assert classes[0].exclusions == [
         [d(0), d(2), d(1), "class"],
         [d(0), d(2), d(1), "clearance (C1)"],

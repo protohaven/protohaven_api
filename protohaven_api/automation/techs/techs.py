@@ -1,4 +1,5 @@
 """Forecasting methods for shop tech shift staffing"""
+
 import datetime
 import logging
 from collections import defaultdict

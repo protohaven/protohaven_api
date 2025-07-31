@@ -2,18 +2,18 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v3.2.0
+  rev: v5.0.0
   hooks:
     - id: trailing-whitespace
     - id: end-of-file-fixer
     - id: check-yaml
     - id: check-added-large-files
 - repo: https://github.com/psf/black-pre-commit-mirror
-  rev: 23.12.1
+  rev: 25.1.0
   hooks:
     - id: black
 - repo: https://github.com/pycqa/isort
-  rev: 5.11.5
+  rev: 6.0.1
   hooks:
     - id: isort
       args: ["--profile", "black", "--filter-files"]
@@ -38,4 +38,4 @@ repos:
     hooks:
     -   id: detect-secrets
         args: ['--baseline', '.secrets.baseline', '--exclude-files', 'dump.sql']
-        exclude: package.lock.json
+        exclude: "package.lock.json,pnpm-lock.yaml,block.json"

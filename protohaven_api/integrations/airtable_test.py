@@ -453,9 +453,7 @@ def test_mark_coupon_assigned(mocker):
 
 def test_create_fees_batched(mocker):
     """Ensure that create_fees does not overload insert_records' max
-        batch size"""
+    batch size"""
     m = mocker.patch.object(a, "insert_records", return_value="ok")
-    a.create_fees([
-        ['123', 5, 1] for i in range(20)
-    ])
+    a.create_fees([["123", 5, 1] for i in range(20)])
     assert len(m.mock_calls) == 2

@@ -1,4 +1,5 @@
 """Mock implementation of google services"""
+
 from dateutil import parser as dateparser
 
 from protohaven_api.config import tz

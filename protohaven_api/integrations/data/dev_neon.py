@@ -85,7 +85,9 @@ def _neon_dev_search_filter(  # pylint: disable=too-many-return-statements, too-
             def email_filter(rec):
                 acc = first(rec, "individualAccount", "companyAccount")
                 return True in [
-                    acc["primaryContact"].get(f"email{i}") == value for i in range(1, 4)
+                    (acc["primaryContact"].get(f"email{i}") or "").strip().lower()
+                    == value.strip().lower()
+                    for i in range(1, 4)
                 ]
 
             return email_filter
@@ -289,6 +291,7 @@ def get_attendees(event_id):
 def search_accounts():
     """Mock account search endpoint for Neon"""
     data = request.json
+    log.info(data)
     filters = [_neon_dev_search_filter(**f) for f in data["searchFields"]]
     results = []
     for row in airtable_base.get_all_records("fake_neon", "accounts"):
