@@ -610,9 +610,11 @@ class Event:  # pylint: disable=too-many-public-methods
     def _resolve_date(self, dtfetch, dtsearch, eb):
         """Returns the start date of the event"""
         if self.eventbrite_data:
-            return dateparser.parse(self.eventbrite_data.get(eb).get("utc")).astimezone(
-                tz
-            )
+            parsed_dt = dateparser.parse(self.eventbrite_data.get(eb).get("utc"))
+            if parsed_dt.tzinfo is None or parsed_dt.tzinfo.utcoffset(parsed_dt) is None:
+                return parsed_dt.replace(tzinfo=tz)
+            else:
+                return parsed_dt.astimezone(tz)
 
         if self.neon_raw_data:
             # /v2/events/<event_id> returns structured data, while
@@ -627,7 +629,11 @@ class Event:  # pylint: disable=too-many-public-methods
 
         if vd and vt:
             try:
-                return dateparser.parse(f"{vd} {vt}").astimezone(tz)
+                parsed_dt = dateparser.parse(f"{vd} {vt}")
+                if parsed_dt.tzinfo is None or parsed_dt.tzinfo.utcoffset(parsed_dt) is None:
+                    return parsed_dt.replace(tzinfo=tz)
+                else:
+                    return parsed_dt.astimezone(tz)
             except dateparser.ParserError as e:
                 log.error(e)
         return None

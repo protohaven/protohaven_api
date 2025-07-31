@@ -33,9 +33,19 @@ def get_account_email(account_id):
 def get_unscheduled_instructors(start, end, require_active=True):
     """Builds a set of instructors that do not have classes proposed or scheduled
     between `start` and `end`."""
+    # Ensure start and end are timezone-aware
+    if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
+        start = start.replace(tzinfo=tz)
+    if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
+        end = end.replace(tzinfo=tz)
+    
     already_scheduled = defaultdict(bool)
     for cls in airtable.get_class_automation_schedule():
         d = dateparser.parse(cls["fields"]["Start Time"])
+        if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+            d = d.replace(tzinfo=tz)
+        else:
+            d = d.astimezone(tz)
         if start <= d <= end:
             already_scheduled[cls["fields"]["Email"].lower()] = True
     log.info(
@@ -56,7 +66,10 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
 
     def format_class(cls, inst=False):
         start = dateparser.parse(cls["fields"]["Start Time"])
-        start = start.astimezone(tz)
+        if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
+            start = start.replace(tzinfo=tz)
+        else:
+            start = start.astimezone(tz)
         return {
             "t": start,
             "start": start.strftime("%b %d %Y, %-I%P"),
@@ -83,8 +96,14 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         channel_class_list += classes
 
     if len(results) > 0:
+        def _safe_parse_time(c):
+            d = dateparser.parse(c["fields"]["Start Time"])
+            if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+                return d.replace(tzinfo=tz)
+            return d.astimezone(tz)
+        
         channel_class_list.sort(
-            key=lambda c: dateparser.parse(c["fields"]["Start Time"])
+            key=lambda c: _safe_parse_time(c)
         )
         results.append(
             Msg.tmpl(

@@ -66,7 +66,7 @@ def get_roles() -> Optional[List[str]]:
         api_key = request.headers.get("X-Protohaven-APIKey", None)
     if api_key is not None:
         role = roles_from_api_key(api_key)
-        return [role] if role else None
+        return role if isinstance(role, list) else ([role] if role else None)
 
     acct = Member.from_neon_fetch(session.get("neon_account"))
     # Check for presence of "individualAccount", as previous session implementations

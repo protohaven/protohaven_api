@@ -121,7 +121,13 @@ def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
 
     # Convert instructor-provided availability ranges into discrete "class at time" candidates,
     # making notes on which candidates are rejected and why
-    avail = [[dateparser.parse(a).astimezone(tz) for a in aa[:2]] for aa in avail]
+    def _safe_parse_tz(date_str):
+        d = dateparser.parse(date_str)
+        if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+            return d.replace(tzinfo=tz)
+        return d.astimezone(tz)
+    
+    avail = [[_safe_parse_tz(a) for a in aa[:2]] for aa in avail]
     for t0, t1 in avail:
         for c in caps:
             cbid = class_by_id.get(c)
@@ -179,7 +185,11 @@ def gen_class_and_area_stats(
     )
 
     for c in cur_sched:
-        t = dateparser.parse(c["fields"]["Start Time"]).astimezone(tz)
+        t_parsed = dateparser.parse(c["fields"]["Start Time"])
+        if t_parsed.tzinfo is None or t_parsed.tzinfo.utcoffset(t_parsed) is None:
+            t = t_parsed.replace(tzinfo=tz)
+        else:
+            t = t_parsed.astimezone(tz)
         pd = (c["fields"].get("Period (from Class)") or [None])[0]
         if not pd:
             log.warning(f"Class missing template info: {c}")
@@ -412,7 +422,11 @@ def solve_with_env(env):
 def format_class(cls):
     """Convert a class into bulleted representation, for email summary"""
     _, name, date = cls
-    start = dateparser.parse(date).astimezone(tz)
+    start_parsed = dateparser.parse(date)
+    if start_parsed.tzinfo is None or start_parsed.tzinfo.utcoffset(start_parsed) is None:
+        start = start_parsed.replace(tzinfo=tz)
+    else:
+        start = start_parsed.astimezone(tz)
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
@@ -424,7 +438,9 @@ def push_schedule(sched, autoconfirm=False):
     for inst, classes in sched.items():
         for record_id, _, date in classes:
             date = dateparser.parse(date)
-            if date.tzinfo is None:
+            if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
+                date = date.replace(tzinfo=tz)
+            else:
                 date = date.astimezone(tz)
             payload.append(
                 {

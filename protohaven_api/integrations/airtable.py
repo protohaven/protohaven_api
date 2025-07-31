@@ -205,7 +205,9 @@ def get_reports_for_tool(airtable_id, back_days=90):
         if airtable_id not in r["fields"].get("Equipment Record", []):
             continue
         yield {
-            "t": dateparser.parse(r["fields"].get("Created")).astimezone(tz),
+            "t": (
+                lambda d: d.replace(tzinfo=tz) if d.tzinfo is None else d.astimezone(tz)
+            )(dateparser.parse(r["fields"].get("Created"))),
             "date": r["fields"].get("Created"),
             "name": r["fields"].get("Name"),
             "state": r["fields"].get("Current equipment status"),
@@ -445,8 +447,14 @@ def expand_instructor_availability(rows, t0, t1):
         start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
             row["fields"]["End"]
         )
-        start0 = start0.astimezone(tz)
-        end0 = end0.astimezone(tz)
+        if start0.tzinfo is None or start0.tzinfo.utcoffset(start0) is None:
+            start0 = start0.replace(tzinfo=tz)
+        else:
+            start0 = start0.astimezone(tz)
+        if end0.tzinfo is None or end0.tzinfo.utcoffset(end0) is None:
+            end0 = end0.replace(tzinfo=tz)
+        else:
+            end0 = end0.astimezone(tz)
         rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
         try:
             rr = rrulestr(rr, dtstart=start0) if rr != "" else None
