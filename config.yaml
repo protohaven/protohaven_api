@@ -14,6 +14,18 @@ general:
   unsafe:
     no_rbac: ${UNSAFE_NO_RBAC}
     login_as_user: ${UNSAFE_LOGIN_AS}
+  # External service URLs (configurable)
+  external_urls:
+    protohaven_main: "https://www.protohaven.org"
+    protohaven_api: "https://api.protohaven.org"
+    square_dashboard: "https://squareup.com/dashboard"
+    wyze_products: "https://www.wyze.com/products"
+    booked_help: "https://www.bookedscheduler.com/help"
+  # UI display constants
+  ui_constants:
+    hide_unconfirmed_days_ahead: 10
+    hide_confirmed_days_after: 10
+    hours_in_day: 24
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle
@@ -40,6 +52,9 @@ neon:
       enabled: ${NEW_MEMBERSHIP_ENABLED}
       include_filter: ${NEW_MEMBERSHIP_INCLUDE_CSV}
       excluded_membership_types: ${EXCLUDED_MEMBERSHIP_TYPES}
+  # Membership automation settings
+  automation:
+    default_coupon_amount_usd: 75
 discord_bot:
   enabled: ${DISCORD_BOT}
   event_hooks:
@@ -195,6 +210,10 @@ square:
   app_id: ${SQUARE_APP_ID}
   token: ${SQUARE_TOKEN}
   location: "EHP2KE13B35EQ"
+  # Tax rate validation range
+  tax_rate:
+    min_percent: 6.9
+    max_percent: 7.1
 asana:
   token: ${ASANA_TOKEN}
   gid: "1199692158232291"
@@ -277,6 +296,25 @@ forms:
       referrer: "entry.366779110"
       purpose: "entry.131288088"
       am_member: "entry.1823004694"
+  instructor_log:
+    base_url: "https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform"
+    keys:
+      instructor: "entry.1719418402"
+      date: "entry.1405633595"
+      hours: "entry.1276102155"
+      class_name: "entry.654625226"
+      volunteer: "entry.1406934632"
+      session_type: "entry.362496408"
+      pass_emails: "entry.204701066"
+      clearance_codes: "entry.965251553"
+      tool_usage: "entry.1116111507"
+      event_id: "entry.1646535924"
+      tool_codes: "entry.1725748243"
+    values:
+      volunteer_yes: "Yes,+please+donate+my+time."
+      single_session: "Nope,+just+a+single+session+class"
+      tool_usage_yes: "Yes"
+      tool_usage_no: "No"
 wyze:
   key_id: ${WYZE_KEY_ID}
   api_key: ${WYZE_API_KEY}

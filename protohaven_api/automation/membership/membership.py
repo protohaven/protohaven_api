@@ -18,7 +18,7 @@ log = logging.getLogger("membership_automation")
 # The "start date" for members' memberships which haven't yet been
 # activated via logging in at the front desk
 PLACEHOLDER_START_DATE = dateparser.parse("9001-01-01")
-DEFAULT_COUPON_AMOUNT = 75  # USD
+DEFAULT_COUPON_AMOUNT = get_config("neon/automation/default_coupon_amount_usd", 75)
 DEFERRED_STATUS = "deferred"
 
 

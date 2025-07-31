@@ -5,12 +5,13 @@ import datetime
 import logging
 import re
 from collections import defaultdict
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from dateutil import parser as dateparser
 
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import get_config, tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
@@ -27,7 +28,7 @@ class Commands:
     """Commands for managing classes in Airtable and Neon"""
 
     @command()
-    def transaction_alerts(self, _1, _2):  # pylint: disable=too-many-locals
+    def transaction_alerts(self, _1: Any, _2: Any) -> None:
         """Send alerts about recent/unresolved transaction issues"""
         log.info("Fetching customer mapping")
         cust_map = sales.get_customer_name_map()
@@ -48,7 +49,8 @@ class Commands:
             n += 1
 
             sub_id = sub["id"]
-            url = f"https://squareup.com/dashboard/subscriptions-list/{sub_id}"
+            square_base = get_config("general/external_urls/square_dashboard", "https://squareup.com/dashboard")
+            url = f"{square_base}/subscriptions-list/{sub_id}"
             log.debug(f"Subscription {sub_id}: {sub}")
             plan, price = sub_plan_map.get(
                 sub["plan_variation_id"], (sub["plan_variation_id"], 0)
@@ -63,7 +65,9 @@ class Commands:
             log.debug(f"{plan} ${price/100} tax={tax_pct}%")
             cust = cust_map.get(sub["customer_id"], sub["customer_id"])
 
-            if tax_pct < 6.9 or tax_pct > 7.1:
+            min_tax = get_config("square/tax_rate/min_percent", 6.9)
+            max_tax = get_config("square/tax_rate/max_percent", 7.1)
+            if tax_pct < min_tax or tax_pct > max_tax:
                 untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
                 log.info(untaxed[-1])
 
@@ -92,7 +96,7 @@ class Commands:
         print_yaml(result)
         log.info("Done")
 
-    def _validate_role_membership(self, acct, role):
+    def _validate_role_membership(self, acct: Any, role: Dict[str, str]) -> Generator[str, None, None]:
         roles = acct.roles or []
         if role not in roles:
             has = ",".join([r["name"] for r in roles]) or "none"
@@ -100,23 +104,24 @@ class Commands:
             log.info(f"Missing role {role['name']}: {acct.neon_id}")
 
     def _validate_addl_family_membership(
-        self, household_id, household_paying_member_count
-    ):
+        self, household_id: str, household_paying_member_count: int
+    ) -> Generator[str, None, None]:
         if household_paying_member_count <= 0:
+            neon_admin = get_config("neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/")
             yield (
                 "Missing required non-additional paid member in household "
-                + f"[#{household_id}](https://protohaven.app.neoncrm.com/"
-                + f"np/admin/account/householdDetails.do?householdId={household_id})"
+                + f"[#{household_id}]({neon_admin}account/householdDetails.do?householdId={household_id})"
             )
             log.info(
                 f"Missing paid family member: #{household_id} has {household_paying_member_count}"
             )
 
-    def _validate_employer_membership(self, company_id, company_member_count):
+    def _validate_employer_membership(self, company_id: str, company_member_count: int) -> Generator[str, None, None]:
         if company_member_count < 2:
+            neon_admin = get_config("neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/")
             yield (
                 "Missing required 2+ members in company "
-                + f"[#{company_id}](https://protohaven.app.neoncrm.com/admin/accounts/{company_id})"
+                + f"[#{company_id}]({neon_admin}../admin/accounts/{company_id})"
             )
             log.info(
                 f"Missing company members: #{company_id} has {company_member_count}"

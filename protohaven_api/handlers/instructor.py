@@ -3,6 +3,7 @@
 import datetime
 import logging
 from collections import defaultdict
+from typing import Any, Dict, List, Optional, Union
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
@@ -33,20 +34,21 @@ log = logging.getLogger("handlers.instructor")
 page = Blueprint("instructor", __name__, template_folder="templates")
 
 
-HIDE_UNCONFIRMED_DAYS_AHEAD = 10
-HIDE_CONFIRMED_DAYS_AFTER = 10
+# UI display constants from config
+HIDE_UNCONFIRMED_DAYS_AHEAD = get_config("general/ui_constants/hide_unconfirmed_days_ahead", 10)
+HIDE_CONFIRMED_DAYS_AFTER = get_config("general/ui_constants/hide_confirmed_days_after", 10)
 
 
-def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
-    instructor,
-    start_date,
-    hours,
-    class_name,
-    pass_emails,
-    clearances,
-    volunteer,
-    event_id,
-):
+def prefill_form(
+    instructor: str,
+    start_date: datetime.datetime,
+    hours: float,
+    class_name: str,
+    pass_emails: List[str],
+    clearances: List[str],
+    volunteer: bool,
+    event_id: str,
+) -> str:
     """Return prefilled instructor log submission form"""
     individual = airtable.get_instructor_log_tool_codes()
     clearance_codes = []
@@ -57,36 +59,39 @@ def prefill_form(  # pylint: disable=too-many-arguments,too-many-locals
         else:
             clearance_codes.append(c)
 
+    # Get form configuration
+    form_base = get_config("forms/instructor_log/base_url")
+    form_keys = get_config("forms/instructor_log/keys")
+    form_values = get_config("forms/instructor_log/values")
+    
     start_yyyy_mm_dd = start_date.strftime("%Y-%m-%d")
-    result = (
-        "https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-"
-        + "Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url"
-    )
-    result += f"&entry.1719418402={instructor}"
-    result += f"&entry.1405633595={start_yyyy_mm_dd}"
-    result += f"&entry.1276102155={hours}"
-    result += f"&entry.654625226={class_name}"
+    result = f"{form_base}?usp=pp_url"
+    result += f"&{form_keys['instructor']}={instructor}"
+    result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
+    result += f"&{form_keys['hours']}={hours}"
+    result += f"&{form_keys['class_name']}={class_name}"
     if volunteer:
-        result += "&entry.1406934632=Yes,+please+donate+my+time."
-    result += "&entry.362496408=Nope,+just+a+single+session+class"
-    result += f"&entry.204701066={', '.join(pass_emails)}"
+        result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
+    result += f"&{form_keys['session_type']}={form_values['single_session']}"
+    result += f"&{form_keys['pass_emails']}={', '.join(pass_emails)}"
     for cc in clearance_codes:
-        result += f"&entry.965251553={cc}"
-    result += f"&entry.1116111507={'Yes' if len(tool_codes) > 0 else 'No'}"
-    result += f"&entry.1646535924={event_id}"
+        result += f"&{form_keys['clearance_codes']}={cc}"
+    tool_usage_value = form_values['tool_usage_yes'] if len(tool_codes) > 0 else form_values['tool_usage_no']
+    result += f"&{form_keys['tool_usage']}={tool_usage_value}"
+    result += f"&{form_keys['event_id']}={event_id}"
     for tc in tool_codes:
-        result += f"&entry.1725748243={tc}"
+        result += f"&{form_keys['tool_codes']}={tc}"
     return result
 
 
-def _classes_in_caps(caps):
+def _classes_in_caps(caps: Dict[str, Any]) -> bool:
     c = caps["fields"].get("Class", [])
     if isinstance(c, list):
         return len(c) > 0
     return True
 
 
-def get_instructor_readiness(inst, caps=None):
+def get_instructor_readiness(inst: str, caps: Optional[Any] = None) -> List[str]:
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
@@ -150,7 +155,7 @@ def get_instructor_readiness(inst, caps=None):
 
 @page.route("/instructor/class/attendees")
 @require_login_role(Role.INSTRUCTOR)
-def instructor_class_attendees():
+def instructor_class_attendees() -> Union[Response, str]:
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
     if event_id is None:
@@ -412,7 +417,7 @@ def setup_scheduler_env():
         return generate_scheduler_env(
             dateparser.parse(request.args.get("start")).astimezone(tz),
             dateparser.parse(request.args.get("end")).astimezone(tz)
-            + datetime.timedelta(hours=24),  # End of final day
+            + datetime.timedelta(hours=get_config("general/ui_constants/hours_in_day", 24)),  # End of final day
             [request.args.get("inst")],
         )
     except dateparser.ParserError:
@@ -514,7 +519,7 @@ def inst_availability():  # pylint: disable=too-many-return-statements
                 "Both t0 and t1 required in request to /instructor/calendar/availability",
                 status=400,
             )
-        t1 += datetime.timedelta(hours=24)  # End date is inclusive
+        t1 += datetime.timedelta(hours=get_config("general/ui_constants/hours_in_day", 24))  # End date is inclusive
         avail = list(airtable.get_instructor_availability(inst))
         expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
         sched = [
