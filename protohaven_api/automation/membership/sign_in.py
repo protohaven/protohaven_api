@@ -7,6 +7,7 @@ import traceback
 
 from dateutil import parser as dateparser
 
+from protohaven_api.automation.membership.membership import PLACEHOLDER_START_DATE
 from protohaven_api.config import get_config, tz, tznow
 from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
@@ -55,17 +56,26 @@ def result_base():
     }
 
 
+def is_membership_deferred(m):
+    """check if membership is deferred based on accountt automation field or start date"""
+    if "deferred" in m.account_automation_ran:
+        return True
+    if m.latest_membership().start_date.date() == PLACEHOLDER_START_DATE:
+        return True
+    return False
+
+
 def activate_membership(m):
     """Activate a member's deferred membership"""
     # We re-fetch the account to ensure we're not double-activating
     # a cached deferred account
     m = neon_base.fetch_account(m.neon_id, fetch_memberships=True)
 
-    if "deferred" not in m.account_automation_ran:
-        log.error(f"activate_membership called on non-deferred account {m.neon_id}")
-        return
-
     try:
+        if not is_membership_deferred(m):
+            log.error(f"activate_membership called on non-deferred account {m.neon_id}")
+            return
+
         ms = m.latest_membership()
         if not ms:
             raise RuntimeError(
@@ -155,7 +165,7 @@ def get_member_and_activation_state(email):
     # and then inactive ones.
     for m in mm:
         unverified_amp = "AMP" in m.membership_level and not m.income_based_rate
-        if (m.account_automation_ran or "").startswith("deferred"):
+        if is_membership_deferred(m):
             if unverified_amp:
                 notify_async(
                     f"Sign-in attempt by {email} with missing `Income Based Rate` "
