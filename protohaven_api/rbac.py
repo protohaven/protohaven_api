@@ -46,7 +46,7 @@ def require_login(fn: Callable) -> Callable:
     return do_login_check
 
 
-def roles_from_api_key(api_key: Optional[str]) -> Optional[str]:
+def roles_from_api_key(api_key: Optional[str]) -> Optional[List[str] | str]:
     """Gets roles from the passed API key"""
     if api_key is None:
         return None
