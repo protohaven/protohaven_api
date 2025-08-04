@@ -71,9 +71,9 @@ def test_comms_render():
 
 def test_templates_html_detection():
     """Test that templates properly detect html header"""
-    _, _, got = c.render("test_template")
+    _, _, got = c.render("test_template", val="test_body")
     assert not got
-    _, _, got = c.render("test_html_template")
+    _, _, got = c.render("test_html_template", val="test_body")
     assert got
 
 
@@ -84,6 +84,7 @@ TEST_EVENT = {
     "instructor_fname": "TestInstName",
     "capacity": 6,
     "attendee_count": 3,
+    "supply_cost": 0,
 }
 TEST_ATTENDEE = {
     "fname": "TestAttendeeName",
@@ -146,6 +147,7 @@ TESTED_TEMPLATES = [
         "discord_role_change_dm",
         {
             "logs": ["Entry 1", "Entry 2"],
+            "n": 2,
             "not_associated": True,
             "discord_id": "testid",
         },
@@ -223,7 +225,7 @@ TESTED_TEMPLATES = [
     ),
     (
         "instructor_applications",
-        {"num": 3},
+        {"num": 3, "footer": "Test Footer"},
     ),
     ("instructor_check_supplies", {"evt": TEST_EVENT}),
     ("instructor_class_canceled", {"evt": TEST_EVENT}),
@@ -303,7 +305,10 @@ TESTED_TEMPLATES = [
     ),
     (
         "shop_tech_applications",
-        {"num": 3},
+        {
+            "num": 3,
+            "footer": "Test Footer",
+        },
     ),
     (
         "square_validation_action_needed",
@@ -337,6 +342,7 @@ TESTED_TEMPLATES = [
             "start": d(0),
             "sections": ["Section A", "Section B"],
             "notes": "Detailed violation notes",
+            "fee": 5,
             "accrued": 10,
         },
     ),
