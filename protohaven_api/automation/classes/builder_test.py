@@ -235,23 +235,28 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 },
             ],
         ),
-        # Tc("cancelled", d(EVT_DAY-1, 20), {"attendee_count": 0, "occupancy": 0}, [
-        #     {
-        #         "id": 1234,
-        #         "target": "Instructor (inst@ructor.com)",
-        #         "subject": "Your class 'Test Event' was canceled",
-        #     },
-        #     {
-        #         "id": 1234,
-        #         "target": "Test Attendee (test@attendee.com)",
-        #         "subject": "Your class 'Test Event' was canceled",
-        #     },
-        #     {
-        #         "id": "N/A",
-        #         "target": "#class-automation",
-        #         "subject": "Automation notification summary",
-        #     },
-        # ]),
+        Tc(
+            "cancelled",
+            d(EVT_DAY - 1, 20),
+            {"attendee_count": 0, "occupancy": 0},
+            [
+                {
+                    "id": 1234,
+                    "target": "Instructor (inst@ructor.com)",
+                    "subject": "Your class 'Test Event' was canceled",
+                },
+                {
+                    "id": 1234,
+                    "target": "Test Attendee (test@attendee.com)",
+                    "subject": "Your class 'Test Event' was canceled",
+                },
+                {
+                    "id": "N/A",
+                    "target": "#class-automation",
+                    "subject": "Automation notification summary",
+                },
+            ],
+        ),
     ],
     ids=idfn,
 )

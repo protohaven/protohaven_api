@@ -385,9 +385,7 @@ TESTED_TEMPLATES = [
     ),
 ]
 
-# NOTE: After removing whitespace control syntax from templates, all HASHES below
-# need to be updated. Run the test to get new hash values from the error messages.
-HASHES = { # TODO: Update these hashes after template whitespace control removal
+HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
     "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
@@ -404,10 +402,10 @@ HASHES = { # TODO: Update these hashes after template whitespace control removal
     "door_sensor_warnings": "4203149c4b940078",  # pragma: allowlist secret
     "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
     "class_supply_requests": "3e12f3737ad31808",  # pragma: allowlist secret
-    "enforcement_summary": "a8f58b0ffbfea070",  # pragma: allowlist secret
-    "init_membership": "44cc465d9fe6e95d",  # pragma: allowlist secret
-    "instruction_requests": "1ae4746c79bc5b54",  # pragma: allowlist secret
-    "instructor_applications": "fd52d697d3e48e0b",  # pragma: allowlist secret
+    "enforcement_summary": "18d1792e7afc0c24",  # pragma: allowlist secret
+    "init_membership": "c7d1c2cd9a12411e",  # pragma: allowlist secret
+    "instruction_requests": "64096a3f590a8f43",  # pragma: allowlist secret
+    "instructor_applications": "500fced2472831c6",  # pragma: allowlist secret
     "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
     "instructor_class_canceled": "57dc5ce8d4ec5317",  # pragma: allowlist secret
     "instructor_class_confirmed": "51392e2fb41f37f8",  # pragma: allowlist secret
@@ -417,25 +415,25 @@ HASHES = { # TODO: Update these hashes after template whitespace control removal
     "instructors_new_classes": "43f58a36632acefb",  # pragma: allowlist secret
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
     "membership_init_summary": "c4503d766704f3ec",  # pragma: allowlist secret
-    "membership_validation_problems": "e9b4740d33220373",  # pragma: allowlist secret
+    "membership_validation_problems": "07e7e586afd0dd5e",  # pragma: allowlist secret
     "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
     "not_associated": "4368092931234979",  # pragma: allowlist secret
     "phone_message": "c17d7359c5ddace4",  # pragma: allowlist secret
     "registrant_class_canceled": "a3b36f01fde3ee4c",  # pragma: allowlist secret
-    "registrant_class_confirmed": "38e0456bdb64d363",  # pragma: allowlist secret
-    "registrant_post_class_survey": "73c4faee5c547d07",  # pragma: allowlist secret
-    "schedule_push_notification": "78908794e790a632",  # pragma: allowlist secret
-    "shift_no_techs": "9a2c858ff7ac2456",  # pragma: allowlist secret
-    "shop_tech_applications": "815a9680858772a4",  # pragma: allowlist secret
-    "square_validation_action_needed": "3ed4e73c9efa37db",  # pragma: allowlist secret
+    "registrant_class_confirmed": "d6c0ac936f4c44dd",  # pragma: allowlist secret
+    "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
+    "schedule_push_notification": "fdb8409ccac4ba4b",  # pragma: allowlist secret
+    "shift_no_techs": "f74f25571d5a93b1",  # pragma: allowlist secret
+    "shop_tech_applications": "2210adcfeb7dc675",  # pragma: allowlist secret
+    "square_validation_action_needed": "8cf97c894e5171aa",  # pragma: allowlist secret
     "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "verify_income": "4d24d1a819192eae",  # pragma: allowlist secret
-    "violation_ongoing": "1ff24f039d2d424a",  # pragma: allowlist secret
+    "violation_ongoing": "fcad4dda2bb81f53",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
     "volunteer_refresh_summary": "a2858fc78352ea01",  # pragma: allowlist secret
-    "wiki_backup_summary": "887a6b9db2867f9e",  # pragma: allowlist secret
+    "wiki_backup_summary": "df48c038b0dfe724",  # pragma: allowlist secret
 }
 
 
@@ -445,33 +443,10 @@ def _gethash(data):
     return h.hexdigest()[:16]
 
 
-def print_new_hashes():
-    """Helper function to print new hashes after template changes"""
-    print("# Updated HASHES after removing whitespace control:")
-    print("HASHES = {")
-    for template_name, template_kwargs in TESTED_TEMPLATES:
-        try:
-            got = c.render(template_name, **template_kwargs)
-            gothash = _gethash(got)
-            print(f'    "{template_name}": "{gothash}",  # pragma: allowlist secret')
-        except Exception as e:
-            print(f'    # ERROR in {template_name}: {e}')
-    print("}")
-
-
-if __name__ == "__main__":
-    print_new_hashes()
-
-
 @pytest.mark.parametrize("template_name, template_kwargs", TESTED_TEMPLATES)
 def test_template_rendering(template_name, template_kwargs):
     """Test jinja templates with dummy arguments, ensuring they match
     the prior hash
-    
-    NOTE: HASHES need to be updated after removing whitespace control syntax
-    from templates. The templates were refactored to remove {%- -%} syntax
-    for better readability, which changes the output whitespace and thus the hashes.
-    Run this test to get the new hashes and update the HASHES dict above.
     """
     got = c.render(template_name, **template_kwargs)
     gothash = _gethash(got)

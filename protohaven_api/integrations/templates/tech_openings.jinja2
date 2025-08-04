@@ -2,6 +2,7 @@
 New classes for tech backfill:
 {% else %}
 @Techs: There's {{n}} class{% if n != 1%}es{% endif %} available for backfill in the next 24 hours:
+
 {% for evt in events %}
 {% set tstart = evt.start_date.strftime("%B %-d, %-I%p") %}
 {% set avail=evt.capacity - evt.attendee_count %}
