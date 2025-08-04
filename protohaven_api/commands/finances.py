@@ -12,7 +12,6 @@ from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import (  # pylint: disable=import-error
     get_config,
     safe_parse_datetime,
-    tz,
     tznow,
 )
 from protohaven_api.integrations import (  # pylint: disable=import-error
@@ -79,9 +78,7 @@ class Commands:
                 untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
                 log.info(untaxed[-1])
 
-            charged_through = safe_parse_datetime(
-                sub["charged_through_date"]
-            ).astimezone(tz)
+            charged_through = safe_parse_datetime(sub["charged_through_date"])
             if charged_through + datetime.timedelta(days=1) < now:
                 unpaid.append(
                     f"- {cust} - {plan} - charged through {charged_through} ([link]({url}))"

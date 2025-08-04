@@ -15,13 +15,7 @@ from protohaven_api.automation.classes.scheduler import (
     solve_with_env,
 )
 from protohaven_api.automation.classes.solver import expand_recurrence
-from protohaven_api.config import (
-    ParserError,
-    get_config,
-    safe_parse_datetime,
-    tz,
-    tznow,
-)
+from protohaven_api.config import ParserError, get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import (
     airtable,
@@ -216,7 +210,7 @@ def get_dashboard_schedule_sorted(email, now=None):
         if s["fields"]["Email"].lower() != email or s["fields"].get("Rejected"):
             continue
 
-        start_date = safe_parse_datetime(s["fields"]["Start Time"]).astimezone(tz)
+        start_date = safe_parse_datetime(s["fields"]["Start Time"])
         dates = list(
             expand_recurrence(
                 (s["fields"].get("Recurrence (from Class)") or [None])[0],
@@ -260,7 +254,7 @@ def instructor_about():
 
 
 def _annotate_schedule_class(e):
-    date = safe_parse_datetime(e["Start Time"]).astimezone(tz)
+    date = safe_parse_datetime(e["Start Time"])
 
     # If it's in neon, generate a log URL.
     # Placeholder for attendee names/emails as that's loaded
@@ -428,8 +422,8 @@ def setup_scheduler_env():
     """Create a class scheduler environment to run"""
     try:
         return generate_scheduler_env(
-            safe_parse_datetime(request.args.get("start")).astimezone(tz),
-            safe_parse_datetime(request.args.get("end")).astimezone(tz)
+            safe_parse_datetime(request.args.get("start")),
+            safe_parse_datetime(request.args.get("end"))
             + datetime.timedelta(
                 hours=get_config("general/ui_constants/hours_in_day", 24)
             ),  # End of final day
@@ -512,24 +506,16 @@ def cancel_class():
     return {"success": True}
 
 
-def _safe_date(v):
-    if v is None:
-        return v
-    d = safe_parse_datetime(v)
-    if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
-        return d.replace(tzinfo=tz)
-    return d.astimezone(tz)
-
-
 @page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
 def inst_availability():  # pylint: disable=too-many-return-statements
     """Different methods for CRUD actions on Availability records in airtable, used to
     describe an instructor's availability"""
     if request.method == "GET":
         inst = request.values.get("inst").lower()
-        t0 = _safe_date(request.values.get("t0"))
-        t1 = _safe_date(request.values.get("t1"))
-        if not t0 or not t1:
+        try:
+            t0 = safe_parse_datetime(request.values["t0"])
+            t1 = safe_parse_datetime(request.values["t1"])
+        except (ParserError, TypeError):
             return Response(
                 "Both t0 and t1 required in request to /instructor/calendar/availability",
                 status=400,
@@ -563,10 +549,11 @@ def inst_availability():  # pylint: disable=too-many-return-statements
 
     if request.method == "PUT":
         rec = request.json.get("rec")
-        t0 = _safe_date(request.json.get("t0"))
-        t1 = _safe_date(request.json.get("t1"))
-        inst_id = request.json.get("inst_id")
-        if not t0 or not t1 or not inst_id:
+        try:
+            inst_id = request.json["inst_id"]
+            t0 = safe_parse_datetime(request.json["t0"])
+            t1 = safe_parse_datetime(request.json["t1"])
+        except (ParserError, TypeError, KeyError):
             return Response(
                 "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
                 status=400,

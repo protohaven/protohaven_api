@@ -10,7 +10,7 @@ from flask_sock import Sock
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, eventbrite, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.models import Member
@@ -254,8 +254,8 @@ def get_event_reservations():
         now.replace(hour=0, minute=0, second=0),
         now.replace(hour=23, minute=59, second=59),
     )["reservations"]:
-        start = safe_parse_datetime(r["startDate"]).astimezone(tz)
-        end = safe_parse_datetime(r["endDate"]).astimezone(tz)
+        start = safe_parse_datetime(r["startDate"])
+        end = safe_parse_datetime(r["endDate"])
         open_time = now.replace(hour=10)
         close_time = now.replace(hour=22)
         reservations.append(

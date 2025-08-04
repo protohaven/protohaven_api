@@ -72,9 +72,8 @@ def _fetch_tool_states_and_areas(now):
         msg = t["fields"].get("Status Message") or "Unknown"
         modified = t["fields"].get("Status last modified")
         date = modified or ""
-        log.info(f"Midified {modified}")
         if modified:
-            modified = (now - safe_parse_datetime(modified).astimezone(tz)).days
+            modified = (now - safe_parse_datetime(modified)).days
             date = safe_parse_datetime(date).strftime("%Y-%m-%d")
         else:
             modified = 0
@@ -173,7 +172,7 @@ def techs_forecast():
     if date is None:
         date = tznow()
     else:
-        date = safe_parse_datetime(date).astimezone(tz)
+        date = safe_parse_datetime(date)
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:

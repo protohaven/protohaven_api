@@ -7,7 +7,7 @@ import re
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, tasks
 from protohaven_api.integrations.comms import Msg
 
@@ -47,7 +47,7 @@ class Commands:
                 raise RuntimeError(
                     "Failed to extract deadline from request by " + req["name"]
                 )
-            deadline = safe_parse_datetime(deadline[1]).astimezone(tz)
+            deadline = safe_parse_datetime(deadline[1])
             if deadline < tznow():
                 log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"
@@ -191,7 +191,7 @@ class Commands:
 
     def _format_private_instruction_request_task(self, req, now, summary_limit):
         """Return a string summary of the private instruction request"""
-        d = safe_parse_datetime(req["created_at"]).astimezone(tz)
+        d = safe_parse_datetime(req["created_at"])
         dt = now - d
         form = self._form_from_task_notes(req["notes"])
         summary = form["Details"].replace("\n", " ")
@@ -330,7 +330,7 @@ class Commands:
     def tech_sign_ins(self, args, _):
         """Craft a notification to indicate whether the scheduled techs have signed in
         for their shift"""
-        now = tznow() if not args.now else safe_parse_datetime(args.now).astimezone(tz)
+        now = tznow() if not args.now else safe_parse_datetime(args.now)
         shift = self._cur_shift(now)
         start = now.replace(hour=8)
         end = now.replace(hour=11 if now.hour < 16 else 17)

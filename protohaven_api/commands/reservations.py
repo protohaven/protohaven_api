@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import get_config, safe_parse_datetime, tz
+from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations import airtable, booked, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -26,7 +26,7 @@ def reservation_dict_from_record(event):
 
 def reservation_dict(areas, name, start, recurrence, hours):
     """Convert params into a 'reservation dict' used to reserve resources at particular intervals"""
-    start = safe_parse_datetime(start).astimezone(tz)
+    start = safe_parse_datetime(start)
     intervals = list(expand_recurrence(recurrence, hours, start))
     return {"areas": set(areas), "name": name, "intervals": intervals, "resources": []}
 

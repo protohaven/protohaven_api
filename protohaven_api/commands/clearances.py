@@ -9,7 +9,7 @@ from collections import defaultdict
 from protohaven_api.automation.membership.clearances import resolve_codes
 from protohaven_api.automation.membership.clearances import update as update_clearances
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import tznow
 from protohaven_api.integrations import neon, sheets
 from protohaven_api.integrations.comms import Msg
 
@@ -76,7 +76,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         log.info(f"Building list of clearances starting from {dt}")
         earned = defaultdict(set)
         for sub in sheets.get_instructor_submissions():
-            if sub["Timestamp"].astimezone(tz) < dt:
+            if sub["Timestamp"] < dt:
                 continue
             emails = sub.get(PASS_HDR)
             mm = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", emails)
