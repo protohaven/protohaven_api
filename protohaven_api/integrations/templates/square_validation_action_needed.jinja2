@@ -1,10 +1,10 @@
-{% if subject %}@Staff: Action Needed for Square Validation{% else %}{% if unpaid %}
+{% if subject -%}@Staff: Action Needed for Square Validation{%- else -%}{% if unpaid %}
 {{unpaid|length}} subscription(s) active but not caught up on payments (showing max of 5):
-{% for u in unpaid[:5] %}{{u}}
-{% endfor %}{% endif %}{% if untaxed %}
+{% for u in unpaid[:5]  -%}{{u}}
+{% endfor -%}{%- endif %}{% if untaxed %}
 {{untaxed|length}} subscription(s) active but do not have 7% sales tax (showing max of 5):
-{% for u in untaxed[:5] %}{{u}}
-{% endfor %}
-Please remedy by following the instructions [here](https://protohaven.org/wiki/shoptechs/storage_sales_tax){% endif %}
-{{footer}}
-{% endif %}
+{% for u in untaxed[:5]  -%}{{u}}
+{% endfor -%}
+Please remedy by following the instructions [here](https://protohaven.org/wiki/shoptechs/storage_sales_tax){%- endif %}
+{% if footer is defined -%}{{footer}}{%- endif %}
+{%- endif %}

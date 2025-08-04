@@ -1,4 +1,4 @@
-{# html #}{% if subject %}{{fname}}: please verify your income{% else %}Hey {{fname}},
+{# html #}{% if subject -%}{{fname}}: please verify your income{%- else -%}Hey {{fname}},
 <p>
 Thanks for signing up for a membership through our Access to Making Program (AMP)!
 <p>
@@ -21,4 +21,4 @@ Examples of valid proof of income include:
 <p>
 - Protohaven Staff
 </p>
-{% endif %}
+{%- endif %}

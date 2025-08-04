@@ -1,4 +1,4 @@
-{% if subject %}Discord Role Automation Summary{% else %}* Sent DMs to {{n}} users regarding Discord role changes: {{users|join(', ')}}
+{% if subject -%}Discord Role Automation Summary{%- else -%}* Sent DMs to {{n}} users regarding Discord role changes: {{users|join(', ')}}
 * Assigned {{roles_assigned}} role(s) and revoked {{roles_revoked}} role(s) (see [pending revocations](<https://airtable.com/appZIwlIgaq1Ps28Y/tblBgXQlOFjNqvBVm>))
-{{footer}}
-{% endif %}
+{% if footer is defined -%}{{footer}}{%- endif %}
+{%- endif %}

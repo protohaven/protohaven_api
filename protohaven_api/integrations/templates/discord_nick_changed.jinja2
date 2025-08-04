@@ -1,4 +1,4 @@
-{% if subject %}Nickname changed:{% else %}Your discord nickname has been changed from `{{prev_nick}}` to `{{next_nick}}` in the Protohaven server based on your information in the [member portal](https://protohaven.app.neoncrm.com/login). This naming enforcement reduces human effort to keep the server tidy and makes it easier for everyone to get in touch and communicate.
+{% if subject -%}Nickname changed:{%- else -%}Your discord nickname has been changed from `{{prev_nick}}` to `{{next_nick}}` in the Protohaven server based on your information in the [member portal](https://protohaven.app.neoncrm.com/login). This naming enforcement reduces human effort to keep the server tidy and makes it easier for everyone to get in touch and communicate.
 
 If this change is not correct, please update your personal information in the member portal by logging in and clicking [Update Personal Info](https://protohaven.app.neoncrm.com/forms/pii) on the left side of the page; after a day or so, automation should pick up this change and adjust your display name. If you encounter any other issues, please reach out to membership@protohaven.org
-{% endif %}
+{%- endif %}

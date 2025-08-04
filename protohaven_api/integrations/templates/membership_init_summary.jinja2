@@ -1,3 +1,3 @@
-{% if subject %}Membership init summary{% else %}{% for s in summary %}
-* {{s.fname}} ([#{{s.account_id}}](https://protohaven.app.neoncrm.com/admin/accounts/{{s.account_id}}), {{s.email}}): defer-init membership {{s.membership_name}} [#{{s.membership_id}}](https://protohaven.app.neoncrm.com/np/admin/account/membershipDetail.do?id={{s.membership_id}}) with ${{s.coupon_amount}} (apply={{s.apply}}){% endfor %}
-{{footer}}{% endif %}
+{% if subject -%}Membership init summary{%- else -%}{% for s in summary  -%}
+* {{s.fname}} ([#{{s.account_id}}](https://protohaven.app.neoncrm.com/admin/accounts/{{s.account_id}}), {{s.email}}): defer-init membership {{s.membership_name}} [#{{s.membership_id}}](https://protohaven.app.neoncrm.com/np/admin/account/membershipDetail.do?id={{s.membership_id}}) with ${{s.coupon_amount}} (apply={{s.apply}}){% endfor -%}
+{% if footer is defined -%}{{footer}}{%- endif %}{%- endif %}
