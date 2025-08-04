@@ -27,7 +27,7 @@ def command(*parser_args: Tuple[str, Dict[str, Any]]) -> Callable:
             parsed_args = parser.parse_args(args[1])  # argv
             return func(args[0], parsed_args, *args[2:])
 
-        wrapper.is_command = True
+        wrapper.is_command = True  # type: ignore[attr-defined]
         return wrapper
 
     return decorate

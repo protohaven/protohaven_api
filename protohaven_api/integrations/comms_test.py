@@ -436,11 +436,11 @@ def _gethash(data):
     return h.hexdigest()[:16]
 
 
-@pytest.mark.parametrize("template_name, kwargs", TESTED_TEMPLATES)
-def test_template_rendering(template_name, kwargs):
+@pytest.mark.parametrize("template_name, template_kwargs", TESTED_TEMPLATES)
+def test_template_rendering(template_name, template_kwargs):
     """Test jinja templates with dummy arguments, ensuring they match
     the prior hash"""
-    got = c.render(template_name, **kwargs)
+    got = c.render(template_name, **template_kwargs)
     gothash = _gethash(got)
     wanthash = HASHES[template_name]
     if gothash != wanthash:
@@ -461,5 +461,6 @@ def test_all_templates_tested(tmpl):
 if __name__ == "__main__":
     hashes = {}
     for i, ttt in enumerate(TESTED_TEMPLATES):
-        hashes[ttt[0]] = _gethash(c.render(*ttt))
+        tname, kwargs = ttt
+        hashes[tname] = _gethash(c.render(tname, **kwargs))  # type: ignore[arg-type]
     print(hashes)

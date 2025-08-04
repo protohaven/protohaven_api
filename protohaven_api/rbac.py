@@ -46,7 +46,7 @@ def require_login(fn: Callable) -> Callable:
     return do_login_check
 
 
-def roles_from_api_key(api_key: Optional[str]) -> Optional[str]:
+def roles_from_api_key(api_key: Optional[str]) -> Optional[List[str]]:
     """Gets roles from the passed API key"""
     if api_key is None:
         return None
@@ -65,7 +65,8 @@ def get_roles() -> Optional[List[str]]:
     if not api_key:
         api_key = request.headers.get("X-Protohaven-APIKey", None)
     if api_key is not None:
-        return roles_from_api_key(api_key)
+        role = roles_from_api_key(api_key)
+        return role or None
 
     acct = Member.from_neon_fetch(session.get("neon_account"))
     # Check for presence of "individualAccount", as previous session implementations

@@ -254,7 +254,7 @@ def handle_waiver(  # pylint: disable=too-many-arguments
     return now < expiry
 
 
-def handle_announcements(last_ack, roles: str, clearances: list, is_active, testing):
+def handle_announcements(last_ack, roles: list, clearances: list, is_active, testing):
     """Handle fetching and display of announcements, plus updating
     acknowledgement date"""
     if last_ack:
