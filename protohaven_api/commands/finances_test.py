@@ -5,7 +5,6 @@ import datetime
 
 import pytest
 import yaml
-from dateutil import parser as dateparser
 
 from protohaven_api.commands import finances as f
 from protohaven_api.config import tznow  # pylint: disable=import-error

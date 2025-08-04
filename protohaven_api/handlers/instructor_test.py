@@ -5,10 +5,9 @@ import datetime
 import json
 
 import pytest
-from dateutil import parser as dateparser
 
 from protohaven_api import rbac
-from protohaven_api.config import tz
+from protohaven_api.config import safe_parse_datetime, tz
 from protohaven_api.handlers import instructor
 from protohaven_api.testing import d, fixture_client
 
@@ -144,7 +143,7 @@ def test_get_dashboard_schedule_sorted(mocker):
         ],
     )
     sched = instructor.get_dashboard_schedule_sorted(
-        "match", now=dateparser.parse("2024-01-01").astimezone(tz)
+        "match", now=safe_parse_datetime("2024-01-01")
     )
     assert len(sched) == 1
     assert sched[0][0] == "asdf"

@@ -4,9 +4,7 @@ import datetime
 import json
 from functools import lru_cache
 
-from dateutil import parser as dateparser
-
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.connector import get as get_connector
 
@@ -46,7 +44,7 @@ def get_tech_ready_tasks(modified_before):
         for rec in airtable_base.get_all_records("tasks", "shop_and_maintenance_tasks"):
             yield (
                 rec["fields"]["Name"],
-                dateparser.parse(rec["fields"]["UpdatedAt"]).astimezone(tz),
+                safe_parse_datetime(rec["fields"]["UpdatedAt"]),
             )
         return
 
@@ -68,7 +66,7 @@ def get_tech_ready_tasks(modified_before):
             ),
         },
     ):
-        yield (t["name"], dateparser.parse(t["modified_at"].astimezone(tz)))
+        yield (t["name"], safe_parse_datetime(t["modified_at"]))
 
 
 def get_project_requests():
@@ -173,7 +171,7 @@ def last_maintenance_completion_map():
         if not completed:
             result[aid] = now
             return
-        mod = dateparser.parse(modified_at)
+        mod = safe_parse_datetime(modified_at)
         if aid not in result or mod > result[aid]:
             result[aid] = mod
 

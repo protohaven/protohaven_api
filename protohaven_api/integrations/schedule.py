@@ -7,9 +7,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from dateutil import parser
-
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations.data.connector import get as get_connector
 
 log = logging.getLogger("integrations.schedule")
@@ -34,10 +32,10 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
             )
             continue
         name = event["summary"]
-        start = parser.parse(
+        start = safe_parse_datetime(
             event["start"].get("dateTime", event["start"].get("date"))
         ).isoformat()
-        end = parser.parse(
+        end = safe_parse_datetime(
             event["end"].get("dateTime", event["end"].get("date"))
         ).isoformat()
         output[name].append([start, end])

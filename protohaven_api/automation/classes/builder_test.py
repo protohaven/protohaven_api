@@ -4,9 +4,9 @@ import logging
 from collections import namedtuple
 
 import pytest
-from dateutil.parser import parse as parse_date
 
 from protohaven_api.automation.classes import builder  # pylint: disable=import-error
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.testing import d, idfn
 
 EVT_DAY = 30
@@ -62,7 +62,7 @@ def test_get_unscheduled_instructors(mocker):
 
     got = list(
         builder.get_unscheduled_instructors(
-            parse_date("2024-02-20"), parse_date("2024-03-30")
+            safe_parse_datetime("2024-02-20"), safe_parse_datetime("2024-03-30")
         )
     )
     assert got[0] == ("Test Name", "test@email.com")
@@ -80,7 +80,7 @@ def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
         return_value=[
             {
                 "fields": {
-                    "Start Time": parse_date("2024-02-21").isoformat(),
+                    "Start Time": safe_parse_datetime("2024-02-21").isoformat(),
                     "Email": "TeSt@email.com",
                 }
             }
@@ -89,7 +89,7 @@ def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
 
     got = list(
         builder.get_unscheduled_instructors(
-            parse_date("2024-02-20"), parse_date("2024-03-30")
+            safe_parse_datetime("2024-02-20"), safe_parse_datetime("2024-03-30")
         )
     )
     assert len(got) == 0  # No emails, so no summary

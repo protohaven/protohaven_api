@@ -6,12 +6,12 @@ import datetime
 import logging
 from collections import defaultdict
 
-from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 from pulp import constants as pulp_constants
 from pulp import pulp
 
 from protohaven_api.automation.classes.validation import date_range_overlaps
+from protohaven_api.config import safe_parse_datetime
 
 log = logging.getLogger("class_automation.solver")
 
@@ -53,7 +53,8 @@ class Class:
         if len(exclusions) > 0 and isinstance(exclusions[0][0], str):
             # Convert from string to Date if required
             self.exclusions = [
-                [*[dateparser.parse(e) for e in ee[:-1]], ee[-1]] for ee in exclusions
+                [*[safe_parse_datetime(e) for e in ee[:-1]], ee[-1]]
+                for ee in exclusions
             ]
         else:
             self.exclusions = exclusions
@@ -99,13 +100,13 @@ class Instructor:
         self.caps = list(set(candidates.keys()))
         self.avail = list(
             {
-                (dateparser.parse(a) if isinstance(a, str) else a)
+                (safe_parse_datetime(a) if isinstance(a, str) else a)
                 for cap, avail in candidates.items()
                 for a in avail
             }
         )
         self.candidates = {
-            cap: [dateparser.parse(a) if isinstance(a, str) else a for a in aa]
+            cap: [safe_parse_datetime(a) if isinstance(a, str) else a for a in aa]
             for cap, aa in candidates.items()
         }
         self.rejected = rejected or {}

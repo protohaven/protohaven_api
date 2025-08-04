@@ -6,10 +6,8 @@ import random
 import string
 from functools import lru_cache
 
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.classes import events as eauto
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -17,7 +15,7 @@ log = logging.getLogger("membership_automation")
 
 # The "start date" for members' memberships which haven't yet been
 # activated via logging in at the front desk
-PLACEHOLDER_START_DATE = dateparser.parse("9001-01-01")
+PLACEHOLDER_START_DATE = safe_parse_datetime("9001-01-01")
 DEFAULT_COUPON_AMOUNT = get_config("neon/automation/default_coupon_amount_usd", 75)
 DEFERRED_STATUS = "deferred"
 

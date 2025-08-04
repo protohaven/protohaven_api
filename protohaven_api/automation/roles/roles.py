@@ -3,8 +3,7 @@
 import logging
 from dataclasses import asdict, dataclass, replace
 
-from dateutil import parser as dateparser
-
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import airtable, comms, neon
 from protohaven_api.integrations.comms import Msg
 from protohaven_api.integrations.models import Role
@@ -242,7 +241,7 @@ def handle_delayed_revocation(
         )
         return None
 
-    notified_days_ago = (now - dateparser.parse(va.last_notified)).days
+    notified_days_ago = (now - safe_parse_datetime(va.last_notified)).days
     if va.state == "first_warning" and notified_days_ago > 13:
         user_log[vi.discord_id].append(
             (f"IN 24 HOURS - revoke Discord role {vi.role} ({vi.reason})", va.rec)

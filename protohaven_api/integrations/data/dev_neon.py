@@ -6,10 +6,9 @@ from dataclasses import dataclass
 from random import random
 from urllib.parse import urlparse
 
-from dateutil import parser as dateparser
 from flask import Flask, Response, request
 
-from protohaven_api.config import tz
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.neon import CustomField
 
@@ -167,9 +166,9 @@ def search_event():
     for f in data["searchFields"]:
         if f["field"] == "Event Start Date":
             if f["operator"] == "GREATER_AND_EQUAL":
-                from_date = dateparser.parse(f["value"]).replace(tzinfo=tz)
+                from_date = safe_parse_datetime(f["value"])
             elif f["operator"] == "LESS_AND_EQUAL":
-                until_date = dateparser.parse(f["value"]).replace(tzinfo=tz)
+                until_date = safe_parse_datetime(f["value"])
             else:
                 raise RuntimeError(
                     f"Unhandled operator {f['operator']} for field {f['field']}"
@@ -189,9 +188,7 @@ def search_event():
         if not row:
             continue
         assert isinstance(row, dict)
-        d = dateparser.parse(f"{row['startDate']} {row['startTime']}").replace(
-            tzinfo=tz
-        )
+        d = safe_parse_datetime(f"{row['startDate']} {row['startTime']}")
         if from_date <= d <= until_date:
             result.append({name: row[field] for name, field in output_map.items()})
             result[-1][

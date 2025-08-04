@@ -3,12 +3,11 @@ import logging
 import re
 from collections import namedtuple
 
-from dateutil import parser
 from dateutil.rrule import rrulestr
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-from protohaven_api.config import get_config
+from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations import airtable
 from protohaven_api.integrations.data.connector import init as init_connector
 
@@ -52,8 +51,8 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
 def get_all_gcal_events():
     return fetch_calendar(
         get_config("calendar/instructor_schedules"),
-        parser.parse("2024-06-30"),
-        parser.parse("2025-01-01"),
+        safe_parse_datetime("2024-06-30"),
+        safe_parse_datetime("2025-01-01"),
     )
 
 
@@ -78,8 +77,12 @@ if __name__ == "__main__":
 
         if not event.get("start") or not event.get("end"):
             raise Exception(f"Weird event {event}")
-        start = parser.parse(event["start"].get("dateTime", event["start"].get("date")))
-        end = parser.parse(event["end"].get("dateTime", event["end"].get("date")))
+        start = safe_parse_datetime(
+            event["start"].get("dateTime", event["start"].get("date"))
+        )
+        end = safe_parse_datetime(
+            event["end"].get("dateTime", event["end"].get("date"))
+        )
         for rrule in event.get("recurrence", [None]):
             print(inst_id, start, end, rrule)
             print(airtable.add_availability(inst_id, start, end, rrule or ""))

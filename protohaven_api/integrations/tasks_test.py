@@ -1,7 +1,6 @@
 """Test for Asana task integration"""
 
-from dateutil import parser as dateparser
-
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import tasks as t
 from protohaven_api.testing import d
 
@@ -77,7 +76,7 @@ def test_last_maintenance_completion_map(mocker):
 
     result = t.last_maintenance_completion_map()
 
-    expected = {"123": dateparser.parse("2024-12-01T00:00:00Z"), "456": d(0)}
+    expected = {"123": safe_parse_datetime("2024-12-01T00:00:00Z"), "456": d(0)}
     assert result == expected
 
 

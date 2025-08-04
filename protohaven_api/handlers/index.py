@@ -5,13 +5,12 @@ import json
 import logging
 import time
 
-from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, eventbrite, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.models import Member
@@ -240,7 +239,7 @@ def get_shop_events():
     shop_events = []
     for e, dates in fetch_shop_events().items():
         for start, _ in dates:
-            start = dateparser.parse(start)
+            start = safe_parse_datetime(start)
             shop_events.append({"name": e, "start": start})
     shop_events.sort(key=lambda v: v["start"])
     return shop_events
@@ -255,8 +254,8 @@ def get_event_reservations():
         now.replace(hour=0, minute=0, second=0),
         now.replace(hour=23, minute=59, second=59),
     )["reservations"]:
-        start = dateparser.parse(r["startDate"]).astimezone(tz)
-        end = dateparser.parse(r["endDate"]).astimezone(tz)
+        start = safe_parse_datetime(r["startDate"])
+        end = safe_parse_datetime(r["endDate"])
         open_time = now.replace(hour=10)
         close_time = now.replace(hour=22)
         reservations.append(

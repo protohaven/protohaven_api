@@ -5,10 +5,8 @@ import logging
 import multiprocessing as mp
 import traceback
 
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.membership.membership import PLACEHOLDER_START_DATE
-from protohaven_api.config import get_config, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
@@ -58,7 +56,7 @@ def result_base():
 
 def is_membership_deferred(m):
     """check if membership is deferred based on accountt automation field or start date"""
-    if "deferred" in m.account_automation_ran:
+    if "deferred" in (m.account_automation_ran or ""):
         return True
     if m.latest_membership().start_date.date() == PLACEHOLDER_START_DATE:
         return True
@@ -258,7 +256,7 @@ def handle_announcements(last_ack, roles: list, clearances: list, is_active, tes
     """Handle fetching and display of announcements, plus updating
     acknowledgement date"""
     if last_ack:
-        last_ack = dateparser.parse(last_ack).astimezone(tz)
+        last_ack = safe_parse_datetime(last_ack)
     else:
         last_ack = tznow() - datetime.timedelta(30)
 

@@ -6,10 +6,9 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 
-from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
     _idref,
     delete_record,
@@ -48,7 +47,7 @@ def get_notifications_after(tag, after_date):
         elif row_tag != str(tag):
             continue
         targets[row["fields"]["To"].lower()].append(
-            dateparser.parse(row["fields"]["Created"])
+            safe_parse_datetime(row["fields"]["Created"])
         )
     return targets
 
@@ -205,7 +204,7 @@ def get_reports_for_tool(airtable_id, back_days=90):
         if airtable_id not in r["fields"].get("Equipment Record", []):
             continue
         yield {
-            "t": dateparser.parse(r["fields"].get("Created")).astimezone(tz),
+            "t": safe_parse_datetime(r["fields"].get("Created")),
             "date": r["fields"].get("Created"),
             "name": r["fields"].get("Name"),
             "state": r["fields"].get("Current equipment status"),
@@ -442,11 +441,9 @@ def expand_instructor_availability(rows, t0, t1):
     Note that this doesn't deduplicate or merge overlapping availabilities.
     """
     for row in rows:
-        start0, end0 = dateparser.parse(row["fields"]["Start"]), dateparser.parse(
+        start0, end0 = safe_parse_datetime(row["fields"]["Start"]), safe_parse_datetime(
             row["fields"]["End"]
         )
-        start0 = start0.astimezone(tz)
-        end0 = end0.astimezone(tz)
         rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
         try:
             rr = rrulestr(rr, dtstart=start0) if rr != "" else None
@@ -516,7 +513,7 @@ def get_forecast_overrides():
     for r in get_all_records("people", "shop_tech_forecast_overrides"):
         if r["fields"].get("Shift Start", None) is None:
             continue
-        d = dateparser.parse(r["fields"]["Shift Start"]).astimezone(tz)
+        d = safe_parse_datetime(r["fields"]["Shift Start"])
         ap = "AM" if d.hour < 12 else "PM"
         techs = r["fields"].get("Override", "").split("\n")
         yield f"{d.strftime('%Y-%m-%d')} {ap}", (
@@ -537,7 +534,7 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
 ):
     """Upserts a shop tech shift override"""
     ap = ap.lower()
-    date = dateparser.parse(date).replace(
+    date = safe_parse_datetime(date).replace(
         hour=10 if ap.lower() == "am" else 16, minute=0, second=0, tzinfo=tz
     )
     data = {
@@ -587,9 +584,7 @@ class AirtableCache(WarmDict):
         clearances = [n.split(":")[1].strip() for n in clearances if ":" in n]
 
         for row in self["announcements"]:
-            adate = dateparser.parse(
-                row["fields"].get("Published", "2024-01-01")
-            ).astimezone(tz)
+            adate = safe_parse_datetime(row["fields"].get("Published", "2024-01-01"))
             if adate <= d or adate > now:
                 continue
 

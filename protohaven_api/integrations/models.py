@@ -10,7 +10,7 @@ from urllib.parse import urljoin
 from dateutil import parser as dateparser
 from dateutil import tz as dtz
 
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 
 log = logging.getLogger("integrations.models")
 
@@ -80,7 +80,7 @@ class Membership:
     def start_date(self) -> datetime.datetime:
         """Returns the start date of the membership, if any"""
         return (
-            dateparser.parse(self.neon_raw_data.get("termStartDate")).astimezone(tz)
+            safe_parse_datetime(self.neon_raw_data.get("termStartDate"))
             if self.neon_raw_data.get("termStartDate")
             else None
         )
@@ -89,7 +89,7 @@ class Membership:
     def end_date(self) -> datetime.datetime:
         """Return end date, or the maximum possible date if not set"""
         return (
-            dateparser.parse(self.neon_raw_data.get("termEndDate")).astimezone(tz)
+            safe_parse_datetime(self.neon_raw_data.get("termEndDate"))
             if self.neon_raw_data.get("termEndDate")
             else datetime.datetime.max
         )
@@ -351,7 +351,7 @@ class Member:  # pylint:disable=too-many-public-methods
         match = re.match(WAIVER_REGEX, v)
         if match is not None:
             last_version = match[1]
-            last_signed = dateparser.parse(match[2]).astimezone(tz)
+            last_signed = safe_parse_datetime(match[2])
             return (last_version, last_signed)
         return (None, None)
 
@@ -444,10 +444,8 @@ class Member:  # pylint:disable=too-many-public-methods
             if val is None:
                 return None
             try:
-                return (
-                    dateparser.parse(val)
-                    .astimezone(tz)
-                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                return safe_parse_datetime(val).replace(
+                    hour=0, minute=0, second=0, microsecond=0
                 )
             except dateparser.ParserError as e:
                 log.error(e)
@@ -610,9 +608,7 @@ class Event:  # pylint: disable=too-many-public-methods
     def _resolve_date(self, dtfetch, dtsearch, eb):
         """Returns the start date of the event"""
         if self.eventbrite_data:
-            return dateparser.parse(self.eventbrite_data.get(eb).get("utc")).astimezone(
-                tz
-            )
+            return safe_parse_datetime(self.eventbrite_data.get(eb).get("utc"))
 
         if self.neon_raw_data:
             # /v2/events/<event_id> returns structured data, while
@@ -627,7 +623,7 @@ class Event:  # pylint: disable=too-many-public-methods
 
         if vd and vt:
             try:
-                return dateparser.parse(f"{vd} {vt}").astimezone(tz)
+                return safe_parse_datetime(f"{vd} {vt}")
             except dateparser.ParserError as e:
                 log.error(e)
         return None
@@ -867,7 +863,7 @@ class SignInEvent:
         """Returns the date the sign in was recorded, in UTC"""
         if not self.airtable_data["fields"]["Created"]:
             return None
-        return dateparser.parse(self.airtable_data["fields"]["Created"]).astimezone(
+        return safe_parse_datetime(self.airtable_data["fields"]["Created"]).astimezone(
             dtz.UTC
         )
 

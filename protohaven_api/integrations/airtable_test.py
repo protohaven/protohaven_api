@@ -5,9 +5,8 @@ import re
 from collections import namedtuple
 
 import pytest
-from dateutil import parser as dateparser
 
-from protohaven_api.config import tz
+from protohaven_api.config import safe_parse_datetime, tz
 from protohaven_api.integrations import airtable as a
 from protohaven_api.integrations import airtable_base as ab
 from protohaven_api.testing import d, idfn
@@ -126,23 +125,23 @@ Tc = namedtuple("TC", "desc,records,t0,t1,want")
             [
                 _arec(
                     "a",
-                    dateparser.parse("2024-11-02T18:00").astimezone(tz),
-                    dateparser.parse("2024-11-02T21:00").astimezone(tz),
+                    safe_parse_datetime("2024-11-02T18:00"),
+                    safe_parse_datetime("2024-11-02T21:00"),
                     "RRULE:FREQ=DAILY",
                 )
             ],
-            dateparser.parse("2024-11-02").astimezone(tz),
-            dateparser.parse("2024-11-04").astimezone(tz),
+            safe_parse_datetime("2024-11-02"),
+            safe_parse_datetime("2024-11-04"),
             [
                 (
                     123,
-                    dateparser.parse("2024-11-02T18:00").astimezone(tz),
-                    dateparser.parse("2024-11-02T21:00").astimezone(tz),
+                    safe_parse_datetime("2024-11-02T18:00"),
+                    safe_parse_datetime("2024-11-02T21:00"),
                 ),
                 (
                     123,
-                    dateparser.parse("2024-11-03T18:00").astimezone(tz),
-                    dateparser.parse("2024-11-03T21:00").astimezone(tz),
+                    safe_parse_datetime("2024-11-03T18:00"),
+                    safe_parse_datetime("2024-11-03T21:00"),
                 ),
             ],
         ),
@@ -307,12 +306,10 @@ def test_get_announcements_after(mocker, tc):
     """Test announcement fetching"""
     ac = a.AirtableCache()
     ac["announcements"] = [{"fields": tc.data, "id": "123"}]
-    mocker.patch.object(
-        a, "tznow", return_value=dateparser.parse("2024-04-02").astimezone(tz)
-    )
+    mocker.patch.object(a, "tznow", return_value=safe_parse_datetime("2024-04-02"))
     got = list(
         ac.announcements_after(
-            dateparser.parse("2024-03-14").astimezone(tz),
+            safe_parse_datetime("2024-03-14"),
             ["role1"],
             ["SBL: Sandblaster"],
         )
@@ -391,7 +388,7 @@ def test_get_num_valid_unassigned_coupons(mocker, tc):
     mock_get = mocker.patch.object(a, "get_all_records_after")
     mock_get.return_value = tc.records
 
-    count = a.get_num_valid_unassigned_coupons(dateparser.parse(tc.use_by))
+    count = a.get_num_valid_unassigned_coupons(safe_parse_datetime(tc.use_by))
     assert count == tc.expected_count
 
 
@@ -430,7 +427,7 @@ def test_get_next_available_coupon(mocker, tc):
     mock_get = mocker.patch.object(a, "get_all_records_after")
     mock_get.return_value = tc.records
 
-    result = a.get_next_available_coupon(dateparser.parse(tc.use_by))
+    result = a.get_next_available_coupon(safe_parse_datetime(tc.use_by))
     assert result == tc.expected_result
 
 

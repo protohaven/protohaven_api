@@ -3,7 +3,6 @@
 import datetime
 
 import pytest
-from dateutil import parser as dateparser
 
 from protohaven_api.automation.membership import membership as m
 from protohaven_api.config import tz

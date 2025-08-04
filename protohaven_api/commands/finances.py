@@ -7,11 +7,13 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, Generator
 
-from dateutil import parser as dateparser
-
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import get_config, tz, tznow  # pylint: disable=import-error
+from protohaven_api.config import (  # pylint: disable=import-error
+    get_config,
+    safe_parse_datetime,
+    tznow,
+)
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
@@ -76,9 +78,7 @@ class Commands:
                 untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
                 log.info(untaxed[-1])
 
-            charged_through = dateparser.parse(sub["charged_through_date"]).astimezone(
-                tz
-            )
+            charged_through = safe_parse_datetime(sub["charged_through_date"])
             if charged_through + datetime.timedelta(days=1) < now:
                 unpaid.append(
                     f"- {cust} - {plan} - charged through {charged_through} ([link]({url}))"

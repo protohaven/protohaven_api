@@ -5,9 +5,7 @@ import datetime
 import logging
 from collections import defaultdict
 
-from dateutil import parser as dateparser
-
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, neon_base
 from protohaven_api.integrations.comms import Msg
 
@@ -28,7 +26,7 @@ def enforcement_summary(violations, fees, target):
     vs = {}
     for v in violations:
         vs[v["id"]] = {
-            "onset": dateparser.parse(v["fields"]["Onset"]),
+            "onset": safe_parse_datetime(v["fields"]["Onset"]),
             "fee": v["fields"].get("Daily Fee", 0),
             "suspect": "known" if v["fields"].get("Neon ID") else "unknown",
             "notes": v["fields"].get("Notes", ""),
@@ -62,7 +60,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     if latest_fee is None:
         latest_fee = {}
         for f in airtable.get_policy_fees():
-            d = dateparser.parse(f["fields"]["Created"]).astimezone(tz)
+            d = safe_parse_datetime(f["fields"]["Created"])
             vid = f["fields"]["Violation"][0]
             if vid not in latest_fee or latest_fee[vid] < d:
                 latest_fee[vid] = d
@@ -76,7 +74,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     }
     for v in violations:
         fee = v["fields"].get("Daily Fee")
-        onset = dateparser.parse(v["fields"]["Onset"]).replace(
+        onset = safe_parse_datetime(v["fields"]["Onset"]).replace(
             hour=0, minute=0, second=0
         )
         if fee is None or fee == 0:
@@ -84,7 +82,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
         t = latest_fee.get(v["id"], onset) + datetime.timedelta(days=1)
         tr = v["fields"].get("Close date (from Closure)")
         if tr is not None:
-            tr = dateparser.parse(tr[0]).astimezone(tz)
+            tr = safe_parse_datetime(tr[0])
         while t <= now and (tr is None or t <= tr):
             fees.append((v["id"], fee, t.strftime("%Y-%m-%d")))
             t += datetime.timedelta(days=1)
@@ -119,7 +117,7 @@ def gen_comms_for_violation(  # pylint: disable=too-many-arguments
         return None  # Resolved violation, nothing to do here
     if not fields.get("Onset"):
         return None  # Incomplete record
-    onset = dateparser.parse(fields["Onset"]).astimezone(tz)
+    onset = safe_parse_datetime(fields["Onset"])
     now = tznow()
     is_new_violation = old_accrued == 0 and onset > now - datetime.timedelta(
         hours=NEW_VIOLATION_THRESH_HOURS

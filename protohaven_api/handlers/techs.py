@@ -4,12 +4,11 @@ import datetime
 import logging
 from collections import defaultdict
 
-from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request, session
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as tauto
-from protohaven_api.config import tz, tznow
+from protohaven_api.config import safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_lead_role, am_role, require_login_role
@@ -73,10 +72,9 @@ def _fetch_tool_states_and_areas(now):
         msg = t["fields"].get("Status Message") or "Unknown"
         modified = t["fields"].get("Status last modified")
         date = modified or ""
-        log.info(f"Midified {modified}")
         if modified:
-            modified = (now - dateparser.parse(modified).astimezone(tz)).days
-            date = dateparser.parse(date).strftime("%Y-%m-%d")
+            modified = (now - safe_parse_datetime(modified)).days
+            date = safe_parse_datetime(date).strftime("%Y-%m-%d")
         else:
             modified = 0
         tool_states.append(
@@ -115,7 +113,7 @@ def techs_docs_state():
 def techs_members():
     """Fetches today's sign-in information for members"""
     start = request.values.get("start")
-    start = (dateparser.parse(start) if start else tznow()).replace(
+    start = (safe_parse_datetime(start) if start else tznow()).replace(
         hour=0, minute=0, second=0, tzinfo=tz
     )
     end = start.replace(hour=23, minute=59, second=59)
@@ -174,7 +172,7 @@ def techs_forecast():
     if date is None:
         date = tznow()
     else:
-        date = dateparser.parse(date).astimezone(tz)
+        date = safe_parse_datetime(date)
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:
@@ -303,7 +301,7 @@ def new_tech_event():
         log.info("Name field required")
         return Response("name field is required", status=401)
     log.info("Parsing date")
-    d = dateparser.parse(data["start"]).replace(tzinfo=tz)
+    d = safe_parse_datetime(data["start"]).replace(tzinfo=tz)
     log.info(f"Parsed {d}")
     if not d or d < tznow() or d.hour < 10 or d.hour + data["hours"] > 22:
         return Response(
