@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, List, Tuple
 
-from jinja2 import Environment, PackageLoader, select_autoescape, StrictUndefined
+from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.cronicle import exec_details_footer
