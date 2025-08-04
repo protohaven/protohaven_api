@@ -1,11 +1,11 @@
 {% set evt_date = evt.start_date.strftime("%B %-d") %}
 {% set avail = evt.capacity - evt.attendee_count %}
-{% if subject -%}
+{% if subject %}
 {{evt.name}} on {{evt_date}} - help us find {{avail}} more student(s)!
-{%- else -%}
+{% else %}
 Hi {{evt.instructor_fname}},
 
-Thanks for agreeing to teach {{evt.name}} on {{evt_date}}! To maximize your impact, we need your help to find {{avail}} additional student{% if avail != 1 %}s{%- endif %} to take the class.
+Thanks for agreeing to teach {{evt.name}} on {{evt_date}}! To maximize your impact, we need your help to find {{avail}} additional student{% if avail != 1 %}s{% endif %} to take the class.
 
 There are a couple easy ways to do this:
 
@@ -17,4 +17,4 @@ If you have any additional ideas for getting the word out there, please post the
 Thanks for supporting Protohaven as an instructor. Happy teaching!
 
  -Protohaven Automation
- {%- endif %}
+{% endif %}

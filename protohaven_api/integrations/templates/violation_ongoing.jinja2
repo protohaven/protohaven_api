@@ -1,27 +1,29 @@
-{% if subject -%}
-{% if accrued > 0 -%}
+{% if subject %}
+{% if accrued > 0 %}
 {{firstname}}: ongoing Protohaven violation has accrued ${{accrued}} in fees
-{%- else -%}
+{% else %}
 {{firstname}}: ongoing Protohaven violation
-{%- endif %}
-{%- else -%}
+{% endif %}
+{% else %}
 Hello {{firstname}},
 
 On {{start.strftime("%Y-%m-%d")}}, we discovered a violation of one or more of our shop policies, and the violation is currently ongoing. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members, and we need your help to make this happen.
 
 These are the policies that apply:
-{% for s in sections  -%}
-- {{s}}{% endfor -%}
+{% for s in sections %}
+- {{s}}
+{% endfor %}
 
 Details on the violation: {{notes}}
 {% if accrued > 0 %}
 **At this time you have accrued ${{accrued}} in fees. The violation is ongoing and will accrue ${{fee}} per day until it is resolved.**
-{%- endif %}
+{% endif %}
 For a full list of active violations, see https://protohaven.org/violations.
 
-Please take immediate action to resolve the violation. {% if accrued > 0 %}To any accrued fees, please ask the shop tech on duty. {%- endif %}We will send a confirmation the next business day to confirm the violation has been resolved.
+Please take immediate action to resolve the violation. {% if accrued > 0 %}To any accrued fees, please ask the shop tech on duty. {% endif %}We will send a confirmation the next business day to confirm the violation has been resolved.
 
 Any additional questions and appeals may be sent to membership@protohaven.org.
 
 Thanks for your cooperation,
-Protohaven Automation{%- endif %}
+Protohaven Automation
+{% endif %}

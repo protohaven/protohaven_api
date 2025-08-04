@@ -1,4 +1,4 @@
-{# html #}{% if subject -%}{{fname}}: your membership is now active.{%- else -%}Hi, {{fname}}!
+{# html #}{% if subject %}{{fname}}: your membership is now active.{% else %}Hi, {{fname}}!
 <p>
 We just received notice that you visited the shop today - as a result, <strong>your membership has been activated</strong>.
 </p>
@@ -11,4 +11,4 @@ Thank you!
 <p>
 - Protohaven Staff
 </p>
-{%- endif %}
+{% endif %}

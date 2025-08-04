@@ -1,10 +1,10 @@
-{% if subject -%}
+{% if subject %}
 You are now registered to teach {{n}} Protohaven class{% if n != 1 %}es{% endif %}
-{%- else -%}
+{% else %}
 Hello, {{inst}}!
 
 We have published the following classes for you to teach to members:
-{% for f in formatted -%}
+{% for f in formatted %}
 - {{f.start}}: {{f.name}}
 {% endfor %}
 
@@ -13,4 +13,4 @@ These were classes that you confirmed by visiting https://api.protohaven.org/ins
 PLEASE REACH OUT ASAP on the #instructors Discord if you are unable to teach any of these classes so we can take action.
 
 Thank you, and see you in the shop!
-{%- endif %}
+{% endif %}

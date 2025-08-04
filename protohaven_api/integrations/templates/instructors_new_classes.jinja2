@@ -1,5 +1,7 @@
-{% if subject -%}
-Scheduled {{n}} new class{% if n != 1 %}es{%- endif %}
-{%- else -%}
-{% for c in classes  -%}- {{c.start}}: {{c.name}}{% if c.inst is defined %} ({{c.inst}}){%- endif %}
-{% endfor -%}{%- endif %}
+{% if subject %}
+Scheduled {{n}} new class{% if n != 1 %}es{% endif %}
+{% else %}
+{% for c in classes %}
+- {{c.start}}: {{c.name}}{% if c.inst is defined %} ({{c.inst}}){% endif %}
+{% endfor %}
+{% endif %}

@@ -1,5 +1,5 @@
-{% if subject -%}{{shift}} shift has no signed in techs{%- else -%}@TechLeads: no techs assigned for {{shift}} have signed in. Expecting any of:
-{% for t in onduty  -%}- {{t.name}} ({{t.email}})
-{% endfor -%}
+{% if subject %}{{shift}} shift has no signed in techs{% else %}@TechLeads: no techs assigned for {{shift}} have signed in. Expecting any of:
+{% for t in onduty  %}- {{t.name}} ({{t.email}})
+{% endfor %}
 Please check immediately for techs on duty; shift details at https://api.protohaven.org/techs
-{% if footer is defined -%}{{footer}}{%- endif %}{%- endif %}
+{% if footer is defined %}{{footer}}{% endif %}{% endif %}

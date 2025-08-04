@@ -1,4 +1,4 @@
-{% if subject -%}Wyze camera warnings{%- else -%}@TechLeads camera status checks returned the following warnings:
-{% for w in warnings  -%}
-- {{w}}{% endfor -%}
-{% if footer is defined -%}{{footer}}{%- endif %}{%- endif %}
+{% if subject %}Wyze camera warnings{% else %}@TechLeads camera status checks returned the following warnings:
+{% for w in warnings  %}
+- {{w}}{% endfor %}
+{% if footer is defined %}{{footer}}{% endif %}{% endif %}

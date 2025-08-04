@@ -1,8 +1,8 @@
-{% if subject -%}Confirm class schedule{%- else -%}Hello, {{title}}!
+{% if subject %}Confirm class schedule{% else %}Hello, {{title}}!
 
 We have a new set of potential classes for you to teach, and we are looking for your confirmation:
-{% for f in formatted  -%}{{f}}
-{% endfor -%}
+{% for f in formatted  %}{{f}}
+{% endfor %}
 Confirm the classes you would like to teach ASAP by going to http://api.protohaven.org/instructor/class.
 
 Please note:
@@ -13,4 +13,4 @@ Please note:
 We will schedule your confirmed classes in the next few days.
 
 Thank you!
-{%- endif %}
+{% endif %}
