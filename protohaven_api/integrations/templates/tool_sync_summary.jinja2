@@ -1,2 +1,2 @@
-{% if subject %}Made {{n}} tool data change(s) in [Booked Scheduler](https://reserve.protohaven.org){% else %}{% for c in changes %}* {{c}}
-{% endfor %}{{footer}}{% endif %}
+{% if subject %}Made {{n}} tool data change(s) in [Booked Scheduler](https://reserve.protohaven.org){% else %}{% for c in changes  %}* {{c}}
+{% endfor %}{% if footer is defined %}{{footer}}{% endif %}{% endif %}

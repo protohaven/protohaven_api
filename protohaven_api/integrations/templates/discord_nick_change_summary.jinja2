@@ -1,4 +1,13 @@
-{% if subject %}Discord Nickname Automation Summary{% else %}{% if n > 0 %}
+{% if subject %}
+Discord Nickname Automation Summary
+{% else %}
+{% if n > 0 %}
 * Made {{n}} nickname change(s) in Discord: {{changes|join(', ')}}
-{%endif%}{% if m > 0 %}* Notified {{m}} user(s) lacking neon association: {{notified|join(', ')}}{%endif%}
-{{footer}}{% endif %}
+{% endif %}
+{% if m > 0 %}
+* Notified {{m}} user(s) lacking neon association: {{notified|join(', ')}}
+{% endif %}
+{% if footer is defined %}
+{{footer}}
+{% endif %}
+{% endif %}

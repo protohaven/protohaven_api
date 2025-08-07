@@ -1,4 +1,10 @@
-{% if subject %}Door sensor warnings{% else %}@TechLeads door sensor check returned the following warnings:
-{% for w in warnings %}
-- {{w}}{% endfor %}
-{{footer}}{% endif %}
+{% if subject %}
+Door sensor warnings
+{% else %}
+@TechLeads door sensor check returned the following warnings:
+
+{% for w in warnings  %}
+- {{w}}
+{% endfor %}
+{% if footer is defined %}{{footer}}{% endif %}
+{% endif %}

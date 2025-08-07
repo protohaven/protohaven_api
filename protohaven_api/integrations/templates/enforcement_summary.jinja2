@@ -1,8 +1,16 @@
-{% if subject %}Violations and Actions Summary{% else %}
-{{vs|length}} active violation(s):{% for v in vs %}
-- Since {{v.onset.strftime("%Y-%m-%d")}}{% if v['fee'] != 0 %}
+{% if subject %}
+Violations and Actions Summary
+{% else %}
+{{vs|length}} active violation(s):
+
+{% for v in vs  %}
+- Since {{v.onset.strftime("%Y-%m-%d")}}
+  {% if v['fee'] != 0 %}
   Daily fee: ${{v['fee']}}
   Accrued: ${{v['unpaid']}}
-  {% endif %}Notes: {{v['notes']}}{% endfor %}
+  {% endif %}
+  Notes: {{v['notes']}}
+{% endfor %}
+
 See all active violations (with pictures) at https://protohaven.org/violations
 {% endif %}

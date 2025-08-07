@@ -1,15 +1,21 @@
-{% if subject %}{{firstname}}: new Protohaven violation issued for {{start.strftime("%Y-%m-%d")}}{% else %}Hello {{firstname}},
+{% if subject %}
+{{firstname}}: new Protohaven violation issued for {{start.strftime("%Y-%m-%d")}}
+{% else %}
+Hello {{firstname}},
 
 It has come to our attention that on {{start.strftime("%Y-%m-%d")}}, you violated one or more of our shop policies. Our policies exist to ensure the shop remains a safe, productive, and inclusive place for all members.
 
 These are the policies that apply:
-{% for s in sections %}
-- {{s}}{% endfor %}
+
+{% for s in sections  %}
+- {{s}}
+{% endfor %}
 
 Details on the violation: {{notes}}
 
 As a result, and in accordance with our procedure for policy enforcement posted at https://protohaven.org/wiki/policies/procedure, we are taking the following actions:
 {% if fee>0 %}
+
 - **Your account will accrue a penalty fee of ${{fee}} per day until the improperly stored item or items are removed.**
 
 If this violation is not resolved within 14 days, the item or items will be declared property of Protohaven and be removed. Your membership will be suspended until any outstanding fees are paid.
@@ -18,10 +24,12 @@ Be advised that repeated violation of shop policy will result in suspension of y
 
 Please take immediate action to resolve the violation and pay any accrued fees. To pay fees, please ask the shop tech on duty. We will send a confirmation by the next business day to confirm the violation has been resolved.
 {% else %}
+
 - The violation has been logged on your Protohaven account.
 
 This violation incurs no fee. However, be advised that repeated violation of shop policy will result in suspension of your membership, and repeated suspensions will increase in duration each time.
 {% endif %}
+
 For a full list of shop policies, see https://protohaven.org/wiki/policies/.
 For a full list of active violations, see https://protohaven.org/violations.
 

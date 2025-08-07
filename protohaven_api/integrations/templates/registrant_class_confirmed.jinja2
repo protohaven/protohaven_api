@@ -1,5 +1,9 @@
-{% set evt_date = evt.start_date.strftime("%B %-d") %}{% set avail = evt.capacity - evt.attendee_count %}
-{% if subject %}Your class '{{evt.name}}' is on for {{evt_date}}!{% else %}Hi {{a.fname}},
+{% set evt_date = evt.start_date.strftime("%B %-d") %}
+{% set avail = evt.capacity - evt.attendee_count %}
+{% if subject %}
+Your class '{{evt.name}}' is on for {{evt_date}}!
+{% else %}
+Hi {{a.fname}},
 
 Get excited! Your class {{evt.name}} {% if evt.attendee_count > 1 %}has {{evt.attendee_count}} total students, and {% endif %}will be running on {{evt_date}}.
 {% if evt.capacity > 0 and (evt.start_date - now).days > 1 %}
