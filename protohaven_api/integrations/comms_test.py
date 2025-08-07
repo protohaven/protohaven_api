@@ -104,7 +104,7 @@ TESTED_TEMPLATES = [
         {
             "events": {
                 "123": {
-                    "actions": ["FOO", "BAR"],
+                    "action": ["FOO", "BAR"],
                     "name": "Test Action",
                     "targets": ["a", "b"],
                 },
@@ -424,7 +424,7 @@ HASHES = {
     "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
     "schedule_push_notification": "fdb8409ccac4ba4b",  # pragma: allowlist secret
     "shift_no_techs": "f74f25571d5a93b1",  # pragma: allowlist secret
-    "shop_tech_applications": "2210adcfeb7dc675",  # pragma: allowlist secret
+    "shop_tech_applications": "a011ed984ed4a302",  # pragma: allowlist secret
     "square_validation_action_needed": "8cf97c894e5171aa",  # pragma: allowlist secret
     "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret
     "tech_openings": "6212e17a71640d10",  # pragma: allowlist secret

@@ -1,3 +1,11 @@
-{% if subject %}Automation notification summary{% else %}{% for evtid, details in events.items()  %}
-* {{details['actions']|join("|")}} #{{evtid}} {{details['name']}}: notified {{details['targets']|join(", ")}}{% endfor %}
-{% if footer is defined %}{{footer}}{% endif %}{% endif %}
+{% if subject %}
+Automation notification summary
+{% else %}
+{% for evtid, details in events.items()  %}
+* {{details['action']|join("|")}} #{{evtid}} {{details['name']}}: notified {{details['targets']|join(", ")}}
+{% endfor %}
+{% if footer is defined %}
+
+{{footer}}
+{% endif %}
+{% endif %}
