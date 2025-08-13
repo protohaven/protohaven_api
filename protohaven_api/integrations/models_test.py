@@ -36,6 +36,28 @@ def test_is_company():
     assert not m.is_company()
 
 
+def test_membership_level(mocker):
+    """Test Member.is_company for company and individual accounts"""
+    m = Member(neon_search_data={"Membership Level": None})
+    assert not m.membership_level
+    m.neon_search_data["Membership Level"] = "AMP"
+    assert m.membership_level == "AMP"
+    del m.neon_search_data["Membership Level"]
+    with pytest.raises(
+        RuntimeError
+    ):  # Key not present in search -> try membership data -> fail, no data
+        print(m.membership_level)
+    mocker.patch.object(models, "tznow", return_value=d(1))
+    m.neon_membership_data = [
+        {
+            "termStartDate": d(0).isoformat(),
+            "termEndDate": d(2).isoformat(),
+            "membershipLevel": {"name": "Foo"},
+        }
+    ]
+    assert m.membership_level == "Foo"
+
+
 @pytest.mark.parametrize(
     "is_company, status, want",
     [

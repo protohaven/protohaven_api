@@ -310,8 +310,8 @@ class Member:  # pylint:disable=too-many-public-methods
     @property
     def membership_level(self):
         """Fetches membership level - note that this is only available via search result"""
-        mem = self.neon_search_data.get("Membership Level")
-        if mem:
+        if "Membership Level" in self.neon_search_data:
+            mem = self.neon_search_data.get("Membership Level")
             return mem
         mem = self.latest_membership(active_only=True)
         if mem:
