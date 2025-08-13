@@ -29,7 +29,7 @@ def _upcoming_event(mocker):
         occupancy=1 / 6,
         in_blocklist=lambda: False,
         instructor_email="inst@ructor.com",
-        instructor_fname="Test",
+        instructor_name="Test",
         volunteer=True,
         supply="Supply Check Needed",
         supply_cost=5,

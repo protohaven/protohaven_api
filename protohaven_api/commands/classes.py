@@ -508,6 +508,12 @@ class Commands:
                     if result_id:
                         log.error("Failed; reverting event creation")
                         log.info(neon_base.delete_event_unsafe(result_id))
+                        airtable.update_record(
+                            {"Neon ID": ""},
+                            "class_automation",
+                            "schedule",
+                            event["id"],
+                        )
                     try:
                         comms.send_discord_message(
                             f"Reverted class #{result_id}; creation failed: {e}\n"

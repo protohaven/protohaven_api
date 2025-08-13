@@ -342,7 +342,7 @@ class Commands:
         techs_on_duty = forecast.generate(now, 1, include_pii=True)["calendar_view"][0]
         # Pick AM vs PM shift
         techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
-        log.info(f"Expecting on-duty techs: {techs_on_duty}")
+        log.info(f"Expecting on-duty techs: {[t.name for t in techs_on_duty]}")
         email_map = {t.email: t for t in techs_on_duty}
         on_duty_ok = False
         log.info("Sign ins:")

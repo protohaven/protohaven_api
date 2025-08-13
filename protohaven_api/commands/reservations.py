@@ -16,7 +16,7 @@ log = logging.getLogger("cli.reservation")
 def reservation_dict_from_record(event):
     """Like reservation_dict(), but from an airtable record"""
     return reservation_dict(
-        event["fields"]["Name (from Area) (from Class)"],
+        event["fields"].get("Name (from Area) (from Class)") or [],
         event["fields"]["Name (from Class)"],
         event["fields"]["Start Time"],
         (event["fields"].get("Recurrence (from Class)") or [None])[0],
@@ -372,6 +372,10 @@ class Commands:
             help="CSV of email addresses of users to exclude from syncing",
             default=None,
         ),
+        arg(
+            "--include",
+            help="CSV of email addresses of users to strictly include",
+        ),
     )
     def sync_booked_members(
         self, args, pct
@@ -388,6 +392,9 @@ class Commands:
             log.warning(f"excluding users by email: {args.exclude}")
         else:
             args.exclude = set()
+        if args.include is not None:
+            args.include = {a.strip().lower() for a in args.include.split(",")}
+            log.warning(f"including users by email: {args.include}")
 
         pct.set_stages(4)
         neon_members = self._fetch_neon_sources()
@@ -403,6 +410,9 @@ class Commands:
             k, v = kv
             if k[2].lower() in args.exclude:
                 log.info(f"Skipping excluded {k[2]}")
+                continue
+            if args.include and k[2].lower() not in args.include:
+                log.info(f"Skipping not explicitly included {k[2]}")
                 continue
 
             aid, bid = v

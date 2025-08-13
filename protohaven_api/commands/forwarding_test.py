@@ -59,6 +59,7 @@ def test_tech_sign_ins(mocker, tc, cli):
                             mocker.Mock(
                                 email="a@b.com",
                                 name="A B (they/them)",
+                                discord_user=None,
                                 shift=["Monday", "AM"],
                             )
                         ]
@@ -68,6 +69,7 @@ def test_tech_sign_ins(mocker, tc, cli):
                             mocker.Mock(
                                 email="c@d.com",
                                 name="C D (he/him)",
+                                discord_user=None,
                                 shift=["Monday", "PM"],
                             )
                         ]
