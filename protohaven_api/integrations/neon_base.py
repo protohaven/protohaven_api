@@ -53,7 +53,9 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
         "searchFields": [
             {"field": f, "operator": o, "value": v} for f, o, v in search_fields
         ],
-        "outputFields": output_fields,
+        "outputFields": list(
+            set(output_fields)
+        ),  # Prevent duplicates; causes neon request failure
         "pagination": {"currentPage": cur, "pageSize": 50, **(pagination or {})},
     }
     total = 1

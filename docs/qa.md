@@ -7,7 +7,7 @@ The API key can be found at https://cron.protohaven.org/#Admin?sub=api_keys
 ```shell
 python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
-* [x] runs successfully
+* [ ] runs successfully
 
 *Note: on failure, can run --after=test_name to skip all tests up to and including `test_name`, or run --command=test_name to just run `test_name`.*
 
@@ -16,13 +16,13 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 After deployment, verify that:
 
 * https://api.protohaven.org/
-  * [x] Page redirects to /member, loads and displays clearances + links
+  * [ ] Page redirects to /member, loads and displays clearances + links
 * https://api.protohaven.org/welcome
-  * [x] Member sign in fails with hello+testnonmember@protohaven.org
-  * [x] Member sign in with hello+testalert@protohaven.org sends the notice
-  * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [x] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
-  * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
+  * [ ] Member sign in fails with hello+testnonmember@protohaven.org
+  * [ ] Member sign in with hello+testalert@protohaven.org sends the notice
+  * [ ] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
+  * [ ] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
+  * [ ] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
   * [ ] Displays upcoming calendar events
   * [ ] Shows reservations

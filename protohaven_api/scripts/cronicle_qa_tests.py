@@ -78,6 +78,7 @@ def run_cronicle_sync(event_id: str, image: str, params: dict):
             running[rid] = rep["job"].get("complete") != 1
         if running[rid]:
             sys.stderr.write(".")
+            sys.stderr.flush()
         # log.info(f"Running: {running[rid]}")
         code = rep["job"].get("code")
         if True not in running.values():
