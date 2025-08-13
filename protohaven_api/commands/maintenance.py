@@ -119,6 +119,7 @@ class Commands:
                     traceback.print_exc()
                     errs.append(e)
             else:
+                t["gid"] = "NO_APPLY"  # Appease the templater
                 scheduled.append(t)
 
             if len(scheduled) >= args.num:

@@ -324,5 +324,7 @@ def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
     )
     mock_schedule.assert_called_once()
     mock_pricing.assert_called_once()
-    mock_airtable.assert_not_called()
+    mock_airtable.assert_called_once_with(
+        {"Neon ID": ""}, "class_automation", "schedule", "test_id"
+    )
     mock_delete.assert_called_once_with("test_event_id")

@@ -81,7 +81,7 @@ TEST_EVENT = {
     "neon_id": "34567",
     "start_date": d(0),
     "name": "Test Event",
-    "instructor_fname": "TestInstName",
+    "instructor_name": "TestInstName",
     "capacity": 6,
     "attendee_count": 3,
     "supply_cost": 0,
@@ -91,9 +91,9 @@ TEST_ATTENDEE = {
     "email": "test@attendee.com",
 }
 
-tech1 = MagicMock(email="a@a.com")
+tech1 = MagicMock(email="a@a.com", discord_user="foobar")
 tech1.name = "Tech A"
-tech2 = MagicMock(email="b@b.com")
+tech2 = MagicMock(email="b@b.com", discord_user=None)
 tech2.name = "Tech B"
 
 TESTED_TEMPLATES = [
@@ -423,7 +423,7 @@ HASHES = {
     "registrant_class_confirmed": "d6c0ac936f4c44dd",  # pragma: allowlist secret
     "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
     "schedule_push_notification": "fdb8409ccac4ba4b",  # pragma: allowlist secret
-    "shift_no_techs": "f74f25571d5a93b1",  # pragma: allowlist secret
+    "shift_no_techs": "28da9194d12b5db6",  # pragma: allowlist secret
     "shop_tech_applications": "a011ed984ed4a302",  # pragma: allowlist secret
     "square_validation_action_needed": "8cf97c894e5171aa",  # pragma: allowlist secret
     "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret

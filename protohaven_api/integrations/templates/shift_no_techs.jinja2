@@ -4,7 +4,8 @@
 @TechLeads: no techs assigned for {{shift}} have signed in. [Expecting](https://api.protohaven.org/techs#cal) any of:
 
 {% for t in onduty  %}
-- {{t.name}} ({{t.email}})
+- {% if t.discord_user %}@{{t.discord_user}}{% else %}{{t.name}} ({{t.email}}){% endif %}
+
 {% endfor %}
 
 Please check immediately for techs on duty.

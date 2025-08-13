@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import logging
+import sys
 import time
 from typing import Any, Callable, Dict, List, Tuple
 
@@ -73,9 +74,11 @@ def run_cronicle_sync(event_id: str, image: str, params: dict):
                 timeout=REQ_TIMEOUT,
                 verify=False,
             ).json()
-            log.info(str(rep))
+            # log.info(str(rep))
             running[rid] = rep["job"].get("complete") != 1
-        log.info(f"Running: {running}")
+        if running[rid]:
+            sys.stderr.write(".")
+        # log.info(f"Running: {running[rid]}")
         code = rep["job"].get("code")
         if True not in running.values():
             log.info(rep["job"].get("description", f"job completed with code {code}"))

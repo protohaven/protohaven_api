@@ -37,7 +37,7 @@ def resolve_overrides(overrides, shift):
         fname, lname = [n.strip() for n in p.split(" ")][:2]
         mm = list(neon.search_members_by_name(fname, lname, also_fetch=True))
         if len(mm) >= 1:
-            log.warning("Multiple member matches for Neon lookup of tech override {p}")
+            log.warning(f"Multiple member matches for Neon lookup of tech override {p}")
             ovr_people[i] = mm[0]
         else:
             log.warning(
