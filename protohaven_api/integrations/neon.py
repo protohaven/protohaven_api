@@ -543,7 +543,7 @@ class AccountCache(WarmDict):
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
             aa = list(
-                search_members_by_email(k, fields=self.FIELDS, fetch_memberships=True)
+                search_members_by_email(k, fields=self.FIELDS, fetch_memberships=False)
             )
             if len(aa) > 0:
                 log.info(f"cache miss on '{k}' returned results: {aa}")
@@ -588,7 +588,7 @@ class AccountCache(WarmDict):
         """Refresh values; called every REFRESH_PD"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
-        for a in search_all_members(self.FIELDS, fetch_memberships=True):
+        for a in search_all_members(self.FIELDS, fetch_memberships=False):
             self.update(a)
             n += 1
             if n % 100 == 0:
