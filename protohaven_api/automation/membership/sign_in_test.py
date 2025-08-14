@@ -165,6 +165,37 @@ def test_get_member_deferred_account(mocker):
     assert is_deferred
 
 
+def test_get_member_deferred_by_membership_data(mocker):
+    email = "a@b.com"
+    mocker.patch.object(
+        s.neon,
+        "cache",
+        {
+            email: {
+                "1": mocker.MagicMock(
+                    neon_id="1",
+                    account_automation_ran="oh noes improperly set value",
+                    account_current_membership_status="Future",
+                ),
+            }
+        },
+    )
+    mocker.patch.object(
+        s.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=12345,
+            latest_membership=lambda: mocker.MagicMock(
+                start_date=s.PLACEHOLDER_START_DATE
+            ),
+        ),
+    )
+
+    member, is_deferred = s.get_member_and_activation_state(email)
+    assert member is not None
+    assert is_deferred
+
+
 def test_get_member_deferred_amp_verified(mocker):
     email = "a@b.com"
     mocker.patch.object(

@@ -55,10 +55,13 @@ def result_base():
 
 
 def is_membership_deferred(m):
-    """check if membership is deferred based on accountt automation field or start date"""
+    """check if membership is deferred based on account automation field or start date"""
     if "deferred" in (m.account_automation_ran or ""):
         return True
-    if m.latest_membership().start_date.date() == PLACEHOLDER_START_DATE:
+
+    # Cached member doesn't have membership data already, so we have to refetch
+    m = neon_base.fetch_account(m.neon_id, fetch_memberships=True)
+    if m.latest_membership().start_date.date() == PLACEHOLDER_START_DATE.date():
         return True
     return False
 
