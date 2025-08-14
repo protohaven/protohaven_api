@@ -239,6 +239,29 @@ def test_get_member_active_membership(mocker):
     assert not is_deferred
 
 
+def test_get_member_no_membership_data(mocker):
+    email = "a@b.com"
+    mocker.patch.object(
+        s.neon,
+        "cache",
+        {
+            email: {
+                "1": mocker.MagicMock(
+                    neon_id="1",
+                    account_current_membership_status="INACTIVE",
+                    membership_level=None,
+                    account_automation_ran=None,
+                ),
+            },
+        },
+    )
+
+    member, is_deferred = s.get_member_and_activation_state(email)
+
+    assert member.account_current_membership_status == "INACTIVE"
+    assert not is_deferred
+
+
 def test_get_member_no_account_found(mocker):
     email = "a@b.com"
     mocker.patch.object(s.neon, "cache", {email: {}})
