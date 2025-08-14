@@ -145,13 +145,11 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def set_membership_data(self, data):
         """Merges in membership information fetched from Neon"""
-        if data:
-            self.neon_membership_data = data
+        self.neon_membership_data = data
 
     def set_bio_data(self, data):
         """Merges in Airtable profile pic and bio information"""
-        if data:
-            self.airtable_bio_data = data
+        self.airtable_bio_data = data
 
     @property
     def is_paying_member(self) -> bool:

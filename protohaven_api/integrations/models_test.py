@@ -231,6 +231,14 @@ def test_has_open_seats_below_price():
     assert evt.has_open_seats_below_price(49) == 0
 
 
+def test_latest_membership_when_no_memberships(mocker):
+    """Fetch the latest membership in the member data"""
+    member = Member()
+    mocker.patch.object(models, "tznow", return_value=d(0))
+    member.set_membership_data([])
+    assert not member.latest_membership()
+
+
 def test_latest_membership(mocker):
     """Fetch the latest membership in the member data"""
     member = Member()
