@@ -33,20 +33,28 @@ After deployment, verify that:
   * [ ] Cal can change date range, highlights current day
   * [ ] Cal swap overrides send an alert to the #techs channel
   * [ ] Members tab shows today's sign-ins
-  * [ ] Tool states load, clicking a tool shows info
-  * [ ] Storage tab allows for looking up Neon ID by name/email
-  * [ ] Areas have some leads assigned to them
-  * [ ] Areas has populated "additional contacts" section at the bottom of the pane
+  * [x] Members tab shows "access denied" when not logged in
+  * [ ] Tool states load
+  * [x] Can view history for a tool by clicking the link
+  * [x] Tool guide and clearance documentation status are shown
+  * [x] Docs pages missing approvals can click to the wiki page
+  * [x] Can sort tools by name, urgency, time in state etc.
+  * [x] Can filter tools by area
+  * [x] Storage tab allows for looking up Neon ID by name/email
+  * [x] Areas have some leads assigned to them
+  * [x] Area leads only show first name when not signed in
+  * [x] Areas has populated "additional contacts" section at the bottom of the pane
   * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [ ] Unauthenticated user only sees first names on tech roster
   * [ ] Events tab can create, register, unregister, and delete a techs-only class
   * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
-  * [ ] Loads profile data for instructor
-  * [ ] Loads classes for instructor, including attendance data
+  * [x] Loads profile data for instructor
+  * [x] Loads classes for instructor, including attendance data
   * [ ] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
-  * [ ] Scheduler runs and proposes classes
-  * [ ] Can confirm/unconfirm a class
-  * [ ] Log submission button works
+  * [x] Scheduler runs and proposes classes
+  * [x] Can confirm/unconfirm a class
+  * [x] Log submission button works
 * https://api.protohaven.org/event_ticker
   * [ ] Returns JSON of sample classes
 * https://api.protohaven.org/staff

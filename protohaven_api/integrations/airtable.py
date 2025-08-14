@@ -508,7 +508,7 @@ def delete_availability(rec):
     return delete_record("class_automation", "availability", rec)
 
 
-def get_forecast_overrides():
+def get_forecast_overrides(include_pii):
     """Gets all overrides for the shop tech shift forecast"""
     for r in get_all_records("people", "shop_tech_forecast_overrides"):
         if r["fields"].get("Shift Start", None) is None:
@@ -516,10 +516,18 @@ def get_forecast_overrides():
         d = safe_parse_datetime(r["fields"]["Shift Start"])
         ap = "AM" if d.hour < 12 else "PM"
         techs = r["fields"].get("Override", "").split("\n")
+        last_modified = (
+            f"{r['fields'].get('Last Modified By', 'Unknown')} "
+            f"on {r['fields']['Last Modified']}"
+        )
+
+        if not include_pii:  # "First name" only if no PII allowed
+            techs = [t.split(" ")[0] for t in techs]
+            last_modified = r["fields"]["Last Modified"]
         yield f"{d.strftime('%Y-%m-%d')} {ap}", (
             r["id"],
             techs if techs != [""] else [],
-            f"{r['fields'].get('Last Modified By', 'Unknown')} on {r['fields']['Last Modified']}",
+            last_modified,
         )
 
 

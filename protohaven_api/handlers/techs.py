@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import re
 from collections import defaultdict
 
 from flask import Blueprint, Response, current_app, redirect, request, session
@@ -141,18 +142,22 @@ def techs_area_leads():
     _, areas = _fetch_tool_states_and_areas(tznow())
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
-    for t in neon.search_members_with_role(
-        Role.SHOP_TECH,
-        [
-            "First Name",
+
+    fields = [
+        "First Name",
+        neon.CustomField.AREA_LEAD,
+    ]
+
+    if am_role(Role.SHOP_TECH) or am_lead_role():
+        fields = fields + [
             "Last Name",
             "Preferred Name",
             "Email 1",
-            neon.CustomField.AREA_LEAD,
             neon.CustomField.PRONOUNS,
             neon.CustomField.SHOP_TECH_SHIFT,
-        ],
-    ):
+        ]
+
+    for t in neon.search_members_with_role(Role.SHOP_TECH, fields):
         for a in t.area_lead:
             data = {"name": t.name, "email": t.email, "shift": t.shop_tech_shift}
             if a not in area_map:
@@ -180,16 +185,25 @@ def techs_forecast():
     result = tauto.generate(
         date, forecast_len, include_pii=am_role(Role.SHOP_TECH) or am_lead_role()
     )
+    # Extract names from Member class objects
     for d in result["calendar_view"]:
         for ap in ("AM", "PM"):
             d[ap]["people"] = [p.name for p in d[ap]["people"]]
+            if "ovr" in d[ap]:
+                d[ap]["ovr"]["orig"] = [p.name for p in d[ap]["ovr"]["orig"]]
     return result
+
+
+def _remove_discord_formatting(s: str) -> str:
+    return re.sub(r"[_*#]", "", s.replace("\n", ""))
 
 
 def _notify_override(name, shift, techs):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
-    techs = [t.replace("*", "") for t in techs]
+    techs = [
+        _remove_discord_formatting(t) for t in techs
+    ]  # Remove formatting to allow for bold syntax
     msg = (
         f"**On duty {shift}: {', '.join(techs)}** "
         f"({name} edited via [/techs](https://api.protohaven.org/techs#cal))"
@@ -253,24 +267,24 @@ def techs_list():
     for m in neon.search_members_with_role(
         Role.SHOP_TECH, fields, merge_bios=airtable.get_all_tech_bios()
     ):
-        techs_results.append(
-            {
-                k: getattr(m, k)
-                for k in (
-                    "name",
-                    "email",
-                    "clearances",
-                    "shop_tech_first_day",
-                    "shop_tech_last_day",
-                    "area_lead",
-                    "interest",
-                    "expertise",
-                    "shop_tech_shift",
-                    "volunteer_bio",
-                    "volunteer_picture",
-                )
-            }
-        )
+        t = {
+            k: getattr(m, k)
+            for k in (
+                "name",
+                "email",
+                "clearances",
+                "shop_tech_first_day",
+                "shop_tech_last_day",
+                "area_lead",
+                "interest",
+                "expertise",
+                "shop_tech_shift",
+                "volunteer_bio",
+                "volunteer_picture",
+            )
+        }
+        t["id"] = m.neon_id
+        techs_results.append(t)
 
     return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
 

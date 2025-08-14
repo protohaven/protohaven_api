@@ -433,6 +433,16 @@ def test_event_properties():
         assert evt.supply_state == "Ordered"
 
 
+def test_none_vs_zero_attendee_count():
+    """Specifically test handling of attendee count on various falsey data"""
+    e = Event()
+    e.neon_search_data = {"Event Registration Attendee Count": "0"}
+    assert e.attendee_count == 0
+    e.neon_search_data = {}
+    e.neon_attendee_data = []
+    assert e.attendee_count == 0
+
+
 def test_sign_in_event_from_airtable():
     """Test creating SignInEvent from airtable data"""
     data = {
@@ -493,3 +503,19 @@ def test_sign_in_event_invalid_attribute():
     event = SignInEvent.from_airtable(data)
     with pytest.raises(AttributeError):
         _ = event.invalid_attr
+
+
+def test_event_attendee_generator_data():
+    """Ensure attendee generators are safely handled when passed to the Event model"""
+    e = Event()
+
+    def attendees_gen():
+        yield {"accountId": 123}
+
+    e.set_attendee_data(attendees_gen())
+    assert e.attendee_count == 1
+    assert (
+        e.attendee_count == 1
+    )  # Called a second time, shouldn't exhaust the generator
+    for a in e.attendees:
+        assert a.neon_id == 123

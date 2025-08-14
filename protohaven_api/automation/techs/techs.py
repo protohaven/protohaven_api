@@ -125,7 +125,7 @@ def generate(date, forecast_len, include_pii=False):
         ]
 
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
-    overrides = dict(airtable.get_forecast_overrides())
+    overrides = dict(airtable.get_forecast_overrides(include_pii))
     techs = list(neon.search_members_with_role(Role.SHOP_TECH, tech_fields))
     shift_map = defaultdict(list)
     for t in techs:
