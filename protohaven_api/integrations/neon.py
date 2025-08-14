@@ -579,8 +579,9 @@ class AccountCache(WarmDict):
         d = super().get(a.email, {})  # Don't trigger cache miss
         d[a.neon_id] = a
         self[a.email] = d
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a.fname} {a.lname}")] = a.email
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a.email}")] = a.email
+        self.fuzzy[a.email] = rapidfuzz.utils.default_process(
+            f"{a.fname} {a.lname} {a.email}"
+        )
         if a.booked_id:
             self.by_booked_id[a.booked_id] = a
 
@@ -616,17 +617,17 @@ class AccountCache(WarmDict):
             score_cutoff=15,
             limit=top_n,
         ):
-            yield m[0]
+            yield m[2]
 
     def find_best_match(self, search_string, top_n=10):
         """Deduplicates find_best_match_internal"""
         result = set()
         for m in self._find_best_match_internal(search_string, 2 * top_n):
-            if m in result:
+            if m in result:  # prevent duplicates
                 continue
             result.add(m)
             # Avoid cache misses on lookup
-            yield from super().get(m).values()
+            yield from (super().get(m) or {}).values()
             if len(result) >= top_n:
                 break
 
