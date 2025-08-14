@@ -42,7 +42,7 @@ def resolve_overrides(overrides, shift):
         log.info(f"Seeking match for tech override {p}")
         for m in mm:
             log.info(f"Candidate {m.name} vs {p}")
-            if m.name == p:
+            if m.name.strip().lower() == p.strip().lower():
                 ovr_people[i] = mm[0]
                 found = True
                 break
