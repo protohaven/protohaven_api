@@ -625,7 +625,7 @@ class AccountCache(WarmDict):
         if len(self.fuzzy) == 0:
             sp = search_string.split(" ")
             if len(sp) >= 2:
-                yield from search_members_by_name(sp[0], sp[1], self.FIELDS)
+                yield from search_members_by_name(sp[0], sp[1], fields=self.FIELDS)
         for m in self._find_best_match_internal(search_string, 2 * top_n):
             if m in result:  # prevent duplicates
                 continue
