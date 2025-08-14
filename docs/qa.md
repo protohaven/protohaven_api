@@ -16,17 +16,17 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 After deployment, verify that:
 
 * https://api.protohaven.org/
-  * [ ] Page redirects to /member, loads and displays clearances + links
+  * [x] Page redirects to /member, loads and displays clearances + links
 * https://api.protohaven.org/welcome
-  * [ ] Member sign in fails with hello+testnonmember@protohaven.org
-  * [ ] Member sign in with hello+testalert@protohaven.org sends the notice
-  * [ ] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [ ] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
-  * [ ] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
+  * [x] Member sign in fails with hello+testnonmember@protohaven.org
+  * [x] Member sign in with hello+testalert@protohaven.org sends the notice
+  * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
+  * [x] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
+  * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
-  * [ ] Displays upcoming calendar events
-  * [ ] Shows reservations
-  * [ ] Shows classes including attendee data
+  * [x] Displays upcoming calendar events
+  * [x] Shows reservations
+  * [x] Shows classes including attendee data, both Neon and Eventbrite
 * https://api.protohaven.org/techs
   * [ ] Cal loads, individual shifts can be clicked and overridden, highlights current day
   * [ ] Full name is visible when logged in as a tech / tech lead

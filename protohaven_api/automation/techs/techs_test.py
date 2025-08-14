@@ -48,15 +48,17 @@ def test_resolve_overrides(mocker):
     # Setup test data
     test_overrides = {
         "shift1": ("id1", ["John Doe", "Jane Smith"], "editor1"),
-        "shift2": ("id2", ["Guest Tech"], None),
+        "shift2": ("id2", ["GuestTech"], None),
     }
 
     # Mock neon.search_members_by_name
     mock_member1 = mocker.MagicMock()
+    mock_member1.name = "John Doe"
     mock_member2 = mocker.MagicMock()
+    mock_member2.name = "Jane Smith"
     mocker.patch.object(
-        t.neon,
-        "search_members_by_name",
+        t.neon.cache,
+        "find_best_match",
         side_effect=[
             [mock_member1],  # John Doe
             [mock_member2],  # Jane Smith
@@ -74,7 +76,7 @@ def test_resolve_overrides(mocker):
     got = t.resolve_overrides(test_overrides, "shift2")
     assert got[0] == "id2"
     assert len(got[1]) == 1
-    assert got[1][0].name == "Guest Tech"
+    assert got[1][0].name == "GuestTech"
     assert got[2] is None
 
     # Test shift not in overrides
