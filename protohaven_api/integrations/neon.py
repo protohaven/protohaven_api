@@ -622,6 +622,10 @@ class AccountCache(WarmDict):
     def find_best_match(self, search_string, top_n=10):
         """Deduplicates find_best_match_internal"""
         result = set()
+        if len(self.fuzzy) == 0:
+            sp = search_string.split(" ")
+            if len(sp) >= 2:
+                yield from search_members_by_name(sp[0], sp[1], self.FIELDS)
         for m in self._find_best_match_internal(search_string, 2 * top_n):
             if m in result:  # prevent duplicates
                 continue
