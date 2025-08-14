@@ -39,9 +39,9 @@ def resolve_overrides(overrides, shift):
     for i, p in enumerate(ovr_people):
         mm = list(neon.cache.find_best_match(p))
         found = False
-        log.info(f"Seeking match for tech override {p}")
+        # log.info(f"Seeking match for tech override {p}")
         for m in mm:
-            log.info(f"Candidate {m.name} vs {p}")
+            # log.info(f"Candidate {m.name} vs {p}")
             if m.name.strip().lower() == p.strip().lower():
                 ovr_people[i] = mm[0]
                 found = True
