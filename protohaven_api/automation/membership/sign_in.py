@@ -58,7 +58,7 @@ def is_membership_deferred(m):
     """check if membership is deferred based on account automation field or start date"""
     if "deferred" in (m.account_automation_ran or ""):
         return True
-    if m.account_current_membership_status.upper() != "FUTURE":
+    if (m.account_current_membership_status or "").upper() != "FUTURE":
         return False
 
     # Cached member doesn't have membership data already, so we have to refetch
