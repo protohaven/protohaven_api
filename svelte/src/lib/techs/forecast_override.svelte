@@ -108,7 +108,7 @@ function revert() {
       Original:
       {#each edit.orig as t}
         <ul>
-          <li>{t}</li>
+          <li>{t.name}</li>
         </ul>
       {/each}
       <em>Last edit: {edit.editor}</em>

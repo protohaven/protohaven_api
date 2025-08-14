@@ -31,20 +31,32 @@ def _calendar_badge_color(num_people):
 
 def resolve_overrides(overrides, shift):
     """We must translate overrides into Member instances, with
-    special handling of "guest" techs if they do not exist in Neon"""
+    special handling of "guest" techs if they do not exist in Neon.
+
+    Note that caching must be used here as otherwise calendar views of
+    forecasted tech dates slow to a crawl due to the number of one-off fetches"""
     ovr_id, ovr_people, ovr_editor = overrides.get(shift) or (None, [], None)
     for i, p in enumerate(ovr_people):
-        fname, lname = [n.strip() for n in p.split(" ")][:2]
-        mm = list(neon.search_members_by_name(fname, lname, also_fetch=True))
-        if len(mm) >= 1:
-            log.warning(f"Multiple member matches for Neon lookup of tech override {p}")
-            ovr_people[i] = mm[0]
-        else:
+        mm = list(neon.cache.find_best_match(p))
+        found = False
+        # log.info(f"Seeking match for tech override {p}")
+        for m in mm:
+            # log.info(f"Candidate {m.name} vs {p}")
+            if m.name.strip().lower() == p.strip().lower():
+                ovr_people[i] = mm[0]
+                found = True
+                break
+
+        if not found:
             log.warning(
                 f"Tech override not found in neon: {p}. Creating name-only Member object"
             )
+            ns = [n.strip() for n in p.split(" ")][:2]
             ovr_people[i] = Member.from_neon_search(
-                {"First Name": fname, "Last Name": lname}
+                {
+                    "First Name": ns[0] if len(ns) > 0 else "",
+                    "Last Name": ns[1] if len(ns) > 1 else "",
+                }
             )
     return ovr_id, ovr_people, ovr_editor
 
@@ -113,7 +125,7 @@ def generate(date, forecast_len, include_pii=False):
         ]
 
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
-    overrides = dict(airtable.get_forecast_overrides())
+    overrides = dict(airtable.get_forecast_overrides(include_pii))
     techs = list(neon.search_members_with_role(Role.SHOP_TECH, tech_fields))
     shift_map = defaultdict(list)
     for t in techs:

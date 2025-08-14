@@ -145,13 +145,11 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def set_membership_data(self, data):
         """Merges in membership information fetched from Neon"""
-        if data:
-            self.neon_membership_data = data
+        self.neon_membership_data = data
 
     def set_bio_data(self, data):
         """Merges in Airtable profile pic and bio information"""
-        if data:
-            self.airtable_bio_data = data
+        self.airtable_bio_data = data
 
     @property
     def is_paying_member(self) -> bool:
@@ -310,8 +308,8 @@ class Member:  # pylint:disable=too-many-public-methods
     @property
     def membership_level(self):
         """Fetches membership level - note that this is only available via search result"""
-        mem = self.neon_search_data.get("Membership Level")
-        if mem:
+        if "Membership Level" in self.neon_search_data:
+            mem = self.neon_search_data.get("Membership Level")
             return mem
         mem = self.latest_membership(active_only=True)
         if mem:
@@ -535,10 +533,10 @@ class Event:  # pylint: disable=too-many-public-methods
 
     neon_raw_data: dict = field(default_factory=dict)
     neon_search_data: dict = field(default_factory=dict)
-    neon_attendee_data: dict = field(default_factory=dict)
+    neon_attendee_data: dict | None = field(default=None)
     neon_ticket_data: dict = field(default_factory=dict)
     eventbrite_data: dict = field(default_factory=dict)
-    eventbrite_attendee_data: list = field(default_factory=list)
+    eventbrite_attendee_data: list | None = field(default=None)
     airtable_data: dict = field(default_factory=dict)
 
     @classmethod
@@ -572,10 +570,13 @@ class Event:  # pylint: disable=too-many-public-methods
     def set_attendee_data(self, data):
         """Adds attendee data to an existing Event instance"""
         if data:
+            # We cast to list here as these may be a generator-
+            # otherwise it may misreport the number of attendees
+            # when called multiple times
             if self.eventbrite_data:
-                self.eventbrite_attendee_data = data
+                self.eventbrite_attendee_data = list(data)
             else:
-                self.neon_attendee_data = data
+                self.neon_attendee_data = list(data)
 
     def set_airtable_data(self, data):
         """Adds airtable data to an existing Event instance"""
@@ -629,15 +630,15 @@ class Event:  # pylint: disable=too-many-public-methods
         return None
 
     @property
-    def capacity(self):
+    def capacity(self) -> int:
         """Return capcaity of the event"""
-        return (
+        cap = (
             self.neon_raw_data.get("capacity")
             or self.neon_raw_data.get("maximumAttendees")
             or self.neon_search_data.get("Event Capacity")
             or self.eventbrite_data.get("capacity")
-            or None
         )
+        return None if not cap else int(cap)
 
     @property
     def published(self) -> bool:
@@ -703,11 +704,11 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def attendees(self) -> Generator[Attendee, None, None]:
         """With attendee data, returns Attendee instances"""
-        for a in self.eventbrite_attendee_data:
+        for a in self.eventbrite_attendee_data or []:
             at = Attendee()
             at.eventbrite_data = a
             yield at
-        for a in self.neon_attendee_data:
+        for a in self.neon_attendee_data or []:
             at = Attendee()
             at.neon_raw_data = a
             yield at
@@ -715,7 +716,7 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def signups(self) -> set[int]:
         """With attendee data, compute number of unique registrants for the event"""
-        if not self.neon_attendee_data and not self.eventbrite_attendee_data:
+        if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
             raise RuntimeError("Missing attendee data for call to occupancy()")
 
         return {at.neon_id for at in self.attendees if at.valid}
@@ -728,9 +729,8 @@ class Event:  # pylint: disable=too-many-public-methods
             for tc in self.eventbrite_data["ticket_classes"]:
                 n += tc["quantity_sold"]
             return n
-        return self.neon_search_data.get("Event Registration Attendee Count") or len(
-            self.signups
-        )
+        ac = self.neon_search_data.get("Event Registration Attendee Count")
+        return int(ac) if ac is not None else len(self.signups)
 
     @property
     def occupancy(self):

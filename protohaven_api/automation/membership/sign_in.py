@@ -55,10 +55,20 @@ def result_base():
 
 
 def is_membership_deferred(m):
-    """check if membership is deferred based on accountt automation field or start date"""
+    """check if membership is deferred based on account automation field or start date"""
     if "deferred" in (m.account_automation_ran or ""):
         return True
-    if m.latest_membership().start_date.date() == PLACEHOLDER_START_DATE:
+    if (m.account_current_membership_status or "").upper() != "FUTURE":
+        return False
+
+    # Cached member doesn't have membership data already, so we have to refetch
+    latest_membership = neon_base.fetch_account(
+        m.neon_id, fetch_memberships=True
+    ).latest_membership()
+    if (
+        latest_membership
+        and latest_membership.start_date.date() == PLACEHOLDER_START_DATE.date()
+    ):
         return True
     return False
 
@@ -162,7 +172,7 @@ def get_member_and_activation_state(email):
     # Deferred memberships are returned first, followed by active membership accounts
     # and then inactive ones.
     for m in mm:
-        unverified_amp = "AMP" in m.membership_level and not m.income_based_rate
+        unverified_amp = "AMP" in (m.membership_level or "") and not m.income_based_rate
         if is_membership_deferred(m):
             if unverified_amp:
                 notify_async(

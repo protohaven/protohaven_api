@@ -6,7 +6,7 @@ import json
 import pytest
 
 from protohaven_api.handlers import techs as tl
-from protohaven_api.integrations.models import Role
+from protohaven_api.integrations.models import Member, Role
 from protohaven_api.rbac import set_rbac
 from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
@@ -31,6 +31,43 @@ def test_techs_all_status(lead_client, mocker):
     assert rep == {"tech_lead": True, "techs": []}
 
 
+def test_techs_list(mocker, tech_client):
+    m = Member.from_neon_search(
+        {
+            "Email 1": "a@b.com",
+            "First Name": "Test",
+            "Last Name": "Tech",
+            "Shop Tech First Day": d(0).isoformat(),
+            "Area Lead": "Area1",
+            "Interest": "Stuff",
+            "Expertise": "Things",
+            "Account ID": 123,
+        }
+    )
+    mocker.patch.object(tl.neon, "search_members_with_role", return_value=[m])
+    mocker.patch.object(tl.airtable, "get_all_tech_bios", return_value=[])
+    response = tech_client.get("/techs/list")
+    assert response.json["techs"][0] == {
+        "area_lead": [
+            "Area1",
+        ],
+        "clearances": [],
+        "email": "a@b.com",
+        "expertise": "Stuff",
+        "id": 123,
+        "interest": "Stuff",
+        "name": "Test Tech",
+        "shop_tech_first_day": "Wed, 01 Jan 2025 05:00:00 GMT",
+        "shop_tech_last_day": None,
+        "shop_tech_shift": [
+            None,
+            None,
+        ],
+        "volunteer_bio": None,
+        "volunteer_picture": None,
+    }
+
+
 def test_tech_update(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "set_tech_custom_fields", return_value=(mocker.MagicMock(), None)
@@ -45,6 +82,70 @@ def test_techs_enroll(lead_client, mocker):
     )
     lead_client.post("/techs/enroll", json={"email": "a@b.com", "enroll": True})
     tl.neon.patch_member_role.assert_called_with("a@b.com", Role.SHOP_TECH, True)
+
+
+def test_techs_forecast_unprivileged(mocker, client):
+    """Test techs forecast handler with various parameters"""
+    mock_generate = mocker.patch.object(
+        tl.tauto, "generate", return_value={"calendar_view": []}
+    )
+    mocker.patch.object(tl, "tznow", return_value=d(0))
+
+    # Test default case
+    resp = client.get("/techs/forecast")
+    assert resp.status_code == 200
+    mock_generate.assert_called_once_with(
+        d(0), tl.DEFAULT_FORECAST_LEN, include_pii=False
+    )
+
+    # Test with date parameter
+    mock_generate.reset_mock()
+    client.get("/techs/forecast?date=" + d(0).isoformat())
+    mock_generate.assert_called_once_with(
+        d(0), tl.DEFAULT_FORECAST_LEN, include_pii=False
+    )
+
+    # Test with custom days
+    mock_generate.reset_mock()
+    client.get("/techs/forecast?days=7")
+    mock_generate.assert_called_once_with(d(0), 7, include_pii=False)
+
+    # Test with invalid days
+    resp = client.get("/techs/forecast?days=0")
+    assert resp.status_code == 400
+    assert b"Nonzero days required" in resp.data
+
+
+def test_techs_forecast_as_tech(mocker, tech_client):
+    """Test techs forecast handler when logged in as tech"""
+    mock_member1 = mocker.MagicMock()
+    mock_member1.name = "John Doe"
+    mock_member2 = mocker.MagicMock()
+    mock_member2.name = "Jane Smith"
+    mock_generate = mocker.patch.object(
+        tl.tauto,
+        "generate",
+        return_value={
+            "calendar_view": [
+                {
+                    "AM": {"people": [mock_member1, mock_member2]},
+                    "PM": {
+                        "people": [mock_member1],
+                        "ovr": {"orig": [mock_member1, mock_member2]},
+                    },
+                }
+            ]
+        },
+    )
+    mocker.patch.object(tl, "tznow", return_value=d(0))
+    resp = tech_client.get("/techs/forecast")
+    mock_generate.assert_called_once_with(
+        d(0), tl.DEFAULT_FORECAST_LEN, include_pii=True
+    )
+    assert resp.json["calendar_view"][0] == {
+        "AM": {"people": ["John Doe", "Jane Smith"]},
+        "PM": {"ovr": {"orig": ["John Doe", "Jane Smith"]}, "people": ["John Doe"]},
+    }
 
 
 def test_techs_event_registration_success_register(tech_client, mocker):
@@ -317,6 +418,28 @@ def test_techs_area_leads(mocker, tech_client):
     }
 
     assert response.json == expected_response
+
+
+def test_techs_area_leads_noauth(mocker, client):
+    """Tests the techs_area_leads function"""
+    t1 = Member.from_neon_search({"First Name": "Tech", "Area Lead": "Area1"})
+    mocker.patch.object(
+        tl,
+        "_fetch_tool_states_and_areas",
+        return_value=(None, ["Area1"]),
+    )
+    ms = mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1])
+    response = client.get("/techs/area_leads")
+    ms.assert_called_once_with(
+        Role.SHOP_TECH, ["First Name", tl.neon.CustomField.AREA_LEAD]
+    )
+    assert response.status_code == 200
+    assert response.json == {
+        "area_leads": {
+            "Area1": [{"name": "Tech", "email": None, "shift": [None, None]}]
+        },
+        "other_leads": {},
+    }
 
 
 def test_new_tech_event(mocker, lead_client):

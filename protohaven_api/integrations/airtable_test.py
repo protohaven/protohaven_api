@@ -454,3 +454,50 @@ def test_create_fees_batched(mocker):
     m = mocker.patch.object(a, "insert_records", return_value="ok")
     a.create_fees([["123", 5, 1] for i in range(20)])
     assert len(m.mock_calls) == 2
+
+
+def test_get_forecast_overrides(mocker):
+    """Test getting forecast overrides with and without PII"""
+    mock_records = [
+        {
+            "id": "rec1",
+            "fields": {
+                "Shift Start": d(0, h=10).isoformat(),
+                "Override": "One Tech\nTwo Tech",
+                "Last Modified": "2025-01-01",
+                "Last Modified By": "Admin",
+            },
+        },
+        {
+            "id": "rec2",
+            "fields": {
+                "Shift Start": d(1, h=16).isoformat(),
+                "Override": "Three Tech",
+                "Last Modified": "2025-01-02",
+                "Last Modified By": "System",
+            },
+        },
+        {
+            "id": "rec3",
+            "fields": {
+                "Shift Start": None,  # Should be skipped
+                "Override": "Should Not Appear",
+            },
+        },
+    ]
+
+    mocker.patch.object(a, "get_all_records", return_value=mock_records)
+
+    # Test with PII
+    got = list(a.get_forecast_overrides(include_pii=True))
+    assert got == [
+        ("2025-01-01 AM", ("rec1", ["One Tech", "Two Tech"], "Admin on 2025-01-01")),
+        ("2025-01-02 PM", ("rec2", ["Three Tech"], "System on 2025-01-02")),
+    ]
+
+    # Test without PII
+    got = list(a.get_forecast_overrides(include_pii=False))
+    assert got == [
+        ("2025-01-01 AM", ("rec1", ["One", "Two"], "2025-01-01")),
+        ("2025-01-02 PM", ("rec2", ["Three"], "2025-01-02")),
+    ]

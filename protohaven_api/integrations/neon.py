@@ -543,7 +543,7 @@ class AccountCache(WarmDict):
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
             aa = list(
-                search_members_by_email(k, fields=self.FIELDS, fetch_memberships=True)
+                search_members_by_email(k, fields=self.FIELDS, fetch_memberships=False)
             )
             if len(aa) > 0:
                 log.info(f"cache miss on '{k}' returned results: {aa}")
@@ -579,8 +579,9 @@ class AccountCache(WarmDict):
         d = super().get(a.email, {})  # Don't trigger cache miss
         d[a.neon_id] = a
         self[a.email] = d
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a.fname} {a.lname}")] = a.email
-        self.fuzzy[rapidfuzz.utils.default_process(f"{a.email}")] = a.email
+        self.fuzzy[a.email] = rapidfuzz.utils.default_process(
+            f"{a.fname} {a.lname} {a.email}"
+        )
         if a.booked_id:
             self.by_booked_id[a.booked_id] = a
 
@@ -588,7 +589,7 @@ class AccountCache(WarmDict):
         """Refresh values; called every REFRESH_PD"""
         self.log.info("Beginning AccountCache refresh")
         n = 0
-        for a in search_all_members(self.FIELDS, fetch_memberships=True):
+        for a in search_all_members(self.FIELDS, fetch_memberships=False):
             self.update(a)
             n += 1
             if n % 100 == 0:
@@ -616,17 +617,17 @@ class AccountCache(WarmDict):
             score_cutoff=15,
             limit=top_n,
         ):
-            yield m[0]
+            yield m[2]
 
     def find_best_match(self, search_string, top_n=10):
         """Deduplicates find_best_match_internal"""
         result = set()
         for m in self._find_best_match_internal(search_string, 2 * top_n):
-            if m in result:
+            if m in result:  # prevent duplicates
                 continue
             result.add(m)
             # Avoid cache misses on lookup
-            yield from super().get(m).values()
+            yield from (super().get(m) or {}).values()
             if len(result) >= top_n:
                 break
 

@@ -1,5 +1,7 @@
 """Test base methods for neon integration"""
 
+import json
+
 import pytest
 
 from protohaven_api.integrations import neon_base as nb
@@ -16,6 +18,19 @@ def test_paginated_search(mocker):
     results = list(nb.paginated_search([], []))
     assert results == [{"id": 1}, {"id": 2}]
     assert m.call_count == 2
+
+
+def test_paginated_search_removes_duplicate_output_fields(mocker):
+    """Test paginated_search removes duplicates from output fields which would cause a Neon error"""
+    mock_connector = mocker.patch.object(nb, "get_connector")
+    m = mock_connector.return_value.neon_request
+    m.side_effect = [
+        {"pagination": {"totalPages": 1}, "searchResults": [{"id": 1}]},
+    ]
+    list(nb.paginated_search([], ["a", "a", 123, 123]))
+    m.assert_called_once()
+    output_fields = json.loads(m.call_args_list[0].kwargs["data"])["outputFields"]
+    assert len(output_fields) == 2 and 123 in output_fields and "a" in output_fields
 
 
 def test_paginated_search_runtime_error(mocker):
@@ -53,7 +68,7 @@ def test_paginated_fetch(mocker):
 
 
 def test_paginated_fetch_runtime_error(mocker):
-    """Test that paginated_search raises RuntimeError when search fails"""
+    """Test that paginated_fetch raises RuntimeError when search fails"""
     mocker.patch.object(nb, "get_connector")
     mocker.patch.object(
         nb.get_connector(), "neon_request", return_value=["Error: testing error"]

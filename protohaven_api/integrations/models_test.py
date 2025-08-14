@@ -36,6 +36,28 @@ def test_is_company():
     assert not m.is_company()
 
 
+def test_membership_level(mocker):
+    """Test Member.is_company for company and individual accounts"""
+    m = Member(neon_search_data={"Membership Level": None})
+    assert not m.membership_level
+    m.neon_search_data["Membership Level"] = "AMP"
+    assert m.membership_level == "AMP"
+    del m.neon_search_data["Membership Level"]
+    with pytest.raises(
+        RuntimeError
+    ):  # Key not present in search -> try membership data -> fail, no data
+        print(m.membership_level)
+    mocker.patch.object(models, "tznow", return_value=d(1))
+    m.neon_membership_data = [
+        {
+            "termStartDate": d(0).isoformat(),
+            "termEndDate": d(2).isoformat(),
+            "membershipLevel": {"name": "Foo"},
+        }
+    ]
+    assert m.membership_level == "Foo"
+
+
 @pytest.mark.parametrize(
     "is_company, status, want",
     [
@@ -207,6 +229,14 @@ def test_has_open_seats_below_price():
     ]
     assert evt.has_open_seats_below_price(100) == 5
     assert evt.has_open_seats_below_price(49) == 0
+
+
+def test_latest_membership_when_no_memberships(mocker):
+    """Fetch the latest membership in the member data"""
+    member = Member()
+    mocker.patch.object(models, "tznow", return_value=d(0))
+    member.set_membership_data([])
+    assert not member.latest_membership()
 
 
 def test_latest_membership(mocker):
@@ -403,6 +433,16 @@ def test_event_properties():
         assert evt.supply_state == "Ordered"
 
 
+def test_none_vs_zero_attendee_count():
+    """Specifically test handling of attendee count on various falsey data"""
+    e = Event()
+    e.neon_search_data = {"Event Registration Attendee Count": "0"}
+    assert e.attendee_count == 0
+    e.neon_search_data = {}
+    e.neon_attendee_data = []
+    assert e.attendee_count == 0
+
+
 def test_sign_in_event_from_airtable():
     """Test creating SignInEvent from airtable data"""
     data = {
@@ -463,3 +503,19 @@ def test_sign_in_event_invalid_attribute():
     event = SignInEvent.from_airtable(data)
     with pytest.raises(AttributeError):
         _ = event.invalid_attr
+
+
+def test_event_attendee_generator_data():
+    """Ensure attendee generators are safely handled when passed to the Event model"""
+    e = Event()
+
+    def attendees_gen():
+        yield {"accountId": 123}
+
+    e.set_attendee_data(attendees_gen())
+    assert e.attendee_count == 1
+    assert (
+        e.attendee_count == 1
+    )  # Called a second time, shouldn't exhaust the generator
+    for a in e.attendees:
+        assert a.neon_id == 123

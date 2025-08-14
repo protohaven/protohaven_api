@@ -72,7 +72,6 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
     $approval_result = array();
     foreach ($tags as $tag) {
       $page = $tag->entity ?? null;
-      $book_slug = $page['book']['slug'];
       if ($page instanceof \BookStack\Entities\Models\Page) {
         $code = strtoupper($tag["value"]);
         $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
