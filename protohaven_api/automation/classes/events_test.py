@@ -1,5 +1,7 @@
 """Tests for event automation module"""
 
+import pytest
+
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.testing import d
 
@@ -66,3 +68,26 @@ def test_fetch_upcoming_events(mocker):
     # Test with airtable merge
     events = list(eauto.fetch_upcoming_events(merge_airtable=True))
     mock_eb_event.set_airtable_data.assert_called_once()
+
+
+def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
+    """Test _fetch_upcoming_events_neon with a callable for `fetch_attendees`"""
+    mocker.patch.object(
+        eauto.neon_base, "paginated_fetch", return_value=[{"id": 1}, {"id": 2}]
+    )
+    mocker.patch.object(
+        eauto.neon,
+        "fetch_attendees",
+        return_value=[{"registratonStatus": "SUCCEEDED", "accountId": "a1"}],
+    )
+
+    got = list(
+        eauto.fetch_upcoming_events_neon(
+            d(0), fetch_attendees=lambda evt: evt.neon_id == 1
+        )
+    )
+    assert got[0].neon_id == 1
+    assert got[0].attendee_count == 1
+    assert got[1].neon_id == 2
+    with pytest.raises(RuntimeError):  # No attendee data
+        print(got[1].attendee_count)
