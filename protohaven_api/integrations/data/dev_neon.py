@@ -312,20 +312,39 @@ def search_accounts():
     }
 
 
+def _merge_account_data(dest, src):
+    assert "individualAccount" in dest
+    for k in src["individualAccount"].keys():
+        if k == "accountCustomFields":
+            continue
+        dest[k] = src[k]  # Probably not entirely correct; needs refinement
+
+    scf = src["individualAccount"].get("accountCustomFields") or []
+    scf_ids = {cf["id"] for cf in scf}
+    dest["individualAccount"]["accountCustomFields"] = [
+        cf
+        for cf in (dest["individualAccount"].get("accountCustomFields") or [])
+        if cf["id"] not in scf_ids
+    ] + scf
+    return dest
+
+
 @app.route("/v2/accounts/<account_id>", methods=["GET", "PATCH"])
 def get_account(account_id):
     """Mock account lookup endpoint for Neon"""
-    if request.method != "GET":
-        raise NotImplementedError(
-            f"Method {request.method} not implemented for /v2/accounts/*"
-        )
-
     for row in airtable_base.get_all_records("fake_neon", "accounts"):
-        if (
-            str(row["fields"]["accountId"]) == str(account_id)
-            and request.method == "GET"
-        ):
+        if str(row["fields"]["accountId"]) != str(account_id):
+            continue
+        if request.method == "GET":
             return row["fields"]["data"]
+        if request.method == "PATCH":
+            # Note: this isn't a deep merge
+            merged_data = _merge_account_data(row["fields"]["data"], request.json)
+            return str(
+                airtable_base.update_record(
+                    {"data": merged_data}, "fake_neon", "accounts", row["id"]
+                )
+            )
 
     return Response("Account not found", status=404)
 
@@ -385,6 +404,8 @@ def handle(method, url, data=None, headers=None):  # pylint: disable=unused-argu
         return client.post(url, json=json.loads(data))
     if method == "DELETE":
         return client.delete(url)
+    if method == "PATCH":
+        return client.patch(url, json=json.loads(data))
     raise RuntimeError(f"method not supported: {method}")
 
 

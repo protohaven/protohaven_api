@@ -8,6 +8,7 @@ import FetchError from '../fetch_error.svelte';
 import EditCell from './editable_td.svelte';
 
 export let visible;
+export let user;
 let loaded = false;
 let promise = new Promise((resolve) => {});
 
@@ -17,6 +18,7 @@ let enrolling = false;
 
 let techs = [];
 let techs_sorted = []
+let user_data = null;
 let sort_type = "clearances_desc";
 $: {
   if (sort_type === "clearances_desc") {
@@ -31,6 +33,9 @@ function refresh() {
   promise = get("/techs/list").then((data) => {
     loaded = true;
     techs = data.techs.map((t) => {
+      if (t.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
+        user_data = t;
+      }
       return {...t, shop_tech_shift: t.shop_tech_shift.join(' ')};
     });
     return data;
@@ -84,6 +89,41 @@ function clearance_click(id) {
 {#await promise}
 <Spinner/>
 {:then p}
+  {#if user_data }
+    <Card class="my-2">
+    <CardHeader><CardTitle>{user_data.name} ({user_data.email})</CardTitle></CardHeader>
+    <CardBody>
+      <Container style="max-width: none;">
+      <Row cols={{ xxl: 2, xl: 2, l: 2, md: 2, sm: 1, xs: 1}}>
+        <Col>
+          <Row cols={{ xxl: 2, xl: 2, l: 2, md: 1, sm: 1, xs: 1}}>
+          {#if user_data.volunteer_bio}
+            <img src={user_data.volunteer_picture} style="max-width: 200px;">
+            <div>
+              <strong>Bio</strong>
+            <div>{user_data.volunteer_bio}</div>
+            </div>
+          {:else}
+            <a href="https://protohaven.org/mugshot" target="_blank">Submit your photo and bio!</a>
+          {/if}
+          </Row>
+        </Col>
+        <Col>
+          <EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.shop_tech_shift}/>
+          <EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.shop_tech_first_day}/>
+          <EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.shop_tech_last_day}/>
+          <EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.area_lead}/>
+          <EditCell title="Interest" enabled={true} on_change={() => update_tech(user_data)} bind:value={user_data.interest}/>
+          <EditCell title="Expertise" enabled={true} on_change={() => update_tech(user_data)} bind:value={user_data.expertise}/>
+          <Col><Button outline on:click={() => clearance_click(user_data.email)}>{user_data.clearances.length} Clearance(s)</Button></Col>
+        </Col>
+      </Row>
+      </Container>
+    </CardBody>
+    </Card>
+    <hr>
+  {/if}
+
   <div class="d-flex">
     {#if enrolling}
       <Spinner/>
@@ -108,9 +148,8 @@ function clearance_click(id) {
     <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
     <ToastBody>{toast_msg.msg}</ToastBody>
   </Toast>
-
-    {#each techs_sorted as t}
-      <Card class="my-2">
+  {#each techs_sorted as t}
+    <Card class="my-2">
 	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
 	<CardBody>
 	<Container style="max-width: none;">

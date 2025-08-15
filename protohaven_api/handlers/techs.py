@@ -12,7 +12,7 @@ from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
 from protohaven_api.integrations.models import Role
-from protohaven_api.rbac import am_lead_role, am_role, require_login_role
+from protohaven_api.rbac import am_lead_role, am_neon_id, am_role, require_login_role
 
 page = Blueprint("techs", __name__, template_folder="templates")
 
@@ -292,16 +292,28 @@ def techs_list():
 
 
 @page.route("/techs/update", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD, redirect_to_login=False)
+@require_login_role(Role.SHOP_TECH_LEAD, Role.SHOP_TECH, redirect_to_login=False)
 def tech_update():
     """Update the custom fields of a shop tech in Neon"""
     data = request.json
     nid = data["id"]
-    body = {
-        k: v
-        for k, v in data.items()
-        if k in ("shift", "area_lead", "interest", "expertise", "first_day", "last_day")
-    }
+
+    editable_fields = (
+        "shift",
+        "area_lead",
+        "interest",
+        "expertise",
+        "first_day",
+        "last_day",
+    )
+    if not am_role(Role.SHOP_TECH_LEAD):
+        if not am_neon_id(nid):
+            return Response("Access Denied", status=401)
+
+        # Techs editing their own data can only edit a subset of fields
+        editable_fields = ("interest", "expertise")
+
+    body = {k: v for k, v in data.items() if k in editable_fields}
     return neon.set_tech_custom_fields(nid, **body)
 
 

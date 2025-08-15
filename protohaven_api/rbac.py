@@ -143,6 +143,12 @@ def require_login_role(
     return fn_setup
 
 
+def am_neon_id(nid: int | str) -> bool:
+    """Returns true if the current session is a particular Neon account, by ID"""
+    sid = session.get("neon_id")
+    return int(nid) == int(sid) if sid is not None else False
+
+
 def am_role(*role: Dict[str, Any]) -> bool:
     """Returns True if the current session is one of the roles provided"""
     return (not is_enabled()) or require_login_role(*role)(lambda: True)() is True

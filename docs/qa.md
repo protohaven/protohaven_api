@@ -45,7 +45,7 @@ After deployment, verify that:
   * [x] Area leads only show first name when not signed in
   * [x] Areas has populated "additional contacts" section at the bottom of the pane
   * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
-  * [ ] Techs roster has some tech photos shown
+  * [x] Techs roster has some tech photos & bios shown
   * [x] Unauthenticated user only sees at most the first names on the roster
   * [ ] Events tab can create, register, unregister, and delete a techs-only class
   * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
