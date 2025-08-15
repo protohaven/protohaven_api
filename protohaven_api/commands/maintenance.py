@@ -117,7 +117,9 @@ class Commands:
                     scheduled.append(t)
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     traceback.print_exc()
-                    errs.append(e)
+                    errs.append(
+                        f"Task \"{t['name']}\":\n" + traceback.format_exc(limit=2)
+                    )
             else:
                 t["gid"] = "NO_APPLY"  # Appease the templater
                 scheduled.append(t)

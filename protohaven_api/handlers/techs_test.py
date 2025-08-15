@@ -76,6 +76,26 @@ def test_tech_update(lead_client, mocker):
     tl.neon.set_tech_custom_fields.assert_called_with("123", interest="stuff")
 
 
+def test_tech_update_as_tech(tech_client, mocker):
+    """Verify that techs have limited access to their own data"""
+    mocker.patch.object(
+        tl.neon, "set_tech_custom_fields", return_value=(mocker.MagicMock(), None)
+    )
+
+    # Techs cannot edit each others' fields
+    rep = tech_client.post("/techs/update", json={"id": "123", "interest": "stuff"})
+    assert rep.status_code == 401
+    tl.neon.set_tech_custom_fields.assert_not_called()
+
+    # Note that only the interest field is allowed to change
+    rep = tech_client.post(
+        "/techs/update",
+        json={"id": "1234", "interest": "stuff", "area_lead": "muahaha"},
+    )
+    assert rep.status_code == 200
+    tl.neon.set_tech_custom_fields.assert_called_with("1234", interest="stuff")
+
+
 def test_techs_enroll(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "patch_member_role", return_value=(mocker.MagicMock(), None)

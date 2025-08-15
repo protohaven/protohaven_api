@@ -252,6 +252,15 @@ def test_has_open_seats_below_price():
     assert evt.has_open_seats_below_price(49) == 0
 
 
+def test_none_vs_empty_ticket_data():
+    """Ensure no tickets is handled differently than ticket data not fetched"""
+    evt = Event()
+    with pytest.raises(RuntimeError):
+        print(evt.single_registration_ticket_id)
+    evt.neon_ticket_data = []
+    assert evt.single_registration_ticket_id is None
+
+
 def test_latest_membership_when_no_memberships(mocker):
     """Fetch the latest membership in the member data"""
     member = Member()

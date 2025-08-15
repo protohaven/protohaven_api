@@ -81,7 +81,7 @@
 <ToolState visible={activeTab == 'tools'}/>
 <Storage visible={activeTab == 'storage'}/>
 <AreaLeads visible={activeTab == 'areas'}/>
-<TechsList visible={activeTab === 'techs'}/>
+<TechsList {user} visible={activeTab === 'techs'}/>
 <Events {user} visible={activeTab === 'events'}/>
 {#await promise}
   <span></span>

@@ -534,7 +534,7 @@ class Event:  # pylint: disable=too-many-public-methods
     neon_raw_data: dict = field(default_factory=dict)
     neon_search_data: dict = field(default_factory=dict)
     neon_attendee_data: dict | None = field(default=None)
-    neon_ticket_data: dict = field(default_factory=dict)
+    neon_ticket_data: dict | None = field(default=None)
     eventbrite_data: dict = field(default_factory=dict)
     eventbrite_attendee_data: list | None = field(default=None)
     airtable_data: dict = field(default_factory=dict)
@@ -590,8 +590,7 @@ class Event:  # pylint: disable=too-many-public-methods
 
     def set_ticket_data(self, data):
         """Adds ticketing data to an existing Event instance"""
-        if data:
-            self.neon_ticket_data = data
+        self.neon_ticket_data = data
 
     def _resolve(self, fetch_field, search_field, eventbrite_field=None):
         """Resolve a field from either neon_search_data or neon_raw_data"""
@@ -748,14 +747,18 @@ class Event:  # pylint: disable=too-many-public-methods
 
     def has_open_seats_below_price(self, max_price):
         """Returns a count if the event has open seats within max_price"""
-        if not self.neon_ticket_data and not self.eventbrite_data:
+        if self.neon_ticket_data is None and not self.eventbrite_data:
             raise RuntimeError(
                 "Missing ticket data for call to has_open_seats_below_price"
             )
         for t in self.ticket_options:
             if (
                 # Neon offers discounted rates for special groups; eventbrite has no restriction
-                (t["name"] == "Single Registration" if self.neon_ticket_data else True)
+                (
+                    t["name"] == "Single Registration"
+                    if self.neon_ticket_data is not None
+                    else True
+                )
                 and t["price"] > 0
                 and t["price"] <= max_price
                 and t["sold"] < t["total"]
@@ -766,10 +769,11 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def single_registration_ticket_id(self):
         """Get the ticket ID for a "single registration" style event ticket"""
-        if not self.neon_ticket_data and not self.eventbrite_data:
+        if self.neon_ticket_data is None and not self.eventbrite_data:
             raise RuntimeError(
                 "Missing ticket data for call to single_registration_ticket_id"
             )
+
         for t in self.ticket_options:
             if t["name"] in ("Single Registration", "General"):
                 return t["id"]
