@@ -3,6 +3,7 @@
 import datetime
 import logging
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Union
 
 from flask import Blueprint, Response, current_app, redirect, request
@@ -506,6 +507,43 @@ def cancel_class():
     return {"success": True}
 
 
+def _get_availability(inst, t0, t1):
+    """We parallelize data fetching here to reduce the load time for
+    instructor dashboard calendar edits"""
+    with ThreadPoolExecutor() as executor:
+        avail_future = executor.submit(airtable.get_instructor_availability, inst)
+        sched_future = executor.submit(airtable.get_class_automation_schedule)
+        res_future = executor.submit(booked.get_reservations, t0, t1)
+
+        avail = list(avail_future.result())
+        sched_raw = list(sched_future.result())
+        res_raw = list(res_future.result().get("reservations", []))
+
+    expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
+    sched = [
+        s
+        for s in sched_raw
+        if safe_parse_datetime(s["fields"]["Start Time"]) >= t0
+        and not s["fields"].get("Rejected")
+    ]
+    reservations = [
+        (
+            res["bufferedStartDate"],
+            res["bufferedEndDate"],
+            res["resourceName"],
+            f"{res['firstName']} {res['lastName']}",
+            f"https://reserve.protohaven.org/Web/reservation/?rn={res['referenceNumber']}",
+        )
+        for res in res_raw
+    ]
+    return {
+        "records": {r["id"]: r["fields"] for r in avail},
+        "availability": expanded,
+        "schedule": sched,
+        "reservations": reservations,
+    }
+
+
 @page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
 def inst_availability():  # pylint: disable=too-many-return-statements
     """Different methods for CRUD actions on Availability records in airtable, used to
@@ -523,29 +561,7 @@ def inst_availability():  # pylint: disable=too-many-return-statements
         t1 += datetime.timedelta(
             hours=get_config("general/ui_constants/hours_in_day", 24)
         )  # End date is inclusive
-        avail = list(airtable.get_instructor_availability(inst))
-        expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
-        sched = [
-            s
-            for s in airtable.get_class_automation_schedule()
-            if safe_parse_datetime(s["fields"]["Start Time"]) >= t0
-            and not s["fields"].get("Rejected")
-        ]
-        return {
-            "records": {r["id"]: r["fields"] for r in avail},
-            "availability": expanded,
-            "schedule": sched,
-            "reservations": [
-                (
-                    res["bufferedStartDate"],
-                    res["bufferedEndDate"],
-                    res["resourceName"],
-                    f"{res['firstName']} {res['lastName']}",
-                    f"https://reserve.protohaven.org/Web/reservation/?rn={res['referenceNumber']}",
-                )
-                for res in booked.get_reservations(t0, t1).get("reservations", [])
-            ],
-        }
+        return _get_availability(inst, t0, t1)
 
     if request.method == "PUT":
         rec = request.json.get("rec")

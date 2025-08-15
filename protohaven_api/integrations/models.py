@@ -415,7 +415,7 @@ class Member:  # pylint:disable=too-many-public-methods
         custom_fields = {
             "discord_user": ("Discord User", "value"),
             "interest": ("Interest", "value"),
-            "expertise": ("Interest", "value"),
+            "expertise": ("Expertise", "value"),
             "account_automation_ran": ("Account Automation Ran", "value"),
         }
         if attr in custom_fields:
@@ -861,28 +861,27 @@ class SignInEvent:
     @property
     def created(self):
         """Returns the date the sign in was recorded, in UTC"""
-        if not self.airtable_data["fields"]["Created"]:
+        c = self.airtable_data["fields"].get("Created")
+        if not c:
             return None
-        return safe_parse_datetime(self.airtable_data["fields"]["Created"]).astimezone(
-            dtz.UTC
-        )
+        return safe_parse_datetime(c).astimezone(dtz.UTC)
 
     @property
     def clearances(self):
         """Returns list of clearances"""
-        cc = self.airtable_data["fields"]["Clearances"]
+        cc = self.airtable_data["fields"].get("Clearances")
         return [c.strip() for c in cc.split(",")] if cc else []
 
     @property
     def violations(self):
         """Returns listed violations"""
-        vv = self.airtable_data["fields"]["Violations"]
+        vv = self.airtable_data["fields"].get("Violations")
         return [v.strip() for v in vv.split(",")] if vv else []
 
     @property
     def email(self):
         """Returns email, canonicalized"""
-        v = self.airtable_data["fields"]["Email"]
+        v = self.airtable_data["fields"].get("Email")
         if not v:
             return "UNKNOWN"
         return v.strip().lower()
