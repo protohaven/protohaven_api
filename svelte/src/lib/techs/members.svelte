@@ -21,10 +21,10 @@ function refresh() {
     for (let d of data) {
       d.created = new Date(d.created);
       console.log(d);
-      if (!by_email[d['Email']]) {
-        by_email[d['Email']] = {...d, "timestamps": new Set()};
+      if (!by_email[d['email']]) {
+        by_email[d['email']] = {...d, "timestamps": new Set()};
       }
-      by_email[d['Email']]['timestamps'].add(d.created.toLocaleTimeString());
+      by_email[d['email']]['timestamps'].add(d.created.toLocaleTimeString());
     }
     let results = Object.values(by_email);
     // Sort descending, newest on top
