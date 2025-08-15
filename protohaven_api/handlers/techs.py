@@ -264,6 +264,7 @@ def techs_list():
             neon.CustomField.AREA_LEAD,
             neon.CustomField.INTEREST,
             neon.CustomField.EXPERTISE,
+            neon.CustomField.CLEARANCES,
         ]
     techs_results = []
     for m in neon.search_members_with_role(
