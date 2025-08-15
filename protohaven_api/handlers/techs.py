@@ -60,14 +60,17 @@ EXCLUDED_AREAS = [
 ]
 
 
-def _fetch_tool_states_and_areas(now):
-    tool_states = []
-    now = now.astimezone(tz)
-    areas = {
+def _fetch_tool_areas():
+    return {
         a["fields"]["Name"].strip()
         for a in airtable.get_areas()
         if a["fields"]["Name"] not in EXCLUDED_AREAS
     }
+
+
+def _fetch_tool_states(now):
+    tool_states = []
+    now = now.astimezone(tz)
     for t in airtable.get_tools():
         status = t["fields"].get("Current Status") or "Unknown"
         msg = t["fields"].get("Status Message") or "Unknown"
@@ -93,14 +96,13 @@ def _fetch_tool_states_and_areas(now):
                 "date": date,
             }
         )
-    return tool_states, areas
+    return tool_states
 
 
 @page.route("/techs/tool_state")
 def techs_tool_state():
     """Fetches info on current state of tools"""
-    tool_states, _ = _fetch_tool_states_and_areas(tznow())
-    return tool_states
+    return _fetch_tool_states(tznow())
 
 
 @page.route("/techs/docs_state")
@@ -139,7 +141,7 @@ def techs_members():
 @page.route("/techs/area_leads")
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
-    _, areas = _fetch_tool_states_and_areas(tznow())
+    areas = _fetch_tool_areas()
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
 

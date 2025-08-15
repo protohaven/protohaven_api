@@ -28,10 +28,10 @@ After deployment, verify that:
   * [x] Shows reservations
   * [x] Shows classes including attendee data, both Neon and Eventbrite
 * https://api.protohaven.org/techs
-  * [ ] Cal loads, individual shifts can be clicked and overridden, highlights current day
-  * [ ] Full name is visible when logged in as a tech / tech lead
-  * [ ] Cal can change date range, highlights current day
-  * [ ] Cal swap overrides send an alert to the #techs channel
+  * [x] Cal loads, individual shifts can be clicked and overridden, highlights current day
+  * [x] Full name is visible only when logged in as a tech / tech lead
+  * [x] Cal can change date range, highlights current day
+  * [x] Cal swap overrides send an alert to the #techs channel
   * [ ] Members tab shows today's sign-ins
   * [x] Members tab shows "access denied" when not logged in
   * [ ] Tool states load
@@ -45,21 +45,21 @@ After deployment, verify that:
   * [x] Area leads only show first name when not signed in
   * [x] Areas has populated "additional contacts" section at the bottom of the pane
   * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
-  * [ ] Unauthenticated user only sees first names on tech roster
+  * [x] Unauthenticated user only sees at most the first names on the roster
   * [ ] Events tab can create, register, unregister, and delete a techs-only class
   * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data
-  * [ ] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
+  * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
   * [x] Scheduler runs and proposes classes
   * [x] Can confirm/unconfirm a class
   * [x] Log submission button works
 * https://api.protohaven.org/event_ticker
-  * [ ] Returns JSON of sample classes
+  * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
-  * [ ] Can summarize one or more discord channels, and view photos
-  * [ ] Access denied if logged in as hello+testmember@protohaven.org
+  * [x] Can summarize one or more discord channels, and view photos
+  * [x] Access denied if logged in as hello+testmember@protohaven.org
 
 ## Discord events
 

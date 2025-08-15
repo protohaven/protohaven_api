@@ -1,6 +1,7 @@
 """Methods for manipulating merged event data (from Neon and Airtable)"""
 
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, eventbrite, neon, neon_base
@@ -45,20 +46,41 @@ def fetch_upcoming_events(
     """Load upcoming events from all sources, with `back_days` of trailing event data.
     Note that querying is done based on the end date so multi-week intensives
     can still appear even if they started earlier than `back_days`."""
+    with ThreadPoolExecutor() as executor:
+        airtable_map = None
+        airtable_future = (
+            executor.submit(airtable.get_class_automation_schedule)
+            if merge_airtable
+            else None
+        )
+
+        after = tznow() - datetime.timedelta(days=back_days)
+        neon_future = executor.submit(
+            fetch_upcoming_events_neon,
+            after,
+            published,
+            airtable_map,
+            fetch_attendees,
+            fetch_tickets,
+        )
+
+        eb_future = executor.submit(
+            eventbrite.fetch_events, status="live,started,ended,completed"
+        )
+
+        airtable_raw = airtable_future.result() if airtable_future is not None else []
+        neon_raw = neon_future.result()
+        eb_raw = eb_future.result()
+
     if merge_airtable:
         airtable_map = {
             int(s["fields"].get("Neon ID")): s
-            for s in airtable.get_class_automation_schedule()
+            for s in airtable_raw
             if s["fields"].get("Neon ID")
         }
-    else:
-        airtable_map = None
 
-    after = tznow() - datetime.timedelta(days=back_days)
-    yield from fetch_upcoming_events_neon(
-        after, published, airtable_map, fetch_attendees, fetch_tickets
-    )
-    for evt in eventbrite.fetch_events(status="live,started,ended,completed"):
+    yield from neon_raw
+    for evt in eb_raw:
         if not evt.end_date or evt.end_date < after:
             continue
         if airtable_map:

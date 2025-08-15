@@ -89,8 +89,29 @@ def test_lname():
     assert m.lname == "Test"
 
 
+def test_shop_tech_metadata():
+    """Test Member tech metadata"""
+    data = {
+        "individualAccount": {
+            "accountCustomFields": [
+                {
+                    "name": "Expertise",
+                    "value": "expertises",
+                },
+                {
+                    "name": "Interest",
+                    "value": "interesting things",
+                },
+            ]
+        }
+    }
+    m = Member(neon_raw_data=data)
+    assert m.expertise == "expertises"
+    assert m.interest == "interesting things"
+
+
 def test_shop_tech_shift_spelling_correction():
-    """Test Member.fname property"""
+    """Test shift parsing"""
     data = {
         "individualAccount": {
             "accountCustomFields": [
@@ -482,6 +503,26 @@ def test_sign_in_event_empty_fields():
             "Created": "2024-01-01T12:00:00Z",
             "Clearances": None,
             "Violations": None,
+            "Am Member": False,
+            "Email": None,
+            "Status": None,
+            "Full Name": None,
+        }
+    }
+    event = SignInEvent.from_airtable(data)
+    assert event.clearances == []
+    assert event.violations == []
+    assert event.member is False
+    assert event.email == "UNKNOWN"
+    assert event.status == "UNKNOWN"
+    assert event.name == ""
+
+
+def test_sign_in_event_absent_fields():
+    """Test SignInEvent with missing optional fields"""
+    data = {
+        "fields": {
+            "Created": "2024-01-01T12:00:00Z",
             "Am Member": False,
             "Email": None,
             "Status": None,

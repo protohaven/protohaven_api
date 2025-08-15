@@ -53,7 +53,7 @@ def test_techs_list(mocker, tech_client):
         ],
         "clearances": [],
         "email": "a@b.com",
-        "expertise": "Stuff",
+        "expertise": "Things",
         "id": 123,
         "interest": "Stuff",
         "name": "Test Tech",
@@ -398,8 +398,8 @@ def test_techs_area_leads(mocker, tech_client):
     t3.name = "Tech3"
     mocker.patch.object(
         tl,
-        "_fetch_tool_states_and_areas",
-        return_value=(None, mock_areas),
+        "_fetch_tool_areas",
+        return_value=mock_areas,
     )
     mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1, t2, t3])
 
@@ -425,8 +425,8 @@ def test_techs_area_leads_noauth(mocker, client):
     t1 = Member.from_neon_search({"First Name": "Tech", "Area Lead": "Area1"})
     mocker.patch.object(
         tl,
-        "_fetch_tool_states_and_areas",
-        return_value=(None, ["Area1"]),
+        "_fetch_tool_areas",
+        return_value=["Area1"],
     )
     ms = mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1])
     response = client.get("/techs/area_leads")
@@ -599,3 +599,33 @@ def test_techs_members(mocker, tech_client):
     got = rep.json
     assert len(got) == 1
     assert got[0]["name"] == m.name
+
+
+def test_techs_tool_state(mocker, client):
+    """Test fetching tool states"""
+    mocker.patch.object(
+        tl.airtable,
+        "get_tools",
+        return_value=[
+            {
+                "fields": {
+                    "Tool Name": "Tool1",
+                    "Name (from Shop Area)": "Area1",
+                    "Tool Code": "T1",
+                }
+            }
+        ],
+    )
+    response = client.get("/techs/tool_state")
+    assert response.status_code == 200
+    assert response.json == [
+        {
+            "area": "Area1",
+            "code": "T1",
+            "date": "",
+            "message": "Unknown",
+            "modified": 0,
+            "name": "Tool1",
+            "status": "Unknown",
+        }
+    ]
