@@ -404,9 +404,6 @@ def techs_backfill_events():
         if not tech_only_event and not tech_backfill_event:
             return False
 
-        if not (tech_only_event or evt.attendee_count > 0):
-            return False
-
         return True
 
     # Should dedupe logic with builder.py eventually.
@@ -417,17 +414,20 @@ def techs_backfill_events():
         if not _keep(evt):
             continue
 
-        for_techs.append(
-            {
-                "id": evt.neon_id,
-                "ticket_id": evt.single_registration_ticket_id,
-                "name": evt.name,
-                "attendees": list(evt.signups),
-                "capacity": evt.capacity,
-                "start": evt.start_date.isoformat(),
-                "supply_cost": evt.supply_cost or 0,
-            }
-        )
+        # attendee_count requires attendee data to have been fetched,
+        # so we have to additionally check here
+        if evt.name.startswith(TECH_ONLY_PREFIX) or evt.attendee_count > 0:
+            for_techs.append(
+                {
+                    "id": evt.neon_id,
+                    "ticket_id": evt.single_registration_ticket_id,
+                    "name": evt.name,
+                    "attendees": list(evt.signups),
+                    "capacity": evt.capacity,
+                    "start": evt.start_date.isoformat(),
+                    "supply_cost": evt.supply_cost or 0,
+                }
+            )
 
     return {
         "events": for_techs,
