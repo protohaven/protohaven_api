@@ -32,9 +32,9 @@ After deployment, verify that:
   * [x] Full name is visible only when logged in as a tech / tech lead
   * [x] Cal can change date range, highlights current day
   * [x] Cal swap overrides send an alert to the #techs channel
-  * [ ] Members tab shows today's sign-ins
+  * [x] Members tab shows today's sign-ins
   * [x] Members tab shows "access denied" when not logged in
-  * [ ] Tool states load
+  * [x] Tool states load
   * [x] Can view history for a tool by clicking the link
   * [x] Tool guide and clearance documentation status are shown
   * [x] Docs pages missing approvals can click to the wiki page
@@ -44,10 +44,12 @@ After deployment, verify that:
   * [x] Areas have some leads assigned to them
   * [x] Area leads only show first name when not signed in
   * [x] Areas has populated "additional contacts" section at the bottom of the pane
-  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [ ] Techs roster has some tech photos shown
   * [x] Unauthenticated user only sees at most the first names on the roster
   * [ ] Events tab can create, register, unregister, and delete a techs-only class
-  * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data

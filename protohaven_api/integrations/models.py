@@ -717,7 +717,7 @@ class Event:  # pylint: disable=too-many-public-methods
     def signups(self) -> set[int]:
         """With attendee data, compute number of unique registrants for the event"""
         if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
-            raise RuntimeError("Missing attendee data for call to occupancy()")
+            raise RuntimeError("Missing attendee data for call to signups()")
 
         return {at.neon_id for at in self.attendees if at.valid}
 

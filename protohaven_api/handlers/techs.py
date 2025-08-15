@@ -378,34 +378,44 @@ def techs_backfill_events():
     """
     for_techs = []
     now = tznow()
-    # Should dedupe logic with builder.py eventually.
-    # We look for unpublished events too since those may be tech events
-    for evt in eauto.fetch_upcoming_events(
-        published=False, merge_airtable=True, fetch_attendees=True, fetch_tickets=True
-    ):
+
+    def _keep(evt):
         if evt.in_blocklist():
-            continue
+            return False
         tech_only_event = evt.name.startswith(TECH_ONLY_PREFIX) and evt.registration
         tech_backfill_event = (
             evt.published
             and evt.registration
             and evt.start_date - datetime.timedelta(days=1) < now < evt.start_date
         )
+
         if not tech_only_event and not tech_backfill_event:
+            return False
+
+        if not (tech_only_event or evt.attendee_count > 0):
+            return False
+
+        return True
+
+    # Should dedupe logic with builder.py eventually.
+    # We look for unpublished events too since those may be tech events
+    for evt in eauto.fetch_upcoming_events(
+        published=False, merge_airtable=True, fetch_attendees=_keep, fetch_tickets=_keep
+    ):
+        if not _keep(evt):
             continue
 
-        if tech_only_event or evt.attendee_count > 0:
-            for_techs.append(
-                {
-                    "id": evt.neon_id,
-                    "ticket_id": evt.single_registration_ticket_id,
-                    "name": evt.name,
-                    "attendees": list(evt.signups),
-                    "capacity": evt.capacity,
-                    "start": evt.start_date.isoformat(),
-                    "supply_cost": evt.supply_cost or 0,
-                }
-            )
+        for_techs.append(
+            {
+                "id": evt.neon_id,
+                "ticket_id": evt.single_registration_ticket_id,
+                "name": evt.name,
+                "attendees": list(evt.signups),
+                "capacity": evt.capacity,
+                "start": evt.start_date.isoformat(),
+                "supply_cost": evt.supply_cost or 0,
+            }
+        )
 
     return {
         "events": for_techs,

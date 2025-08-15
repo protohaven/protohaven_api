@@ -2,10 +2,21 @@
 
 import datetime
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, eventbrite, neon, neon_base
 from protohaven_api.integrations.models import Event
+
+
+def _should(condition: bool | Callable[[Any], bool], v: Any) -> bool:
+    """Evaluates a boolean or a function which returns a boolean. This
+    enables selective fetching of supplemental data per-record"""
+    if callable(condition):
+        return condition(v)
+    if isinstance(condition, bool):
+        return condition
+    return False
 
 
 def fetch_upcoming_events_neon(
@@ -27,9 +38,9 @@ def fetch_upcoming_events_neon(
         evt = Event.from_neon_fetch(e)
         if airtable_map:
             evt.set_airtable_data(airtable_map.get(evt.neon_id))
-        if fetch_attendees:
+        if _should(fetch_attendees, evt):
             evt.set_attendee_data(neon.fetch_attendees(evt.neon_id))
-        if fetch_tickets:
+        if _should(fetch_tickets, evt):
             evt.set_ticket_data(
                 neon.fetch_tickets_internal_do_not_use_directly(evt.neon_id)
             )
