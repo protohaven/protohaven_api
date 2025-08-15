@@ -391,27 +391,28 @@ def admin_data():
     for inst in airtable_base.get_all_records("class_automation", "capabilities"):
         result["capabilities"].append(
             {
-                "name": inst["fields"]["Instructor"],
-                "email": inst["fields"]["Email"],
-                "active": inst["fields"]["Active"],
+                "name": inst["fields"].get("Instructor") or "unknown",
+                "email": inst["fields"].get("Email") or "unknown",
+                "active": inst["fields"].get("Active") or False,
             }
         )
     for tmpl in airtable_base.get_all_records("class_automation", "classes"):
+        fields = tmpl.get("fields") or {}
         result["classes"].append(
             {
-                "name": tmpl["fields"]["Name"],
-                "approved": tmpl["fields"]["Approved"],
-                "schedulable": tmpl["fields"]["Schedulable"],
-                "clearances earned": tmpl["fields"]["Clearances Earned"],
-                "age requirement": tmpl["fields"]["Age Requirement"],
-                "capacity": tmpl["fields"]["Capacity"],
-                "supply_cost": tmpl["fields"]["Supply Cost"],
-                "price": tmpl["fields"]["Price"],
-                "hours": tmpl["fields"]["Hours"],
-                "recurrence": tmpl["fields"]["Recurrence"],
-                "period": tmpl["fields"]["Period"],
-                "name (from area)": tmpl["fields"]["Name (from Area)"],
-                "image link": tmpl["fields"]["Image Link"],
+                "name": fields.get("Name"),
+                "approved": fields.get("Approved"),
+                "schedulable": fields.get("Schedulable"),
+                "clearances earned": fields.get("Clearances Earned"),
+                "age requirement": fields.get("Age Requirement"),
+                "capacity": fields.get("Capacity"),
+                "supply_cost": fields.get("Supply Cost"),
+                "price": fields.get("Price"),
+                "hours": fields.get("Hours"),
+                "recurrence": fields.get("Recurrence"),
+                "period": fields.get("Period"),
+                "name (from area)": fields.get("Name (from Area)"),
+                "image link": fields.get("Image Link"),
             }
         )
     return dict(result)
