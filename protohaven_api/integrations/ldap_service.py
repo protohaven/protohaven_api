@@ -56,7 +56,8 @@ class NeonLDAPService:
                     "First Name",
                     "Last Name",
                     "Account Current Membership Status",
-                    "Account Current Membership Level"
+                    "Account Current Membership Level",
+                    "API Server Role"
                 ]
                 
                 for member in neon.search_active_members(fields):
@@ -98,9 +99,12 @@ class NeonLDAPService:
             'ou': ['users'],
         }
         
-        # Add membership level if available
-        if hasattr(member, 'membership_level') and member.membership_level:
-            entry['title'] = [member.membership_level]
+        # Add roles from API Server Role custom field
+        if hasattr(member, 'roles') and member.roles:
+            # Convert roles to a list of role names for LDAP
+            role_names = [role['name'] for role in member.roles if role and 'name' in role]
+            if role_names:
+                entry['title'] = role_names
         
         # Filter out empty values
         return {k: v for k, v in entry.items() if v and v[0]}

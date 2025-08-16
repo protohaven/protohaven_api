@@ -41,7 +41,7 @@ class TestNeonLDAPService:
         member.lname = "Doe"
         member.name = "John Doe"
         member.email = "john.doe@example.com"
-        member.membership_level = "Basic"
+        member.roles = [{'name': 'Shop Tech', 'id': '238'}, {'name': 'Admin', 'id': '239'}]
         
         entry = service._member_to_ldap_entry(member)
         
@@ -51,7 +51,7 @@ class TestNeonLDAPService:
         assert entry['givenName'] == ['John']
         assert entry['mail'] == ['john.doe@example.com']
         assert entry['employeeNumber'] == ['12345']
-        assert entry['title'] == ['Basic']
+        assert entry['title'] == ['Shop Tech', 'Admin']
         assert 'inetOrgPerson' in entry['objectClass']
     
     def test_member_to_ldap_entry_minimal(self):
@@ -64,6 +64,7 @@ class TestNeonLDAPService:
         member.lname = None
         member.name = None
         member.email = "user@example.com"
+        member.roles = None
         
         entry = service._member_to_ldap_entry(member)
         
@@ -72,6 +73,44 @@ class TestNeonLDAPService:
         assert entry['givenName'] == ['Unknown']
         assert entry['mail'] == ['user@example.com']
         assert entry['employeeNumber'] == ['67890']
+        # No title field should be present when roles is None
+        assert 'title' not in entry
+    
+    def test_member_to_ldap_entry_roles(self):
+        """Test conversion with various role configurations."""
+        service = NeonLDAPService()
+        
+        # Test with single role
+        member = Mock(spec=Member)
+        member.neon_id = 1
+        member.fname = "Test"
+        member.lname = "User"
+        member.name = "Test User"
+        member.email = "test@example.com"
+        member.roles = [{'name': 'Admin', 'id': '239'}]
+        
+        entry = service._member_to_ldap_entry(member)
+        assert entry['title'] == ['Admin']
+        
+        # Test with multiple roles
+        member.roles = [
+            {'name': 'Admin', 'id': '239'},
+            {'name': 'Shop Tech', 'id': '238'},
+            {'name': 'Instructor', 'id': '75'}
+        ]
+        
+        entry = service._member_to_ldap_entry(member)
+        assert entry['title'] == ['Admin', 'Shop Tech', 'Instructor']
+        
+        # Test with empty roles list
+        member.roles = []
+        entry = service._member_to_ldap_entry(member)
+        assert 'title' not in entry
+        
+        # Test with malformed roles
+        member.roles = [{'id': '239'}, {'name': 'Admin', 'id': '239'}]
+        entry = service._member_to_ldap_entry(member)
+        assert entry['title'] == ['Admin']
     
     @patch('protohaven_api.integrations.ldap_service.neon')
     def test_refresh_members_cache(self, mock_neon):

@@ -29,9 +29,11 @@ Neon CRM member data is mapped to LDAP attributes as follows:
 | `givenName`       | First Name               | Given name                     |
 | `mail`            | Email                    | Email address                  |
 | `employeeNumber`  | Neon ID                  | Unique member ID               |
-| `title`           | Membership Level         | Premium, Basic, Student, etc.  |
+| `title`           | API Server Role          | Admin, Shop Tech, Staff, etc.  |
 | `ou`              | "users"                  | Organizational unit            |
 | `objectClass`     | inetOrgPerson, etc.      | LDAP object classes            |
+
+**Note**: The `title` attribute contains role names from the "API Server Role" custom field in Neon CRM. Multiple roles are supported and will appear as multiple values in the `title` attribute.
 
 ## Directory Structure
 
