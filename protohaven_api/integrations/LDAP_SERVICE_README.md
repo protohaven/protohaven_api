@@ -7,7 +7,7 @@ This service provides an LDAP interface to Neon CRM member data, suitable for in
 - **LDAP Directory Interface**: Exposes Neon CRM member data via standard LDAP protocol
 - **Member Data Mapping**: Maps Neon member fields to standard LDAP attributes
 - **Authentication Support**: Basic authentication against Neon member database
-- **Caching**: Periodically refreshes member data from Neon CRM (every 5 minutes)
+- **Caching**: Uses existing AccountCache infrastructure (24-hour refresh cycle)
 - **Standalone Operation**: Can run independently of the main application
 - **Pocket ID Compatible**: Designed for integration with Pocket ID authentication
 
@@ -120,7 +120,7 @@ To integrate with Pocket ID:
 ## Limitations and Production Notes
 
 - **Authentication**: Current implementation provides basic authentication validation. For production use, integrate with Neon's actual authentication system.
-- **Performance**: Service caches member data for 5 minutes. Adjust cache duration as needed.
+- **Performance**: Service uses AccountCache with 24-hour refresh cycle, shared with other Neon integrations for efficiency.
 - **Security**: Consider TLS/SSL for production LDAP connections.
 - **Monitoring**: Add proper monitoring and health checks for production deployment.
 - **Scalability**: For high-traffic scenarios, consider connection pooling and load balancing.
@@ -143,7 +143,7 @@ pytest protohaven_api/integrations/test_ldap_service.py -v
 
 3. **LDAP Connection Issues**: Check host/port accessibility and firewall settings.
 
-4. **Cache Issues**: The service refreshes member cache every 5 minutes. For immediate updates, restart the service.
+4. **Cache Issues**: The service uses AccountCache with 24-hour refresh cycle. For immediate updates, restart the service or manually refresh the AccountCache.
 
 ### Debug Mode
 

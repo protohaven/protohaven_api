@@ -1,8 +1,6 @@
 """LDAP service that proxies account data from Neon CRM for Pocket ID integration."""
 
 import logging
-import threading
-import time
 from typing import Dict, List, Optional
 
 from ldap3 import Server, Connection, ALL, MOCK_SYNC
@@ -10,7 +8,7 @@ from ldap3.core.exceptions import LDAPException
 from ldap3.utils.log import set_library_log_detail_level, BASIC
 
 from protohaven_api.config import get_config
-from protohaven_api.integrations import neon
+from protohaven_api.integrations.neon import AccountCache
 from protohaven_api.integrations.models import Member
 
 
@@ -27,61 +25,47 @@ class NeonLDAPService:
         self.base_dn = base_dn
         self.users_dn = f"ou=users,{base_dn}"
         
-        # Cache for member data
-        self._members_cache: Dict[str, Member] = {}
-        self._cache_expiry = 0
-        self._cache_duration = 300  # 5 minutes
-        self._cache_lock = threading.Lock()
+        # Use existing AccountCache for member data
+        self.account_cache = AccountCache()
         
         # LDAP server setup
         self.server = None
         self.connection = None
         
         log.info(f"Initializing LDAP service on {host}:{port} with base DN: {base_dn}")
+        log.info("Using AccountCache for member data (24-hour refresh cycle)"
     
-    def _refresh_members_cache(self) -> None:
-        """Refresh the members cache from Neon CRM."""
-        with self._cache_lock:
-            if time.time() < self._cache_expiry:
-                return
-            
-            log.info("Refreshing members cache from Neon CRM")
-            new_cache = {}
-            
-            try:
-                # Fetch active members from Neon with required fields
-                fields = [
-                    "Account ID",
-                    "Email 1", 
-                    "First Name",
-                    "Last Name",
-                    "Account Current Membership Status",
-                    "Account Current Membership Level",
-                    "API Server Role"
-                ]
-                
-                for member in neon.search_active_members(fields):
-                    if member.email:
-                        # Use email as primary key for LDAP lookups
-                        email_key = member.email.lower()
-                        new_cache[email_key] = member
-                        
-                        # Also index by Neon ID for alternative lookups
-                        neon_id_key = f"neon_{member.neon_id}"
-                        new_cache[neon_id_key] = member
-                
-                self._members_cache = new_cache
-                self._cache_expiry = time.time() + self._cache_duration
-                log.info(f"Cached {len(new_cache)} member records")
-                
-            except Exception as e:
-                log.error(f"Failed to refresh members cache: {e}")
-                # Keep existing cache on error
+    def _get_all_active_members(self) -> Dict[str, Member]:
+        """Get all active members from AccountCache."""
+        active_members = {}
+        
+        # AccountCache handles its own refresh cycle (24 hours)
+        # We iterate through all cached accounts and filter for active ones
+        for email_accounts in self.account_cache.values():
+            if isinstance(email_accounts, dict):
+                for member in email_accounts.values():
+                    if (hasattr(member, 'account_current_membership_status') and 
+                        member.account_current_membership_status == "Active" and
+                        member.email):
+                        active_members[member.email.lower()] = member
+        
+        return active_members
     
     def _get_member_by_email(self, email: str) -> Optional[Member]:
-        """Get member by email address."""
-        self._refresh_members_cache()
-        return self._members_cache.get(email.lower())
+        """Get member by email address using AccountCache."""
+        try:
+            # AccountCache returns a dict of {neon_id: Member} for the email
+            accounts_dict = self.account_cache.get(email, {})
+            
+            # Return the first active member found (usually there's only one per email)
+            for member in accounts_dict.values():
+                if (hasattr(member, 'account_current_membership_status') and 
+                    member.account_current_membership_status == "Active"):
+                    return member
+        except (KeyError, AttributeError) as e:
+            log.debug(f"Member not found in cache for email {email}: {e}")
+        
+        return None
     
     def _member_to_ldap_entry(self, member: Member) -> Dict:
         """Convert a Member object to LDAP entry attributes."""
@@ -118,7 +102,8 @@ class NeonLDAPService:
         member = self._get_member_by_email(username)
         if not member:
             # Try treating username as the email prefix
-            for email, cached_member in self._members_cache.items():
+            active_members = self._get_all_active_members()
+            for email, cached_member in active_members.items():
                 if email.startswith(f"{username}@"):
                     member = cached_member
                     break
@@ -136,16 +121,14 @@ class NeonLDAPService:
         if base_dn is None:
             base_dn = self.users_dn
         
-        self._refresh_members_cache()
         results = []
         
         # Simple filter parsing - extend as needed
         if filter_str == "(objectClass=*)" or filter_str == "(objectClass=inetOrgPerson)":
-            # Return all users
-            for key, member in self._members_cache.items():
-                if key.startswith('neon_'):
-                    continue  # Skip duplicate neon_id entries
-                
+            # Get all active members from AccountCache
+            active_members = self._get_all_active_members()
+            
+            for member in active_members.values():
                 entry = self._member_to_ldap_entry(member)
                 dn = f"uid={entry['uid'][0]},{self.users_dn}"
                 results.append({
@@ -165,8 +148,9 @@ class NeonLDAPService:
         uid = dn.split(',')[0].split('=')[1]
         
         # Find member by uid (which is email prefix)
-        for email, member in self._members_cache.items():
-            if email.startswith(f"{uid}@") and not email.startswith('neon_'):
+        active_members = self._get_all_active_members()
+        for email, member in active_members.items():
+            if email.startswith(f"{uid}@"):
                 entry = self._member_to_ldap_entry(member)
                 return {
                     'dn': dn,
@@ -184,8 +168,11 @@ class NeonLDAPService:
         try:
             log.info(f"Starting LDAP service on {self.host}:{self.port}")
             
-            # Initialize cache
-            self._refresh_members_cache()
+            # AccountCache handles its own initialization and refresh
+            # Trigger a refresh if needed
+            if not hasattr(self.account_cache, '_data') or not self.account_cache._data:
+                log.info("AccountCache is empty, triggering initial refresh")
+                self.account_cache.refresh()
             
             # Create a lightweight LDAP server using ldap3's mock implementation
             self.server = Server('localhost', get_info=ALL)
@@ -220,7 +207,8 @@ class NeonLDAPService:
                     {k: v for k, v in result['attributes'].items() if k != 'objectClass'}
                 )
             
-            log.info(f"LDAP service started successfully with {len(self._members_cache)} users")
+            active_members = self._get_all_active_members()
+            log.info(f"LDAP service started successfully with {len(active_members)} active users")
             return True
             
         except Exception as e:
@@ -238,10 +226,12 @@ class NeonLDAPService:
     
     def health_check(self) -> Dict:
         """Return health status of the service."""
+        active_members = self._get_all_active_members()
         return {
             "status": "healthy" if self.connection else "stopped",
-            "cached_members": len(self._members_cache),
-            "cache_expiry": self._cache_expiry,
+            "cached_members": len(active_members),
+            "total_cached_accounts": len(self.account_cache),
+            "cache_refresh_period": "24 hours",
             "base_dn": self.base_dn,
             "users_dn": self.users_dn
         }

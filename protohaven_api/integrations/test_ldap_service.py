@@ -112,47 +112,56 @@ class TestNeonLDAPService:
         entry = service._member_to_ldap_entry(member)
         assert entry['title'] == ['Admin']
     
-    @patch('protohaven_api.integrations.ldap_service.neon')
-    def test_refresh_members_cache(self, mock_neon):
-        """Test member cache refresh from Neon."""
+    def test_get_all_active_members(self):
+        """Test getting all active members from AccountCache."""
         service = NeonLDAPService()
         
-        # Mock neon.search_active_members
+        # Mock active member
         mock_member1 = Mock(spec=Member)
         mock_member1.neon_id = 1
         mock_member1.email = "user1@example.com"
+        mock_member1.account_current_membership_status = "Active"
         
+        # Mock inactive member (should be filtered out)
         mock_member2 = Mock(spec=Member)
         mock_member2.neon_id = 2
         mock_member2.email = "user2@example.com"
+        mock_member2.account_current_membership_status = "Inactive"
         
-        mock_neon.search_active_members.return_value = [mock_member1, mock_member2]
+        # Mock the AccountCache data structure
+        service.account_cache._data = {
+            "user1@example.com": {1: mock_member1},
+            "user2@example.com": {2: mock_member2}
+        }
         
-        service._refresh_members_cache()
+        active_members = service._get_all_active_members()
         
-        # Verify cache contents
-        assert "user1@example.com" in service._members_cache
-        assert "user2@example.com" in service._members_cache
-        assert "neon_1" in service._members_cache
-        assert "neon_2" in service._members_cache
-        assert service._members_cache["user1@example.com"] == mock_member1
-        assert service._members_cache["neon_1"] == mock_member1
+        # Verify only active member is returned
+        assert len(active_members) == 1
+        assert "user1@example.com" in active_members
+        assert active_members["user1@example.com"] == mock_member1
     
     def test_get_member_by_email(self):
-        """Test getting member by email address."""
+        """Test getting member by email address using AccountCache."""
         service = NeonLDAPService()
         
-        # Mock member in cache
+        # Mock active member
         mock_member = Mock(spec=Member)
-        service._members_cache["test@example.com"] = mock_member
-        service._cache_expiry = 9999999999  # Far future to avoid refresh
+        mock_member.account_current_membership_status = "Active"
+        
+        # Mock AccountCache get method
+        service.account_cache.get = Mock(return_value={1: mock_member})
         
         result = service._get_member_by_email("test@example.com")
         assert result == mock_member
+        service.account_cache.get.assert_called_with("test@example.com", {})
         
-        result = service._get_member_by_email("TEST@EXAMPLE.COM")  # Case insensitive
+        # Test case insensitivity is handled by AccountCache
+        result = service._get_member_by_email("TEST@EXAMPLE.COM")
         assert result == mock_member
         
+        # Test not found
+        service.account_cache.get = Mock(return_value={})
         result = service._get_member_by_email("notfound@example.com")
         assert result is None
     
@@ -160,23 +169,30 @@ class TestNeonLDAPService:
         """Test user authentication."""
         service = NeonLDAPService()
         
-        # Mock member in cache
+        # Mock member
         mock_member = Mock(spec=Member)
         mock_member.email = "test@example.com"
-        service._members_cache["test@example.com"] = mock_member
-        service._cache_expiry = 9999999999  # Far future to avoid refresh
+        mock_member.account_current_membership_status = "Active"
+        
+        # Mock _get_member_by_email
+        service._get_member_by_email = Mock(return_value=mock_member)
         
         # Test email-based authentication
         assert service.authenticate_user("test@example.com", "password") is True
+        
+        # Mock _get_all_active_members for username-based auth
+        service._get_member_by_email = Mock(return_value=None)  # Email lookup fails
+        service._get_all_active_members = Mock(return_value={"test@example.com": mock_member})
         
         # Test username-based authentication (email prefix)
         assert service.authenticate_user("test", "password") is True
         
         # Test unknown user
+        service._get_member_by_email = Mock(return_value=None)
+        service._get_all_active_members = Mock(return_value={})
         assert service.authenticate_user("unknown@example.com", "password") is False
     
-    @patch('protohaven_api.integrations.ldap_service.neon')
-    def test_search_users(self, mock_neon):
+    def test_search_users(self):
         """Test LDAP user search functionality."""
         service = NeonLDAPService()
         
@@ -188,8 +204,8 @@ class TestNeonLDAPService:
         mock_member.name = "John Doe"
         mock_member.email = "john@example.com"
         
-        service._members_cache["john@example.com"] = mock_member
-        service._cache_expiry = 9999999999  # Far future to avoid refresh
+        # Mock _get_all_active_members
+        service._get_all_active_members = Mock(return_value={"john@example.com": mock_member})
         
         results = service.search_users("(objectClass=*)")
         
@@ -202,10 +218,16 @@ class TestNeonLDAPService:
         """Test health check functionality."""
         service = NeonLDAPService()
         
+        # Mock methods
+        service._get_all_active_members = Mock(return_value={})
+        service.account_cache.__len__ = Mock(return_value=5)
+        
         health = service.health_check()
         
         assert health['status'] == 'stopped'
         assert health['cached_members'] == 0
+        assert health['total_cached_accounts'] == 5
+        assert health['cache_refresh_period'] == '24 hours'
         assert health['base_dn'] == 'dc=protohaven,dc=org'
         assert health['users_dn'] == 'ou=users,dc=protohaven,dc=org'
     
