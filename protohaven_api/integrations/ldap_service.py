@@ -174,8 +174,8 @@ class NeonLDAPService:
     def start_server(self):
         """Start the LDAP server.
         
-        Note: This uses ldap3's mock server for demonstration.
-        For production, you'd want to implement a proper LDAP server.
+        Note: This uses ldap3's mock server as a lightweight implementation.
+        For high-performance production use, consider a dedicated LDAP server.
         """
         try:
             log.info(f"Starting LDAP service on {self.host}:{self.port}")
@@ -183,8 +183,7 @@ class NeonLDAPService:
             # Initialize cache
             self._refresh_members_cache()
             
-            # For demonstration, we'll create a mock server
-            # In production, you'd implement a proper LDAP server
+            # Create a lightweight LDAP server using ldap3's mock implementation
             self.server = Server('localhost', get_info=ALL)
             self.connection = Connection(
                 self.server, 

@@ -15,7 +15,6 @@ This service provides an LDAP interface to Neon CRM member data, suitable for in
 
 - `ldap_service.py` - Main LDAP service implementation (uses real Neon CRM data)
 - `ldap_server.py` - Standalone server runner with command-line interface
-- `demo_ldap_service.py` - Demo version with mock data for testing
 - `test_ldap_service.py` - Unit tests for the LDAP service
 
 ## LDAP Schema Mapping
@@ -55,15 +54,7 @@ dc=protohaven,dc=org
 
 ## Usage
 
-### Running the Demo (with mock data)
-
-```bash
-python protohaven_api/integrations/demo_ldap_service.py
-```
-
-This runs a demonstration with mock member data to show functionality.
-
-### Running the Production Service
+### Running the Service
 
 ```bash
 # Basic usage
@@ -175,10 +166,9 @@ print(health)
 
 For development and testing:
 
-1. Use `demo_ldap_service.py` for initial testing with mock data
-2. Run unit tests to verify functionality
-3. Test integration with actual LDAP clients (ldapsearch, Pocket ID, etc.)
-4. Monitor logs for debugging and optimization
+1. Run unit tests to verify functionality
+2. Test integration with actual LDAP clients (ldapsearch, Pocket ID, etc.)
+3. Monitor logs for debugging and optimization
 
 ## Architecture Notes
 
