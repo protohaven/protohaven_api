@@ -33,6 +33,19 @@ def test_whoami(client):
     }
 
 
+def test_whoami_no_roles(client):
+    """test /whoami returns session info even if no role data"""
+    setup_session(client, roles=None)
+    response = client.get("/whoami")
+    assert json.loads(response.data.decode("utf8")) == {
+        "fullname": "First Last",
+        "email": "foo@bar.com",
+        "neon_id": 1234,
+        "clearances": ["C1", "C2"],
+        "roles": [],
+    }
+
+
 def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
     m1 = mocker.MagicMock(
