@@ -66,23 +66,33 @@ def fixture_client():
     ).test_client()
 
 
-def setup_session(client, roles=None):
+def setup_session(client, roles=True):
     """Add session details to client fixture"""
     with client.session_transaction() as session:
         session["neon_id"] = 1234
+
+        acf = [
+            {
+                "name": "Clearances",
+                "optionValues": [{"name": "C1"}, {"name": "C2"}],
+            },
+        ]
+        # It's important to support setting roles to [], None (not listed in custom fields),
+        # and a default value. This is why we use `True` as the signal here to apply defaults
+        if roles is not None:
+            acf.append(
+                {
+                    "name": "API server role",
+                    "optionValues": (
+                        [{"name": "Board Member"}] if roles is True else roles
+                    ),
+                }
+            )
+
         session["neon_account"] = {
             "individualAccount": {
                 "accountId": 1234,
-                "accountCustomFields": [
-                    {
-                        "name": "Clearances",
-                        "optionValues": [{"name": "C1"}, {"name": "C2"}],
-                    },
-                    {
-                        "name": "API server role",
-                        "optionValues": roles or [{"name": "Board Member"}],
-                    },
-                ],
+                "accountCustomFields": acf,
                 "primaryContact": {
                     "firstName": "First",
                     "lastName": "Last",
