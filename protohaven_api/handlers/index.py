@@ -41,7 +41,7 @@ def whoami():
         "email": acct.email,
         "neon_id": acct.neon_id,
         "clearances": acct.clearances,
-        "roles": [v["name"] for v in acct.roles],
+        "roles": [v["name"] for v in (acct.roles or [])],
     }
 
 
