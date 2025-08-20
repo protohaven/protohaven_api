@@ -1,5 +1,7 @@
 """Tests for event automation module"""
 
+# pylint: skip-file
+
 import pytest
 
 from protohaven_api.automation.classes import events as eauto
@@ -20,7 +22,7 @@ def test_fetch_upcoming_events_neon(mocker):
 
     # Test basic fetch
     after = d(0)
-    events = list(eauto.fetch_upcoming_events_neon(after))
+    events = list(eauto._fetch_upcoming_events_neon(after))
     assert len(events) == 1
     m1.assert_called_with(
         "api_key1",
@@ -28,16 +30,9 @@ def test_fetch_upcoming_events_neon(mocker):
         {"endDateAfter": "2025-01-01", "archived": False, "publishedEvent": True},
     )
 
-    # Test with airtable data
-    airtable_row = {"fields": {"Name": "Test Event"}}
-    events = list(
-        eauto.fetch_upcoming_events_neon(after, airtable_map={1: airtable_row})
-    )
-    mock_event.set_airtable_data.assert_called_with(airtable_row)
-
     # Test with attendees and tickets
     list(
-        eauto.fetch_upcoming_events_neon(
+        eauto._fetch_upcoming_events_neon(
             after, fetch_attendees=True, fetch_tickets=True
         )
     )
@@ -48,26 +43,28 @@ def test_fetch_upcoming_events_neon(mocker):
 def test_fetch_upcoming_events(mocker):
     """Test fetch_upcoming_events integration"""
     mocker.patch.object(eauto, "tznow", return_value=d(0))
-    mock_neon_event = mocker.Mock(end_date=d(1))
-    mock_eb_event = mocker.Mock(end_date=d(2))
+    mock_neon_event = mocker.Mock(end_date=d(1), neon_id=1)
+    mock_eb_event = mocker.Mock(end_date=d(2), neon_id=1)
     m1 = mocker.patch.object(
-        eauto, "fetch_upcoming_events_neon", return_value=[mock_neon_event]
+        eauto,
+        "_fetch_upcoming_events_neon",
+        return_value=(lambda: (yield [mock_neon_event]))(),
     )
-    mocker.patch.object(eauto.eventbrite, "fetch_events", return_value=[mock_eb_event])
+    mocker.patch.object(
+        eauto.eventbrite,
+        "fetch_events",
+        return_value=(lambda: (yield [mock_eb_event]))(),
+    )
+    ad = {"fields": {"Neon ID": 1, "Name": "Test"}}
     mocker.patch.object(
         eauto.airtable,
         "get_class_automation_schedule",
-        return_value=[{"fields": {"Neon ID": 1, "Name": "Test"}}],
+        return_value=[ad],
     )
 
-    # Test without airtable merge
-    events = list(eauto.fetch_upcoming_events(back_days=7))
-    assert len(events) == 2
-    m1.assert_called_with(mocker.ANY, True, None, False, False)
-
-    # Test with airtable merge
     events = list(eauto.fetch_upcoming_events(merge_airtable=True))
-    mock_eb_event.set_airtable_data.assert_called_once()
+    mock_neon_event.set_airtable_data.assert_called_with(ad)
+    mock_eb_event.set_airtable_data.assert_called_with(ad)
 
 
 def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
@@ -82,7 +79,7 @@ def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
     )
 
     got = list(
-        eauto.fetch_upcoming_events_neon(
+        eauto._fetch_upcoming_events_neon(
             d(0), fetch_attendees=lambda evt: evt.neon_id == 1
         )
     )

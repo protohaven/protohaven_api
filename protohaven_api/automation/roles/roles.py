@@ -116,6 +116,7 @@ SYNC_ROLES = {
     "SoftwareDev": Role.SOFTWARE_DEV["name"],
     "MaintenanceCrew": Role.MAINTENANCE_CREW["name"],
     "IT Maintenance": Role.IT_MAINTENANCE["name"],
+    "DevOps": Role.DEVOPS["name"],
 }
 
 

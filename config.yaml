@@ -87,7 +87,6 @@ comms:
     cronicle-automation: ${WEBHOOK_CRONICLE_AUTOMATION}
     tool-automation: ${WEBHOOK_TOOL_AUTOMATION}
     software: ${WEBHOOK_SOFTWARE}
-    instructor-feedback: ${WEBHOOK_INSTRUCTOR_FEEDBACK}
     tech-automation: ${WEBHOOK_TECH_AUTOMATION}
     edu-automation: ${WEBHOOK_EDU_AUTOMATION}
     supply-automation: ${WEBHOOK_SUPPLY_AUTOMATION}
