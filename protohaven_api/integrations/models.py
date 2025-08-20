@@ -32,6 +32,7 @@ class Role:
     ADMIN = {"name": "Admin", "id": "239"}
     SOFTWARE_DEV = {"id": "258", "name": "Software Dev"}
     IT_MAINTENANCE = {"id": "274", "name": "IT Maintenance"}
+    DEVOPS = {"id": "277", "name": "DevOps"}
     MAINTENANCE_CREW = {"id": "259", "name": "Maintenance Crew"}
     MEMBERSHIP_AND_PROGRAMMING = {
         "id": "260",
@@ -834,11 +835,9 @@ class Event:  # pylint: disable=too-many-public-methods
             "volunteer": "Volunteer",
             "supply_state": "Supply State",
         }
-        if attr in airtable_fields:
-            if not self.airtable_data:
-                return None
+        if self.airtable_data and attr in airtable_fields:
             v = self.airtable_data["fields"].get(airtable_fields[attr])
-            if isinstance(v, list) and len(v) == 1:
+            if isinstance(v, list):
                 v = v[0]
             if isinstance(v, str):
                 v = v.strip()
