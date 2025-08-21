@@ -3,7 +3,7 @@
 import datetime
 import logging
 from collections import defaultdict
-from typing import TypedDict, NotRequired, Optional, cast
+from typing import NotRequired, Optional, TypedDict, cast
 
 import holidays
 
@@ -17,10 +17,12 @@ log = logging.getLogger("protohaven_api.automation.techs.techs")
 
 us_holidays = holidays.country_holidays("US")
 
+
 class ShiftOverride(TypedDict):
     id: str
     orig: list[Member]
     editor: Optional[str]
+
 
 class Shift(TypedDict):
     id: str
@@ -29,11 +31,13 @@ class Shift(TypedDict):
     color: str
     ovr: NotRequired[ShiftOverride]
 
+
 class Day(TypedDict):
     date: str
     is_holiday: bool
     AM: Shift
     PM: Shift
+
 
 type CalendarView = list[Day]
 
@@ -49,7 +53,9 @@ def _calendar_badge_color(num_people):
     return "danger"
 
 
-def resolve_overrides(overrides: dict[str, airtable.ForecastOverride], shift) -> tuple[str | None, list[Member], str | None]:
+def resolve_overrides(
+    overrides: dict[str, airtable.ForecastOverride], shift
+) -> tuple[str | None, list[Member], str | None]:
     """We must translate overrides into Member instances, with
     special handling of "guest" techs if they do not exist in Neon.
 
@@ -73,12 +79,17 @@ def resolve_overrides(overrides: dict[str, airtable.ForecastOverride], shift) ->
                 f"Tech override not found in neon: {p}. Creating name-only Member object"
             )
             ns = [n.strip() for n in p.split(" ")][:2]
-            ovr_people_out.append(cast(Member, Member.from_neon_search(
-                {
-                    "First Name": ns[0] if len(ns) > 0 else "",
-                    "Last Name": ns[1] if len(ns) > 1 else "",
-                }
-            )))
+            ovr_people_out.append(
+                cast(
+                    Member,
+                    Member.from_neon_search(
+                        {
+                            "First Name": ns[0] if len(ns) > 0 else "",
+                            "Last Name": ns[1] if len(ns) > 1 else "",
+                        }
+                    ),
+                )
+            )
     return ovr_id, ovr_people_out, ovr_editor
 
 

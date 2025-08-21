@@ -1,9 +1,9 @@
 """Airtable integration (classes, tool state etc)"""
 
-from ast import For
 import datetime
 import logging
 import re
+from ast import For
 from collections import defaultdict
 from functools import lru_cache
 from typing import Iterator
@@ -28,6 +28,7 @@ log = logging.getLogger("integrations.airtable")
 
 
 type ForecastOverride = tuple[str, list[str], str]
+
 
 def get_class_automation_schedule():
     """Grab the current automated class schedule"""

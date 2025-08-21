@@ -339,9 +339,13 @@ class Commands:
         )
 
         # Current day from calendar
-        techs_on_duty_day = forecast.generate(now, 1, include_pii=True)["calendar_view"][0]
+        techs_on_duty_day = forecast.generate(now, 1, include_pii=True)[
+            "calendar_view"
+        ][0]
         # Pick AM vs PM shift
-        techs_on_duty = techs_on_duty_day["AM" if shift.endswith("AM") else "PM"]["people"]
+        techs_on_duty = techs_on_duty_day["AM" if shift.endswith("AM") else "PM"][
+            "people"
+        ]
 
         if len(techs_on_duty) == 0 and techs_on_duty_day["is_holiday"]:
             log.info(f"Oh, it's a holiday, shop's closed.")
@@ -352,7 +356,8 @@ class Commands:
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(airtable.get_signins_between(start, end)):
-            if s is None: continue
+            if s is None:
+                continue
             t = email_map.get(s.email)
             if t in techs_on_duty:
                 on_duty_ok = True
