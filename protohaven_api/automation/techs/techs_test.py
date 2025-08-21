@@ -7,16 +7,16 @@ from protohaven_api.testing import d
 
 
 @pytest.mark.parametrize(
-    "test_date,ovr,want_am",
+    "test_date,is_holiday,ovr,want_am",
     [
-        (d(0), None, []),  # Holiday
-        (d(1), None, ["Default Tech"]),  # Non-holiday, no override
-        (d(1), ["Ovr Tech"], ["Ovr Tech"]),  # Non-holiday with override
-        (d(0), ["Ovr Tech"], ["Ovr Tech"]),  # Holiday with override
-        (d(1), [], []),  # Non-holiday, override to empty
+        (d(0), True, None, []),  # Holiday
+        (d(1), False, None, ["Default Tech"]),  # Non-holiday, no override
+        (d(1), False, ["Ovr Tech"], ["Ovr Tech"]),  # Non-holiday with override
+        (d(0), True, ["Ovr Tech"], ["Ovr Tech"]),  # Holiday with override
+        (d(1), False, [], []),  # Non-holiday, override to empty
     ],
 )
-def test_create_calendar_view(mocker, test_date, ovr, want_am):
+def test_create_calendar_view(mocker, test_date, is_holiday, ovr, want_am):
     """Test generate produces correct output structure"""
     shift = (test_date.strftime("%A"), "AM")
 
@@ -41,6 +41,7 @@ def test_create_calendar_view(mocker, test_date, ovr, want_am):
     )
     result = t.create_calendar_view(test_date, {shift: [mock_tech]}, ovr, 1)
     assert [p.name for p in result[0]["AM"]["people"]] == want_am
+    assert result[0]["is_holiday"] == is_holiday
 
 
 def test_resolve_overrides(mocker):
