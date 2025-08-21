@@ -28,6 +28,7 @@ def test_fetch_upcoming_events_neon(mocker):
         "api_key1",
         "/events",
         {"endDateAfter": "2025-01-01", "archived": False, "publishedEvent": True},
+        batching=True,
     )
 
     # Test with attendees and tickets
@@ -70,7 +71,7 @@ def test_fetch_upcoming_events(mocker):
 def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
     """Test _fetch_upcoming_events_neon with a callable for `fetch_attendees`"""
     mocker.patch.object(
-        eauto.neon_base, "paginated_fetch", return_value=[{"id": 1}, {"id": 2}]
+        eauto.neon_base, "paginated_fetch", return_value=[[{"id": 1}, {"id": 2}]]
     )
     mocker.patch.object(
         eauto.neon,
@@ -83,8 +84,8 @@ def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
             d(0), fetch_attendees=lambda evt: evt.neon_id == 1
         )
     )
-    assert got[0].neon_id == 1
-    assert got[0].attendee_count == 1
-    assert got[1].neon_id == 2
+    assert got[0][0].neon_id == 1
+    assert got[0][0].attendee_count == 1
+    assert got[0][1].neon_id == 2
     with pytest.raises(RuntimeError):  # No attendee data
-        print(got[1].attendee_count)
+        print(got[0][1].attendee_count)
