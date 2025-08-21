@@ -34,17 +34,20 @@ def _fetch_upcoming_events_neon(
     if published:
         q_params["publishedEvent"] = published
 
-    for e in neon_base.paginated_fetch("api_key1", "/events", q_params):
-        evt = Event.from_neon_fetch(e)
-        if _should(fetch_attendees, evt):
-            evt.set_attendee_data(neon.fetch_attendees(evt.neon_id))
-        if _should(fetch_tickets, evt):
-            evt.set_ticket_data(
-                # Specifically allowed to do so here; others should
-                # Use `fetch_upcoming_events` to get ticket data
-                neon.fetch_tickets_internal_do_not_use_directly(evt.neon_id)
-            )
-        yield evt
+    for ee in neon_base.paginated_fetch("api_key1", "/events", q_params, batching=True):
+        batch = []
+        for e in ee:
+            evt = Event.from_neon_fetch(e)
+            if _should(fetch_attendees, evt):
+                evt.set_attendee_data(neon.fetch_attendees(evt.neon_id))
+            if _should(fetch_tickets, evt):
+                evt.set_ticket_data(
+                    # Specifically allowed to do so here; others should
+                    # Use `fetch_upcoming_events` to get ticket data
+                    neon.fetch_tickets_internal_do_not_use_directly(evt.neon_id)
+                )
+            batch.append(evt)
+        yield batch
 
 
 def fetch_upcoming_events(  # pylint: disable=too-many-locals
@@ -68,7 +71,9 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
         neon_gen = _fetch_upcoming_events_neon(
             after, published, fetch_attendees, fetch_tickets
         )
-        eb_gen = eventbrite.fetch_events(status="live,started,ended,completed")
+        eb_gen = eventbrite.fetch_events(
+            status="live,started,ended,completed", batching=True
+        )
         not_done = {
             executor.submit(lambda: (neon_gen, next(neon_gen))),
             executor.submit(lambda: (eb_gen, next(eb_gen))),

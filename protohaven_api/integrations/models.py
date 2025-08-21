@@ -835,13 +835,15 @@ class Event:  # pylint: disable=too-many-public-methods
             "volunteer": "Volunteer",
             "supply_state": "Supply State",
         }
-        if self.airtable_data and attr in airtable_fields:
-            v = self.airtable_data["fields"].get(airtable_fields[attr])
-            if isinstance(v, list):
-                v = v[0]
-            if isinstance(v, str):
-                v = v.strip()
-            return v
+        if attr in airtable_fields:
+            if self.airtable_data:
+                v = self.airtable_data["fields"].get(airtable_fields[attr])
+                if isinstance(v, list):
+                    v = v[0]
+                if isinstance(v, str):
+                    v = v.strip()
+                return v
+            return None
 
         raise AttributeError(attr)
 
