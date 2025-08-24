@@ -120,5 +120,6 @@ wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@2ff7f51bdd1b078630c29f778d
 paho-mqtt==2.1.0
 multidict==6.1.0
 
-# LDAP service dependencies
-ldap3==2.9.1
+# LDAP server dependencies
+ldaptor==21.2.0  # LDAP server implementation
+twisted[tls]==23.10.0  # Required by ldaptor
