@@ -558,6 +558,12 @@ class AccountCache(WarmDict):
             str(k), super().get(str(k).lower().strip(), default)
         )
 
+
+    def values(self):
+        """ Get all items """
+        with self.mu:
+            return {k: dict(v) for k,v in self.cache.items()}
+
     def __setitem__(self, k, v):
         return super().__setitem__(str(k).lower(), v)
 

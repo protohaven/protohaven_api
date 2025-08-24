@@ -1,6 +1,7 @@
 """LDAP service that proxies account data from Neon CRM for Pocket ID integration."""
 
 import logging
+import traceback
 from typing import Dict, List, Optional
 
 from ldap3 import ALL, MOCK_SYNC, Connection, Server
@@ -19,9 +20,9 @@ class NeonLDAPService:
 
     def __init__(
         self,
-        host: str = "0.0.0.0",
-        port: int = 3891,
-        base_dn: str = "dc=protohaven,dc=org",
+        host: str,
+        port: int,
+        base_dn: str,
     ):
         self.host = host
         self.port = port
@@ -170,11 +171,12 @@ class NeonLDAPService:
                     },
                 )
 
-            log.info(f"LDAP service started")
+            log.info("LDAP service started")
             return True
 
-        except Exception as e:
-            log.error(f"Failed to start LDAP server: {e}")
+        except Exception:
+            log.error("Failed to start LDAP server")
+            traceback.print_exc()
             return False
 
     def stop_server(self):
@@ -197,8 +199,8 @@ class NeonLDAPService:
         }
 
 
-def create_ldap_service(host: str = "0.0.0.0", port: int = 3891) -> NeonLDAPService:
+def create_ldap_service(host: str, port: int) -> NeonLDAPService:
     """Factory function to create and configure the LDAP service."""
-    base_dn = get_config("ldap/base_dn", default="dc=protohaven,dc=org")
+    base_dn = get_config("ldap/base_dn")
     service = NeonLDAPService(host=host, port=port, base_dn=base_dn)
     return service

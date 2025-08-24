@@ -26,6 +26,8 @@ general:
     hide_unconfirmed_days_ahead: 10
     hide_confirmed_days_after: 10
     hours_in_day: 24
+ldap:
+  base_dn: "dc=protohaven,dc=org"
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle
