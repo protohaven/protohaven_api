@@ -532,6 +532,7 @@ class AccountCache(WarmDict):
     def __init__(self):
         super().__init__()
         self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
+        self.by_neon_id = {}  # 1:1 mapping of Neon IDs to users in Neon
         self.fuzzy = {}
 
     def _value_has_active_membership(self, v):
@@ -557,6 +558,12 @@ class AccountCache(WarmDict):
             str(k), super().get(str(k).lower().strip(), default)
         )
 
+
+    def values(self):
+        """ Get all items """
+        with self.mu:
+            return {k: dict(v) for k,v in self.cache.items()}
+
     def __setitem__(self, k, v):
         return super().__setitem__(str(k).lower(), v)
 
@@ -579,6 +586,7 @@ class AccountCache(WarmDict):
         d = super().get(a.email, {})  # Don't trigger cache miss
         d[a.neon_id] = a
         self[a.email] = d
+        self.by_neon_id[a.neon_id] = a
         self.fuzzy[a.email] = rapidfuzz.utils.default_process(
             f"{a.fname} {a.lname} {a.email}"
         )
