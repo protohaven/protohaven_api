@@ -84,6 +84,85 @@ def test_tech_sign_ins(mocker, tc, cli):
         assert w in got[0]["body"]
 
 
+Tch = namedtuple("TC", "desc,now,is_holiday,override,signins,want")
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        Tch(
+            "Holiday without overrides",
+            t(17, 0),
+            True,
+            override=False,
+            signins=[],
+            want=[],
+        ),
+        Tch(
+            "Holiday with overrides",
+            t(17, 0),
+            True,
+            override=True,
+            signins=[],
+            want=["no techs assigned"],
+        ),
+    ],
+    ids=idfn,
+)
+def test_tech_sign_ins_holiday(mocker, tc, cli):
+    """Notifies if nobody is signed in for the AM shift"""
+    # Note: we're mocking a Member class object, where the email values
+    # are stripped and lowercased for consistent matching
+
+    mocker.patch.object(
+        F.airtable,
+        "get_signins_between",
+        return_value=[mocker.MagicMock(email=s) for s in tc.signins],
+    )
+
+    mocker.patch.object(
+        F.forecast,
+        "generate",
+        return_value={
+            "calendar_view": [
+                {
+                    "is_holiday": tc.is_holiday,
+                    "AM": {
+                        "people": (
+                            [
+                                mocker.Mock(
+                                    email="a@b.com",
+                                    name="A B (they/them)",
+                                    shift=["Monday", "AM"],
+                                )
+                            ]
+                            if tc.override
+                            else []
+                        )
+                    },
+                    "PM": {
+                        "people": (
+                            [
+                                mocker.Mock(
+                                    email="c@d.com",
+                                    name="C D (he/him)",
+                                    shift=["Monday", "PM"],
+                                )
+                            ]
+                            if tc.override
+                            else []
+                        )
+                    },
+                }
+            ]
+        },
+    )
+    got = cli("tech_sign_ins", ["--now", tc.now.isoformat()])
+    assert len(got) == (1 if len(tc.want) > 0 else 0)
+    for w in tc.want:
+        assert w in got[0]["body"]
+
+
 def test_project_requests(mocker, cli):
     """Test behavior of the `project_requests` CLI command"""
     mocker.patch.object(
