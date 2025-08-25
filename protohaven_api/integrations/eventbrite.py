@@ -11,7 +11,7 @@ def is_valid_id(evt_id):
     return int(evt_id) >= 375402919237
 
 
-def fetch_events(include_ticketing=True, status="live"):
+def fetch_events(include_ticketing=True, status="live", batching=False):
     """Fetches all events from Eventbrite.
     To view attendee counts etc, set include_ticketing=True
     use "status" to filter results
@@ -25,8 +25,11 @@ def fetch_events(include_ticketing=True, status="live"):
         params["expand"] = "ticket_classes"
     for _ in range(100):
         rep = get_connector().eventbrite_request("GET", url, params=params)
-        for data in rep["events"]:
-            yield Event.from_eventbrite_search(data)
+        if batching:
+            yield [Event.from_eventbrite_search(data) for data in rep["events"]]
+        else:
+            for data in rep["events"]:
+                yield Event.from_eventbrite_search(data)
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]

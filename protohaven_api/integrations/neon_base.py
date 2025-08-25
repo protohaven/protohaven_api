@@ -22,7 +22,7 @@ ADMIN_URL = get_config("neon/admin_url")
 SSO_URL = get_config("neon/sso_url")
 
 
-def paginated_fetch(api_key, path, params=None):
+def paginated_fetch(api_key, path, params=None, batching=False):
     """Issue GET requests against Neon's V2 API, yielding all results across
     all result pages"""
     current_page = 0
@@ -41,7 +41,10 @@ def paginated_fetch(api_key, path, params=None):
             raise RuntimeError(f"Got content of type list, expected dict: {content}")
         total_pages = content["pagination"]["totalPages"]
         if content[result_field]:
-            yield from content[result_field]
+            if batching:
+                yield content[result_field]
+            else:
+                yield from content[result_field]
         current_page += 1
 
 
