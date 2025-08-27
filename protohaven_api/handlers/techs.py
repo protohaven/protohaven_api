@@ -488,3 +488,31 @@ def techs_event_registration():
         _notify_registration(account_id, event_id, action)
         return ret
     raise RuntimeError("Unknown error handling event registration state")
+
+
+@page.route("/techs/storage_subscriptions", method=["GET"])
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+def techs_storage_subscriptions():
+    """Fetch tabular data about storage subscriptions in Square
+
+    This offers a more "storage forward" interface vs Square, which is only
+    sorted by customer name and shows a bunch of cancelled stuff too.
+    """
+
+    sub_plan_map = sales.get_subscription_plan_map()
+
+    for sub in sales.get_subscriptions():
+        if sub["status"] != "ACTIVE":
+            continue
+
+        log.info(f"{sub}")
+        plan, price = sub_plan_map.get(
+            sub["plan_variation_id"], (sub["plan_variation_id"], 0)
+        )
+        yield {
+            "email": sub["info"].get("email"),
+            "name": sub["info"].get("name"),
+            "plan": plan,
+            "price": price,
+            "notes": sub["info"].get("note"),
+        }

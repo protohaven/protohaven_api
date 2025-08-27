@@ -33,17 +33,15 @@ def test_transaction_alerts_ok(mocker, cli):
     mocker.patch.object(
         f.sales,
         "get_subscriptions",
-        return_value={
-            "subscriptions": [
-                {
-                    "status": "ACTIVE",
-                    "id": "sub_id",
-                    "plan_variation_id": "var_id",
-                    "customer_id": "cust_id",
-                    "charged_through_date": d(0).isoformat(),
-                }
-            ]
-        },
+        return_value=[
+            {
+                "status": "ACTIVE",
+                "id": "sub_id",
+                "plan_variation_id": "var_id",
+                "customer_id": "cust_id",
+                "charged_through_date": d(0).isoformat(),
+            }
+        ],
     )
     mocker.patch.object(f.sales, "subscription_tax_pct", return_value=7.0)
     got = cli("transaction_alerts", [])
