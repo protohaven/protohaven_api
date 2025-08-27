@@ -53,12 +53,31 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
             [],  # We don't revoke member roles currently
         ),
         Tc(
+            "Nonactive with non-matching roles",
+            "INACTIVE",
+            [],
+            ["Members", "Techs", "Instructors", "PrivateInstructors"],
+            # [("REVOKE", "Members", "membership is inactive")],
+            [
+                # We don't revoke member roles currently - all others fair game
+                ("REVOKE", "Instructors", "not indicated by Neon CRM"),
+                ("REVOKE", "Techs", "not indicated by Neon CRM"),
+                ("REVOKE", "PrivateInstructors", "not indicated by Neon CRM"),
+            ],
+        ),
+        Tc(
             "Nonactive but matching roles",
             "INACTIVE",
-            ["A"],
-            ["A"],
-            # [("REVOKE", "A", "membership is inactive")],
-            [],  # We don't revoke inactive membership roles currently
+            ["B"],
+            ["B"],
+            [("REVOKE", "B", "inactive membership")],
+        ),
+        Tc(
+            "Nonactive instructor",
+            "INACTIVE",
+            ["Instructors", "PrivateInstructors"],
+            ["Instructors", "PrivateInstructors"],
+            [],  # Instructors do not have to be members
         ),
         Tc(
             "Not associated",
@@ -79,7 +98,7 @@ Tc = namedtuple("tc", "desc,neon_member,neon_roles,discord_roles,want")
 )
 def test_singleton_role_sync(tc):
     """Tests various outcomes based on neon membership, roles, and discord roles"""
-    assert tc.want == list(
+    assert set(tc.want) == set(
         r.singleton_role_sync(tc.neon_member, set(tc.neon_roles), set(tc.discord_roles))
     )
 

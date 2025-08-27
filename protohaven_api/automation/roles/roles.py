@@ -131,12 +131,18 @@ def singleton_role_sync(neon_member, neon_roles, discord_roles):
         for role in discord_roles:
             if neon_member == "NOT_FOUND":
                 yield "REVOKE", role, "not associated with a Neon account"
-            else:
-                # For now, we do not revoke in the case of inactive
+            elif role == "Members":
+                # For now, we do not revoke `Members` role in the case of inactive
                 # membership. Must wait for future agreement by members.
-                # Also edge case of an instructor that has no membership
                 # yield "REVOKE", role, "membership is inactive"
                 pass
+            elif role in neon_roles and role in ("Instructors", "PrivateInstructors"):
+                # Edge case of an instructor that has no membership
+                pass
+            elif role in neon_roles:
+                yield "REVOKE", role, "inactive membership"
+            else:
+                yield "REVOKE", role, "not indicated by Neon CRM"
     else:
         neon_roles.add("Members")  # We're a member
         # Match remaining roles against Neon API server roles
