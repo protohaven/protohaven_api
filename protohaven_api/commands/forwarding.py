@@ -347,6 +347,9 @@ class Commands:
             "people"
         ]
 
+        # Short if no techs are on duty and today is a holidy.  Overridden
+        # holiday shifts will have techs_on_duty populated, so we shouldn't
+        # need further checks here. See: `create_calendar_view` in `techs`
         if len(techs_on_duty) == 0 and techs_on_duty_day["is_holiday"]:
             log.info(f"Oh, it's a holiday, shop's closed.")
             return print_yaml([])
