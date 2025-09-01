@@ -329,6 +329,6 @@ def init(cls):
     C = cls()
 
 
-def get():
+def get() -> Connector:
     """Get the initialized connector, or None if not initialized"""
     return C

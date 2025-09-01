@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional, Tuple
+from typing import Dict, Generator, Literal, Optional, Tuple, cast
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
@@ -15,6 +15,11 @@ from protohaven_api.config import safe_parse_datetime, tznow
 log = logging.getLogger("integrations.models")
 
 WAIVER_REGEX = r"version (.+?) on (.*)"
+
+type Weekday = Literal["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+type APShift = Literal["AM", "PM"]
+
+type WeekdayShift = tuple[Weekday, APShift]
 
 
 @dataclass
@@ -459,7 +464,7 @@ class Member:  # pylint:disable=too-many-public-methods
         return [] if not v else [a.strip() for a in v.split(",")]
 
     @property
-    def shop_tech_shift(self):
+    def shop_tech_shift(self) -> WeekdayShift | tuple[None, None]:
         """Returns the tuple of ("weekday", AM|PM) indicating the
         member's shop tech shift"""
         v = self._get_custom_field("Shop Tech Shift", "value")
@@ -468,7 +473,7 @@ class Member:  # pylint:disable=too-many-public-methods
         v = [s.strip() for s in v.split(" ") if s.strip() != ""]
         if len(v) != 2:
             return (None, None)
-        return v[0].title(), v[1].upper()
+        return cast(Weekday, v[0].title()), cast(APShift, v[1].upper())
 
     @property
     def booked_id(self):

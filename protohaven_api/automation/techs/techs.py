@@ -1,6 +1,7 @@
 """Forecasting methods for shop tech shift staffing"""
 
 import datetime
+import datetype
 import logging
 from collections import defaultdict
 from typing import NotRequired, Optional, TypedDict, cast
@@ -8,7 +9,7 @@ from typing import NotRequired, Optional, TypedDict, cast
 import holidays
 
 from protohaven_api.integrations import airtable, neon
-from protohaven_api.integrations.models import Member
+from protohaven_api.integrations.models import APShift, Member, WeekdayShift, Weekday
 from protohaven_api.rbac import Role
 
 DEFAULT_FORECAST_LEN = 16
@@ -42,8 +43,21 @@ class Day(TypedDict):
 type CalendarView = list[Day]
 
 
+type ShiftMap = dict[WeekdayShift, list[Member]]
+
+
+type ShiftAPDate = str # ISO date with an AM|PM suffix: %Y-%m-%d %a
+
+
+type Overrides = dict[ShiftAPDate, airtable.ForecastOverride]
+
+
 def _calendar_badge_color(num_people):
-    """Returns the sveltestrap color tag for a badge given the number of attendant techs"""
+    """Select a badge color tag for the given number of addending techs.
+
+    Returns:
+        A sveltestrap color tag for a badge.
+    """
     if num_people >= 3:
         return "success"
     if num_people == 2:
@@ -54,7 +68,8 @@ def _calendar_badge_color(num_people):
 
 
 def resolve_overrides(
-    overrides: dict[str, airtable.ForecastOverride], shift
+    overrides: Overrides,
+    shift: ShiftAPDate,
 ) -> tuple[str | None, list[Member], str | None]:
     """We must translate overrides into Member instances, with
     special handling of "guest" techs if they do not exist in Neon.
@@ -93,65 +108,99 @@ def resolve_overrides(
     return ovr_id, ovr_people_out, ovr_editor
 
 
+def _forecast_shift(
+    shift_map: ShiftMap,
+    overrides: Overrides,
+    date: datetype.Date,
+    ap: APShift,
+) -> Shift:
+    wd: Weekday = cast(Weekday, date.strftime("%A"))
+    dstr = date.strftime("%Y-%m-%d") # ISO Date
+
+    ovr_id, ovr_people, ovr_editor = resolve_overrides(
+        overrides, f"{dstr} {ap}"
+    )
+
+    # On holidays, we assume by default that nobody is on duty.
+    people_in = shift_map.get((wd, ap), []) if date not in us_holidays else []
+
+    shift_people = []
+    for p in people_in:  # remove if outside of the tech's tenure
+        if (p.shop_tech_first_day is None or p.shop_tech_first_day <= datetype.concrete(date)) and (
+            p.shop_tech_last_day is None or p.shop_tech_last_day >= datetype.concrete(date)
+        ):
+            shift_people.append(p)
+
+    final_people = ovr_people if ovr_id else shift_people
+
+    shift: Shift = {
+        "id": f"Badge{date}{ap}",
+        "title": f"{date.strftime('%a %m/%d')} {ap}",
+        "people": final_people,
+        "color": _calendar_badge_color(len(final_people)),
+    }
+
+    if ovr_id:
+        shift["ovr"] = {
+            "id": ovr_id,
+            "orig": shift_people,
+            "editor": ovr_editor,
+        }
+
+    return shift
+
+
 def create_calendar_view(
-    start_date, shift_map, overrides, forecast_len
-) -> CalendarView:  # pylint: disable=too-many-locals, too-many-nested-blocks
-    """Create a calendar view of tech shifts, respecting overrides and holidays"""
+    start_date: datetype.DateTime,
+    shift_map: ShiftMap,
+    overrides: Overrides,
+    forecast_len: int
+) -> CalendarView:  # pylint: disable=too-many-locals
+    """Create a calendar view of tech shifts, respecting overrides and holidays.
+
+    Args:
+        start_date: Starting date for generated view.
+        shift_map: A dictionary of shop techs mapped to a weekday shift
+        overrides: A dictionary of {airtable.ForecastOverride} overrides mapped to {ShiftAPDate}s
+        forecast_len: Number of days to generate forecast.
+
+    Returns:
+        A CalendarView for the given range with overrides.
+    """
     calendar_view: CalendarView = []
+    start: datetype.Date = start_date.date()
+
     for i in range(forecast_len):
-        d = start_date + datetime.timedelta(days=i)
-        dstr = d.strftime("%Y-%m-%d")
-
-        shifts = {}
-
-        for ap in ("AM", "PM"):
-            wd = d.strftime("%A")
-
-            ovr_id, ovr_people, ovr_editor = resolve_overrides(
-                overrides, f"{dstr} {ap}"
-            )
-
-            # On holidays, we assume by default that nobody is on duty.
-            people_in = shift_map.get((wd, ap), []) if d not in us_holidays else []
-
-            shift_people = []
-            for p in people_in:  # remove if outside of the tech's tenure
-                if (p.shop_tech_first_day is None or p.shop_tech_first_day <= d) and (
-                    p.shop_tech_last_day is None or p.shop_tech_last_day >= d
-                ):
-                    shift_people.append(p)
-
-            final_people = ovr_people if ovr_id else shift_people
-
-            shift: Shift = {
-                "id": f"Badge{i}{ap}",
-                "title": f"{d.strftime('%a %m/%d')} {ap}",
-                "people": final_people,
-                "color": _calendar_badge_color(len(final_people)),
-            }
-
-            if ovr_id:
-                shift["ovr"] = {
-                    "id": ovr_id,
-                    "orig": shift_people,
-                    "editor": ovr_editor,
-                }
-
-            shifts[ap] = shift
+        date: datetype.Date = start + datetime.timedelta(days=i)
+        dstr = date.strftime("%Y-%m-%d")
 
         day: Day = {
             "date": dstr,
-            "is_holiday": d in us_holidays,
-            "AM": shifts["AM"],
-            "PM": shifts["PM"],
+            "is_holiday": date in us_holidays,
+            "AM": _forecast_shift(shift_map, overrides, date, "AM"),
+            "PM": _forecast_shift(shift_map, overrides, date, "PM"),
         }
 
         calendar_view.append(day)
+
     return calendar_view
 
 
-def generate(date, forecast_len, include_pii=False):
-    """Provide advance notice of the level of staffing of tech shifts"""
+def generate(
+    date: datetype.DateTime,
+    forecast_len: int,
+    include_pii: bool=False,
+):
+    """Provide advance notice of the level of staffing of tech shifts.
+
+    Args:
+        date: Starting date for generated view.
+        forecast_len: Number of days to generate forcast.
+        include_pii: Whether to include personally identifying information in message result.
+
+    Returns:
+        A dictionary containing a CalendarView.
+    """
     tech_fields = [
         "First Name",
         neon.CustomField.AREA_LEAD,
@@ -171,11 +220,12 @@ def generate(date, forecast_len, include_pii=False):
         ]
 
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
-    overrides = dict(airtable.get_forecast_overrides(include_pii))
-    techs = list(neon.search_members_with_role(Role.SHOP_TECH, tech_fields))
-    shift_map = defaultdict(list)
+    overrides: Overrides = dict(airtable.get_forecast_overrides(include_pii))
+    techs: list[Member] = list(neon.search_members_with_role(Role.SHOP_TECH, tech_fields))
+    shift_map: ShiftMap = defaultdict(list)
     for t in techs:
-        shift_map[t.shop_tech_shift].append(t)
+        if t.shop_tech_shift[0] is not None:
+            shift_map[t.shop_tech_shift].append(t)
 
     return {
         "calendar_view": create_calendar_view(date, shift_map, overrides, forecast_len),
