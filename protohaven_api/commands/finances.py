@@ -562,7 +562,6 @@ class Commands:
             mem = m.latest_membership()
             if not mem:
                 raise RuntimeError(f"No latest membership for member {m.neon_id}")
-            print(m)
             kwargs = {
                 "account_id": m.neon_id,
                 "membership_name": mem.level,  # Level includes "AMP" which is selected for
