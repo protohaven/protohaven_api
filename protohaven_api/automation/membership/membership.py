@@ -100,7 +100,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
 
     Action is gated on email configured in in config.yaml
     """
-    assert account_id and membership_id
+    assert account_id and membership_id and email and membership_name and fname
     result = []
     include_filter = get_config("neon/webhooks/new_membership/include_filter") or ""
     if include_filter.strip() != "":
@@ -137,8 +137,10 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     cid = None
     if coupon_amount > 0:
         cid = try_cached_coupon(coupon_amount, email, apply)
+        log.info(f"Using coupon ID {cid}")
 
     if apply:
+        log.info("Setting Account Automation Ran status to deferred")
         neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)
 
     if cid:
