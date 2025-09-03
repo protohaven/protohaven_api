@@ -3,8 +3,10 @@
 import datetime
 import logging
 import re
+from ast import For
 from collections import defaultdict
 from functools import lru_cache
+from typing import Iterator
 
 from dateutil.rrule import rrulestr
 
@@ -23,6 +25,9 @@ from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
+
+
+type ForecastOverride = tuple[str, list[str], str]
 
 
 def get_class_automation_schedule():
@@ -267,7 +272,7 @@ def get_all_tech_bios():
     return list(get_all_records("people", "volunteers_staff"))
 
 
-def get_signins_between(start, end):
+def get_signins_between(start, end) -> Iterator[SignInEvent | None]:
     """Fetches all sign-in data between two dates; or after `start` if `end` is None"""
     if not end:
         for rec in get_all_records_after("people", "sign_ins", start):
@@ -508,7 +513,7 @@ def delete_availability(rec):
     return delete_record("class_automation", "availability", rec)
 
 
-def get_forecast_overrides(include_pii):
+def get_forecast_overrides(include_pii) -> Iterator[tuple[str, ForecastOverride]]:
     """Gets all overrides for the shop tech shift forecast"""
     for r in get_all_records("people", "shop_tech_forecast_overrides"):
         if r["fields"].get("Shift Start", None) is None:
