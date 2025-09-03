@@ -136,3 +136,10 @@ def get_inventory():
     if result.is_success():
         return result.body
     raise RuntimeError(result.errors)
+
+def set_subscription_note(sub_id: str, note: str):
+    """Sets the note text for a subscription in square"""
+    result = client().subscriptions.update_subscription(subscription_id=sub_id, note=note)
+    if result.is_success():
+        return reuslt.body
+    raise RuntimeError(result.errors)

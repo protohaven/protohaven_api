@@ -11,6 +11,7 @@ from protohaven_api.integrations.data import (
     dev_eventbrite,
     dev_google,
     dev_neon,
+    dev_square,
     dev_wyze,
 )
 from protohaven_api.integrations.data.connector import Connector
@@ -133,7 +134,7 @@ class DevConnector(Connector):
 
     def square_client(self):
         """Create and return Square API client"""
-        raise NotImplementedError("TODO")
+        return dev_square.Client()
 
     def asana_client(self):
         """Create and return an Asana API client"""

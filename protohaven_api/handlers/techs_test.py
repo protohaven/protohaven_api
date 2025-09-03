@@ -649,3 +649,66 @@ def test_techs_tool_state(mocker, client):
             "status": "Unknown",
         }
     ]
+
+
+def test_techs_storage_subscriptions(mocker, tech_client):
+    mocker.patch.object(
+        tl.sales,
+        "get_subscription_plan_map",
+        return_value={"PLAN_VAR_ID": ("Test Plan", 5000)},
+    )
+    mocker.patch.object(
+        tl.sales,
+        "get_customer_name_map",
+        return_value={"TEST_CUST": "Test Name (a@b.com)"},
+    )
+    mocker.patch.object(
+        tl.sales,
+        "get_subscriptions",
+        return_value=[
+            {
+                "customer_id": "TEST_CUST",
+                "start_date": "2025-01-29",
+                "charged_through_date": "2025-08-29",
+                "status": "ACTIVE",
+                "created_at": "2025-01-29T15:18:13-05:00",
+                "note": "L12 locker",
+                "monthly_billing_anchor_date": 29,
+                "plan_variation_id": "PLAN_VAR_ID",
+            },
+            { # Unknown customer, no notes
+                "customer_id": "12345",
+                "start_date": "2025-01-29",
+                "charged_through_date": "2025-08-29",
+                "status": "ACTIVE",
+                "created_at": "2025-01-29T15:18:13-05:00",
+                "monthly_billing_anchor_date": 29,
+                "plan_variation_id": "PLAN_VAR_ID",
+            }
+        ],
+    )
+
+    response = tech_client.get("/techs/storage_subscriptions")
+    assert response.status_code == 200
+    assert response.json == [
+        {
+            "charged_through_date": "2025-08-29",
+            "created_at": "2025-01-29T15:18:13-05:00",
+            "customer": "Test Name (a@b.com)",
+            "monthly_billing_anchor_date": 29,
+            "note": "L12 locker",
+            "plan": "Test Plan",
+            "price": 5000,
+            "start_date": "2025-01-29",
+        },
+        {
+            'charged_through_date': '2025-08-29',
+            'created_at': '2025-01-29T15:18:13-05:00',
+            'customer': '12345',
+            'monthly_billing_anchor_date': 29,
+            'note': None,
+            'plan': 'Test Plan',
+            'price': 5000,
+            'start_date': '2025-01-29',
+        },
+    ]
