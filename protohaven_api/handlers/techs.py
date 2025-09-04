@@ -434,7 +434,9 @@ def techs_backfill_events():
     return {
         "events": for_techs,
         "can_register": am_role(Role.SHOP_TECH) or am_role(Role.SHOP_TECH_LEAD),
-        "tech_lead": am_role(Role.SHOP_TECH_LEAD),
+        "can_edit": am_role(Role.SHOP_TECH_LEAD)
+        or am_role(Role.EDUCATION_LEAD)
+        or am_role(Role.STAFF),
     }
 
 

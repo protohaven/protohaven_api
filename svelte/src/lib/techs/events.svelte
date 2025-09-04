@@ -116,7 +116,7 @@ function delete_event(eid) {
             {:else if r.capacity - r.attendees.length > 0}
               <Button color="primary" on:click={()=>action(r.id, r.ticket_id, 'register')} disabled={submitting}>Register</Button>
             {/if}
-            {#if p.tech_lead && r.name.startsWith("(SHOP TECH ONLY)")}
+            {#if p.can_edit && r.name.startsWith("(SHOP TECH ONLY)")}
               <Button color="secondary" class="mx-4" on:click={()=>delete_event(r.id)}>Delete Permanently</Button>
             {/if}
             </div>
@@ -125,7 +125,7 @@ function delete_event(eid) {
     {/each}
     </ListGroup>
 
-    {#if p.tech_lead}
+    {#if p.can_edit}
     <h4 class="my-2">Create a new event for techs</h4>
     <p>Note: this event is unlisted and will not appear on the <a href="protohaven.org/classes/">Classes and Events</a> page. Event creation is only visible to logged-in users with the Tech Leads role set in Neon CRM.</p>
 
