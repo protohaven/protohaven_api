@@ -3,7 +3,6 @@
 import datetime
 import logging
 import re
-from ast import For
 from collections import defaultdict
 from functools import lru_cache
 from typing import Iterator

@@ -19,12 +19,16 @@ us_holidays = holidays.country_holidays("US")
 
 
 class ShiftOverride(TypedDict):
+    """Data type for a shift override"""
+
     id: str
     orig: list[Member]
     editor: Optional[str]
 
 
 class Shift(TypedDict):
+    """Data type for a tech shift"""
+
     id: str
     title: str
     people: list[Member]
@@ -33,6 +37,8 @@ class Shift(TypedDict):
 
 
 class Day(TypedDict):
+    """Data type for a day in the shift schedule"""
+
     date: str
     is_holiday: bool
     AM: Shift
@@ -63,7 +69,7 @@ def resolve_overrides(
     forecasted tech dates slow to a crawl due to the number of one-off fetches"""
     ovr_id, ovr_people_in, ovr_editor = overrides.get(shift) or (None, [], None)
     ovr_people_out: list[Member] = []
-    for i, p in enumerate(ovr_people_in):
+    for p in ovr_people_in:
         mm = list(neon.cache.find_best_match(p))
         found = False
         # log.info(f"Seeking match for tech override {p}")
@@ -93,9 +99,9 @@ def resolve_overrides(
     return ovr_id, ovr_people_out, ovr_editor
 
 
-def create_calendar_view(
+def create_calendar_view(  # pylint: disable=too-many-locals, too-many-nested-blocks
     start_date, shift_map, overrides, forecast_len
-) -> CalendarView:  # pylint: disable=too-many-locals, too-many-nested-blocks
+) -> CalendarView:
     """Create a calendar view of tech shifts, respecting overrides and holidays"""
     calendar_view: CalendarView = []
     for i in range(forecast_len):

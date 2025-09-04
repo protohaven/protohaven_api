@@ -338,7 +338,8 @@ def new_tech_event():
             status=401,
         )
     log.info("checking capacity")
-    if data["capacity"] < 0 or data["capacity"] > 100:
+    capacity = int(data["capacity"])
+    if capacity < 0 or capacity > 100:
         return Response("capacity field invalid", status=401)
     log.info(f"Creating event with data {data}")
     return neon_base.create_event(
@@ -346,7 +347,7 @@ def new_tech_event():
         desc="Tech-only event; created via api.protohaven.org/techs dashboard",
         start=d,
         end=d + datetime.timedelta(hours=data["hours"]),
-        max_attendees=data["capacity"],
+        max_attendees=capacity,
         dry_run=False,
         published=False,  # Do NOT show this in the regular event browser
         registration=True,
