@@ -48,7 +48,8 @@ function new_tech_event() {
     return;
   }
   console.log("Date parsed as", d);
-  if (d.getHours() < 10 || d.getHours() + new_event_form.hours > 22) {
+  console.log(new_event_form);
+  if (d.getHours() < 10 || d.getHours() + parseInt(new_event_form.hours, 10) > 22) {
     alert("Event must start and end within shop hours (10AM-10PM); please check date and hours form values");
     return;
   }
