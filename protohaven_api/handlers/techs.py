@@ -331,8 +331,9 @@ def new_tech_event():
         return Response("name field is required", status=401)
     log.info("Parsing date")
     d = safe_parse_datetime(data["start"]).replace(tzinfo=tz)
-    log.info(f"Parsed {d}")
-    if not d or d < tznow() or d.hour < 10 or d.hour + data["hours"] > 22:
+    hours = int(data["hours"])
+    log.info(f"Parsed {d}, hours {hours}")
+    if not d or d < tznow() or d.hour < 10 or d.hour + hours > 22:
         return Response(
             "start must be set to a valid date in the future and within business hours (10AM-10PM)",
             status=401,
@@ -346,7 +347,7 @@ def new_tech_event():
         name=f"{TECH_ONLY_PREFIX} {data['name']}",
         desc="Tech-only event; created via api.protohaven.org/techs dashboard",
         start=d,
-        end=d + datetime.timedelta(hours=data["hours"]),
+        end=d + datetime.timedelta(hours=hours),
         max_attendees=capacity,
         dry_run=False,
         published=False,  # Do NOT show this in the regular event browser
