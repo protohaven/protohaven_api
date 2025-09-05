@@ -47,6 +47,7 @@ function new_tech_event() {
     alert("Start date must be set, and in the future");
     return;
   }
+  console.log("Date parsed as", d);
   if (d.getHours() < 10 || d.getHours() + new_event_form.hours > 22) {
     alert("Event must start and end within shop hours (10AM-10PM); please check date and hours form values");
     return;
@@ -134,7 +135,7 @@ function delete_event(eid) {
         <Row>
           <Col md="6">
             <span>Class name:</span>
-            <Input type="text" id="class_name" label="Class Name" bind:value={new_event_form.name} />
+            (SHOP TECH ONLY) <Input type="text" id="class_name" label="Class Name" bind:value={new_event_form.name} />
           </Col>
           <Col md="6">
             <span>Max participants:</span>
