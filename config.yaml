@@ -11,6 +11,7 @@ general:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
   class_scheduling:
     clearance_exclusion_range_days: 7
+    require_wiki_page_for_scheduling: True
   unsafe:
     no_rbac: ${UNSAFE_NO_RBAC}
     login_as_user: ${UNSAFE_LOGIN_AS}
