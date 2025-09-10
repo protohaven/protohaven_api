@@ -247,7 +247,9 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
     notices = defaultdict(list)
 
     wiki_docs = None
-    if get_config("general/class_scheduling/require_wiki_page_for_scheduling", False):
+    if get_config(
+        "general/class_scheduling/require_wiki_page_for_scheduling", as_bool=True
+    ):
         try:
             wiki_docs = wiki.get_class_docs_report()
             log.debug(
