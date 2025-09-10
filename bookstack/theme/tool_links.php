@@ -62,6 +62,24 @@ Theme::listen(ThemeEvents::ROUTES_REGISTER_WEB, function (Router $router) {
     return redirect($urls['tool_tutorial'] ?? tutorial_not_found_url());
   });
 
+  $router->get('/class_docs_report', function() {
+    $tags = Tag::where('name', 'class_name')
+      ->whereNotNull('value')
+      ->with('entity')
+      ->with('entity.book')
+      ->get();
+    $result = array();
+    foreach ($tags as $tag) {
+      $page = $tag->entity ?? null;
+      if ($page instanceof \BookStack\Entities\Models\Page) {
+        $name = trim($tag["value"]);
+        $state = Approval::getPageState($page, 0, Approval::DEFAULT_APPROVAL_THRESH);
+        $result[$name][getPageCategory($page)][] = $state;
+      }
+    }
+    echo json_encode($result);
+  });
+
   $router->get('/tool_docs_report', function() {
     $tags = Tag::where('name', 'tool_code')
       ->whereNotNull('value')

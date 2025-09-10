@@ -47,7 +47,9 @@ function new_tech_event() {
     alert("Start date must be set, and in the future");
     return;
   }
-  if (d.getHours() < 10 || d.getHours() + new_event_form.hours > 22) {
+  console.log("Date parsed as", d);
+  console.log(new_event_form);
+  if (d.getHours() < 10 || d.getHours() + parseInt(new_event_form.hours, 10) > 22) {
     alert("Event must start and end within shop hours (10AM-10PM); please check date and hours form values");
     return;
   }
@@ -116,7 +118,7 @@ function delete_event(eid) {
             {:else if r.capacity - r.attendees.length > 0}
               <Button color="primary" on:click={()=>action(r.id, r.ticket_id, 'register')} disabled={submitting}>Register</Button>
             {/if}
-            {#if p.tech_lead && r.name.startsWith("(SHOP TECH ONLY)")}
+            {#if p.can_edit && r.name.startsWith("(SHOP TECH ONLY)")}
               <Button color="secondary" class="mx-4" on:click={()=>delete_event(r.id)}>Delete Permanently</Button>
             {/if}
             </div>
@@ -125,7 +127,7 @@ function delete_event(eid) {
     {/each}
     </ListGroup>
 
-    {#if p.tech_lead}
+    {#if p.can_edit}
     <h4 class="my-2">Create a new event for techs</h4>
     <p>Note: this event is unlisted and will not appear on the <a href="protohaven.org/classes/">Classes and Events</a> page. Event creation is only visible to logged-in users with the Tech Leads role set in Neon CRM.</p>
 
@@ -134,7 +136,7 @@ function delete_event(eid) {
         <Row>
           <Col md="6">
             <span>Class name:</span>
-            <Input type="text" id="class_name" label="Class Name" bind:value={new_event_form.name} />
+            (SHOP TECH ONLY) <Input type="text" id="class_name" label="Class Name" bind:value={new_event_form.name} />
           </Col>
           <Col md="6">
             <span>Max participants:</span>

@@ -8,6 +8,8 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=America/New_York
+    networks:
+      - protohaven_api
     volumes:
       - ./bookstack_db_data:/config
     ports:
@@ -18,7 +20,9 @@ services:
     profiles: ["no_plugin"]
     image: lscr.io/linuxserver/bookstack:latest
     container_name: bookstack
-    env_file: env.secret
+    env_file: dev_env.secret
+    networks:
+      - protohaven_api
     environment:
       - PUID=1000
       - PGID=1000
@@ -52,3 +56,8 @@ services:
       # admin user to the neon CRM email of the user you want to have admin permissions.
       # Stop the service, re-add the APP_THEME env var, and start it up again.
       - APP_THEME=protohaven
+
+networks:
+  protohaven_api:
+    external: true
+    name: protohaven_api_default

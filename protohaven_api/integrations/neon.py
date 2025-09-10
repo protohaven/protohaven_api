@@ -267,7 +267,7 @@ def _search_members_internal(
         if (callable(also_fetch) and also_fetch(m)) or (
             isinstance(also_fetch, bool) and also_fetch
         ):
-            m.neon_fetch_data = neon_base.fetch_account(m.neon_id, raw=True)
+            m.neon_raw_data = neon_base.fetch_account(m.neon_id, raw=True)
 
         if (callable(fetch_memberships) and fetch_memberships(m)) or (
             isinstance(fetch_memberships, bool) and fetch_memberships

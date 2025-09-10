@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import traceback
 from collections import defaultdict
 
 from protohaven_api.automation.classes.solver import (
@@ -16,7 +17,7 @@ from protohaven_api.automation.classes.validation import (
     validate_candidate_class_time,
 )
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
-from protohaven_api.integrations import airtable, booked
+from protohaven_api.integrations import airtable, booked, wiki
 from protohaven_api.integrations.airtable_base import _idref, get_all_records
 from protohaven_api.integrations.comms import Msg
 
@@ -244,6 +245,21 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
     """
     classes = []
     notices = defaultdict(list)
+
+    wiki_docs = None
+    if get_config(
+        "general/class_scheduling/require_wiki_page_for_scheduling", as_bool=True
+    ):
+        try:
+            wiki_docs = wiki.get_class_docs_report()
+            log.debug(
+                f"Loaded {len(wiki_docs)} wiki class docs for assessing schedulable classes"
+            )
+        except Exception:  # pylint: disable=broad-exception-caught
+            traceback.print_exc()
+            log.error("Failing open; wiki pages will not be required to schedule")
+            wiki_docs = None
+
     for c in airtable.get_all_class_templates():
         if c["fields"].get("Schedulable") is True:
             missing = [
@@ -251,10 +267,21 @@ def load_schedulable_classes(class_exclusions, clearance_exclusions):
             ]
             if len(missing) > 0:
                 notices[c["id"]].append(
-                    f"{c['fields']['Name']} template missing required fields: {', '.join(missing)} "
+                    f"{c['fields'].get('Name')} template missing required fields: "
+                    f"{', '.join(missing)} "
                     "- cannot schedule; contact an Edu Lead to resolve this"
                 )
                 continue
+
+            # Note that we only check presence in the wiki here; approvals aren't required.
+            if wiki_docs is not None and c["fields"].get("Name") not in wiki_docs:
+                notices[c["id"]].append(
+                    f"{c['fields']['Name']} missing wiki page - this class will not schedule until "
+                    "there is a wiki page at https://wiki.protohaven.org with a class_name "
+                    f" tag set to the name of the class ({c['fields']['Name']})"
+                )
+                continue
+
             if not c["fields"].get("Image Link"):
                 notices[c["id"]].append(
                     "Class is missing a promo image - registrations will suffer. Reach out "

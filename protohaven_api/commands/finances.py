@@ -553,7 +553,7 @@ class Commands:
         summary = []
         num = 0
         for m in neon.search_new_members_needing_setup(
-            args.max_days_ago, also_fetch=True
+            args.max_days_ago, also_fetch=True, fetch_memberships=True
         ):
             if args.filter and m.neon_id not in args.filter:
                 log.debug(f"Skipping {m.neon_id}: not in filter")
@@ -564,7 +564,7 @@ class Commands:
                 raise RuntimeError(f"No latest membership for member {m.neon_id}")
             kwargs = {
                 "account_id": m.neon_id,
-                "membership_name": mem.name,
+                "membership_name": mem.level,  # Level includes "AMP" which is selected for
                 "membership_id": mem.neon_id,
                 "email": m.email,
                 "fname": m.fname,
