@@ -232,6 +232,7 @@ def get_events():
         evts = [
             row["fields"]["data"]
             for row in airtable_base.get_all_records("fake_neon", "events")
+            if row["fields"]["data"]
         ]
         return {
             "events": evts,
@@ -257,6 +258,8 @@ def get_events():
 def get_event_tickets(event_id):
     """Mock event tickets endpoint for Neon"""
     for row in airtable_base.get_all_records("fake_neon", "tickets"):
+        if not row["fields"]["data"]:
+            continue
         if str(row["fields"]["eventId"]) == str(event_id):
             # Weird that Neon doesn't paginate these results, but a lot of their
             # API is inconsistent with itself, so ¯\_(ツ)_/¯
@@ -275,6 +278,8 @@ def get_attendees(event_id):
     """Mock event attendees endpoint for Neon"""
     result = []
     for row in airtable_base.get_all_records("fake_neon", "attendees"):
+        if not row["fields"]["data"]:
+            continue
         if str(row["fields"]["eventId"]) == str(event_id):
             result += row["fields"]["data"]
             break
