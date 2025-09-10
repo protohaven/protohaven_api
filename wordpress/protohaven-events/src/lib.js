@@ -10,14 +10,18 @@ function processTix() {
 	while (tix.queue.length && tix.cplt.length + tix.inflight < MAXCALL) {
 		const {event_id, resolve, reject} = tix.queue.shift();
 		tix.inflight++;
-		fetch(`/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&evt_id=${event_id}`).then(rep => rep.json()).catch(reject).then((data) => {
+		let url = `/?rest_route=/protohaven-events-plugin-api/v1/event_tickets&evt_id=${event_id}`;
+    if (typeof window !== 'undefined' && window.location.search.includes('nocache=1')) {
+      url += '&nocache=1';
+    }
+		fetch(url).then(rep => rep.json()).catch(reject).then((data) => {
 			tix.inflight--;
 			console.log(`Ticket data for ${event_id}:`, data);
 			tix.cplt.push((data.cached) ? null : Date.now());
 			if (tix.queue.length && tix.cplt.length === 1) {
 				setTimeout(processTix, MS/10);
 			}
-			if (data.data === "Error" || data.data[0].code == "9997") {
+			if (data.data === "Error" || (data.data.length && data.data[0].code == "9997")) {
 				let backoff = Math.random()*MS;
 				console.warn(data, "retrying with " + backoff + " backoff");
 				setTimeout(() => {

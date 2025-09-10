@@ -726,7 +726,7 @@ class Event:  # pylint: disable=too-many-public-methods
         """Return the number of attendees for the event"""
         if self.eventbrite_data:
             n = 0
-            for tc in self.eventbrite_data["ticket_classes"]:
+            for tc in self.eventbrite_data.get("ticket_classes") or []:
                 n += tc["quantity_sold"]
             return n
         ac = self.neon_search_data.get("Event Registration Attendee Count")

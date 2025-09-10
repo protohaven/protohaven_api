@@ -38,5 +38,7 @@ def fetch_events(include_ticketing=True, status="live", batching=False):
 def fetch_event(evt_id):
     """Fetch a single event from eventbrite"""
     return Event.from_eventbrite_search(
-        get_connector().eventbrite_request("GET", f"/events/{evt_id}")
+        get_connector().eventbrite_request(
+            "GET", f"/events/{evt_id}", params={"expand": "ticket_classes"}
+        )
     )

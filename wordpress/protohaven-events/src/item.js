@@ -17,7 +17,7 @@ function FmtTimes( { times, expanded, onExpand } ) {
 	const EXPAND_THRESH = 2;
 	for (let [evt_id, dd] of times) {
 		let left = "";
-		if (dd.capacity !== null && dd.sold != null) {
+		if (dd.capacity !== null && dd.capacity !== undefined && dd.sold !== null && dd.sold !== undefined) {
 			if (dd.capacity - dd.sold > 0) {
 				left = <span className="ph-discount">({dd.capacity - dd.sold} left)</span>;
 			} else {
@@ -61,6 +61,9 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 	const discount = ((times.length > 0) ? times[0][1].discount : null) || null;
 	const total_remaining = times.map((t) => (t[1].capacity - t[1].sold) || 0).reduce((acc, curr) => acc+curr, 0);
 
+	// Invalid ticketing info shouldn't prevent us from accessing a class - see ph-footer button
+	const valid_ticketing = times.every((t) => (t[1].capacity !== undefined && t[1].sold !== undefined));
+
 	return (<div className={containerClass} id={title}>
 		<div className="ph-content">
 			{imgElem}
@@ -75,9 +78,10 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 				<div>Ages {age}+</div>
 				<div>{levelDesc}</div>
 			</div>
-			<button className="ph-footer" onClick={() => gotoURL(link)} disabled={!total_remaining}>
+			<button className="ph-footer" onClick={() => gotoURL(link)} disabled={valid_ticketing && !total_remaining}>
 				{price !== null && <div className="ph-price">${price}</div>}
 				{discount && <div className="ph-discount">(${discount} for members)</div>}
+				{(price === null || price === undefined) && <div className="ph-price">...</div>}
 			</button>
 		</div>
 	</div>);
