@@ -104,7 +104,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
                     continue
 
                 for evt in result:
-                    if not evt.end_date or evt.end_date < after:
+                    if not evt or not evt.end_date or evt.end_date < after:
                         continue
                     evt.set_airtable_data(airtable_map.get(evt.neon_id))
                     yield evt

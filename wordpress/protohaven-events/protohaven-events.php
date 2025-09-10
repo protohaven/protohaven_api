@@ -13,6 +13,9 @@
  * @package CreateBlock
  */
 
+
+$ERR_PREFIX="protohaven-events: ";
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
@@ -78,6 +81,11 @@ function ph_events_register_settings() {
   register_setting(
 			$PH_OPTIONS_GROUP_ID, // option group
 			$PH_PROTOHAVEN_API_URL_OPTION_ID // option name
+			// args[], previously 'ph_events_validate_options'
+	);
+  register_setting(
+			$PH_OPTIONS_GROUP_ID, // option group
+			$PH_NEON_TOKEN_OPTION_ID // option name
 			// args[], previously 'ph_events_validate_options'
 	);
 
@@ -146,6 +154,7 @@ function ph_neon_events_fallback() {
 	// It's normally paginated, but since we're in a degraded state
 	// we can ignore that to reduce complexity.
 	global $PH_NEON_TOKEN_OPTION_ID;
+	global $ERR_PREFIX;
 	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
 	$url = "https://protohaven:$token@api.neoncrm.com/v2/events";
 	$query_params = [
@@ -157,7 +166,7 @@ function ph_neon_events_fallback() {
 	$url .= '?' . http_build_query($query_params);
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		error_log( "Fallback error: " . $response->get_error_message() );
+		error_log( $ERR_PREFIX . "Fallback error: " . $response->get_error_message() );
 		return "Fallback error: " . $response->get_error_message();
 	}
 	$response = json_decode(wp_remote_retrieve_body($response), true);
@@ -178,19 +187,19 @@ function ph_neon_events_fallback() {
 
 
 function ph_neon_events() {
-	error_log("Fetching /events/upcoming");
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
+	global $ERR_PREFIX;
 	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
 	$url = $baseurl."/events/upcoming";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		error_log( "Error fetching /events/upcoming: " . $response->get_error_message() );
-		error_log( "Trying fallback method" );
+		error_log( $ERR_PREFIX . "Error fetching /events/upcoming: " . $response->get_error_message() );
+		error_log( $ERR_PREFIX . "Trying fallback method" );
 		return ph_neon_events_fallback();
 	}
 	$result = json_decode(wp_remote_retrieve_body($response), true);
 	if (is_null($result) || !$result) {
-		error_log("Empty result; trying fallback");
+		error_log( $ERR_PREFIX . "Empty result; trying fallback");
 		return ph_neon_events_fallback();
 	}
 	return $result;
@@ -198,11 +207,12 @@ function ph_neon_events() {
 
 function ph_neon_event_tickets_fallback($neon_id) {
 	global $PH_NEON_TOKEN_OPTION_ID;
+	global $ERR_PREFIX;
 	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
 	$url = "https://protohaven:$token@api.neoncrm.com/v2/events/$neon_id/tickets";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		error_log( "Fallback error: " . $response->get_error_message() );
+		error_log( $ERR_PREFIX . "Fallback error: " . $response->get_error_message() );
 		return "Ticket fetch error: " . $response->get_error_message();
 	}
 
@@ -217,23 +227,24 @@ function ph_neon_event_tickets_fallback($neon_id) {
 				"sold" => $t["maxNumberAvailable"] - $t["numberRemaining"],
 		);
 	}
-	error_log("Fallback complete");
+	error_log( $ERR_PREFIX . "Fallback complete");
 	return $result;
 }
 
 function ph_neon_event_tickets($evt_id) {
 	global $PH_PROTOHAVEN_API_URL_OPTION_ID;
+	global $ERR_PREFIX;
 	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
 	$url = $baseurl."/events/tickets?id=$evt_id";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		error_log( "Error fetching /events/attendees?id=$evt_id: " . $response->get_error_message() );
-	  error_log( "Trying fallback method" );
+		error_log( $ERR_PREFIX . "Error fetching /events/attendees?id=$evt_id: " . $response->get_error_message() );
+	  error_log( $ERR_PREFIX . "Trying fallback method" );
 		return ph_neon_event_tickets_fallback($evt_id);
 	}
 	$result = json_decode(wp_remote_retrieve_body($response), true);
 	if (is_null($result) || !$result) {
-		error_log("Empty result; trying fallback");
+		error_log( $ERR_PREFIX . "Empty result; trying fallback");
 		return ph_neon_event_tickets_fallback($evt_id);
 	}
 	return $result;
