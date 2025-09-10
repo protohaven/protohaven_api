@@ -463,6 +463,24 @@ def test_event_properties():
         assert evt.supply_state == "Ordered"
 
 
+def test_event_ticket_options_free():
+    """Ensure that missing `cost.major_value` on free events is handled"""
+    e = Event()
+    e.eventbrite_data = {
+        "ticket_classes": [
+            {
+                "free": True,
+                "id": 111,
+                "name": "General",
+                "cost": {},
+                "quantity_total": 10,
+                "quantity_sold": 1,
+            }
+        ],
+    }
+    assert list(e.ticket_options)[0]["price"] == 0
+
+
 def test_none_vs_zero_attendee_count():
     """Specifically test handling of attendee count on various falsey data"""
     e = Event()

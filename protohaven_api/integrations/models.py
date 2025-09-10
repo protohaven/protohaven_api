@@ -787,7 +787,7 @@ class Event:  # pylint: disable=too-many-public-methods
             yield {
                 "id": tc["id"],
                 "name": tc["name"],
-                "price": float(tc["cost"]["major_value"]),
+                "price": 0 if tc.get("free") else float(tc["cost"].get("major_value")),
                 "total": tc["quantity_total"],
                 "sold": tc["quantity_sold"],
             }
