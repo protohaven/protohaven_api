@@ -29,6 +29,10 @@ export function App( { imgSize, initialData } ) {
 				get_event_tickets(tid).then((data) => {
 					let price = null;
 					let discount = null;
+					if (data.forEach === undefined) {
+						console.warn("Invalid ticket data:", data);
+						return;
+					}
 					data.forEach((p) => {
 						if (p.name === 'Single Registration') {
 							t.price = p.price;

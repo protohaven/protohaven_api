@@ -4,7 +4,7 @@
  * Description: 			Load and render Neon CRM events - see https://github.com/protohaven/protohaven_api/
  * Requires at least: 6.6
  * Requires PHP:      7.2
- * Version:           0.1.0
+ * Version:           0.2.0
  * Author: 						Scott Martin (smartin015@gmail.com)
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html:
@@ -210,7 +210,7 @@ function ph_neon_event_tickets_fallback($neon_id) {
 	global $ERR_PREFIX;
 	$token = get_option($PH_NEON_TOKEN_OPTION_ID);
 	$url = "https://protohaven:$token@api.neoncrm.com/v2/events/$neon_id/tickets";
-	$response = wp_remote_get($url);
+	$response = wp_remote_get($url, array('timeout' => 10));
 	if (is_wp_error($response)) {
 		error_log( $ERR_PREFIX . "Fallback error: " . $response->get_error_message() );
 		return "Ticket fetch error: " . $response->get_error_message();
@@ -255,7 +255,7 @@ function ph_neon_event_tickets_cached() {
 	$CACHE_ID = "ph_neon_event_tickets_$evt_id";
 	$result = wp_cache_get($CACHE_ID);
 	// Here we cache at 30 mins since ticket information is volatile.
-	if ( false === $result || $result[1] < (time() - (30*60)) || isset($_GET['nocache']) ) {
+	if ( false === $result || empty($result[0]) || $result[1] < (time() - (30*60)) || isset($_GET['nocache']) ) {
 		$result = array(ph_neon_event_tickets($evt_id), time());
 		if ($result[0] == 'Error') {
 			return $result[0];
