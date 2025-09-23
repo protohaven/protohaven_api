@@ -10,9 +10,9 @@ from functools import lru_cache
 
 import markdown
 
-from protohaven_api.automation.classes import builder, scheduler
+from protohaven_api.automation.classes import builder
 from protohaven_api.automation.classes.solver import expand_recurrence
-from protohaven_api.commands.decorator import arg, command, load_yaml, print_yaml
+from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import (  # pylint: disable=import-error
     safe_parse_datetime,
@@ -157,88 +157,6 @@ class Commands:
         result = b.build()
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
-
-    @command(
-        arg(
-            "--start",
-            help="Start date (yyyy-mm-dd)",
-            type=str,
-            required=True,
-        ),
-        arg(
-            "--end",
-            help="End date (yyyy-mm-dd)",
-            type=str,
-            required=True,
-        ),
-        arg(
-            "--filter",
-            help="CSV of subset instructors to filter scheduling to",
-            type=str,
-            required=True,
-        ),
-    )
-    def build_scheduler_env(self, args, _):
-        """Construct an environment for assigning classes at times to instructors"""
-        start = safe_parse_datetime(args.start)
-        end = safe_parse_datetime(args.end)
-        inst = {a.strip() for a in args.filter.split(",")} if args.filter else None
-        env = scheduler.generate_env(start, end, inst)
-        print_yaml(env)
-
-    @command(
-        arg(
-            "--path",
-            help="path to env file",
-            type=str,
-            required=True,
-        )
-    )
-    def run_scheduler(self, args, _):
-        """Run the class scheduler on a provided env"""
-        env = load_yaml(args.path)
-        instructor_classes, final_score = scheduler.solve_with_env(env[0])
-        log.info(f"Final score: {final_score}")
-        print_yaml(instructor_classes)
-
-    @command(
-        arg(
-            "--path",
-            help="path to schedule file",
-            type=str,
-            required=True,
-        ),
-        arg(
-            "--apply",
-            help="Actually append",
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        ),
-    )
-    def append_schedule(self, args, _):
-        """Adds a schedule (created with `run_scheduler`) to Airtable for
-        instructor confirmation."""
-        sched = load_yaml(args.path)[0]
-        notifications = list(scheduler.gen_schedule_push_notifications(sched))
-        if args.apply:
-            scheduler.push_schedule(sched)
-        print_yaml(notifications)
-
-    @command(
-        arg(
-            "--id",
-            help="class IDs to cancel",
-            type=str,
-            nargs="+",
-        )
-    )
-    def cancel_classes(self, args, _):
-        """cancel passed classes by unpublishing and disabling registration"""
-        for i in args.id:
-            i = i.strip()
-            log.info(f"Cancelling #{i}")
-            neon.set_event_scheduled_state(i, scheduled=False)
-        log.info("Done")
 
     def _apply_pricing(self, event_id, evt, include_discounts, session):
         price = evt["fields"]["Price (from Class)"][0]
