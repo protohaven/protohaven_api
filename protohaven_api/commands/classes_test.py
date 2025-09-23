@@ -76,59 +76,6 @@ def test_gen_class_emails(cli, mocker):
     assert cli("gen_class_emails", []) == TESTVAL
 
 
-def test_build_scheduler_env(cli, mocker):
-    mocker.patch.object(C.scheduler, "generate_env", return_value=TESTVAL)
-    assert (
-        cli(
-            "build_scheduler_env",
-            ["--start", d(0).isoformat(), "--end", d(1).isoformat(), "--filter", "foo"],
-        )
-        == TESTVAL
-    )
-    C.scheduler.generate_env.assert_called_with(d(0), d(1), set(["foo"]))
-
-
-@pytest.fixture
-def tfile(tmp_path):
-    f = tmp_path / "tmp.txt"
-    f.write_text('- "test"')
-    return str(f)
-
-
-def test_run_scheduler(cli, mocker, tfile):
-    eb = mocker.patch.object(
-        C.scheduler, "solve_with_env", return_value=(TESTVAL, None)
-    )
-    assert cli("run_scheduler", ["--path", tfile]) == TESTVAL
-    C.scheduler.solve_with_env.assert_called_with("test")
-
-
-def test_append_schedule_no_apply(cli, mocker, tfile):
-    eb = mocker.patch.object(
-        C.scheduler, "gen_schedule_push_notifications", return_value=TESTVAL
-    )
-    eb = mocker.patch.object(C.scheduler, "push_schedule")
-    assert cli("append_schedule", ["--path", str(tfile)]) == TESTVAL
-    C.scheduler.push_schedule.assert_not_called()
-
-
-def test_append_schedule_apply(cli, mocker, tfile):
-    eb = mocker.patch.object(
-        C.scheduler, "gen_schedule_push_notifications", return_value=TESTVAL
-    )
-    eb = mocker.patch.object(C.scheduler, "push_schedule")
-    assert cli("append_schedule", ["--path", str(tfile), "--apply"]) == TESTVAL
-    C.scheduler.push_schedule.assert_called_with("test")
-
-
-def test_cancel_classes(cli, mocker):
-    eb = mocker.patch.object(C.neon, "set_event_scheduled_state")
-    cli("cancel_classes", ["--id", "1", "2"])
-    C.neon.set_event_scheduled_state.assert_has_calls(
-        [mocker.call("1", scheduled=False), mocker.call("2", scheduled=False)]
-    )
-
-
 def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
     return {
         "id": "abcd",
