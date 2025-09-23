@@ -31,7 +31,7 @@ def exec_details_footer():
     process.
     """
     l = get_execution_log_link()
-    return "" if not l else f"\n*See [execution log]({l})*"
+    return "" if not l else f"\n*See [execution log](<{l}>)*"
 
 
 class Progress:
