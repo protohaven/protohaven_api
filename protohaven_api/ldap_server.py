@@ -64,7 +64,8 @@ c: US
 
 class Tree:
     def __init__(self):
-        self.f = io.BytesIO(LDIF)
+        self.current_ldif = LDIF
+        self.f = io.BytesIO(self.current_ldif)
         self.db = None
         ld = fromLDIFFile(self.f)
         ld.addCallback(self.ldifRead)
@@ -72,14 +73,34 @@ class Tree:
     def ldifRead(self, result): # pylint: disable=invalid-name
         self.f.close()
         self.db = result
+    
+    def update_ldif(self, new_ldif_data):
+        """Update the LDIF data and reload the database"""
+        self.current_ldif = new_ldif_data
+        # Create a new file handle for the new data
+        new_f = io.BytesIO(self.current_ldif)
+        ld = fromLDIFFile(new_f)
+        
+        def handle_result(result):
+            new_f.close()
+            self.db = result
+            return result
+            
+        ld.addCallback(handle_result)
+        return ld
 
 
 class LDAPServerFactory(ServerFactory):
     protocol = LDAPServer
     debug = True
 
-    def __init__(self, root):
-        self.root = root
+    def __init__(self, tree):
+        self.tree = tree
+
+    @property
+    def root(self):
+        """Always return the current database root"""
+        return self.tree.db
 
     def buildProtocol(self, _):
         proto = self.protocol()
@@ -88,17 +109,32 @@ class LDAPServerFactory(ServerFactory):
         return proto
 
 
+# Global tree instance for external access
+tree_instance = None
+
+def get_tree_instance():
+    """Get the global tree instance"""
+    return tree_instance
+
+def update_server_ldif(new_ldif_data):
+    """Update the server's LDIF data"""
+    if tree_instance:
+        tree_instance.update_ldif(new_ldif_data)
+        return True
+    return False
+
 if __name__ == "__main__":
     from twisted.internet import reactor
     port = int(sys.argv[1]) if len(sys.argv) == 2 else 8080
     log.startLogging(sys.stderr)
     tree = Tree()
+    tree_instance = tree  # Make it accessible globally
     # When the LDAP Server protocol wants to manipulate the DIT, it invokes
     # `root = interfaces.IConnectedLDAPEntry(self.factory)` to get the root
     # of the DIT.  The factory that creates the protocol must therefore
     # be adapted to the IConnectedLDAPEntry interface.
     registerAdapter(lambda x: x.root, LDAPServerFactory, IConnectedLDAPEntry)
-    factory = LDAPServerFactory(tree.db)
+    factory = LDAPServerFactory(tree)
     application = service.Application("ldaptor-server")
     myService = service.IServiceCollection(application)
     serverEndpointStr = f"tcp:{port}"
