@@ -43,7 +43,45 @@ services:
       retries: 10
       test: "curl localhost:5000"
       timeout: 2s
-
+  ldap:
+    build:
+      context: .
+      dockerfile: ldap.Dockerfile
+    container_name: ldap
+    ports:
+      - "5001:5001"
+    environment:
+      CORS: true
+      LOG_LEVEL: "debug"
+      PH_CONFIG: "config.yaml"
+      PH_SERVER_MODE: "dev"
+      NOCODB_HOST: "nocodb_frontend"
+      NOCODB_PORT: "8080" # Note: we're using the internal port since we're operating inside the docker network
+    configs:
+      - source: ph-config
+        target: /config.yaml
+    depends_on:
+      nocodb_frontend:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          ignore:
+            - .devenv
+            - .direnv
+            - .git
+            - requirements.txt
+            - Dockerfile
+            - svelte
+            - bookstack
+            - wordpress
+            - docs
+          target: /code
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: ldap.Dockerfile
   svelte:
     build:
       context: ./svelte
