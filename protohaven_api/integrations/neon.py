@@ -533,6 +533,7 @@ class AccountCache(WarmDict):
         super().__init__()
         self.by_booked_id = {}  # 1:1 mapping of user IDs in booked to users in Neon
         self.fuzzy = {}
+        self.on_update_complete = None
 
     def _value_has_active_membership(self, v):
         for a in v.values():
@@ -599,6 +600,8 @@ class AccountCache(WarmDict):
             f"Fetched {n} total accounts / {len(self.by_booked_id.keys())} total mapped "
             f"booked IDs; next refresh in {self.REFRESH_PD_SEC} seconds"
         )
+        if callable(self.on_update_complete):
+            self.on_update_complete()
 
     def neon_id_from_booked_id(self, booked_id: int) -> str:
         """Fetches the Neon ID associated with a Booked user ID"""

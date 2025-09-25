@@ -14,10 +14,10 @@ from twisted.python import log
 from twisted.python.components import registerAdapter
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations import neon
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
-from protohaven_api.integrations.neon import CustomField, search_all_members
 
 server_mode = get_config("general/server_mode").lower()
 init_connector(Connector if server_mode == "prod" else DevConnector)
@@ -74,8 +74,33 @@ class Tree:  # pylint: disable=too-few-public-methods
         self.db = None
         self.current_ldif = None
 
+    def update_ldif_from_neon_cache(self):
+        """Iterate through the AccountCache and convert all entries to LDIF format"""
+        ldif = [LDIF_BASE]
+        log.msg("populating members")
+        seen_ids = set()
+        # Reaching into the warmdict directly isn't great; would be good to improve later
+        with neon.cache.mu:
+            for accts in neon.cache.cache.values():
+                for m in accts.values():
+                    if m.neon_id in seen_ids:
+                        log.msg(
+                            f"ERROR: {m.neon_id} already added to LDAP! "
+                            "LDAP `dn` records must be unique; ignoring this account"
+                        )
+                        continue
+                    seen_ids.add(m.neon_id)
+                    ldif.append(as_ldif(m))
+
+        # IMPORTANT: Trailing newlines are required for LDIF parsing; throws exception otherwise
+        # https://github.com/twisted/ldaptor/blob/60f00e716790397a1196db30186b0d111edb45a3/ldaptor/protocols/ldap/ldifprotocol.py#L130
+        built = "\n\n".join(ldif) + "\n\n"
+        log.msg("Updating LDIF")
+        self.update_ldif(built.encode("utf8"))
+
     def update_ldif(self, new_ldif_data: bytes):
         """Update the LDIF data and reload the database"""
+
         self.current_ldif = new_ldif_data
         # Create a new file handle for the new data
         new_f = io.BytesIO(self.current_ldif)
@@ -122,33 +147,9 @@ def main():
     log.startLogging(sys.stderr)
     tree = Tree()
 
-    ldif = [LDIF_BASE]
-    log.msg("populating members")
-    seen_ids = set()
-    for m in search_all_members(
-        fields=[
-            "First Name",
-            "Last Name",
-            "Preferred Name",
-            "Account Current Membership Status",
-            CustomField.API_SERVER_ROLE,
-            CustomField.PRONOUNS,
-        ]
-    ):
-        if m.neon_id in seen_ids:
-            log.msg(
-                f"ERROR: {m.neon_id} already added to LDAP! "
-                "LDAP `dn` records must be unique; ignoring this account"
-            )
-            continue
-        seen_ids.add(m.neon_id)
-        ldif.append(as_ldif(m))
-
-    # IMPORTANT: Trailing newlines are required for LDIF parsing; throws exception otherwise
-    # https://github.com/twisted/ldaptor/blob/60f00e716790397a1196db30186b0d111edb45a3/ldaptor/protocols/ldap/ldifprotocol.py#L130
-    built = "\n\n".join(ldif) + "\n\n"
-    log.msg("Updating LDIF")
-    tree.update_ldif(built.encode("utf8"))
+    log.msg("Starting AccountCache")
+    neon.cache.on_update_complete = tree.update_ldif_from_neon_cache
+    neon.cache.start()
 
     # When the LDAP Server protocol wants to manipulate the DIT, it invokes
     # `root = interfaces.IConnectedLDAPEntry(self.factory)` to get the root
