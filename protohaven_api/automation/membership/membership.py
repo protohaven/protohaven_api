@@ -121,7 +121,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
         if membership_name.strip().lower() in membership_name_filter:
             log.info(
                 f"Skipping membership init for {membership_name} as it's present "
-                f"in excluded membershi ptypes: {membership_name_filter}"
+                f"in excluded membership types: {membership_name_filter}"
             )
             return result
 

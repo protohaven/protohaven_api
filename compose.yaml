@@ -43,7 +43,35 @@ services:
       retries: 10
       test: "curl localhost:5000"
       timeout: 2s
-
+  ldap:
+    build:
+      context: .
+      dockerfile: ldap.Dockerfile
+    container_name: ldap
+    ports:
+      - "5001:5001"
+    environment:
+      CORS: true
+      LOG_LEVEL: "debug"
+      PH_CONFIG: "config.yaml"
+      PH_SERVER_MODE: "dev"
+      NOCODB_HOST: "nocodb_frontend"
+      NOCODB_PORT: "8080" # Note: we're using the internal port since we're operating inside the docker network
+    configs:
+      - source: ph-config
+        target: /config.yaml
+    depends_on:
+      nocodb_frontend:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./protohaven_api
+          target: /code/protohaven_api
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: ldap.Dockerfile
   svelte:
     build:
       context: ./svelte
@@ -111,6 +139,7 @@ services:
   wordpress:
     image: wordpress:latest
     container_name: wordpress
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/wordpress:/var/www/html
       - ./wordpress/protohaven-class-ticker:/var/www/html/wp-content/plugins/protohaven-class-ticker
@@ -146,6 +175,7 @@ services:
       context: ./wordpress/protohaven-events/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_events_plugin_dev
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/protohaven-events/build:/code/build
     develop:
@@ -170,6 +200,7 @@ services:
       context: ./wordpress/protohaven-airtable-grid/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_airtable-grid_plugin_dev
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/protohaven-airtable-grid/build:/code/build
     develop:
@@ -194,6 +225,7 @@ services:
       context: ./wordpress/protohaven-class-ticker/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_class-ticker_plugin_dev
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/protohaven-class-ticker/build:/code/build
     develop:
