@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
@@ -375,7 +375,7 @@ class Member:  # pylint:disable=too-many-public-methods
         ]
 
     @property
-    def roles(self):
+    def roles(self) -> List[dict[str, str | None]]:
         """Fetches all roles associated with the neon account"""
         rdict = Role.as_dict()
 

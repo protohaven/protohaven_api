@@ -66,18 +66,8 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: .
-          ignore:
-            - .devenv
-            - .direnv
-            - .git
-            - requirements.txt
-            - Dockerfile
-            - svelte
-            - bookstack
-            - wordpress
-            - docs
-          target: /code
+          path: ./protohaven_api
+          target: /code/protohaven_api
         - action: rebuild
           path: requirements.txt
         - action: rebuild
@@ -149,6 +139,7 @@ services:
   wordpress:
     image: wordpress:latest
     container_name: wordpress
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/wordpress:/var/www/html
       - ./wordpress/protohaven-class-ticker:/var/www/html/wp-content/plugins/protohaven-class-ticker
@@ -184,6 +175,7 @@ services:
       context: ./wordpress/protohaven-events/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_events_plugin_dev
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/protohaven-events/build:/code/build
     develop:
@@ -208,6 +200,7 @@ services:
       context: ./wordpress/protohaven-airtable-grid/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_airtable-grid_plugin_dev
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/protohaven-airtable-grid/build:/code/build
     develop:
@@ -232,6 +225,7 @@ services:
       context: ./wordpress/protohaven-class-ticker/
       dockerfile: ../../wordpress_plugin.Dockerfile
     container_name: wp_class-ticker_plugin_dev
+    user: "${UID}:${GID}" # Prevent root-owned files in repository
     volumes:
       - ./wordpress/protohaven-class-ticker/build:/code/build
     develop:
