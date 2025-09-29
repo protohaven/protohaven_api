@@ -1,6 +1,7 @@
 """LDAP Server Implementation"""
 
 import io
+import logging
 import sys
 
 from ldaptor.inmemory import fromLDIFFile
@@ -10,7 +11,7 @@ from twisted.application import service
 from twisted.internet import reactor
 from twisted.internet.endpoints import serverFromString
 from twisted.internet.protocol import ServerFactory
-from twisted.python import log
+from twisted.python import log as twisted_log
 from twisted.python.components import registerAdapter
 
 from protohaven_api.config import get_config
@@ -21,6 +22,8 @@ from protohaven_api.integrations.data.dev_connector import DevConnector
 
 server_mode = get_config("general/server_mode").lower()
 init_connector(Connector if server_mode == "prod" else DevConnector)
+logging.basicConfig(level=get_config("general/log_level").upper())
+log = logging.getLogger("ldap_server.main")
 
 LDIF_BASE = """\
 dn: dc=org
@@ -77,14 +80,14 @@ class Tree:  # pylint: disable=too-few-public-methods
     def update_ldif_from_neon_cache(self):
         """Iterate through the AccountCache and convert all entries to LDIF format"""
         ldif = [LDIF_BASE]
-        log.msg("populating members")
+        log.info("populating members")
         seen_ids = set()
         # Reaching into the warmdict directly isn't great; would be good to improve later
         with neon.cache.mu:
             for accts in neon.cache.cache.values():
                 for m in accts.values():
                     if m.neon_id in seen_ids:
-                        log.msg(
+                        log.error(
                             f"ERROR: {m.neon_id} already added to LDAP! "
                             "LDAP `dn` records must be unique; ignoring this account"
                         )
@@ -95,7 +98,7 @@ class Tree:  # pylint: disable=too-few-public-methods
         # IMPORTANT: Trailing newlines are required for LDIF parsing; throws exception otherwise
         # https://github.com/twisted/ldaptor/blob/60f00e716790397a1196db30186b0d111edb45a3/ldaptor/protocols/ldap/ldifprotocol.py#L130
         built = "\n\n".join(ldif) + "\n\n"
-        log.msg("Updating LDIF")
+        log.info("Updating LDIF")
         self.update_ldif(built.encode("utf8"))
 
     def update_ldif(self, new_ldif_data: bytes):
@@ -144,10 +147,10 @@ def main():
     """Runs an LDAP server, populated by Neon data"""
 
     port = int(sys.argv[1]) if len(sys.argv) == 2 else 8080
-    log.startLogging(sys.stderr)
+    twisted_log.startLogging(sys.stderr)
     tree = Tree()
 
-    log.msg("Starting AccountCache")
+    log.info("Starting AccountCache")
     neon.cache.on_update_complete = tree.update_ldif_from_neon_cache
     neon.cache.start()
 
