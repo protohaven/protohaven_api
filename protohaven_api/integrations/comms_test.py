@@ -433,7 +433,7 @@ HASHES = {
     "violation_ongoing": "fcad4dda2bb81f53",  # pragma: allowlist secret
     "violation_started": "12527581a8fbdd2d",  # pragma: allowlist secret
     "volunteer_refresh_summary": "a2858fc78352ea01",  # pragma: allowlist secret
-    "wiki_backup_summary": "df48c038b0dfe724",  # pragma: allowlist secret
+    "wiki_backup_summary": "453ee303bc5f3a02",  # pragma: allowlist secret
 }
 
 

@@ -119,3 +119,5 @@ zipp==3.17.0
 wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@2ff7f51bdd1b078630c29f778d0598fd1d777078
 paho-mqtt==2.1.0
 multidict==6.1.0
+ldaptor==21.2.0  # LDAP server implementation
+twisted[tls]==23.10.0  # Required by ldaptor

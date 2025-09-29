@@ -44,6 +44,10 @@ class CustomField:
                 # since it cannot be used in a variable name
                 if result == "Notify Board And Staff":
                     return "Notify Board & Staff"
+                # Corrections to capitalization on sever role
+                # To match Neon value
+                if result == "Api Server Role":
+                    return "API server role"
                 return result
         raise CustomFieldNotFoundError(f"No CustomField ID {v}")
 
