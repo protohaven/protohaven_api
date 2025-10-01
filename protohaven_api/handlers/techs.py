@@ -455,7 +455,7 @@ def _notify_registration(account_id, event_id, action):
     if action != "register":
         verb = "unregistered from"
     msg = (
-        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
+        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events) "
         f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
         f"; {evt.capacity - len(attendees)} seat(s) remain"
     )

@@ -114,7 +114,7 @@ def test_gen_role_intents_limited_and_sorted(mocker):
     usrs = [(f"id{i}", f"nick{i}", d(-i), [("Techs", 1234567890)]) for i in range(100)]
     assert usrs[0][0] == "id0"  # Youngest user first
     mocker.patch.object(r.comms, "get_all_members", return_value=usrs)
-    got = list(r.gen_role_intents(None, None, True, 20))
+    got = list(r.gen_role_intents(None, None, True, 20, 20))
     assert len(got) == 20  # Cutoff at the passed max
     assert got[0].discord_id == "id99"  # Oldest user is acted upon first
 
@@ -145,7 +145,7 @@ def test_gen_role_intents_departing_member(mocker):
             ("discord_id", "nickname", d(0), [("Members", "memid")]),
         ],
     )
-    assert list(r.gen_role_intents(None, None, True, 20)) == []
+    assert list(r.gen_role_intents(None, None, True, 10, 10)) == []
 
 
 def test_gen_role_intents_match(mocker):
@@ -175,7 +175,7 @@ def test_gen_role_intents_match(mocker):
             ("discord_id", "nickname", d(0), [("Techs", "techid")]),
         ],
     )
-    got = list(r.gen_role_intents(None, None, True, 20))
+    got = list(r.gen_role_intents(None, None, True, 10, 10))
     want_base = r.DiscordIntent(
         neon_id=123,
         name="A B",
@@ -212,7 +212,7 @@ def test_gen_role_intents_no_neon(mocker):
             ("discord_id", "nickname", d(0), [("Techs", "techid")]),
         ],
     )
-    got = list(r.gen_role_intents(None, None, True, 20))
+    got = list(r.gen_role_intents(None, None, True, 10, 10))
     assert got == [
         r.DiscordIntent(
             discord_id="discord_id",

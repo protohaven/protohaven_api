@@ -153,8 +153,8 @@ def singleton_role_sync(neon_member, neon_roles, discord_roles):
             yield "ADD", to_add, "indicated by Neon CRM"
 
 
-def gen_role_intents(
-    user_filter, exclude_users, destructive, max_user_intents
+def gen_role_intents(  # pylint: disable=too-many-statements
+    user_filter, exclude_users, destructive, max_users_added, max_users_removed
 ):  # pylint: disable=too-many-locals, too-many-branches
     """Generate all intents based on data from discord and neon"""
     log.info("Fetching all active members")
@@ -183,7 +183,8 @@ def gen_role_intents(
     discord_members = list(comms.get_all_members())
     log.info(f"Got {len(discord_members)}; example {discord_members[0]}")
     discord_members.sort(key=lambda m: m[2])
-    modified_users = set()  # for early cutoff on `max_user_intents`
+    additions = set()  # for early cutoff on `max_users_added`
+    revocations = set()  # for early cutoff on `max_users_removed`
 
     if user_filter is not None:
         log.warning(f"Filtering to provided user list: {user_filter}")
@@ -212,23 +213,38 @@ def gen_role_intents(
             }
 
         discord_roleset = {r for r, _ in assigned_roles if r in SYNC_ROLES}
-        log.info(f"singleton_role_sync {neon_member} {neon_roleset} {discord_roleset}")
+        log.debug(
+            f"Syncing roles for #{intent.neon_id} {intent.name} @{discord_id}: "
+            f"membership={neon_member} neon_roles={neon_roleset} discord_roles={discord_roleset}"
+        )
         for action, role, reason in singleton_role_sync(
             neon_member, neon_roleset, discord_roleset
         ):
-            if action == "REVOKE" and not destructive:
-                log.debug(
-                    f"Omitting destructive action {action} {role} ({reason}) for {intent}"
-                )
-                continue
-            if action == "REVOKE" and role == "Members":
-                log.debug(
-                    "Omitting Members revocation until further agreement by members reached"
-                )
-                continue
-            modified_users.add(discord_id)
-            if len(modified_users) > max_user_intents:
-                break
+            if action == "REVOKE":
+                if not destructive:
+                    log.debug(
+                        f"Omitting destructive action {action} {role} ({reason}) for {intent}"
+                    )
+                    continue
+                if role == "Members":
+                    log.debug(
+                        "Omitting Members revocation until further agreement by members reached"
+                    )
+                    continue
+                if len(revocations) >= max_users_removed:
+                    log.debug(
+                        f"Max users removed reached; skipping {action} {role} ({reason})"
+                    )
+                    continue
+                revocations.add(discord_id)
+            elif action == "ADD":
+                if len(additions) >= max_users_added:
+                    log.debug(
+                        f"Max users added reached; skipping {action} {role} ({reason})"
+                    )
+                    continue
+                additions.add(discord_id)
+
             yield replace(intent, action=action, role=role, reason=reason)
 
 

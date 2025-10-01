@@ -43,9 +43,21 @@ class Commands:  # pylint: disable=too-few-public-methods
         ),
         arg(
             "--max_users_affected",
-            help="Only allow at most this number of users to receive role changes",
+            help="DEPRECATED - does nothing. Use --max_users_(added|removed)",
             type=int,
             default=10,
+        ),
+        arg(
+            "--max_users_added",
+            help="Limits the maximum number of users who receive role additions this run",
+            type=int,
+            default=5,
+        ),
+        arg(
+            "--max_users_removed",
+            help="Limits the maximum number of users where role revocations are processed",
+            type=int,
+            default=5,
         ),
         arg(
             "--destructive",
@@ -71,7 +83,11 @@ class Commands:  # pylint: disable=too-few-public-methods
         intents = {
             i.as_key(): i
             for i in roles.gen_role_intents(
-                user_filter, exclude_users, args.destructive, args.max_users_affected
+                user_filter,
+                exclude_users,
+                args.destructive,
+                max_users_added=args.max_users_added,
+                max_users_removed=args.max_users_removed,
             )
         }
         log.info(f"Fetched {len(intents)} intents")
