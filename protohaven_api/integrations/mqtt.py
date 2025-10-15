@@ -66,7 +66,9 @@ class Client:
     def _start(self):
         self.c.on_connect = self.on_connect
         self.c.on_message = self.on_message
-        self.c.tls_set(get_config("mqtt/ca_cert_path"))
+        cert_path = get_config("mqtt/ca_cert_path").strip()
+        if cert_path != "":
+            self.c.tls_set(cert_path)
         self.c.username_pw_set(get_config("mqtt/username"), get_config("mqtt/password"))
         self.c.connect(
             get_config("mqtt/host"),

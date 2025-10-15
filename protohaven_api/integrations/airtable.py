@@ -89,7 +89,7 @@ def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
     instructor_caps = defaultdict(list)
     for row in get_all_records("class_automation", "capabilities"):
-        if not row["fields"].get("Instructor"):
+        if not row["fields"].get("Instructor") or not row["fields"].get("Schedulable"):
             continue
         inst = row["fields"]["Instructor"].strip().lower()
         if "Class" in row["fields"].keys():
