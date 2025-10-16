@@ -253,3 +253,5 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.cli cancel_classes --id=<id1> --id
 See [docs/qa.md](docs/qa.md)
 
 ## Contributors
+
+Scott Martin
