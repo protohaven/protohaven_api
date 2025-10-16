@@ -501,3 +501,37 @@ def test_get_forecast_overrides(mocker):
         ("2025-01-01 AM", ("rec1", ["One", "Two"], "2025-01-01")),
         ("2025-01-02 PM", ("rec2", ["Three"], "2025-01-02")),
     ]
+
+
+def test_fetch_instructor_teachable_classes(mocker):
+    """Test fetching teachable classes from airtable"""
+    mock_records = [
+        {
+            "fields": {
+                "Instructor": "  John Doe  ",
+                "Schedulable": True,
+                "Class": ["class1", "class2"],
+            }
+        },
+        {
+            "fields": {
+                "Instructor": "jane smith",
+                "Schedulable": True,
+                "Class": ["class3"],
+            }
+        },
+        {
+            "fields": {
+                "Instructor": "bob wilson",
+                "Schedulable": False,
+                "Class": ["class4"],
+            }
+        },
+        {"fields": {"Schedulable": True, "Class": ["class5"]}},
+    ]
+
+    mocker.patch.object(a, "get_all_records", return_value=mock_records)
+    got = a.fetch_instructor_teachable_classes()
+
+    expected = {"john doe": ["class1", "class2"], "jane smith": ["class3"]}
+    assert got == expected

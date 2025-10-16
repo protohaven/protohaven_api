@@ -337,9 +337,9 @@ drive:
   scopes: ["https://www.googleapis.com/auth/drive"]
 mqtt:
   enabled: ${MQTT}
-  host: "mqtt.cron.protohaven.org"
-  port: 8883
+  host: ${MQTT_HOST}
+  port: ${MQTT_PORT}
   keepalive_sec: 60
   username: ${MQTT_USERNAME}
   password: ${MQTT_PASSWORD}
-  ca_cert_path: "./ISRGRootX1.crt"
+  ca_cert_path: ""
