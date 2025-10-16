@@ -17,7 +17,6 @@ from protohaven_api.config import (  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
-    neon_base,
     sales,
 )
 from protohaven_api.integrations.comms import Msg
@@ -651,20 +650,13 @@ class Commands:
 
         expiry = now + datetime.timedelta(days=args.expiration_days)
 
-        nsesh = None
+        log.info(f"Creating codes {to_add}...")
         if args.apply:
-            log.info("Logging into Neon for coupon code creation")
-            nsesh = neon_base.NeonOne()
-
-        for cid in to_add:
-            if not args.apply:
-                log.warning(f"SKIP: create coupon code {cid} and push to airtable")
-                continue
-            log.info(f"Creating code {cid}...")
-            nsesh.create_single_use_abs_event_discount(
-                cid, args.coupon_amount, now, expiry
+            to_add = list(
+                neon.create_coupon_codes(list(to_add), args.coupon_amount, now, expiry)
             )
-            log.info(f"Coupon code created: {cid}")
+            log.info(f"Created: {to_add}")
+        for cid in to_add:
             status_code, content = airtable.create_coupon(
                 cid,
                 args.coupon_amount,
@@ -672,8 +664,9 @@ class Commands:
                 expiry,
             )
             if status_code != 200:
-                raise RuntimeError(f"Failed to push coupon to airtable: {content}")
-            log.info("...and pushed to airtable")
+                log.warning(f"Failed to push coupon to airtable: {content}")
+            else:
+                log.info("...and pushed to airtable")
 
         print_yaml(
             [

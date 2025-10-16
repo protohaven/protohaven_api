@@ -62,7 +62,7 @@ def try_cached_coupon(coupon_amount, assignee, apply):
         )
         cid = generate_coupon_id()
         if apply:
-            neon.create_coupon_code(cid, coupon_amount)
+            neon.create_coupon_codes([cid], coupon_amount)
         return cid
 
     if coupon["fields"]["Amount"] != coupon_amount:
@@ -75,7 +75,7 @@ def try_cached_coupon(coupon_amount, assignee, apply):
         )
         cid = generate_coupon_id()
         if apply:
-            neon.create_coupon_code(cid, coupon_amount)
+            neon.create_coupon_codes([cid], coupon_amount)
         return cid
 
     cid = coupon["fields"]["Code"]

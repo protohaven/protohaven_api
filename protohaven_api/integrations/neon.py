@@ -394,10 +394,10 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     return sample_classes
 
 
-def create_coupon_code(code, amt, from_date=None, to_date=None):
+def create_coupon_codes(codes, amt, from_date=None, to_date=None):
     """Creates a coupon code for a specific absolute amount"""
-    return neon_base.NeonOne().create_single_use_abs_event_discount(
-        code, amt, from_date, to_date
+    yield from neon_base.NeonOne().create_single_use_abs_event_discounts(
+        codes, amt, from_date, to_date
     )
 
 

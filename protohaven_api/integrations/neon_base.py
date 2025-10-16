@@ -9,6 +9,7 @@ import urllib
 
 import pyotp
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
@@ -212,74 +213,68 @@ class NeonOne:  # pylint: disable=too-few-public-methods
     TYPE_MEMBERSHIP_DISCOUNT = 2
     TYPE_EVENT_DISCOUNT = 3
 
-    def __init__(self, autologin=True):
-        self.s = get_connector().neon_session()
+    def __init__(self):
         self.drt = DuplicateRequestToken()
         self.totp = pyotp.TOTP(get_config("neon/login_otp_code"))
-        if autologin:
-            self.do_login(get_config("neon/login_user"), get_config("neon/login_pass"))
 
-    def do_login(self, user, passwd):
+    def do_login(self, page):
         """Performs user login, handling second factor OTP if needed"""
-        csrf = self._get_csrf()
-        log.debug(f"CSRF: {csrf}")
+        # Navigate to the login page
+        page.goto("https://app.neoncrm.com/np/ssoAuth")
 
-        # Submit login info to initial login page
-        r = self.s.post(
-            f"{SSO_URL}/login",
-            data={"_token": csrf, "email": user, "password": passwd},
-        )
-        if r.status_code != 200:
-            raise RuntimeError("do_login HTTP {r.status_code}: {r.content}")
+        # Fill in the login form. Adjust the selectors to match your form.
+        print("Filling email")
+        page.fill("input[name='email']", get_config("neon/login_user"))
+        page.locator('button:text("Next")').click()
 
-        content = r.content.decode("utf8")
-        if "2-Step Verification" in content:
-            m = re.search(r'name="_token" value="([^"]+)"', content)
-            if not m:
-                raise RuntimeError(
-                    f"Could not extract MFA token from 2 step verification page:\n{content}"
-                )
-            log.debug(f"Using mfa token {m.group(1)}")
-            r = self.s.post(
-                f"{SSO_URL}/mfa",
-                data={"_token": m.group(1), "mfa_code": str(self.totp.now())},
-            )
+        print("Filling password")
+        page.fill("input[name='password']", get_config("neon/login_pass"))
 
-        assert "Log Out" in r.content.decode("utf8")
+        # Submit the form
+        print("Submitting the form")
+        page.click("button[type='submit']")
 
-        # Select Neon SSO and go through the series of SSO redirects to properly set cookies
-        r = self.s.get("https://app.neoncrm.com/np/ssoAuth")
-        dec = r.content.decode("utf8")
-        if "Mission Control Dashboard" not in dec:
-            raise RuntimeError(dec)
+        # Wait for navigation after login
+        print("Waiting for navigation")
+        page.wait_for_url("**/mfa")  # Change to your expected post-login URL
 
-    def _get_csrf(self):
-        rlogin = self.s.get(f"{SSO_URL}/login")
-        if rlogin.status_code != 200:
-            raise RuntimeError(f"_get_csrf HTTP {rlogin.status_code}: {rlogin.content}")
-        csrf = None
-        soup = BeautifulSoup(rlogin.content.decode("utf8"), features="html.parser")
-        for m in soup.head.find_all("meta"):
-            if m.get("name") == "csrf-token":
-                csrf = m["content"]
-        return csrf
+        print("Filling MFA code")
+        page.fill("input[name='mfa_code']", self.totp.now())
+        print("Submitting the MFA code form")
+        page.click("button[type='submit']")
 
-    def create_single_use_abs_event_discount(
-        self, code, amt, from_date=None, to_date=None
+        page.wait_for_url("**/contentList.do")  # Change to your expected post-login URL
+
+        print("Login successful!")
+
+    def create_single_use_abs_event_discounts(
+        self, codes, amt, from_date=None, to_date=None
     ):
         """Creates an absolute discount, usable once"""
-        return self._post_discount(
-            self.TYPE_EVENT_DISCOUNT,
-            code=code,
-            pct=False,
-            amt=amt,
-            from_date=from_date,
-            to_date=to_date,
-        )
+        with sync_playwright() as p:
+            # Launch a headless Firefox browser
+            browser = p.firefox.launch(
+                headless=True
+            )  # Set headless=False for debugging
+            page = browser.new_page()
+            self.do_login(page)
+            for code in codes:
+                yield self._post_discount(
+                    page,
+                    self.TYPE_EVENT_DISCOUNT,
+                    code=code,
+                    pct=False,
+                    amt=amt,
+                    from_date=from_date,
+                    to_date=to_date,
+                )
+
+            browser.close()
 
     def _post_discount(  # pylint: disable=too-many-arguments
         self,
-        typ,
+        page,
+        _,  # Previously discount type
         code,
         pct,
         amt,
@@ -287,6 +282,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         to_date="11/21/2024",
         max_uses=1,
     ):
+        log.info(f"filling discount form for code {code}")
         if from_date is None:
             from_date = tznow()
         if to_date is None:
@@ -294,58 +290,32 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         from_date = from_date.strftime("%m/%d/%Y")
         to_date = to_date.strftime("%m/%d/%Y")
 
-        # We must appear to be coming from the specific discount settings page (Event or Membership)
-        referer = (
-            f"{ADMIN_URL}/systemsetting/"
-            + f"newCouponCodeDiscount.do?sellingItemType={typ}&discountType=1"
+        page.goto(
+            "https://protohaven.app.neoncrm.com/np/admin/systemsetting/"
+            "newCouponCodeDiscount.do?sellingItemType=3&discountType=1"
         )
-        rg = self.s.get(referer)
-        assert rg.status_code == 200
+        page.fill("input[name='currentDiscount.couponCode']", code)
+        page.fill("input[name='currentDiscount.maxUses']", str(max_uses))
+        page.fill("input[name='currentDiscount.validFromDate']", from_date)
+        page.fill("input[name='currentDiscount.validToDate']", to_date)
+        assert not pct
+        page.fill("input[name='currentDiscount.absoluteDiscountAmount']", str(amt))
+        page.click("input[type='submit']")
 
-        # Must set referer so the server knows which "selling item type" this POST is for
-        self.s.headers.update({"Referer": rg.url})
-        drt_i = self.drt.get()
-        data = {
-            "z2DuplicateRequestToken": drt_i,
-            "priceOff": "coupon",
-            "currentDiscount.couponCode": code,
-            "currentDiscount.sellingItemId": "",
-            "currentDiscount.maxUses": max_uses,
-            "currentDiscount.validFromDate": from_date,
-            "currentDiscount.validToDate": to_date,
-            "currentDiscount.percentageValue": 1 if pct else 0,
-            "submit": " Save ",
-        }
-        if typ == self.TYPE_EVENT_DISCOUNT:
-            data["currentDiscount.eventTicketPackageGroupId"] = ""
-
-        if pct:
-            data["currentDiscount.percentageDiscountAmount"] = amt
-        else:
-            data["currentDiscount.absoluteDiscountAmount"] = amt
-
-        r = self.s.post(
-            f"{ADMIN_URL}/systemsetting/couponCodeDiscountSave.do",
-            allow_redirects=False,
-            data=data,
-        )
-
-        log.debug(f"Response {r.status_code} {r.headers}")
-
-        if not "discountList.do" in r.headers.get("Location", ""):
-            raise RuntimeError(
-                "Failed to land on appropriate page - wanted discountList.do, got "
-                + r.headers.get("Location", "")
-            )
+        print("code form submitted, getting response")
+        page.wait_for_url(re.compile(r".*/discountList\.do.*"))
+        if not page.get_by_text(code).is_visible():
+            log.debug(str(page.content()))
+            raise RuntimeError("Error assigning coupon; code not found on result page")
         return code
 
-    def get_ticket_groups(self, event_id, content=None):
+    def get_ticket_groups(self, ctx, event_id, content=None):
         """Gets ticket groups for an event"""
         if content is None:
-            r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
-            soup = BeautifulSoup(r.content.decode("utf8"), features="html.parser")
+            r = ctx.request.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
+            soup = BeautifulSoup(r.text(), features="html.parser")
         else:
-            soup = BeautifulSoup(content.decode("utf8"), features="html.parser")
+            soup = BeautifulSoup(content, features="html.parser")
         ticketgroups = soup.find_all("td", class_="ticket-group")
         results = {}
         for tg in ticketgroups:
@@ -354,15 +324,12 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             results[groupname] = m[1]
         return results
 
-    def create_ticket_group_req_(self, event_id, group_name, group_desc):
+    def create_ticket_group_req_(self, ctx, event_id, group_name, group_desc):
         """Create a ticket group for an event"""
-        # We must appear to be coming from the package grup creation page
         referer = f"{ADMIN_URL}/event/newPackageGroup.do?eventId={event_id}"
-        rg = self.s.get(referer)
-        assert rg.status_code == 200
+        rg = ctx.request.get(referer)
+        assert rg.status == 200
 
-        # Must set referer so the server knows which event this POST is for
-        self.s.headers.update({"Referer": rg.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -371,31 +338,31 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "ticketPackageGroup.startDate": "",
             "ticketPackageGroup.endDate": "",
         }
-        r = self.s.post(
+        r = ctx.request.post(
             f"{ADMIN_URL}/event/savePackageGroup.do",
-            allow_redirects=True,
-            data=data,
+            # Must set referer so the server knows which event this POST is for
+            headers={"Referer": rg.url},
+            form=data,
         )
-        if r.status_code != 200:
-            raise RuntimeError(f"{r.status_code}: {r.content}")
+        if r.status != 200:
+            raise RuntimeError(f"{r.status}: {r.text()}")
         return r
 
-    def assign_condition_to_group(self, event_id, group_id, cond):
+    def assign_condition_to_group(self, ctx, event_id, group_id, cond):
         """Assign a membership / income condition to a ticket group"""
         # Load report setup page
         referer = f"{ADMIN_URL}/v2report/validFieldsList.do"
         referer += "?reportId=22"
         referer += "&searchCriteriaId="
         referer += f"&EventTicketPackageGroupId={group_id}&eventId={event_id}"
-        ag = self.s.get(referer)
-        content = ag.content.decode("utf8")
+        ag = ctx.request.get(referer)
+        content = ag.text()
 
         if "All Accounts Report" not in content:
             raise RuntimeError("Bad GET report setup page:", content)
 
         # Submit report / condition
         # Must set referer so the server knows which event this POST is for
-        self.s.headers.update({"Referer": ag.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -423,44 +390,45 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "savedColumnToDefault": "",
             "comeFrom": None,
         }
-        r = self.s.post(
+        r = ctx.request.post(
             f"{ADMIN_URL}/report/reportFilterEdit.do",
-            allow_redirects=False,
-            data=data,
+            max_redirects=0,
+            form=data,
+            headers={"Referer": ag.url},
         )
-        if r.status_code != 302:
+        if r.status != 302:
             raise RuntimeError(
                 "Report filter edit failed; expected code 302 FOUND, got "
-                + str(r.status_code)
+                + str(r.status)
             )
 
         # Do initial report execution
-        self.s.headers.update({"Referer": r.url})
-        r = self.s.get(
+        r = ctx.request.get(
             f"{ADMIN_URL}/report/searchCriteriaSearch.do"
-            "?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null"
+            "?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null",
+            headers={"Referer": r.url},
         )
-        content = r.content.decode("utf8")
+        content = r.text()
         if "Return to Event Detail Page" not in content:
             raise RuntimeError("Bad GET report setup page:", content)
 
         # Set the search details
-        self.s.headers.update({"Referer": r.url})
-        r = self.s.get(
+        r = ctx.request.get(
             f"{ADMIN_URL}/systemsetting/eventTicketGroupConditionSave.do?ticketGroupId={group_id}",
-            allow_redirects=False,
+            max_redirects=0,
+            headers={"Referer": r.url},
         )
-        if r.status_code != 302:
-            raise RuntimeError(f"{r.status_code}: {r.content}")
+        if r.status != 302:
+            raise RuntimeError(f"{r.status}: {r.text()}")
         return True
 
     def assign_price_to_group(  # pylint: disable=too-many-arguments
-        self, event_id, group_id, price_name, amt, capacity
+        self, ctx, event_id, group_id, price_name, amt, capacity
     ):
         """Assigns a specific price to a Neon ticket group"""
         referer = f"{ADMIN_URL}/event/newPackage.do?ticketGroupId={group_id}&eventId={event_id}"
-        ag = self.s.get(referer)
-        content = ag.content.decode("utf8")
+        ag = ctx.request.get(referer)
+        content = ag.text()
         if "Event Price" not in content:
             raise RuntimeError(
                 f"BAD get group price creation page - {content[:128]}..."
@@ -468,7 +436,6 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
         # Submit report / condition
         # Must set referer so the server knows which event this POST is for
-        self.s.headers.update({"Referer": ag.url})
         drt_i = self.drt.get()
         data = {
             "z2DuplicateRequestToken": drt_i,
@@ -481,58 +448,67 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             "ticketPackage.capacity": str(capacity),
             "ticketPackage.advantageAmount": str(amt),
             "ticketPackage.advantageDescription": "",
+            "ticketPackage.isUpto": "0",
+            "ticketPackage.fixedAttendeeTotalPerReg": "1",
             "ticketPackage.description": "",
             "ticketPackage.webRegister": "on",
-            "save": " Submit ",
+            "save": "+Submit+",
         }
-        r = self.s.post(
+        # log.debug(f"savePackage.do data={data}")
+        r = ctx.request.post(
             f"{ADMIN_URL}/event/savePackage.do",
-            allow_redirects=False,
-            data=data,
+            max_redirects=0,
+            form=data,
+            headers={"Referer": ag.url},
         )
-        if r.status_code != 302:
-            log.error(r.content.decode("utf8"))
+        soup = BeautifulSoup(r.text(), features="html.parser")
+        errs = soup.find_all("div", class_="error")
+
+        if r.status != 302 or errs:
+            log.error(str(errs))
+
             raise RuntimeError(
-                "Price creation failed; expected code 302, got " + str(r.status_code)
+                "Price creation failed; expected code 302, got " + str(r.status)
             )
         return True
 
-    def upsert_ticket_group(self, event_id, group_name, group_desc):
+    def upsert_ticket_group(self, ctx, event_id, group_name, group_desc):
         """Adds the ticket group to an event, if not already exists"""
         if group_name.lower() == "default":
             return "default"
-        groups = self.get_ticket_groups(event_id)
+        groups = self.get_ticket_groups(ctx, event_id)
+        log.debug(f"Resolved ticket groups: {groups}")
         if group_name not in groups:
             log.debug("Group does not yet exist; creating")
-            r = self.create_ticket_group_req_(event_id, group_name, group_desc)
-            groups = self.get_ticket_groups(event_id, r.content)
+            r = self.create_ticket_group_req_(ctx, event_id, group_name, group_desc)
+            groups = self.get_ticket_groups(ctx, event_id, r.text())
         assert group_name in groups
         group_id = groups[group_name]
         return group_id
 
-    def delete_all_prices_and_groups(self, event_id):
+    def delete_all_prices_and_groups(self, ctx, event_id):
         """Deletes prices and groups belonging to a neon event"""
         assert event_id != "" and event_id is not None
 
-        r = self.s.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
-        content = r.content.decode("utf8")
+        r = ctx.request.get(f"{ADMIN_URL}/event/eventDetails.do?id={event_id}")
+        content = r.text()
         deletable_packages = list(
             set(re.findall(r"deletePackage\.do\?eventId=\d+\&id=(\d+)", content))
         )
         deletable_packages.sort()
-        log.debug(deletable_packages)
+        log.debug(f"Deletable pricing packages: {deletable_packages}")
         groups = set(re.findall(r"ticketGroupId=(\d+)", content))
-        log.debug(groups)
+        log.debug(f"Deletable groups: {groups}")
 
         for pkg_id in deletable_packages:
             log.debug(f"Delete pricing {pkg_id}")
-            self.s.get(
+            ctx.request.get(
                 f"{ADMIN_URL}/event/deletePackage.do?eventId={event_id}&id={pkg_id}"
             )
 
         for group_id in groups:
             log.debug(f"Delete group {group_id}")
-            self.s.get(
+            ctx.request.get(
                 f"{ADMIN_URL}/event/deletePackageGroup.do"
                 f"?ticketGroupId={group_id}&eventId={event_id}"
             )
@@ -541,10 +517,51 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         # that must exist if there are conditional pricing applied
         if len(deletable_packages) > 0:
             log.debug(f"Re-delete pricing {deletable_packages[0]}")
-            self.s.get(
+            ctx.request.get(
                 f"{ADMIN_URL}/event/deletePackage.do"
                 f"?eventId={event_id}&id={deletable_packages[0]}"
             )
+
+    def assign_pricing(  # pylint: disable=too-many-arguments
+        self, event_id, price, seats, clear_existing=False, include_discounts=True
+    ):
+        """Assigns ticket pricing and quantities for a preexisting Neon event"""
+        with sync_playwright() as p:
+            # Launch a headless Firefox browser
+            browser = p.firefox.launch(
+                headless=True
+            )  # Set headless=False for debugging
+            ctx = browser.new_context()
+            page = ctx.new_page()
+
+            self.do_login(page)
+
+            log.info("Clearing existing pricing (if any)...")
+            if clear_existing:
+                self.delete_all_prices_and_groups(ctx, event_id)
+
+            log.info("Beginning price assignment")
+            for p in pricing if include_discounts else pricing[:1]:
+                log.debug(f"Assign pricing: {p['name']}")
+                group_id = self.upsert_ticket_group(
+                    ctx, event_id, group_name=p["name"], group_desc=p["desc"]
+                )
+                if p.get("cond", None) is not None:
+                    self.assign_condition_to_group(ctx, event_id, group_id, p["cond"])
+
+                # Some classes have so few seats that the ratio rounds down to zero
+                # We just skip those here.
+                qty = round(seats * p["qty_ratio"])
+                if qty <= 0:
+                    continue
+                self.assign_price_to_group(
+                    ctx,
+                    event_id,
+                    group_id,
+                    p["price_name"],
+                    round(price * p["price_ratio"]),
+                    qty,
+                )
 
 
 def delete_event_unsafe(event_id):
