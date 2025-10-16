@@ -63,8 +63,10 @@ def get_instructor_email_map(require_teachable_classes=False, require_active=Fal
     for row in get_all_records("class_automation", "capabilities"):
         if row["fields"].get("Email") is None:
             continue
-        if require_teachable_classes and len(row["fields"].get("Class", [])) == 0:
-            continue
+        if require_teachable_classes:
+            classes = row["fields"].get("Class") or []
+            if (isinstance(classes, int) and classes > 0) or len(classes) == 0:
+                continue
         if require_active and not row["fields"].get("Active"):
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
