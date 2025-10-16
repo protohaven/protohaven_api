@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # https://stackoverflow.com/a/821419
 set -Eeuo pipefail

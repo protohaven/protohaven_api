@@ -358,9 +358,6 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         ag = ctx.request.get(referer)
         content = ag.text()
 
-        if "All Accounts Report" not in content:
-            raise RuntimeError("Bad GET report setup page:", content)
-
         # Submit report / condition
         # Must set referer so the server knows which event this POST is for
         drt_i = self.drt.get()
@@ -410,7 +407,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         )
         content = r.text()
         if "Return to Event Detail Page" not in content:
-            raise RuntimeError("Bad GET report setup page:", content)
+            raise RuntimeError("Bad GET search criteria execution:", content)
 
         # Set the search details
         r = ctx.request.get(
