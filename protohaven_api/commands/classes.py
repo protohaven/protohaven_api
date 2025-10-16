@@ -21,7 +21,6 @@ from protohaven_api.config import (  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     comms,
-    neon,
     neon_base,
 )
 from protohaven_api.integrations.comms import Msg
@@ -162,13 +161,12 @@ class Commands:
         price = evt["fields"]["Price (from Class)"][0]
         qty = evt["fields"]["Capacity (from Class)"][0]
         log.debug(f"{event_id} {evt['fields']['Name (from Class)']} {price} {qty}")
-        neon.assign_pricing(
+        session.assign_pricing(
             event_id,
             price,
             qty,
             include_discounts=include_discounts,
             clear_existing=True,
-            n=session,
         )
 
     @classmethod

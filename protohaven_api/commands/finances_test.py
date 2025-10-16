@@ -455,18 +455,6 @@ def test_init_new_memberships_limit(mocker, cli):
         "search_new_members_needing_setup",
         return_value=[mocker.MagicMock(neon_id=i) for i in range(5)],
     )
-    mocker.patch.object(
-        f.neon_base,
-        "fetch_account",
-        side_effect=lambda neon_id: mocker.MagicMock(
-            neon_id=neon_id,
-            fname="Foo",
-            email="a@b.com",
-            latest_membership=lambda: mocker.MagicMock(
-                start_date=d(0), neon_id=456, level="testname"
-            ),
-        ),
-    )
 
     m2 = mocker.patch.object(f.memauto, "init_membership", return_value=[])
     got = cli("init_new_memberships", ["--apply", "--limit=2"])

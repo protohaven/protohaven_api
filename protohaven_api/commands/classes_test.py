@@ -114,7 +114,7 @@ def test_post_classes_to_neon_no_actions(cli, mocker, tc):
     """Test cases where the scheduling action is skipped"""
     mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
-        C.neon,
+        C.Commands,
         "_schedule_event",
         create=True,
         side_effect=RuntimeError("Should not have scheduled"),
@@ -176,11 +176,11 @@ Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
 )
 def test_post_classes_to_neon_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
-    mocker.patch.object(C.neon_base, "NeonOne")
+    m2 = mocker.MagicMock()
+    mocker.patch.object(C.neon_base, "NeonOne", return_value=m2)
     mock_delete = mocker.patch.object(
         C.neon_base, "delete_event_unsafe", return_value=True
     )
-    mocker.patch.object(C.neon, "assign_pricing")
     mocker.patch.object(C.neon_base, "create_event", return_value="123")
     mocker.patch.object(C.airtable, "update_record")
     mocker.patch.object(
@@ -216,8 +216,8 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         '<p><img height="200" src="http://testimg"/></p>'
         in C.neon_base.create_event.mock_calls[0][1][1]
     )
-    C.neon.assign_pricing.assert_called_with(
-        "123", 90, 6, include_discounts=tc.discount, clear_existing=True, n=mocker.ANY
+    m2.assign_pricing.assert_called_with(
+        "123", 90, 6, include_discounts=tc.discount, clear_existing=True
     )
     if tc.reserve:
         C.Commands._reserve_equipment_for_class_internal.assert_called_with(

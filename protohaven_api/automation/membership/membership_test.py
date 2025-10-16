@@ -231,13 +231,13 @@ def test_try_cached_coupon_no_coupon(mocker):
     mock_generate_coupon_id = mocker.patch.object(
         m, "generate_coupon_id", return_value="new_cid"
     )
-    mock_create_coupon_code = mocker.patch.object(m.neon, "create_coupon_code")
+    mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
 
     result = m.try_cached_coupon(10, "assignee", True)
 
     mock_send_discord.assert_called_once()
     mock_generate_coupon_id.assert_called_once()
-    mock_create_coupon_code.assert_called_once_with("new_cid", 10)
+    mock_create_coupon_codes.assert_called_once_with(["new_cid"], 10)
     assert result == "new_cid"
 
 
@@ -273,11 +273,11 @@ def test_try_cached_coupon_with_coupon_mismatch(mocker):
     mock_generate_coupon_id = mocker.patch.object(
         m, "generate_coupon_id", return_value="new_cid"
     )
-    mock_create_coupon_code = mocker.patch.object(m.neon, "create_coupon_code")
+    mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
 
     result = m.try_cached_coupon(10, "assignee", True)
 
     mock_send_discord.assert_called_once()
     mock_generate_coupon_id.assert_called_once()
-    mock_create_coupon_code.assert_called_once_with("new_cid", 10)
+    mock_create_coupon_codes.assert_called_once_with(["new_cid"], 10)
     assert result == "new_cid"
