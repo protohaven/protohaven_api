@@ -481,36 +481,6 @@ def set_event_scheduled_state(neon_id, scheduled=True):
     )["id"]
 
 
-def assign_pricing(  # pylint: disable=too-many-arguments
-    event_id, price, seats, clear_existing=False, include_discounts=True, n=None
-):
-    """Assigns ticket pricing and quantities for a preexisting Neon event"""
-    n = n or neon_base.NeonOne()
-    if clear_existing:
-        n.delete_all_prices_and_groups(event_id)
-
-    for p in neon_base.pricing if include_discounts else neon_base.pricing[:1]:
-        log.debug(f"Assign pricing: {p['name']}")
-        group_id = n.upsert_ticket_group(
-            event_id, group_name=p["name"], group_desc=p["desc"]
-        )
-        if p.get("cond", None) is not None:
-            n.assign_condition_to_group(event_id, group_id, p["cond"])
-
-        # Some classes have so few seats that the ratio rounds down to zero
-        # We just skip those here.
-        qty = round(seats * p["qty_ratio"])
-        if qty <= 0:
-            continue
-        n.assign_price_to_group(
-            event_id,
-            group_id,
-            p["price_name"],
-            round(price * p["price_ratio"]),
-            qty,
-        )
-
-
 # Sign-ins need to be speedy; if it takes more than half a second, folks will
 # disengage.
 class AccountCache(WarmDict):

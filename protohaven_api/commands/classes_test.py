@@ -114,7 +114,7 @@ def test_post_classes_to_neon_no_actions(cli, mocker, tc):
     """Test cases where the scheduling action is skipped"""
     mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
-        C.neon,
+        C.Commands,
         "_schedule_event",
         create=True,
         side_effect=RuntimeError("Should not have scheduled"),
