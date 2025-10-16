@@ -1,7 +1,8 @@
 asana==5.0.3
 beautifulsoup4==4.12.2
 detect-secrets==1.5.0
-discord.py==2.3.2
+# audioop-lts==0.2.2
+discord.py==2.6.4
 distro==1.9.0
 Flask==3.0.0
 Flask-Cors==4.0.0

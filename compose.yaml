@@ -1,16 +1,4 @@
 services:
-  cli:
-    build:
-      context: .
-      dockerfile: protohaven_api.Dockerfile
-    container_name: protohaven_api_flask
-    environment:
-      LOG_LEVEL: "debug"
-      PH_CONFIG: "config.yaml"
-      PH_SERVER_MODE: "prod"
-    volumes:
-      - ./:/code
-    command: /bin/bash
   flask:
     build:
       context: .
@@ -55,7 +43,6 @@ services:
       retries: 10
       test: "curl localhost:5000"
       timeout: 2s
-
   svelte:
     build:
       context: ./svelte
