@@ -60,6 +60,9 @@ class Commands:
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
+
+        log.info("Hello world")
+
         start = (
             safe_parse_datetime(args.start)
             if args.start
