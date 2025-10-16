@@ -410,7 +410,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         )
         content = r.text()
         if "Return to Event Detail Page" not in content:
-            raise RuntimeError("Bad GET report setup page:", content)
+            raise RuntimeError("Bad GET search criteria execution:", content)
 
         # Set the search details
         r = ctx.request.get(

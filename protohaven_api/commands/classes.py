@@ -422,7 +422,7 @@ class Commands:
                     scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
                     log.info("Added to notification list")
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    log.error(f"Failed to create event #{result_id}: {e}")
+                    log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")
                     log.error(traceback.format_exc())
                     if result_id:
                         log.error("Failed; reverting event creation")
@@ -435,7 +435,7 @@ class Commands:
                         )
                     try:
                         comms.send_discord_message(
-                            f"Reverted class #{result_id}; creation failed: {e}\n"
+                            f"Reverted class #{result_id}; creation failed: {str(e)[:256]}...\n"
                             "Check Cronicle logs for details",
                             "#class-automation",
                             blocking=False,
