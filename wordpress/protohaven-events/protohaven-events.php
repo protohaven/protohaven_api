@@ -4,7 +4,7 @@
  * Description: 			Load and render Neon CRM events - see https://github.com/protohaven/protohaven_api/
  * Requires at least: 6.6
  * Requires PHP:      7.2
- * Version:           0.2.0
+ * Version:           0.2.1
  * Author: 						Scott Martin (smartin015@gmail.com)
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html:
