@@ -44,8 +44,8 @@ def get_reserved_area_occupancy(from_date, to_date):
             # the future for reservations though.
             occupancy[area].append(
                 [
-                    safe_parse_datetime(res["bufferedStartDate"]),
-                    safe_parse_datetime(res["bufferedEndDate"]),
+                    res["bufferedStartDate"],
+                    res["bufferedEndDate"],
                     f"{res['resourceName']} reservation by "
                     + f"{res['firstName']} {res['lastName']}, "
                     + "https://reserve.protohaven.org/Web/reservation/?rn="
