@@ -585,7 +585,9 @@ def create_event(  # pylint: disable=too-many-arguments
         "name": name,
         "summary": name,
         "maximumAttendees": max_attendees,
-        "category": {"id": category},
+        "category": [
+            {"id": category}
+        ],  # 2025-10-22: Neon broke this; moved from single-instance dict to dict-list
         "publishEvent": published,
         "enableEventRegistrationForm": registration,
         "archived": False,
