@@ -407,7 +407,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         )
         content = r.text()
         if "Return to Event Detail Page" not in content:
-            raise RuntimeError("Bad GET search criteria execution:", content)
+            raise RuntimeError("Bad GET search criteria execution:", content[:256])
 
         # Set the search details
         r = ctx.request.get(
@@ -539,7 +539,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
             log.info("Beginning price assignment")
             for p in pricing if include_discounts else pricing[:1]:
-                log.debug(f"Assign pricing: {p['name']}")
+                log.info(f"Assign pricing: {p['name']}")
                 group_id = self.upsert_ticket_group(
                     ctx, event_id, group_name=p["name"], group_desc=p["desc"]
                 )

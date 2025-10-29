@@ -28,13 +28,30 @@ def test_get_resource_singleton(mocker):
 def test_get_reservations(mocker):
     """Ensure the correct URL is formed when checking reservations"""
     mocker.patch.object(booked, "get_connector")
-    booked.get_reservations(
+    booked.get_connector().booked_request.return_value = {
+        "reservations": [
+            {
+                "startDate": "2024-01-02",
+                "endDate": "2024-02-01",
+                "bufferedStartDate": "2024-01-02",
+                "bufferedEndDate": "2024-02-01",
+            },
+            {
+                "startDate": "2024-11-05",
+                "endDate": "2024-11-06",
+                "bufferedStartDate": "2024-11-05",
+                "bufferedEndDate": "2024-11-06",
+            },
+        ]
+    }
+    res = booked.get_reservations(
         safe_parse_datetime("2024-01-01"), safe_parse_datetime("2024-02-02")
     )
     booked.get_connector().booked_request.assert_called_once_with(  # pylint: disable=no-member
         "GET",
         "/Reservations/?startDateTime=2024-01-01T00:00:00-05:00&endDateTime=2024-02-02T00:00:00-05:00",  # pylint: disable=line-too-long
     )
+    assert len(res["reservations"]) == 1
 
 
 def test_reserve_resource(mocker):
