@@ -255,3 +255,4 @@ See [docs/qa.md](docs/qa.md)
 ## Contributors
 
 Scott Martin
+Tim Bosse
