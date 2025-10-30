@@ -10,7 +10,8 @@ Test change
 
 <h3>Roles</h3>
 <ul>
-  <li><a href="http://localhost:5173/admin/login_as?neon_id=1797">Login</a> as Instructor/PrivateInstructor/EduLead</li>
+  <li><a href="http://localhost:5173/admin/login_as?neon_id=1727">Login</a> as Member</li>
+  <li><a href="http://localhost:5173/admin/login_as?neon_id=9999">Login</a> as Instructor/PrivateInstructor/EduLead</li>
 </ul>
 
 <h3>Directory</h3>
