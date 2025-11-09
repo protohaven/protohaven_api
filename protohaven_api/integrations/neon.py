@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import re
 from functools import lru_cache
 from typing import Generator
 
@@ -420,18 +421,18 @@ def patch_member_role(email, role, enabled):
 
 def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     account_id,
-    shift=None,
-    first_day=None,
-    last_day=None,
+    shop_tech_shift=None,
+    shop_tech_first_day=None,
+    shop_tech_last_day=None,
     area_lead=None,
     interest=None,
     expertise=None,
 ):
     """Sets custom fields on a shop tech Neon account"""
     cf = [
-        (CustomField.SHOP_TECH_SHIFT, shift),
-        (CustomField.SHOP_TECH_FIRST_DAY, first_day),
-        (CustomField.SHOP_TECH_LAST_DAY, last_day),
+        (CustomField.SHOP_TECH_SHIFT, shop_tech_shift),
+        (CustomField.SHOP_TECH_FIRST_DAY, shop_tech_first_day),
+        (CustomField.SHOP_TECH_LAST_DAY, shop_tech_last_day),
         (CustomField.AREA_LEAD, area_lead),
         (CustomField.INTEREST, interest),
         (CustomField.EXPERTISE, expertise),
@@ -592,7 +593,10 @@ class AccountCache(WarmDict):
     def find_best_match(self, search_string, top_n=10):
         """Deduplicates find_best_match_internal"""
         result = set()
-        if len(self.fuzzy) == 0:
+        search_string = re.sub(
+            " +", " ", search_string
+        )  # Fix multiple whitespace to prevent splitting issues
+        if len(self.fuzzy) == 0 and sp[0] and sp[1]:
             sp = search_string.split(" ")
             if len(sp) >= 2:
                 yield from search_members_by_name(sp[0], sp[1], fields=self.FIELDS)

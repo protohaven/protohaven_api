@@ -57,7 +57,7 @@ def test_techs_list(mocker, tech_client):
         "id": 123,
         "interest": "Stuff",
         "name": "Test Tech",
-        "shop_tech_first_day": "Wed, 01 Jan 2025 05:00:00 GMT",
+        "shop_tech_first_day": "2025-01-01",
         "shop_tech_last_day": None,
         "shop_tech_shift": [
             None,

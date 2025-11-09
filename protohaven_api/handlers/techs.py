@@ -287,6 +287,11 @@ def techs_list():
             )
         }
         t["id"] = m.neon_id
+        # Convert back from date so it's properly displayed as text
+        if t["shop_tech_first_day"] is not None:
+            t["shop_tech_first_day"] = t["shop_tech_first_day"].strftime("%Y-%m-%d")
+        if t["shop_tech_last_day"] is not None:
+            t["shop_tech_last_day"] = t["shop_tech_last_day"].strftime("%Y-%m-%d")
         techs_results.append(t)
 
     return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
@@ -300,12 +305,12 @@ def tech_update():
     nid = data["id"]
 
     editable_fields = (
-        "shift",
+        "shop_tech_shift",
         "area_lead",
         "interest",
         "expertise",
-        "first_day",
-        "last_day",
+        "shop_tech_first_day",
+        "shop_tech_last_day",
     )
     if not am_role(Role.SHOP_TECH_LEAD):
         if not am_neon_id(nid):
