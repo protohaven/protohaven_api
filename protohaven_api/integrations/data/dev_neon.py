@@ -16,12 +16,16 @@ app = Flask(__file__)
 
 log = logging.getLogger("integrations.data.dev_neon")
 
+
 def get_all_rows(table: str):
+    """Fetches all rows in a table, throwing hint error if table missing"""
     try:
         return airtable_base.get_all_records("fake_neon", table)
     except airtable_base.TableNotFoundError as e:
-        raise RuntimeError("Table not found; Hint: have you ran " +
-                           "./nocodb/init_or_update_nocodb.sh?\n" + str(e))
+        raise RuntimeError(
+            "Table not found; Hint: have you ran "
+            + "./nocodb/init_or_update_nocodb.sh?"
+        ) from e
     except Exception as e:
         raise e
 

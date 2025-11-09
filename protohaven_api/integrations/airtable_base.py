@@ -6,8 +6,10 @@ from protohaven_api.integrations.data.connector import get as get_connector
 
 log = logging.getLogger("integrations.airtable_base")
 
+
 class TableNotFoundError(Exception):
-    pass
+    """Error for table not found"""
+
 
 def _idref(rec, field):
     v = rec["fields"].get(field)

@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import re
 from collections import defaultdict
 from typing import NotRequired, Optional, TypedDict, cast
 
@@ -70,6 +71,7 @@ def resolve_overrides(
     ovr_id, ovr_people_in, ovr_editor = overrides.get(shift) or (None, [], None)
     ovr_people_out: list[Member] = []
     for p in ovr_people_in:
+        p = re.sub(" +", " ", p)  # prevent double-space issues
         mm = list(neon.cache.find_best_match(p))
         found = False
         # log.info(f"Seeking match for tech override {p}")
