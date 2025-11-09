@@ -16,6 +16,15 @@ app = Flask(__file__)
 
 log = logging.getLogger("integrations.data.dev_neon")
 
+def get_all_rows(table: str):
+    try:
+        return airtable_base.get_all_records("fake_neon", table)
+    except airtable_base.TableNotFoundError as e:
+        raise RuntimeError("Table not found; Hint: have you ran " +
+                           "./nocodb/init_or_update_nocodb.sh?\n" + str(e))
+    except Exception as e:
+        raise e
+
 
 def first(*args):
     """Return the first non-None field in the sequence"""
@@ -183,7 +192,7 @@ def search_event():
         "Event Start Time": "startTime",
     }
     result = []
-    for row in airtable_base.get_all_records("fake_neon", "events"):
+    for row in get_all_rows("events"):
         row = row["fields"]["data"]
         if not row:
             continue
@@ -209,7 +218,7 @@ def get_event(event_id):
     """Mock event endpoint for Neon"""
     # Note that fetching an event directly returns structured data,
     # while searching for events returns a flattened and reduced set of data
-    for row in airtable_base.get_all_records("fake_neon", "events"):
+    for row in get_all_rows("events"):
         if str(row["fields"]["eventId"]) == str(event_id):
             if request.method == "GET":
                 return row["fields"]["fetch_data"]
@@ -231,7 +240,7 @@ def get_events():
     if request.method == "GET":
         evts = [
             row["fields"]["data"]
-            for row in airtable_base.get_all_records("fake_neon", "events")
+            for row in get_all_rows("events")
             if row["fields"]["data"]
         ]
         return {
@@ -257,7 +266,7 @@ def get_events():
 @app.route("/v2/events/<event_id>/tickets")
 def get_event_tickets(event_id):
     """Mock event tickets endpoint for Neon"""
-    for row in airtable_base.get_all_records("fake_neon", "tickets"):
+    for row in get_all_rows("fake_neon"):
         if not row["fields"]["data"]:
             continue
         if str(row["fields"]["eventId"]) == str(event_id):
@@ -277,7 +286,7 @@ def get_event_registrations(event_id):
 def get_attendees(event_id):
     """Mock event attendees endpoint for Neon"""
     result = []
-    for row in airtable_base.get_all_records("fake_neon", "attendees"):
+    for row in get_all_rows("attendees"):
         if not row["fields"]["data"]:
             continue
         if str(row["fields"]["eventId"]) == str(event_id):
@@ -296,7 +305,7 @@ def search_accounts():
     log.info(data)
     filters = [_neon_dev_search_filter(**f) for f in data["searchFields"]]
     results = []
-    for row in airtable_base.get_all_records("fake_neon", "accounts"):
+    for row in get_all_rows("accounts"):
         a = row["fields"]["data"]
         if False not in [f(a) for f in filters]:
             result = {}
@@ -337,7 +346,7 @@ def _merge_account_data(dest, src):
 @app.route("/v2/accounts/<account_id>", methods=["GET", "PATCH"])
 def get_account(account_id):
     """Mock account lookup endpoint for Neon"""
-    for row in airtable_base.get_all_records("fake_neon", "accounts"):
+    for row in get_all_rows("accounts"):
         if str(row["fields"]["accountId"]) != str(account_id):
             continue
         if request.method == "GET":
@@ -358,7 +367,7 @@ def get_account(account_id):
 def get_account_memberships(account_id):
     """Mock account membership endpoint for Neon"""
     m = []
-    for row in airtable_base.get_all_records("fake_neon", "memberships"):
+    for row in get_all_rows("memberships"):
         if str(row["fields"]["accountId"]) == str(account_id):
             m = row["fields"]["data"]
             break
