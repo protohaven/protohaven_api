@@ -32,7 +32,7 @@ def get_sheet_range(sheet_id, range_name):
     return values
 
 
-def get_instructor_submissions(from_row=800):
+def get_instructor_submissions(from_row=1300):
     """Get log submissions from instructors"""
     sheet_id = get_config("sheets/instructor_hours")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
