@@ -47,6 +47,13 @@ class Commands:  # pylint: disable=too-few-public-methods
             type=int,
             default=5,
         ),
+        arg(
+            "--from_row",
+            help="Set the row of the instructor log sheet to start at - set this higher"
+            " to prevent read timeouts and network errors due to the amount of data.",
+            type=int,
+            default=1300,
+        ),
     )
     def sync_clearances(  # pylint: disable=too-many-locals, too-many-statements, too-many-branches
         self, args, _
@@ -75,7 +82,7 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         log.info(f"Building list of clearances starting from {dt}")
         earned = defaultdict(set)
-        for sub in sheets.get_instructor_submissions():
+        for sub in sheets.get_instructor_submissions(from_row=args.from_row):
             if sub["Timestamp"] < dt:
                 continue
             emails = sub.get(PASS_HDR)
