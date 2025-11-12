@@ -129,12 +129,19 @@ def test_gen_role_intents_departing_member(mocker):
                 fname="A",
                 lname="B",
                 email="a@b.com",
-                account_current_membership_statu="Inactive",
+                account_current_membership_status="Inactive",
                 discord_user="discord_id",
                 roles=[],
             )
         ]
 
+    latest = mocker.MagicMock()
+    latest.is_lapsed.side_effect = [True, True]  # Lapsed, but not recently
+    mocker.patch.object(
+        r.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(latest_membership=lambda: latest),
+    )
     mocker.patch.object(
         r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
@@ -142,10 +149,26 @@ def test_gen_role_intents_departing_member(mocker):
         r.comms,
         "get_all_members",
         return_value=[
-            ("discord_id", "nickname", d(0), [("Members", "memid")]),
+            (
+                "discord_id",
+                "nickname",
+                d(0),
+                [("Members", "memid"), ("Techs", "techid")],
+            ),
         ],
     )
-    assert list(r.gen_role_intents(None, None, True, 10, 10)) == []
+    assert list(r.gen_role_intents(None, None, True, 10, 10)) == [
+        r.DiscordIntent(
+            neon_id=123,
+            name="A B",
+            email="a@b.com",
+            discord_id="discord_id",
+            discord_nick="nickname",
+            action="REVOKE",
+            role="Techs",
+            reason="not indicated by Neon CRM",
+        )
+    ]
 
 
 def test_gen_role_intents_match(mocker):
@@ -368,3 +391,23 @@ def test_setup_discord_user_multiple_accounts(mocker):
     assert len(got) == 3
     assert ("grant_role", "a", "Instructors") in got
     assert ("grant_role", "a", "Members") in got
+
+
+@pytest.mark.parametrize(
+    "lapsed_now,lapsed_prev,want",
+    [
+        (True, True, False),  # Long inactive
+        (True, False, True),  # Recently inactive
+        (False, False, False),  # Consistently active
+        (False, True, False),  # Renewed membership
+    ],
+)
+def test_recently_inactive(mocker, lapsed_now, lapsed_prev, want):
+    latest = mocker.MagicMock()
+    latest.is_lapsed.side_effect = [lapsed_now, lapsed_prev]
+    mocker.patch.object(
+        r.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(latest_membership=lambda: latest),
+    )
+    assert r.recently_inactive(mocker.MagicMock()) == want
