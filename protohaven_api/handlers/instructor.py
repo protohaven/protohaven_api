@@ -6,6 +6,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Union
 
+from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.automation.classes.scheduler import (
@@ -609,3 +610,21 @@ def inst_availability():  # pylint: disable=too-many-return-statements
         return {"result": result}
 
     return Response(f"Unsupported method '{request.method}'", status=400)
+
+
+@page.route("/instructor/clearance_quiz", methods=["POST"])
+@require_login_role(Role.AUTOMATION, Role.INSTRUCTOR)
+def log_quiz_submission():
+    """Saves the results of a clearance quiz in the Quiz Results airtable
+
+    https://wiki.protohaven.org/books/drafts/page/how-to-create-a-recertification-clearance-quiz
+    """
+    req = request.json
+    return airtable.insert_quiz_result(
+        submitted=dateparser.parse(req["submitted"]) if "submitted" in req else None,
+        email=req.get("email") or None,
+        points_to_pass=int(req.get("points_to_pass") or "0"),
+        points_scored=int(req.get("points_scored") or "0"),
+        tool_codes=req.get("tool_codes") or None,
+        data=req.get("data") or {},
+    )

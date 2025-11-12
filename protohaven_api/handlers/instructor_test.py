@@ -479,3 +479,28 @@ def test_run_scheduler_no_availability(mocker, inst_client):
 
     assert response.status_code == 400
     assert "No availability specified" in response.get_data(as_text=True)
+
+
+def test_log_quiz_submission(mocker, inst_client):
+    """Test logging quiz submission to airtable"""
+    mock_insert = mocker.patch.object(instructor.airtable, "insert_quiz_result")
+
+    test_data = {
+        "data": {"Question1": "Answer1", "Question2": "Answer2"},
+        "tool_codes": ["LS1", "LS2"],
+        "email": "foo@bar.com",
+        "points_to_pass": "5",
+        "points_scored": "3",
+        "submitted": d(0).isoformat(),
+    }
+
+    response = inst_client.post("/instructor/clearance_quiz", json=test_data)
+    mock_insert.assert_called_once_with(
+        submitted=d(0),
+        email="foo@bar.com",
+        tool_codes=["LS1", "LS2"],
+        data={"Question1": "Answer1", "Question2": "Answer2"},
+        points_scored=3,
+        points_to_pass=5,
+    )
+    assert response.status_code == 200

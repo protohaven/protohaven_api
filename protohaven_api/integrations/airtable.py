@@ -1,11 +1,12 @@
 """Airtable integration (classes, tool state etc)"""
 
 import datetime
+import json
 import logging
 import re
 from collections import defaultdict
 from functools import lru_cache
-from typing import Iterator
+from typing import Iterator, List
 
 from dateutil.rrule import rrulestr
 
@@ -559,6 +560,31 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
     if rec is not None:
         return update_record(data, "people", "shop_tech_forecast_overrides", rec)
     return insert_records([data], "people", "shop_tech_forecast_overrides")
+
+
+def insert_quiz_result(
+    submitted: datetime.datetime,
+    email: str,
+    tool_codes: List[str],
+    data: dict,
+    points_scored: int,
+    points_to_pass: int,
+):  # pylint: disable=too-many-arguments
+    """Insert sign-in event into Airtable"""
+    return insert_records(
+        [
+            {
+                "Submitted": submitted,
+                "Email": email,
+                "Tool Codes": ",".join(tool_codes),
+                "Data": json.dumps(data),
+                "Points Scored": points_scored,
+                "Points to Pass": points_to_pass,
+            },
+        ],
+        "class_automation",
+        "quiz_results",
+    )
 
 
 class AirtableCache(WarmDict):
