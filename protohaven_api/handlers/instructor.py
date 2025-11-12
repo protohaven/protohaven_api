@@ -15,7 +15,10 @@ from protohaven_api.automation.classes.scheduler import (
     push_schedule,
     solve_with_env,
 )
-from protohaven_api.automation.classes.solver import expand_recurrence
+from protohaven_api.automation.classes.solver import (
+    NoAvailabilityError,
+    expand_recurrence,
+)
 from protohaven_api.config import ParserError, get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import (
@@ -444,7 +447,14 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, score = solve_with_env(request.json)
+    try:
+        result, score = solve_with_env(request.json)
+    except NoAvailabilityError:
+        return Response(
+            "No availability specified. Add your availability to the calendar,"
+            "then re-run the scheduler.",
+            400,
+        )
     return {"result": result, "score": score}
 
 
