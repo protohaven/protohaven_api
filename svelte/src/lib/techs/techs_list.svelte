@@ -63,6 +63,8 @@ function set_enrollment(enroll) {
       console.log(data);
       let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
       toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
+    }).catch((err) => {
+      toast_msg = {'color': 'danger', 'msg': 'See console for details', 'title': 'Error Changing Enrollment'};
     }).finally(() => {
       enrolling = false;
     });
@@ -140,11 +142,11 @@ function clearance_click(id) {
     </Dropdown>
     {#if p.tech_lead }
       <Input class="mx-1" text bind:value={new_tech_email} disabled={enrolling} placeholder="email address"/>
-      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling}>Enroll</Button>
-      <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling}>Disenroll</Button>
+      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling || !new_tech_email}>Enroll</Button>
+      <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling || !new_tech_email}>Disenroll</Button>
     {/if}
   </div>
-  <Toast class="me-1" style="position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
+  <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
     <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
     <ToastBody>{toast_msg.msg}</ToastBody>
   </Toast>

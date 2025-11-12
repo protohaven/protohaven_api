@@ -338,11 +338,12 @@ def _merge_account_data(dest, src):
         dest[k] = src[k]  # Probably not entirely correct; needs refinement
 
     scf = src["individualAccount"].get("accountCustomFields") or []
-    scf_ids = {cf["id"] for cf in scf}
+    scf = [{**cf, "id": str(cf["id"])} for cf in scf]
+    scf_ids = {str(cf["id"]) for cf in scf}
     dest["individualAccount"]["accountCustomFields"] = [
         cf
         for cf in (dest["individualAccount"].get("accountCustomFields") or [])
-        if cf["id"] not in scf_ids
+        if str(cf["id"]) not in scf_ids
     ] + scf
     return dest
 
@@ -356,13 +357,17 @@ def get_account(account_id):
         if request.method == "GET":
             return row["fields"]["data"]
         if request.method == "PATCH":
+            log.info(f"dev PATCH {request.json}")
             # Note: this isn't a deep merge
             merged_data = _merge_account_data(row["fields"]["data"], request.json)
-            return str(
-                airtable_base.update_record(
-                    {"data": merged_data}, "fake_neon", "accounts", row["id"]
+            log.info(f"Post patch: {merged_data}")
+            return {
+                "status": str(
+                    airtable_base.update_record(
+                        {"data": merged_data}, "fake_neon", "accounts", row["id"]
+                    )
                 )
-            )
+            }
 
     return Response("Account not found", status=404)
 
