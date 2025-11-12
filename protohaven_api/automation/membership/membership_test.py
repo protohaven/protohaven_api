@@ -27,6 +27,7 @@ def test_init_membership(mocker, include_filter, initializes):
     m1 = mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
+
     mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
     m2 = mocker.patch.object(
         neon,
@@ -41,15 +42,31 @@ def test_init_membership(mocker, include_filter, initializes):
             {"date": d(1), "name": "class2", "id": 1, "remaining": 2},
         ],
     )
-    mocker.patch.object(m, "get_config", return_value=include_filter)
+    mocker.patch.object(
+        m,
+        "get_config",
+        side_effect={
+            "neon/webhooks/new_membership/include_filter": include_filter,
+            "neon/webhooks/new_membership/excluded_membership_types": None,
+            "neon/webhooks/new_membership/additional_targets": "",
+        }.get,
+    )
     # Test with coupon_amount > 0
     msgs = m.init_membership(
-        "123", "General", "456", "j@d.com", "John Doe", coupon_amount=50, apply=True
+        "123",
+        "General",
+        "456",
+        "j@d.com",
+        "John Doe",
+        coupon_amount=50,
+        apply=True,
+        target="j@d.com",
     )
     if initializes:
         assert len(msgs) == 1
         assert msgs[0].subject == "John Doe: your first class is on us!"
         assert "class1" in msgs[0].body
+        assert msgs[0].target == "j@d.com"
         m1.assert_called_with(
             "456",
             m.PLACEHOLDER_START_DATE,
@@ -60,6 +77,43 @@ def test_init_membership(mocker, include_filter, initializes):
         assert not msgs
         m1.assert_not_called()
         m2.assert_not_called()
+
+
+def test_init_membership_addl_targets(mocker):
+    """Test init_membership with an additional email target (for observation)"""
+    m1 = mocker.patch.object(
+        neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
+    )
+    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    m2 = mocker.patch.object(
+        neon,
+        "update_account_automation_run_status",
+        return_value=mocker.Mock(status_code=200),
+    )
+    mocker.patch.object(m, "get_sample_classes", return_value=[])
+    mocker.patch.object(
+        m,
+        "get_config",
+        side_effect={
+            "neon/webhooks/new_membership/include_filter": "j@d.com",
+            "neon/webhooks/new_membership/excluded_membership_types": None,
+            "neon/webhooks/new_membership/additional_targets": "test@example.com",
+        }.get,
+    )
+    # Test with coupon_amount > 0
+    msgs = m.init_membership(
+        "123",
+        "General",
+        "456",
+        "j@d.com",
+        "John Doe",
+        coupon_amount=50,
+        apply=True,
+        target="j@d.com",
+    )
+    assert len(msgs) == 2
+    assert msgs[0].target == "j@d.com"
+    assert msgs[1].target == "test@example.com"
 
 
 def test_init_membership_email_filter(mocker):

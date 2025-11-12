@@ -162,6 +162,25 @@ def test_find_best_match(mocker):
     assert got == [123, 456]
 
 
+def test_find_best_match_below_threshold(mocker):
+    """Test that matches below the threshold aren't presented as true matches."""
+    c = n.AccountCache()
+    mocker.patch.object(
+        n,
+        "search_members_by_email",
+        side_effect=AssertionError("Should never be called"),
+    )
+    c.update(
+        mocker.MagicMock(email="john@protohaven.org", fname="J", lname="N", neon_id=123)
+    )
+    c.update(
+        mocker.MagicMock(email="js@gmail.com", fname="john", lname="smith", neon_id=456)
+    )
+
+    got = [m.neon_id for m in c.find_best_match("J N", top_n=2)]
+    assert got == [123]
+
+
 def test_account_cache_miss_inactive(mocker):
     """Confirm that inactive memberships trigger a direct lookup to Neon"""
     mocker.patch.object(
