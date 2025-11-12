@@ -38,6 +38,26 @@ def test_patch_member_role(mocker):
     )
 
 
+def test_patch_member_role_empty(mocker):
+    """Member role patch adds to existing roles"""
+    mocker.patch.object(
+        n,
+        "search_members_by_email",
+        return_value=[mocker.MagicMock(neon_id=1324, roles=None)],
+    )
+    m = mocker.patch.object(n.neon_base, "set_custom_fields")
+    n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
+    m.assert_called_with(
+        1324,
+        (
+            mocker.ANY,
+            [
+                {"name": "Instructor", "id": "75"},
+            ],
+        ),
+    )
+
+
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
     mocker.patch.object(
