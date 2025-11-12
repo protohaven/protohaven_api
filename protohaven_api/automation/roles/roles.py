@@ -1,12 +1,13 @@
 """Commands related operations on Dicsord"""
 
+import datetime
 import logging
 from dataclasses import asdict, dataclass, replace
 
-from protohaven_api.config import safe_parse_datetime
-from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.config import safe_parse_datetime, tznow
+from protohaven_api.integrations import airtable, comms, neon, neon_base
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.integrations.models import Role
+from protohaven_api.integrations.models import Member, Role
 
 log = logging.getLogger("role_automation.roles")
 
@@ -153,6 +154,27 @@ def singleton_role_sync(neon_member, neon_roles, discord_roles):
             yield "ADD", to_add, "indicated by Neon CRM"
 
 
+def recently_inactive(m: Member, grace_period_days=2):
+    """Return True if the member only recently became inactive, false
+    if active or "solidly" inactive.
+
+    This is intended to prevent spurious messaging from Neon
+    due to delays in renewing memberships. For a brief period,
+    memberships are listed as inactive due to delays in credit
+    card processing (presumably).
+
+    Note that this requires a fetch of full membership details,
+    which is slow and should be done sparingly.
+    """
+    acct = neon_base.fetch_account(m.neon_id, fetch_memberships=True)
+    if not acct:
+        return False
+    latest = acct.latest_membership()
+    return latest.is_lapsed() and not latest.is_lapsed(
+        tznow() - datetime.timedelta(days=grace_period_days)
+    )
+
+
 def gen_role_intents(  # pylint: disable=too-many-statements
     user_filter, exclude_users, destructive, max_users_added, max_users_removed
 ):  # pylint: disable=too-many-locals, too-many-branches
@@ -224,6 +246,12 @@ def gen_role_intents(  # pylint: disable=too-many-statements
                 if not destructive:
                     log.debug(
                         f"Omitting destructive action {action} {role} ({reason}) for {intent}"
+                    )
+                    continue
+                if m and neon_member == "INACTIVE" and recently_inactive(m):
+                    log.debug(
+                        f"Omitting destructive {action} {role}; Member only recently lost "
+                        "membership; waiting a bit to allow for slow Neon autorenew"
                     )
                     continue
                 if role == "Members":
