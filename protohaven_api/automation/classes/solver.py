@@ -16,6 +16,10 @@ from protohaven_api.config import safe_parse_datetime
 log = logging.getLogger("class_automation.solver")
 
 
+class NoAvailabilityError(RuntimeError):
+    """Raised when no availability is given, so the solver cannot find a solution"""
+
+
 def expand_recurrence(recurrence, hours, start_time, max_expansion=10):
     """Generate a list of time intervals based on a given `start_time` for
     which the class would be active"""
@@ -190,6 +194,8 @@ def solve(classes, instructors):  # pylint: disable=too-many-locals,too-many-bra
     # Model formulation
     prob = pulp.LpProblem("Class_Packing_Problem", pulp_constants.LpMaximize)
     times = {a for i in instructors for a in i.avail}
+    if len(times) == 0:
+        raise NoAvailabilityError()
     earliest = min(times)
     latest = max(times)
 

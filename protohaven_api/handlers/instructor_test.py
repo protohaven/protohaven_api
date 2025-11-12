@@ -453,3 +453,29 @@ def test_availability_reservations(mocker, inst_client):
             ],
         ],
     }
+
+
+def test_run_scheduler_success(mocker, inst_client):
+    """Test successful scheduler run"""
+    mock_result = {"schedule": "test_schedule"}
+    mock_score = 95.5
+    mocker.patch.object(
+        instructor, "solve_with_env", return_value=(mock_result, mock_score)
+    )
+
+    response = inst_client.post("/instructor/run_scheduler", json={"test": "data"})
+
+    assert response.status_code == 200
+    assert response.json == {"result": mock_result, "score": mock_score}
+
+
+def test_run_scheduler_no_availability(mocker, inst_client):
+    """Test scheduler run with no availability"""
+    mocker.patch.object(
+        instructor, "solve_with_env", side_effect=instructor.NoAvailabilityError()
+    )
+
+    response = inst_client.post("/instructor/run_scheduler", json={"test": "data"})
+
+    assert response.status_code == 400
+    assert "No availability specified" in response.get_data(as_text=True)

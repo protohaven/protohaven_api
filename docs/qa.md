@@ -54,6 +54,7 @@ After deployment, verify that:
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data
   * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
+  * [ ] Scheduler gives informative error when no availability was given for the scheduling window
   * [x] Scheduler runs and proposes classes
   * [x] Can confirm/unconfirm a class
   * [x] Log submission button works
