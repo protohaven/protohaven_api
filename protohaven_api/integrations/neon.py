@@ -286,6 +286,7 @@ def search_members_by_email(
 ) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
+    assert isinstance(operator, str)
     yield from _search_members_internal(
         [("Email", operator, email)],
         fields,
@@ -404,11 +405,11 @@ def create_coupon_codes(codes, amt, from_date=None, to_date=None):
 
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = list(search_members_by_email(email, [CustomField.API_SERVER_ROLE]))
+    mem = list(search_members_by_email(email, fields=[CustomField.API_SERVER_ROLE]))
     if len(mem) == 0:
         raise KeyError()
     mem = mem[0]
-    roles = {v["id"]: v["name"] for v in mem.roles}
+    roles = {v["id"]: v["name"] for v in (mem.roles or [])}
     if enabled:
         roles[role["id"]] = role["name"]
     elif role["id"] in roles:
