@@ -158,6 +158,18 @@ def test_account_cache_case_insensitive(mocker):
     assert c["nonE"] == want3
 
 
+def test_find_best_match_without_cache(mocker):
+    c = n.AccountCache()
+    mocker.patch.object(
+        n,
+        "search_members_by_name",
+        return_value=["A"],
+    )
+    # No manual fetch if no first+last name
+    assert list(c.find_best_match("Albert", top_n=2)) == []
+    assert list(c.find_best_match("Albert Bobson", top_n=2)) == ["A"]
+
+
 def test_find_best_match(mocker):
     """Test find_best_match returns the best matches based on fuzzy ratio."""
     c = n.AccountCache()
