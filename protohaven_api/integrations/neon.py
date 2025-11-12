@@ -585,7 +585,7 @@ class AccountCache(WarmDict):
             rapidfuzz.utils.default_process(search_string),
             self.fuzzy,
             scorer=rapidfuzz.fuzz.WRatio,
-            score_cutoff=15,
+            score_cutoff=65,
             limit=top_n,
         ):
             yield m[2]

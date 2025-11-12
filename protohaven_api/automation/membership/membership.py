@@ -144,17 +144,24 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
         neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)
 
     if cid:
-        result.append(
-            Msg.tmpl(
-                "init_membership",
-                fname=fname,
-                coupon_amount=coupon_amount,
-                coupon_code=cid,
-                sample_classes=get_sample_classes(coupon_amount),
-                target=target,
-                id=_id,
+        extra = get_config("neon/webhooks/new_membership/additional_targets")
+        if extra is not None and extra:
+            extra = [t.strip() for t in extra.split(",")]
+        else:
+            extra = []
+        for tgt in [target] + extra:
+            result.append(
+                Msg.tmpl(
+                    "init_membership",
+                    fname=fname,
+                    coupon_amount=coupon_amount,
+                    coupon_code=cid,
+                    sample_classes=get_sample_classes(coupon_amount),
+                    target=tgt,
+                    id=_id,
+                )
             )
-        )
+
     if "AMP" in membership_name:
         result.append(
             Msg.tmpl(
