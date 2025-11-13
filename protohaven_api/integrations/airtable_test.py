@@ -545,7 +545,7 @@ def test_insert_quiz_result(mocker):
     mock_insert.assert_called_once_with(
         [
             {
-                "Submitted": submitted,
+                "Submitted": submitted.isoformat(),
                 "Email": email,
                 "Tool Codes": "LS1,LS2",
                 "Data": '{"question": "test", "answer": "correct"}',

@@ -483,7 +483,9 @@ def test_run_scheduler_no_availability(mocker, inst_client):
 
 def test_log_quiz_submission(mocker, inst_client):
     """Test logging quiz submission to airtable"""
-    mock_insert = mocker.patch.object(instructor.airtable, "insert_quiz_result")
+    mock_insert = mocker.patch.object(
+        instructor.airtable, "insert_quiz_result", return_value=(None, None)
+    )
 
     test_data = {
         "data": {"Question1": "Answer1", "Question2": "Answer2"},
