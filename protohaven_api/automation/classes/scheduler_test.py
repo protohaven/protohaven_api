@@ -465,7 +465,8 @@ def test_generate_env(mocker):
     m1.assert_has_calls(
         [
             mocker.call("instructor1", [], ["class1", "class2"], [], {}, mocker.ANY),
-            mocker.call("instructor2", [], ["class1", "class3"], [], {}, mocker.ANY),
+            # Note: only class1, as class3 is not in the list of schedulable classes
+            mocker.call("instructor2", [], ["class1"], [], {}, mocker.ANY),
         ]
     )
     assert len(result["instructors"]) == 2

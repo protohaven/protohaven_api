@@ -256,8 +256,8 @@ def get_event_reservations():
     )["reservations"]:
         start = r["startDate"]
         end = r["endDate"]
-        open_time = now.replace(hour=10, minute=0, second=0, millisecond=0)
-        close_time = now.replace(hour=22, minute=0, second=0, millisecond=0)
+        open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
+        close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
         reservations.append(
             {
                 "start": start.strftime("%-I:%M %p") if start > open_time else "open",
