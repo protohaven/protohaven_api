@@ -51,6 +51,10 @@
       start, end, inst: inst.toLowerCase()})).then((data) => {
       env = data;
 
+      if (data.classes.length === 0) {
+        throw Error(`No classes are currently associated with your instructor account. If you think this is in error, notify Edu Leads in #instructors and have them check the Instructor Capabilities table in Airtable to ensure your name, Active status and classes are correctly listed.`);
+      }
+
       if (data.instructors.length === 0) {
         throw Error(`No instructor data found for interval ${start} to ${end}.\n\nThe scheduler currently picks only times >2wks from now where you are fully available from 6-9pm weeknights, or weekends from 10am-1pm, 1pm-4pm, 2pm-5pm, or 6pm-9pm.\n\nPlease check the calendar to ensure you have availability in that range.`);
       }
