@@ -52,7 +52,7 @@
       env = data;
 
       if (data.classes.length === 0) {
-        throw Error(`No classes are currently associated with your instructor account. If you think this is in error, notify Edu Leads in #instructors and have them check the Instructor Capabilities table in Airtable to ensure your name, Active status and classes are correctly listed.`);
+        throw Error(`No classes are currently associated with your instructor account. If you think this is in error, notify Edu Leads in #instructors and have them check the Instructor Capabilities table in Airtable to ensure your name, Active status and Schedulable classes are correctly listed.`);
       }
 
       if (data.instructors.length === 0) {

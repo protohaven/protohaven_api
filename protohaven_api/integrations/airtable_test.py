@@ -509,25 +509,16 @@ def test_fetch_instructor_teachable_classes(mocker):
         {
             "fields": {
                 "Instructor": "  John Doe  ",
-                "Schedulable": True,
                 "Class": ["class1", "class2"],
             }
         },
         {
             "fields": {
                 "Instructor": "jane smith",
-                "Schedulable": True,
                 "Class": ["class3"],
             }
         },
-        {
-            "fields": {
-                "Instructor": "bob wilson",
-                "Schedulable": False,
-                "Class": ["class4"],
-            }
-        },
-        {"fields": {"Schedulable": True, "Class": ["class5"]}},
+        {"fields": {"Class": ["class5"]}},
     ]
 
     mocker.patch.object(a, "get_all_records", return_value=mock_records)
