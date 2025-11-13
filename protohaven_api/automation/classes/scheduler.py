@@ -374,13 +374,19 @@ def generate_env(
             log.debug(f"Skipping instructor {k} (not in filter)")
             continue
 
-        caps = [class_id for class_id in instructor_caps.get(k, []) if class_id in class_by_id]
+        caps = [
+            class_id
+            for class_id in instructor_caps.get(k, [])
+            if class_id in class_by_id
+        ]
         if len(caps) == 0:
             log.warning(
                 f"Instructor {k} has no capabilities listed in Airtable "
                 f"and will be skipped (schedule: {v})"
             )
-            log.warning(f"Instructors with capabilities: {list(instructor_caps.keys())}")
+            log.warning(
+                f"Instructors with capabilities: {list(instructor_caps.keys())}"
+            )
             skipped += 1
             continue
 
