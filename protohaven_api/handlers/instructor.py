@@ -452,8 +452,9 @@ def run_scheduler():
         result, score = solve_with_env(request.json)
     except NoAvailabilityError:
         return Response(
-            "No availability specified. Add your availability to the calendar,"
-            "then re-run the scheduler.",
+            "No availability specified for this scheduling window. "
+            "Add your availability to the calendar,"
+            " then re-run the scheduler.",
             400,
         )
     return {"result": result, "score": score}

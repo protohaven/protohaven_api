@@ -25,41 +25,41 @@ After deployment, verify that:
   * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
   * [x] Displays upcoming calendar events
-  * [ ] Shows reservations - TODO FIX
+  * [x] Shows reservations
   * [x] Shows classes including instructor and attendee data, both Neon and Eventbrite
 * https://api.protohaven.org/techs
   * [x] Cal loads, individual shifts can be clicked and overridden, highlights current day
   * [x] Cal can change date range, highlights current day
   * [x] Cal swap overrides send an alert to the #techs channel
-  * [ ] Members tab shows today's sign-ins
-  * [ ] Tool states load
-  * [ ] Can view history for a tool by clicking the link
-  * [ ] Tool guide and clearance documentation status are shown
-  * [ ] Docs pages missing approvals can click to the wiki page
-  * [ ] Can sort tools by name, urgency, time in state etc.
-  * [ ] Can filter tools by area
-  * [ ] Storage tab allows for looking up Neon ID by name/email
-  * [ ] Areas have some leads assigned to them
-  * [ ] Areas has populated "additional contacts" section at the bottom of the pane
-  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
-  * [ ] Techs roster has some tech photos & bios shown
+  * [x] Members tab shows today's sign-ins
+  * [x] Tool states load
+  * [x] Can view history for a tool by clicking the link
+  * [x] Tool guide and clearance documentation status are shown
+  * [x] Docs pages missing approvals can click to the wiki page
+  * [x] Can sort tools by name, urgency, time in state etc.
+  * [x] Can filter tools by area
+  * [x] Storage tab allows for looking up Neon ID by name/email
+  * [x] Areas have some leads assigned to them
+  * [x] Areas has populated "additional contacts" section at the bottom of the pane
+  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [x] Techs roster has some tech photos & bios shown
+  * [x] Events tab can create, register, unregister, and delete a techs-only class
   * [x] Full name is visible only when logged in as a tech / tech lead
   * [x] Members tab shows "access denied" when not logged in
-  * [ ] Area leads only show first name when not signed in
-  * [ ] Unauthenticated user only sees at most the first names on Roster
-  * [ ] Events tab can create, register, unregister, and delete a techs-only class
-  * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
-  * [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
+  * [x] Area leads only show first name when not signed in
+  * [x] Unauthenticated user only sees at most the first names on Roster
+  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
-  * [ ] Loads profile data for instructor
-  * [ ] Loads classes for instructor, including attendance data
-  * [ ] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
-  * [ ] Scheduler gives informative error when no availability was given for the scheduling window
-  * [ ] Scheduler runs and proposes classes
-  * [ ] Can confirm/unconfirm a class
-  * [ ] Log submission button works
+  * [x] Loads profile data for instructor
+  * [x] Loads classes for instructor, including attendance data
+  * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
+  * [x] Scheduler gives informative error when no availability was given for the scheduling window
+  * [x] Scheduler runs and proposes classes
+  * [x] Can confirm/unconfirm a class
+  * [x] Log submission button works
 * https://api.protohaven.org/event_ticker
-  * [ ] Returns JSON of sample classes
+  * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
   * [ ] Can summarize one or more discord channels, and view photos
   * [ ] Access denied if logged in as hello+testmember@protohaven.org
