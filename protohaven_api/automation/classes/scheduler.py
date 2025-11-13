@@ -380,6 +380,7 @@ def generate_env(
                 f"Instructor {k} has no capabilities listed in Airtable "
                 f"and will be skipped (schedule: {v})"
             )
+            log.warning(f"Instructors with capabilities: {list(instructor_caps.keys())}")
             skipped += 1
             continue
 
