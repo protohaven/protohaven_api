@@ -621,7 +621,8 @@ def log_quiz_submission():
     https://wiki.protohaven.org/books/drafts/page/how-to-create-a-recertification-clearance-quiz
     """
     req = request.json
-    return airtable.insert_quiz_result(
+    log.info(f"Clearance quiz received: {req}")
+    status, content = airtable.insert_quiz_result(
         submitted=dateparser.parse(req["submitted"]) if "submitted" in req else None,
         email=req.get("email") or None,
         points_to_pass=int(req.get("points_to_pass") or "0"),
@@ -629,3 +630,4 @@ def log_quiz_submission():
         tool_codes=req.get("tool_codes") or None,
         data=req.get("data") or {},
     )
+    return {"status": status, "content": content}

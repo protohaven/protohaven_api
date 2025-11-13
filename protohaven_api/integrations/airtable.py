@@ -574,7 +574,7 @@ def insert_quiz_result(
     return insert_records(
         [
             {
-                "Submitted": submitted,
+                "Submitted": submitted.astimezone(tz).isoformat(),
                 "Email": email,
                 "Tool Codes": ",".join(tool_codes),
                 "Data": json.dumps(data),
