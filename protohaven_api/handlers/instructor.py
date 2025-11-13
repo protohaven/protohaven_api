@@ -12,10 +12,7 @@ from flask import Blueprint, Response, current_app, redirect, request
 from protohaven_api.automation.classes.scheduler import (
     generate_env as generate_scheduler_env,
 )
-from protohaven_api.automation.classes.scheduler import (
-    push_schedule,
-    solve_with_env,
-)
+from protohaven_api.automation.classes.scheduler import push_schedule, solve_with_env
 from protohaven_api.automation.classes.solver import (
     NoAvailabilityError,
     expand_recurrence,
