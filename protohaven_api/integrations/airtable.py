@@ -5,12 +5,14 @@ import json
 import logging
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Iterator, List
+from typing import Iterator, List, Set
 
+from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
     _idref,
     delete_record,
@@ -199,6 +201,80 @@ def mark_schedule_volunteer(eid, volunteer):
 def get_tools():
     """Get all tools in the tool DB"""
     return get_all_records("tools_and_equipment", "tools")
+
+
+type ToolCode = str
+
+
+@dataclass
+class RecertConfig:  # pylint: disable=too-few-public-methods
+    """All metadata used to inform whether or not a member's clearance should undergo
+    recertification, and how the recert happens (e.g. quiz vs instruction)"""
+
+    tool: ToolCode
+    quiz_url: str
+    expiration: datetime.timedelta
+    bypass_hours: int
+    bypass_tools: Set[ToolCode]
+    bypass_cutoff: datetime.timedelta
+
+
+def get_tool_recert_configs_by_code():
+    """Returns formatted recertification configs, keyed by tool code"""
+    tool_configs = {}
+    cutoff = datetime.timedelta(
+        days=int(get_config("general/recertification/bypass_hours_window_days"))
+    )
+    for t in get_tools():
+        cfg = RecertConfig(
+            tool=t["fields"]["Tool Code"],
+            quiz_url=t["fields"]["Recert Quiz"],
+            expiration=datetime.timedelta(
+                days=t["fields"]["Days until Recert Needed"] or 0
+            ),
+            bypass_hours=int(t["fields"]["Reservation Hours to Skip Recert"]),
+            bypass_tools=set(
+                t["fields"]["Related Tools for Recert"] + t["fields"]["Tool Code"]
+            ),
+            bypass_cutoff=cutoff,
+        )
+        if not cfg.expiration:
+            continue
+        tool_configs[cfg.tool] = cfg
+    return tool_configs
+
+
+def get_pending_recertifications():
+    """Get all pending recerts"""
+    for rec in get_all_records("people", "recertification"):
+        yield (
+            rec["fields"]["Neon ID"],
+            rec["fields"]["Tool Code"].strip(),
+            dateparser.parse(rec["fields"]["Deadline"]),
+            rec["id"],
+        )
+
+
+def insert_pending_recertification(
+    neon_id: str, tool_code: str, deadline: datetime.datetime
+):
+    """Inserts a new recertification into the pending recertifications table"""
+    return insert_records(
+        [
+            {
+                "Neon ID": neon_id,
+                "Tool Code": tool_code,
+                "Deadline": deadline.isoformat(),
+            }
+        ],
+        "people",
+        "recertification",
+    )
+
+
+def remove_pending_recertification(rec: str):
+    """Deletes a recertification by record ID"""
+    return delete_record("people", "recertification", rec)
 
 
 def get_reports_for_tool(airtable_id, back_days=90):

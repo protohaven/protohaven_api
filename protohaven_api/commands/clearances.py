@@ -3,21 +3,15 @@
 import argparse
 import datetime
 import logging
-import re
 from collections import defaultdict
 
-from protohaven_api.automation.membership.clearances import resolve_codes
-from protohaven_api.automation.membership.clearances import update as update_clearances
+from protohaven_api.automation.membership import clearances
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
-from protohaven_api.integrations import neon, sheets
+from protohaven_api.integrations import airtable, neon, sheets
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.clearances")
-
-PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."  # pylint: disable=line-too-long
-CLEARANCE_HDR = "Which clearance(s) was covered?"
-TOOLS_HDR = "Which tools?"
 
 
 class Commands:  # pylint: disable=too-few-public-methods
@@ -82,36 +76,15 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         log.info(f"Building list of clearances starting from {dt}")
         earned = defaultdict(set)
-        for sub in sheets.get_instructor_submissions(from_row=args.from_row):
-            if sub["Timestamp"] < dt:
+        for email, clearance_codes, tool_codes in sheets.get_passing_student_clearances(
+            dt=dt, from_row=args.from_row
+        ):
+            if user_filter and email.lower() not in user_filter:
                 continue
-            emails = sub.get(PASS_HDR)
-            mm = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", emails)
-            if not mm:
-                log.warning(f"No valid emails parsed from row: {emails}")
-            emails = [
-                m.replace("(", "").replace(")", "").replace(",", "").strip() for m in mm
-            ]
-
-            clearance_codes = sub.get(CLEARANCE_HDR)
-            clearance_codes = (
-                [s.split(":")[0].strip() for s in clearance_codes.split(",")]
-                if clearance_codes
-                else None
-            )
-            tool_codes = sub.get(TOOLS_HDR)
-            tool_codes = (
-                [s.split(":")[0].strip() for s in tool_codes.split(",")]
-                if tool_codes
-                else None
-            )
-            for e in emails:
-                if user_filter and e.lower() not in user_filter:
-                    continue
-                if clearance_codes:
-                    earned[e.strip()].update(resolve_codes(clearance_codes))
-                if tool_codes:
-                    earned[e.strip()].update(tool_codes)
+            if clearance_codes:
+                earned[email.strip()].update(clearances.resolve_codes(clearance_codes))
+            if tool_codes:
+                earned[email.strip()].update(tool_codes)
         log.info(f"Clearance list built; {len(earned)} users in list")
 
         changes = []
@@ -127,7 +100,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 )
                 invalids.update(clr - clr_validated)
             try:
-                mutations = update_clearances(
+                mutations = clearances.update(
                     email, "PATCH", clr_validated, apply=args.apply
                 )
                 if len(mutations) > 0:
@@ -160,3 +133,100 @@ class Commands:  # pylint: disable=too-few-public-methods
             )
         else:
             print_yaml([])
+
+    @command(
+        arg(
+            "--apply",
+            help="when true, Neon is updated with clearances",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--filter_users",
+            help="Restrict to comma separated list of email addresses",
+            type=str,
+        ),
+        arg(
+            "--days_ahead",
+            help="Set recert deadline at least this many days ahead of the current day",
+            type=int,
+            default=30,
+        ),
+        arg(
+            "--max_users_affected",
+            help="Only allow at most this number of users to have recert",
+            type=int,
+            default=5,
+        ),
+        arg(
+            "--from_row",
+            help="Set the row of the instructor log sheet to start at - set this higher"
+            " to prevent read timeouts and network errors due to the amount of data.",
+            type=int,
+            default=1300,
+        ),
+        arg(
+            "--reservation_lookbehind_days",
+            help="Look this far back in reservations to identify tool usage",
+            type=int,
+            default=90,
+        ),
+    )
+    def recertification(self, args, _):
+        """Schedules pending recertifications in Airtable for members based on when they received
+        instruction, when they took quizzes, and the cumulative reservation hours of related
+        tools.
+        """
+
+        from_date = tznow().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=args.reservation_lookbehind_days)
+        deadline = tznow().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ) + datetime.timedelta(days=args.days_ahead)
+        changes = []
+
+        log.info("Fetching all pending recertification state")
+        pending = {
+            (neon_id, tool_code): rec_id
+            for neon_id, tool_code, deadline, rec_id in airtable.get_pending_recertifications()
+        }
+
+        log.info("Fetching state of members' clearances")
+        needed, not_needed = clearances.find_members_needing_recert_by(
+            from_date, deadline, args.from_row
+        )
+
+        log.info("Adding any needed recerts not already in table")
+        for neon_id, tool_code in needed:
+            if (neon_id, tool_code) not in pending:
+                log.info(f"New addition: ID {neon_id}, tool codes {tool_code}")
+                if args.apply:
+                    log.info(
+                        str(
+                            airtable.insert_pending_recertification(
+                                neon_id, tool_code, deadline
+                            )
+                        )
+                    )
+                    changes.append(f"#{neon_id}: trigger recert {tool_code}")
+
+        log.info("Resolving any not-needed recerts that are in the table")
+        not_needed_by_user = defaultdict(list)
+        for neon_id, tool_code in not_needed:
+            not_needed_by_user[neon_id].append(tool_code)
+        for neon_id, tool_codes in not_needed_by_user.items():
+            log.info(f"Neon ID {neon_id}; Tool Code {tool_code}")
+            mutations = clearances.update_by_neon_id(
+                neon_id, "PATCH", tool_codes, apply=args.apply
+            )
+            if len(mutations) > 0:
+                changes.append(f"#{neon_id}: added {', '.join(mutations)}")
+                log.info(changes[-1])
+
+            for tool_code in tool_codes:
+                rec = pending.get((neon_id, tool_code))
+                if not rec:
+                    continue
+                log.info("Removing pending recert: {neon_id}, {tool_code}")
+                log.info(str(airtable.remove_pending_recertification(rec)))
