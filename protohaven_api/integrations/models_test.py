@@ -7,7 +7,13 @@ from dateutil import tz as dtz
 
 from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import models
-from protohaven_api.integrations.models import Event, Member, Role, SignInEvent
+from protohaven_api.integrations.models import (
+    Event,
+    Member,
+    NoAttendeeDataError,
+    Role,
+    SignInEvent,
+)
 from protohaven_api.testing import d, idfn
 
 
@@ -463,6 +469,15 @@ def test_event_properties():
         assert evt.supply_state == "Ordered"
 
 
+def test_event_capacity_none_vs_zero():
+    """Ensure a distinction between no capacity and no data"""
+    e = Event()
+    e.eventbrite_data = {"capacity": None}
+    assert e.capacity is None
+    e.eventbrite_data["capacity"] = 0
+    assert e.capacity == 0
+
+
 def test_event_ticket_options_free():
     """Ensure that missing `cost.major_value` on free events is handled"""
     e = Event()
@@ -563,6 +578,18 @@ def test_sign_in_event_absent_fields():
     assert event.email == "UNKNOWN"
     assert event.status == "UNKNOWN"
     assert event.name == ""
+
+
+def test_event_missing_attendee_data():
+    """Ensure distinction between no data and no attendees"""
+    e = Event()
+    # with pytest.raises(NoAttendeeDataError):
+    #    print(e.signups)
+    with pytest.raises(NoAttendeeDataError):
+        print(e.occupancy)
+    e.neon_attendee_data = []
+    assert not e.signups
+    assert e.occupancy == 0
 
 
 def test_sign_in_event_invalid_attribute():
