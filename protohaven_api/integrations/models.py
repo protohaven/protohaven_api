@@ -17,6 +17,10 @@ log = logging.getLogger("integrations.models")
 WAIVER_REGEX = r"version (.+?) on (.*)"
 
 
+class NoAttendeeDataError(RuntimeError):
+    """Raised when no attendee data is provided for an event to compute derived properties"""
+
+
 @dataclass
 class Role:
     """Every Neon user has zero or more roles that can be checked for access."""
@@ -638,7 +642,9 @@ class Event:  # pylint: disable=too-many-public-methods
             or self.neon_search_data.get("Event Capacity")
             or self.eventbrite_data.get("capacity")
         )
-        return None if not cap else int(cap)
+        if cap is None:
+            return None
+        return int(cap)
 
     @property
     def published(self) -> bool:
@@ -717,7 +723,7 @@ class Event:  # pylint: disable=too-many-public-methods
     def signups(self) -> set[int]:
         """With attendee data, compute number of unique registrants for the event"""
         if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
-            raise RuntimeError("Missing attendee data for call to signups()")
+            raise NoAttendeeDataError("Missing attendee data for call to signups()")
 
         return {at.neon_id for at in self.attendees if at.valid}
 
@@ -735,8 +741,9 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def occupancy(self):
         """With attendee data, compute occupancy of the event"""
-        if not self.neon_attendee_data and not self.eventbrite_data:
-            raise RuntimeError("Missing attendee data for call to occupancy()")
+        print(self.neon_attendee_data, self.eventbrite_attendee_data)
+        if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
+            raise NoAttendeeDataError("Missing attendee data for call to occupancy()")
         return 0 if not self.capacity else len(self.signups) / self.capacity
 
     def in_blocklist(self):

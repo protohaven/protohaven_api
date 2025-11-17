@@ -219,7 +219,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self.push_class(evt, Action.CONFIRM, "override")
         else:
             log.info(
-                f"Checking actions needed for class {evt.name} - {evt.attendee_count} attendees"
+                f"Checking actions needed for #{evt.neon_id} {evt.name} "
+                f"({evt.attendee_count} attendees)"
             )
             for action in Action:
                 if action.needed_for(evt, now):
