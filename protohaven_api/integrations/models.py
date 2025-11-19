@@ -500,9 +500,10 @@ class Attendee:
     @property
     def email(self):
         """Email address of the attendee"""
-        return self.neon_raw_data.get("email") or self.eventbrite_data.get(
+        email = self.neon_raw_data.get("email") or self.eventbrite_data.get(
             "profile", {}
         ).get("email")
+        return email.strip().lower() if email else None
 
     @property
     def fname(self):

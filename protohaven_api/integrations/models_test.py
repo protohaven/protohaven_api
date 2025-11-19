@@ -388,7 +388,7 @@ def test_event_properties():
         {
             "accountId": 1,
             "registrationStatus": "SUCCEEDED",
-            "email": "a@b.com",
+            "email": "A@b.COM    ",
             "firstName": "first",
             "lastName": "last",
         }
@@ -398,7 +398,11 @@ def test_event_properties():
             "id": 1,
             "cancelled": False,
             "refunded": False,
-            "profile": {"first_name": "first", "last_name": "last", "email": "a@b.com"},
+            "profile": {
+                "first_name": "first",
+                "last_name": "last",
+                "email": "A@b.COM     ",
+            },
         }
     ]
     tickets = [
