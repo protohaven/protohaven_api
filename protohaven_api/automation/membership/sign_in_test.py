@@ -36,7 +36,7 @@ def test_activate_membership_ok(mocker):
             neon_id=12345,
             fname="John",
             email=email,
-            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            latest_membership=lambda successful_only: mocker.MagicMock(neon_id=5678),
             account_automation_ran="deferred YYYY-MM-DD",
         ),
     )
@@ -66,7 +66,7 @@ def test_activate_membership_fail(mocker):
             neon_id=12345,
             fname="John",
             email="a@b.com",
-            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            latest_membership=lambda successful_only: mocker.MagicMock(neon_id=5678),
             account_automation_ran="deferred YYYY-MM-DD",
         ),
     )
@@ -96,7 +96,7 @@ def test_activate_membership_no_redo(mocker):
             neon_id=12345,
             fname="John",
             email="a@b.com",
-            latest_membership=lambda: mocker.MagicMock(neon_id=5678),
+            latest_membership=lambda successful_only: mocker.MagicMock(neon_id=5678),
             account_automation_ran="deferred YYYY-MM-DD",
         )
     )
@@ -185,7 +185,7 @@ def test_get_member_deferred_by_membership_data(mocker):
         "fetch_account",
         return_value=mocker.MagicMock(
             neon_id=12345,
-            latest_membership=lambda: mocker.MagicMock(
+            latest_membership=lambda successful_only: mocker.MagicMock(
                 start_date=s.PLACEHOLDER_START_DATE
             ),
         ),

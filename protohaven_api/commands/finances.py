@@ -558,9 +558,11 @@ class Commands:
                 log.debug(f"Skipping {m.neon_id}: not in filter")
                 continue
 
-            mem = m.latest_membership()
+            mem = m.latest_membership(successful_only=True)
             if not mem:
-                raise RuntimeError(f"No latest membership for member {m.neon_id}")
+                log.error(f"No latest membership for member {m.neon_id}; skipping")
+                continue
+
             kwargs = {
                 "account_id": m.neon_id,
                 "membership_name": mem.level,  # Level includes "AMP" which is selected for
