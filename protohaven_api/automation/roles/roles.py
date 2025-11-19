@@ -169,7 +169,7 @@ def recently_inactive(m: Member, grace_period_days=2):
     acct = neon_base.fetch_account(m.neon_id, fetch_memberships=True)
     if not acct:
         return False
-    latest = acct.latest_membership()
+    latest = acct.latest_membership(successful_only=True)
     return latest.is_lapsed() and not latest.is_lapsed(
         tznow() - datetime.timedelta(days=grace_period_days)
     )

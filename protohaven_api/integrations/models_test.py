@@ -43,7 +43,7 @@ def test_is_company():
 
 
 def test_membership_level(mocker):
-    """Test Member.is_company for company and individual accounts"""
+    """Test membership level fetcher, also that it ignores failed memberships"""
     m = Member(neon_search_data={"Membership Level": None})
     assert not m.membership_level
     m.neon_search_data["Membership Level"] = "AMP"
@@ -59,7 +59,14 @@ def test_membership_level(mocker):
             "termStartDate": d(0).isoformat(),
             "termEndDate": d(2).isoformat(),
             "membershipLevel": {"name": "Foo"},
-        }
+            "status": "SUCCEEDED",
+        },
+        {
+            "termStartDate": d(2).isoformat(),
+            "termEndDate": d(4).isoformat(),
+            "membershipLevel": {"name": "Bar"},
+            "status": "FAILED",
+        },
     ]
     assert m.membership_level == "Foo"
 
@@ -284,19 +291,28 @@ def test_latest_membership(mocker):
             "termStartDate": d(1).isoformat(),
             "id": 123,
             "membershipLevel": {"name": "A"},
+            "status": "SUCCEEDED",
         },
         {
             "termStartDate": d(3).isoformat(),
             "id": 456,
             "membershipLevel": {"name": "B"},
+            "status": "SUCCEEDED",
         },
         {
             "termStartDate": d(2).isoformat(),
             "id": 789,
             "membershipLevel": {"name": "C"},
+            "status": "SUCCEEDED",
+        },
+        {
+            "termStartDate": d(5).isoformat(),
+            "id": 999,
+            "membershipLevel": {"name": "C"},
+            "status": "FAILED",
         },
     ]
-    assert member.latest_membership().neon_id == 456
+    assert member.latest_membership(successful_only=True).neon_id == 456
 
 
 def test_volunteer_bio_and_picture():

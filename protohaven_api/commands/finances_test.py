@@ -423,7 +423,7 @@ def test_init_new_memberships_e2e(mocker, cli):
                 neon_id=123,
                 fname="Foo",
                 email="a@b.com",
-                latest_membership=lambda: mocker.MagicMock(
+                latest_membership=lambda successful_only: mocker.MagicMock(
                     start_date=d(0), neon_id=456, level="testname"
                 ),
             )

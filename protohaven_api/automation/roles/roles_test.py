@@ -140,7 +140,7 @@ def test_gen_role_intents_departing_member(mocker):
     mocker.patch.object(
         r.neon_base,
         "fetch_account",
-        return_value=mocker.MagicMock(latest_membership=lambda: latest),
+        return_value=mocker.MagicMock(latest_membership=lambda successful_only: latest),
     )
     mocker.patch.object(
         r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
@@ -408,6 +408,6 @@ def test_recently_inactive(mocker, lapsed_now, lapsed_prev, want):
     mocker.patch.object(
         r.neon_base,
         "fetch_account",
-        return_value=mocker.MagicMock(latest_membership=lambda: latest),
+        return_value=mocker.MagicMock(latest_membership=lambda successful_only: latest),
     )
     assert r.recently_inactive(mocker.MagicMock()) == want

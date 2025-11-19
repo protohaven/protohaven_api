@@ -178,15 +178,17 @@ class Member:  # pylint:disable=too-many-public-methods
                 result = (m.end_date, m.autoRenewal or False)
         return result
 
-    def latest_membership(self, active_only=False) -> Membership | None:
+    def latest_membership(
+        self, active_only=False, successful_only=False
+    ) -> Membership | None:
         """Gets the membership with start date furthest in the future"""
         latest = None
-        for m in self.memberships(active_only):
+        for m in self.memberships(active_only, successful_only):
             if not latest or m.start_date > latest.start_date:
                 latest = m
         return latest
 
-    def memberships(self, active_only=False):
+    def memberships(self, active_only=False, successful_only=False):
         """Fetches Membership instances for all memberships loaded"""
         if self.neon_membership_data is None:
             raise RuntimeError(
@@ -195,6 +197,8 @@ class Member:  # pylint:disable=too-many-public-methods
         for m in self.neon_membership_data:
             ms = Membership(m)
             if active_only and ms.is_lapsed():
+                continue
+            if successful_only and not (ms.status or "").upper() == "SUCCEEDED":
                 continue
             yield ms
 
@@ -316,7 +320,7 @@ class Member:  # pylint:disable=too-many-public-methods
         if "Membership Level" in self.neon_search_data:
             mem = self.neon_search_data.get("Membership Level")
             return mem
-        mem = self.latest_membership(active_only=True)
+        mem = self.latest_membership(active_only=True, successful_only=True)
         if mem:
             return mem.level
         return ""
@@ -332,7 +336,7 @@ class Member:  # pylint:disable=too-many-public-methods
         mem = self.neon_search_data.get("Membership Term")
         if mem:
             return mem
-        mem = self.latest_membership(active_only=True)
+        mem = self.latest_membership(active_only=True, successful_only=True)
         if mem:
             return mem.term
         return ""
