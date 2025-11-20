@@ -2,13 +2,13 @@
 techs, instructors, and event registrants about their classes and events"""
 
 import datetime
+import locale
 import logging
 import re
+import threading
 from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
-import threading
-import locale
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import (  # pylint: disable=import-error
@@ -25,6 +25,7 @@ from protohaven_api.integrations.comms import Msg
 log = logging.getLogger("class_automation.builder")
 
 LOCALE_LOCK = threading.Lock()
+
 
 @lru_cache(maxsize=30)
 def get_account_email(account_id):
@@ -70,7 +71,7 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         # Out of an abundance of paranoia, we lock incase there's a competing
         # thread setting the locale.
         with LOCALE_LOCK:
-            locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+            locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
             return {
                 "t": start,
                 "start": start.strftime("%b %d %Y, %-I%p"),
