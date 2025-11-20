@@ -10,7 +10,6 @@ from functools import lru_cache
 import threading
 import locale
 
-
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import (  # pylint: disable=import-error
     safe_parse_datetime,
