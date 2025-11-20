@@ -7,6 +7,9 @@ import re
 from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
+import threading
+import locale
+
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import (  # pylint: disable=import-error
@@ -22,6 +25,9 @@ from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.builder")
 
+LOCALE_LOCK = threading.Lock()
+with LOCALE_LOCK:
+    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 
 @lru_cache(maxsize=30)
 def get_account_email(account_id):
@@ -66,7 +72,7 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
         start = safe_parse_datetime(cls["fields"]["Start Time"])
         return {
             "t": start,
-            "start": start.strftime("%b %d %Y, %-I%P"),
+            "start": start.strftime("%b %d %Y, %-I%p"),
             "name": cls["fields"]["Name (from Class)"][0],
             "inst": cls["fields"]["Instructor"] if inst else None,
         }
