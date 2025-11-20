@@ -7,7 +7,13 @@ from dateutil import tz as dtz
 
 from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import models
-from protohaven_api.integrations.models import Event, Member, Role, SignInEvent
+from protohaven_api.integrations.models import (
+    Event,
+    Member,
+    NoAttendeeDataError,
+    Role,
+    SignInEvent,
+)
 from protohaven_api.testing import d, idfn
 
 
@@ -37,7 +43,7 @@ def test_is_company():
 
 
 def test_membership_level(mocker):
-    """Test Member.is_company for company and individual accounts"""
+    """Test membership level fetcher, also that it ignores failed memberships"""
     m = Member(neon_search_data={"Membership Level": None})
     assert not m.membership_level
     m.neon_search_data["Membership Level"] = "AMP"
@@ -53,7 +59,14 @@ def test_membership_level(mocker):
             "termStartDate": d(0).isoformat(),
             "termEndDate": d(2).isoformat(),
             "membershipLevel": {"name": "Foo"},
-        }
+            "status": "SUCCEEDED",
+        },
+        {
+            "termStartDate": d(2).isoformat(),
+            "termEndDate": d(4).isoformat(),
+            "membershipLevel": {"name": "Bar"},
+            "status": "FAILED",
+        },
     ]
     assert m.membership_level == "Foo"
 
@@ -278,19 +291,28 @@ def test_latest_membership(mocker):
             "termStartDate": d(1).isoformat(),
             "id": 123,
             "membershipLevel": {"name": "A"},
+            "status": "SUCCEEDED",
         },
         {
             "termStartDate": d(3).isoformat(),
             "id": 456,
             "membershipLevel": {"name": "B"},
+            "status": "SUCCEEDED",
         },
         {
             "termStartDate": d(2).isoformat(),
             "id": 789,
             "membershipLevel": {"name": "C"},
+            "status": "SUCCEEDED",
+        },
+        {
+            "termStartDate": d(5).isoformat(),
+            "id": 999,
+            "membershipLevel": {"name": "C"},
+            "status": "FAILED",
         },
     ]
-    assert member.latest_membership().neon_id == 456
+    assert member.latest_membership(successful_only=True).neon_id == 456
 
 
 def test_volunteer_bio_and_picture():
@@ -382,7 +404,7 @@ def test_event_properties():
         {
             "accountId": 1,
             "registrationStatus": "SUCCEEDED",
-            "email": "a@b.com",
+            "email": "A@b.COM    ",
             "firstName": "first",
             "lastName": "last",
         }
@@ -392,7 +414,11 @@ def test_event_properties():
             "id": 1,
             "cancelled": False,
             "refunded": False,
-            "profile": {"first_name": "first", "last_name": "last", "email": "a@b.com"},
+            "profile": {
+                "first_name": "first",
+                "last_name": "last",
+                "email": "A@b.COM     ",
+            },
         }
     ]
     tickets = [
@@ -461,6 +487,15 @@ def test_event_properties():
         assert evt.supply_cost == "10.00"
         assert evt.volunteer == "Yes"
         assert evt.supply_state == "Ordered"
+
+
+def test_event_capacity_none_vs_zero():
+    """Ensure a distinction between no capacity and no data"""
+    e = Event()
+    e.eventbrite_data = {"capacity": None}
+    assert e.capacity is None
+    e.eventbrite_data["capacity"] = 0
+    assert e.capacity == 0
 
 
 def test_event_ticket_options_free():
@@ -563,6 +598,18 @@ def test_sign_in_event_absent_fields():
     assert event.email == "UNKNOWN"
     assert event.status == "UNKNOWN"
     assert event.name == ""
+
+
+def test_event_missing_attendee_data():
+    """Ensure distinction between no data and no attendees"""
+    e = Event()
+    # with pytest.raises(NoAttendeeDataError):
+    #    print(e.signups)
+    with pytest.raises(NoAttendeeDataError):
+        print(e.occupancy)
+    e.neon_attendee_data = []
+    assert not e.signups
+    assert e.occupancy == 0
 
 
 def test_sign_in_event_invalid_attribute():

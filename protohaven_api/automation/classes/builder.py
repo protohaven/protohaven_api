@@ -53,7 +53,7 @@ def get_unscheduled_instructors(start, end, require_active=True):
         require_teachable_classes=True,
         require_active=require_active,
     ).items():
-        if already_scheduled[email.lower()]:
+        if already_scheduled[email.lower().strip()]:
             continue  # Don't nag folks that already have their classes set up
         yield (name, email)
 
@@ -219,7 +219,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self.push_class(evt, Action.CONFIRM, "override")
         else:
             log.info(
-                f"Checking actions needed for class {evt.name} - {evt.attendee_count} attendees"
+                f"Checking actions needed for #{evt.neon_id} {evt.name} "
+                f"({evt.attendee_count} attendees)"
             )
             for action in Action:
                 if action.needed_for(evt, now):
@@ -285,6 +286,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def _build_registrant_notification(self, evt, action, a):
         """Build notification for a registrant `a` about event `evt`"""
+        if a.email is None:
+            self.log.error(f"Skipping email to attendee {a.fname}; no email given")
+            return
         if self.notified(a.email, evt, action.day_offset):
             self.log.debug(
                 f"Skipping email to attendee {a.fname} ({a.email}); already notified"

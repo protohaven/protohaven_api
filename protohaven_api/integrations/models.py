@@ -17,6 +17,10 @@ log = logging.getLogger("integrations.models")
 WAIVER_REGEX = r"version (.+?) on (.*)"
 
 
+class NoAttendeeDataError(RuntimeError):
+    """Raised when no attendee data is provided for an event to compute derived properties"""
+
+
 @dataclass
 class Role:
     """Every Neon user has zero or more roles that can be checked for access."""
@@ -174,15 +178,17 @@ class Member:  # pylint:disable=too-many-public-methods
                 result = (m.end_date, m.autoRenewal or False)
         return result
 
-    def latest_membership(self, active_only=False) -> Membership | None:
+    def latest_membership(
+        self, active_only=False, successful_only=False
+    ) -> Membership | None:
         """Gets the membership with start date furthest in the future"""
         latest = None
-        for m in self.memberships(active_only):
+        for m in self.memberships(active_only, successful_only):
             if not latest or m.start_date > latest.start_date:
                 latest = m
         return latest
 
-    def memberships(self, active_only=False):
+    def memberships(self, active_only=False, successful_only=False):
         """Fetches Membership instances for all memberships loaded"""
         if self.neon_membership_data is None:
             raise RuntimeError(
@@ -191,6 +197,8 @@ class Member:  # pylint:disable=too-many-public-methods
         for m in self.neon_membership_data:
             ms = Membership(m)
             if active_only and ms.is_lapsed():
+                continue
+            if successful_only and not (ms.status or "").upper() == "SUCCEEDED":
                 continue
             yield ms
 
@@ -312,7 +320,7 @@ class Member:  # pylint:disable=too-many-public-methods
         if "Membership Level" in self.neon_search_data:
             mem = self.neon_search_data.get("Membership Level")
             return mem
-        mem = self.latest_membership(active_only=True)
+        mem = self.latest_membership(active_only=True, successful_only=True)
         if mem:
             return mem.level
         return ""
@@ -328,7 +336,7 @@ class Member:  # pylint:disable=too-many-public-methods
         mem = self.neon_search_data.get("Membership Term")
         if mem:
             return mem
-        mem = self.latest_membership(active_only=True)
+        mem = self.latest_membership(active_only=True, successful_only=True)
         if mem:
             return mem.term
         return ""
@@ -496,9 +504,10 @@ class Attendee:
     @property
     def email(self):
         """Email address of the attendee"""
-        return self.neon_raw_data.get("email") or self.eventbrite_data.get(
+        email = self.neon_raw_data.get("email") or self.eventbrite_data.get(
             "profile", {}
         ).get("email")
+        return email.strip().lower() if email else None
 
     @property
     def fname(self):
@@ -638,7 +647,9 @@ class Event:  # pylint: disable=too-many-public-methods
             or self.neon_search_data.get("Event Capacity")
             or self.eventbrite_data.get("capacity")
         )
-        return None if not cap else int(cap)
+        if cap is None:
+            return None
+        return int(cap)
 
     @property
     def published(self) -> bool:
@@ -717,7 +728,7 @@ class Event:  # pylint: disable=too-many-public-methods
     def signups(self) -> set[int]:
         """With attendee data, compute number of unique registrants for the event"""
         if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
-            raise RuntimeError("Missing attendee data for call to signups()")
+            raise NoAttendeeDataError("Missing attendee data for call to signups()")
 
         return {at.neon_id for at in self.attendees if at.valid}
 
@@ -735,8 +746,9 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def occupancy(self):
         """With attendee data, compute occupancy of the event"""
-        if not self.neon_attendee_data and not self.eventbrite_data:
-            raise RuntimeError("Missing attendee data for call to occupancy()")
+        print(self.neon_attendee_data, self.eventbrite_attendee_data)
+        if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
+            raise NoAttendeeDataError("Missing attendee data for call to occupancy()")
         return 0 if not self.capacity else len(self.signups) / self.capacity
 
     def in_blocklist(self):
