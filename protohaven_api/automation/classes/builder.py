@@ -2,8 +2,10 @@
 techs, instructors, and event registrants about their classes and events"""
 
 import datetime
+import locale
 import logging
 import re
+import threading
 from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
@@ -21,6 +23,8 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.builder")
+
+LOCALE_LOCK = threading.Lock()
 
 
 @lru_cache(maxsize=30)
@@ -64,12 +68,16 @@ def gen_class_scheduled_alerts(scheduled_by_instructor):
 
     def format_class(cls, inst=False):
         start = safe_parse_datetime(cls["fields"]["Start Time"])
-        return {
-            "t": start,
-            "start": start.strftime("%b %d %Y, %-I%P"),
-            "name": cls["fields"]["Name (from Class)"][0],
-            "inst": cls["fields"]["Instructor"] if inst else None,
-        }
+        # Out of an abundance of paranoia, we lock incase there's a competing
+        # thread setting the locale.
+        with LOCALE_LOCK:
+            locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+            return {
+                "t": start,
+                "start": start.strftime("%b %d %Y, %-I%p"),
+                "name": cls["fields"]["Name (from Class)"][0],
+                "inst": cls["fields"]["Instructor"] if inst else None,
+            }
 
     details = {"action": ["SCHEDULE"], "targets": []}
     channel_class_list = []

@@ -330,10 +330,10 @@ def test_gen_class_scheduled_alerts():
 
     assert got[0]["target"] == "a@a.com"
     assert "teach 1" in got[0]["subject"]
-    assert "Jan 01 2025, 10am: Class A" in got[0]["body"]
+    assert "Jan 01 2025, 10AM: Class A" in got[0]["body"]
     assert got[1]["target"] == "b@b.com"
     assert "teach 1" in got[1]["subject"]
-    assert "Jan 01 2025, 12pm: Class B" in got[1]["body"]
+    assert "Jan 01 2025, 12PM: Class B" in got[1]["body"]
     assert got[2]["target"] == "#instructors"
     assert got[3]["target"] == "#class-automation"
     assert len(got) == 4
