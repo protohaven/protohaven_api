@@ -3,8 +3,8 @@
 import datetime
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Tuple
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon, neon_base, sheets
@@ -81,11 +81,18 @@ def resolve_codes(initial: list):
     return delta
 
 
+Email = str
+ToolCode = str
+NeonID = int
+Hours = int
+TimeInterval = tuple[datetime.datetime, datetime.datetime]
+
+
 def is_recert_due(
     cfg: airtable.RecertConfig,
     now: datetime.datetime,
     last_earned: datetime.datetime,
-    related_reservation_times: Dict[datetime.datetime, int],
+    related_reservation_hours: dict[datetime.datetime, Hours],
 ):
     """Return true if the clearance with this data is due for recertification"""
 
@@ -101,11 +108,12 @@ def is_recert_due(
     # If reservations indicate sustained usage, not due
     cutoff = now - cfg.bypass_cutoff
     total_tool_time = sum(
-        hours for ts, hours in related_reservation_times.items() if ts > cutoff
+        hours for ts, hours in related_reservation_hours.items() if ts > cutoff
     )
     if total_tool_time >= cfg.bypass_hours:
         log.debug(
-            f"Recert not due; tool time {total_tool_time} > bypass hours {cfg.bypass_hours} since {cutoff}"
+            f"Recert not due; tool time {total_tool_time} > "
+            f"bypass hours {cfg.bypass_hours} since {cutoff}"
         )
         return False
 
@@ -115,8 +123,8 @@ def is_recert_due(
 def _structured_reservations(
     from_date: datetime.datetime,
     to_date: datetime.datetime,
-    email_to_neon_id: Dict[str, str],
-) -> Dict[Tuple[str, str], List]:
+    email_to_neon_id: dict[Email, NeonID],
+) -> dict[tuple[NeonID, ToolCode], list[TimeInterval]]:
     res_id_to_tool_code = {v: k for k, v in booked.get_resource_map()}
     result = defaultdict(list)
     booked_user_map = {u["emailAddress"]: int(u["id"]) for u in booked.get_all_users()}
@@ -124,7 +132,8 @@ def _structured_reservations(
         tool_code = res_id_to_tool_code.get(res["resourceId"])
         if not tool_code:
             log.warning(
-                f"Could not resolve reservation resource ID {res['resourceId']} to tool code; ignoring"
+                "Could not resolve reservation resource ID "
+                f"{res['resourceId']} to tool code; ignoring"
             )
             continue
         neon_id = email_to_neon_id.get(booked_user_map.get(res["userId"]))
@@ -137,16 +146,24 @@ def _structured_reservations(
     return result
 
 
-def find_members_needing_recert_by(
-    from_date: datetime.datetime, deadline: datetime.datetime, from_row=1300
-):
+@dataclass
+class RecertEnv:
+    """All of the data needed to evaluate recertification for all members"""
+
+    recert_configs: dict[ToolCode, airtable.RecertConfig]
+    neon_clearances: dict[NeonID, set[ToolCode]]
+    last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime]
+    reservations: dict[tuple[NeonID, ToolCode], list[TimeInterval]]
+
+
+def build_recert_env(from_date: datetime.datetime, from_row=1300) -> RecertEnv:
     """Examine Neon CRM, instructor logs, and recert quizzes to identify which
     members are due for recertification"""
 
     # TODO parallelize resource fetching
 
     log.info("Fetching tool recertification configs from Airtable")
-    tool_configs = airtable.get_tool_recert_configs_by_code()
+    recert_configs = airtable.get_tool_recert_configs_by_code()
 
     log.info("Fetching all members' clearances from neon")
     neon_clearances = {}
@@ -157,7 +174,7 @@ def find_members_needing_recert_by(
             email_to_neon_id[e] = mem.neon_id
 
     log.info(f"Fetching all instructor logged clearances past row {from_row}")
-    earned = {}
+    last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime] = {}
     for (
         email,
         clearance_codes,
@@ -168,39 +185,53 @@ def find_members_needing_recert_by(
         if not nid:
             log.warning(f"Failed to resolve email {email} to a Neon ID, ignoring")
         for code in resolve_codes(clearance_codes or []) + tool_codes:
-            earned[(nid, code)] = max(earned.get((nid, code)) or 0, timestamp)
+            last_earned[(nid, code)] = max(last_earned.get((nid, code)) or 0, timestamp)
 
     log.info(f"Fetching hours of tool reservations from {from_date}")
     reservations = _structured_reservations(from_date, tznow(), email_to_neon_id)
 
+    return RecertEnv(recert_configs, neon_clearances, last_earned, reservations)
+
+
+def segment_by_recertification_needed(
+    env: RecertEnv, deadline: datetime.datetime
+) -> tuple[set[tuple[NeonID, ToolCode]], set[tuple[NeonID, ToolCode]]]:
+    """Given all relevant information, compute the set of member-clearances needing
+    recertification and those that do not need recertification."""
     log.info("Searching for member clearances that are due for recertification")
     needed = set()
     not_needed = set()
-    for neon_id, cc in neon_clearances.items():
+    for neon_id, cc in env.neon_clearances.items():
         for tool_code in cc:
-            cfg = tool_configs.get(tool_code)
+            cfg = env.recert_configs.get(tool_code)
             if not cfg:
                 continue
 
             # Construct related reservation times based on tools
-            # which count for bypassing recert requirements
-            related_reservations = {}
+            # which count for bypassing recert requirements.
+            # Only count one of potentially several tools reserved
+            # at the same time.
+            # Note that this has the potential to overcount hours
+            # If reservations are made with slight offsets
+            # We can potentially reuse some stuff from scheduler.py to
+            # improve this.
+            related_reservation_hours: dict[datetime.datetime, int] = {}
             for bypass_tool in cfg.bypass_tools:
-                for start, end in reservations[(neon_id, bypass_tool)]:
-                    cur = related_reservations.get((neon_id, bypass_tool))
-                    hours = (end - start).hours
+                for start, end in env.reservations.get((neon_id, bypass_tool)) or []:
+                    cur = related_reservation_hours.get(start)
+                    hours = (end - start).total_seconds() / 3600
                     if not cur or hours > cur:
-                        related_reservations[(neon_id, bypass_tool)] = hours
+                        related_reservation_hours[start] = hours
 
             if is_recert_due(
                 cfg,
                 deadline,
-                earned[(nid, tool_code)],
-                related_reservations,
+                env.last_earned[(neon_id, tool_code)],
+                related_reservation_hours,
             ):
                 needed.add((neon_id, tool_code))
             else:
                 not_needed.add((neon_id, tool_code))
 
     assert not needed.intersection(not_needed)
-    return (needed, not_needed)
+    return needed, not_needed
