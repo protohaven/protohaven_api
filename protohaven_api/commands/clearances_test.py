@@ -17,7 +17,7 @@ def test_sync_clearances_no_submissions(mocker, cli):
     mocker.patch.object(
         C.neon, "fetch_clearance_codes", return_value=[{"name": "code1"}]
     )
-    mocker.patch.object(C.sheets, "get_instructor_submissions", return_value=[])
+    mocker.patch.object(C.sheets, "get_passing_student_clearances", return_value=[])
     got = cli("sync_clearances", [])
     assert not got
 
@@ -34,18 +34,19 @@ def test_sync_clearances_e2e(mocker, cli):
     mocker.patch.object(C, "tznow", return_value=d(0))
     mocker.patch.object(
         C.sheets,
-        "get_instructor_submissions",
+        "get_passing_student_clearances",
         return_value=[
-            {
-                "Timestamp": d(0),
-                C.PASS_HDR: "test@example.com",
-                C.CLEARANCE_HDR: "code1: A Clearance, code2: Another Clearance",
-                C.TOOLS_HDR: "tool1: A Tool, tool2: Another Tool",
-            }
+            (
+                "test@example.com",
+                ["code1", "code2"],
+                ["tool1", "tool2"],
+            )
         ],
     )
-    mocker.patch.object(C, "resolve_codes", lambda tc: [t + "_resolved" for t in tc])
-    m1 = mocker.patch.object(C, "update_clearances", return_value=["code1"])
+    mocker.patch.object(
+        C.clearances, "resolve_codes", lambda tc: [t + "_resolved" for t in tc]
+    )
+    m1 = mocker.patch.object(C.clearances, "update", return_value=["code1"])
     got = cli("sync_clearances", ["--apply"])
     m1.assert_called_with(
         "test@example.com",
