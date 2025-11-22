@@ -134,6 +134,60 @@ class Commands:  # pylint: disable=too-few-public-methods
         else:
             print_yaml([])
 
+    def _add_new_pending_recerts(self, needed, pending, apply):
+        new_additions_by_member = defaultdict(list)
+        for neon_id, tool_code in needed:
+            if (neon_id, tool_code) not in pending:
+                log.info(f"New addition: ID {neon_id}, tool codes {tool_code}")
+                if apply:
+                    log.info(
+                        str(
+                            airtable.insert_pending_recertification(
+                                neon_id, tool_code, deadline
+                            )
+                        )
+                    )
+                new_additions_by_member[neon_id].append(tool_code)
+        return new_additions_by_member
+
+
+    def _remove_not_needed_pending(self, not_needed, pending, apply):
+        to_remove_from_pending = defaultdict(list)
+        for neon_id, tool_code in not_needed:
+            rec = pending.get((neon_id, tool_code))
+            if rec:
+                to_remove_from_pending[neon_id].append((rec, tool_code))
+        for neon_id, to_remove in to_remove_from_pending.items():
+            for rec, tool_code in to_remove:
+                log.info(f"Removing pending recert: {neon_id}, {tool_code}")
+                log.info(str(airtable.remove_pending_recertification(rec)))
+        return to_remove_from_pending
+
+
+    def _revoke_pending_due(self, now, not_needed, neon_clearances):
+        revocation_by_user = defaultdict(list)
+        for (
+            neon_id,
+            tool_code,
+            deadline,
+            rec_id,
+        ) in airtable.get_pending_recertifications():
+            if deadline > now or (neon_id, tool_code) in not_needed:
+                continue
+            if tool_code not in (neon_clearances.get(neon_id) or []):
+                continue
+            revocation_by_user[neon_id].append(tool_code)
+        log.info(
+            "Revoking clearances for past-due recertifications of "
+            f"{len(revocation_by_user)} user(s)"
+        )
+        for neon_id, tool_codes in revocation_by_user.items():
+            log.info(f"DELETE Neon ID {neon_id}; Tool Codes {tool_codes}")
+            mutations = clearances.update_by_neon_id(
+                neon_id, "DELETE", tool_codes, apply=args.apply
+            )
+        return revocation_by_user
+
     @command(
         arg(
             "--apply",
@@ -188,8 +242,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             hour=0, minute=0, second=0, microsecond=0
         ) + datetime.timedelta(days=args.days_ahead)
         changes: list[str] = []
+        comms = []
 
-        log.info("Fetching all pending recertification state")
+        log.info(f"Fetching all pending recertification state, beginning at {from_date} with recert deadline after {deadline}")
         pending = {
             (neon_id, tool_code): rec_id
             for neon_id, tool_code, deadline, rec_id in airtable.get_pending_recertifications()
@@ -200,80 +255,49 @@ class Commands:  # pylint: disable=too-few-public-methods
         needed, not_needed = clearances.segment_by_recertification_needed(env, deadline)
 
         log.info("Adding any needed recerts not already in table")
-        for neon_id, tool_code in needed:
-            if (neon_id, tool_code) not in pending:
-                log.info(f"New addition: ID {neon_id}, tool codes {tool_code}")
-                if args.apply:
-                    log.info(
-                        str(
-                            airtable.insert_pending_recertification(
-                                neon_id, tool_code, deadline
-                            )
-                        )
-                    )
-                    changes.append(f"#{neon_id}: trigger recert {tool_code}")
+        new_additions_by_member = self._add_new_pending_recerts(needed, pending, args.apply)
+        log.info("Building emails for newly pending recerts")
+        for neon_id, tool_codes in new_additions_by_member.items():
+            changes.append(f"#{neon_id}: trigger recerts {tool_codes}")
+            comms.append(Msg.tmpl("user_recert_pending",
+                    fname=,
+                    recert=,
+                    target=,
+                    id=,
+            ))
 
         log.info("Resolving any not-needed recerts that are in the table")
-        not_needed_by_user = defaultdict(list)
-        to_remove_from_pending = []
-        for neon_id, tool_code in not_needed:
-            rec = pending.get((neon_id, tool_code))
-            if rec:
-                to_remove_from_pending.append((rec, tool_code))
+        rm_pendings = self._remove_not_needed_pending(not_needed, pending, args.apply)
 
-            if tool_code not in (env.neon_clearances.get(neon_id) or []):
-                not_needed_by_user[neon_id].append(tool_code)
-        for neon_id, tool_codes in not_needed_by_user.items():
-            log.info(f"PATCH Neon ID {neon_id}; Tool Codes {tool_codes}")
-            mutations = clearances.update_by_neon_id(
-                neon_id, "PATCH", tool_codes, apply=args.apply
-            )
-            if len(mutations) > 0:
-                changes.append(f"#{neon_id}: added {', '.join(mutations)}")
-                log.info(changes[-1])
-
-        for rec, tool_code in to_remove_from_pending:
-            log.info(f"Removing pending recert: {neon_id}, {tool_code}")
-            log.info(str(airtable.remove_pending_recertification(rec)))
-            changes.append(f"#{neon_id}: remove pending recert for {tool_code}")
+        log.info("Building emails for no-longer-pending recertifications")
+        for neon_id, pp in rm_pendings.items():
+            tool_codes = [tc for _, tc in pp]
+            changes.append(f"#{neon_id}: remove pending recerts {tool_codes}")
             log.info(changes[-1])
+            comms.append(Msg.tmpl("user_recert_no_longer_pending",
+                    fname=,
+                    recert=,
+                    target=,
+                    id=,
+            ))
 
-        revocation_by_user = defaultdict(list)
-        for (
-            neon_id,
-            tool_code,
-            deadline,
-            rec_id,
-        ) in airtable.get_pending_recertifications():
-            if deadline > now or (neon_id, tool_code) in not_needed:
-                continue
-            if tool_code not in (env.neon_clearances.get(neon_id) or []):
-                continue
-            revocation_by_user[neon_id].append(tool_code)
-        log.info(
-            "Revoking clearances for past-due recertifications of "
-            f"{len(revocation_by_user)} user(s)"
-        )
-        for neon_id, tool_codes in revocation_by_user.items():
-            log.info(f"DELETE Neon ID {neon_id}; Tool Codes {tool_codes}")
-            mutations = clearances.update_by_neon_id(
-                neon_id, "DELETE", tool_codes, apply=args.apply
+        revoked = self._revoke_pending_due(now, not_needed, env.neon_clearances)
+        for neon_id, tool_codes in revoked.items():
+            changes.append(
+                f"#{neon_id}: removed {', '.join(mutations)} (recert due)"
             )
-            if len(mutations) > 0:
-                changes.append(
-                    f"#{neon_id}: removed {', '.join(mutations)} (recert due)"
-                )
-                log.info(changes[-1])
+            log.info(changes[-1])
+            comms.append(Msg.tmpl("user_recert_clearances_revoked",
+                    fname=,
+                    recert=,
+                    target=,
+                    id=,
+            ))
 
         if len(changes) > 0:
-            print_yaml(
-                [
-                    Msg.tmpl(
+            comms.append(Msg.tmpl(
                         "recertification_summary",
                         target="#membership-automation",
                         changes=list(changes),
-                    )
-                ]
-            )
-        else:
-            print_yaml([])
+                    ))
+        print_yaml(comms)
