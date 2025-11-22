@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Iterator, List, Set
+from typing import Iterator
 
 from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
@@ -28,7 +28,9 @@ from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
 
-
+type NeonID = int
+type ToolCode = str
+type RecordID = str
 type ForecastOverride = tuple[str, list[str], str]
 
 
@@ -203,9 +205,6 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
-type ToolCode = str
-
-
 @dataclass
 class RecertConfig:  # pylint: disable=too-few-public-methods
     """All metadata used to inform whether or not a member's clearance should undergo
@@ -215,7 +214,7 @@ class RecertConfig:  # pylint: disable=too-few-public-methods
     quiz_url: str
     expiration: datetime.timedelta
     bypass_hours: int
-    bypass_tools: Set[ToolCode]
+    bypass_tools: set[ToolCode]
     bypass_cutoff: datetime.timedelta
 
 
@@ -244,7 +243,9 @@ def get_tool_recert_configs_by_code():
     return tool_configs
 
 
-def get_pending_recertifications():
+def get_pending_recertifications() -> (
+    Iterator[tuple[NeonID, ToolCode, datetime.datetime, RecordID]]
+):
     """Get all pending recerts"""
     for rec in get_all_records("people", "recertification"):
         yield (
@@ -641,7 +642,7 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
 def insert_quiz_result(
     submitted: datetime.datetime,
     email: str,
-    tool_codes: List[str],
+    tool_codes: list[str],
     data: dict,
     points_scored: int,
     points_to_pass: int,
