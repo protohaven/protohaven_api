@@ -3,6 +3,7 @@
 import datetime
 import logging
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -84,7 +85,7 @@ def resolve_codes(initial: list):
 Email = str
 ToolCode = str
 NeonID = int
-Hours = int
+Hours = float
 TimeInterval = tuple[datetime.datetime, datetime.datetime]
 
 
@@ -125,9 +126,13 @@ def _structured_reservations(
     to_date: datetime.datetime,
     email_to_neon_id: dict[Email, NeonID],
 ) -> dict[tuple[NeonID, ToolCode], list[TimeInterval]]:
-    res_id_to_tool_code = {v: k for k, v in booked.get_resource_map()}
+    res_id_to_tool_code: dict[booked.ResourceID, ToolCode] = {
+        v: k for k, v in booked.get_resource_map().items()
+    }
     result = defaultdict(list)
-    booked_user_map = {u["emailAddress"]: int(u["id"]) for u in booked.get_all_users()}
+    booked_user_map: dict[int, Email] = {
+        int(u["id"]): u["emailAddress"] for u in booked.get_all_users()
+    }
     for res in booked.get_reservations(from_date, to_date)["reservations"]:
         tool_code = res_id_to_tool_code.get(res["resourceId"])
         if not tool_code:
@@ -156,39 +161,60 @@ class RecertEnv:
     reservations: dict[tuple[NeonID, ToolCode], list[TimeInterval]]
 
 
-def build_recert_env(from_date: datetime.datetime, from_row=1300) -> RecertEnv:
+def build_recert_env(  # pylint: disable=too-many-locals
+    from_date: datetime.datetime, from_row=1300
+) -> RecertEnv:
     """Examine Neon CRM, instructor logs, and recert quizzes to identify which
     members are due for recertification"""
 
-    # TODO parallelize resource fetching
+    # Execute fetches in parallel and process early where possible to reduce load time
+    with ThreadPoolExecutor() as executor:
+        log.info("Fetching tool recertification configs from Airtable")
+        recert_configs_future = executor.submit(
+            airtable.get_tool_recert_configs_by_code
+        )
 
-    log.info("Fetching tool recertification configs from Airtable")
-    recert_configs = airtable.get_tool_recert_configs_by_code()
+        log.info("Fetching all members' clearances from neon")
+        neon_clearances_future = executor.submit(
+            neon.search_all_members, fields=[neon.CustomField.CLEARANCES]
+        )
 
-    log.info("Fetching all members' clearances from neon")
-    neon_clearances = {}
-    email_to_neon_id = {}
-    for mem in neon.search_all_members(fields=[neon.CustomField.CLEARANCES]):
-        neon_clearances[mem.neon_id] = mem.clearances
-        for e in mem.emails:
-            email_to_neon_id[e] = mem.neon_id
+        log.info(f"Fetching all instructor logged clearances past row {from_row}")
+        instructor_clearances_future = executor.submit(
+            sheets.get_passing_student_clearances, from_row=from_row
+        )
 
-    log.info(f"Fetching all instructor logged clearances past row {from_row}")
-    last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime] = {}
-    for (
-        email,
-        clearance_codes,
-        tool_codes,
-        timestamp,
-    ) in sheets.get_passing_student_clearances(from_row=from_row):
-        nid = email_to_neon_id.get(email)
-        if not nid:
-            log.warning(f"Failed to resolve email {email} to a Neon ID, ignoring")
-        for code in resolve_codes(clearance_codes or []) + tool_codes:
-            last_earned[(nid, code)] = max(last_earned.get((nid, code)) or 0, timestamp)
+        neon_clearances = {}
+        email_to_neon_id = {}
+        for mem in neon_clearances_future.result():
+            neon_clearances[mem.neon_id] = mem.clearances
+            for e in mem.emails:
+                email_to_neon_id[e] = mem.neon_id
+        log.info("Email map built")
 
-    log.info(f"Fetching hours of tool reservations from {from_date}")
-    reservations = _structured_reservations(from_date, tznow(), email_to_neon_id)
+        log.info(f"Fetching hours of tool reservations from {from_date}")
+        reservations_future = executor.submit(
+            _structured_reservations, from_date, tznow(), email_to_neon_id
+        )
+
+        instructor_clearances = instructor_clearances_future.result()
+        last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime] = {}
+        for (
+            email,
+            clearance_codes,
+            tool_codes,
+            timestamp,
+        ) in instructor_clearances:
+            nid = email_to_neon_id.get(email)
+            if not nid:
+                log.warning(f"Failed to resolve email {email} to a Neon ID, ignoring")
+            for code in resolve_codes(clearance_codes or []) + tool_codes:
+                cur = last_earned.get((nid, code))
+                if not cur or timestamp > cur:
+                    last_earned[(nid, code)] = timestamp
+
+        recert_configs = recert_configs_future.result()
+        reservations = reservations_future.result()
 
     return RecertEnv(recert_configs, neon_clearances, last_earned, reservations)
 
@@ -215,7 +241,7 @@ def segment_by_recertification_needed(
             # If reservations are made with slight offsets
             # We can potentially reuse some stuff from scheduler.py to
             # improve this.
-            related_reservation_hours: dict[datetime.datetime, int] = {}
+            related_reservation_hours: dict[datetime.datetime, Hours] = {}
             for bypass_tool in cfg.bypass_tools:
                 for start, end in env.reservations.get((neon_id, bypass_tool)) or []:
                     cur = related_reservation_hours.get(start)

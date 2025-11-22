@@ -111,3 +111,43 @@ def test_find_members_needing_recert():
     assert needed == {(456, "LS1")}
     assert not_needed == {(123, "LS1"), (789, "LS1")}
     assert not needed.intersection(not_needed)
+
+
+def test_build_recert_env(mocker):
+    """Test building recertification environment with mock data"""
+    # Mock the parallel execution components
+    mock_recert_configs = {"tool1": {"recert_interval": 365}}
+    mock_neon_members = [
+        mocker.MagicMock(
+            neon_id="123", clearances=["tool1"], emails=["test@example.com"]
+        )
+    ]
+    mock_instructor_clearances = [
+        ("test@example.com", ["clearance1"], [], d(1)),  # maps to tool1
+        ("test@example.com", [], ["tool1"], d(0)),
+    ]
+    mock_reservations = {"123": {"tool1": [d(0)]}}
+    mocker.patch.object(
+        c.airtable, "get_tool_recert_configs_by_code", return_value=mock_recert_configs
+    )
+    mocker.patch.object(c.neon, "search_all_members", return_value=mock_neon_members)
+    mocker.patch.object(
+        c.sheets,
+        "get_passing_student_clearances",
+        return_value=mock_instructor_clearances,
+    )
+    mocker.patch.object(c, "_structured_reservations", return_value=mock_reservations)
+    mocker.patch.object(
+        c,
+        "resolve_codes",
+        side_effect=lambda codes: [{"clearance1": "tool1"}.get(c) for c in codes],
+    )
+
+    # Execute the function
+    result = c.build_recert_env(d(0), 1300)
+
+    # Verify the result structure
+    assert result.recert_configs == mock_recert_configs
+    assert result.neon_clearances == {"123": ["tool1"]}
+    assert result.last_earned == {("123", "tool1"): d(1)}
+    assert result.reservations == mock_reservations
