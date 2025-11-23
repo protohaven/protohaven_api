@@ -89,36 +89,36 @@ Hours = float
 TimeInterval = tuple[datetime.datetime, datetime.datetime]
 
 
-def is_recert_due(
+def compute_recert_deadlines(
     cfg: airtable.RecertConfig,
-    now: datetime.datetime,
     last_earned: datetime.datetime,
     related_reservation_hours: dict[datetime.datetime, Hours],
-):
-    """Return true if the clearance with this data is due for recertification"""
+) -> tuple[datetime.datetime | None, datetime.datetime | None]:
+    """Return deadline for when the clearance with this data is due for recertification.
 
-    # If clearance doesn't expire, not due
+    Both the "instruction" deadline (which would undo an expired recert) and the
+    "reservation based" deadline (which would not undo an expired recert) are returned.
+    """
+
+    # If clearance doesn't expire, no deadline
     if not cfg.expiration:
-        return False
+        return None, None
 
-    # If clearance isn't expired yet, not due
-    if last_earned + cfg.expiration > now:
-        log.debug("Recert not due; clearance not yet expired")
-        return False
+    inst_deadline = last_earned + cfg.expiration
 
-    # If reservations indicate sustained usage, not due
-    cutoff = now - cfg.bypass_cutoff
-    total_tool_time = sum(
-        hours for ts, hours in related_reservation_hours.items() if ts > cutoff
-    )
-    if total_tool_time >= cfg.bypass_hours:
-        log.debug(
-            f"Recert not due; tool time {total_tool_time} > "
-            f"bypass hours {cfg.bypass_hours} since {cutoff}"
-        )
-        return False
+    res_hours = [(ts, hours) for ts, hours in related_reservation_hours.items()]
+    acc_hours = 0
+    res_deadline = None
+    for ts, hours in sorted(res_hours, key=lambda v: v[0], reverse=True):
+        acc_hours += hours
+        if acc_hours < cfg.bypass_hours:
+            continue
+        # Latest possible candidate for deadline based on reservation hours
+        res_deadline = ts + cfg.bypass_cutoff
+        break
 
-    return True
+    # Otherwise it's just the expiration date
+    return inst_deadline, res_deadline
 
 
 def _structured_reservations(
@@ -159,6 +159,7 @@ class RecertEnv:
     neon_clearances: dict[NeonID, set[ToolCode]]
     last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime]
     reservations: dict[tuple[NeonID, ToolCode], list[TimeInterval]]
+    contact_info: dict[NeonID, tuple[str, Email]]
 
 
 def build_recert_env(  # pylint: disable=too-many-locals
@@ -175,8 +176,10 @@ def build_recert_env(  # pylint: disable=too-many-locals
         )
 
         log.info("Fetching all members' clearances from neon")
+        # Note: this only asyncs the first fetch; would be better to
+        # resubmit to the executor like in events.py
         neon_clearances_future = executor.submit(
-            neon.search_all_members, fields=[neon.CustomField.CLEARANCES]
+            neon.search_all_members, fields=[neon.CustomField.CLEARANCES, "First Name"]
         )
 
         log.info(f"Fetching all instructor logged clearances past row {from_row}")
@@ -186,10 +189,12 @@ def build_recert_env(  # pylint: disable=too-many-locals
 
         neon_clearances = {}
         email_to_neon_id = {}
+        contact_info = {}
         for mem in neon_clearances_future.result():
             neon_clearances[mem.neon_id] = mem.clearances
             for e in mem.emails:
                 email_to_neon_id[e] = mem.neon_id
+            contact_info[mem.neon_id] = (mem.fname, mem.email)
         log.info("Email map built")
 
         log.info(f"Fetching hours of tool reservations from {from_date}")
@@ -216,17 +221,20 @@ def build_recert_env(  # pylint: disable=too-many-locals
         recert_configs = recert_configs_future.result()
         reservations = reservations_future.result()
 
-    return RecertEnv(recert_configs, neon_clearances, last_earned, reservations)
+    return RecertEnv(
+        recert_configs, neon_clearances, last_earned, reservations, contact_info
+    )
 
 
 def segment_by_recertification_needed(
-    env: RecertEnv, deadline: datetime.datetime
+    env: RecertEnv,
 ) -> tuple[set[tuple[NeonID, ToolCode]], set[tuple[NeonID, ToolCode]]]:
     """Given all relevant information, compute the set of member-clearances needing
     recertification and those that do not need recertification."""
     log.info("Searching for member clearances that are due for recertification")
     needed = set()
     not_needed = set()
+    now = tznow()
     for neon_id, cc in env.neon_clearances.items():
         for tool_code in cc:
             cfg = env.recert_configs.get(tool_code)
@@ -249,15 +257,22 @@ def segment_by_recertification_needed(
                     if not cur or hours > cur:
                         related_reservation_hours[start] = hours
 
-            if is_recert_due(
+            inst_deadline, res_deadline = compute_recert_deadlines(
                 cfg,
-                deadline,
                 env.last_earned[(neon_id, tool_code)],
                 related_reservation_hours,
+            )
+            if inst_deadline and now >= inst_deadline and not res_deadline:
+                needed.add((neon_id, tool_code, inst_deadline, res_deadline))
+            elif (
+                inst_deadline
+                and now >= inst_deadline
+                and res_deadline
+                and now >= res_deadline
             ):
-                needed.add((neon_id, tool_code))
+                needed.add((neon_id, tool_code, inst_deadline, res_deadline))
             else:
-                not_needed.add((neon_id, tool_code))
+                not_needed.add((neon_id, tool_code, inst_deadline, res_deadline))
 
     assert not needed.intersection(not_needed)
     return needed, not_needed

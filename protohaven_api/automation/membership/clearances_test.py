@@ -43,42 +43,40 @@ def test_update_patch(mocker):
     )
 
 
-def test_is_recert_due(mocker):
+def test_compute_recert_deadline(mocker):
     """Test recertification due date logic"""
     cfg = mocker.Mock(spec=c.airtable.RecertConfig)
     cfg.bypass_cutoff = datetime.timedelta(days=90)
     cfg.bypass_hours = 10
 
-    now = d(400)  # Well past expiration
     last_earned = d(0)  # Base date
 
     # Test 1: Clearance doesn't expire
     cfg.expiration = None
-    assert not c.is_recert_due(cfg, now, last_earned, {})
+    assert c.compute_recert_deadlines(cfg, last_earned, {}) == (None, None)
 
-    # Test 2: Clearance not yet expired
+    # Test 2: No reservations, just instruction deadline
     cfg.expiration = datetime.timedelta(days=365)
-    now = d(100)  # Before expiration
-    assert not c.is_recert_due(cfg, now, last_earned, {})
+    assert c.compute_recert_deadlines(cfg, last_earned, {}) == (d(365), None)
 
-    # Test 3: Expired but has sufficient tool usage
-    now = d(400)  # After expiration
-    recent_reservations = {d(350): 6, d(380): 5}  # Within cutoff  # Within cutoff
-    assert not c.is_recert_due(cfg, now, last_earned, recent_reservations)
+    # Test 3: Reservations exceeding bypass_hours
+    recent_reservations = {d(320): 10, d(350): 6, d(380): 5}
+    assert c.compute_recert_deadlines(cfg, last_earned, recent_reservations) == (
+        d(365),
+        d(350 + 90),
+    )
 
-    # Test 4: Expired and insufficient tool usage
-    recent_reservations = {
-        d(350): 4,  # Within cutoff but total < bypass_hours
-        d(380): 3,  # Within cutoff but total < bypass_hours
-    }
-    assert c.is_recert_due(cfg, now, last_earned, recent_reservations)
-
-    # Test 5: Expired and no recent reservations
-    assert c.is_recert_due(cfg, now, last_earned, {})
+    # Test 4: not enough reservation
+    recent_reservations = {d(380): 5}
+    assert c.compute_recert_deadlines(cfg, last_earned, recent_reservations) == (
+        d(365),
+        None,
+    )
 
 
-def test_find_members_needing_recert():
+def test_segment_by_recertification_needed(mocker):
     """Test finding members needing recertification"""
+    mocker.patch.object(c, "tznow", return_value=d(0))
     env = c.RecertEnv(
         recert_configs={
             "LS1": c.airtable.RecertConfig(
@@ -104,12 +102,13 @@ def test_find_members_needing_recert():
             (456, "LS2"): [(d(-10), d(-10, 1))],  # Not enough tool time
             (789, "LS2"): [(d(-10), d(-10, 2))],  # Enough time to bypass recert
         },
+        contact_info=None,
     )
-    needed, not_needed = c.segment_by_recertification_needed(env, deadline=d(1))
+    needed, not_needed = c.segment_by_recertification_needed(env)
 
     # Verify results
-    assert needed == {(456, "LS1")}
-    assert not_needed == {(123, "LS1"), (789, "LS1")}
+    assert needed == {(456, "LS1", d(0), None)}
+    assert not_needed == {(123, "LS1", d(5), None), (789, "LS1", d(0), d(20))}
     assert not needed.intersection(not_needed)
 
 

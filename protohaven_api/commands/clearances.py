@@ -136,9 +136,9 @@ class Commands:  # pylint: disable=too-few-public-methods
 
     def _add_new_pending_recerts(self, needed, pending, apply):
         new_additions_by_member = defaultdict(list)
-        for neon_id, tool_code in needed:
+        for neon_id, tool_code, deadline in needed:
             if (neon_id, tool_code) not in pending:
-                log.info(f"New addition: ID {neon_id}, tool codes {tool_code}")
+                log.info(f"New addition: ID {neon_id}, tool code {tool_code} deadline {deadline}")
                 if apply:
                     log.info(
                         str(
@@ -152,16 +152,13 @@ class Commands:  # pylint: disable=too-few-public-methods
 
 
     def _remove_not_needed_pending(self, not_needed, pending, apply):
-        to_remove_from_pending = defaultdict(list)
-        for neon_id, tool_code in not_needed:
-            rec = pending.get((neon_id, tool_code))
+        removed = defaultdict(list)
+        for neon_id, tool_code, next_deadline in not_needed:
+            rec, deadline = pending.get((neon_id, tool_code))
             if rec:
-                to_remove_from_pending[neon_id].append((rec, tool_code))
-        for neon_id, to_remove in to_remove_from_pending.items():
-            for rec, tool_code in to_remove:
-                log.info(f"Removing pending recert: {neon_id}, {tool_code}")
+                removed[neon_id].append((rec, tool_code, prev_deadline, next_deadline))
                 log.info(str(airtable.remove_pending_recertification(rec)))
-        return to_remove_from_pending
+        return removed
 
 
     def _revoke_pending_due(self, now, not_needed, neon_clearances):
@@ -172,7 +169,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             deadline,
             rec_id,
         ) in airtable.get_pending_recertifications():
-            if deadline > now or (neon_id, tool_code) in not_needed:
+            if now < deadline or (neon_id, tool_code) in not_needed:
                 continue
             if tool_code not in (neon_clearances.get(neon_id) or []):
                 continue
@@ -238,32 +235,44 @@ class Commands:  # pylint: disable=too-few-public-methods
         from_date = now.replace(
             hour=0, minute=0, second=0, microsecond=0
         ) - datetime.timedelta(days=args.reservation_lookbehind_days)
-        deadline = now.replace(
-            hour=0, minute=0, second=0, microsecond=0
-        ) + datetime.timedelta(days=args.days_ahead)
         changes: list[str] = []
         comms = []
 
-        log.info(f"Fetching all pending recertification state, beginning at {from_date} with recert deadline after {deadline}")
+        log.info(f"Fetching all pending recertification state, beginning at {from_date}")
         pending = {
-            (neon_id, tool_code): rec_id
+            (neon_id, tool_code): (rec_id, deadline)
             for neon_id, tool_code, deadline, rec_id in airtable.get_pending_recertifications()
+        }
+
+        log.info("Fetching tool name mapping")
+        tool_name_map = {
+            t["fields"].get("Tool Code", "").strip().upper(): t["fields"].get("Tool Name")
+                for t in get_tools()
         }
 
         log.info("Fetching state of members' clearances")
         env = clearances.build_recert_env(from_date, args.from_row)
-        needed, not_needed = clearances.segment_by_recertification_needed(env, deadline)
+        needed, not_needed = clearances.segment_by_recertification_needed(env)
 
         log.info("Adding any needed recerts not already in table")
         new_additions_by_member = self._add_new_pending_recerts(needed, pending, args.apply)
         log.info("Building emails for newly pending recerts")
         for neon_id, tool_codes in new_additions_by_member.items():
             changes.append(f"#{neon_id}: trigger recerts {tool_codes}")
+            fname, email = env.contact_info.get(neon_id) or None, None
+            if not email:
+                continue
             comms.append(Msg.tmpl("user_recert_pending",
-                    fname=,
-                    recert=,
-                    target=,
-                    id=,
+                    fname=fname,
+                    recert=[
+                        {
+                            "tool_name": tool_name_map.get(tc) or tc,
+                            "last_earned": env.last_earned.get((neon_id, tc)) or "N/A",
+                            "due_date": pending[(neon_id, tc)][1]
+                        } for tc in tool_codes
+                    ], # tool name, last earned, due date
+                    target=email,
+                    id=f"{neon_id}:{tool_codes}",
             ))
 
         log.info("Resolving any not-needed recerts that are in the table")
@@ -274,11 +283,22 @@ class Commands:  # pylint: disable=too-few-public-methods
             tool_codes = [tc for _, tc in pp]
             changes.append(f"#{neon_id}: remove pending recerts {tool_codes}")
             log.info(changes[-1])
+            fname, email = env.contact_info.get(neon_id) or None, None
+            if not email:
+                continue
+
             comms.append(Msg.tmpl("user_recert_no_longer_pending",
-                    fname=,
-                    recert=,
-                    target=,
-                    id=,
+                    fname=fname,
+                    recert=[
+                        {
+                            "tool_name": tool_name_map.get(tc) or tc,
+                            "last_earned": env.last_earned.get((neon_id, tc)) or "N/A",
+                            "prev_deadline": pending[(neon_id, tc)][1],
+                            "next_deadline": None,
+                        } for _, tool_code, prev_deadline, next_deadline in pp
+                    ], # tool name, last earned, due date
+                    target=email,
+                    id=f"{neon_id}:{tool_codes}",
             ))
 
         revoked = self._revoke_pending_due(now, not_needed, env.neon_clearances)
@@ -288,7 +308,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             )
             log.info(changes[-1])
             comms.append(Msg.tmpl("user_recert_clearances_revoked",
-                    fname=,
+                    fname=env.neon_id_to_fname.get(neon_id) or "member",
                     recert=,
                     target=,
                     id=,
