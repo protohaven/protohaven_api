@@ -214,7 +214,7 @@ def search_active_members(
 
 
 def search_all_members(
-    fields: list[str], fetch_memberships=False, also_fetch=False
+    fields: list[str | int], fetch_memberships=False, also_fetch=False
 ) -> Generator[Member, None, None]:
     """Lookup all accounts"""
     yield from _search_members_internal(

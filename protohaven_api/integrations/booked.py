@@ -16,6 +16,10 @@ STATUS_UNAVAILABLE = 2
 STATUS_AVAILABLE = 1
 
 
+ResourceID = int
+ToolCode = str
+
+
 def get_resources():
     """Fetches all resources"""
     return get_connector().booked_request("GET", "/Resources/")["resources"]
@@ -26,7 +30,7 @@ def get_resource_id_to_name_map():
     return {d["resourceId"]: d["name"] for d in get_resources()}
 
 
-def get_resource_map():
+def get_resource_map() -> dict[ToolCode, ResourceID]:
     """Fetches a map from a resource tool code to its ID"""
     result = {}
     tool_code_id = get_config("booked/resource_custom_attribute/tool_code")

@@ -1,6 +1,7 @@
 """Read from google spreadsheets"""
 
 import logging
+import re
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -32,7 +33,7 @@ def get_sheet_range(sheet_id, range_name):
     return values
 
 
-def get_instructor_submissions(from_row=1300):
+def get_instructor_submissions_raw(from_row=1300):
     """Get log submissions from instructors"""
     sheet_id = get_config("sheets/instructor_hours")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
@@ -40,6 +41,44 @@ def get_instructor_submissions(from_row=1300):
         data = dict(zip(headers, row))
         data["Timestamp"] = safe_parse_datetime(data["Timestamp"])
         yield data
+
+
+PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."  # pylint: disable=line-too-long
+CLEARANCE_HDR = "Which clearance(s) was covered?"
+TOOLS_HDR = "Which tools?"
+
+
+def get_passing_student_clearances(dt=None, from_row=1300):
+    """Minimally parse and return instructor submissions after from_row in the sheet.
+
+    Yields a sequence of (email, clearance_codes, tool_codes) for each student that
+    passed a class.
+    """
+    for sub in get_instructor_submissions_raw(from_row):
+        if dt is not None and sub["Timestamp"] < dt:
+            continue
+        emails = sub.get(PASS_HDR)
+        mm = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", emails)
+        if not mm:
+            log.warning(f"No valid emails parsed from row: {emails}")
+        emails = [
+            m.replace("(", "").replace(")", "").replace(",", "").strip() for m in mm
+        ]
+
+        clearance_codes = sub.get(CLEARANCE_HDR)
+        clearance_codes = (
+            [s.split(":")[0].strip() for s in clearance_codes.split(",")]
+            if clearance_codes
+            else None
+        )
+        tool_codes = sub.get(TOOLS_HDR)
+        tool_codes = (
+            [s.split(":")[0].strip() for s in tool_codes.split(",")]
+            if tool_codes
+            else None
+        )
+        for e in emails:
+            yield (e.strip().lower(), clearance_codes, tool_codes, sub["Timestamp"])
 
 
 def get_sign_ins_between(start, end):
@@ -62,8 +101,3 @@ def get_sign_ins_between(start, end):
         if start <= t <= end:
             data["timestamp"] = t
             yield data
-
-
-if __name__ == "__main__":
-    for r in get_instructor_submissions(from_row=800):
-        log.info(str(r))
