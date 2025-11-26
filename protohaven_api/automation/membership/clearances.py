@@ -106,10 +106,11 @@ def compute_recert_deadlines(
 
     inst_deadline = last_earned + cfg.expiration
 
-    res_hours = [(ts, hours) for ts, hours in related_reservation_hours.items()]
-    acc_hours = 0
+    acc_hours = 0.0
     res_deadline = None
-    for ts, hours in sorted(res_hours, key=lambda v: v[0], reverse=True):
+    for ts, hours in sorted(
+        list(related_reservation_hours.items()), key=lambda v: v[0], reverse=True
+    ):
         acc_hours += hours
         if acc_hours < cfg.bypass_hours:
             continue
@@ -226,15 +227,17 @@ def build_recert_env(  # pylint: disable=too-many-locals
     )
 
 
-def segment_by_recertification_needed(
-    env: RecertEnv,
-) -> tuple[set[tuple[NeonID, ToolCode]], set[tuple[NeonID, ToolCode]]]:
+type Recert = tuple[NeonID, ToolCode, datetime.datetime, datetime.datetime]
+
+
+def segment_by_recertification_needed(  # pylint: disable=too-many-locals
+    env: RecertEnv, now: datetime.datetime
+) -> tuple[set[Recert], set[Recert]]:
     """Given all relevant information, compute the set of member-clearances needing
     recertification and those that do not need recertification."""
     log.info("Searching for member clearances that are due for recertification")
-    needed = set()
-    not_needed = set()
-    now = tznow()
+    needed: set[Recert] = set()
+    not_needed: set[Recert] = set()
     for neon_id, cc in env.neon_clearances.items():
         for tool_code in cc:
             cfg = env.recert_configs.get(tool_code)

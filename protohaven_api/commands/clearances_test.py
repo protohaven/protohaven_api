@@ -62,9 +62,12 @@ def test_sync_clearances_e2e(mocker, cli):
 
 def test_recertification_no_work(mocker, cli):
     """Test recertification command when no work needs to be done"""
-    mocker.patch.object(C, "build_recert_env")
-    mocker.patch.object(C, "segment_by_recertification_needed", return_value=([], []))
+    mocker.patch.object(C.clearances, "build_recert_env")
+    mocker.patch.object(
+        C.clearances, "segment_by_recertification_needed", return_value=([], [])
+    )
     mocker.patch.object(C.airtable, "get_pending_recertifications", return_value=[])
+    mocker.patch.object(C.airtable, "get_tools", return_value=[])
 
     out = cli("recertification", [])
     assert not out
@@ -79,6 +82,16 @@ Tc = namedtuple(
 @pytest.mark.parametrize(
     "tc",
     [
+        Tc(
+            "User needs no clearance, none pending or due -> no action",
+            has_clearance=False,
+            recert_needed=False,
+            is_pending=False,
+            is_due=False,
+            want_insert=False,
+            want_remove=False,
+            want_mod=None,
+        ),
         Tc(
             "user with clearance newly pending, adds to pending w/ no clearance change",
             has_clearance=False,  # even if they don't actually have the clearance
@@ -111,6 +124,7 @@ Tc = namedtuple(
         ),
         Tc(
             "warned user, due recert, revokes clearance and stays in pending list",
+            # Note: adding clearances is done via other automation
             has_clearance=True,
             recert_needed=True,
             is_pending=True,
@@ -129,16 +143,6 @@ Tc = namedtuple(
             want_remove=False,
             want_mod=None,
         ),
-        Tc(
-            "if recertified, adds missing clearance and removes from pending",
-            has_clearance=False,
-            recert_needed=False,
-            is_pending=True,
-            is_due=False,
-            want_insert=False,
-            want_remove=True,
-            want_mod="PATCH",
-        ),
     ],
     ids=idfn,
 )
@@ -148,22 +152,25 @@ def test_recertification_e2e(mocker, cli, tc):
     mock_env = mocker.MagicMock(
         neon_clearances={
             "user": ["tool"] if tc.has_clearance else [],
-        }
+        },
+        contact_info={
+            "user": ("User", "user@example.com"),
+        },
+    )
+    mocker.patch.object(
+        C.Commands, "_tool_name_map", return_value={"tool": "Test Tool"}
     )
     mocker.patch.object(C.clearances, "build_recert_env", return_value=mock_env)
-    needed = [("user", "tool")] if tc.recert_needed else []
-    not_needed = [("user", "tool")] if not tc.recert_needed else []
+    deadline = d(0) if tc.is_due else d(1)
+    needed = [("user", "tool", deadline, deadline)] if tc.recert_needed else []
+    not_needed = [("user", "tool", deadline, deadline)] if not tc.recert_needed else []
     mocker.patch.object(
         C.clearances,
         "segment_by_recertification_needed",
         return_value=(needed, not_needed),
     )
 
-    pending = (
-        [("user", "tool", d(0) if tc.is_due else d(1), "rec123")]
-        if tc.is_pending
-        else []
-    )
+    pending = [("user", "tool", deadline, "rec123")] if tc.is_pending else []
     mocker.patch.object(
         C.airtable, "get_pending_recertifications", return_value=pending
     )
@@ -186,3 +193,47 @@ def test_recertification_e2e(mocker, cli, tc):
 
     # Verify messages sent
     assert len(got) == (1 if (tc.want_insert or tc.want_remove or tc.want_mod) else 0)
+
+
+def test_recertifaction_max_affected(mocker, cli):
+    """Verify that --max_users_affected is properly observed"""
+    mocker.patch.object(C.clearances, "build_recert_env")
+    mocker.patch.object(
+        C.clearances, "segment_by_recertification_needed", return_value=([], [])
+    )
+    mocker.patch.object(C.airtable, "get_pending_recertifications", return_value=[])
+    mocker.patch.object(C.airtable, "get_tools", return_value=[])
+    mocker.patch.object(
+        C.Commands,
+        "_stage_revoke_due_clearances",
+        return_value={i: [(f"C{i}", None)] for i in range(10)},
+    )
+
+    mock_mod = mocker.patch.object(
+        C.clearances, "update_by_neon_id", return_value=["tool"]
+    )
+
+    cli("recertification", ["--apply", "--max_users_affected=4"])
+    assert mock_mod.call_count == 4
+
+
+def test_recertifaction_filter_users(mocker, cli):
+    """Verify that --filter_users is properly observed"""
+    mocker.patch.object(C.clearances, "build_recert_env")
+    mocker.patch.object(
+        C.clearances, "segment_by_recertification_needed", return_value=([], [])
+    )
+    mocker.patch.object(C.airtable, "get_pending_recertifications", return_value=[])
+    mocker.patch.object(C.airtable, "get_tools", return_value=[])
+    mocker.patch.object(
+        C.Commands,
+        "_stage_revoke_due_clearances",
+        return_value={i: [(f"C{i}", None)] for i in range(10)},
+    )
+
+    mock_mod = mocker.patch.object(
+        C.clearances, "update_by_neon_id", return_value=["tool"]
+    )
+
+    cli("recertification", ["--apply", "--filter_users=0,2"])
+    assert sorted([c.args[0] for c in mock_mod.mock_calls]) == [0, 2]
