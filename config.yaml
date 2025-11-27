@@ -137,6 +137,7 @@ nocodb:
       sign_ins: "m5pqytb0n1ydtml"
       automation_intents: "m6h05qg8s18szjl"
       volunteers_staff: "mkygxd0r8l1yhah"
+      recertification: "m1cksb6rz2fpwcw"
     tasks:
       shop_and_maintenance_tasks: "mb9vrl8klha39w3"
       private_instruction: "mzvlt891rbk8gis"
@@ -202,6 +203,7 @@ airtable:
       sign_ins: "tblVBhzeE3k9yYRn9"
       automation_intents: "tblBgXQlOFjNqvBVm"
       volunteers_staff: "tblgwvc07mvLg3zds"
+      recertification: "tbljedHQ90LwttPGp"
 calendar:
   credentials_path: "credentials.json"
   instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"
