@@ -74,18 +74,19 @@ def test_compute_recert_deadline(mocker):
     )
 
 
-def test_segment_by_recertification_needed(mocker):
+def test_segment_by_recertification_needed():
     """Test finding members needing recertification"""
-    mocker.patch.object(c, "tznow", return_value=d(0))
     env = c.RecertEnv(
         recert_configs={
             "LS1": c.airtable.RecertConfig(
                 tool="LS1",
+                tool_name="Laser 1",
                 quiz_url=None,
                 bypass_tools=["LS1", "LS2"],
                 bypass_hours=2,
                 bypass_cutoff=datetime.timedelta(days=30),
                 expiration=datetime.timedelta(days=6 * 30),
+                humanized="N/A",
             )
         },
         neon_clearances={
@@ -104,12 +105,12 @@ def test_segment_by_recertification_needed(mocker):
         },
         contact_info=None,
     )
-    needed, not_needed = c.segment_by_recertification_needed(env)
+    needed, not_needed = c.segment_by_recertification_needed(env, now=d(0))
 
     # Verify results
-    assert needed == {(456, "LS1", d(0), None)}
-    assert not_needed == {(123, "LS1", d(5), None), (789, "LS1", d(0), d(20))}
-    assert not needed.intersection(not_needed)
+    assert needed == {(456, "LS1"): (d(0), None)}
+    assert not_needed == {(123, "LS1"): (d(5), None), (789, "LS1"): (d(0), d(20))}
+    assert not set(needed.keys()).intersection(set(not_needed.keys()))
 
 
 def test_build_recert_env(mocker):

@@ -157,9 +157,6 @@ def test_recertification_e2e(mocker, cli, tc):
             "user": ("User", "user@example.com"),
         },
     )
-    mocker.patch.object(
-        C.Commands, "_tool_name_map", return_value={"tool": "Test Tool"}
-    )
     mocker.patch.object(C.clearances, "build_recert_env", return_value=mock_env)
     deadline = d(0) if tc.is_due else d(1)
     needed = {("user", "tool"): (deadline, deadline)} if tc.recert_needed else {}
@@ -242,7 +239,7 @@ def test_recertifaction_filter_users(mocker, cli):
 
 
 def test_tidy_recertification_table_updates_deadlines(mocker):
-    """Test that tidy_recertification_table updates deadlines when they change"""
+    """Test that e updates deadlines when they change"""
     mock_pending = {
         (123, "LATHE"): ("rec_abc", d(0), d(1)),
         (456, "MILL"): ("rec_def", d(2), d(3)),
