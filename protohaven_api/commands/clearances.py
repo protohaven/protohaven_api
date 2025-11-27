@@ -209,16 +209,6 @@ class Commands:  # pylint: disable=too-few-public-methods
             ) in airtable.get_pending_recertifications()
         }
 
-    def _tool_name_map(self):
-        return {
-            t["fields"]
-            .get("Tool Code", "")
-            .strip()
-            .upper(): t["fields"]
-            .get("Tool Name")
-            for t in airtable.get_tools()
-        }
-
     @classmethod
     def tidy_recertification_table(cls, pending: PendingRecerts, needed: RecertsDict):
         """Keeps deadlines in recertifications table up to date"""
@@ -317,9 +307,6 @@ class Commands:  # pylint: disable=too-few-public-methods
         )
         pending = self._get_pending()
 
-        log.info("Fetching tool name mapping")
-        tool_name_map = self._tool_name_map()
-
         log.info("Fetching state of members' clearances")
         env = clearances.build_recert_env(from_date, args.from_row)
         needed, not_needed = clearances.segment_by_recertification_needed(
@@ -410,7 +397,10 @@ class Commands:  # pylint: disable=too-few-public-methods
                 fname=fname,
                 new_pending=[
                     {
-                        "tool_name": tool_name_map.get(tc) or tc,
+                        "tool_name": getattr(
+                            env.recert_configs.get(tc, {}), "tool_name"
+                        )
+                        or tc,
                         "last_earned": env.last_earned.get((neon_id, tc)) or "N/A",
                         "due_date": max(inst_deadline, res_deadline),
                     }
@@ -418,7 +408,10 @@ class Commands:  # pylint: disable=too-few-public-methods
                 ],
                 rm_pending=[
                     {
-                        "tool_name": tool_name_map.get(tc) or tc,
+                        "tool_name": getattr(
+                            env.recert_configs.get(tc, {}), "tool_name"
+                        )
+                        or tc,
                         "last_earned": env.last_earned.get((neon_id, tc)) or "N/A",
                         "next_deadline": new_deadline,
                     }
@@ -426,7 +419,10 @@ class Commands:  # pylint: disable=too-few-public-methods
                 ],
                 rm_clearance=[
                     {
-                        "tool_name": tool_name_map.get(tc) or tc,
+                        "tool_name": getattr(
+                            env.recert_configs.get(tc, {}), "tool_name"
+                        )
+                        or tc,
                         "last_earned": env.last_earned.get((neon_id, tc)) or "N/A",
                         "due_date": deadline,
                     }

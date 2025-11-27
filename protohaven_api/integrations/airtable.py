@@ -206,16 +206,31 @@ def get_tools():
 
 
 @dataclass
-class RecertConfig:  # pylint: disable=too-few-public-methods
+class RecertConfig:  # pylint: disable=too-few-public-methods, too-many-instance-attributes
     """All metadata used to inform whether or not a member's clearance should undergo
     recertification, and how the recert happens (e.g. quiz vs instruction)"""
 
     tool: ToolCode
+    tool_name: str
     quiz_url: str
     expiration: datetime.timedelta
     bypass_hours: int
     bypass_tools: set[ToolCode]
     bypass_cutoff: datetime.timedelta
+    humanized: str
+
+    def as_dict(self):
+        """Convert the instance to a dictionary for serialization."""
+        return {
+            "tool": self.tool,
+            "tool_name": self.tool_name,
+            "quiz_url": self.quiz_url,
+            "expiration_sec": self.expiration.total_seconds(),
+            "bypass_hours": self.bypass_hours,
+            "bypass_tools": list(self.bypass_tools),
+            "bypass_cutoff_sec": self.bypass_cutoff.total_seconds(),
+            "humanized": self.humanized,
+        }
 
 
 def get_tool_recert_configs_by_code():
@@ -227,15 +242,18 @@ def get_tool_recert_configs_by_code():
     for t in get_tools():
         cfg = RecertConfig(
             tool=t["fields"]["Tool Code"],
+            tool_name=t["fields"]["Tool Name"],
             quiz_url=t["fields"]["Recert Quiz"],
             expiration=datetime.timedelta(
                 days=t["fields"]["Days until Recert Needed"] or 0
             ),
-            bypass_hours=int(t["fields"]["Reservation Hours to Skip Recert"]),
+            bypass_hours=int(t["fields"]["Reservation Hours to Skip Recert"] or 0),
             bypass_tools=set(
-                t["fields"]["Related Tools for Recert"] + t["fields"]["Tool Code"]
+                t["fields"]["Tool Code (from Related Tools for Recert)"]
+                + [t["fields"]["Tool Code"]]
             ),
             bypass_cutoff=cutoff,
+            humanized=t["fields"].get("Recertification"),
         )
         if not cfg.expiration:
             continue
@@ -248,6 +266,8 @@ def get_pending_recertifications() -> (
 ):
     """Get all pending recerts"""
     for rec in get_all_records("people", "recertification"):
+        if not rec["fields"].get("Tool Code"):
+            continue
         yield (
             rec["fields"]["Neon ID"],
             rec["fields"]["Tool Code"].strip(),

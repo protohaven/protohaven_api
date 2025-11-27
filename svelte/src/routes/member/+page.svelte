@@ -4,7 +4,7 @@
   import {get, post} from '$lib/api.ts';
 
   import FetchError from '$lib/fetch_error.svelte';
-  import { Badge, Card, Spinner, ListGroup, ListGroupItem, CardTitle, CardSubtitle, CardHeader, CardBody, CardFooter, Button, Input, Navbar, NavbarBrand, Nav, NavItem, NavLink } from '@sveltestrap/sveltestrap';
+  import {Accordion, AccordionItem, Badge, Card, Spinner, ListGroup, ListGroupItem, CardTitle, CardSubtitle, CardHeader, CardBody, CardFooter, Button, Input, Navbar, NavbarBrand, Nav, NavItem, NavLink } from '@sveltestrap/sveltestrap';
 
   let first;
   let last;
@@ -13,12 +13,14 @@
   let neon_id;
 
   let promise = new Promise(() => {});
+  let recertPromise = new Promise(() => { return {pending: [], configs: []} });
   onMount(() => {
 	  const urlParams = new URLSearchParams(window.location.search);
 	  discord_id = urlParams.get("discord_id") || "";
     show_discord_setup = discord_id !== "";
 	  neon_id = urlParams.get("neon_id") || null;
 	  promise = get("/whoami");
+    recertPromise = get("/member/recert_data")
   });
 
   $: {
@@ -119,6 +121,56 @@
     {/each}
   </CardBody>
   </Card>
+
+  <Card class="my-3">
+  <CardHeader>
+        <CardTitle>Recertification</CardTitle>
+  </CardHeader>
+  <CardBody>
+    {#await recertPromise}
+    <Spinner/>Loading...
+    {:then rc}
+          <h5 style="my-3">Pending Recertifications:</h5>
+          {#if rc.pending.length > 0}
+          <em>Note: If you need to recertify multiple tools of the same type (e.g., Laser 1 and Laser 2), you may only need to take one quiz for all of them. This is typically indicated on the first page of the online quiz.</em>
+          <ListGroup>
+          {#each rc.pending as pend}
+            <ListGroupItem color={(new Date(pend[1]) > new Date()) ? "warning" : "danger"}>
+              <strong>{pend[2].tool_name}</strong> -
+              {#if pend[2].quiz_url}<a href={pend[2].quiz_url} target="_blank">Quiz Needed</a>
+              {:else}
+                <a href="https://form.asana.com/?k=YXgO7epJe3brNGLS6sOw7A&d=1199692158232291" target="_blank">Instruction Needed</a>
+              {/if}
+              by {pend[1]}
+            </ListGroupItem>
+          {/each}
+          </ListGroup>
+          {:else}
+            <p><em>No recertification needed at this time.</em></p>
+          {/if}
+          <br>
+          <h5 style="my-3">All Tool Recertifications</h5>
+          <Accordion stayOpen>
+          <AccordionItem header="Click Here for All Tool Recertifications">
+          <p><em>This page lists tools requiring recertification and their specific processes.</em></p>
+          <p><em>Tool clearances are granted only after an instructor verifies safe usage through classes or private instruction. Quizzes serve for recertification only after initial clearance is earned.</em></p>
+          {#each rc.configs as cfg}
+            <Card style="my-3">
+            <CardHeader><strong>{cfg.tool}: {cfg.tool_name}</strong></CardHeader>
+            <CardBody>
+            <p>Process: {cfg.humanized}</p>
+            {#if cfg.quiz_url}
+            <p>Quiz URL: <a href={cfg.quiz_url} target="_blank">Click Here</a></p>
+            {/if}
+            </CardBody>
+            </Card>
+          {/each}
+          </AccordionItem>
+          </Accordion>
+    {/await}
+  </CardBody>
+  </Card>
+
 </main>
 {:catch error}
   <FetchError {error}/>
