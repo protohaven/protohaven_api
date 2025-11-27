@@ -5,12 +5,14 @@ import json
 import logging
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Iterator, List
+from typing import Iterator
 
+from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
     _idref,
     delete_record,
@@ -26,7 +28,9 @@ from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
 
-
+type NeonID = int
+type ToolCode = str
+type RecordID = str
 type ForecastOverride = tuple[str, list[str], str]
 
 
@@ -199,6 +203,118 @@ def mark_schedule_volunteer(eid, volunteer):
 def get_tools():
     """Get all tools in the tool DB"""
     return get_all_records("tools_and_equipment", "tools")
+
+
+@dataclass
+class RecertConfig:  # pylint: disable=too-few-public-methods, too-many-instance-attributes
+    """All metadata used to inform whether or not a member's clearance should undergo
+    recertification, and how the recert happens (e.g. quiz vs instruction)"""
+
+    tool: ToolCode
+    tool_name: str
+    quiz_url: str
+    expiration: datetime.timedelta
+    bypass_hours: int
+    bypass_tools: set[ToolCode]
+    bypass_cutoff: datetime.timedelta
+    humanized: str
+
+    def as_dict(self):
+        """Convert the instance to a dictionary for serialization."""
+        return {
+            "tool": self.tool,
+            "tool_name": self.tool_name,
+            "quiz_url": self.quiz_url,
+            "expiration_sec": self.expiration.total_seconds(),
+            "bypass_hours": self.bypass_hours,
+            "bypass_tools": list(self.bypass_tools),
+            "bypass_cutoff_sec": self.bypass_cutoff.total_seconds(),
+            "humanized": self.humanized,
+        }
+
+
+def get_tool_recert_configs_by_code():
+    """Returns formatted recertification configs, keyed by tool code"""
+    tool_configs = {}
+    cutoff = datetime.timedelta(
+        days=int(get_config("general/recertification/bypass_hours_window_days"))
+    )
+    for t in get_tools():
+        cfg = RecertConfig(
+            tool=t["fields"]["Tool Code"],
+            tool_name=t["fields"]["Tool Name"],
+            quiz_url=t["fields"]["Recert Quiz"],
+            expiration=datetime.timedelta(
+                days=t["fields"]["Days until Recert Needed"] or 0
+            ),
+            bypass_hours=int(t["fields"]["Reservation Hours to Skip Recert"] or 0),
+            bypass_tools=set(
+                t["fields"]["Tool Code (from Related Tools for Recert)"]
+                + [t["fields"]["Tool Code"]]
+            ),
+            bypass_cutoff=cutoff,
+            humanized=t["fields"].get("Recertification"),
+        )
+        if not cfg.expiration:
+            continue
+        tool_configs[cfg.tool] = cfg
+    return tool_configs
+
+
+def get_pending_recertifications() -> (
+    Iterator[tuple[NeonID, ToolCode, datetime.datetime, datetime.datetime, RecordID]]
+):
+    """Get all pending recerts"""
+    for rec in get_all_records("people", "recertification"):
+        if not rec["fields"].get("Tool Code"):
+            continue
+        yield (
+            rec["fields"]["Neon ID"],
+            rec["fields"]["Tool Code"].strip(),
+            dateparser.parse(rec["fields"]["Instruction Deadline"]),
+            dateparser.parse(rec["fields"]["Reservation Deadline"]),
+            rec["id"],
+        )
+
+
+def insert_pending_recertification(
+    neon_id: str,
+    tool_code: str,
+    inst_deadline: datetime.datetime,
+    res_deadline: datetime.datetime,
+):
+    """Inserts a new recertification into the pending recertifications table"""
+    return insert_records(
+        [
+            {
+                "Neon ID": neon_id,
+                "Tool Code": tool_code,
+                "Instruction Deadline": inst_deadline.isoformat(),
+                "Reservation Deadline": res_deadline.isoformat(),
+            }
+        ],
+        "people",
+        "recertification",
+    )
+
+
+def update_pending_recertification(rec: str, inst_deadline, res_deadline):
+    """Update pending recertification"""
+    _, content = update_record(
+        {
+            "Instruction Deadline": inst_deadline.isoformat(),
+            "Reservation Deadline": res_deadline.isoformat(),
+        },
+        "people",
+        "recertification",
+        rec,
+    )
+    return content
+
+
+def remove_pending_recertification(rec: str):
+    """Deletes a recertification by record ID"""
+    return delete_record("people", "recertification", rec)
 
 
 def get_reports_for_tool(airtable_id, back_days=90):
@@ -565,7 +681,7 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
 def insert_quiz_result(
     submitted: datetime.datetime,
     email: str,
-    tool_codes: List[str],
+    tool_codes: list[str],
     data: dict,
     points_scored: int,
     points_to_pass: int,

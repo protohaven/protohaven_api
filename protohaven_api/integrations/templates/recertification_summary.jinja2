@@ -1,0 +1,10 @@
+{% if subject %}
+**{{changes|length}} change(s) to recertification state:**
+{% else %}
+{% for c in changes %}
+* {{c}}
+{% endfor %}
+{% if footer is defined %}
+{{footer}}
+{% endif %}
+{% endif %}

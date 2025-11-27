@@ -289,7 +289,8 @@ class Member:  # pylint:disable=too-many-public-methods
         if search_result is not None:
             return search_result
         for cf in self._raw_account().get("accountCustomFields", []):
-            if cf["name"] == key_field:
+            name = cf.get("name")
+            if name and name == key_field:
                 return cf.get(value_field)
         return None
 

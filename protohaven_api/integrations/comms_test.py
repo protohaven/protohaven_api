@@ -247,6 +247,25 @@ TESTED_TEMPLATES = [
         },
     ),
     (
+        "member_recert_update",
+        {
+            "fname": "Foo",
+            "rm_clearance": [
+                {"tool_name": "Laser 1", "last_earned": d(-20), "due_date": d(0)}
+            ],
+            "new_pending": [
+                {"tool_name": "Table Saw 1", "last_earned": d(-10), "due_date": d(10)}
+            ],
+            "rm_pending": [
+                {
+                    "tool_name": "CNC Embroidery",
+                    "last_earned": d(0),
+                    "next_deadline": d(20),
+                }
+            ],
+        },
+    ),
+    (
         "membership_activated",
         {"fname": "First"},
     ),
@@ -279,6 +298,10 @@ TESTED_TEMPLATES = [
     (
         "phone_message",
         {"msg_header": "stuff and things", "notes": "This is a message", "date": d(0)},
+    ),
+    (
+        "recertification_summary",
+        {"changes": ["Change 1", "Change 2"]},
     ),
     (
         "registrant_class_canceled",
@@ -413,12 +436,14 @@ HASHES = {
     "instructor_low_attendance": "e7b4548a7a3f7fc2",  # pragma: allowlist secret
     "instructor_schedule_classes": "39aea10c71fc8895",  # pragma: allowlist secret
     "instructors_new_classes": "43f58a36632acefb",  # pragma: allowlist secret
+    "member_recert_update": "efff356e5d4e80ab",  # pragma: allowlist secret
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
     "membership_init_summary": "c4503d766704f3ec",  # pragma: allowlist secret
     "membership_validation_problems": "07e7e586afd0dd5e",  # pragma: allowlist secret
     "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
     "not_associated": "4368092931234979",  # pragma: allowlist secret
     "phone_message": "c17d7359c5ddace4",  # pragma: allowlist secret
+    "recertification_summary": "a360e54dcfdbe688",  # pragma: allowlist secret
     "registrant_class_canceled": "a3b36f01fde3ee4c",  # pragma: allowlist secret
     "registrant_class_confirmed": "d6c0ac936f4c44dd",  # pragma: allowlist secret
     "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret

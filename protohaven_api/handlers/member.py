@@ -6,7 +6,7 @@ import threading
 from flask import Blueprint, Response, current_app, request, session
 
 from protohaven_api.automation.roles.roles import setup_discord_user_sync
-from protohaven_api.integrations import neon
+from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_role, require_login
 
@@ -60,3 +60,36 @@ def set_discord_nick():
         target=setup_discord_user_sync, daemon=True, args=(discord_id,)
     ).start()
     return result
+
+
+@page.route("/member/recert_data", methods=["GET"])
+@require_login
+def get_recert_data():
+    """Get recertification data for the logged in member"""
+    neon_id = int(session.get("neon_id"))
+    configs = airtable.get_tool_recert_configs_by_code()
+
+    pending = []
+    for (
+        nid,
+        tool_code,
+        inst_deadline,
+        res_deadline,
+        _,
+    ) in airtable.get_pending_recertifications():
+        if int(nid) != neon_id:
+            continue
+        c = configs.get(tool_code)
+        if not c:
+            continue
+        pending.append(
+            (
+                tool_code,
+                max(inst_deadline, res_deadline).strftime("%Y-%m-%d"),
+                c.as_dict(),
+            )
+        )
+    pending.sort(key=lambda p: p[0])
+    configs = [c.as_dict() for c in configs.values()]
+    configs.sort(key=lambda c: c.get("tool"))
+    return {"pending": pending, "configs": configs}
