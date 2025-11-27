@@ -64,7 +64,7 @@ def test_recertification_no_work(mocker, cli):
     """Test recertification command when no work needs to be done"""
     mocker.patch.object(C.clearances, "build_recert_env")
     mocker.patch.object(
-        C.clearances, "segment_by_recertification_needed", return_value=([], [])
+        C.clearances, "segment_by_recertification_needed", return_value=({}, {})
     )
     mocker.patch.object(C.airtable, "get_pending_recertifications", return_value=[])
     mocker.patch.object(C.airtable, "get_tools", return_value=[])
@@ -162,15 +162,17 @@ def test_recertification_e2e(mocker, cli, tc):
     )
     mocker.patch.object(C.clearances, "build_recert_env", return_value=mock_env)
     deadline = d(0) if tc.is_due else d(1)
-    needed = [("user", "tool", deadline, deadline)] if tc.recert_needed else []
-    not_needed = [("user", "tool", deadline, deadline)] if not tc.recert_needed else []
+    needed = {("user", "tool"): (deadline, deadline)} if tc.recert_needed else {}
+    not_needed = (
+        {("user", "tool"): (deadline, deadline)} if not tc.recert_needed else {}
+    )
     mocker.patch.object(
         C.clearances,
         "segment_by_recertification_needed",
         return_value=(needed, not_needed),
     )
 
-    pending = [("user", "tool", deadline, "rec123")] if tc.is_pending else []
+    pending = [("user", "tool", deadline, deadline, "rec123")] if tc.is_pending else []
     mocker.patch.object(
         C.airtable, "get_pending_recertifications", return_value=pending
     )
@@ -183,7 +185,7 @@ def test_recertification_e2e(mocker, cli, tc):
 
     got = cli("recertification", ["--apply"])
     if tc.want_insert:
-        mock_insert.assert_called_once_with("user", "tool", mocker.ANY)
+        mock_insert.assert_called_once_with("user", "tool", mocker.ANY, mocker.ANY)
     if tc.want_remove:
         mock_remove.assert_called_once_with("rec123")
     if tc.want_mod:
@@ -199,7 +201,7 @@ def test_recertifaction_max_affected(mocker, cli):
     """Verify that --max_users_affected is properly observed"""
     mocker.patch.object(C.clearances, "build_recert_env")
     mocker.patch.object(
-        C.clearances, "segment_by_recertification_needed", return_value=([], [])
+        C.clearances, "segment_by_recertification_needed", return_value=({}, {})
     )
     mocker.patch.object(C.airtable, "get_pending_recertifications", return_value=[])
     mocker.patch.object(C.airtable, "get_tools", return_value=[])
@@ -221,7 +223,7 @@ def test_recertifaction_filter_users(mocker, cli):
     """Verify that --filter_users is properly observed"""
     mocker.patch.object(C.clearances, "build_recert_env")
     mocker.patch.object(
-        C.clearances, "segment_by_recertification_needed", return_value=([], [])
+        C.clearances, "segment_by_recertification_needed", return_value=({}, {})
     )
     mocker.patch.object(C.airtable, "get_pending_recertifications", return_value=[])
     mocker.patch.object(C.airtable, "get_tools", return_value=[])
@@ -237,3 +239,20 @@ def test_recertifaction_filter_users(mocker, cli):
 
     cli("recertification", ["--apply", "--filter_users=0,2"])
     assert sorted([c.args[0] for c in mock_mod.mock_calls]) == [0, 2]
+
+
+def test_tidy_recertification_table_updates_deadlines(mocker):
+    """Test that tidy_recertification_table updates deadlines when they change"""
+    mock_pending = {
+        (123, "LATHE"): ("rec_abc", d(0), d(1)),
+        (456, "MILL"): ("rec_def", d(2), d(3)),
+    }
+    mock_needed = {(123, "LATHE"): (d(0), d(2)), (456, "MILL"): (d(2), d(3))}
+
+    mock_update = mocker.patch.object(
+        C.airtable, "update_pending_recertification", return_value="updated"
+    )
+
+    C.Commands.tidy_recertification_table(mock_pending, mock_needed)
+
+    mock_update.assert_called_once_with("rec_abc", d(0), d(2))

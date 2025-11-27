@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 
 from protohaven_api.automation.membership import clearances
-from protohaven_api.automation.membership.clearances import Recert
+from protohaven_api.automation.membership.clearances import RecertsDict
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, neon, sheets
@@ -15,7 +15,9 @@ from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.clearances")
 
-type PendingRecerts = dict[tuple[NeonID, ToolCode], tuple[RecordID, datetime.datetime]]
+type PendingRecerts = dict[
+    tuple[NeonID, ToolCode], tuple[RecordID, datetime.datetime, datetime.datetime]
+]
 
 
 class Commands:  # pylint: disable=too-few-public-methods
@@ -133,7 +135,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             print_yaml([])
 
     def _stage_new_pending_recerts(
-        self, needed: set[Recert], pending: PendingRecerts
+        self, needed: RecertsDict, pending: PendingRecerts
     ) -> dict[NeonID, list[tuple[ToolCode, datetime.datetime, datetime.datetime]]]:
         """Add new pending recertifications to Airtable.
 
@@ -145,7 +147,9 @@ class Commands:  # pylint: disable=too-few-public-methods
         new instruction fully *replaces* the deadline.
         """
         new_additions_by_member = defaultdict(list)
-        for neon_id, tool_code, inst_deadline, res_deadline in needed:
+        for k, v in needed.items():
+            neon_id, tool_code = k
+            inst_deadline, res_deadline = v
             if (neon_id, tool_code) not in pending:
                 # The actual deadline is whichever is greater between
                 # instructor and reservation
@@ -159,15 +163,17 @@ class Commands:  # pylint: disable=too-few-public-methods
         return dict(new_additions_by_member)
 
     def _stage_remove_pending_not_needed(
-        self, not_needed: set[Recert], pending: PendingRecerts
+        self, not_needed: RecertsDict, pending: PendingRecerts
     ) -> dict[NeonID, list[tuple[RecordID, ToolCode, datetime.datetime]]]:
         removals_by_member = defaultdict(list)
-        for neon_id, tool_code, inst_deadline, res_deadline in not_needed:
+        for k, v in not_needed.items():
+            neon_id, tool_code = k
+            inst_deadline, res_deadline = v
             if (neon_id, tool_code) not in pending:
                 continue
             new_deadline = max(inst_deadline, res_deadline)
             assert new_deadline > tznow()
-            rec, _ = pending.get((neon_id, tool_code))
+            rec, _, _ = pending.get((neon_id, tool_code))
             if rec:
                 removals_by_member[neon_id].append((rec, tool_code, new_deadline))
         return removals_by_member
@@ -176,16 +182,13 @@ class Commands:  # pylint: disable=too-few-public-methods
         self,
         now,
         pending: PendingRecerts,
-        needed: set[Recert],
+        needed: RecertsDict,
         neon_clearances: dict[NeonID, set[ToolCode]],
     ) -> dict[NeonID, list[tuple[ToolCode, datetime.datetime]]]:
         revocation_by_user = defaultdict(list)
-        for (
-            neon_id,
-            tool_code,
-            inst_deadline,
-            res_deadline,
-        ) in needed:
+        for k, v in needed.items():
+            neon_id, tool_code = k
+            inst_deadline, res_deadline = v
             deadline = max(inst_deadline, res_deadline)
             if now < deadline or (neon_id, tool_code) not in pending:
                 continue
@@ -196,8 +199,14 @@ class Commands:  # pylint: disable=too-few-public-methods
 
     def _get_pending(self) -> PendingRecerts:
         return {
-            (neon_id, tool_code): (rec_id, deadline)
-            for neon_id, tool_code, deadline, rec_id in airtable.get_pending_recertifications()
+            (neon_id, tool_code): (rec_id, inst_deadline, res_deadline)
+            for (
+                neon_id,
+                tool_code,
+                inst_deadline,
+                res_deadline,
+                rec_id,
+            ) in airtable.get_pending_recertifications()
         }
 
     def _tool_name_map(self):
@@ -209,6 +218,26 @@ class Commands:  # pylint: disable=too-few-public-methods
             .get("Tool Name")
             for t in airtable.get_tools()
         }
+
+    @classmethod
+    def tidy_recertification_table(cls, pending: PendingRecerts, needed: RecertsDict):
+        """Keeps deadlines in recertifications table up to date"""
+        for k, v in pending.items():
+            neon_id, tool_code = k
+            rec, inst_deadline, res_deadline = v
+
+            cur = needed.get((neon_id, tool_code))
+            if not cur:
+                continue
+            next_inst_deadline, next_res_deadline = cur
+            if next_inst_deadline != inst_deadline or next_res_deadline != res_deadline:
+                log.info(
+                    str(
+                        airtable.update_pending_recertification(
+                            rec, next_inst_deadline, next_res_deadline
+                        )
+                    )
+                )
 
     @command(
         arg(
@@ -333,7 +362,7 @@ class Commands:  # pylint: disable=too-few-public-methods
 
             log.info(f"Applying changes for #{neon_id}")
             if args.apply:
-                for tool_code, inst_deadline, _ in new_pending:
+                for tool_code, inst_deadline, res_deadline in new_pending:
                     log.info(
                         f"#{neon_id}: insert pending tool_code={tool_code}, "
                         f"deadline={inst_deadline}"
@@ -341,7 +370,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                     log.info(
                         str(
                             airtable.insert_pending_recertification(
-                                neon_id, tool_code, inst_deadline
+                                neon_id, tool_code, inst_deadline, res_deadline
                             )
                         )
                     )
@@ -409,6 +438,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             assert msg.body
             msg.id = f"{neon_id}:{hash(msg.body)}"
             comms.append(msg)
+
+        log.info("Tidying up Recertifications table")
+        self.tidy_recertification_table(pending, needed)
 
         if len(changes) > 0:
             comms.append(

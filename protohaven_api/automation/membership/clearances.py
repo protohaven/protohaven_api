@@ -227,17 +227,19 @@ def build_recert_env(  # pylint: disable=too-many-locals
     )
 
 
-type Recert = tuple[NeonID, ToolCode, datetime.datetime, datetime.datetime]
+type RecertsDict = dict[
+    tuple[NeonID, ToolCode], tuple[datetime.datetime, datetime.datetime]
+]
 
 
 def segment_by_recertification_needed(  # pylint: disable=too-many-locals
     env: RecertEnv, now: datetime.datetime
-) -> tuple[set[Recert], set[Recert]]:
+) -> tuple[RecertsDict, RecertsDict]:
     """Given all relevant information, compute the set of member-clearances needing
     recertification and those that do not need recertification."""
     log.info("Searching for member clearances that are due for recertification")
-    needed: set[Recert] = set()
-    not_needed: set[Recert] = set()
+    needed: RecertsDict = {}
+    not_needed: RecertsDict = {}
     for neon_id, cc in env.neon_clearances.items():
         for tool_code in cc:
             cfg = env.recert_configs.get(tool_code)
@@ -266,16 +268,16 @@ def segment_by_recertification_needed(  # pylint: disable=too-many-locals
                 related_reservation_hours,
             )
             if inst_deadline and now >= inst_deadline and not res_deadline:
-                needed.add((neon_id, tool_code, inst_deadline, res_deadline))
+                needed[(neon_id, tool_code)] = (inst_deadline, res_deadline)
             elif (
                 inst_deadline
                 and now >= inst_deadline
                 and res_deadline
                 and now >= res_deadline
             ):
-                needed.add((neon_id, tool_code, inst_deadline, res_deadline))
+                needed[(neon_id, tool_code)] = (inst_deadline, res_deadline)
             else:
-                not_needed.add((neon_id, tool_code, inst_deadline, res_deadline))
+                not_needed[(neon_id, tool_code)] = (inst_deadline, res_deadline)
 
-    assert not needed.intersection(not_needed)
+    assert not set(needed.keys()).intersection(set(not_needed.keys()))
     return needed, not_needed

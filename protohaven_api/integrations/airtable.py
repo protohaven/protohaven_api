@@ -244,20 +244,24 @@ def get_tool_recert_configs_by_code():
 
 
 def get_pending_recertifications() -> (
-    Iterator[tuple[NeonID, ToolCode, datetime.datetime, RecordID]]
+    Iterator[tuple[NeonID, ToolCode, datetime.datetime, datetime.datetime, RecordID]]
 ):
     """Get all pending recerts"""
     for rec in get_all_records("people", "recertification"):
         yield (
             rec["fields"]["Neon ID"],
             rec["fields"]["Tool Code"].strip(),
-            dateparser.parse(rec["fields"]["Deadline"]),
+            dateparser.parse(rec["fields"]["Instruction Deadline"]),
+            dateparser.parse(rec["fields"]["Reservation Deadline"]),
             rec["id"],
         )
 
 
 def insert_pending_recertification(
-    neon_id: str, tool_code: str, deadline: datetime.datetime
+    neon_id: str,
+    tool_code: str,
+    inst_deadline: datetime.datetime,
+    res_deadline: datetime.datetime,
 ):
     """Inserts a new recertification into the pending recertifications table"""
     return insert_records(
@@ -265,12 +269,27 @@ def insert_pending_recertification(
             {
                 "Neon ID": neon_id,
                 "Tool Code": tool_code,
-                "Deadline": deadline.isoformat(),
+                "Instruction Deadline": inst_deadline.isoformat(),
+                "Reservation Deadline": res_deadline.isoformat(),
             }
         ],
         "people",
         "recertification",
     )
+
+
+def update_pending_recertification(rec: str, inst_deadline, res_deadline):
+    """Update pending recertification"""
+    _, content = update_record(
+        {
+            "Instruction Deadline": inst_deadline.isoformat(),
+            "Reservation Deadline": res_deadline.isoformat(),
+        },
+        "people",
+        "recertification",
+        rec,
+    )
+    return content
 
 
 def remove_pending_recertification(rec: str):
