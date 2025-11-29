@@ -270,7 +270,7 @@ def get_events():
 @app.route("/v2/events/<event_id>/tickets")
 def get_event_tickets(event_id):
     """Mock event tickets endpoint for Neon"""
-    for row in get_all_rows("fake_neon"):
+    for row in get_all_rows("tickets"):
         if not row["fields"]["data"]:
             continue
         if str(row["fields"]["eventId"]) == str(event_id):

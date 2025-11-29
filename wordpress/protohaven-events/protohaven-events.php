@@ -199,9 +199,10 @@ function ph_neon_events() {
 	}
 	$result = json_decode(wp_remote_retrieve_body($response), true);
 	if (is_null($result) || !$result) {
-		error_log( $ERR_PREFIX . "Empty result; trying fallback");
+		error_log( $ERR_PREFIX . "Empty result on fetch to $url; trying fallback");
 		return ph_neon_events_fallback();
 	}
+	error_log( $ERR_PREFIX . "Successful fetch from $url; got " . count($result['events']) . " events");
 	return $result;
 }
 
@@ -238,13 +239,13 @@ function ph_neon_event_tickets($evt_id) {
 	$url = $baseurl."/events/tickets?id=$evt_id";
 	$response = wp_remote_get($url);
 	if (is_wp_error($response)) {
-		error_log( $ERR_PREFIX . "Error fetching /events/attendees?id=$evt_id: " . $response->get_error_message() );
+		error_log( $ERR_PREFIX . "Error fetching " . $url . ": " . $response->get_error_message() );
 	  error_log( $ERR_PREFIX . "Trying fallback method" );
 		return ph_neon_event_tickets_fallback($evt_id);
 	}
 	$result = json_decode(wp_remote_retrieve_body($response), true);
 	if (is_null($result) || !$result) {
-		error_log( $ERR_PREFIX . "Empty result; trying fallback");
+		error_log( $ERR_PREFIX . "Empty result on fetch to " . $url . "; trying fallback");
 		return ph_neon_event_tickets_fallback($evt_id);
 	}
 	return $result;

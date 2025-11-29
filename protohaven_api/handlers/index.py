@@ -224,6 +224,7 @@ def upcoming_events():
                 "end": evt.end_date.isoformat(),
                 "capacity": evt.capacity,
                 "url": evt.url,
+                "image_url": evt.image_url,
                 "registration": evt.registration
                 and evt.start_date - datetime.timedelta(hours=24) > now,
             }
