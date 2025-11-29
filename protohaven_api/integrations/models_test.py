@@ -634,3 +634,33 @@ def test_event_attendee_generator_data():
     )  # Called a second time, shouldn't exhaust the generator
     for a in e.attendees:
         assert a.neon_id == 123
+
+
+def test_image_url():
+    """Test image_url property returns correct values based on available data"""
+    # Test with eventbrite_data containing logo URL
+    e = Event()
+    e.eventbrite_data = {"logo": {"url": "https://example.com/logo.png"}}
+    assert e.image_url == "https://example.com/logo.png"
+
+    # Test with eventbrite_data but no logo URL
+    e.eventbrite_data = {"logo": {}}
+    assert e.image_url is None
+
+    # Test with description containing image tag
+    e.eventbrite_data = None
+    e.description = '<p><img src="https://example.com/image.jpg"></p>'
+    assert e.image_url == "https://example.com/image.jpg"
+
+    # Test with description containing image tag but no src
+    e.description = '<html><body><img alt="test"></body></html>'
+    assert e.image_url is None
+
+    # Test with description containing no image tag
+    e.description = "<p>No image here</p>"
+    assert e.image_url is None
+
+    # Test with no eventbrite_data and no description
+    e.eventbrite_data = None
+    e.description = None
+    assert e.image_url is None
