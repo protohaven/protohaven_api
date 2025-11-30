@@ -23,9 +23,19 @@ def get_cards():
 def get_subscriptions():
     """Get all subscriptions - these are commonly used for storage"""
     result = client().subscriptions.search_subscriptions(body={})
-    if result.is_success():
-        return result.body
-    raise RuntimeError(result.errors)
+    while result:
+        if not result.is_success():
+            raise RuntimeError(result.errors)
+        yield from result.body["subscriptions"]
+        if result.body.get("cursor"):
+            result = client().subscriptions.search_subscriptions(
+                cursor=result.body["cursor"]
+            )
+        else:
+            break
+
+    if not result.is_success():
+        raise RuntimeError(result.errors)
 
 
 def get_invoice(invoice_id):
@@ -125,4 +135,11 @@ def get_inventory():
     )
     if result.is_success():
         return result.body
+    raise RuntimeError(result.errors)
+
+def set_subscription_note(sub_id: str, note: str):
+    """Sets the note text for a subscription in square"""
+    result = client().subscriptions.update_subscription(subscription_id=sub_id, note=note)
+    if result.is_success():
+        return reuslt.body
     raise RuntimeError(result.errors)

@@ -46,7 +46,7 @@ class Commands:
         unpaid = []
         untaxed = []
         n = 0
-        for sub in sales.get_subscriptions()["subscriptions"]:
+        for sub in sales.get_subscriptions():
             if sub["status"] != "ACTIVE":
                 continue
             n += 1

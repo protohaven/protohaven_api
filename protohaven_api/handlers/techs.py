@@ -10,7 +10,7 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import safe_parse_datetime, tz, tznow
-from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
+from protohaven_api.integrations import airtable, comms, neon, neon_base, sales, wiki
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_lead_role, am_neon_id, am_role, require_login_role
 
@@ -497,3 +497,52 @@ def techs_event_registration():
         _notify_registration(account_id, event_id, action)
         return ret
     raise RuntimeError("Unknown error handling event registration state")
+
+
+@page.route("/techs/storage_subscriptions", methods=["GET"])
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+def techs_storage_subscriptions():
+    """Fetch tabular data about storage subscriptions in Square
+
+    This offers a more "storage forward" interface vs Square, which is only
+    sorted by customer name and shows a bunch of cancelled stuff too.
+    """
+
+    sub_plan_map = sales.get_subscription_plan_map()
+    cust_map = sales.get_customer_name_map()
+    log.info(f"Fetched {len(cust_map)} customers")
+
+    result = []
+    for sub in sales.get_subscriptions():
+        if sub["status"] != "ACTIVE":
+            continue
+
+        log.info(f"{sub}")
+        plan, price = sub_plan_map.get(
+            sub["plan_variation_id"], (sub["plan_variation_id"], 0)
+        )
+        cust = cust_map.get(sub["customer_id"], sub["customer_id"])
+        result.append(
+            {
+                "id": sub["id"],
+                "created_at": sub["created_at"],
+                "start_date": sub["start_date"],
+                "charged_through_date": sub["charged_through_date"],
+                "monthly_billing_anchor_date": sub["monthly_billing_anchor_date"],
+                "customer": cust,
+                "plan": plan,
+                "price": price,
+                "note": sub.get("note") or None,
+            }
+        )
+    return result
+
+@page.route("/techs/storage_subscriptions/<sub_id>/note", methods=["POST"])
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+def set_sub_note(sub_id):
+    """Sets the note on a square subscription"""
+    note = request.values.get("note").strip()
+    if not note or not sub_id:
+        return Response("note and subscription ID reqiured", 400)
+
+    return sales.set_subscription_note(sub_id, note)
