@@ -40,6 +40,11 @@ class Commands:
         sub_plan_map = sales.get_subscription_plan_map()
         log.info(f"Fetched {len(sub_plan_map)} subscription plans")
         assert len(sub_plan_map) > 0  # We should at least have some plans
+
+        log.info("Fetching unpaid invoices")
+        unpaid_invoices = dict(sales.get_unpaid_invoices_by_id())
+        log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
+
         now = tznow()
         log.info("Fetching subscriptions")
 
@@ -47,8 +52,7 @@ class Commands:
         untaxed = []
         n = 0
         for sub in sales.get_subscriptions()["subscriptions"]:
-            if sub["status"] != "ACTIVE":
-                continue
+            status = sub["status"]
             n += 1
 
             sub_id = sub["id"]
@@ -73,14 +77,25 @@ class Commands:
 
             min_tax = get_config("square/tax_rate/min_percent", 6.9)
             max_tax = get_config("square/tax_rate/max_percent", 7.1)
-            if tax_pct < min_tax or tax_pct > max_tax:
+            if (tax_pct < min_tax or tax_pct > max_tax) and status == "ACTIVE":
                 untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
                 log.info(untaxed[-1])
 
+            unpaid_urls = [
+                f"[{unpaid_invoices[i]}](https://app.squareup.com/dashboard/invoices/{i})"
+                for i in sub["invoice_ids"]
+                if i in unpaid_invoices
+            ]
+
             charged_through = safe_parse_datetime(sub["charged_through_date"])
-            if charged_through + datetime.timedelta(days=1) < now:
+            if (
+                charged_through + datetime.timedelta(days=1) < now
+                and status == "ACTIVE"
+            ) or len(unpaid_urls):
                 unpaid.append(
-                    f"- {cust} - {plan} - charged through {charged_through} ([link]({url}))"
+                    f"- {cust} - {plan} - {status} - charged through "
+                    f"{charged_through.strftime('%Y-%m-%d')}, unpaid "
+                    f"{', '.join(unpaid_urls)} ([link]({url}))"
                 )
                 log.info(unpaid[-1])
 
