@@ -119,7 +119,7 @@ def test_build_recert_env(mocker):
     mock_recert_configs = {"tool1": {"recert_interval": 365}}
     mock_neon_members = [
         mocker.MagicMock(
-            neon_id="123", clearances=["tool1"], emails=["test@example.com"]
+            neon_id="123", clearances=["tool1"], all_emails=lambda: ["test@example.com"]
         )
     ]
     mock_instructor_clearances = [

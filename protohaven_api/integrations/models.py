@@ -271,6 +271,18 @@ class Member:  # pylint:disable=too-many-public-methods
             or self._get_custom_field("Pronouns", "value"),
         )
 
+    def all_emails(self) -> set[str]:
+        """Returns a set of all emails associated with the member"""
+        ee = {
+            self.neon_search_data.get("Email 1"),
+            self.neon_search_data.get("Email 2"),
+            self.neon_search_data.get("Email 3"),
+            self._raw_account().get("primaryContact", {}).get("email1"),
+            self._raw_account().get("primaryContact", {}).get("email2"),
+            self._raw_account().get("primaryContact", {}).get("email3"),
+        }
+        return {e.strip().lower() for e in ee if e}
+
     @property
     def email(self):
         """Fetches the first valid email address for the member"""

@@ -164,20 +164,27 @@ def test_name(tc):
     assert m.name == tc.want
 
 
-def test_email():
-    """Test Member.email property"""
+def test_email_and_emails():
+    """Test Member.email and .emails properties"""
     data = {
         "individualAccount": {
-            "primaryContact": {"email1": "one@test.com", "email2": "two@test.com"}
+            "primaryContact": {
+                "email1": "one@TEST.com",
+                "email2": "two@test.com   ",
+                "email3": "",
+            }
         }
     }
     m = Member(neon_raw_data=data)
     assert m.email == "one@test.com"
+    assert m.all_emails() == {"one@test.com", "two@test.com"}
     data["individualAccount"]["primaryContact"]["email1"] = None
     assert m.email == "two@test.com"
+    assert m.all_emails() == {"two@test.com"}
 
     del data["individualAccount"]["primaryContact"]
     assert m.email is None
+    assert not m.all_emails()
 
 
 def test_zero_cost_ok_until():

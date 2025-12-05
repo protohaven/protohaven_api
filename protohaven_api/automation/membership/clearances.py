@@ -193,7 +193,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
         contact_info = {}
         for mem in neon_clearances_future.result():
             neon_clearances[mem.neon_id] = mem.clearances
-            for e in mem.emails:
+            for e in mem.all_emails():
                 email_to_neon_id[e] = mem.neon_id
             contact_info[mem.neon_id] = (mem.fname, mem.email)
         log.info("Email map built")
