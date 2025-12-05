@@ -70,14 +70,18 @@ def resolve_overrides(
     forecasted tech dates slow to a crawl due to the number of one-off fetches"""
     ovr_id, ovr_people_in, ovr_editor = overrides.get(shift) or (None, [], None)
     ovr_people_out: list[Member] = []
+
     for p in ovr_people_in:
-        p = re.sub(" +", " ", p)  # prevent double-space issues
+        p = re.sub(r"\(.*\)", "", p)  # remove pronouns for matching purposes
+        p = re.sub(r" +", " ", p)  # prevent double-space issues
         mm = list(neon.cache.find_best_match(p))
         found = False
-        # log.info(f"Seeking match for tech override {p}")
+        log.info(f"Seeking match for tech override {p}")
         for m in mm:
-            # log.info(f"Candidate {m.name} vs {p}")
-            if m.name.strip().lower() == p.strip().lower():
+            # Checking with removed pronouns
+            candidate = re.sub(r"\(.*\)", "", m.name).strip().lower()
+            log.info(f"Candidate {candidate} vs {p.strip().lower()}")
+            if candidate == p.strip().lower():
                 ovr_people_out.append(mm[0])
                 found = True
                 break

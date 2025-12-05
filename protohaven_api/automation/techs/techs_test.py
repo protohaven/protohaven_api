@@ -48,7 +48,7 @@ def test_resolve_overrides(mocker):
     """Test resolving tech overrides with various scenarios"""
     # Setup test data
     test_overrides = {
-        "shift1": ("id1", ["John Doe", "Jane Smith"], "editor1"),
+        "shift1": ("id1", ["John Doe", "Jane   smith (they/them)"], "editor1"),
         "shift2": ("id2", ["GuestTech"], None),
     }
 
