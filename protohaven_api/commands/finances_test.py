@@ -22,6 +22,7 @@ def test_transaction_alerts_ok(mocker, cli):
     mocker.patch.object(
         f.sales, "get_customer_name_map", return_value={"cust_id": "Foo Bar"}
     )
+    mocker.patch.object(f.sales, "get_unpaid_invoices_by_id", return_value={})
     mocker.patch.object(
         f.sales,
         "get_subscription_plan_map",
@@ -41,6 +42,7 @@ def test_transaction_alerts_ok(mocker, cli):
                     "plan_variation_id": "var_id",
                     "customer_id": "cust_id",
                     "charged_through_date": d(0).isoformat(),
+                    "invoice_ids": [],
                 }
             ]
         },
@@ -48,6 +50,41 @@ def test_transaction_alerts_ok(mocker, cli):
     mocker.patch.object(f.sales, "subscription_tax_pct", return_value=7.0)
     got = cli("transaction_alerts", [])
     assert not got
+
+
+def test_transaction_alerts_active_with_unpaid_invoice(mocker, cli):
+    """ACTIVE subscription with unpaid invoice should raise alert"""
+    mocker.patch.object(
+        f.sales, "get_customer_name_map", return_value={"cust_id": "Test Customer"}
+    )
+    mocker.patch.object(
+        f.sales,
+        "get_subscription_plan_map",
+        return_value={"plan_id": ("Test Plan", 1000)},
+    )
+    mocker.patch.object(
+        f.sales, "get_unpaid_invoices_by_id", return_value=[("inv_id", "$10.00")]
+    )
+    mock_sub = {
+        "id": "sub_id",
+        "status": "ACTIVE",
+        "plan_variation_id": "plan_id",
+        "customer_id": "cust_id",
+        "invoice_ids": ["inv_id", "inv2_id"],
+        "charged_through_date": d(10).isoformat(),
+    }
+    mocker.patch.object(
+        f.sales, "get_subscriptions", return_value={"subscriptions": [mock_sub]}
+    )
+    mocker.patch.object(f.sales, "subscription_tax_pct", return_value=7.0)
+    mocker.patch.object(f, "tznow", return_value=d(0))
+
+    got = cli("transaction_alerts", [])
+
+    assert got and len(got) == 1
+    assert "charged through 2025-01-11, unpaid [$10.00]" in got[0]["body"]
+    assert "inv_id" in got[0]["body"]
+    assert "inv2_id" not in got[0]["body"]
 
 
 def test_validate_memberships_empty(mocker):
