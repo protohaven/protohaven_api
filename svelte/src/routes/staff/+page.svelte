@@ -3,6 +3,7 @@
   import { Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
   import SummarizeDiscord from '$lib/staff/summarize_discord.svelte';
   import { onMount } from 'svelte';
+  import {get} from '$lib/api.ts';
   import OpsReport from '$lib/staff/ops_report.svelte';
 
   let activeTab;
