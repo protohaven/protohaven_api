@@ -2,6 +2,7 @@
 
 import json
 import logging
+from dataclasses import asdict, dataclass
 
 import markdown
 from flask import Blueprint, current_app
@@ -36,6 +37,201 @@ def staff_static_files(typ, path):
 def discord_channels():
     """Returns all member channels by name"""
     return [c[1] for c in comms.get_member_channels()]
+
+
+@dataclass
+class OpsItem:
+    timescale: str
+    category: str
+    label: str
+    details: str
+    source: str
+    url: str
+
+@page.route("/staff/ops_summary")
+@require_login_role(Role.STAFF, Role.BOARD_MEMBER)
+def ops_summary():
+    """Fetch data from many places and provide a summary of operational state"""
+    items = [
+          OpsItem(
+              category="Financial",
+              timescale="last 12 months",
+              label="Asset sale",
+              details="X assets not yet listed, Y listed but not sold, Z sold",
+              source="Asana",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Financial",
+              timescale="YYYY",
+              label="Budget",
+              details="$X of $Y (NN%) of operational budget spent for YYYY. $Z in expenses remains unitemized",
+              source="Divvy",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Equipment",
+              timescale="ongoing",
+              label="Downtime",
+              details="X red tagged more than 7 days, Y yellow-tagged more than 14 days, Z in blue (setup) state",
+              source="Airtable",
+              url="https://airtable.com/appbIlORlmbIxNU1L/tblalZYdLVoTICzE6/",
+          ),
+          OpsItem(
+              category="Equipment",
+              timescale="ongoing",
+              label="Reporting",
+              details="N/R tool state tag discrepancies corrected (digital vs physical)",
+              source="Airtable",
+              url="https://airtable.com/appbIlORlmbIxNU1L/tblalZYdLVoTICzE6/",
+          ),
+          OpsItem(
+              category="Safety",
+              timescale="ongoing",
+              label="Safety training",
+              details="X days since last volunteer safety training",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Safety",
+              timescale="ongoing",
+              label="Staff safety",
+              details="X days since last HazCom / QFT",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Safety",
+              timescale="ongoing",
+              label="Substances",
+              details="X days since Last SDS review",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Techs and Instructors",
+              timescale="ongoing",
+              label="Tech applications and onboarding",
+              details="Tech applications and onboarding",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Techs and Instructors",
+              timescale="ongoing",
+              label="Tech shifts at risk",
+              details="Tech shifts at risk of no availability",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Techs and Instructors",
+              timescale="ongoing",
+              label="Stuck volunteer projects",
+              details="Stuck volunteer projects",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Techs and Instructors",
+              timescale="ongoing",
+              label="Techs due for review",
+              details="Techs due for review",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Instructors",
+              timescale="ongoing",
+              label="Stuck instructor applications",
+              details="Stuck instructor applications",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Instructors",
+              timescale="ongoing",
+              label="Clearance coverage",
+              details="Clearance coverage",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Instructors",
+              timescale="ongoing",
+              label="Stuck class proposals",
+              details="Stuck class proposals",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Inventory",
+              timescale="ongoing",
+              label="Stuck purchase requests",
+              details="Stuck purchase requests",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Inventory",
+              timescale="ongoing",
+              label="Low inventory",
+              details="Low inventory",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Inventory",
+              timescale="ongoing",
+              label="Absent inventory",
+              details="Absent inventory",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Inventory",
+              timescale="ongoing",
+              label="Last inventory review",
+              details="Last inventory review",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Inventory",
+              timescale="ongoing",
+              label="Stuck storage violations",
+              details="Stuck storage violations",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Documentation",
+              timescale="ongoing",
+              label="Tool docs requiring approval",
+              details="Tool docs requiring approval, but stuck in review",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Documentation",
+              timescale="ongoing",
+              label="Missing clearance docs",
+              details="Missing clearance docs",
+              source="internal",
+              url="TODO",
+          ),
+          OpsItem(
+              category="Documentation",
+              timescale="ongoing",
+              label="Missing tool tutorials",
+              details="Missing tool tutorials",
+              source="internal",
+              url="TODO",
+          ),
+      ]
+    return [asdict(i) for i in items]
+
 
 
 def summarizer_ws(ws):
