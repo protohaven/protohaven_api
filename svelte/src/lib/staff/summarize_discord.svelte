@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Card, CardBody, CardTitle, Button, Input, FormGroup, Label, Accordion, AccordionItem, Spinner } from '@sveltestrap/sveltestrap';
+  import { Alert, Card, CardBody, CardTitle, Button, Input, FormGroup, Label, Accordion, AccordionItem, Spinner } from '@sveltestrap/sveltestrap';
   import { open_ws } from '../api';
   import { get } from '$lib/api';
 
@@ -8,6 +8,8 @@
   let endDate = isodate(new Date());
   let startDate = isodate(new Date(new Date().setDate(new Date().getDate() - 30)));
   let channels = {};
+  export let visible;
+  export let user;
 
   async function fetchChannels() {
     try {
@@ -19,8 +21,16 @@
     }
   }
   onMount(() => {
-    fetchChannels();
+    if (user) {
+      fetchChannels();
+    }
   });
+
+  $: {
+    if (visible && !channels) {
+      fetchChannels();
+    }
+  }
 
   function selectAll() {
     channels = Object.fromEntries(Object.keys(channels).map(entry => [entry, true]));
@@ -113,12 +123,17 @@
       max-height: 480px;
   }
 </style>
+
+{#if visible}
 <Card>
   <CardBody>
     <CardTitle>Discord Summarizer</CardTitle>
     <p>
       Select a time range and and list of channels, and receive a summary for newsletter or other media purpose.
     </p>
+    
+    <Alert color="warning">You must be logged in to use this tool</Alert>
+
     <FormGroup>
       <Label for="startDate">Start Date</Label>
       <Input type="date" id="startDate" bind:value={startDate} />
@@ -186,3 +201,4 @@
     {/each}
   </CardBody>
 </Card>
+{/if}

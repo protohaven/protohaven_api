@@ -2,11 +2,13 @@
 
 import json
 import logging
+from dataclasses import asdict
 
 import markdown
 from flask import Blueprint, current_app
 from flask_sock import Sock
 
+from protohaven_api.automation.reporting import ops_report
 from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import comms, gpt
 from protohaven_api.integrations.models import Role
@@ -36,6 +38,16 @@ def staff_static_files(typ, path):
 def discord_channels():
     """Returns all member channels by name"""
     return [c[1] for c in comms.get_member_channels()]
+
+
+def ops_summary_ws(ws):
+    """Fetch data from many places and provide a summary of operational state"""
+    log.info("Running ops report")
+    for i in ops_report.run():
+        log.info(f"OpsItem {i}")
+        ws.send(json.dumps(asdict(i)))
+    log.info("Done")
+    ws.close()
 
 
 def summarizer_ws(ws):
@@ -87,3 +99,4 @@ def setup_sock_routes(app):
     """Set up all websocket routes; called by main.py"""
     sock = Sock(app)
     sock.route("/staff/summarize_discord")(summarizer_ws)
+    sock.route("/staff/ops_summary")(ops_summary_ws)
