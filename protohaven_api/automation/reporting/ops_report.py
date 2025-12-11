@@ -52,11 +52,11 @@ def opsitem(**defaults):
 def get_asana_assets() -> list[OpsItem]:
     """Return metrics for asset listing and sale from Asana"""
     try:
-        # For now, return placeholder values since specific asset tracking 
+        # For now, return placeholder values since specific asset tracking
         # projects aren't configured in the current Asana setup
         unlisted_count = 0
         unsold_count = 0
-        
+
         return [
             OpsItem(label="Unlisted assets", value=str(unlisted_count), target="0"),
             OpsItem(label="Unsold listings", value=str(unsold_count), target="0"),
@@ -76,12 +76,12 @@ def get_asana_instructor_apps() -> list[OpsItem]:
     try:
         two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
         stalled_count = 0
-        
+
         # Get instructor applications that are not on hold and haven't been updated in 2+ weeks
         for req in tasks.get_with_onhold_section("instructor_applicants", exclude_on_hold=True, exclude_complete=True):
             # This would need actual modified_at data - placeholder for now
             stalled_count += 1  # Simplified counting logic
-        
+
         return [
             OpsItem(
                 label="Stalled applications (>2wks)",
@@ -105,16 +105,16 @@ def get_asana_maint_tasks() -> list[OpsItem]:
         two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
         on_hold_count = 0
         stale_count = 0
-        
+
         # Count tasks in on-hold sections and stale tasks
         for task_name, modified_at in tasks.get_tech_ready_tasks(tznow()):
             if modified_at and modified_at < two_weeks_ago:
                 stale_count += 1
-        
+
         # Get on-hold maintenance tasks - this would need section filtering
         # For now, use a placeholder count
         on_hold_count = 0
-        
+
         return [
             OpsItem(
                 label="On hold maintenance tasks",
@@ -148,14 +148,14 @@ def get_asana_proposals() -> list[OpsItem]:
     try:
         on_hold_count = 0
         stale_count = 0
-        
+
         # Get project requests from Asana
         for req in tasks.get_project_requests():
             if not req.get('completed', True):  # Only count incomplete requests
                 # This would need actual date parsing and section checking
                 # For now using simplified logic
                 pass
-        
+
         return [
             OpsItem(
                 label="On hold",
@@ -186,13 +186,13 @@ def get_asana_tech_apps() -> list[OpsItem]:
     """Return metrics for tech applications from asana"""
     try:
         stalled_count = 0
-        
+
         # Get tech applications that are not on hold and not completed
         for req in tasks.get_with_onhold_section("shop_tech_applicants", exclude_on_hold=True, exclude_complete=True):
             # This would need actual modified_at date checking
             # For now, count all non-hold, non-complete applications as potentially stalled
             stalled_count += 1
-        
+
         return [
             OpsItem(
                 label="Stalled applications (>2wks)",
@@ -218,12 +218,12 @@ def get_asana_purchase_requests() -> list[OpsItem]:
         on_hold_count = 0
         stale_count = 0
         two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
-        
+
         # This would use the actual Asana API to check purchase request sections
         # For now, using placeholder counts
         on_hold_count = 0
         stale_count = 0
-        
+
         return [
             OpsItem(
                 label="Purchase requests on hold",
@@ -248,24 +248,31 @@ def get_asana_purchase_requests() -> list[OpsItem]:
             ),
         ]
 
-
-@opsitem(source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
-def get_ops_manager_sheet() -> list[OpsItem]:
+@opsitem(category="Inventory", source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+def get_ops_manager_sheet_events() -> list[OpsItem]:
     """Return metrics from ops manager spreadsheet"""
     try:
-        # This would need the actual ops manager spreadsheet ID and range configuration
-        # For now, returning placeholder values that would be populated from sheet data
         current_year = tznow().year
-        
+        budget = sheets.get_ops_budget_state()
         return [
             OpsItem(
-                category="Financial",
-                timescale=str(current_year),
-                label="Spend rate",
-                value="$0",
-                target="<$1000",
-                color="warning",
+                label="Low stock",
+                value="0",
             ),
+            OpsItem(
+                label="Out of stock",
+                value="0",
+            ),
+        ]
+
+
+@opsitem(source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+def get_ops_manager_sheet_inventory() -> list[OpsItem]:
+    """Return metrics from ops manager spreadsheet"""
+    try:
+        current_year = tznow().year
+        budget = sheets.get_ops_event_log()
+        return [
             OpsItem(
                 category="Safety",
                 label="Days until volunteer safety training req'd",
@@ -274,7 +281,13 @@ def get_ops_manager_sheet() -> list[OpsItem]:
             ),
             OpsItem(
                 category="Safety",
-                label="Days until HazCom / QFT req'd",
+                label="Days until HazCom req'd",
+                value="365",
+                target=">0",
+            ),
+            OpsItem(
+                category="Safety",
+                label="Days until respirator QFT req'd",
                 value="365",
                 target=">0",
             ),
@@ -286,19 +299,32 @@ def get_ops_manager_sheet() -> list[OpsItem]:
             ),
             OpsItem(
                 category="Inventory",
-                label="Low stock",
-                value="0",
-            ),
-            OpsItem(
-                category="Inventory",
-                label="Out of stock",
-                value="0",
-            ),
-            OpsItem(
-                category="Inventory",
                 label="Days until next full inventory req'd",
                 value="30",
                 target=">0",
+            ),
+        ]
+
+@opsitem(category="Financial", source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+def get_ops_manager_sheet_budget() -> list[OpsItem]:
+    """Return metrics from ops manager spreadsheet"""
+    try:
+        current_year = tznow().year
+        budget = sheets.get_ops_budget_state()
+        return [
+            OpsItem(
+                timescale="30 days",
+                label="Spend rate",
+                value=f"${budget['30 day spend rate']}",
+                target=f"<${budget['monthly budget']}",
+                color="warning" if budget['30 day spend rate'] > budget['monthly budget'] else None,
+            ),
+            OpsItem(
+                timescale=str(current_year),
+                label="Annual budget spend",
+                value=f"${budget['annual expenses']}",
+                target=f"<${budget['annual budget']}",
+                color="warning" if budget['annual expenses'] > budget['annual budget'] else None,
             ),
         ]
     except Exception as e:
@@ -308,7 +334,7 @@ def get_ops_manager_sheet() -> list[OpsItem]:
             "Days until HazCom / QFT req'd", "Days until full SDS review req'd",
             "Low stock", "Out of stock", "Days until next full inventory req'd"
         ]:
-            error_items.append(OpsItem(label=label, value="Error", error=e))
+            error_items.append(OpsItem(label=", value="Error", error=e))
         return error_items
 
 
@@ -321,21 +347,21 @@ def get_airtable_violations() -> list[OpsItem]:
         open_count = 0
         stale_count = 0
         one_week_ago = tznow() - datetime.timedelta(weeks=1)
-        
+
         # Get all violations from Airtable
         for record in get_all_records("policy_enforcement", "violations"):
             fields = record.get("fields", {})
-            
+
             # Check if violation is open (not resolved)
             if not fields.get("Resolved", False):
                 open_count += 1
-                
+
                 # Check if it's stale (created more than a week ago with no recent updates)
                 created_time = fields.get("Created time")
                 if created_time:
                     # This would need proper date parsing
                     stale_count += 1  # Simplified logic
-        
+
         return [
             OpsItem(
                 label="Open violations",
@@ -371,29 +397,29 @@ def get_airtable_tool_info() -> list[OpsItem]:
         yellow_tagged_count = 0
         blue_tagged_count = 0
         mismatch_corrections = 0
-        
+
         seven_days_ago = tznow() - datetime.timedelta(days=7)
         fourteen_days_ago = tznow() - datetime.timedelta(days=14)
-        
+
         # Get all tools and their status
         for record in get_all_records("tools_and_equipment", "tools"):
             fields = record.get("fields", {})
             tag_status = fields.get("Tag Status", "")
             tag_date = fields.get("Tag Date")
-            
+
             if tag_status == "Red" and tag_date:
                 # Would need proper date parsing to check if > 7 days
                 red_tagged_count += 1
             elif tag_status == "Yellow" and tag_date:
-                # Would need proper date parsing to check if > 14 days 
+                # Would need proper date parsing to check if > 14 days
                 yellow_tagged_count += 1
             elif tag_status == "Blue":
                 blue_tagged_count += 1
-        
+
         # Get mismatch corrections from the last 14 days
         # This would require checking tool reports or a corrections log
         mismatch_corrections = 0
-        
+
         return [
             OpsItem(
                 label="Red tagged >7d",
@@ -451,19 +477,19 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
     try:
         unteachable_count = 0
         missing_paperwork_count = 0
-        
+
         # Get instructor capabilities data
         for record in get_all_records("class_automation", "capabilities"):
             fields = record.get("fields", {})
-            
+
             # Check for clearances that can't be taught (no capable instructors)
             if not fields.get("Active Instructors"):
                 unteachable_count += 1
-            
+
             # Check for missing paperwork (incomplete instructor records)
             if not fields.get("Paperwork Complete", False):
                 missing_paperwork_count += 1
-        
+
         return [
             OpsItem(
                 label="Unteachable clearances",
@@ -501,11 +527,11 @@ def get_airtable_class_proposals() -> list[OpsItem]:
     try:
         stale_count = 0
         two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
-        
+
         # Get class proposals that haven't been updated in 2+ weeks
         for record in get_all_records("class_automation", "classes"):
             fields = record.get("fields", {})
-            
+
             # Check if it's a proposal (not yet approved/scheduled)
             status = fields.get("Status", "")
             if status in ["Proposed", "Under Review"]:
@@ -514,7 +540,7 @@ def get_airtable_class_proposals() -> list[OpsItem]:
                 if last_modified:
                     # Would need proper date parsing to check if > 2 weeks
                     stale_count += 1  # Simplified logic
-        
+
         return [
             OpsItem(
                 label="Stale proposals (>2wks, no update)",
@@ -540,23 +566,23 @@ def get_neon_tech_instructor_onboarding() -> list[OpsItem]:
         not_onboarded_count = 0
         review_due_count = 0
         six_months_ago = tznow() - datetime.timedelta(days=180)
-        
+
         # Get all techs and instructors from Neon
         tech_members = list(neon.search_members_with_role("Shop Tech"))
         instructor_members = list(neon.search_members_with_role("Instructor"))
-        
+
         all_tech_instructor_members = tech_members + instructor_members
-        
+
         for member in all_tech_instructor_members:
             # Check onboarding status
             if not member.get("onboarding_complete", False):
                 not_onboarded_count += 1
-            
+
             # Check if due for twice-annual review
             last_review = member.get("last_review_date")
             if last_review and last_review < six_months_ago:
                 review_due_count += 1
-        
+
         return [
             OpsItem(
                 label="Not fully onboarded",
@@ -594,22 +620,22 @@ def get_shift_schedule() -> list[OpsItem]:
     try:
         zero_coverage_count = 0
         low_coverage_count = 0
-        
+
         two_weeks_from_now = tznow() + datetime.timedelta(weeks=2)
-        
+
         # Get shop tech forecast data for the next 2 weeks
         for record in get_all_records("people", "shop_tech_forecast_overrides"):
             fields = record.get("fields", {})
-            
+
             shift_date = fields.get("Date")
             tech_count = fields.get("Tech Count", 0)
-            
+
             if shift_date and shift_date <= two_weeks_from_now.date():
                 if tech_count == 0:
                     zero_coverage_count += 1
                 elif tech_count == 1:
                     low_coverage_count += 1
-        
+
         return [
             OpsItem(
                 label="Upcoming shifts with zero coverage",
@@ -644,20 +670,20 @@ def get_wiki_docs_status() -> list[OpsItem]:
         lacking_approval_count = 0
         missing_clearance_docs = 0
         missing_tutorials = 0
-        
+
         # Get tool documentation summary
         tool_docs_report = wiki.get_tool_docs_summary()
-        
+
         if isinstance(tool_docs_report, dict):
             lacking_approval_count = tool_docs_report.get("lacking_approval", 0)
             missing_tutorials = tool_docs_report.get("missing_tutorials", 0)
-        
+
         # Get class documentation report for clearance docs
         class_docs_report = wiki.get_class_docs_report()
-        
+
         if isinstance(class_docs_report, dict):
             missing_clearance_docs = class_docs_report.get("missing_clearance_docs", 0)
-        
+
         return [
             OpsItem(
                 label="Tool docs lacking approval",
@@ -703,7 +729,9 @@ def run() -> Iterator[OpsItem]:
             get_asana_tech_apps,
             get_asana_maint_tasks,
             get_asana_proposals,
-            get_ops_manager_sheet,
+            get_ops_manager_sheet_budget,
+            get_ops_manager_sheet_events,
+            get_ops_manager_sheet_inventory,
             get_airtable_tool_info,
             get_airtable_instructor_capabilities,
             get_airtable_violations,

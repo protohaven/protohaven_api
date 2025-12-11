@@ -264,6 +264,7 @@ sheets:
   instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
   welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+  shop_manager_logbook: "1gzj35SJk_pvPGHRjLju6fjAiQ9NVd_CGxqnXVK4KsYs" # pragma: allowlist secret
 eventbrite:
   base_url: "https://www.eventbriteapi.com/v3/"
   token: ${EVENTBRITE_TOKEN}
