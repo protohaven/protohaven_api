@@ -3,11 +3,12 @@ on the operational state of the shop."""
 
 import datetime
 import logging
+import traceback
 from concurrent import futures
 from dataclasses import asdict, dataclass
 from typing import Callable, Iterator
 
-from protohaven_api.config import get_config, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, neon, sheets, tasks, wiki
 from protohaven_api.integrations.airtable_base import get_all_records
 
@@ -62,6 +63,7 @@ def get_asana_assets() -> list[OpsItem]:
             OpsItem(label="Unsold listings", value=str(unsold_count), target="0"),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(label="Unlisted assets", value="Error", target="0", error=e),
             OpsItem(label="Unsold listings", value="Error", target="0", error=e),
@@ -89,6 +91,7 @@ def get_asana_instructor_apps() -> list[OpsItem]:
             )
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="Stalled applications (>2wks)",
@@ -126,6 +129,7 @@ def get_asana_maint_tasks() -> list[OpsItem]:
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="On hold maintenance tasks",
@@ -167,6 +171,7 @@ def get_asana_proposals() -> list[OpsItem]:
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="On hold",
@@ -200,6 +205,7 @@ def get_asana_tech_apps() -> list[OpsItem]:
             )
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="Stalled applications (>2wks)",
@@ -235,6 +241,7 @@ def get_asana_purchase_requests() -> list[OpsItem]:
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="Purchase requests on hold",
@@ -249,61 +256,63 @@ def get_asana_purchase_requests() -> list[OpsItem]:
         ]
 
 @opsitem(category="Inventory", source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+def get_ops_manager_sheet_inventory() -> list[OpsItem]:
+    """Return metrics from ops manager spreadsheet"""
+    try:
+        items = list(sheets.get_ops_inventory())
+        low_stock = sum(1 for item in items if item['Recorded Qty'] - item['Target Qty'] < 0)
+        no_stock = sum(1 for item in items if item['Recorded Qty'] <= 0)
+        return [
+            OpsItem(
+                label="Low stock",
+                value=str(low_stock),
+                color="warning" if low_stock > 0 else None,
+            ),
+            OpsItem(
+                label="Out of stock",
+                value=str(no_stock),
+                color="warning" if no_stock > 0 else None,
+            ),
+        ]
+    except Exception as e:
+        traceback.print_exc()
+        raise e # TODO
+
+@opsitem(source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
 def get_ops_manager_sheet_events() -> list[OpsItem]:
     """Return metrics from ops manager spreadsheet"""
     try:
         current_year = tznow().year
-        budget = sheets.get_ops_budget_state()
-        return [
-            OpsItem(
-                label="Low stock",
-                value="0",
-            ),
-            OpsItem(
-                label="Out of stock",
-                value="0",
-            ),
-        ]
-
-
-@opsitem(source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
-def get_ops_manager_sheet_inventory() -> list[OpsItem]:
-    """Return metrics from ops manager spreadsheet"""
-    try:
-        current_year = tznow().year
-        budget = sheets.get_ops_event_log()
-        return [
-            OpsItem(
-                category="Safety",
-                label="Days until volunteer safety training req'd",
-                value="365",
-                target=">0",
-            ),
-            OpsItem(
-                category="Safety",
-                label="Days until HazCom req'd",
-                value="365",
-                target=">0",
-            ),
-            OpsItem(
-                category="Safety",
-                label="Days until respirator QFT req'd",
-                value="365",
-                target=">0",
-            ),
-            OpsItem(
-                category="Safety",
-                label="Days until full SDS review req'd",
-                value="365",
-                target=">0",
-            ),
-            OpsItem(
-                category="Inventory",
-                label="Days until next full inventory req'd",
-                value="30",
-                target=">0",
-            ),
-        ]
+        most_recent = {}
+        for evt in sheets.get_ops_event_log():
+            typ = evt["Type"]
+            if typ not in most_recent or most_recent[typ] < evt["Date"]:
+                most_recent[typ] = evt["Date"]
+        intervals = {
+            "Respirator QFT": ("Safety", "Days until respirator QFT req'd", 365),
+            "HazCom": ("Safety", "Days until HazCom req'd", 365),
+            "Tech Safety": ("Safety", "Days until volunteer safety training req'd", 365),
+            "Full Inventory": ("Inventory", "Days until full inventory req'd", 30),
+            "SDS Review": ("Safety", "Days until full SDS review req'd", 365),
+        }
+        results = []
+        now = tznow()
+        for k, vv in intervals.items():
+            category, label, interval = vv
+            next = now
+            if k in most_recent:
+                next = most_recent[k] + datetime.timedelta(days=interval)
+            results.append(OpsItem(
+                    category=category,
+                    label=label,
+                    value=str((next - now).days),
+                    target=">0",
+                    color="warning" if next <= now else None,
+            ))
+        return results
+    except Exception as e:
+        traceback.print_exc()
+        raise e # TODO
 
 @opsitem(category="Financial", source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
 def get_ops_manager_sheet_budget() -> list[OpsItem]:
@@ -328,13 +337,12 @@ def get_ops_manager_sheet_budget() -> list[OpsItem]:
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         error_items = []
         for label in [
-            "Spend rate", "Days until volunteer safety training req'd",
-            "Days until HazCom / QFT req'd", "Days until full SDS review req'd",
-            "Low stock", "Out of stock", "Days until next full inventory req'd"
+            "Spend rate", "Annual budget spend"
         ]:
-            error_items.append(OpsItem(label=", value="Error", error=e))
+            error_items.append(OpsItem(label=label, value="Error", error=e))
         return error_items
 
 
@@ -347,32 +355,28 @@ def get_airtable_violations() -> list[OpsItem]:
         open_count = 0
         stale_count = 0
         one_week_ago = tznow() - datetime.timedelta(weeks=1)
-
-        # Get all violations from Airtable
         for record in get_all_records("policy_enforcement", "violations"):
             fields = record.get("fields", {})
-
-            # Check if violation is open (not resolved)
-            if not fields.get("Resolved", False):
+            if not fields.get("Closure"):
                 open_count += 1
-
-                # Check if it's stale (created more than a week ago with no recent updates)
-                created_time = fields.get("Created time")
-                if created_time:
-                    # This would need proper date parsing
+                onset = fields.get("Onset")
+                if onset and safe_parse_datetime(onset) < one_week_ago:
                     stale_count += 1  # Simplified logic
 
         return [
             OpsItem(
                 label="Open violations",
                 value=str(open_count),
+                color="warning" if open_count > 0 else None,
             ),
             OpsItem(
                 label="Open and stale violations (>1wk)",
                 value=str(stale_count),
+                color="warning" if stale_count > 0 else None,
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="Open violations",
@@ -404,21 +408,21 @@ def get_airtable_tool_info() -> list[OpsItem]:
         # Get all tools and their status
         for record in get_all_records("tools_and_equipment", "tools"):
             fields = record.get("fields", {})
-            tag_status = fields.get("Tag Status", "")
-            tag_date = fields.get("Tag Date")
+            log.info(f"fields {fields.get('Status last modified')}")
+            tag_status = (fields.get("Current Status") or "").split(' ')[0]
+            tag_date = fields.get("Status last modified")
+            if not tag_status or not tag_date:
+                continue
+            tag_date = safe_parse_datetime(tag_date)
 
-            if tag_status == "Red" and tag_date:
+            if tag_status == "Red" and tag_date < seven_days_ago:
                 # Would need proper date parsing to check if > 7 days
                 red_tagged_count += 1
-            elif tag_status == "Yellow" and tag_date:
+            elif tag_status == "Yellow" and tag_date < fourteen_days_ago:
                 # Would need proper date parsing to check if > 14 days
                 yellow_tagged_count += 1
             elif tag_status == "Blue":
                 blue_tagged_count += 1
-
-        # Get mismatch corrections from the last 14 days
-        # This would require checking tool reports or a corrections log
-        mismatch_corrections = 0
 
         return [
             OpsItem(
@@ -435,11 +439,12 @@ def get_airtable_tool_info() -> list[OpsItem]:
             ),
             OpsItem(
                 label="Physical/digital tag mismatches corrected",
-                value=str(mismatch_corrections),
+                value="TODO",
                 timescale="last 14 days",
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="Red tagged >7d",
@@ -479,16 +484,22 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
         missing_paperwork_count = 0
 
         # Get instructor capabilities data
+        all_codes = {r["fields"]["Code"] for r in get_all_records("class_automation", "clearance_codes")}
+        teachable_codes = set()
         for record in get_all_records("class_automation", "capabilities"):
             fields = record.get("fields", {})
 
             # Check for clearances that can't be taught (no capable instructors)
-            if not fields.get("Active Instructors"):
-                unteachable_count += 1
+            # TODO add this field to airtable proper
+            for code in fields.get("Code (from Clearance Codes)") or []:
+                teachable_codes.add(code)
 
-            # Check for missing paperwork (incomplete instructor records)
-            if not fields.get("Paperwork Complete", False):
+            # Check for missing paperwork (not including visibility on main page)
+            if not fields.get("W9 Form") or not fields.get("Direct Deposit Info"):
                 missing_paperwork_count += 1
+
+        log.info(f"Teachable codes: {teachable_codes}")
+        unteachable_count = len(all_codes - teachable_codes)
 
         return [
             OpsItem(
@@ -501,6 +512,7 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
             ),
         ]
     except Exception as e:
+        traceback.print_exc()
         return [
             OpsItem(
                 label="Unteachable clearances",
@@ -723,21 +735,21 @@ def run() -> Iterator[OpsItem]:
     not_done = set()
     with futures.ThreadPoolExecutor() as executor:
         for fn in [
-            get_asana_assets,
-            get_asana_instructor_apps,
-            get_asana_purchase_requests,
-            get_asana_tech_apps,
-            get_asana_maint_tasks,
-            get_asana_proposals,
-            get_ops_manager_sheet_budget,
-            get_ops_manager_sheet_events,
-            get_ops_manager_sheet_inventory,
-            get_airtable_tool_info,
-            get_airtable_instructor_capabilities,
-            get_airtable_violations,
-            get_neon_tech_instructor_onboarding,
-            get_shift_schedule,
-            get_wiki_docs_status,
+                # get_asana_assets,
+                # get_asana_instructor_apps,
+                # get_asana_purchase_requests,
+                # get_asana_tech_apps,
+                # get_asana_maint_tasks,
+                # get_asana_proposals,
+            ##get_ops_manager_sheet_budget,
+            ##get_ops_manager_sheet_events,
+            ##get_ops_manager_sheet_inventory,
+            ##get_airtable_tool_info,
+            ## get_airtable_instructor_capabilities,
+                get_airtable_violations,
+                # get_neon_tech_instructor_onboarding,
+                # get_shift_schedule,
+                # get_wiki_docs_status,
         ]:
             not_done.add(executor.submit(fn))
 
