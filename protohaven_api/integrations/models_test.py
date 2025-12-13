@@ -180,6 +180,19 @@ def test_email():
     assert m.email is None
 
 
+def test_emails():
+    """Test Member.emails property"""
+    data = {
+        "individualAccount": {
+            "primaryContact": {"email1": "one@test.com", "email2": "two@test.com"}
+        }
+    }
+    m = Member(neon_raw_data=data)
+    assert m.emails == ["one@test.com", "two@test.com"]
+    del data["individualAccount"]["primaryContact"]
+    assert not m.emails
+
+
 def test_zero_cost_ok_until():
     """Test zero_cost_ok_until property with valid and invalid dates"""
     m = Member(
