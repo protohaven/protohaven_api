@@ -139,8 +139,14 @@ nocodb:
       volunteers_staff: "mkygxd0r8l1yhah"
       recertification: "m1cksb6rz2fpwcw"
     tasks:
+      asset_disposal: "mn7n4cayp1kntjb"
       shop_and_maintenance_tasks: "mb9vrl8klha39w3"
       private_instruction: "mzvlt891rbk8gis"
+      project_tracker: "mgeo6vza58449xm"
+      donation_requests: "mcore9dq30ocr4i"
+      instructor_applicants: "mgg2d7yrdgc6qpb"
+      shop_tech_applicants: "m36hkdzy4imx8xy"
+      purchase_requests: "mx7pt89olvqpxd7"
     fake_discord:
       members: "m63a1kzdhf4yepz"
       channels: "mbv0l6lew4hr863"
@@ -225,6 +231,12 @@ square:
 asana:
   token: ${ASANA_TOKEN}
   gid: "1199692158232291"
+  asset_disposal:
+    gid: "1212438685613709"
+    section_gids:
+      on_hold: "1212438685613713"
+      listed: "1212438685613712"
+      unlisted: "1212438685613710"
   shop_and_maintenance_tasks:
     gid: "1202469740885594"
     tags:
@@ -239,6 +251,7 @@ asana:
           p0: "1204138662113048"
       airtable_id:
         gid: "1206525862874335"
+    on_hold: "1203925503488268"
   shop_tech_applicants:
     gid: "1203664351777333"
     on_hold_section: "1208278245183318"
@@ -248,6 +261,13 @@ asana:
   donation_requests:
     gid: "1204106742735251"
   project_requests: "1204107875202537"
+  project_tracker:
+    gid: "1211651280970765"
+    section_gids:
+      proposed: "1211651280970768"
+      approved: "1211651280970769"
+      in_progress: "1211651280970770"
+      on_hold: "1211651280970772"
   private_instruction_requests: "1203922725251220"
   phone_messages: "1203963688927297"
   purchase_requests:

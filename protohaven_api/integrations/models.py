@@ -446,6 +446,7 @@ class Member:  # pylint:disable=too-many-public-methods
             "zero_cost_ok_until": "Zero-Cost Membership OK Until Date",
             "shop_tech_first_day": "Shop Tech First Day",
             "shop_tech_last_day": "Shop Tech Last Day",
+            "last_review": "Last Review",
         }
         if attr in day_custom_fields:
             val = self._get_custom_field(day_custom_fields[attr], "value")

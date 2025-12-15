@@ -8,9 +8,12 @@ from concurrent import futures
 from dataclasses import asdict, dataclass
 from typing import Callable, Iterator
 
+from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, neon, sheets, tasks, wiki
+from protohaven_api.handlers.instructor import get_instructor_readiness
+from protohaven_api.integrations import neon, sheets, tasks, wiki
 from protohaven_api.integrations.airtable_base import get_all_records
+from protohaven_api.integrations.models import Role
 
 log = logging.getLogger("automation.reporting.ops_report")
 
@@ -28,6 +31,22 @@ class OpsItem:  # pylint: disable=too-many-instance-attributes
     timescale: str = None
     color: str = None
     error: str | Exception = None
+
+    # Used for displaying status as things load
+    index: int = 0
+    total: int = 0
+
+
+def _handle_exc(e, labels):
+    traceback.print_exc()
+    return [
+        OpsItem(
+            label=label,
+            value="Error",
+            error=e,
+        )
+        for label in labels
+    ]
 
 
 def opsitem(**defaults):
@@ -49,40 +68,49 @@ def opsitem(**defaults):
     return decorator
 
 
-@opsitem(category="Financial", timescale="last 12 months", source="Asana", url="https://app.asana.com")
+@opsitem(
+    category="Financial",
+    timescale="last 12 months",
+    source="Asana",
+    url="https://app.asana.com",
+    target="0",
+)
 def get_asana_assets() -> list[OpsItem]:
     """Return metrics for asset listing and sale from Asana"""
     try:
-        # For now, return placeholder values since specific asset tracking
-        # projects aren't configured in the current Asana setup
         unlisted_count = 0
         unsold_count = 0
+        for a in tasks.get_asset_disposal(exclude_complete=True):
+            if a["section"] == "unlisted":
+                unlisted_count += 1
+            elif a["section"] == "listed":
+                unsold_count += 1
 
         return [
-            OpsItem(label="Unlisted assets", value=str(unlisted_count), target="0"),
-            OpsItem(label="Unsold listings", value=str(unsold_count), target="0"),
+            OpsItem(label="Unlisted assets", value=str(unlisted_count)),
+            OpsItem(label="Unsold listings", value=str(unsold_count)),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(label="Unlisted assets", value="Error", target="0", error=e),
-            OpsItem(label="Unsold listings", value="Error", target="0", error=e),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Unlisted assets", "Unsold listings"])
 
 
 @opsitem(
-    category="Instructor", timescale="ongoing", source="Asana", url=f"https://app.asana.com/0/{get_config('asana/instructor_applicants/gid')}/board", target="0"
+    category="Instructor",
+    timescale="ongoing",
+    source="Asana",
+    url=f"https://app.asana.com/0/{get_config('asana/instructor_applicants/gid')}/board",
+    target="0",
 )
 def get_asana_instructor_apps() -> list[OpsItem]:
     """Return metrics for instructor applications from asana"""
     try:
         two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
         stalled_count = 0
-
-        # Get instructor applications that are not on hold and haven't been updated in 2+ weeks
-        for req in tasks.get_with_onhold_section("instructor_applicants", exclude_on_hold=True, exclude_complete=True):
-            # This would need actual modified_at data - placeholder for now
-            stalled_count += 1  # Simplified counting logic
+        for app in tasks.get_instructor_applicants(
+            exclude_on_hold=True, exclude_complete=True
+        ):
+            if app["modified_at"] < two_weeks_ago:
+                stalled_count += 1
 
         return [
             OpsItem(
@@ -90,18 +118,17 @@ def get_asana_instructor_apps() -> list[OpsItem]:
                 value=str(stalled_count),
             )
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="Stalled applications (>2wks)",
-                value="Error",
-                error=e,
-            )
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Stalled applications (>2wks)"])
 
 
-@opsitem(category="Techs", timescale="ongoing", source="Asana", url=f"https://app.asana.com/0/{get_config('asana/shop_and_maintenance_tasks/gid')}/board", target="0")
+@opsitem(
+    category="Techs",
+    timescale="ongoing",
+    source="Asana",
+    url=f"https://app.asana.com/0/{get_config('asana/shop_and_maintenance_tasks/gid')}/board",
+    target="0",
+)
 def get_asana_maint_tasks() -> list[OpsItem]:
     """Return metrics for maintenance tasks from asana"""
     try:
@@ -109,14 +136,11 @@ def get_asana_maint_tasks() -> list[OpsItem]:
         on_hold_count = 0
         stale_count = 0
 
-        # Count tasks in on-hold sections and stale tasks
-        for task_name, modified_at in tasks.get_tech_ready_tasks(tznow()):
+        for _, modified_at, section in tasks.get_tech_ready_tasks(tznow()):
             if modified_at and modified_at < two_weeks_ago:
                 stale_count += 1
-
-        # Get on-hold maintenance tasks - this would need section filtering
-        # For now, use a placeholder count
-        on_hold_count = 0
+            if section == "on_hold":
+                on_hold_count += 1
 
         return [
             OpsItem(
@@ -128,37 +152,38 @@ def get_asana_maint_tasks() -> list[OpsItem]:
                 value=str(stale_count),
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="On hold maintenance tasks",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Stale maintenance tasks (>2wks, no updates)",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(
+            e,
+            [
+                "On hold maintenance tasks",
+                "Stale maintenance tasks (>2wks, no updates)",
+            ],
+        )
 
 
 @opsitem(
-    category="Projects", timescale="ongoing", source="Asana", url=f"https://app.asana.com/0/{get_config('asana/project_requests')}/board", target="0"
+    category="Projects",
+    timescale="ongoing",
+    source="Asana",
+    url=f"https://app.asana.com/0/{get_config('asana/project_tracker')}/board",
+    target="0",
 )
 def get_asana_proposals() -> list[OpsItem]:
     """Return metrics for project proposals/approvals from asana"""
     try:
         on_hold_count = 0
         stale_count = 0
+        two_weeks_ago = tznow() - datetime.timedelta(days=14)
 
         # Get project requests from Asana
-        for req in tasks.get_project_requests():
-            if not req.get('completed', True):  # Only count incomplete requests
-                # This would need actual date parsing and section checking
-                # For now using simplified logic
-                pass
+        for _, section, _, modified in tasks.get_project_tracker(
+            include_complete=False
+        ):
+            if section == "on_hold":
+                on_hold_count += 1
+            elif modified < two_weeks_ago:
+                stale_count += 1
 
         return [
             OpsItem(
@@ -170,33 +195,28 @@ def get_asana_proposals() -> list[OpsItem]:
                 value=str(stale_count),
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="On hold",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Stale status (>2wks, no updates)",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["On hold", "Stale status (>2wks, no updates)"])
 
 
-@opsitem(category="Tech", timescale="ongoing", source="Asana", url=f"https://app.asana.com/0/{get_config('asana/shop_tech_applicants/gid')}/board", target="0")
+@opsitem(
+    category="Tech",
+    timescale="ongoing",
+    source="Asana",
+    url=f"https://app.asana.com/0/{get_config('asana/shop_tech_applicants/gid')}/board",
+    target="0",
+)
 def get_asana_tech_apps() -> list[OpsItem]:
     """Return metrics for tech applications from asana"""
     try:
         stalled_count = 0
-
+        two_weeks_ago = tznow() - datetime.timedelta(days=14)
         # Get tech applications that are not on hold and not completed
-        for req in tasks.get_with_onhold_section("shop_tech_applicants", exclude_on_hold=True, exclude_complete=True):
-            # This would need actual modified_at date checking
-            # For now, count all non-hold, non-complete applications as potentially stalled
-            stalled_count += 1
+        for req in tasks.get_shop_tech_applicants(
+            exclude_on_hold=True, exclude_complete=True
+        ):
+            if req["modified_at"] <= two_weeks_ago:
+                stalled_count += 1
 
         return [
             OpsItem(
@@ -204,19 +224,16 @@ def get_asana_tech_apps() -> list[OpsItem]:
                 value=str(stalled_count),
             )
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="Stalled applications (>2wks)",
-                value="Error",
-                error=e,
-            )
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Stalled applications (>2wks)"])
 
 
 @opsitem(
-    category="Inventory", timescale="ongoing", source="Asana", url=f"https://app.asana.com/0/{get_config('asana/purchase_requests/gid')}/board", target="0"
+    category="Inventory",
+    timescale="ongoing",
+    source="Asana",
+    url=f"https://app.asana.com/0/{get_config('asana/purchase_requests/gid')}/board",
+    target="0",
 )
 def get_asana_purchase_requests() -> list[OpsItem]:
     """Return metrics for purchase requests from asana"""
@@ -225,10 +242,12 @@ def get_asana_purchase_requests() -> list[OpsItem]:
         stale_count = 0
         two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
 
-        # This would use the actual Asana API to check purchase request sections
-        # For now, using placeholder counts
-        on_hold_count = 0
-        stale_count = 0
+        for pr in tasks.get_purchase_requests(exclude_complete=True):
+            log.info(str(pr))
+            if pr["section"] == "on_hold":
+                on_hold_count += 1
+            if pr["modified_at"] < two_weeks_ago:
+                stale_count += 1
 
         return [
             OpsItem(
@@ -240,28 +259,31 @@ def get_asana_purchase_requests() -> list[OpsItem]:
                 value=str(stale_count),
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="Purchase requests on hold",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Purchase requests w/ no update (>2wks)",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(
+            e,
+            [
+                "Purchase requests on hold",
+                "Purchase requests w/ no update (>2wks)",
+            ],
+        )
 
-@opsitem(category="Inventory", source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+
+@opsitem(
+    category="Inventory",
+    source="Sheet",
+    url="https://docs.google.com/spreadsheets/d/ops-manager",
+    timescale="ongoing",
+    target="0",
+)
 def get_ops_manager_sheet_inventory() -> list[OpsItem]:
     """Return metrics from ops manager spreadsheet"""
     try:
         items = list(sheets.get_ops_inventory())
-        low_stock = sum(1 for item in items if item['Recorded Qty'] - item['Target Qty'] < 0)
-        no_stock = sum(1 for item in items if item['Recorded Qty'] <= 0)
+        low_stock = sum(
+            1 for item in items if item["Recorded Qty"] - item["Target Qty"] < 0
+        )
+        no_stock = sum(1 for item in items if item["Recorded Qty"] <= 0)
         return [
             OpsItem(
                 label="Low stock",
@@ -274,16 +296,20 @@ def get_ops_manager_sheet_inventory() -> list[OpsItem]:
                 color="warning" if no_stock > 0 else None,
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        raise e # TODO
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Low Stock", "Out of Stock"])
 
-@opsitem(source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+
+@opsitem(
+    source="Sheet",
+    url="https://docs.google.com/spreadsheets/d/ops-manager",
+    timescale="ongoing",
+    target="0",
+)
 def get_ops_manager_sheet_events() -> list[OpsItem]:
     """Return metrics from ops manager spreadsheet"""
     try:
-        current_year = tznow().year
-        most_recent = {}
+        most_recent: dict[str, datetime.datetime] = {}
         for evt in sheets.get_ops_event_log():
             typ = evt["Type"]
             if typ not in most_recent or most_recent[typ] < evt["Date"]:
@@ -291,7 +317,11 @@ def get_ops_manager_sheet_events() -> list[OpsItem]:
         intervals = {
             "Respirator QFT": ("Safety", "Days until respirator QFT req'd", 365),
             "HazCom": ("Safety", "Days until HazCom req'd", 365),
-            "Tech Safety": ("Safety", "Days until volunteer safety training req'd", 365),
+            "Tech Safety": (
+                "Safety",
+                "Days until volunteer safety training req'd",
+                365,
+            ),
             "Full Inventory": ("Inventory", "Days until full inventory req'd", 30),
             "SDS Review": ("Safety", "Days until full SDS review req'd", 365),
         }
@@ -299,22 +329,39 @@ def get_ops_manager_sheet_events() -> list[OpsItem]:
         now = tznow()
         for k, vv in intervals.items():
             category, label, interval = vv
-            next = now
+            nxt = now
             if k in most_recent:
-                next = most_recent[k] + datetime.timedelta(days=interval)
-            results.append(OpsItem(
+                nxt = most_recent[k] + datetime.timedelta(days=interval)
+            results.append(
+                OpsItem(
                     category=category,
                     label=label,
-                    value=str((next - now).days),
+                    value=str((nxt - now).days),
                     target=">0",
-                    color="warning" if next <= now else None,
-            ))
+                    color="warning" if nxt <= now else None,
+                )
+            )
         return results
-    except Exception as e:
-        traceback.print_exc()
-        raise e # TODO
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(
+            e,
+            [
+                "Days until respirator QFT req'd",
+                "Days until HazCom req'd",
+                "Days until volunteer safety training req'd",
+                "Days until full inventory req'd",
+                "Days until full SDS review req'd",
+            ],
+        )
 
-@opsitem(category="Financial", source="Sheet", url="https://docs.google.com/spreadsheets/d/ops-manager", timescale="ongoing", target="0")
+
+@opsitem(
+    category="Financial",
+    source="Sheet",
+    url="https://docs.google.com/spreadsheets/d/ops-manager",
+    timescale="ongoing",
+    target="0",
+)
 def get_ops_manager_sheet_budget() -> list[OpsItem]:
     """Return metrics from ops manager spreadsheet"""
     try:
@@ -326,28 +373,34 @@ def get_ops_manager_sheet_budget() -> list[OpsItem]:
                 label="Spend rate",
                 value=f"${budget['30 day spend rate']}",
                 target=f"<${budget['monthly budget']}",
-                color="warning" if budget['30 day spend rate'] > budget['monthly budget'] else None,
+                color=(
+                    "warning"
+                    if budget["30 day spend rate"] > budget["monthly budget"]
+                    else None
+                ),
             ),
             OpsItem(
                 timescale=str(current_year),
                 label="Annual budget spend",
                 value=f"${budget['annual expenses']}",
                 target=f"<${budget['annual budget']}",
-                color="warning" if budget['annual expenses'] > budget['annual budget'] else None,
+                color=(
+                    "warning"
+                    if budget["annual expenses"] > budget["annual budget"]
+                    else None
+                ),
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        error_items = []
-        for label in [
-            "Spend rate", "Annual budget spend"
-        ]:
-            error_items.append(OpsItem(label=label, value="Error", error=e))
-        return error_items
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Spend rate", "Annual budget spend"])
 
 
 @opsitem(
-    category="Inventory", timescale="ongoing", source="Airtable", url=f"https://airtable.com/{get_config('airtable/data/policy_enforcement/base_id')}", target="0"
+    category="Inventory",
+    timescale="ongoing",
+    source="Airtable",
+    url=f"https://airtable.com/{get_config('airtable/data/policy_enforcement/base_id')}",
+    target="0",
 )
 def get_airtable_violations() -> list[OpsItem]:
     """Return report info about storage and other violations from Airtable"""
@@ -375,24 +428,16 @@ def get_airtable_violations() -> list[OpsItem]:
                 color="warning" if stale_count > 0 else None,
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="Open violations",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Open and stale violations (>1wk)",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Open violations", "Open and stale violations (>1wk)"])
 
 
 @opsitem(
-    category="Equipment", timescale="ongoing", source="Airtable", url=f"https://airtable.com/{get_config('airtable/data/tools_and_equipment/base_id')}", target="0"
+    category="Equipment",
+    timescale="ongoing",
+    source="Airtable",
+    url=f"https://airtable.com/{get_config('airtable/data/tools_and_equipment/base_id')}",
+    target="0",
 )
 def get_airtable_tool_info() -> list[OpsItem]:
     """Return report info about the state of tools in Airtable"""
@@ -400,7 +445,6 @@ def get_airtable_tool_info() -> list[OpsItem]:
         red_tagged_count = 0
         yellow_tagged_count = 0
         blue_tagged_count = 0
-        mismatch_corrections = 0
 
         seven_days_ago = tznow() - datetime.timedelta(days=7)
         fourteen_days_ago = tznow() - datetime.timedelta(days=14)
@@ -409,7 +453,7 @@ def get_airtable_tool_info() -> list[OpsItem]:
         for record in get_all_records("tools_and_equipment", "tools"):
             fields = record.get("fields", {})
             log.info(f"fields {fields.get('Status last modified')}")
-            tag_status = (fields.get("Current Status") or "").split(' ')[0]
+            tag_status = (fields.get("Current Status") or "").split(" ")[0]
             tag_date = fields.get("Status last modified")
             if not tag_status or not tag_date:
                 continue
@@ -443,31 +487,16 @@ def get_airtable_tool_info() -> list[OpsItem]:
                 timescale="last 14 days",
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="Red tagged >7d",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Yellow tagged >14d",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Blue tagged",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Physical/digital tag mismatches corrected",
-                value="Error",
-                timescale="last 14 days",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(
+            e,
+            [
+                "Red tagged >7d",
+                "Yellow tagged >14d",
+                "Blue tagged",
+                "Physical/digital tag mismatches corrected",
+            ],
+        )
 
 
 @opsitem(
@@ -484,14 +513,16 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
         missing_paperwork_count = 0
 
         # Get instructor capabilities data
-        all_codes = {r["fields"]["Code"] for r in get_all_records("class_automation", "clearance_codes")}
+        all_codes = {
+            r["fields"]["Code"]
+            for r in get_all_records("class_automation", "clearance_codes")
+        }
         teachable_codes = set()
         for record in get_all_records("class_automation", "capabilities"):
             fields = record.get("fields", {})
 
             # Check for clearances that can't be taught (no capable instructors)
-            # TODO add this field to airtable proper
-            for code in fields.get("Code (from Clearance Codes)") or []:
+            for code in fields.get("Code (from Private Instruction)") or []:
                 teachable_codes.add(code)
 
             # Check for missing paperwork (not including visibility on main page)
@@ -511,20 +542,8 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
                 value=str(missing_paperwork_count),
             ),
         ]
-    except Exception as e:
-        traceback.print_exc()
-        return [
-            OpsItem(
-                label="Unteachable clearances",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Missing paperwork",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Unteachable clearances", "Missing paperwork"])
 
 
 @opsitem(
@@ -538,7 +557,6 @@ def get_airtable_class_proposals() -> list[OpsItem]:
     """Get airtable info regarding class proposals"""
     try:
         stale_count = 0
-        two_weeks_ago = tznow() - datetime.timedelta(weeks=2)
 
         # Get class proposals that haven't been updated in 2+ weeks
         for record in get_all_records("class_automation", "classes"):
@@ -559,18 +577,16 @@ def get_airtable_class_proposals() -> list[OpsItem]:
                 value=str(stale_count),
             ),
         ]
-    except Exception as e:
-        return [
-            OpsItem(
-                label="Stale proposals (>2wks, no update)",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Stale proposals (>2wks, no update)"])
 
 
 @opsitem(
-    category="Techs", timescale="ongoing", source="Neon CRM", url=get_config("neon/app_url"), target="0"
+    category="Instructor/Tech",
+    timescale="ongoing",
+    source="Neon CRM",
+    url=get_config("neon/app_url"),
+    target="0",
 )
 def get_neon_tech_instructor_onboarding() -> list[OpsItem]:
     """Get Neon state to determine tech onboarding status"""
@@ -580,44 +596,36 @@ def get_neon_tech_instructor_onboarding() -> list[OpsItem]:
         six_months_ago = tznow() - datetime.timedelta(days=180)
 
         # Get all techs and instructors from Neon
-        tech_members = list(neon.search_members_with_role("Shop Tech"))
-        instructor_members = list(neon.search_members_with_role("Instructor"))
-
-        all_tech_instructor_members = tech_members + instructor_members
-
-        for member in all_tech_instructor_members:
-            # Check onboarding status
-            if not member.get("onboarding_complete", False):
-                not_onboarded_count += 1
-
-            # Check if due for twice-annual review
-            last_review = member.get("last_review_date")
-            if last_review and last_review < six_months_ago:
+        for m in list(
+            neon.search_members_with_role(
+                Role.SHOP_TECH, fields=[neon.CustomField.LAST_REVIEW]
+            )
+        ):
+            lr = m.last_review
+            if not lr or lr < six_months_ago:
                 review_due_count += 1
+
+        for m in list(neon.search_members_with_role(Role.INSTRUCTOR)):
+            readiness = get_instructor_readiness([m])
+            for v in readiness.values():
+                if v != "OK":
+                    not_onboarded_count += 1
+                    break
 
         return [
             OpsItem(
+                category="Instructors",
                 label="Not fully onboarded",
                 value=str(not_onboarded_count),
             ),
             OpsItem(
+                category="Techs",
                 label="Due for twice-annual review",
                 value=str(review_due_count),
             ),
         ]
-    except Exception as e:
-        return [
-            OpsItem(
-                label="Not fully onboarded",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Due for twice-annual review",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(e, ["Not fully onboarded", "Due for twice-annual review"])
 
 
 @opsitem(
@@ -632,20 +640,13 @@ def get_shift_schedule() -> list[OpsItem]:
     try:
         zero_coverage_count = 0
         low_coverage_count = 0
-
-        two_weeks_from_now = tznow() + datetime.timedelta(weeks=2)
-
-        # Get shop tech forecast data for the next 2 weeks
-        for record in get_all_records("people", "shop_tech_forecast_overrides"):
-            fields = record.get("fields", {})
-
-            shift_date = fields.get("Date")
-            tech_count = fields.get("Tech Count", 0)
-
-            if shift_date and shift_date <= two_weeks_from_now.date():
-                if tech_count == 0:
+        for day in tauto.generate(tznow(), 14)["calendar_view"]:
+            if day["is_holiday"]:
+                continue
+            for shift in ("AM", "PM"):
+                if len(day[shift]["people"]) <= 0:
                     zero_coverage_count += 1
-                elif tech_count == 1:
+                elif len(day[shift]["people"]) <= 1:
                     low_coverage_count += 1
 
         return [
@@ -658,23 +659,22 @@ def get_shift_schedule() -> list[OpsItem]:
                 value=str(low_coverage_count),
             ),
         ]
-    except Exception as e:
-        return [
-            OpsItem(
-                label="Upcoming shifts with zero coverage",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Upcoming shifts with low coverage (1 tech)",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(
+            e,
+            [
+                "Upcoming shifts with zero coverage",
+                "Upcoming shifts with low coverage (1 tech)",
+            ],
+        )
 
 
 @opsitem(
-    category="Documentation", timescale="ongoing", source="Wiki", url=get_config("bookstack/base_url"), target="0"
+    category="Documentation",
+    timescale="ongoing",
+    source="Wiki",
+    url=get_config("bookstack/base_url"),
+    target="0",
 )
 def get_wiki_docs_status() -> list[OpsItem]:
     """Return reports on documentation status from wiki"""
@@ -684,17 +684,16 @@ def get_wiki_docs_status() -> list[OpsItem]:
         missing_tutorials = 0
 
         # Get tool documentation summary
-        tool_docs_report = wiki.get_tool_docs_summary()
-
-        if isinstance(tool_docs_report, dict):
-            lacking_approval_count = tool_docs_report.get("lacking_approval", 0)
-            missing_tutorials = tool_docs_report.get("missing_tutorials", 0)
-
-        # Get class documentation report for clearance docs
-        class_docs_report = wiki.get_class_docs_report()
-
-        if isinstance(class_docs_report, dict):
-            missing_clearance_docs = class_docs_report.get("missing_clearance_docs", 0)
+        for _, report in wiki.get_tool_docs_summary()["by_code"].items():
+            clr = report["clearance"] or []
+            tut = report["tool_tutorial"] or []
+            if len(tut) <= 0:
+                missing_tutorials += 1
+            if len(clr) <= 0:
+                missing_clearance_docs += 1
+            for doc in clr + tut:
+                if not doc.get("approved_revision"):
+                    lacking_approval_count += 1
 
         return [
             OpsItem(
@@ -710,24 +709,15 @@ def get_wiki_docs_status() -> list[OpsItem]:
                 value=str(missing_tutorials),
             ),
         ]
-    except Exception as e:
-        return [
-            OpsItem(
-                label="Tool docs lacking approval",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Missing clearance docs",
-                value="Error",
-                error=e,
-            ),
-            OpsItem(
-                label="Missing tool tutorials",
-                value="Error",
-                error=e,
-            ),
-        ]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_exc(
+            e,
+            [
+                "Tool docs lacking approval",
+                "Missing clearance docs",
+                "Missing tool tutorials",
+            ],
+        )
 
 
 def run() -> Iterator[OpsItem]:
@@ -735,24 +725,25 @@ def run() -> Iterator[OpsItem]:
     not_done = set()
     with futures.ThreadPoolExecutor() as executor:
         for fn in [
-                # get_asana_assets,
-                # get_asana_instructor_apps,
-                # get_asana_purchase_requests,
-                # get_asana_tech_apps,
-                # get_asana_maint_tasks,
-                # get_asana_proposals,
-            ##get_ops_manager_sheet_budget,
-            ##get_ops_manager_sheet_events,
-            ##get_ops_manager_sheet_inventory,
-            ##get_airtable_tool_info,
-            ## get_airtable_instructor_capabilities,
-                get_airtable_violations,
-                # get_neon_tech_instructor_onboarding,
-                # get_shift_schedule,
-                # get_wiki_docs_status,
+            get_asana_assets,
+            get_asana_instructor_apps,
+            get_asana_purchase_requests,
+            get_asana_tech_apps,
+            get_asana_maint_tasks,
+            get_asana_proposals,
+            get_ops_manager_sheet_budget,
+            get_ops_manager_sheet_events,
+            get_ops_manager_sheet_inventory,
+            get_airtable_tool_info,
+            get_airtable_instructor_capabilities,
+            get_airtable_violations,
+            get_neon_tech_instructor_onboarding,
+            get_shift_schedule,
+            get_wiki_docs_status,
         ]:
             not_done.add(executor.submit(fn))
 
+    total = len(not_done)
     while True:
         done, not_done = futures.wait(not_done, return_when=futures.FIRST_COMPLETED)
         log.info(f"{len(done)} more reports completed, {len(not_done)} to go")
@@ -762,6 +753,8 @@ def run() -> Iterator[OpsItem]:
             for r in result:  # Convert any Exception into strings for serialization
                 if r.error:
                     r.error = str(r.error)[:256]
+                r.total = total
+                r.index = total - len(not_done)
                 yield r
 
         if len(not_done) <= 0:
