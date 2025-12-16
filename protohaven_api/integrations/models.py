@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
@@ -284,17 +284,23 @@ class Member:  # pylint:disable=too-many-public-methods
         return {e.strip().lower() for e in ee if e}
 
     @property
-    def email(self):
+    def emails(self) -> List[str]:
+        """Get all the emails for this user in preferential order, omitting empty
+        results."""
+        raw = [
+            self.neon_search_data.get("Email 1"),
+            self.neon_search_data.get("Email 2"),
+            self.neon_search_data.get("Email 3"),
+            self._raw_account().get("primaryContact", {}).get("email1"),
+            self._raw_account().get("primaryContact", {}).get("email2"),
+            self._raw_account().get("primaryContact", {}).get("email3"),
+        ]
+        return [e.strip().lower() for e in raw if e is not None]
+
+    @property
+    def email(self) -> str:
         """Fetches the first valid email address for the member"""
-        v = (
-            self.neon_search_data.get("Email 1")
-            or self.neon_search_data.get("Email 2")
-            or self.neon_search_data.get("Email 3")
-            or self._raw_account().get("primaryContact", {}).get("email1")
-            or self._raw_account().get("primaryContact", {}).get("email2")
-            or self._raw_account().get("primaryContact", {}).get("email3")
-        )
-        return v.strip().lower() if v else None
+        return self.emails[0] if self.emails else None
 
     def _get_custom_field(self, key_field, value_field):
         search_result = self.neon_search_data.get(key_field)
