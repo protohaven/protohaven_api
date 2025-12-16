@@ -62,7 +62,7 @@ def render(template_name: str, **kwargs: Any) -> Tuple[str, str, bool]:
 
 
 @dataclass
-class Msg:
+class Msg:  # pylint: disable=too-many-instance-attributes
     """Msg handles rendering messaging information to a yaml file, for later
     processing with `protohaven_api.cli.send_comms`"""
 
