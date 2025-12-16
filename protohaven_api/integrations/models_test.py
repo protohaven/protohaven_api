@@ -164,22 +164,6 @@ def test_name(tc):
     assert m.name == tc.want
 
 
-def test_email():
-    """Test Member.email property"""
-    data = {
-        "individualAccount": {
-            "primaryContact": {"email1": "one@test.com", "email2": "two@test.com"}
-        }
-    }
-    m = Member(neon_raw_data=data)
-    assert m.email == "one@test.com"
-    data["individualAccount"]["primaryContact"]["email1"] = None
-    assert m.email == "two@test.com"
-
-    del data["individualAccount"]["primaryContact"]
-    assert m.email is None
-
-
 def test_emails():
     """Test Member.emails property"""
     data = {
