@@ -222,7 +222,7 @@ def test_build_recert_env(mocker):
     # Verify the result structure
     assert result.recert_configs == mock_recert_configs
     assert result.pending == {("123", "tool1"): mock_pending}
-    assert result.neon_clearances == {"123": ["tool1"]}
+    assert result.neon_clearances == {"123": {"tool1"}}
     assert result.last_earned == {("123", "tool1"): d(1)}
     assert result.last_passing_quiz == {
         ("123", "tool1"): d(0)
