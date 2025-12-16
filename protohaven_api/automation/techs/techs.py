@@ -6,7 +6,7 @@ import re
 from collections import defaultdict
 from typing import NotRequired, Optional, TypedDict, cast
 
-import holidays
+from holidays.countries.united_states import UnitedStates
 
 from protohaven_api.integrations import airtable, neon
 from protohaven_api.integrations.models import Member
@@ -16,7 +16,31 @@ DEFAULT_FORECAST_LEN = 16
 
 log = logging.getLogger("protohaven_api.automation.techs.techs")
 
-us_holidays = holidays.country_holidays("US")
+
+class ProtohavenHolidays(UnitedStates):
+    """Observed holidays for Protohaven, per our website
+    https://www.protohaven.org/contact/
+    """
+
+    def _populate(self, year):
+        self._year = year
+        # See https://holidays.readthedocs.io/en/latest/examples
+        # We explicitly *don't* prepopulate, as we want to opt in specific days
+        self._add_holiday_dec_31("New Year's Eve")
+        self._add_holiday_jan_1("New Year's Day")
+        self._add_holiday_3rd_mon_of_jan("Martin Luther King Day")
+        self._add_holiday_0_days_prior_easter("Easter Sunday")
+        self._add_holiday_last_mon_of_may("Memorial Day")
+        self._add_holiday_jun_19("Juneteenth")
+        self._add_holiday_jul_4("Independence Day")
+        self._add_holiday_1st_mon_of_sep("Labor Day")
+        self._add_holiday_4th_thu_of_nov("Thanksgiving Day")
+        self._add_holiday_1_day_past_4th_thu_of_nov("Day After Thanksgiving")
+        self._add_holiday_dec_24("Christmas Eve")
+        self._add_holiday_dec_25("Christmas Day")
+
+
+ph_holidays = ProtohavenHolidays()
 
 
 class ShiftOverride(TypedDict):
@@ -124,7 +148,7 @@ def create_calendar_view(  # pylint: disable=too-many-locals, too-many-nested-bl
             )
 
             # On holidays, we assume by default that nobody is on duty.
-            people_in = shift_map.get((wd, ap), []) if d not in us_holidays else []
+            people_in = shift_map.get((wd, ap), []) if d not in ph_holidays else []
 
             shift_people = []
             for p in people_in:  # remove if outside of the tech's tenure
@@ -153,7 +177,7 @@ def create_calendar_view(  # pylint: disable=too-many-locals, too-many-nested-bl
 
         day: Day = {
             "date": dstr,
-            "is_holiday": d in us_holidays,
+            "is_holiday": d in ph_holidays,
             "AM": shifts["AM"],
             "PM": shifts["PM"],
         }
