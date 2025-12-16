@@ -1,11 +1,11 @@
 {# html #}
 {% if subject %}
 {% if rm_clearance|length > 0 %}
-Clearances are due for recertification and are temporarily revoked
+Recertification: {{rm_clearance|length}} clearance{% if rm_clearance|length != 1 %}s{% endif %} temporarily suspended
 {% elif new_pending|length > 0 %}
-ACTION NEEDED: Clearances will soon be due for recertification
+ACTION NEEDED: {{new_pending|length}} clearance{% if new_pending|length != 1 %}s{% endif %} will soon be due for recertification
 {% else %}
-Recertification update
+Recertification received! 
 {% endif %}
 {% else %}
 <p>
@@ -18,10 +18,10 @@ Recertification ensures all members are prepared to use Protohaven equipment wit
 
 {% if rm_clearance|length > 0 %}
 <p>
-<strong>Your clearance for the following tools have been revoked</strong> until you complete the recertification process:
+<strong>Your clearance for the following tool(s) have been suspended</strong> until you complete the recertification process:
 <ul>
 {% for r in rm_clearance %}
-<li>{{r.tool_name}}: Last earned {{r.last_earned.strftime('%Y-%m-%d')}}, due on {{r.due_date.strftime('%Y-%m-%d')}}</li>
+<li>{{r.tool_name}}: {% if r.last_earned %}Last earned {{r.last_earned}}, {% endif %}due on {{r.due_date}}</li>
 {% endfor %}
 <ul>
 </p>
@@ -32,26 +32,26 @@ Recertification ensures all members are prepared to use Protohaven equipment wit
 <strong>The following tools will soon be due for recertification:</strong>
 <ul>
 {% for r in new_pending %}
-<li>{{r.tool_name}}: Last earned {{r.last_earned.strftime('%Y-%m-%d')}}, due on {{r.due_date.strftime('%Y-%m-%d')}}</li>
+<li>{{r.tool_name}}: {% if r.last_earned %}Last earned {{r.last_earned}}, {% endif %}due on {{r.due_date}}</li>
 {% endfor %}
 </ul>
-When the due date has passed, your clearance will be revoked for that tool until you've completed recertification.
+When the due date has passed, your clearance will be suspended for that tool until you've completed recertification.
 </p>
 {% endif %}
 
 {% if rm_pending|length > 0 %}
 <p>
-<strong>We've recorded your recertification on the following tools:</strong>
+<strong>We've recorded your recertification on the following tools, and restored any suspended clearances:</strong>
 <ul>
 {% for r in rm_pending %}
-<p>{{r.tool_name}}: earned on {{r.last_earned.strftime('%Y-%m-%d')}}, next due {{r.next_deadline.strftime('%Y-%m-%d')}}</p>
+<p>{{r.tool_name}}: {% if r.last_earned %}earned on {{r.last_earned}}, {% endif %}next due {{r.next_deadline}}</p>
 {% endfor %}
 </ul>
 </p>
 {% endif %}
 
 <p>
-<strong>To maintain or regain clearances, please <a href="https://api.protohaven.org/member" target="_blank">click here</a></strong> and follow the instructions for each tool before the listed due date.
+<strong>To maintain or regain clearances, please <a href="https://api.protohaven.org/member" target="_blank">click here</a></strong> and follow the instructions.
 </p>
 
 <p>

@@ -80,3 +80,75 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
 
 if __name__ == "__main__":
     ProtohavenCLI()
+
+
+    #import re
+    #from dateutil import parser as dateparser
+    import json
+    from protohaven_api.integrations import airtable, neon_base, neon, eventbrite
+    #from protohaven_api.automation.classes import events as eauto
+    from protohaven_api.integrations import models
+    from protohaven_api.automation.classes import events as eauto
+    from dateutil import parser as dateparser
+    from protohaven_api.config import tznow
+    import datetime
+
+
+    #for e in eventbrite.fetch_events(status="live,started,ended,completed", batching=True):
+    #     print(e)
+    # now = tznow()
+    # for evt in eauto.fetch_upcoming_events(merge_airtable=True):
+    #     if not evt.start_date or evt.in_blocklist() or evt.end_date < now:
+    #         continue
+    #     print(evt.neon_id, evt.name)
+
+    #evt_id = 18556
+    #for_class = {evt_id: {k.lower(): v for k, v in airtable.get_notifications_after(re.compile(f".*{evt_id}.*"), dateparser.parse("2025-11-19")).items()}}
+    #print("Class", for_class.get(evt_id))
+
+    #email = neon_base.fetch_account(2986, required=True).email
+    # print("From_email", email, for_class.get(evt_id, {}).get(email))
+
+    #log.info(f"Looking at members...")
+    #with open("/tmp/anonymized_member_start_dates.csv", 'w') as f:
+    #    for mem in neon.search_all_members(fields=["First Membership Enrollment Date"]):
+    #        first = None
+    #        log.info(f"{mem.neon_id}")
+    #        first = mem.neon_search_data.get("First Membership Enrollment Date")
+    #        f.write(f"{hashlib.sha256(mem.neon_id.encode('utf8')).hexdigest()}\t{first}\n")
+
+    #from protohaven_api.config import tznow
+    #import datetime
+    #from protohaven_api.integrations import booked
+    # print(booked.get_reservations(tznow()-datetime.timedelta(days=14), tznow())["reservations"][0])
+    #print(booked.get_user(36))
+
+    #from protohaven_api.integrations import airtable
+    # print(neon_base.get("api_key1", "accounts/1245"))
+    #print(dict(airtable.fetch_instructor_teachable_classes()))
+
+    #from dateutil import parser as dateparser
+    #from protohaven_api.integrations import neon_base
+    #from protohaven_api.integrations.data.neon import Category
+
+    # print(neon_base.get("api_key1", f"/events/18477"))
+
+    # print(neon_base.create_event(
+    #         "Test event",
+    #         "Please ignore",
+    #         dateparser.parse("2025-11-01T18:00:00-05:00"),
+    #         dateparser.parse("2025-11-01T21:00:00-05:00"),
+    #         category=Category.PROJECT_BASED_WORKSHOP,
+    #         max_attendees=4,
+    #         dry_run=False,
+    #         published=False,
+    #         registration=False,
+    #     ))
+
+    # from protohaven_api.config import tznow
+    # from protohaven_api.integrations import booked
+    # now = tznow()
+    # for res in booked.get_reservations(now.replace(hour=0, minute=0, second=0), now.replace(hour=23, minute=59, second=59))['reservations']:
+    #     if res["firstName"] != "Karen":
+    #         continue
+    #     print(res)

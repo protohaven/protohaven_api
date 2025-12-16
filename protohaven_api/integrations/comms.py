@@ -71,12 +71,13 @@ class Msg:
     body: str
     id: str = ""
     intents: list = field(default_factory=list)
+    recerts: list = field(default_factory=list)
     side_effect: dict = field(default_factory=dict)
     html: bool = False
 
     # These field saren't necessary for template rendering, but will be
     # assigned
-    EXTRA_FIELDS = ("target", "id", "side_effect", "intents")
+    EXTRA_FIELDS = ("target", "id", "side_effect", "intents", "recerts")
 
     @classmethod
     def tmpl(cls, tmpl, **kwargs):
@@ -99,6 +100,7 @@ class Msg:
                     "id": self.id,
                     "side_effect": self.side_effect,
                     "intents": self.intents,
+                    "recerts": self.recerts,
                     "html": self.html,
                 }.items()
                 if v

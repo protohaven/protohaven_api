@@ -39,6 +39,8 @@ def get_instructor_submissions_raw(from_row=1300):
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
     for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
         data = dict(zip(headers, row))
+        if not data.get("Timestamp"):
+            continue
         data["Timestamp"] = safe_parse_datetime(data["Timestamp"])
         yield data
 
