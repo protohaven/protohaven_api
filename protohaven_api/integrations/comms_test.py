@@ -436,7 +436,7 @@ HASHES = {
     "instructor_low_attendance": "e7b4548a7a3f7fc2",  # pragma: allowlist secret
     "instructor_schedule_classes": "39aea10c71fc8895",  # pragma: allowlist secret
     "instructors_new_classes": "43f58a36632acefb",  # pragma: allowlist secret
-    "member_recert_update": "efff356e5d4e80ab",  # pragma: allowlist secret
+    "member_recert_update": "ca7964a8b68ee4be",  # pragma: allowlist secret
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
     "membership_init_summary": "c4503d766704f3ec",  # pragma: allowlist secret
     "membership_validation_problems": "07e7e586afd0dd5e",  # pragma: allowlist secret

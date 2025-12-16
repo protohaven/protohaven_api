@@ -1,6 +1,5 @@
 """Helpers for updating clearance codes attached to users in Neon"""
 
-from dateutil import parser as dateparser
 import datetime
 import logging
 import sys
@@ -9,7 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import lru_cache
 
-from protohaven_api.config import tznow, tz
+from dateutil import parser as dateparser
+
+from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon, neon_base, sheets
 
 log = logging.getLogger("handlers.admin")
@@ -84,18 +85,19 @@ def resolve_codes(initial: list):
     return delta
 
 
-Email = str
-ToolCode = str
-NeonID = int
-Hours = float
-TimeInterval = tuple[datetime.datetime, datetime.datetime]
+type Email = str
+type ToolCode = str
+type NeonID = str
+type Hours = float
+type TimeInterval = tuple[datetime.datetime, datetime.datetime]
 
 RECERT_EPOCH = dateparser.parse("2024-01-01").astimezone(tz)
 
+
 def compute_recert_deadlines(
     cfg: airtable.RecertConfig,
-    last_earned: datetime.datetime|None,
-    last_passing_quiz: datetime.datetime|None,
+    last_earned: datetime.datetime | None,
+    last_passing_quiz: datetime.datetime | None,
     related_reservation_hours: dict[datetime.datetime, Hours],
 ) -> tuple[datetime.datetime | None, datetime.datetime | None]:
     """Return deadline for when the clearance with this data is due for recertification.
@@ -106,6 +108,10 @@ def compute_recert_deadlines(
     If last_earned is missing, we assume a default "epoch" date.
 
     If no reservations, then the reservation deadline matches the instructor deadline
+
+    PRECONDITION: The member we are computing deadlines for has already earned the
+    clearance. We assume missing "last_earned" info to mean the information is missing,
+    and assume that they were cleared at some point in the past.
     """
 
     # If clearance doesn't expire, no deadline
@@ -117,7 +123,7 @@ def compute_recert_deadlines(
     inst_deadline = max(last_earned, last_passing_quiz) + cfg.expiration
 
     acc_hours = 0.0
-    res_deadline = inst_deadline # default to instructor deadline
+    res_deadline = inst_deadline  # default to instructor deadline
     for ts, hours in sorted(
         list(related_reservation_hours.items()), key=lambda v: v[0], reverse=True
     ):
@@ -128,7 +134,7 @@ def compute_recert_deadlines(
         res_deadline = ts + cfg.bypass_cutoff
         break
 
-    # Otherwise it's just the expiration date. Truncate non-date info for 
+    # Otherwise it's just the expiration date. Truncate non-date info for
     # easier comparison to what's in Airtable
     inst_deadline = inst_deadline.replace(hour=0, minute=0, second=0, microsecond=0)
     res_deadline = res_deadline.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -170,6 +176,7 @@ class RecertEnv:
     """All of the data needed to evaluate recertification for all members"""
 
     recert_configs: dict[ToolCode, airtable.RecertConfig]
+    pending: dict[tuple[NeonID, ToolCode], airtable.PendingRecert]
     neon_clearances: dict[NeonID, set[ToolCode]]
     last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime]
     last_passing_quiz: dict[tuple[NeonID, ToolCode], datetime.datetime]
@@ -192,14 +199,25 @@ def build_recert_env(  # pylint: disable=too-many-locals
 
         log.info("Async fetching all members' clearances from neon")
         # Note: this only asyncs the first fetch; would be better to
-        # resubmit to the executor like in events.py, but 
+        # resubmit to the executor like in events.py, but
         # honestly it's probably going to be the longest part of the fetches anyways
         neon_clearances_future = executor.submit(
-            neon.search_all_members, fields=[neon.CustomField.CLEARANCES, "First Name", "Email 1", "Email 2", "Email 3"], fetch_memberships=False, also_fetch=False,
+            neon.search_all_members,
+            fields=[
+                neon.CustomField.CLEARANCES,
+                "First Name",
+                "Email 1",
+                "Email 2",
+                "Email 3",
+            ],
+            fetch_memberships=False,
+            also_fetch=False,
         )
 
+        log.info("Async fetching pending recerts table from Airtable")
+        pending_future = executor.submit(airtable.get_pending_recertifications)
 
-        log.info(f"Async fetching all quiz results")
+        log.info("Async fetching all quiz results")
         quiz_results_future = executor.submit(
             airtable.get_latest_passing_quizzes_by_email_and_tool
         )
@@ -209,7 +227,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
             sheets.get_passing_student_clearances, from_row=from_row
         )
 
-        neon_clearances = {}
+        neon_clearances: dict[str, set[str]] = {}
         email_to_neon_id = {}
         contact_info = {}
 
@@ -217,7 +235,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
         for mem in neon_clearances_future.result():
             sys.stderr.write(".")
             sys.stderr.flush()
-            clr = [c.split(':')[0].strip() for c in mem.clearances]
+            clr = {c.split(":")[0].strip() for c in mem.clearances}
             if clr:
                 neon_clearances[mem.neon_id] = clr
             for e in mem.all_emails():
@@ -261,8 +279,18 @@ def build_recert_env(  # pylint: disable=too-many-locals
         recert_configs = recert_configs_future.result()
         reservations = reservations_future.result()
 
+        pending = {}
+        for p in pending_future.result():
+            pending[(p.neon_id, p.tool_code)] = p
+
     return RecertEnv(
-        recert_configs, neon_clearances, last_earned, last_passing_quiz, reservations, contact_info
+        recert_configs,
+        pending,
+        neon_clearances,
+        last_earned,
+        last_passing_quiz,
+        reservations,
+        contact_info,
     )
 
 
@@ -279,8 +307,22 @@ def segment_by_recertification_needed(  # pylint: disable=too-many-locals
     log.info("Searching for member clearances that are due for recertification")
     needed: RecertsDict = {}
     not_needed: RecertsDict = {}
-    for neon_id, cc in env.neon_clearances.items():
-        for tool_code in cc:
+
+    # Note: ground truth are the clearances the user has in Neon.
+    # However, there's a point where a clearance has been suspended due to
+    # expiration of certification, but we still need to track it.
+    neon_ids = set(env.neon_clearances.keys()).union(
+        set(n for n, _ in env.pending.keys())
+    )
+
+    for neon_id in neon_ids:
+        # Given the combo of sets above, we are *only* iterating over members who received
+        # these clearances in the past. Taking a quiz without getting instruction should not
+        # count as being cleared.
+        cc = set(env.neon_clearances.get(neon_id) or [])
+        pending_cc = {c for n, c in env.pending.keys() if str(n) == str(neon_id)}
+
+        for tool_code in cc.union(pending_cc):
             cfg = env.recert_configs.get(tool_code)
             if not cfg:
                 continue

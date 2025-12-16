@@ -15,9 +15,7 @@ from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.clearances")
 
-type PendingRecerts = dict[
-    tuple[NeonID, ToolCode], airtable.PendingRecert
-]
+type PendingRecerts = dict[tuple[NeonID, ToolCode], airtable.PendingRecert]
 
 
 class Commands:  # pylint: disable=too-few-public-methods
@@ -136,7 +134,14 @@ class Commands:  # pylint: disable=too-few-public-methods
 
     def _stage_new_pending_recerts(
         self, needed: RecertsDict, pending: PendingRecerts
-    ) -> dict[NeonID, list[tuple[ToolCode, datetime.datetime, datetime.datetime, datetime.datetime|None]]]:
+    ) -> dict[
+        NeonID,
+        list[
+            tuple[
+                ToolCode, datetime.datetime, datetime.datetime, str | None, bool | None
+            ]
+        ],
+    ]:
         """Add new pending recertifications to Airtable.
 
         The `inst_deadline` (deadline based on instruction/quizzes) of the
@@ -152,17 +157,15 @@ class Commands:  # pylint: disable=too-few-public-methods
             inst_deadline, res_deadline = v
             # We re-add existing pending records if they were never notified
             # But we take a note of the record ID so we don't duplicate them
-            # TODO make this less crap
             cur = pending.get((neon_id, tool_code))
-            rec = cur.rec_id if cur and not cur.notified else None 
             if not cur or not cur.notified:
                 new_additions_by_member[neon_id].append(
                     (
                         tool_code,
                         inst_deadline,
                         res_deadline,
-                        rec,
-                        cur.suspended if cur else None 
+                        cur.rec_id if cur and not cur.notified else None,
+                        cur.suspended if cur else None,
                     )
                 )
         return dict(new_additions_by_member)
@@ -171,16 +174,30 @@ class Commands:  # pylint: disable=too-few-public-methods
         self, not_needed: RecertsDict, pending: PendingRecerts
     ) -> dict[NeonID, list[tuple[RecordID, ToolCode, datetime.datetime]]]:
         removals_by_member = defaultdict(list)
+        now = tznow()
         for k, v in not_needed.items():
             neon_id, tool_code = k
             inst_deadline, res_deadline = v
             if (neon_id, tool_code) not in pending:
                 continue
-            new_deadline = max(inst_deadline, res_deadline)
-            assert new_deadline > tznow()
-            rec = pending.get((neon_id, tool_code)).rec_id
-            if rec:
-                removals_by_member[neon_id].append((rec, tool_code, new_deadline))
+
+            cur = pending.get((neon_id, tool_code))
+            if not cur or not cur.rec_id:
+                continue
+
+            # There are two cases where we want to remove pending recerts.
+            # Case 1: member reserved tools a bunch while they weren't yet suspended.
+            # In this case they've "recovered" their clearance.
+            # Case 2: member's clearance is suspended, but they took instruction. This
+            # is the normal recert process.
+            #
+            # Making a bunch of tool reservations shouldn't allow the user to get
+            # back into recert state if their clearance has been suspended.
+            if (res_deadline > now and not cur.suspended) or (inst_deadline > now):
+                new_deadline = max(inst_deadline, res_deadline)
+                removals_by_member[neon_id].append(
+                    (cur.rec_id, tool_code, new_deadline)
+                )
         return removals_by_member
 
     def _stage_suspend_due_clearances(
@@ -188,24 +205,18 @@ class Commands:  # pylint: disable=too-few-public-methods
         now,
         pending: PendingRecerts,
         needed: RecertsDict,
-    ) -> dict[NeonID, list[tuple[ToolCode, datetime.datetime]]]:
+    ) -> dict[NeonID, list[tuple[RecordID, ToolCode, datetime.datetime]]]:
         by_user = defaultdict(list)
         for k, v in needed.items():
             neon_id, tool_code = k
             inst_deadline, res_deadline = v
             deadline = max(inst_deadline, res_deadline)
             p = pending.get((neon_id, tool_code))
-            # We want to suspend clearances that have been announced, are due, 
+            # We want to suspend clearances that have been announced, are due,
             # and are not already suspended
             if p and p.notified and now >= deadline and not p.suspended:
                 by_user[neon_id].append((p.rec_id, tool_code, deadline))
-        return by_user
-
-    def _get_pending(self) -> PendingRecerts:
-        result = {}
-        for p in airtable.get_pending_recertifications():
-            result[(p.neon_id, p.tool_code)] = p
-        return result
+        return dict(by_user)
 
     @classmethod
     def tidy_recertification_table(cls, pending: PendingRecerts, needed: RecertsDict):
@@ -216,11 +227,16 @@ class Commands:  # pylint: disable=too-few-public-methods
                 continue
             next_inst_deadline, next_res_deadline = cur
             log.info(f"{next_inst_deadline} vs {p.inst_deadline}")
-            if next_inst_deadline != p.inst_deadline or next_res_deadline != p.res_deadline:
+            if (
+                next_inst_deadline != p.inst_deadline
+                or next_res_deadline != p.res_deadline
+            ):
                 log.info(
                     str(
                         airtable.update_pending_recertification(
-                            p.rec_id, inst_deadline=next_inst_deadline, res_deadline=next_res_deadline
+                            p.rec_id,
+                            inst_deadline=next_inst_deadline,
+                            res_deadline=next_res_deadline,
                         )
                     )
                 )
@@ -316,14 +332,17 @@ class Commands:  # pylint: disable=too-few-public-methods
         log.info(
             f"Fetching all pending recertification state, beginning at {from_date}"
         )
-        pending = self._get_pending()
-        log.info(f"Pending: {pending}")
 
         log.info("Fetching environment")
         env = clearances.build_recert_env(from_date, args.from_row)
+        log.info(f"Pending: {env.pending}")
         if tool_code_filter:
-            env.recert_configs = {k:v for k,v in env.recert_configs.items() if k in tool_code_filter}
-        log.info(f"Tools with recert configs (filtered): {', '.join(env.recert_configs.keys())}")
+            env.recert_configs = {
+                k: v for k, v in env.recert_configs.items() if k in tool_code_filter
+            }
+        log.info(
+            f"Tools with recert configs (filtered): {', '.join(env.recert_configs.keys())}"
+        )
         needed, not_needed = clearances.segment_by_recertification_needed(
             env, max_pending_date
         )
@@ -331,13 +350,11 @@ class Commands:  # pylint: disable=too-few-public-methods
         log.info(f"Not needed: {not_needed}")
 
         log.info("Staging needed operations")
-        new_pendings = self._stage_new_pending_recerts(needed, pending)
+        new_pendings = self._stage_new_pending_recerts(needed, env.pending)
         log.info(f"new pendings for Neon IDs: {list(new_pendings.keys())}")
-        rm_pendings = self._stage_remove_pending_not_needed(not_needed, pending)
+        rm_pendings = self._stage_remove_pending_not_needed(not_needed, env.pending)
         log.info(f"rm pendings for Neon IDs: {list(rm_pendings.keys())}")
-        rm_clearances = self._stage_suspend_due_clearances(
-            now, pending, needed
-        )
+        rm_clearances = self._stage_suspend_due_clearances(now, env.pending, needed)
         log.info(f"rm_clearances for Neon IDs: {list(rm_clearances.keys())}")
 
         affected_neon_ids = set(
@@ -373,23 +390,25 @@ class Commands:  # pylint: disable=too-few-public-methods
             records_for_comms = []
             mutations = []
             if args.apply:
-                for tool_code, inst_deadline, res_deadline, rec, suspended in new_pending:
+                for tool_code, inst_deadline, res_deadline, rec, _ in new_pending:
                     log.info(
                         f"#{neon_id}: pending tool_code={tool_code}, "
                         f"deadline={inst_deadline}"
                     )
                     if not rec:
                         _, content = airtable.insert_pending_recertification(
-                                    neon_id, tool_code, inst_deadline, res_deadline
-                                )
-                        records_for_comms += [r["id"] for r in content['records']]
+                            neon_id, tool_code, inst_deadline, res_deadline
+                        )
+                        records_for_comms += [r["id"] for r in content["records"]]
                     else:
                         records_for_comms.append(rec)
-                
+
                 if len(rm_pending) > 0:
                     delta = [tc for _, tc, _ in rm_pending]
                     log.info(f"Patching clearances for {neon_id}: {delta}")
-                    mutations = clearances.update_by_neon_id(neon_id, "PATCH", delta, apply=args.apply)
+                    mutations = clearances.update_by_neon_id(
+                        neon_id, "PATCH", delta, apply=args.apply
+                    )
                     log.info(f"Mutations done: {mutations}")
 
                 for rec, _, _ in rm_pending:
@@ -407,16 +426,24 @@ class Commands:  # pylint: disable=too-few-public-methods
                         )
                     )
                 for rec, _, _ in rm_clearance:
-                    log.info(str(airtable.update_pending_recertification(rec, suspended=True)))
+                    log.info(
+                        str(
+                            airtable.update_pending_recertification(rec, suspended=True)
+                        )
+                    )
 
             summary = []
-            if len(new_pending):
+            if len(new_pending) > 0:
                 summary.append(f"add pending {', '.join([p[0] for p in new_pending])}")
-            if len(rm_pending):
-                summary.append(f"remove pending {', '.join([tc for _, tc, _ in rm_pending])}")
-            if len(rm_clearance):
-                summary.append(f"suspend clearances {', '.join([tc for _, tc, _ in rm_clearance])}")
-            if len(mutations):
+            if len(rm_pending) > 0:
+                summary.append(
+                    f"remove pending {', '.join([tc for _, tc, _ in rm_pending])}"
+                )
+            if len(rm_clearance) > 0:
+                summary.append(
+                    f"suspend clearances {', '.join([tc for _, tc, _ in rm_clearance])}"
+                )
+            if len(mutations) > 0:
                 summary.append(f"patch in clearances {', '.join(mutations)}")
             changes.append(f"#{neon_id}: {', '.join(summary)}")
             log.info(changes[-1])
@@ -431,7 +458,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 continue
 
             def _fmt_date(d):
-                return d.strftime('%Y-%m-%d') if d else None
+                return d.strftime("%Y-%m-%d") if d else None
 
             msg = Msg.tmpl(
                 "member_recert_update",
@@ -478,7 +505,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             comms.append(msg)
 
         log.info("Tidying up Recertifications table")
-        self.tidy_recertification_table(pending, needed)
+        self.tidy_recertification_table(env.pending, needed)
 
         if len(changes) > 0:
             comms.append(

@@ -2,7 +2,10 @@
 
 import datetime
 
+from dateutil import parser as dateparser
+
 from protohaven_api.automation.membership import clearances as c
+from protohaven_api.config import tz
 from protohaven_api.testing import d
 
 
@@ -49,28 +52,50 @@ def test_compute_recert_deadline(mocker):
     cfg.bypass_cutoff = datetime.timedelta(days=90)
     cfg.bypass_hours = 10
 
-    last_earned = d(0)  # Base date
+    last_earned = dateparser.parse("2025-12-01").astimezone(tz)
+    last_quiz = None
 
-    # Test 1: Clearance doesn't expire
+    # Test: Clearance doesn't expire
     cfg.expiration = None
-    assert c.compute_recert_deadlines(cfg, last_earned, {}) == (None, None)
+    assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (None, None)
 
-    # Test 2: No reservations, just instruction deadline
+    # Test: No reservations, just instruction deadline
     cfg.expiration = datetime.timedelta(days=365)
-    assert c.compute_recert_deadlines(cfg, last_earned, {}) == (d(365), None)
-
-    # Test 3: Reservations exceeding bypass_hours
-    recent_reservations = {d(320): 10, d(350): 6, d(380): 5}
-    assert c.compute_recert_deadlines(cfg, last_earned, recent_reservations) == (
-        d(365),
-        d(350 + 90),
+    assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (
+        last_earned + cfg.expiration,
+        last_earned + cfg.expiration,
     )
 
-    # Test 4: not enough reservation
+    # Test: no earned info, but we took a quiz -> same deadline
+    # Member has to have a clearance to initiate recertification, but
+    last_quiz = last_earned
+    last_earned = None
+    assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (
+        last_quiz + cfg.expiration,
+        last_quiz + cfg.expiration,
+    )
+
+    # Test: Reservations exceeding bypass_hours
+    # Computes farthest back needed to satisfy bypass_hours, then adds bypass_cutoff
+    recent_reservations = {
+        dateparser.parse("2025-11-10").astimezone(tz): 10,
+        dateparser.parse("2026-11-20").astimezone(tz): 6,
+        dateparser.parse("2026-11-25").astimezone(tz): 5,
+    }
+    assert c.compute_recert_deadlines(
+        cfg, last_earned, last_quiz, recent_reservations
+    ) == (
+        last_quiz + cfg.expiration,
+        dateparser.parse("2026-11-20").astimezone() + cfg.bypass_cutoff,
+    )
+
+    # Test: not enough reservation
     recent_reservations = {d(380): 5}
-    assert c.compute_recert_deadlines(cfg, last_earned, recent_reservations) == (
-        d(365),
-        None,
+    assert c.compute_recert_deadlines(
+        cfg, last_earned, last_quiz, recent_reservations
+    ) == (
+        last_quiz + cfg.expiration,
+        last_quiz + cfg.expiration,
     )
 
 
@@ -94,6 +119,8 @@ def test_segment_by_recertification_needed():
             456: {"LS1"},
             789: {"LS1"},
         },
+        pending={},
+        last_passing_quiz={},
         last_earned={
             (123, "LS1"): d(-(6 * 30) + 5),  # Not quite time to recertify
             (456, "LS1"): d(-(6 * 30)),  # Just due to recertify
@@ -108,9 +135,37 @@ def test_segment_by_recertification_needed():
     needed, not_needed = c.segment_by_recertification_needed(env, now=d(0))
 
     # Verify results
-    assert needed == {(456, "LS1"): (d(0), None)}
-    assert not_needed == {(123, "LS1"): (d(5), None), (789, "LS1"): (d(0), d(20))}
+    assert needed == {(456, "LS1"): (d(0), d(0))}
+    assert not_needed == {(123, "LS1"): (d(5), d(5)), (789, "LS1"): (d(0), d(20))}
     assert not set(needed.keys()).intersection(set(not_needed.keys()))
+
+
+def test_segment_by_recert_needed_no_clearances_but_pending(mocker):
+    """Test that pending recert info is persisted even if member has no clearances"""
+    exp = datetime.timedelta(days=6 * 30)
+    env = c.RecertEnv(
+        recert_configs={
+            "LS1": c.airtable.RecertConfig(
+                tool="LS1",
+                tool_name="Laser 1",
+                quiz_url=None,
+                bypass_tools=["LS1", "LS2"],
+                bypass_hours=2,
+                bypass_cutoff=datetime.timedelta(days=30),
+                expiration=exp,
+                humanized="N/A",
+            )
+        },
+        neon_clearances={},
+        pending={(123, "LS1"): mocker.MagicMock()},
+        last_earned={},
+        last_passing_quiz={},
+        reservations={},
+        contact_info=None,
+    )
+    needed, not_needed = c.segment_by_recertification_needed(env, now=d(0))
+    assert needed == {(123, "LS1"): (c.RECERT_EPOCH + exp, c.RECERT_EPOCH + exp)}
+    assert not not_needed
 
 
 def test_build_recert_env(mocker):
@@ -119,14 +174,32 @@ def test_build_recert_env(mocker):
     mock_recert_configs = {"tool1": {"recert_interval": 365}}
     mock_neon_members = [
         mocker.MagicMock(
-            neon_id="123", clearances=["tool1"], all_emails=lambda: ["test@example.com"]
+            neon_id="123",
+            fname="Test",
+            clearances=["tool1"],
+            email="test@example.com",
+            all_emails=lambda: ["test@example.com"],
         )
     ]
+    mock_quizzes = {
+        ("test@example.com", "tool1"): d(0),
+    }
+
     mock_instructor_clearances = [
         ("test@example.com", ["clearance1"], [], d(1)),  # maps to tool1
         ("test@example.com", [], ["tool1"], d(0)),
     ]
     mock_reservations = {"123": {"tool1": [d(0)]}}
+    mock_pending = mocker.MagicMock(neon_id="123", tool_code="tool1")
+
+    mocker.patch.object(
+        c.airtable,
+        "get_latest_passing_quizzes_by_email_and_tool",
+        return_value=mock_quizzes,
+    )
+    mocker.patch.object(
+        c.airtable, "get_pending_recertifications", return_value=[mock_pending]
+    )
     mocker.patch.object(
         c.airtable, "get_tool_recert_configs_by_code", return_value=mock_recert_configs
     )
@@ -148,6 +221,11 @@ def test_build_recert_env(mocker):
 
     # Verify the result structure
     assert result.recert_configs == mock_recert_configs
+    assert result.pending == {("123", "tool1"): mock_pending}
     assert result.neon_clearances == {"123": ["tool1"]}
     assert result.last_earned == {("123", "tool1"): d(1)}
+    assert result.last_passing_quiz == {
+        ("123", "tool1"): d(0)
+    }  # Note neon ID, not email
     assert result.reservations == mock_reservations
+    assert result.contact_info == {"123": ("Test", "test@example.com")}
