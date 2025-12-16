@@ -10,7 +10,7 @@ flask-sock==0.7.0
 google-api-core==2.14.0
 google-api-python-client==2.109.0
 gunicorn==21.2.0
-holidays==0.45
+holidays==0.87
 Jinja2==3.1.2
 Markdown==3.6
 numpy==2.1.1
