@@ -238,7 +238,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
             clr = {c.split(":")[0].strip() for c in mem.clearances}
             if clr:
                 neon_clearances[mem.neon_id] = clr
-            for e in mem.all_emails():
+            for e in mem.emails:
                 if e:
                     email_to_neon_id[e] = mem.neon_id
             contact_info[mem.neon_id] = (mem.fname, mem.email)

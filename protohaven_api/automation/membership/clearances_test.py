@@ -178,7 +178,7 @@ def test_build_recert_env(mocker):
             fname="Test",
             clearances=["tool1"],
             email="test@example.com",
-            all_emails=lambda: ["test@example.com"],
+            emails=["test@example.com"],
         )
     ]
     mock_quizzes = {

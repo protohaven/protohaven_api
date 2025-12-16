@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Generator, Optional
 from urllib.parse import urljoin
 
 from dateutil import parser as dateparser
@@ -50,7 +50,7 @@ class Role:
     AUTOMATION = {"name": "Automation", "id": None}
 
     @classmethod
-    def as_dict(cls) -> Dict[str, Dict[str, Optional[str]]]:
+    def as_dict(cls) -> dict[str, dict[str, Optional[str]]]:
         """Return dictionary mapping name to the value of each field"""
         results = {}
         for f in dir(cls()):
@@ -167,12 +167,12 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def last_membership_expiration_date(
         self,
-    ) -> Tuple[datetime.datetime | None, bool | None]:
+    ) -> tuple[datetime.datetime | None, bool | None]:
         """Returns a tuple of (expiration_date, autorenewal) based on
         membership data. Unspecified end date will be treated as "infinite".
         A value of (None, None) will be returned if the account has no memberships
         """
-        result: Tuple[datetime.datetime | None, bool | None] = (None, None)
+        result: tuple[datetime.datetime | None, bool | None] = (None, None)
         for m in self.memberships():
             if not result[0] or (m.end_date and result[0] < m.end_date):
                 result = (m.end_date, m.autoRenewal or False)
@@ -271,20 +271,8 @@ class Member:  # pylint:disable=too-many-public-methods
             or self._get_custom_field("Pronouns", "value"),
         )
 
-    def all_emails(self) -> set[str]:
-        """Returns a set of all emails associated with the member"""
-        ee = {
-            self.neon_search_data.get("Email 1"),
-            self.neon_search_data.get("Email 2"),
-            self.neon_search_data.get("Email 3"),
-            self._raw_account().get("primaryContact", {}).get("email1"),
-            self._raw_account().get("primaryContact", {}).get("email2"),
-            self._raw_account().get("primaryContact", {}).get("email3"),
-        }
-        return {e.strip().lower() for e in ee if e}
-
     @property
-    def emails(self) -> List[str]:
+    def emails(self) -> list[str]:
         """Get all the emails for this user in preferential order, omitting empty
         results."""
         raw = [
@@ -371,7 +359,7 @@ class Member:  # pylint:disable=too-many-public-methods
         return self._get_custom_field("Announcements Acknowledged", "value") or ""
 
     @property
-    def waiver_accepted(self) -> Tuple[str | None, datetime.datetime | None]:
+    def waiver_accepted(self) -> tuple[str | None, datetime.datetime | None]:
         """Return version and date of waiver acceptance via custom neon field"""
         v = self._get_custom_field("Waiver Accepted", "value") or ""
         match = re.match(WAIVER_REGEX, v)
