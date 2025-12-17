@@ -81,11 +81,10 @@ def get_asana_assets() -> list[OpsItem]:
         unlisted_count = 0
         unsold_count = 0
         for a in tasks.get_asset_disposal(exclude_complete=True):
-            if a["section"] == "unlisted":
+            if "unlisted" in a["sections"]:
                 unlisted_count += 1
-            elif a["section"] == "listed":
+            if "listed" in a["sections"]:
                 unsold_count += 1
-
         return [
             OpsItem(label="Unlisted assets", value=str(unlisted_count)),
             OpsItem(label="Unsold listings", value=str(unsold_count)),
@@ -166,7 +165,7 @@ def get_asana_maint_tasks() -> list[OpsItem]:
     category="Projects",
     timescale="ongoing",
     source="Asana",
-    url=f"https://app.asana.com/0/{get_config('asana/project_tracker')}/board",
+    url=f"https://app.asana.com/0/{get_config('asana/project_tracker/gid')}/board",
     target="0",
 )
 def get_asana_proposals() -> list[OpsItem]:
@@ -244,7 +243,7 @@ def get_asana_purchase_requests() -> list[OpsItem]:
 
         for pr in tasks.get_purchase_requests(exclude_complete=True):
             log.info(str(pr))
-            if pr["section"] == "on_hold":
+            if "on_hold" in pr["sections"]:
                 on_hold_count += 1
             if pr["modified_at"] < two_weeks_ago:
                 stale_count += 1
@@ -272,7 +271,7 @@ def get_asana_purchase_requests() -> list[OpsItem]:
 @opsitem(
     category="Inventory",
     source="Sheet",
-    url="https://docs.google.com/spreadsheets/d/ops-manager",
+    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/shop_manager_logbook')}",
     timescale="ongoing",
     target="0",
 )
@@ -281,7 +280,7 @@ def get_ops_manager_sheet_inventory() -> list[OpsItem]:
     try:
         items = list(sheets.get_ops_inventory())
         low_stock = sum(
-            1 for item in items if item["Recorded Qty"] - item["Target Qty"] < 0
+            1 for item in items if 0 < item["Recorded Qty"] < item["Target Qty"]
         )
         no_stock = sum(1 for item in items if item["Recorded Qty"] <= 0)
         return [
@@ -302,7 +301,7 @@ def get_ops_manager_sheet_inventory() -> list[OpsItem]:
 
 @opsitem(
     source="Sheet",
-    url="https://docs.google.com/spreadsheets/d/ops-manager",
+    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/shop_manager_logbook')}",
     timescale="ongoing",
     target="0",
 )
@@ -358,7 +357,7 @@ def get_ops_manager_sheet_events() -> list[OpsItem]:
 @opsitem(
     category="Financial",
     source="Sheet",
-    url="https://docs.google.com/spreadsheets/d/ops-manager",
+    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/shop_manager_logbook')}",
     timescale="ongoing",
     target="0",
 )
@@ -452,7 +451,6 @@ def get_airtable_tool_info() -> list[OpsItem]:
         # Get all tools and their status
         for record in get_all_records("tools_and_equipment", "tools"):
             fields = record.get("fields", {})
-            log.info(f"fields {fields.get('Status last modified')}")
             tag_status = (fields.get("Current Status") or "").split(" ")[0]
             tag_date = fields.get("Status last modified")
             if not tag_status or not tag_date:
@@ -480,11 +478,6 @@ def get_airtable_tool_info() -> list[OpsItem]:
             OpsItem(
                 label="Blue tagged",
                 value=str(blue_tagged_count),
-            ),
-            OpsItem(
-                label="Physical/digital tag mismatches corrected",
-                value="TODO",
-                timescale="last 14 days",
             ),
         ]
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -517,6 +510,7 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
             r["fields"]["Code"]
             for r in get_all_records("class_automation", "clearance_codes")
         }
+        log.info(f"All codes: {all_codes}")
         teachable_codes = set()
         for record in get_all_records("class_automation", "capabilities"):
             fields = record.get("fields", {})
@@ -556,29 +550,19 @@ def get_airtable_instructor_capabilities() -> list[OpsItem]:
 def get_airtable_class_proposals() -> list[OpsItem]:
     """Get airtable info regarding class proposals"""
     try:
-        stale_count = 0
-
-        # Get class proposals that haven't been updated in 2+ weeks
-        for record in get_all_records("class_automation", "classes"):
+        proposed_count = 0
+        for record in get_all_records("class_automation", "class_templates"):
             fields = record.get("fields", {})
-
-            # Check if it's a proposal (not yet approved/scheduled)
-            status = fields.get("Status", "")
-            if status in ["Proposed", "Under Review"]:
-                # Check last modified date
-                last_modified = fields.get("Last Modified")
-                if last_modified:
-                    # Would need proper date parsing to check if > 2 weeks
-                    stale_count += 1  # Simplified logic
-
+            if not fields.get("Approved") and not fields.get("Discontinued"):
+                proposed_count += 1
         return [
             OpsItem(
-                label="Stale proposals (>2wks, no update)",
-                value=str(stale_count),
+                label="Unresolved class proposals",
+                value=str(proposed_count),
             ),
         ]
     except Exception as e:  # pylint: disable=broad-exception-caught
-        return _handle_exc(e, ["Stale proposals (>2wks, no update)"])
+        return _handle_exc(e, ["Unresolved class proposals"])
 
 
 @opsitem(
@@ -685,8 +669,8 @@ def get_wiki_docs_status() -> list[OpsItem]:
 
         # Get tool documentation summary
         for _, report in wiki.get_tool_docs_summary()["by_code"].items():
-            clr = report["clearance"] or []
-            tut = report["tool_tutorial"] or []
+            clr = report.get("clearance") or []
+            tut = report.get("tool_tutorial") or []
             if len(tut) <= 0:
                 missing_tutorials += 1
             if len(clr) <= 0:

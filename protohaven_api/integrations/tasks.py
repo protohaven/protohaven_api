@@ -152,22 +152,18 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
     cfg = get_config("asana")[project]
     section_map = {v: k for k, v in (cfg.get("section_gids") or {}).items()}
 
-    def _build(name, completed, section_gid, modified_at):
+    def _build(name, completed, section_gids, modified_at):
         if exclude_complete and completed:
             return None
-        if (
-            exclude_on_hold
-            and section_gid
-            and cfg["on_hold_section"] == section_gid.strip()
-        ):
+        if exclude_on_hold and section_gids and cfg["on_hold_section"] in section_gids:
             return None
         if isinstance(modified_at, str):
             modified_at = safe_parse_datetime(modified_at)
-        section_gid = section_map.get(section_gid) or section_gid
+        section_gids = [section_map.get(g) or g for g in section_gids]
         return {
             "name": name,
             "completed": completed,
-            "section": section_gid,
+            "sections": section_gids,
             "modified_at": modified_at,
         }
 
@@ -176,7 +172,7 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
             b = _build(
                 t["fields"]["Name"],
                 t["fields"]["Completed"],
-                t["fields"]["Section GID"],
+                [t["fields"]["Section GID"]],
                 t["fields"]["Modified"],
             )
             if b:
