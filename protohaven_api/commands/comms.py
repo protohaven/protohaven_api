@@ -100,6 +100,10 @@ class Commands:  # pylint: disable=too-few-public-methods
         if intents and apply:
             airtable.log_intents_notified(intents)
             log.info(f"Intents updated in airtable: {intents}")
+        recerts = e.get("recerts")
+        if recerts and apply:
+            airtable.log_recerts_notified(recerts)
+            log.info(f"Recerts updated in airtable: {recerts}")
 
     def _load_comms_data(self, path):
         """Fetch and parse a YAML file for use in comms"""
