@@ -131,7 +131,7 @@
     <p>
       Select a time range and and list of channels, and receive a summary for newsletter or other media purpose.
     </p>
-    
+
     <Alert color="warning">You must be logged in to use this tool</Alert>
 
     <FormGroup>
