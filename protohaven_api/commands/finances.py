@@ -17,7 +17,6 @@ from protohaven_api.config import (  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon,
-    neon_base,
     sales,
 )
 from protohaven_api.integrations.comms import Msg
@@ -41,6 +40,11 @@ class Commands:
         sub_plan_map = sales.get_subscription_plan_map()
         log.info(f"Fetched {len(sub_plan_map)} subscription plans")
         assert len(sub_plan_map) > 0  # We should at least have some plans
+
+        log.info("Fetching unpaid invoices")
+        unpaid_invoices = dict(sales.get_unpaid_invoices_by_id())
+        log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
+
         now = tznow()
         log.info("Fetching subscriptions")
 
@@ -48,8 +52,7 @@ class Commands:
         untaxed = []
         n = 0
         for sub in sales.get_subscriptions():
-            if sub["status"] != "ACTIVE":
-                continue
+            status = sub["status"]
             n += 1
 
             sub_id = sub["id"]
@@ -74,14 +77,25 @@ class Commands:
 
             min_tax = get_config("square/tax_rate/min_percent", 6.9)
             max_tax = get_config("square/tax_rate/max_percent", 7.1)
-            if tax_pct < min_tax or tax_pct > max_tax:
+            if (tax_pct < min_tax or tax_pct > max_tax) and status == "ACTIVE":
                 untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
                 log.info(untaxed[-1])
 
+            unpaid_urls = [
+                f"[{unpaid_invoices[i]}](https://app.squareup.com/dashboard/invoices/{i})"
+                for i in sub["invoice_ids"]
+                if i in unpaid_invoices
+            ]
+
             charged_through = safe_parse_datetime(sub["charged_through_date"])
-            if charged_through + datetime.timedelta(days=1) < now:
+            if (
+                charged_through + datetime.timedelta(days=1) < now
+                and status == "ACTIVE"
+            ) or len(unpaid_urls):
                 unpaid.append(
-                    f"- {cust} - {plan} - charged through {charged_through} ([link]({url}))"
+                    f"- {cust} - {plan} - {status} - charged through "
+                    f"{charged_through.strftime('%Y-%m-%d')}, unpaid "
+                    f"{', '.join(unpaid_urls)} ([link]({url}))"
                 )
                 log.info(unpaid[-1])
 
@@ -553,18 +567,20 @@ class Commands:
         summary = []
         num = 0
         for m in neon.search_new_members_needing_setup(
-            args.max_days_ago, also_fetch=True
+            args.max_days_ago, also_fetch=True, fetch_memberships=True
         ):
             if args.filter and m.neon_id not in args.filter:
                 log.debug(f"Skipping {m.neon_id}: not in filter")
                 continue
 
-            mem = m.latest_membership()
+            mem = m.latest_membership(successful_only=True)
             if not mem:
-                raise RuntimeError(f"No latest membership for member {m.neon_id}")
+                log.error(f"No latest membership for member {m.neon_id}; skipping")
+                continue
+
             kwargs = {
                 "account_id": m.neon_id,
-                "membership_name": mem.name,
+                "membership_name": mem.level,  # Level includes "AMP" which is selected for
                 "membership_id": mem.neon_id,
                 "email": m.email,
                 "fname": m.fname,
@@ -651,20 +667,13 @@ class Commands:
 
         expiry = now + datetime.timedelta(days=args.expiration_days)
 
-        nsesh = None
+        log.info(f"Creating codes {to_add}...")
         if args.apply:
-            log.info("Logging into Neon for coupon code creation")
-            nsesh = neon_base.NeonOne()
-
-        for cid in to_add:
-            if not args.apply:
-                log.warning(f"SKIP: create coupon code {cid} and push to airtable")
-                continue
-            log.info(f"Creating code {cid}...")
-            nsesh.create_single_use_abs_event_discount(
-                cid, args.coupon_amount, now, expiry
+            to_add = list(
+                neon.create_coupon_codes(list(to_add), args.coupon_amount, now, expiry)
             )
-            log.info(f"Coupon code created: {cid}")
+            log.info(f"Created: {to_add}")
+        for cid in to_add:
             status_code, content = airtable.create_coupon(
                 cid,
                 args.coupon_amount,
@@ -672,8 +681,9 @@ class Commands:
                 expiry,
             )
             if status_code != 200:
-                raise RuntimeError(f"Failed to push coupon to airtable: {content}")
-            log.info("...and pushed to airtable")
+                log.warning(f"Failed to push coupon to airtable: {content}")
+            else:
+                log.info("...and pushed to airtable")
 
         print_yaml(
             [

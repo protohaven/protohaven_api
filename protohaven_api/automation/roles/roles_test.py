@@ -114,7 +114,7 @@ def test_gen_role_intents_limited_and_sorted(mocker):
     usrs = [(f"id{i}", f"nick{i}", d(-i), [("Techs", 1234567890)]) for i in range(100)]
     assert usrs[0][0] == "id0"  # Youngest user first
     mocker.patch.object(r.comms, "get_all_members", return_value=usrs)
-    got = list(r.gen_role_intents(None, None, True, 20))
+    got = list(r.gen_role_intents(None, None, True, 20, 20))
     assert len(got) == 20  # Cutoff at the passed max
     assert got[0].discord_id == "id99"  # Oldest user is acted upon first
 
@@ -129,12 +129,19 @@ def test_gen_role_intents_departing_member(mocker):
                 fname="A",
                 lname="B",
                 email="a@b.com",
-                account_current_membership_statu="Inactive",
+                account_current_membership_status="Inactive",
                 discord_user="discord_id",
                 roles=[],
             )
         ]
 
+    latest = mocker.MagicMock()
+    latest.is_lapsed.side_effect = [True, True]  # Lapsed, but not recently
+    mocker.patch.object(
+        r.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(latest_membership=lambda successful_only: latest),
+    )
     mocker.patch.object(
         r.neon, "search_members_with_discord_association", side_effect=mock_fetcher
     )
@@ -142,10 +149,26 @@ def test_gen_role_intents_departing_member(mocker):
         r.comms,
         "get_all_members",
         return_value=[
-            ("discord_id", "nickname", d(0), [("Members", "memid")]),
+            (
+                "discord_id",
+                "nickname",
+                d(0),
+                [("Members", "memid"), ("Techs", "techid")],
+            ),
         ],
     )
-    assert list(r.gen_role_intents(None, None, True, 20)) == []
+    assert list(r.gen_role_intents(None, None, True, 10, 10)) == [
+        r.DiscordIntent(
+            neon_id=123,
+            name="A B",
+            email="a@b.com",
+            discord_id="discord_id",
+            discord_nick="nickname",
+            action="REVOKE",
+            role="Techs",
+            reason="not indicated by Neon CRM",
+        )
+    ]
 
 
 def test_gen_role_intents_match(mocker):
@@ -175,7 +198,7 @@ def test_gen_role_intents_match(mocker):
             ("discord_id", "nickname", d(0), [("Techs", "techid")]),
         ],
     )
-    got = list(r.gen_role_intents(None, None, True, 20))
+    got = list(r.gen_role_intents(None, None, True, 10, 10))
     want_base = r.DiscordIntent(
         neon_id=123,
         name="A B",
@@ -212,7 +235,7 @@ def test_gen_role_intents_no_neon(mocker):
             ("discord_id", "nickname", d(0), [("Techs", "techid")]),
         ],
     )
-    got = list(r.gen_role_intents(None, None, True, 20))
+    got = list(r.gen_role_intents(None, None, True, 10, 10))
     assert got == [
         r.DiscordIntent(
             discord_id="discord_id",
@@ -368,3 +391,23 @@ def test_setup_discord_user_multiple_accounts(mocker):
     assert len(got) == 3
     assert ("grant_role", "a", "Instructors") in got
     assert ("grant_role", "a", "Members") in got
+
+
+@pytest.mark.parametrize(
+    "lapsed_now,lapsed_prev,want",
+    [
+        (True, True, False),  # Long inactive
+        (True, False, True),  # Recently inactive
+        (False, False, False),  # Consistently active
+        (False, True, False),  # Renewed membership
+    ],
+)
+def test_recently_inactive(mocker, lapsed_now, lapsed_prev, want):
+    latest = mocker.MagicMock()
+    latest.is_lapsed.side_effect = [lapsed_now, lapsed_prev]
+    mocker.patch.object(
+        r.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(latest_membership=lambda successful_only: latest),
+    )
+    assert r.recently_inactive(mocker.MagicMock()) == want

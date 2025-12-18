@@ -453,3 +453,56 @@ def test_availability_reservations(mocker, inst_client):
             ],
         ],
     }
+
+
+def test_run_scheduler_success(mocker, inst_client):
+    """Test successful scheduler run"""
+    mock_result = {"schedule": "test_schedule"}
+    mock_score = 95.5
+    mocker.patch.object(
+        instructor, "solve_with_env", return_value=(mock_result, mock_score)
+    )
+
+    response = inst_client.post("/instructor/run_scheduler", json={"test": "data"})
+
+    assert response.status_code == 200
+    assert response.json == {"result": mock_result, "score": mock_score}
+
+
+def test_run_scheduler_no_availability(mocker, inst_client):
+    """Test scheduler run with no availability"""
+    mocker.patch.object(
+        instructor, "solve_with_env", side_effect=instructor.NoAvailabilityError()
+    )
+
+    response = inst_client.post("/instructor/run_scheduler", json={"test": "data"})
+
+    assert response.status_code == 400
+    assert "No availability specified" in response.get_data(as_text=True)
+
+
+def test_log_quiz_submission(mocker, inst_client):
+    """Test logging quiz submission to airtable"""
+    mock_insert = mocker.patch.object(
+        instructor.airtable, "insert_quiz_result", return_value=(None, None)
+    )
+
+    test_data = {
+        "data": {"Question1": "Answer1", "Question2": "Answer2"},
+        "tool_codes": ["LS1", "LS2"],
+        "email": "foo@bar.com",
+        "points_to_pass": "5",
+        "points_scored": "3",
+        "submitted": d(0).isoformat(),
+    }
+
+    response = inst_client.post("/instructor/clearance_quiz", json=test_data)
+    mock_insert.assert_called_once_with(
+        submitted=d(0),
+        email="foo@bar.com",
+        tool_codes=["LS1", "LS2"],
+        data={"Question1": "Answer1", "Question2": "Answer2"},
+        points_scored=3,
+        points_to_pass=5,
+    )
+    assert response.status_code == 200

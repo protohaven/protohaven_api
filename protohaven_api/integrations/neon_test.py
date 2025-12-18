@@ -38,6 +38,26 @@ def test_patch_member_role(mocker):
     )
 
 
+def test_patch_member_role_empty(mocker):
+    """Member role patch adds to existing roles"""
+    mocker.patch.object(
+        n,
+        "search_members_by_email",
+        return_value=[mocker.MagicMock(neon_id=1324, roles=None)],
+    )
+    m = mocker.patch.object(n.neon_base, "set_custom_fields")
+    n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
+    m.assert_called_with(
+        1324,
+        (
+            mocker.ANY,
+            [
+                {"name": "Instructor", "id": "75"},
+            ],
+        ),
+    )
+
+
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
     mocker.patch.object(
@@ -138,6 +158,18 @@ def test_account_cache_case_insensitive(mocker):
     assert c["nonE"] == want3
 
 
+def test_find_best_match_without_cache(mocker):
+    c = n.AccountCache()
+    mocker.patch.object(
+        n,
+        "search_members_by_name",
+        return_value=["A"],
+    )
+    # No manual fetch if no first+last name
+    assert list(c.find_best_match("Albert", top_n=2)) == []
+    assert list(c.find_best_match("Albert Bobson", top_n=2)) == ["A"]
+
+
 def test_find_best_match(mocker):
     """Test find_best_match returns the best matches based on fuzzy ratio."""
     c = n.AccountCache()
@@ -160,6 +192,25 @@ def test_find_best_match(mocker):
 
     got = [m.neon_id for m in c.find_best_match("Albert", top_n=2)]
     assert got == [123, 456]
+
+
+def test_find_best_match_below_threshold(mocker):
+    """Test that matches below the threshold aren't presented as true matches."""
+    c = n.AccountCache()
+    mocker.patch.object(
+        n,
+        "search_members_by_email",
+        side_effect=AssertionError("Should never be called"),
+    )
+    c.update(
+        mocker.MagicMock(email="john@protohaven.org", fname="J", lname="N", neon_id=123)
+    )
+    c.update(
+        mocker.MagicMock(email="js@gmail.com", fname="john", lname="smith", neon_id=456)
+    )
+
+    got = [m.neon_id for m in c.find_best_match("J N", top_n=2)]
+    assert got == [123]
 
 
 def test_account_cache_miss_inactive(mocker):

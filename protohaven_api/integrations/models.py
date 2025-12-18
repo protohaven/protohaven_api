@@ -4,9 +4,10 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional, Tuple
+from typing import Generator, Optional
 from urllib.parse import urljoin
 
+from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 from dateutil import tz as dtz
 
@@ -15,6 +16,10 @@ from protohaven_api.config import safe_parse_datetime, tznow
 log = logging.getLogger("integrations.models")
 
 WAIVER_REGEX = r"version (.+?) on (.*)"
+
+
+class NoAttendeeDataError(RuntimeError):
+    """Raised when no attendee data is provided for an event to compute derived properties"""
 
 
 @dataclass
@@ -46,7 +51,7 @@ class Role:
     AUTOMATION = {"name": "Automation", "id": None}
 
     @classmethod
-    def as_dict(cls) -> Dict[str, Dict[str, Optional[str]]]:
+    def as_dict(cls) -> dict[str, dict[str, Optional[str]]]:
         """Return dictionary mapping name to the value of each field"""
         results = {}
         for f in dir(cls()):
@@ -163,26 +168,28 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def last_membership_expiration_date(
         self,
-    ) -> Tuple[datetime.datetime | None, bool | None]:
+    ) -> tuple[datetime.datetime | None, bool | None]:
         """Returns a tuple of (expiration_date, autorenewal) based on
         membership data. Unspecified end date will be treated as "infinite".
         A value of (None, None) will be returned if the account has no memberships
         """
-        result: Tuple[datetime.datetime | None, bool | None] = (None, None)
+        result: tuple[datetime.datetime | None, bool | None] = (None, None)
         for m in self.memberships():
             if not result[0] or (m.end_date and result[0] < m.end_date):
                 result = (m.end_date, m.autoRenewal or False)
         return result
 
-    def latest_membership(self, active_only=False) -> Membership | None:
+    def latest_membership(
+        self, active_only=False, successful_only=False
+    ) -> Membership | None:
         """Gets the membership with start date furthest in the future"""
         latest = None
-        for m in self.memberships(active_only):
+        for m in self.memberships(active_only, successful_only):
             if not latest or m.start_date > latest.start_date:
                 latest = m
         return latest
 
-    def memberships(self, active_only=False):
+    def memberships(self, active_only=False, successful_only=False):
         """Fetches Membership instances for all memberships loaded"""
         if self.neon_membership_data is None:
             raise RuntimeError(
@@ -191,6 +198,8 @@ class Member:  # pylint:disable=too-many-public-methods
         for m in self.neon_membership_data:
             ms = Membership(m)
             if active_only and ms.is_lapsed():
+                continue
+            if successful_only and not (ms.status or "").upper() == "SUCCEEDED":
                 continue
             yield ms
 
@@ -264,24 +273,31 @@ class Member:  # pylint:disable=too-many-public-methods
         )
 
     @property
-    def email(self):
+    def emails(self) -> list[str]:
+        """Get all the emails for this user in preferential order, omitting empty
+        results."""
+        raw = [
+            self.neon_search_data.get("Email 1"),
+            self.neon_search_data.get("Email 2"),
+            self.neon_search_data.get("Email 3"),
+            self._raw_account().get("primaryContact", {}).get("email1"),
+            self._raw_account().get("primaryContact", {}).get("email2"),
+            self._raw_account().get("primaryContact", {}).get("email3"),
+        ]
+        return [e.strip().lower() for e in raw if e is not None]
+
+    @property
+    def email(self) -> str:
         """Fetches the first valid email address for the member"""
-        v = (
-            self.neon_search_data.get("Email 1")
-            or self.neon_search_data.get("Email 2")
-            or self.neon_search_data.get("Email 3")
-            or self._raw_account().get("primaryContact", {}).get("email1")
-            or self._raw_account().get("primaryContact", {}).get("email2")
-            or self._raw_account().get("primaryContact", {}).get("email3")
-        )
-        return v.strip().lower() if v else None
+        return self.emails[0] if self.emails else None
 
     def _get_custom_field(self, key_field, value_field):
         search_result = self.neon_search_data.get(key_field)
         if search_result is not None:
             return search_result
         for cf in self._raw_account().get("accountCustomFields", []):
-            if cf["name"] == key_field:
+            name = cf.get("name")
+            if name and name == key_field:
                 return cf.get(value_field)
         return None
 
@@ -312,7 +328,7 @@ class Member:  # pylint:disable=too-many-public-methods
         if "Membership Level" in self.neon_search_data:
             mem = self.neon_search_data.get("Membership Level")
             return mem
-        mem = self.latest_membership(active_only=True)
+        mem = self.latest_membership(active_only=True, successful_only=True)
         if mem:
             return mem.level
         return ""
@@ -328,7 +344,7 @@ class Member:  # pylint:disable=too-many-public-methods
         mem = self.neon_search_data.get("Membership Term")
         if mem:
             return mem
-        mem = self.latest_membership(active_only=True)
+        mem = self.latest_membership(active_only=True, successful_only=True)
         if mem:
             return mem.term
         return ""
@@ -344,7 +360,7 @@ class Member:  # pylint:disable=too-many-public-methods
         return self._get_custom_field("Announcements Acknowledged", "value") or ""
 
     @property
-    def waiver_accepted(self) -> Tuple[str | None, datetime.datetime | None]:
+    def waiver_accepted(self) -> tuple[str | None, datetime.datetime | None]:
         """Return version and date of waiver acceptance via custom neon field"""
         v = self._get_custom_field("Waiver Accepted", "value") or ""
         match = re.match(WAIVER_REGEX, v)
@@ -437,6 +453,7 @@ class Member:  # pylint:disable=too-many-public-methods
             "zero_cost_ok_until": "Zero-Cost Membership OK Until Date",
             "shop_tech_first_day": "Shop Tech First Day",
             "shop_tech_last_day": "Shop Tech Last Day",
+            "last_review": "Last Review",
         }
         if attr in day_custom_fields:
             val = self._get_custom_field(day_custom_fields[attr], "value")
@@ -496,9 +513,10 @@ class Attendee:
     @property
     def email(self):
         """Email address of the attendee"""
-        return self.neon_raw_data.get("email") or self.eventbrite_data.get(
+        email = self.neon_raw_data.get("email") or self.eventbrite_data.get(
             "profile", {}
         ).get("email")
+        return email.strip().lower() if email else None
 
     @property
     def fname(self):
@@ -638,7 +656,9 @@ class Event:  # pylint: disable=too-many-public-methods
             or self.neon_search_data.get("Event Capacity")
             or self.eventbrite_data.get("capacity")
         )
-        return None if not cap else int(cap)
+        if cap is None:
+            return None
+        return int(cap)
 
     @property
     def published(self) -> bool:
@@ -717,7 +737,7 @@ class Event:  # pylint: disable=too-many-public-methods
     def signups(self) -> set[int]:
         """With attendee data, compute number of unique registrants for the event"""
         if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
-            raise RuntimeError("Missing attendee data for call to signups()")
+            raise NoAttendeeDataError("Missing attendee data for call to signups()")
 
         return {at.neon_id for at in self.attendees if at.valid}
 
@@ -726,7 +746,7 @@ class Event:  # pylint: disable=too-many-public-methods
         """Return the number of attendees for the event"""
         if self.eventbrite_data:
             n = 0
-            for tc in self.eventbrite_data["ticket_classes"]:
+            for tc in self.eventbrite_data.get("ticket_classes") or []:
                 n += tc["quantity_sold"]
             return n
         ac = self.neon_search_data.get("Event Registration Attendee Count")
@@ -735,8 +755,9 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def occupancy(self):
         """With attendee data, compute occupancy of the event"""
-        if not self.neon_attendee_data and not self.eventbrite_data:
-            raise RuntimeError("Missing attendee data for call to occupancy()")
+        print(self.neon_attendee_data, self.eventbrite_attendee_data)
+        if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
+            raise NoAttendeeDataError("Missing attendee data for call to occupancy()")
         return 0 if not self.capacity else len(self.signups) / self.capacity
 
     def in_blocklist(self):
@@ -787,7 +808,7 @@ class Event:  # pylint: disable=too-many-public-methods
             yield {
                 "id": tc["id"],
                 "name": tc["name"],
-                "price": float(tc["cost"]["major_value"]),
+                "price": 0 if tc.get("free") else float(tc["cost"].get("major_value")),
                 "total": tc["quantity_total"],
                 "sold": tc["quantity_sold"],
             }
@@ -799,6 +820,18 @@ class Event:  # pylint: disable=too-many-public-methods
                 "total": t["maxNumberAvailable"],
                 "sold": t["maxNumberAvailable"] - t["numberRemaining"],
             }
+
+    @property
+    def image_url(self):
+        """Extracts and returns the URL to the image for the class"""
+        if self.eventbrite_data:
+            return self.eventbrite_data.get("logo", {}).get("url")
+        if self.description:
+            soup = BeautifulSoup(self.description, "html.parser")
+            img = soup.find("img")
+            if img and img.get("src"):
+                return img["src"] or None
+        return None
 
     @property
     def url(self):

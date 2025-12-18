@@ -109,7 +109,7 @@ def test_tech_sign_ins(evt_id: str, image: str):
             evt_id,
             image,
             {
-                "ARGS": "--now=3000-01-01T12:30:00",
+                "ARGS": "--now=3000-01-05T12:30:00",
                 "ARGS_CHAN_OVERRIDE": COVR,
             },
         )

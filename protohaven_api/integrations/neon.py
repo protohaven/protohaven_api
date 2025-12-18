@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import re
 from functools import lru_cache
 from typing import Generator
 
@@ -213,7 +214,7 @@ def search_active_members(
 
 
 def search_all_members(
-    fields: list[str], fetch_memberships=False, also_fetch=False
+    fields: list[str | int], fetch_memberships=False, also_fetch=False
 ) -> Generator[Member, None, None]:
     """Lookup all accounts"""
     yield from _search_members_internal(
@@ -230,10 +231,12 @@ MEMBER_SEARCH_OUTPUT_FIELDS = [
     "Household ID",
     "Company ID",
     "First Name",
+    "Preferred Name",
     "Last Name",
     "Account Current Membership Status",
     "Membership Level",
     "Membership Term",
+    CustomField.PRONOUNS,
     CustomField.CLEARANCES,
     CustomField.DISCORD_USER,
     CustomField.WAIVER_ACCEPTED,
@@ -267,7 +270,7 @@ def _search_members_internal(
         if (callable(also_fetch) and also_fetch(m)) or (
             isinstance(also_fetch, bool) and also_fetch
         ):
-            m.neon_fetch_data = neon_base.fetch_account(m.neon_id, raw=True)
+            m.neon_raw_data = neon_base.fetch_account(m.neon_id, raw=True)
 
         if (callable(fetch_memberships) and fetch_memberships(m)) or (
             isinstance(fetch_memberships, bool) and fetch_memberships
@@ -285,6 +288,7 @@ def search_members_by_email(
 ) -> Generator[Member, None, None]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
+    assert isinstance(operator, str)
     yield from _search_members_internal(
         [("Email", operator, email)],
         fields,
@@ -394,20 +398,20 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
     return sample_classes
 
 
-def create_coupon_code(code, amt, from_date=None, to_date=None):
+def create_coupon_codes(codes, amt, from_date=None, to_date=None):
     """Creates a coupon code for a specific absolute amount"""
-    return neon_base.NeonOne().create_single_use_abs_event_discount(
-        code, amt, from_date, to_date
+    yield from neon_base.NeonOne().create_single_use_abs_event_discounts(
+        codes, amt, from_date, to_date
     )
 
 
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = list(search_members_by_email(email, [CustomField.API_SERVER_ROLE]))
+    mem = list(search_members_by_email(email, fields=[CustomField.API_SERVER_ROLE]))
     if len(mem) == 0:
         raise KeyError()
     mem = mem[0]
-    roles = {v["id"]: v["name"] for v in mem.roles}
+    roles = {v["id"]: v["name"] for v in (mem.roles or [])}
     if enabled:
         roles[role["id"]] = role["name"]
     elif role["id"] in roles:
@@ -420,18 +424,18 @@ def patch_member_role(email, role, enabled):
 
 def set_tech_custom_fields(  # pylint: disable=too-many-arguments
     account_id,
-    shift=None,
-    first_day=None,
-    last_day=None,
+    shop_tech_shift=None,
+    shop_tech_first_day=None,
+    shop_tech_last_day=None,
     area_lead=None,
     interest=None,
     expertise=None,
 ):
     """Sets custom fields on a shop tech Neon account"""
     cf = [
-        (CustomField.SHOP_TECH_SHIFT, shift),
-        (CustomField.SHOP_TECH_FIRST_DAY, first_day),
-        (CustomField.SHOP_TECH_LAST_DAY, last_day),
+        (CustomField.SHOP_TECH_SHIFT, shop_tech_shift),
+        (CustomField.SHOP_TECH_FIRST_DAY, shop_tech_first_day),
+        (CustomField.SHOP_TECH_LAST_DAY, shop_tech_last_day),
         (CustomField.AREA_LEAD, area_lead),
         (CustomField.INTEREST, interest),
         (CustomField.EXPERTISE, expertise),
@@ -479,36 +483,6 @@ def set_event_scheduled_state(neon_id, scheduled=True):
             "enableWaitListing": scheduled,
         },
     )["id"]
-
-
-def assign_pricing(  # pylint: disable=too-many-arguments
-    event_id, price, seats, clear_existing=False, include_discounts=True, n=None
-):
-    """Assigns ticket pricing and quantities for a preexisting Neon event"""
-    n = n or neon_base.NeonOne()
-    if clear_existing:
-        n.delete_all_prices_and_groups(event_id)
-
-    for p in neon_base.pricing if include_discounts else neon_base.pricing[:1]:
-        log.debug(f"Assign pricing: {p['name']}")
-        group_id = n.upsert_ticket_group(
-            event_id, group_name=p["name"], group_desc=p["desc"]
-        )
-        if p.get("cond", None) is not None:
-            n.assign_condition_to_group(event_id, group_id, p["cond"])
-
-        # Some classes have so few seats that the ratio rounds down to zero
-        # We just skip those here.
-        qty = round(seats * p["qty_ratio"])
-        if qty <= 0:
-            continue
-        n.assign_price_to_group(
-            event_id,
-            group_id,
-            p["price_name"],
-            round(price * p["price_ratio"]),
-            qty,
-        )
 
 
 # Sign-ins need to be speedy; if it takes more than half a second, folks will
@@ -614,7 +588,7 @@ class AccountCache(WarmDict):
             rapidfuzz.utils.default_process(search_string),
             self.fuzzy,
             scorer=rapidfuzz.fuzz.WRatio,
-            score_cutoff=15,
+            score_cutoff=65,
             limit=top_n,
         ):
             yield m[2]
@@ -622,9 +596,12 @@ class AccountCache(WarmDict):
     def find_best_match(self, search_string, top_n=10):
         """Deduplicates find_best_match_internal"""
         result = set()
+        search_string = re.sub(
+            " +", " ", search_string
+        )  # Fix multiple whitespace to prevent splitting issues
         if len(self.fuzzy) == 0:
             sp = search_string.split(" ")
-            if len(sp) >= 2:
+            if len(sp) >= 2 and sp[0] and sp[1]:
                 yield from search_members_by_name(sp[0], sp[1], fields=self.FIELDS)
         for m in self._find_best_match_internal(search_string, 2 * top_n):
             if m in result:  # prevent duplicates

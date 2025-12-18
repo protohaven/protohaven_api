@@ -7,7 +7,7 @@ The API key can be found at https://cron.protohaven.org/#Admin?sub=api_keys
 ```shell
 python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
-* [ ] runs successfully
+* [x] runs successfully
 
 *Note: on failure, can run --after=test_name to skip all tests up to and including `test_name`, or run --command=test_name to just run `test_name`.*
 
@@ -16,24 +16,22 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 After deployment, verify that:
 
 * https://api.protohaven.org/
-  * [x] Page redirects to /member, loads and displays clearances + links
+  * [x] After login, page redirects to /member, loads and displays clearances + links
 * https://api.protohaven.org/welcome
   * [x] Member sign in fails with hello+testnonmember@protohaven.org
   * [x] Member sign in with hello+testalert@protohaven.org sends the notice
   * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [x] Member sign in with hello+testampmake@protohaven.org succeeds but sends "invalid AMP member" validation alert to `#membership-automation` on Discord
+  * [x] Member sign in with hello+testampmake@protohaven.org succeeds, no validation alerts
   * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
   * [x] Displays upcoming calendar events
   * [x] Shows reservations
-  * [x] Shows classes including attendee data, both Neon and Eventbrite
+  * [x] Shows classes including instructor and attendee data, both Neon and Eventbrite
 * https://api.protohaven.org/techs
   * [x] Cal loads, individual shifts can be clicked and overridden, highlights current day
-  * [x] Full name is visible only when logged in as a tech / tech lead
   * [x] Cal can change date range, highlights current day
   * [x] Cal swap overrides send an alert to the #techs channel
   * [x] Members tab shows today's sign-ins
-  * [x] Members tab shows "access denied" when not logged in
   * [x] Tool states load
   * [x] Can view history for a tool by clicking the link
   * [x] Tool guide and clearance documentation status are shown
@@ -42,26 +40,29 @@ After deployment, verify that:
   * [x] Can filter tools by area
   * [x] Storage tab allows for looking up Neon ID by name/email
   * [x] Areas have some leads assigned to them
-  * [x] Area leads only show first name when not signed in
   * [x] Areas has populated "additional contacts" section at the bottom of the pane
   * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
   * [x] Techs roster has some tech photos & bios shown
-  * [x] Unauthenticated user only sees at most the first names on the roster
-  * [ ] Events tab can create, register, unregister, and delete a techs-only class
+  * [x] Events tab can create, register, unregister, and delete a techs-only class
+  * [x] Full name is visible only when logged in as a tech / tech lead
+  * [x] Members tab shows "access denied" when not logged in
+  * [x] Area leads only show first name when not signed in
+  * [x] Unauthenticated user only sees at most the first names on Roster
   * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
   * [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
   * [x] Loads classes for instructor, including attendance data
   * [x] Adding, editing, and deleting availability in calendar works (watch the time zones / scheduled time!)
+  * [x] Scheduler gives informative error when no availability was given for the scheduling window
   * [x] Scheduler runs and proposes classes
   * [x] Can confirm/unconfirm a class
   * [x] Log submission button works
 * https://api.protohaven.org/event_ticker
   * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
-  * [x] Can summarize one or more discord channels, and view photos
-  * [x] Access denied if logged in as hello+testmember@protohaven.org
+  * [ ] Can summarize one or more discord channels, and view photos
+  * [ ] Access denied if logged in as hello+testmember@protohaven.org
 
 ## Discord events
 

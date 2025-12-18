@@ -17,7 +17,7 @@ import requests
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from square.client import Client as SquareClient
+from square_legacy.client import Client as SquareClient
 from wyze_sdk import Client
 
 from protohaven_api.config import get_config

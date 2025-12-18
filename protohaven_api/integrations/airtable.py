@@ -1,14 +1,18 @@
 """Airtable integration (classes, tool state etc)"""
 
 import datetime
+import json
 import logging
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
+from typing import Iterator
 
+from dateutil import parser as dateparser
 from dateutil.rrule import rrulestr
 
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
     _idref,
     delete_record,
@@ -23,6 +27,11 @@ from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
+
+type NeonID = str
+type ToolCode = str
+type RecordID = str
+type ForecastOverride = tuple[str, list[str], str]
 
 
 def get_class_automation_schedule():
@@ -59,8 +68,10 @@ def get_instructor_email_map(require_teachable_classes=False, require_active=Fal
     for row in get_all_records("class_automation", "capabilities"):
         if row["fields"].get("Email") is None:
             continue
-        if require_teachable_classes and len(row["fields"].get("Class", [])) == 0:
-            continue
+        if require_teachable_classes:
+            classes = row["fields"].get("Class") or []
+            if (isinstance(classes, int) and classes > 0) or len(classes) == 0:
+                continue
         if require_active and not row["fields"].get("Active"):
             continue
         result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
@@ -194,6 +205,158 @@ def get_tools():
     return get_all_records("tools_and_equipment", "tools")
 
 
+@dataclass
+class RecertConfig:  # pylint: disable=too-few-public-methods, too-many-instance-attributes
+    """All metadata used to inform whether or not a member's clearance should undergo
+    recertification, and how the recert happens (e.g. quiz vs instruction)"""
+
+    tool: ToolCode
+    tool_name: str
+    quiz_url: str
+    expiration: datetime.timedelta
+    bypass_hours: int
+    bypass_tools: set[ToolCode]
+    bypass_cutoff: datetime.timedelta
+    humanized: str
+
+    def as_dict(self):
+        """Convert the instance to a dictionary for serialization."""
+        return {
+            "tool": self.tool,
+            "tool_name": self.tool_name,
+            "quiz_url": self.quiz_url,
+            "expiration_sec": self.expiration.total_seconds(),
+            "bypass_hours": self.bypass_hours,
+            "bypass_tools": list(self.bypass_tools),
+            "bypass_cutoff_sec": self.bypass_cutoff.total_seconds(),
+            "humanized": self.humanized,
+        }
+
+
+def get_tool_recert_configs_by_code():
+    """Returns formatted recertification configs, keyed by tool code"""
+    tool_configs = {}
+    cutoff = datetime.timedelta(
+        days=int(get_config("general/recertification/bypass_hours_window_days"))
+    )
+    for t in get_tools():
+        f = t["fields"]
+        if not f.get("Tool Code"):
+            continue
+        cfg = RecertConfig(
+            tool=f.get("Tool Code"),
+            tool_name=f.get("Tool Name") or "UNKNOWN",
+            quiz_url=f.get("Recert Quiz"),
+            expiration=datetime.timedelta(days=f.get("Days until Recert Needed") or 0),
+            bypass_hours=int(f.get("Reservation Hours to Skip Recert") or 0),
+            bypass_tools=set(
+                (f.get("Tool Code (from Related Tools for Recert)") or [])
+                + [f.get("Tool Code")]
+            ),
+            bypass_cutoff=cutoff,
+            humanized=f.get("Recertification"),
+        )
+        if not cfg.tool or not cfg.expiration:
+            continue
+        tool_configs[cfg.tool] = cfg
+    return tool_configs
+
+
+@dataclass
+class PendingRecert:
+    """Represents a pending recertification in the Recertifications table in Airtable"""
+
+    neon_id: str
+    tool_code: str
+    inst_deadline: datetime.datetime
+    res_deadline: datetime.datetime
+    notified: datetime.datetime
+    suspended: bool
+    rec_id: str | None
+
+
+def get_pending_recertifications() -> Iterator[PendingRecert]:
+    """Get all pending recerts"""
+    for rec in get_all_records("people", "recertification"):
+        if not rec["fields"].get("Tool Code"):
+            continue
+        yield PendingRecert(
+            neon_id=rec["fields"]["Neon ID"],
+            tool_code=rec["fields"]["Tool Code"].strip(),
+            inst_deadline=dateparser.parse(
+                rec["fields"]["Instruction Deadline"]
+            ).astimezone(tz),
+            res_deadline=dateparser.parse(
+                rec["fields"]["Reservation Deadline"]
+            ).astimezone(tz),
+            notified=(
+                dateparser.parse(rec["fields"].get("Notified")).astimezone(tz)
+                if rec["fields"].get("Notified")
+                else None
+            ),
+            suspended=bool(rec["fields"].get("Suspended")),
+            rec_id=rec["id"],
+        )
+
+
+def insert_pending_recertification(
+    neon_id: str,
+    tool_code: str,
+    inst_deadline: datetime.datetime,
+    res_deadline: datetime.datetime,
+):
+    """Inserts a new recertification into the pending recertifications table"""
+    return insert_records(
+        [
+            {
+                "Neon ID": neon_id,
+                "Tool Code": tool_code,
+                "Instruction Deadline": inst_deadline.strftime("%Y-%m-%d"),
+                "Reservation Deadline": res_deadline.strftime("%Y-%m-%d"),
+            }
+        ],
+        "people",
+        "recertification",
+    )
+
+
+def update_pending_recertification(
+    rec: str, inst_deadline=None, res_deadline=None, suspended=None
+):
+    """Update pending recertification"""
+    data = {}
+    if inst_deadline:
+        data["Instruction Deadline"] = inst_deadline.strftime("%Y-%m-%d")
+    if res_deadline:
+        data["Reservation Deadline"] = res_deadline.strftime("%Y-%m-%d")
+    if suspended is not None:
+        data["Suspended"] = suspended
+
+    _, content = update_record(
+        data,
+        "people",
+        "recertification",
+        rec,
+    )
+    return content
+
+
+def remove_pending_recertification(rec: str):
+    """Deletes a recertification by record ID"""
+    return delete_record("people", "recertification", rec)
+
+
+def log_recerts_notified(recerts):
+    """Update recert log record with the current timestamp"""
+    for recert in recerts:
+        update_record(
+            {"Notified": tznow().isoformat()},
+            "people",
+            "recertification",
+            recert,
+        )
+
+
 def get_reports_for_tool(airtable_id, back_days=90):
     """Fetches all tool reports tagged with a particular tool record in Airtable"""
     for r in get_all_records_after(
@@ -267,7 +430,7 @@ def get_all_tech_bios():
     return list(get_all_records("people", "volunteers_staff"))
 
 
-def get_signins_between(start, end):
+def get_signins_between(start, end) -> Iterator[SignInEvent | None]:
     """Fetches all sign-in data between two dates; or after `start` if `end` is None"""
     if not end:
         for rec in get_all_records_after("people", "sign_ins", start):
@@ -508,7 +671,7 @@ def delete_availability(rec):
     return delete_record("class_automation", "availability", rec)
 
 
-def get_forecast_overrides(include_pii):
+def get_forecast_overrides(include_pii) -> Iterator[tuple[str, ForecastOverride]]:
     """Gets all overrides for the shop tech shift forecast"""
     for r in get_all_records("people", "shop_tech_forecast_overrides"):
         if r["fields"].get("Shift Start", None) is None:
@@ -553,6 +716,52 @@ def set_forecast_override(  # pylint: disable=too-many-arguments
     if rec is not None:
         return update_record(data, "people", "shop_tech_forecast_overrides", rec)
     return insert_records([data], "people", "shop_tech_forecast_overrides")
+
+
+def insert_quiz_result(
+    submitted: datetime.datetime,
+    email: str,
+    tool_codes: list[str],
+    data: dict,
+    points_scored: int,
+    points_to_pass: int,
+):  # pylint: disable=too-many-arguments
+    """Insert sign-in event into Airtable"""
+    return insert_records(
+        [
+            {
+                "Submitted": submitted.astimezone(tz).isoformat(),
+                "Email": email,
+                "Tool Codes": ",".join(tool_codes),
+                "Data": json.dumps(data),
+                "Points Scored": points_scored,
+                "Points to Pass": points_to_pass,
+            },
+        ],
+        "class_automation",
+        "quiz_results",
+    )
+
+
+def get_latest_passing_quizzes_by_email_and_tool(
+    after: datetime.datetime | None = None,
+) -> dict[tuple[NeonID, ToolCode], datetime.datetime]:
+    """Returns a dict of the most recent date a quiz was passed for a specific email and tool"""
+    result: dict[tuple[NeonID, ToolCode], datetime.datetime] = {}
+    for row in get_all_records("class_automation", "quiz_results"):
+        f = row["fields"]
+        log.info(f"row {f}")
+        if int(f.get("Points Scored") or 0) < int(f.get("Points to Pass") or 999):
+            log.debug("Not passing; ignoring")
+            continue
+
+        d = safe_parse_datetime(f["Submitted"])
+        if after and d < after:
+            continue
+        for tc in f["Tool Codes"].split(","):
+            k = (f["Email"].strip().lower(), tc.strip().upper())
+            result[k] = d if k not in result else max(d, result[k])
+    return result
 
 
 class AirtableCache(WarmDict):

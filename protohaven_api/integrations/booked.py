@@ -5,7 +5,7 @@ import logging
 import secrets
 from collections import defaultdict
 
-from protohaven_api.config import get_config, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.warm_cache import WarmDict
 
@@ -14,6 +14,10 @@ log = logging.getLogger("booked")
 # https://github.com/protohaven/systems-integration/blob/main/airtable-automations/UpdateBookedStatus.js
 STATUS_UNAVAILABLE = 2
 STATUS_AVAILABLE = 1
+
+
+ResourceID = int
+ToolCode = str
 
 
 def get_resources():
@@ -26,7 +30,7 @@ def get_resource_id_to_name_map():
     return {d["resourceId"]: d["name"] for d in get_resources()}
 
 
-def get_resource_map():
+def get_resource_map() -> dict[ToolCode, ResourceID]:
     """Fetches a map from a resource tool code to its ID"""
     result = {}
     tool_code_id = get_config("booked/resource_custom_attribute/tool_code")
@@ -99,7 +103,24 @@ def set_members_group_tool_permissions(tool_ids):
 def get_reservations(start, end):
     """Get all reservations within the start and end times"""
     url = f"/Reservations/?startDateTime={start.isoformat()}&endDateTime={end.isoformat()}"
-    return get_connector().booked_request("GET", url)
+    res = get_connector().booked_request("GET", url)
+    # 2025-10-17: Sometimes reservations are returned which aren't within the query range.
+    # So we parse and check them here.
+    if "reservations" in res:
+        rr = [
+            {
+                **r,
+                "startDate": safe_parse_datetime(r["startDate"]),
+                "endDate": safe_parse_datetime(r["endDate"]),
+                "bufferedStartDate": safe_parse_datetime(r["bufferedStartDate"]),
+                "bufferedEndDate": safe_parse_datetime(r["bufferedEndDate"]),
+            }
+            for r in res["reservations"]
+        ]
+        res["reservations"] = [
+            r for r in rr if r["startDate"] >= start and r["startDate"] <= end
+        ]
+    return res
 
 
 def delete_reservation(refnum):

@@ -20,20 +20,26 @@ def _upcoming_event(mocker):
         neon_id=4567,
     )
     a.name = "Test Attendee"
+    a2 = mocker.MagicMock(
+        fname="Noemail",
+        email=None,
+        neon_id=7890,
+    )
+    a2.name = "Noemail Alwayshidden"
     m = mocker.MagicMock(
         neon_id=1234,
         start_date=d(EVT_DAY, 18),
         end_date=d(EVT_DAY, 21),
         capacity=6,
-        attendee_count=1,
-        occupancy=1 / 6,
+        attendee_count=2,
+        occupancy=2 / 6,
         in_blocklist=lambda: False,
         instructor_email="inst@ructor.com",
         instructor_name="Test",
         volunteer=True,
         supply="Supply Check Needed",
         supply_cost=5,
-        attendees=[a],
+        attendees=[a, a2],
     )
     m.name = "Test Event"
     return m
@@ -177,7 +183,7 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": 1234,
                     "target": "Instructor (inst@ructor.com)",
-                    "subject": "Test Event on January 31 - help us find 5 more student(s)!",
+                    "subject": "Test Event on January 31 - help us find 4 more student(s)!",
                 },
                 {
                     "id": "N/A",
@@ -324,10 +330,10 @@ def test_gen_class_scheduled_alerts():
 
     assert got[0]["target"] == "a@a.com"
     assert "teach 1" in got[0]["subject"]
-    assert "Jan 01 2025, 10am: Class A" in got[0]["body"]
+    assert "Jan 01 2025, 10AM: Class A" in got[0]["body"]
     assert got[1]["target"] == "b@b.com"
     assert "teach 1" in got[1]["subject"]
-    assert "Jan 01 2025, 12pm: Class B" in got[1]["body"]
+    assert "Jan 01 2025, 12PM: Class B" in got[1]["body"]
     assert got[2]["target"] == "#instructors"
     assert got[3]["target"] == "#class-automation"
     assert len(got) == 4

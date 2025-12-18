@@ -57,7 +57,7 @@ def test_techs_list(mocker, tech_client):
         "id": 123,
         "interest": "Stuff",
         "name": "Test Tech",
-        "shop_tech_first_day": "Wed, 01 Jan 2025 05:00:00 GMT",
+        "shop_tech_first_day": "2025-01-01",
         "shop_tech_last_day": None,
         "shop_tech_shift": [
             None,
@@ -676,7 +676,7 @@ def test_techs_storage_subscriptions(mocker, tech_client):
                 "monthly_billing_anchor_date": 29,
                 "plan_variation_id": "PLAN_VAR_ID",
             },
-            { # Unknown customer, no notes
+            {  # Unknown customer, no notes
                 "customer_id": "12345",
                 "start_date": "2025-01-29",
                 "charged_through_date": "2025-08-29",
@@ -684,7 +684,7 @@ def test_techs_storage_subscriptions(mocker, tech_client):
                 "created_at": "2025-01-29T15:18:13-05:00",
                 "monthly_billing_anchor_date": 29,
                 "plan_variation_id": "PLAN_VAR_ID",
-            }
+            },
         ],
     )
 
@@ -702,13 +702,13 @@ def test_techs_storage_subscriptions(mocker, tech_client):
             "start_date": "2025-01-29",
         },
         {
-            'charged_through_date': '2025-08-29',
-            'created_at': '2025-01-29T15:18:13-05:00',
-            'customer': '12345',
-            'monthly_billing_anchor_date': 29,
-            'note': None,
-            'plan': 'Test Plan',
-            'price': 5000,
-            'start_date': '2025-01-29',
+            "charged_through_date": "2025-08-29",
+            "created_at": "2025-01-29T15:18:13-05:00",
+            "customer": "12345",
+            "monthly_billing_anchor_date": 29,
+            "note": None,
+            "plan": "Test Plan",
+            "price": 5000,
+            "start_date": "2025-01-29",
         },
     ]

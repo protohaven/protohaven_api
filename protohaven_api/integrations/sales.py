@@ -46,6 +46,17 @@ def get_invoice(invoice_id):
     raise RuntimeError(result.errors)
 
 
+def get_unpaid_invoices_by_id():
+    """Fetch all unpaid invoices and return them keyed by ID"""
+    result = client().invoices.list_invoices(get_config("square/location"))
+    if not result.is_success():
+        raise RuntimeError(result.errors)
+
+    for i in result.body["invoices"]:
+        if i["status"] != "PAID":
+            yield (i["id"], i["invoice_number"])
+
+
 def subscription_tax_pct(sub, price):
     """Compute the tax percentage for a given subscription. Note that only
     some subscriptions have the `tax_percentage` field, others must be computed
@@ -137,9 +148,12 @@ def get_inventory():
         return result.body
     raise RuntimeError(result.errors)
 
+
 def set_subscription_note(sub_id: str, note: str):
     """Sets the note text for a subscription in square"""
-    result = client().subscriptions.update_subscription(subscription_id=sub_id, note=note)
+    result = client().subscriptions.update_subscription(
+        subscription_id=sub_id, note=note
+    )
     if result.is_success():
-        return reuslt.body
+        return result.body
     raise RuntimeError(result.errors)

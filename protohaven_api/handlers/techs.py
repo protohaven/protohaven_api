@@ -287,6 +287,11 @@ def techs_list():
             )
         }
         t["id"] = m.neon_id
+        # Convert back from date so it's properly displayed as text
+        if t["shop_tech_first_day"] is not None:
+            t["shop_tech_first_day"] = t["shop_tech_first_day"].strftime("%Y-%m-%d")
+        if t["shop_tech_last_day"] is not None:
+            t["shop_tech_last_day"] = t["shop_tech_last_day"].strftime("%Y-%m-%d")
         techs_results.append(t)
 
     return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
@@ -300,12 +305,12 @@ def tech_update():
     nid = data["id"]
 
     editable_fields = (
-        "shift",
+        "shop_tech_shift",
         "area_lead",
         "interest",
         "expertise",
-        "first_day",
-        "last_day",
+        "shop_tech_first_day",
+        "shop_tech_last_day",
     )
     if not am_role(Role.SHOP_TECH_LEAD):
         if not am_neon_id(nid):
@@ -331,22 +336,24 @@ def new_tech_event():
         return Response("name field is required", status=401)
     log.info("Parsing date")
     d = safe_parse_datetime(data["start"]).replace(tzinfo=tz)
-    log.info(f"Parsed {d}")
-    if not d or d < tznow() or d.hour < 10 or d.hour + data["hours"] > 22:
+    hours = int(data["hours"])
+    log.info(f"Parsed {d}, hours {hours}")
+    if not d or d < tznow() or d.hour < 10 or d.hour + hours > 22:
         return Response(
             "start must be set to a valid date in the future and within business hours (10AM-10PM)",
             status=401,
         )
     log.info("checking capacity")
-    if data["capacity"] < 0 or data["capacity"] > 100:
+    capacity = int(data["capacity"])
+    if capacity < 0 or capacity > 100:
         return Response("capacity field invalid", status=401)
     log.info(f"Creating event with data {data}")
     return neon_base.create_event(
         name=f"{TECH_ONLY_PREFIX} {data['name']}",
         desc="Tech-only event; created via api.protohaven.org/techs dashboard",
         start=d,
-        end=d + datetime.timedelta(hours=data["hours"]),
-        max_attendees=data["capacity"],
+        end=d + datetime.timedelta(hours=hours),
+        max_attendees=capacity,
         dry_run=False,
         published=False,  # Do NOT show this in the regular event browser
         registration=True,
@@ -433,7 +440,9 @@ def techs_backfill_events():
     return {
         "events": for_techs,
         "can_register": am_role(Role.SHOP_TECH) or am_role(Role.SHOP_TECH_LEAD),
-        "tech_lead": am_role(Role.SHOP_TECH_LEAD),
+        "can_edit": am_role(Role.SHOP_TECH_LEAD)
+        or am_role(Role.EDUCATION_LEAD)
+        or am_role(Role.STAFF),
     }
 
 
@@ -451,7 +460,7 @@ def _notify_registration(account_id, event_id, action):
     if action != "register":
         verb = "unregistered from"
     msg = (
-        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events)"
+        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events) "
         f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
         f"; {evt.capacity - len(attendees)} seat(s) remain"
     )
@@ -527,6 +536,7 @@ def techs_storage_subscriptions():
             }
         )
     return result
+
 
 @page.route("/techs/storage_subscriptions/<sub_id>/note", methods=["POST"])
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)

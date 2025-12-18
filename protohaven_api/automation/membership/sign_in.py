@@ -61,10 +61,13 @@ def is_membership_deferred(m):
     if (m.account_current_membership_status or "").upper() != "FUTURE":
         return False
 
-    # Cached member doesn't have membership data already, so we have to refetch
+    # Cached member doesn't have membership data already, so we have to refetch.
+    # 2025-11-19: We had a new member with two memberships; the initial creation
+    # failed and caused automation to not modify the actual successful membership.
+    # That's why we set successful_only=True here.
     latest_membership = neon_base.fetch_account(
         m.neon_id, fetch_memberships=True
-    ).latest_membership()
+    ).latest_membership(successful_only=True)
     if (
         latest_membership
         and latest_membership.start_date.date() == PLACEHOLDER_START_DATE.date()
@@ -84,7 +87,7 @@ def activate_membership(m):
             log.error(f"activate_membership called on non-deferred account {m.neon_id}")
             return
 
-        ms = m.latest_membership()
+        ms = m.latest_membership(successful_only=True)
         if not ms:
             raise RuntimeError(
                 f"Could not fetch latest membership for account {m.neon_id}"

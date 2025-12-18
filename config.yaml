@@ -11,6 +11,7 @@ general:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
   class_scheduling:
     clearance_exclusion_range_days: 7
+    require_wiki_page_for_scheduling: ${REQUIRE_WIKI_PAGE_FOR_CLASS_SCHEDULING}
   unsafe:
     no_rbac: ${UNSAFE_NO_RBAC}
     login_as_user: ${UNSAFE_LOGIN_AS}
@@ -26,6 +27,8 @@ general:
     hide_unconfirmed_days_ahead: 10
     hide_confirmed_days_after: 10
     hours_in_day: 24
+  recertification:
+    bypass_hours_window_days: 90
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle
@@ -53,6 +56,7 @@ neon:
       enabled: ${NEW_MEMBERSHIP_ENABLED}
       include_filter: ${NEW_MEMBERSHIP_INCLUDE_CSV}
       excluded_membership_types: ${EXCLUDED_MEMBERSHIP_TYPES}
+      additional_targets: ${NEW_MEMBERSHIP_ADDITIONAL_TARGETS}
   # Membership automation settings
   automation:
     default_coupon_amount_usd: 75
@@ -121,6 +125,7 @@ nocodb:
       boilerplate: "m956in9b8grmer1"
       availability: "ms8jby3zcv0s3jo"
       discounts: "mstauhc7ovslglt"
+      quiz_results: "mqnrh78uhi9jeq9"
     policy_enforcement:
       sections: "mxq6xd6e7nqmnm0"
       violations: "m1jbelb76ix3cn4"
@@ -132,9 +137,16 @@ nocodb:
       sign_ins: "m5pqytb0n1ydtml"
       automation_intents: "m6h05qg8s18szjl"
       volunteers_staff: "mkygxd0r8l1yhah"
+      recertification: "m1cksb6rz2fpwcw"
     tasks:
+      asset_disposal: "mn7n4cayp1kntjb"
       shop_and_maintenance_tasks: "mb9vrl8klha39w3"
       private_instruction: "mzvlt891rbk8gis"
+      project_tracker: "mgeo6vza58449xm"
+      donation_requests: "mcore9dq30ocr4i"
+      instructor_applicants: "mgg2d7yrdgc6qpb"
+      shop_tech_applicants: "m36hkdzy4imx8xy"
+      purchase_requests: "mx7pt89olvqpxd7"
     fake_discord:
       members: "m63a1kzdhf4yepz"
       channels: "mbv0l6lew4hr863"
@@ -185,6 +197,7 @@ airtable:
       boilerplate: "tblZDWOcljKw0OnwN"
       availability: "tbl4tOuZKNJduN4LC"
       discounts: "tbllyGvxfAFYsocN0"
+      quiz_results: "tblFqvQsozEr4rI34"
     policy_enforcement:
       token: ${AIRTABLE_TOKEN_POLICY_ENFORCEMENT}
       base_id: "apppMbG0r1ZrluVMv"
@@ -200,6 +213,7 @@ airtable:
       sign_ins: "tblVBhzeE3k9yYRn9"
       automation_intents: "tblBgXQlOFjNqvBVm"
       volunteers_staff: "tblgwvc07mvLg3zds"
+      recertification: "tbljedHQ90LwttPGp"
 calendar:
   credentials_path: "credentials.json"
   instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"
@@ -221,6 +235,12 @@ square:
 asana:
   token: ${ASANA_TOKEN}
   gid: "1199692158232291"
+  asset_disposal:
+    gid: "1212438685613709"
+    section_gids:
+      on_hold: "1212438685613713"
+      listed: "1212438685613712"
+      unlisted: "1212438685613710"
   shop_and_maintenance_tasks:
     gid: "1202469740885594"
     tags:
@@ -235,6 +255,7 @@ asana:
           p0: "1204138662113048"
       airtable_id:
         gid: "1206525862874335"
+    on_hold: "1203925503488268"
   shop_tech_applicants:
     gid: "1203664351777333"
     on_hold_section: "1208278245183318"
@@ -244,6 +265,13 @@ asana:
   donation_requests:
     gid: "1204106742735251"
   project_requests: "1204107875202537"
+  project_tracker:
+    gid: "1211651280970765"
+    section_gids:
+      proposed: "1211651280970768"
+      approved: "1211651280970769"
+      in_progress: "1211651280970770"
+      on_hold: "1211651280970772"
   private_instruction_requests: "1203922725251220"
   phone_messages: "1203963688927297"
   purchase_requests:
@@ -260,6 +288,7 @@ sheets:
   instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
   welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
   scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+  shop_manager_logbook: "1gzj35SJk_pvPGHRjLju6fjAiQ9NVd_CGxqnXVK4KsYs" # pragma: allowlist secret
 eventbrite:
   base_url: "https://www.eventbriteapi.com/v3/"
   token: ${EVENTBRITE_TOKEN}
@@ -340,9 +369,9 @@ drive:
   scopes: ["https://www.googleapis.com/auth/drive"]
 mqtt:
   enabled: ${MQTT}
-  host: "mqtt.cron.protohaven.org"
-  port: 8883
+  host: ${MQTT_HOST}
+  port: ${MQTT_PORT}
   keepalive_sec: 60
   username: ${MQTT_USERNAME}
   password: ${MQTT_PASSWORD}
-  ca_cert_path: "./ISRGRootX1.crt"
+  ca_cert_path: ""

@@ -7,7 +7,13 @@ from dateutil import tz as dtz
 
 from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import models
-from protohaven_api.integrations.models import Event, Member, Role, SignInEvent
+from protohaven_api.integrations.models import (
+    Event,
+    Member,
+    NoAttendeeDataError,
+    Role,
+    SignInEvent,
+)
 from protohaven_api.testing import d, idfn
 
 
@@ -37,7 +43,7 @@ def test_is_company():
 
 
 def test_membership_level(mocker):
-    """Test Member.is_company for company and individual accounts"""
+    """Test membership level fetcher, also that it ignores failed memberships"""
     m = Member(neon_search_data={"Membership Level": None})
     assert not m.membership_level
     m.neon_search_data["Membership Level"] = "AMP"
@@ -53,7 +59,14 @@ def test_membership_level(mocker):
             "termStartDate": d(0).isoformat(),
             "termEndDate": d(2).isoformat(),
             "membershipLevel": {"name": "Foo"},
-        }
+            "status": "SUCCEEDED",
+        },
+        {
+            "termStartDate": d(2).isoformat(),
+            "termEndDate": d(4).isoformat(),
+            "membershipLevel": {"name": "Bar"},
+            "status": "FAILED",
+        },
     ]
     assert m.membership_level == "Foo"
 
@@ -151,20 +164,17 @@ def test_name(tc):
     assert m.name == tc.want
 
 
-def test_email():
-    """Test Member.email property"""
+def test_emails():
+    """Test Member.emails property"""
     data = {
         "individualAccount": {
             "primaryContact": {"email1": "one@test.com", "email2": "two@test.com"}
         }
     }
     m = Member(neon_raw_data=data)
-    assert m.email == "one@test.com"
-    data["individualAccount"]["primaryContact"]["email1"] = None
-    assert m.email == "two@test.com"
-
+    assert m.emails == ["one@test.com", "two@test.com"]
     del data["individualAccount"]["primaryContact"]
-    assert m.email is None
+    assert not m.emails
 
 
 def test_zero_cost_ok_until():
@@ -278,19 +288,28 @@ def test_latest_membership(mocker):
             "termStartDate": d(1).isoformat(),
             "id": 123,
             "membershipLevel": {"name": "A"},
+            "status": "SUCCEEDED",
         },
         {
             "termStartDate": d(3).isoformat(),
             "id": 456,
             "membershipLevel": {"name": "B"},
+            "status": "SUCCEEDED",
         },
         {
             "termStartDate": d(2).isoformat(),
             "id": 789,
             "membershipLevel": {"name": "C"},
+            "status": "SUCCEEDED",
+        },
+        {
+            "termStartDate": d(5).isoformat(),
+            "id": 999,
+            "membershipLevel": {"name": "C"},
+            "status": "FAILED",
         },
     ]
-    assert member.latest_membership().neon_id == 456
+    assert member.latest_membership(successful_only=True).neon_id == 456
 
 
 def test_volunteer_bio_and_picture():
@@ -382,7 +401,7 @@ def test_event_properties():
         {
             "accountId": 1,
             "registrationStatus": "SUCCEEDED",
-            "email": "a@b.com",
+            "email": "A@b.COM    ",
             "firstName": "first",
             "lastName": "last",
         }
@@ -392,7 +411,11 @@ def test_event_properties():
             "id": 1,
             "cancelled": False,
             "refunded": False,
-            "profile": {"first_name": "first", "last_name": "last", "email": "a@b.com"},
+            "profile": {
+                "first_name": "first",
+                "last_name": "last",
+                "email": "A@b.COM     ",
+            },
         }
     ]
     tickets = [
@@ -461,6 +484,33 @@ def test_event_properties():
         assert evt.supply_cost == "10.00"
         assert evt.volunteer == "Yes"
         assert evt.supply_state == "Ordered"
+
+
+def test_event_capacity_none_vs_zero():
+    """Ensure a distinction between no capacity and no data"""
+    e = Event()
+    e.eventbrite_data = {"capacity": None}
+    assert e.capacity is None
+    e.eventbrite_data["capacity"] = 0
+    assert e.capacity == 0
+
+
+def test_event_ticket_options_free():
+    """Ensure that missing `cost.major_value` on free events is handled"""
+    e = Event()
+    e.eventbrite_data = {
+        "ticket_classes": [
+            {
+                "free": True,
+                "id": 111,
+                "name": "General",
+                "cost": {},
+                "quantity_total": 10,
+                "quantity_sold": 1,
+            }
+        ],
+    }
+    assert list(e.ticket_options)[0]["price"] == 0
 
 
 def test_none_vs_zero_attendee_count():
@@ -547,6 +597,18 @@ def test_sign_in_event_absent_fields():
     assert event.name == ""
 
 
+def test_event_missing_attendee_data():
+    """Ensure distinction between no data and no attendees"""
+    e = Event()
+    # with pytest.raises(NoAttendeeDataError):
+    #    print(e.signups)
+    with pytest.raises(NoAttendeeDataError):
+        print(e.occupancy)
+    e.neon_attendee_data = []
+    assert not e.signups
+    assert e.occupancy == 0
+
+
 def test_sign_in_event_invalid_attribute():
     """Test accessing invalid attribute raises AttributeError"""
     data = {"fields": {"Created": "2024-01-01T12:00:00Z"}}
@@ -569,3 +631,33 @@ def test_event_attendee_generator_data():
     )  # Called a second time, shouldn't exhaust the generator
     for a in e.attendees:
         assert a.neon_id == 123
+
+
+def test_image_url():
+    """Test image_url property returns correct values based on available data"""
+    # Test with eventbrite_data containing logo URL
+    e = Event()
+    e.eventbrite_data = {"logo": {"url": "https://example.com/logo.png"}}
+    assert e.image_url == "https://example.com/logo.png"
+
+    # Test with eventbrite_data but no logo URL
+    e.eventbrite_data = {"logo": {}}
+    assert e.image_url is None
+
+    # Test with description containing image tag
+    e.eventbrite_data = None
+    e.description = '<p><img src="https://example.com/image.jpg"></p>'
+    assert e.image_url == "https://example.com/image.jpg"
+
+    # Test with description containing image tag but no src
+    e.description = '<html><body><img alt="test"></body></html>'
+    assert e.image_url is None
+
+    # Test with description containing no image tag
+    e.description = "<p>No image here</p>"
+    assert e.image_url is None
+
+    # Test with no eventbrite_data and no description
+    e.eventbrite_data = None
+    e.description = None
+    assert e.image_url is None

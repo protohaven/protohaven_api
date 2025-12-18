@@ -6,17 +6,38 @@ from protohaven_api.automation.techs import techs as t
 from protohaven_api.testing import d
 
 
+def test_holiday_customization():
+    """Basic check to ensure holiday calendar is working"""
+    got = set(t.ProtohavenHolidays(years=2025).values())
+    assert {
+        "New Year's Eve",
+        "New Year's Day",
+        "Martin Luther King Day",
+        "Easter Sunday",
+        "Memorial Day",
+        "Juneteenth",
+        "Independence Day",
+        "Labor Day",
+        "Thanksgiving Day",
+        "Day After Thanksgiving",
+        "Christmas Eve",
+        "Christmas Day",
+    } == got
+    # Monday is 0, Sunday is 6 in Python's weekday()
+    assert t.ProtohavenHolidays(years=2025).get_named("Easter Sunday")[0].weekday() == 6
+
+
 @pytest.mark.parametrize(
-    "test_date,ovr,want_am",
+    "test_date,ovr,want_am,is_holiday",
     [
-        (d(0), None, []),  # Holiday
-        (d(1), None, ["Default Tech"]),  # Non-holiday, no override
-        (d(1), ["Ovr Tech"], ["Ovr Tech"]),  # Non-holiday with override
-        (d(0), ["Ovr Tech"], ["Ovr Tech"]),  # Holiday with override
-        (d(1), [], []),  # Non-holiday, override to empty
+        (d(0), None, [], True),  # Holiday
+        (d(1), None, ["Default Tech"], False),  # Non-holiday, no override
+        (d(1), ["Ovr Tech"], ["Ovr Tech"], False),  # Non-holiday with override
+        (d(0), ["Ovr Tech"], ["Ovr Tech"], True),  # Holiday with override
+        (d(1), [], [], False),  # Non-holiday, override to empty
     ],
 )
-def test_create_calendar_view(mocker, test_date, ovr, want_am):
+def test_create_calendar_view(mocker, test_date, ovr, want_am, is_holiday):
     """Test generate produces correct output structure"""
     shift = (test_date.strftime("%A"), "AM")
 
@@ -41,13 +62,14 @@ def test_create_calendar_view(mocker, test_date, ovr, want_am):
     )
     result = t.create_calendar_view(test_date, {shift: [mock_tech]}, ovr, 1)
     assert [p.name for p in result[0]["AM"]["people"]] == want_am
+    assert result[0]["is_holiday"] == is_holiday
 
 
 def test_resolve_overrides(mocker):
     """Test resolving tech overrides with various scenarios"""
     # Setup test data
     test_overrides = {
-        "shift1": ("id1", ["John Doe", "Jane Smith"], "editor1"),
+        "shift1": ("id1", ["John Doe", "Jane   smith (they/them)"], "editor1"),
         "shift2": ("id2", ["GuestTech"], None),
     }
 

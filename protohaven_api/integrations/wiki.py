@@ -12,6 +12,11 @@ def get_maintenance_data(book_slug):
     )
 
 
+def get_class_docs_report():
+    """Fetch documentation for classes using Bookstack tag system"""
+    return get_connector().bookstack_request("POST", "/class_docs_report")
+
+
 def get_tool_docs_summary():
     """Fetch summary of documentation for tools"""
     return get_connector().bookstack_request("GET", "/tool_docs_report")

@@ -76,59 +76,6 @@ def test_gen_class_emails(cli, mocker):
     assert cli("gen_class_emails", []) == TESTVAL
 
 
-def test_build_scheduler_env(cli, mocker):
-    mocker.patch.object(C.scheduler, "generate_env", return_value=TESTVAL)
-    assert (
-        cli(
-            "build_scheduler_env",
-            ["--start", d(0).isoformat(), "--end", d(1).isoformat(), "--filter", "foo"],
-        )
-        == TESTVAL
-    )
-    C.scheduler.generate_env.assert_called_with(d(0), d(1), set(["foo"]))
-
-
-@pytest.fixture
-def tfile(tmp_path):
-    f = tmp_path / "tmp.txt"
-    f.write_text('- "test"')
-    return str(f)
-
-
-def test_run_scheduler(cli, mocker, tfile):
-    eb = mocker.patch.object(
-        C.scheduler, "solve_with_env", return_value=(TESTVAL, None)
-    )
-    assert cli("run_scheduler", ["--path", tfile]) == TESTVAL
-    C.scheduler.solve_with_env.assert_called_with("test")
-
-
-def test_append_schedule_no_apply(cli, mocker, tfile):
-    eb = mocker.patch.object(
-        C.scheduler, "gen_schedule_push_notifications", return_value=TESTVAL
-    )
-    eb = mocker.patch.object(C.scheduler, "push_schedule")
-    assert cli("append_schedule", ["--path", str(tfile)]) == TESTVAL
-    C.scheduler.push_schedule.assert_not_called()
-
-
-def test_append_schedule_apply(cli, mocker, tfile):
-    eb = mocker.patch.object(
-        C.scheduler, "gen_schedule_push_notifications", return_value=TESTVAL
-    )
-    eb = mocker.patch.object(C.scheduler, "push_schedule")
-    assert cli("append_schedule", ["--path", str(tfile), "--apply"]) == TESTVAL
-    C.scheduler.push_schedule.assert_called_with("test")
-
-
-def test_cancel_classes(cli, mocker):
-    eb = mocker.patch.object(C.neon, "set_event_scheduled_state")
-    cli("cancel_classes", ["--id", "1", "2"])
-    C.neon.set_event_scheduled_state.assert_has_calls(
-        [mocker.call("1", scheduled=False), mocker.call("2", scheduled=False)]
-    )
-
-
 def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
     return {
         "id": "abcd",
@@ -167,7 +114,7 @@ def test_post_classes_to_neon_no_actions(cli, mocker, tc):
     """Test cases where the scheduling action is skipped"""
     mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
-        C.neon,
+        C.Commands,
         "_schedule_event",
         create=True,
         side_effect=RuntimeError("Should not have scheduled"),
@@ -229,11 +176,11 @@ Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
 )
 def test_post_classes_to_neon_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
-    mocker.patch.object(C.neon_base, "NeonOne")
+    m2 = mocker.MagicMock()
+    mocker.patch.object(C.neon_base, "NeonOne", return_value=m2)
     mock_delete = mocker.patch.object(
         C.neon_base, "delete_event_unsafe", return_value=True
     )
-    mocker.patch.object(C.neon, "assign_pricing")
     mocker.patch.object(C.neon_base, "create_event", return_value="123")
     mocker.patch.object(C.airtable, "update_record")
     mocker.patch.object(
@@ -269,8 +216,8 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         '<p><img height="200" src="http://testimg"/></p>'
         in C.neon_base.create_event.mock_calls[0][1][1]
     )
-    C.neon.assign_pricing.assert_called_with(
-        "123", 90, 6, include_discounts=tc.discount, clear_existing=True, n=mocker.ANY
+    m2.assign_pricing.assert_called_with(
+        "123", 90, 6, include_discounts=tc.discount, clear_existing=True
     )
     if tc.reserve:
         C.Commands._reserve_equipment_for_class_internal.assert_called_with(

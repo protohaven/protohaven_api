@@ -99,6 +99,17 @@ def test_get_overlapping_by_area(tc):
     )
 
 
+def test_solve_no_availability():
+    """An instructor can schedule a class at a time"""
+    c = s.Class(1, "Embroidery", hours=1, areas=["textiles"], exclusions=[], score=0.7)
+
+    with pytest.raises(s.NoAvailabilityError):
+        s.solve(
+            classes=[c],
+            instructors=[s.Instructor("A", {c.class_id: []})],
+        )
+
+
 def test_solve_simple():
     """An instructor can schedule a class at a time"""
     c = s.Class(1, "Embroidery", hours=1, areas=["textiles"], exclusions=[], score=0.7)

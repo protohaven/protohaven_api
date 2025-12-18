@@ -43,7 +43,6 @@ services:
       retries: 10
       test: "curl localhost:5000"
       timeout: 2s
-
   svelte:
     build:
       context: ./svelte

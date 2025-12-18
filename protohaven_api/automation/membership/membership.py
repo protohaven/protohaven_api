@@ -62,7 +62,7 @@ def try_cached_coupon(coupon_amount, assignee, apply):
         )
         cid = generate_coupon_id()
         if apply:
-            neon.create_coupon_code(cid, coupon_amount)
+            neon.create_coupon_codes([cid], coupon_amount)
         return cid
 
     if coupon["fields"]["Amount"] != coupon_amount:
@@ -75,7 +75,7 @@ def try_cached_coupon(coupon_amount, assignee, apply):
         )
         cid = generate_coupon_id()
         if apply:
-            neon.create_coupon_code(cid, coupon_amount)
+            neon.create_coupon_codes([cid], coupon_amount)
         return cid
 
     cid = coupon["fields"]["Code"]
@@ -100,7 +100,7 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
 
     Action is gated on email configured in in config.yaml
     """
-    assert account_id and membership_id
+    assert account_id and membership_id and email and membership_name and fname
     result = []
     include_filter = get_config("neon/webhooks/new_membership/include_filter") or ""
     if include_filter.strip() != "":
@@ -137,22 +137,31 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     cid = None
     if coupon_amount > 0:
         cid = try_cached_coupon(coupon_amount, email, apply)
+        log.info(f"Using coupon ID {cid}")
 
     if apply:
+        log.info("Setting Account Automation Ran status to deferred")
         neon.update_account_automation_run_status(account_id, DEFERRED_STATUS)
 
     if cid:
-        result.append(
-            Msg.tmpl(
-                "init_membership",
-                fname=fname,
-                coupon_amount=coupon_amount,
-                coupon_code=cid,
-                sample_classes=get_sample_classes(coupon_amount),
-                target=target,
-                id=_id,
+        extra = get_config("neon/webhooks/new_membership/additional_targets")
+        if extra is not None and extra:
+            extra = [t.strip() for t in extra.split(",")]
+        else:
+            extra = []
+        for tgt in [target] + extra:
+            result.append(
+                Msg.tmpl(
+                    "init_membership",
+                    fname=fname,
+                    coupon_amount=coupon_amount,
+                    coupon_code=cid,
+                    sample_classes=get_sample_classes(coupon_amount),
+                    target=tgt,
+                    id=_id,
+                )
             )
-        )
+
     if "AMP" in membership_name:
         result.append(
             Msg.tmpl(

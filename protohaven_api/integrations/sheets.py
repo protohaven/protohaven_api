@@ -1,6 +1,7 @@
 """Read from google spreadsheets"""
 
 import logging
+import re
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -32,14 +33,54 @@ def get_sheet_range(sheet_id, range_name):
     return values
 
 
-def get_instructor_submissions(from_row=800):
+def get_instructor_submissions_raw(from_row=1300):
     """Get log submissions from instructors"""
     sheet_id = get_config("sheets/instructor_hours")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
     for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
         data = dict(zip(headers, row))
+        if not data.get("Timestamp"):
+            continue
         data["Timestamp"] = safe_parse_datetime(data["Timestamp"])
         yield data
+
+
+PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."  # pylint: disable=line-too-long
+CLEARANCE_HDR = "Which clearance(s) was covered?"
+TOOLS_HDR = "Which tools?"
+
+
+def get_passing_student_clearances(dt=None, from_row=1300):
+    """Minimally parse and return instructor submissions after from_row in the sheet.
+
+    Yields a sequence of (email, clearance_codes, tool_codes) for each student that
+    passed a class.
+    """
+    for sub in get_instructor_submissions_raw(from_row):
+        if dt is not None and sub["Timestamp"] < dt:
+            continue
+        emails = sub.get(PASS_HDR)
+        mm = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", emails)
+        if not mm:
+            log.warning(f"No valid emails parsed from row: {emails}")
+        emails = [
+            m.replace("(", "").replace(")", "").replace(",", "").strip() for m in mm
+        ]
+
+        clearance_codes = sub.get(CLEARANCE_HDR)
+        clearance_codes = (
+            [s.split(":")[0].strip() for s in clearance_codes.split(",")]
+            if clearance_codes
+            else None
+        )
+        tool_codes = sub.get(TOOLS_HDR)
+        tool_codes = (
+            [s.split(":")[0].strip() for s in tool_codes.split(",")]
+            if tool_codes
+            else None
+        )
+        for e in emails:
+            yield (e.strip().lower(), clearance_codes, tool_codes, sub["Timestamp"])
 
 
 def get_sign_ins_between(start, end):
@@ -64,6 +105,41 @@ def get_sign_ins_between(start, end):
             yield data
 
 
-if __name__ == "__main__":
-    for r in get_instructor_submissions(from_row=800):
-        log.info(str(r))
+def get_ops_budget_state():
+    """Returns ops budgeting state from shop manager logbook"""
+    sheet_id = get_config("sheets/shop_manager_logbook")
+    headers = [
+        h.strip().lower()
+        for row in get_sheet_range(sheet_id, "Budget Summary!A2:A")
+        for h in row
+    ]
+    values = [
+        v.strip().lower()
+        for row in get_sheet_range(sheet_id, "Budget Summary!B2:B")
+        for v in row
+    ]
+    data = dict(zip(headers, values))
+    return data
+
+
+def get_ops_event_log(start=None, end=None):
+    """Returns all events logged in the shop manager logbook between start and end dates."""
+    sheet_id = get_config("sheets/shop_manager_logbook")
+    headers = get_sheet_range(sheet_id, "Event Log!A1:E1")[0]
+    for row in get_sheet_range(sheet_id, "Event Log!A2:E"):
+        data = dict(zip(headers, row))
+        t = safe_parse_datetime(data["Date"])
+        if (not start or start <= t) and (not end or t <= end):
+            data["Date"] = t
+            yield data
+
+
+def get_ops_inventory():
+    """Returns all inventory information in the shop manager logbook"""
+    sheet_id = get_config("sheets/shop_manager_logbook")
+    headers = get_sheet_range(sheet_id, "Inventory!A1:F1")[0]
+    for row in get_sheet_range(sheet_id, "Inventory!A2:F"):
+        d = dict(zip(headers, row))
+        d["Recorded Qty"] = int(d["Recorded Qty"])
+        d["Target Qty"] = int(d["Target Qty"])
+        yield d

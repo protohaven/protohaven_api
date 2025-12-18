@@ -6,6 +6,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Union
 
+from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.automation.classes.scheduler import (
@@ -15,7 +16,10 @@ from protohaven_api.automation.classes.scheduler import (
     push_schedule,
     solve_with_env,
 )
-from protohaven_api.automation.classes.solver import expand_recurrence
+from protohaven_api.automation.classes.solver import (
+    NoAvailabilityError,
+    expand_recurrence,
+)
 from protohaven_api.config import ParserError, get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import (
@@ -444,7 +448,15 @@ def setup_scheduler_env():
 @require_login_role(Role.INSTRUCTOR)
 def run_scheduler():
     """Run the class scheduler with a specific environment"""
-    result, score = solve_with_env(request.json)
+    try:
+        result, score = solve_with_env(request.json)
+    except NoAvailabilityError:
+        return Response(
+            "No availability specified for this scheduling window. "
+            "Add your availability to the calendar,"
+            " then re-run the scheduler.",
+            400,
+        )
     return {"result": result, "score": score}
 
 
@@ -599,3 +611,23 @@ def inst_availability():  # pylint: disable=too-many-return-statements
         return {"result": result}
 
     return Response(f"Unsupported method '{request.method}'", status=400)
+
+
+@page.route("/instructor/clearance_quiz", methods=["POST"])
+@require_login_role(Role.AUTOMATION, Role.INSTRUCTOR)
+def log_quiz_submission():
+    """Saves the results of a clearance quiz in the Quiz Results airtable
+
+    https://wiki.protohaven.org/books/drafts/page/how-to-create-a-recertification-clearance-quiz
+    """
+    req = request.json
+    log.info(f"Clearance quiz received: {req}")
+    status, content = airtable.insert_quiz_result(
+        submitted=dateparser.parse(req["submitted"]) if "submitted" in req else None,
+        email=req.get("email") or None,
+        points_to_pass=int(req.get("points_to_pass") or "0"),
+        points_scored=int(req.get("points_scored") or "0"),
+        tool_codes=req.get("tool_codes") or None,
+        data=req.get("data") or {},
+    )
+    return {"status": status, "content": content}

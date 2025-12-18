@@ -339,14 +339,29 @@ class Commands:
         )
 
         # Current day from calendar
-        techs_on_duty = forecast.generate(now, 1, include_pii=True)["calendar_view"][0]
+        techs_on_duty_day = forecast.generate(now, 1, include_pii=True)[
+            "calendar_view"
+        ][0]
         # Pick AM vs PM shift
-        techs_on_duty = techs_on_duty["AM" if shift.endswith("AM") else "PM"]["people"]
+        techs_on_duty = techs_on_duty_day["AM" if shift.endswith("AM") else "PM"][
+            "people"
+        ]
+
+        # Short if no techs are on duty and today is a holidy.  Overridden
+        # holiday shifts will have techs_on_duty populated, so we shouldn't
+        # need further checks here. See: `create_calendar_view` in `techs`
+        if len(techs_on_duty) == 0 and techs_on_duty_day["is_holiday"]:
+            log.info("Oh, it's a holiday, shop's closed.")
+            print_yaml([])
+            return
+
         log.info(f"Expecting on-duty techs: {[t.name for t in techs_on_duty]}")
         email_map = {t.email: t for t in techs_on_duty}
         on_duty_ok = False
         log.info("Sign ins:")
         for s in list(airtable.get_signins_between(start, end)):
+            if s is None:
+                continue
             t = email_map.get(s.email)
             if t in techs_on_duty:
                 on_duty_ok = True

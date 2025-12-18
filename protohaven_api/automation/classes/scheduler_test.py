@@ -318,6 +318,7 @@ def test_load_schedulable_classes(mocker):
         ],
     )
     mocker.patch.object(s, "compute_score", return_value=10)
+    mocker.patch.object(s, "get_config", return_value=False)
 
     classes, notices = s.load_schedulable_classes(
         {"class1": [[d(0), d(2), d(1)]]}, {"C1": [[d(0), d(2), d(1)]]}
@@ -336,6 +337,72 @@ def test_load_schedulable_classes(mocker):
         [d(0), d(2), d(1), "class"],
         [d(0), d(2), d(1), "clearance (C1)"],
     ]
+
+
+def test_load_schedulable_classes_with_wiki_requirement(mocker):
+    """Test loading schedulable classes when wiki page is required"""
+    mocker.patch.object(s, "get_config", return_value=True)
+    mock_wiki = mocker.patch.object(s, "wiki")
+    mock_airtable = mocker.patch.object(s, "airtable")
+
+    mock_wiki.get_class_docs_report.return_value = {"Other Class": "doc_url"}
+
+    mock_airtable.get_all_class_templates.return_value = [
+        {
+            "id": "class1",
+            "fields": {
+                "Schedulable": True,
+                "Name": "Test Class",
+                "Hours": 2,
+                "Name (from Area)": ["Area1"],
+                "Image Link": "http://example.com/image.jpg",
+            },
+        },
+        {
+            "id": "class2",
+            "fields": {
+                "Schedulable": True,
+                "Name": "Other Class",
+                "Hours": 2,
+                "Name (from Area)": ["Area1"],
+                "Image Link": "http://example.com/image.jpg",
+            },
+        },
+    ]
+
+    classes, notices = s.load_schedulable_classes({}, {})
+
+    assert len(classes) == 1
+    assert "class1" in notices
+    assert "class2" not in notices
+    assert "missing wiki page" in notices["class1"][0]
+    mock_wiki.get_class_docs_report.assert_called_once()
+
+
+def test_load_schedulable_classes_missing_image(mocker):
+    """Test loading schedulable classes with missing image"""
+    mocker.patch.object(s, "get_config", return_value=False)
+    mock_airtable = mocker.patch.object(s, "airtable")
+
+    mock_class = {
+        "id": "class1",
+        "fields": {
+            "Schedulable": True,
+            "Name": "Test Class",
+            "Hours": 2,
+            "Name (from Area)": ["Area1"],
+            "Image Link": None,
+        },
+    }
+
+    mock_airtable.get_all_class_templates.return_value = [mock_class]
+    mocker.patch.object(s, "compute_score", return_value=10)
+
+    classes, notices = s.load_schedulable_classes({}, {})
+
+    assert len(classes) == 1
+    assert "class1" in notices
+    assert "missing a promo image" in notices["class1"][0]
 
 
 def test_generate_env(mocker):
@@ -398,7 +465,8 @@ def test_generate_env(mocker):
     m1.assert_has_calls(
         [
             mocker.call("instructor1", [], ["class1", "class2"], [], {}, mocker.ANY),
-            mocker.call("instructor2", [], ["class1", "class3"], [], {}, mocker.ANY),
+            # Note: only class1, as class3 is not in the list of schedulable classes
+            mocker.call("instructor2", [], ["class1"], [], {}, mocker.ANY),
         ]
     )
     assert len(result["instructors"]) == 2
