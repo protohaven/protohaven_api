@@ -34,18 +34,16 @@ def test_transaction_alerts_ok(mocker, cli):
     mocker.patch.object(
         f.sales,
         "get_subscriptions",
-        return_value={
-            "subscriptions": [
-                {
-                    "status": "ACTIVE",
-                    "id": "sub_id",
-                    "plan_variation_id": "var_id",
-                    "customer_id": "cust_id",
-                    "charged_through_date": d(0).isoformat(),
-                    "invoice_ids": [],
-                }
-            ]
-        },
+        return_value=[
+            {
+                "status": "ACTIVE",
+                "id": "sub_id",
+                "plan_variation_id": "var_id",
+                "customer_id": "cust_id",
+                "charged_through_date": d(0).isoformat(),
+                "invoice_ids": [],
+            }
+        ],
     )
     mocker.patch.object(f.sales, "subscription_tax_pct", return_value=7.0)
     got = cli("transaction_alerts", [])
@@ -73,9 +71,7 @@ def test_transaction_alerts_active_with_unpaid_invoice(mocker, cli):
         "invoice_ids": ["inv_id", "inv2_id"],
         "charged_through_date": d(10).isoformat(),
     }
-    mocker.patch.object(
-        f.sales, "get_subscriptions", return_value={"subscriptions": [mock_sub]}
-    )
+    mocker.patch.object(f.sales, "get_subscriptions", return_value=[mock_sub])
     mocker.patch.object(f.sales, "subscription_tax_pct", return_value=7.0)
     mocker.patch.object(f, "tznow", return_value=d(0))
 

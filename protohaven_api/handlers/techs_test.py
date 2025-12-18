@@ -667,6 +667,7 @@ def test_techs_storage_subscriptions(mocker, tech_client):
         "get_subscriptions",
         return_value=[
             {
+                "id": "111",
                 "customer_id": "TEST_CUST",
                 "start_date": "2025-01-29",
                 "charged_through_date": "2025-08-29",
@@ -677,6 +678,7 @@ def test_techs_storage_subscriptions(mocker, tech_client):
                 "plan_variation_id": "PLAN_VAR_ID",
             },
             {  # Unknown customer, no notes
+                "id": "222",
                 "customer_id": "12345",
                 "start_date": "2025-01-29",
                 "charged_through_date": "2025-08-29",
@@ -692,6 +694,7 @@ def test_techs_storage_subscriptions(mocker, tech_client):
     assert response.status_code == 200
     assert response.json == [
         {
+            "id": "111",
             "charged_through_date": "2025-08-29",
             "created_at": "2025-01-29T15:18:13-05:00",
             "customer": "Test Name (a@b.com)",
@@ -702,6 +705,7 @@ def test_techs_storage_subscriptions(mocker, tech_client):
             "start_date": "2025-01-29",
         },
         {
+            "id": "222",
             "charged_through_date": "2025-08-29",
             "created_at": "2025-01-29T15:18:13-05:00",
             "customer": "12345",
