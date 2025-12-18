@@ -4,6 +4,8 @@ from functools import reduce
 
 import holidays
 
+from protohaven_api.automation.techs.techs import ph_holidays
+
 
 def date_range_overlaps(a0, a1, b0, b1):
     """Return True if [a0,a1] and [b0,b1] overlap"""
@@ -84,6 +86,8 @@ def validate_candidate_class_time(  # pylint: disable=too-many-return-statements
         # Skip holiday classes
         if t0 in us_holidays:
             return False, "Occurs on a US holiday"
+        if t0 in ph_holidays:
+            return False, "Occurs on a Protohaven holiday"
 
         # Skip if instructor is already busy on this day
         for occ in inst_occupancy:

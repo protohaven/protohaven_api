@@ -47,6 +47,7 @@ def paginated_fetch(api_key, path, params=None, batching=False):
             else:
                 yield from content[result_field]
         current_page += 1
+        log.info(f"paginated_fetch {current_page} / {total_pages} fetched")
 
 
 def paginated_search(search_fields, output_fields, typ="accounts", pagination=None):
@@ -77,6 +78,7 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
         total = content["pagination"]["totalPages"]
         cur += 1
         data["pagination"]["currentPage"] = cur
+        log.info(f"paginated_search {cur} / {total} fetched")
         yield from content["searchResults"]
 
 

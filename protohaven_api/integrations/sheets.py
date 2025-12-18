@@ -39,6 +39,8 @@ def get_instructor_submissions_raw(from_row=1300):
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
     for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
         data = dict(zip(headers, row))
+        if not data.get("Timestamp"):
+            continue
         data["Timestamp"] = safe_parse_datetime(data["Timestamp"])
         yield data
 
@@ -101,3 +103,43 @@ def get_sign_ins_between(start, end):
         if start <= t <= end:
             data["timestamp"] = t
             yield data
+
+
+def get_ops_budget_state():
+    """Returns ops budgeting state from shop manager logbook"""
+    sheet_id = get_config("sheets/shop_manager_logbook")
+    headers = [
+        h.strip().lower()
+        for row in get_sheet_range(sheet_id, "Budget Summary!A2:A")
+        for h in row
+    ]
+    values = [
+        v.strip().lower()
+        for row in get_sheet_range(sheet_id, "Budget Summary!B2:B")
+        for v in row
+    ]
+    data = dict(zip(headers, values))
+    return data
+
+
+def get_ops_event_log(start=None, end=None):
+    """Returns all events logged in the shop manager logbook between start and end dates."""
+    sheet_id = get_config("sheets/shop_manager_logbook")
+    headers = get_sheet_range(sheet_id, "Event Log!A1:E1")[0]
+    for row in get_sheet_range(sheet_id, "Event Log!A2:E"):
+        data = dict(zip(headers, row))
+        t = safe_parse_datetime(data["Date"])
+        if (not start or start <= t) and (not end or t <= end):
+            data["Date"] = t
+            yield data
+
+
+def get_ops_inventory():
+    """Returns all inventory information in the shop manager logbook"""
+    sheet_id = get_config("sheets/shop_manager_logbook")
+    headers = get_sheet_range(sheet_id, "Inventory!A1:F1")[0]
+    for row in get_sheet_range(sheet_id, "Inventory!A2:F"):
+        d = dict(zip(headers, row))
+        d["Recorded Qty"] = int(d["Recorded Qty"])
+        d["Target Qty"] = int(d["Target Qty"])
+        yield d

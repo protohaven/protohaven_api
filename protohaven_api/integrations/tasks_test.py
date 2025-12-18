@@ -14,21 +14,33 @@ def test_get_with_onhold_section(mocker):
     )
     mt = mocker.patch.object(t, "_tasks")
     mt().get_tasks_for_project.return_value = [
-        {"completed": False, "memberships": [{"section": {"gid": "456"}}]},
-        {"completed": False, "memberships": [{"section": {"gid": "789"}}]},
-        {"completed": True, "memberships": [{"section": {"gid": "456"}}]},
+        {
+            "completed": False,
+            "memberships": [{"section": {"gid": "456"}}],
+            "modified_at": d(0),
+        },
+        {
+            "completed": False,
+            "memberships": [{"section": {"gid": "789"}}],
+            "modified_at": d(1),
+        },
+        {
+            "completed": True,
+            "memberships": [{"section": {"gid": "456"}}],
+            "modified_at": d(2),
+        },
     ]
 
     # Test excluding on hold tasks
     tasks = list(t.get_with_onhold_section("test_project", exclude_on_hold=True))
     assert len(tasks) == 1  # Only one task not on hold and not completed
-    assert tasks[0]["memberships"][0]["section"]["gid"] == "789"
+    assert "789" in tasks[0]["sections"]
 
     # Test excluding completed tasks
     tasks = list(t.get_with_onhold_section("test_project", exclude_complete=True))
     assert len(tasks) == 2  # Two tasks not completed
-    assert tasks[0]["memberships"][0]["section"]["gid"] == "456"
-    assert tasks[1]["memberships"][0]["section"]["gid"] == "789"
+    assert "456" in tasks[0]["sections"]
+    assert "789" in tasks[1]["sections"]
 
     # Test excluding both on hold and completed tasks
     tasks = list(
@@ -37,14 +49,14 @@ def test_get_with_onhold_section(mocker):
         )
     )
     assert len(tasks) == 1  # Only one task not on hold and not completed
-    assert tasks[0]["memberships"][0]["section"]["gid"] == "789"
+    assert "789" in tasks[0]["sections"]
 
     # Test not excluding any tasks
     tasks = list(t.get_with_onhold_section("test_project"))
     assert len(tasks) == 3  # All tasks returned
-    assert tasks[0]["memberships"][0]["section"]["gid"] == "456"
-    assert tasks[1]["memberships"][0]["section"]["gid"] == "789"
-    assert tasks[2]["memberships"][0]["section"]["gid"] == "456"
+    assert "456" in tasks[0]["sections"]
+    assert "789" in tasks[1]["sections"]
+    assert "456" in tasks[2]["sections"]
 
 
 def test_last_maintenance_completion_map(mocker):

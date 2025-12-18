@@ -6,6 +6,27 @@ from protohaven_api.automation.techs import techs as t
 from protohaven_api.testing import d
 
 
+def test_holiday_customization():
+    """Basic check to ensure holiday calendar is working"""
+    got = set(t.ProtohavenHolidays(years=2025).values())
+    assert {
+        "New Year's Eve",
+        "New Year's Day",
+        "Martin Luther King Day",
+        "Easter Sunday",
+        "Memorial Day",
+        "Juneteenth",
+        "Independence Day",
+        "Labor Day",
+        "Thanksgiving Day",
+        "Day After Thanksgiving",
+        "Christmas Eve",
+        "Christmas Day",
+    } == got
+    # Monday is 0, Sunday is 6 in Python's weekday()
+    assert t.ProtohavenHolidays(years=2025).get_named("Easter Sunday")[0].weekday() == 6
+
+
 @pytest.mark.parametrize(
     "test_date,ovr,want_am,is_holiday",
     [
@@ -48,7 +69,7 @@ def test_resolve_overrides(mocker):
     """Test resolving tech overrides with various scenarios"""
     # Setup test data
     test_overrides = {
-        "shift1": ("id1", ["John Doe", "Jane Smith"], "editor1"),
+        "shift1": ("id1", ["John Doe", "Jane   smith (they/them)"], "editor1"),
         "shift2": ("id2", ["GuestTech"], None),
     }
 

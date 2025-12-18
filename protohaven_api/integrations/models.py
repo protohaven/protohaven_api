@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Generator, Optional, Tuple
+from typing import Generator, Optional
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -51,7 +51,7 @@ class Role:
     AUTOMATION = {"name": "Automation", "id": None}
 
     @classmethod
-    def as_dict(cls) -> Dict[str, Dict[str, Optional[str]]]:
+    def as_dict(cls) -> dict[str, dict[str, Optional[str]]]:
         """Return dictionary mapping name to the value of each field"""
         results = {}
         for f in dir(cls()):
@@ -168,12 +168,12 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def last_membership_expiration_date(
         self,
-    ) -> Tuple[datetime.datetime | None, bool | None]:
+    ) -> tuple[datetime.datetime | None, bool | None]:
         """Returns a tuple of (expiration_date, autorenewal) based on
         membership data. Unspecified end date will be treated as "infinite".
         A value of (None, None) will be returned if the account has no memberships
         """
-        result: Tuple[datetime.datetime | None, bool | None] = (None, None)
+        result: tuple[datetime.datetime | None, bool | None] = (None, None)
         for m in self.memberships():
             if not result[0] or (m.end_date and result[0] < m.end_date):
                 result = (m.end_date, m.autoRenewal or False)
@@ -273,17 +273,23 @@ class Member:  # pylint:disable=too-many-public-methods
         )
 
     @property
-    def email(self):
+    def emails(self) -> list[str]:
+        """Get all the emails for this user in preferential order, omitting empty
+        results."""
+        raw = [
+            self.neon_search_data.get("Email 1"),
+            self.neon_search_data.get("Email 2"),
+            self.neon_search_data.get("Email 3"),
+            self._raw_account().get("primaryContact", {}).get("email1"),
+            self._raw_account().get("primaryContact", {}).get("email2"),
+            self._raw_account().get("primaryContact", {}).get("email3"),
+        ]
+        return [e.strip().lower() for e in raw if e is not None]
+
+    @property
+    def email(self) -> str:
         """Fetches the first valid email address for the member"""
-        v = (
-            self.neon_search_data.get("Email 1")
-            or self.neon_search_data.get("Email 2")
-            or self.neon_search_data.get("Email 3")
-            or self._raw_account().get("primaryContact", {}).get("email1")
-            or self._raw_account().get("primaryContact", {}).get("email2")
-            or self._raw_account().get("primaryContact", {}).get("email3")
-        )
-        return v.strip().lower() if v else None
+        return self.emails[0] if self.emails else None
 
     def _get_custom_field(self, key_field, value_field):
         search_result = self.neon_search_data.get(key_field)
@@ -354,7 +360,7 @@ class Member:  # pylint:disable=too-many-public-methods
         return self._get_custom_field("Announcements Acknowledged", "value") or ""
 
     @property
-    def waiver_accepted(self) -> Tuple[str | None, datetime.datetime | None]:
+    def waiver_accepted(self) -> tuple[str | None, datetime.datetime | None]:
         """Return version and date of waiver acceptance via custom neon field"""
         v = self._get_custom_field("Waiver Accepted", "value") or ""
         match = re.match(WAIVER_REGEX, v)
@@ -447,6 +453,7 @@ class Member:  # pylint:disable=too-many-public-methods
             "zero_cost_ok_until": "Zero-Cost Membership OK Until Date",
             "shop_tech_first_day": "Shop Tech First Day",
             "shop_tech_last_day": "Shop Tech Last Day",
+            "last_review": "Last Review",
         }
         if attr in day_custom_fields:
             val = self._get_custom_field(day_custom_fields[attr], "value")
