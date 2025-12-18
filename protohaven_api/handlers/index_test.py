@@ -122,6 +122,7 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
         capacity=10,
         url="http://example.com",
         registration=True,
+        image_url="http://imgurl.com",
         in_blocklist=lambda: False,
     )
     mocker.patch.object(
@@ -157,6 +158,7 @@ def test_upcoming_events(mocker, client):
         end_date=d(1, 19),
         capacity=10,
         url="http://example.com",
+        image_url="http://test.net",
         registration=True,
         in_blocklist=lambda: False,
     )

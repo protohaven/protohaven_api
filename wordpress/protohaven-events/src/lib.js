@@ -113,7 +113,7 @@ export function process(events, classes, areas, levels) {
 			description: e.description,
 			features: null,
 			desc: null,
-			img: null,
+			img: e.image_url || null,
 			age: 16,
 			times: {},
 		};
@@ -130,9 +130,9 @@ export function process(events, classes, areas, levels) {
 		}
 		if (!c.img || !c.desc || !c.features) {
 			Object.entries(parseDesc(e.description)).forEach(([key, value]) => {
-			    if (value !== null) {
-				c[key] = value;
-			    }
+			  if (value !== null && !c[key]) {
+					c[key] = value;
+			  }
 			});
 			if (c.features['Age Requirement']) {
 				let m = c.features['Age Requirement'].match(/\d+/);
