@@ -6,12 +6,15 @@
   export let enabled;
   let new_value;
   let editing = false;
+  let input_elem;
   export let on_change;
 
   function edit_start() {
     console.log("Start editing");
     editing = true;
     new_value = value;
+    console.log(input_elem);
+    setTimeout(() => input_elem.focus(), 0);
   }
   function edit_cancel() {
     editing = false;
@@ -25,23 +28,24 @@
   }
 </script>
 
-{#if editing}
+<div style:display={(editing) ? "inherit" : "none"}>
 <Row>
   <div class="d-flex flex-row justify-content-between">
-  <strong>{title}</strong>
-  <Input text bind:value={new_value}/>
+  {#if title}<strong>{title}</strong>{/if}
+  <Input text bind:value={new_value} bind:inner={input_elem}/>
   <div class="mx-2" on:click={edit_ok}><Icon name="check2-square"/></div>
   <div class="mx-2" on:click={edit_cancel}><Icon name="x-square"/></div>
   </div>
 </Row>
-{:else}
+</div>
+<div style:display={(!editing) ? "inherit" : "none"}>
 <Row>
   <div class="d-flex justify-content-between">
-  <strong>{title}</strong>
+  {#if title}<strong>{title}</strong>{/if}
   <div class="mx-3">{value || ''}</div>
   {#if enabled}
   <Button class="ml-1" outline on:click={edit_start}><Icon name="pencil-square"/></Button>
   {/if}
   </div>
 </Row>
-{/if}
+</div>

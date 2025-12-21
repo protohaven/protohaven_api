@@ -512,6 +512,9 @@ def techs_storage_subscriptions():
     cust_map = sales.get_customer_name_map()
     log.info(f"Fetched {len(cust_map)} customers")
 
+    unpaid_invoices = dict(sales.get_unpaid_invoices_by_id())
+    log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
+
     result = []
     for sub in sales.get_subscriptions():
         if sub["status"] != "ACTIVE":
@@ -533,6 +536,7 @@ def techs_storage_subscriptions():
                 "plan": plan,
                 "price": price,
                 "note": sub.get("note") or None,
+                "unpaid": [i for i in sub["invoice_ids"] if i in unpaid_invoices]
             }
         )
     return result
@@ -542,7 +546,8 @@ def techs_storage_subscriptions():
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def set_sub_note(sub_id):
     """Sets the note on a square subscription"""
-    note = request.values.get("note").strip()
+    data = request.json
+    note = data.get("note").strip()
     if not note or not sub_id:
         return Response("note and subscription ID reqiured", 400)
 

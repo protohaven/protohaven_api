@@ -680,7 +680,7 @@ pricing = [
     },
     {
         "name": "ELI - Price",
-        "desc": "70% Of",
+        "desc": "70% Off",
         "cond": [[income_condition("Extremely Low Income - 70%", 43)]],
         "price_ratio": 0.3,
         "qty_ratio": 0.25,
@@ -688,7 +688,7 @@ pricing = [
     },
     {
         "name": "VLI - Price",
-        "desc": "50% Of",
+        "desc": "50% Off",
         "cond": [[income_condition("Very Low Income - 50%", 42)]],
         "price_ratio": 0.5,
         "qty_ratio": 0.25,
@@ -696,7 +696,7 @@ pricing = [
     },
     {
         "name": "LI - Price",
-        "desc": "20% Of",
+        "desc": "20% Off",
         "cond": [[income_condition("Low Income - 20%", 41)]],
         "price_ratio": 0.8,
         "qty_ratio": 0.5,
@@ -704,7 +704,7 @@ pricing = [
     },
     {
         "name": "Member Discount",
-        "desc": "20% Of",
+        "desc": "20% Off",
         "cond": [
             [
                 membership_condition(
@@ -732,7 +732,7 @@ pricing = [
     },
     {
         "name": "Instructor Discount",
-        "desc": "50% Of",
+        "desc": "50% Off",
         "cond": [[membership_condition(["Instructor"], [9])]],
         "price_ratio": 0.5,
         "qty_ratio": 1.0,

@@ -64,6 +64,7 @@ function set_enrollment(enroll) {
       let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
       toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
     }).catch((err) => {
+      console.error(err);
       toast_msg = {'color': 'danger', 'msg': 'See console for details', 'title': 'Error Changing Enrollment'};
     }).finally(() => {
       enrolling = false;
