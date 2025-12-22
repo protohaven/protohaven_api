@@ -9,6 +9,7 @@ import urllib
 
 import pyotp
 from bs4 import BeautifulSoup
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from protohaven_api.config import get_config, tznow
@@ -225,29 +226,29 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         page.goto("https://app.neoncrm.com/np/ssoAuth")
 
         # Fill in the login form. Adjust the selectors to match your form.
-        print("Filling email")
+        log.info("Filling email")
         page.fill("input[name='email']", get_config("neon/login_user"))
         page.locator('button:text("Next")').click()
 
-        print("Filling password")
+        log.info("Filling password")
         page.fill("input[name='password']", get_config("neon/login_pass"))
 
         # Submit the form
-        print("Submitting the form")
+        log.info("Submitting the form")
         page.click("button[type='submit']")
 
         # Wait for navigation after login
-        print("Waiting for navigation")
+        log.info("Waiting for navigation")
         page.wait_for_url("**/mfa")  # Change to your expected post-login URL
 
-        print("Filling MFA code")
+        log.info("Filling MFA code")
         page.fill("input[name='mfa_code']", self.totp.now())
-        print("Submitting the MFA code form")
+        log.info("Submitting the MFA code form")
         page.click("button[type='submit']")
 
         page.wait_for_url("**/contentList.do")  # Change to your expected post-login URL
 
-        print("Login successful!")
+        log.info("Login successful!")
 
     def create_single_use_abs_event_discounts(
         self, codes, amt, from_date=None, to_date=None
@@ -259,7 +260,15 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 headless=True
             )  # Set headless=False for debugging
             page = browser.new_page()
-            self.do_login(page)
+            try:
+                self.do_login(page)
+            except PlaywrightTimeoutError:
+                log.error(
+                    "Timed out on first login attempt - trying again in 10 seconds..."
+                )
+                time.sleep(10.0)
+                self.do_login(page)
+
             for code in codes:
                 yield self._post_discount(
                     page,
@@ -304,7 +313,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         page.fill("input[name='currentDiscount.absoluteDiscountAmount']", str(amt))
         page.click("input[type='submit']")
 
-        print("code form submitted, getting response")
+        log.info("discount code form submitted, getting response")
         page.wait_for_url(re.compile(r".*/discountList\.do.*"))
         if not page.get_by_text(code).is_visible():
             log.debug(str(page.content()))
@@ -350,75 +359,35 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             raise RuntimeError(f"{r.status}: {r.text()}")
         return r
 
-    def assign_condition_to_group(self, ctx, event_id, group_id, cond):
+    def assign_conditions_to_group(self, ctx, group_id, conds):
         """Assign a membership / income condition to a ticket group"""
-        # Load report setup page
-        referer = f"{ADMIN_URL}/v2report/validFieldsList.do"
-        referer += "?reportId=22"
-        referer += "&searchCriteriaId="
-        referer += f"&EventTicketPackageGroupId={group_id}&eventId={event_id}"
-        ag = ctx.request.get(referer)
-        content = ag.text()
-
-        # Submit report / condition
-        # Must set referer so the server knows which event this POST is for
-        drt_i = self.drt.get()
         data = {
-            "z2DuplicateRequestToken": drt_i,
-            "saveandsearchFlag": "search",
-            "actionFrom": "validColumn",
-            "savedSearchCriteria": json.dumps(cond),
-            "savedSearchFurtherCriteria": [],
-            "searchFurtherFlag": 0,
-            "searchFurtherType": 0,
-            "searchType": 0,
-            "savedSearchColumn": [
-                "65",
-                "377",
-                "19",
-                "117",
-                "26",
-                "27",
-                "28",
-                "9",
-                "429",
-                "439",
-                "443",
-                "437",
-            ],  # What's this??
-            "savedColumnToDefault": "",
-            "comeFrom": None,
+            "report": {
+                "id": 22,
+            },
+            "searchCriteria": {
+                "criteriaGroups": conds,
+            },
+            "extraConfig": {
+                "EventTicketPackageGroupId": str(group_id),
+            },
         }
+
         r = ctx.request.post(
-            f"{ADMIN_URL}/report/reportFilterEdit.do",
+            "https://protohaven.app.neoncrm.com/nx/admin/reports/nextgen/save",
             max_redirects=0,
-            form=data,
-            headers={"Referer": ag.url},
+            data=data,
+            headers={
+                "Referer": "https://protohaven.app.neoncrm.com/admin/reports/result"
+            },
         )
-        if r.status != 302:
+        if r.status != 200:
             raise RuntimeError(
-                "Report filter edit failed; expected code 302 FOUND, got "
-                + str(r.status)
+                "Report filter edit failed; expected code 200 OK, got " + str(r.status)
             )
-
-        # Do initial report execution
-        r = ctx.request.get(
-            f"{ADMIN_URL}/report/searchCriteriaSearch.do"
-            "?actionFrom=validColumn&searchFurtherType=0&searchType=0&comeFrom=null",
-            headers={"Referer": r.url},
-        )
-        content = r.text()
-        if "Return to Event Detail Page" not in content:
-            raise RuntimeError("Bad GET search criteria execution:", content[:256])
-
-        # Set the search details
-        r = ctx.request.get(
-            f"{ADMIN_URL}/systemsetting/eventTicketGroupConditionSave.do?ticketGroupId={group_id}",
-            max_redirects=0,
-            headers={"Referer": r.url},
-        )
-        if r.status != 302:
-            raise RuntimeError(f"{r.status}: {r.text()}")
+        data = r.json()
+        if not data.get("success"):
+            raise RuntimeError(f"Report filter edit failed; response: {data}")
         return True
 
     def assign_price_to_group(  # pylint: disable=too-many-arguments
@@ -533,7 +502,14 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             ctx = browser.new_context()
             page = ctx.new_page()
 
-            self.do_login(page)
+            try:
+                self.do_login(page)
+            except PlaywrightTimeoutError:
+                log.error(
+                    "Timed out on first login attempt - trying again in 10 seconds..."
+                )
+                time.sleep(10.0)
+                self.do_login(page)
 
             log.info("Clearing existing pricing (if any)...")
             if clear_existing:
@@ -546,7 +522,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                     ctx, event_id, group_name=p["name"], group_desc=p["desc"]
                 )
                 if p.get("cond", None) is not None:
-                    self.assign_condition_to_group(ctx, event_id, group_id, p["cond"])
+                    self.assign_conditions_to_group(ctx, group_id, p["cond"])
 
                 # Some classes have so few seats that the ratio rounds down to zero
                 # We just skip those here.
@@ -640,33 +616,69 @@ def create_event(  # pylint: disable=too-many-arguments
     return evt_request["id"]
 
 
-def income_condition(income_name, income_value):
-    """Generates an "income condition" for making specific pricing of tickets available"""
+def active_or_future_membership_condition():
+    """Generates a condition that requires an active or future membership for specific
+    ticket prices to be available"""
     return {
-        "name": "account_custom_view.field78",
-        "displayName": "Income Based Rates",
-        "groupId": "220",
-        "savedGroup": "1",
-        "operator": "1",
-        "operatorName": "Equal",
-        "optionName": income_name,
-        "optionValue": str(income_value),
+        "id": 1,
+        "searchCriteria": [
+            {
+                "fieldId": "120",
+                "criteriaConditions": [
+                    {
+                        "operator": "9",
+                        "value": "2,1",  # Active / Future
+                    }
+                ],
+                "isAdvancedSearch": False,
+                "fieldDisplay": "Account Current Membership Status",
+                "dataType": 7,
+                "operator": "",
+                "valueDisplay": "Active or Future",
+            }
+        ],
     }
 
 
-def membership_condition(mem_names, mem_values):
-    """Generates a "membership condition" for making specific ticket prices available"""
-    stvals = [f"'{v}'" for v in mem_values]
-    stvals = f"({','.join(stvals)})"
+def income_condition(income_name, income_value):
+    """Generates an "income condition" for making specific pricing of tickets available"""
     return {
-        "name": "membership_listing.membershipId",
-        "displayName": "Membership+Level",
-        "groupId": "55",
-        "savedGroup": "1",
-        "operator": "9",
-        "operatorName": "In Range Of",
-        "optionName": " or ".join(mem_names),
-        "optionValue": stvals,
+        "id": 1,
+        "searchCriteria": [
+            {
+                "fieldId": "account_custom_view.field78",
+                "criteriaConditions": [
+                    {
+                        "operator": 1,
+                        "value": str(income_value),
+                    }
+                ],
+                "fieldDisplay": "Income Based Rate",
+                "valueDisplay": income_name,
+                "isAdvancedSearch": False,
+            },
+        ],
+    }
+
+
+def membership_condition(mem_names: list[str], mem_values: list[int]):
+    """Generates a "membership condition" for making specific ticket prices available"""
+    return {
+        "id": 1,
+        "searchCriteria": [
+            {
+                "fieldId": "98",
+                "criteriaConditions": [
+                    {
+                        "operator": 9,
+                        "value": ",".join(str(v) for v in mem_values),
+                    }
+                ],
+                "fieldDisplay": "Membership Level",
+                "valueDisplay": " or ".join(mem_names),
+                "isAdvancedSearch": False,
+            }
+        ],
     }
 
 
@@ -681,7 +693,10 @@ pricing = [
     {
         "name": "ELI - Price",
         "desc": "70% Off",
-        "cond": [[income_condition("Extremely Low Income - 70%", 43)]],
+        "cond": [
+            active_or_future_membership_condition(),
+            income_condition("Extremely Low Income - 70%", 43),
+        ],
         "price_ratio": 0.3,
         "qty_ratio": 0.25,
         "price_name": "AMP Rate",
@@ -689,7 +704,10 @@ pricing = [
     {
         "name": "VLI - Price",
         "desc": "50% Off",
-        "cond": [[income_condition("Very Low Income - 50%", 42)]],
+        "cond": [
+            active_or_future_membership_condition(),
+            income_condition("Very Low Income - 50%", 42),
+        ],
         "price_ratio": 0.5,
         "qty_ratio": 0.25,
         "price_name": "AMP Rate",
@@ -697,7 +715,10 @@ pricing = [
     {
         "name": "LI - Price",
         "desc": "20% Off",
-        "cond": [[income_condition("Low Income - 20%", 41)]],
+        "cond": [
+            active_or_future_membership_condition(),
+            income_condition("Low Income - 20%", 41),
+        ],
         "price_ratio": 0.8,
         "qty_ratio": 0.5,
         "price_name": "AMP Rate",
@@ -706,25 +727,24 @@ pricing = [
         "name": "Member Discount",
         "desc": "20% Off",
         "cond": [
-            [
-                membership_condition(
-                    [
-                        "General+Membership",
-                        "Primary+Family+Membership",
-                        "Additional+Family+Membership",
-                        "Company Membership",
-                        "Corporate Membership",
-                        "Weekend Membership",
-                        "Weeknight Membership",
-                        "Non-profit Membership",
-                    ],
-                    # These are IDs of the membership types. For reference, see
-                    # https://protohaven.app.neoncrm.com/np/admin/systemsetting/membershipHome.do
-                    # And look at the suffix of the `Edit` urls.
-                    # These must be listed in order with the strings above.
-                    [1, 27, 26, 6, 24, 2, 25, 3],
-                )
-            ]
+            active_or_future_membership_condition(),
+            membership_condition(
+                [
+                    "General Membership",
+                    "Primary Family Membership",
+                    "Additional Family Membership",
+                    "Company Membership",
+                    "Corporate Membership",
+                    "Weekend Membership",
+                    "Weeknight Membership",
+                    "Non-profit Membership",
+                ],
+                # These are IDs of the membership types. For reference, see
+                # https://protohaven.app.neoncrm.com/np/admin/systemsetting/membershipHome.do
+                # And look at the suffix of the `Edit` urls.
+                # These must be listed in order with the strings above.
+                [1, 27, 26, 6, 24, 2, 25, 3],
+            ),
         ],
         "price_ratio": 0.8,
         "qty_ratio": 1.0,
@@ -733,7 +753,10 @@ pricing = [
     {
         "name": "Instructor Discount",
         "desc": "50% Off",
-        "cond": [[membership_condition(["Instructor"], [9])]],
+        "cond": [
+            active_or_future_membership_condition(),
+            membership_condition(["Instructor"], [9]),
+        ],
         "price_ratio": 0.5,
         "qty_ratio": 1.0,
         "price_name": "Instructor Rate",

@@ -402,6 +402,7 @@ class Commands:
                     log.info(f"- Neon event {result_id} created")
                     assert result_id
 
+                    log.info("- Applying pricing (uses Firefox process via playwright)")
                     self._apply_pricing(result_id, event, args.discounts, session)
                     log.info("- Pricing applied")
 
