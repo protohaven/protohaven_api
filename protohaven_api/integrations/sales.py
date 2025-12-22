@@ -93,7 +93,7 @@ def get_subscription_plan_map():
     return result
 
 
-def get_customer_name_map():
+def get_customer_name_map(include_pii=False, include_email=False):
     """Get full list of customers, mapping ID to name"""
 
     data = {}
@@ -105,13 +105,13 @@ def get_customer_name_map():
             given = v.get("given_name", "")
             family = v.get("family_name", "")
             nick = v.get("nickname")
-            email = v.get("email_address")
-            fmt = f"{given} {family}"
-            if nick:
-                fmt += f"({nick})"
-            if email:
-                fmt += f" {email}"
-            data[v["id"]] = fmt
+            fmt = nick if nick else given
+            if include_pii:
+                fmt = f"{given} {family}"
+                if nick:
+                    fmt += f"({nick})"
+            email = v.get("email_address") if include_email else None
+            data[v["id"]] = (fmt, email)
         if result.body.get("cursor"):
             result = client().customers.list_customers(cursor=result.body["cursor"])
         else:

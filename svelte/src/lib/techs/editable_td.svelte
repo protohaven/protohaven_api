@@ -26,13 +26,18 @@
     new_value = null;
     on_change(value);
   }
+  function check_for_submit(e) {
+    if (e.key === "Enter" || e.keyCode === 13) {
+      edit_ok();
+    }
+  }
 </script>
 
 <div style:display={(editing) ? "inherit" : "none"}>
 <Row>
   <div class="d-flex flex-row justify-content-between">
   {#if title}<strong>{title}</strong>{/if}
-  <Input text bind:value={new_value} bind:inner={input_elem}/>
+  <Input text bind:value={new_value} bind:inner={input_elem} on:keypress={check_for_submit}/>
   <div class="mx-2" on:click={edit_ok}><Icon name="check2-square"/></div>
   <div class="mx-2" on:click={edit_cancel}><Icon name="x-square"/></div>
   </div>

@@ -20,7 +20,9 @@ def fixture_cli(capsys):
 
 def test_transaction_alerts_ok(mocker, cli):
     mocker.patch.object(
-        f.sales, "get_customer_name_map", return_value={"cust_id": "Foo Bar"}
+        f.sales,
+        "get_customer_name_map",
+        return_value={"cust_id": ("Foo Bar", "foo@bar.com")},
     )
     mocker.patch.object(f.sales, "get_unpaid_invoices_by_id", return_value={})
     mocker.patch.object(
@@ -53,7 +55,9 @@ def test_transaction_alerts_ok(mocker, cli):
 def test_transaction_alerts_active_with_unpaid_invoice(mocker, cli):
     """ACTIVE subscription with unpaid invoice should raise alert"""
     mocker.patch.object(
-        f.sales, "get_customer_name_map", return_value={"cust_id": "Test Customer"}
+        f.sales,
+        "get_customer_name_map",
+        return_value={"cust_id": ("Test Customer", "test@example.com")},
     )
     mocker.patch.object(
         f.sales,
