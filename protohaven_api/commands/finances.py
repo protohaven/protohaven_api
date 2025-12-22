@@ -34,7 +34,7 @@ class Commands:
     ) -> None:
         """Send alerts about recent/unresolved transaction issues"""
         log.info("Fetching customer mapping")
-        cust_map = sales.get_customer_name_map()
+        cust_map = sales.get_customer_name_map(include_pii=True, include_email=True)
         log.info(f"Fetched {len(cust_map)} customers")
         log.info("Fetching subscription plans")
         sub_plan_map = sales.get_subscription_plan_map()
@@ -51,7 +51,7 @@ class Commands:
         unpaid = []
         untaxed = []
         n = 0
-        for sub in sales.get_subscriptions()["subscriptions"]:
+        for sub in sales.get_subscriptions():
             status = sub["status"]
             n += 1
 
@@ -73,12 +73,14 @@ class Commands:
             tax_pct = sales.subscription_tax_pct(sub, price)
 
             log.debug(f"{plan} ${price/100} tax={tax_pct}%")
-            cust = cust_map.get(sub["customer_id"], sub["customer_id"])
+            cust_name, cust_email = cust_map.get(sub["customer_id"], sub["customer_id"])
 
             min_tax = get_config("square/tax_rate/min_percent", 6.9)
             max_tax = get_config("square/tax_rate/max_percent", 7.1)
             if (tax_pct < min_tax or tax_pct > max_tax) and status == "ACTIVE":
-                untaxed.append(f"- {cust} - {plan} - {tax_pct}% tax ([link]({url}))")
+                untaxed.append(
+                    f"- {cust_name} ({cust_email}) - {plan} - {tax_pct}% tax ([link]({url}))"
+                )
                 log.info(untaxed[-1])
 
             unpaid_urls = [
@@ -93,7 +95,7 @@ class Commands:
                 and status == "ACTIVE"
             ) or len(unpaid_urls):
                 unpaid.append(
-                    f"- {cust} - {plan} - {status} - charged through "
+                    f"- {cust_name} ({cust_email}) - {plan} - {status} - charged through "
                     f"{charged_through.strftime('%Y-%m-%d')}, unpaid "
                     f"{', '.join(unpaid_urls)} ([link]({url}))"
                 )

@@ -23,9 +23,19 @@ def get_cards():
 def get_subscriptions():
     """Get all subscriptions - these are commonly used for storage"""
     result = client().subscriptions.search_subscriptions(body={})
-    if result.is_success():
-        return result.body
-    raise RuntimeError(result.errors)
+    while result:
+        if not result.is_success():
+            raise RuntimeError(result.errors)
+        yield from result.body["subscriptions"]
+        if result.body.get("cursor"):
+            result = client().subscriptions.search_subscriptions(
+                cursor=result.body["cursor"]
+            )
+        else:
+            break
+
+    if not result.is_success():
+        raise RuntimeError(result.errors)
 
 
 def get_invoice(invoice_id):
@@ -83,7 +93,7 @@ def get_subscription_plan_map():
     return result
 
 
-def get_customer_name_map():
+def get_customer_name_map(include_pii=False, include_email=False):
     """Get full list of customers, mapping ID to name"""
 
     data = {}
@@ -95,13 +105,13 @@ def get_customer_name_map():
             given = v.get("given_name", "")
             family = v.get("family_name", "")
             nick = v.get("nickname")
-            email = v.get("email_address")
-            fmt = f"{given} {family}"
-            if nick:
-                fmt += f"({nick})"
-            if email:
-                fmt += f" {email}"
-            data[v["id"]] = fmt
+            fmt = nick if nick else given
+            if include_pii:
+                fmt = f"{given} {family}"
+                if nick:
+                    fmt += f"({nick})"
+            email = v.get("email_address") if include_email else None
+            data[v["id"]] = (fmt, email)
         if result.body.get("cursor"):
             result = client().customers.list_customers(cursor=result.body["cursor"])
         else:
@@ -133,6 +143,16 @@ def get_inventory():
     """Get all inventory"""
     result = (
         client().inventory.batch_retrieve_inventory_counts()  # pylint: disable=no-value-for-parameter
+    )
+    if result.is_success():
+        return result.body
+    raise RuntimeError(result.errors)
+
+
+def set_subscription_note(sub_id: str, note: str):
+    """Sets the note text for a subscription in square"""
+    result = client().subscriptions.update_subscription(
+        subscription_id=sub_id, note=note
     )
     if result.is_success():
         return result.body

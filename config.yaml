@@ -165,6 +165,11 @@ nocodb:
       events: "m90g2ef9xvyfynt"
     fake_google:
       calendar: "mafe10fw4jk19u6"
+    fake_square:
+      subscriptions: "mrmqtcak7xx1nzr"
+      subscription_plans: "mkqdo8170eybp61"
+      customers: "m4fuq3b2aj9fr1t"
+      invoices: "m86a3t2edajbznx"
   link_field_ids:
     class_automation:
       availability:

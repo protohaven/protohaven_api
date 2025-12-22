@@ -649,3 +649,95 @@ def test_techs_tool_state(mocker, client):
             "status": "Unknown",
         }
     ]
+
+
+def test_techs_storage_subscriptions(mocker, lead_client):
+    mocker.patch.object(
+        tl.sales,
+        "get_subscription_plan_map",
+        return_value={"PLAN_VAR_ID": ("Test Plan", 5000)},
+    )
+    mocker.patch.object(
+        tl.sales,
+        "get_customer_name_map",
+        return_value={"TEST_CUST": ("Test Name", "a@b.com")},
+    )
+    mocker.patch.object(
+        tl.sales,
+        "get_subscriptions",
+        return_value=[
+            {
+                "id": "111",
+                "invoice_ids": ["001"],
+                "customer_id": "TEST_CUST",
+                "start_date": "2025-01-29",
+                "charged_through_date": "2025-08-29",
+                "status": "ACTIVE",
+                "created_at": "2025-01-29T15:18:13-05:00",
+                "note": "L12 locker",
+                "monthly_billing_anchor_date": 29,
+                "plan_variation_id": "PLAN_VAR_ID",
+            },
+            {  # Unknown customer, no notes
+                "id": "222",
+                "invoice_ids": ["002"],
+                "customer_id": "12345",
+                "start_date": "2025-01-29",
+                "charged_through_date": "2025-08-29",
+                "status": "ACTIVE",
+                "created_at": "2025-01-29T15:18:13-05:00",
+                "monthly_billing_anchor_date": 29,
+                "plan_variation_id": "PLAN_VAR_ID",
+            },
+        ],
+    )
+    mocker.patch.object(
+        tl.sales, "get_unpaid_invoices_by_id", return_value=[("001", "asdf")]
+    )
+    mocker.patch.object(
+        tl.neon.cache,
+        "get",
+        side_effect=[
+            {
+                "a@b.com": mocker.MagicMock(
+                    neon_id=123,
+                    company_id=None,
+                    account_current_membership_status="Active",
+                )
+            },
+            {},
+        ],
+    )
+
+    response = lead_client.get("/techs/storage_subscriptions")
+    assert response.status_code == 200
+    assert response.json == [
+        {
+            "id": "111",
+            "charged_through_date": "2025-08-29",
+            "created_at": "2025-01-29T15:18:13-05:00",
+            "customer": "Test Name",
+            "email": "a@b.com",
+            "monthly_billing_anchor_date": 29,
+            "note": "L12 locker",
+            "plan": "Test Plan",
+            "price": 5000,
+            "start_date": "2025-01-29",
+            "membership_status": "Active",
+            "unpaid": ["001"],
+        },
+        {
+            "id": "222",
+            "charged_through_date": "2025-08-29",
+            "created_at": "2025-01-29T15:18:13-05:00",
+            "customer": "12345",
+            "email": None,
+            "monthly_billing_anchor_date": 29,
+            "note": None,
+            "plan": "Test Plan",
+            "price": 5000,
+            "start_date": "2025-01-29",
+            "membership_status": "Unknown",
+            "unpaid": [],
+        },
+    ]

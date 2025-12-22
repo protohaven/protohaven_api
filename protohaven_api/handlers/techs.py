@@ -4,13 +4,14 @@ import datetime
 import logging
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Blueprint, Response, current_app, redirect, request, session
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import safe_parse_datetime, tz, tznow
-from protohaven_api.integrations import airtable, comms, neon, neon_base, wiki
+from protohaven_api.integrations import airtable, comms, neon, neon_base, sales, wiki
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_lead_role, am_neon_id, am_role, require_login_role
 
@@ -497,3 +498,93 @@ def techs_event_registration():
         _notify_registration(account_id, event_id, action)
         return ret
     raise RuntimeError("Unknown error handling event registration state")
+
+
+@page.route("/techs/storage_subscriptions", methods=["GET"])
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.STAFF, Role.SHOP_TECH, redirect_to_login=False
+)
+def techs_storage_subscriptions():
+    """Fetch tabular data about storage subscriptions in Square
+
+    This offers a more "storage forward" interface vs Square, which is only
+    sorted by customer name and shows a bunch of cancelled stuff too.
+    """
+
+    log.info("Async fetching subscription data")
+    futures = []
+    with ThreadPoolExecutor() as executor:
+        futures.append(executor.submit(sales.get_subscription_plan_map))
+        # We need the email despite PII limitations in order to lookup membership info
+        futures.append(
+            executor.submit(
+                sales.get_customer_name_map, include_pii=True, include_email=True
+            )
+        )
+        futures.append(executor.submit(sales.get_unpaid_invoices_by_id))
+
+    sub_plan_map, cust_map, unpaid_invoices = [f.result() for f in futures]
+    unpaid_invoices = dict(unpaid_invoices)
+    log.info(f"Fetched map of {len(sub_plan_map)} subscriptions")
+    log.info(f"Fetched {len(cust_map)} customers")
+    log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
+    result = []
+    for sub in sales.get_subscriptions():
+        if sub["status"] != "ACTIVE":
+            continue
+
+        plan, price = sub_plan_map.get(
+            sub["plan_variation_id"], (sub["plan_variation_id"], 0)
+        )
+        cust_name, cust_email = cust_map.get(sub["customer_id"]) or (
+            sub["customer_id"],
+            None,
+        )
+
+        # Also attempt to get the membership state, to identify non-members using storage
+        mem_statuses = [
+            (m.account_current_membership_status or None)
+            for m in (neon.cache.get(cust_email) or {}).values()
+            if m.neon_id != m.company_id
+        ]
+        status = "Unknown"
+        for check_status in ("Active", "Future", "Inactive"):
+            if check_status in mem_statuses:
+                status = check_status
+                break
+
+        result.append(
+            {
+                "id": sub["id"],
+                "created_at": sub["created_at"],
+                "start_date": sub["start_date"],
+                "charged_through_date": sub["charged_through_date"],
+                "monthly_billing_anchor_date": sub["monthly_billing_anchor_date"],
+                "customer": cust_name,
+                "email": (
+                    cust_email if am_lead_role() else None
+                ),  # Only tech leads / admins
+                "plan": plan,
+                "price": price,
+                "membership_status": status,
+                "note": sub.get("note") or None,
+                "unpaid": (
+                    [i for i in sub["invoice_ids"] if i in unpaid_invoices]
+                    if am_lead_role()
+                    else []
+                ),
+            }
+        )
+    return result
+
+
+@page.route("/techs/storage_subscriptions/<sub_id>/note", methods=["POST"])
+@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+def set_sub_note(sub_id):
+    """Sets the note on a square subscription"""
+    data = request.json
+    note = data.get("note").strip()
+    if not note or not sub_id:
+        return Response("note and subscription ID reqiured", 400)
+    log.info(f"Setting storage subscription {sub_id} note to {note}")
+    return sales.set_subscription_note(sub_id, note)
