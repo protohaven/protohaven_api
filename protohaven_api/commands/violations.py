@@ -31,6 +31,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             (f["fields"]["Violation"][0], f["fields"]["Amount"], f["fields"]["Created"])
             for f in airtable.get_policy_fees()
             if not f["fields"].get("Paid")
+            and f["fields"].get("Violation")
+            and f["fields"].get("Amount")
+            and f["fields"].get("Created")
         ]
         new_fees = enforcer.gen_fees(violations)
         if len(new_fees) > 0:

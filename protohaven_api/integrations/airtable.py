@@ -30,13 +30,71 @@ log = logging.getLogger("integrations.airtable")
 
 type NeonID = str
 type ToolCode = str
+type AreaID = str
+type InstructorID = str
 type RecordID = str
 type ForecastOverride = tuple[str, list[str], str]
+type Interval = tuple[datetime.datetime, datetime.datetime]
 
 
-def get_class_automation_schedule():
+@lru_cache(maxsize=1)
+def _clearance_code_mapping() -> dict[RecordID, ToolCode]:
+    return {
+        rec["id"]: rec["fields"].get("Code")
+        for rec in get_all_records("class_automation", "clearance_codes")
+    }
+
+
+@dataclass
+class Class:
+    """Represents a class template"""
+    class_id: RecordID
+    name: str
+    hours: int
+    days: int
+    period: datetime.timedelta
+    approved: bool
+    schedulable: bool
+    approved_instructors: list[InstructorID]
+    areas: list[AreaID]
+    image_link: str
+    clearances: list[ToolCode]
+
+    @classmethod
+    def from_template_fields(cls, cid, f):
+        ccm = _clearance_code_mapping()
+        mapped = [ccm.get(clr)
+            for clr in cf.get("Clearance (from Class)") or []]
+        return cls(
+            class_id = cid,
+            name = f.get("Name"),
+            hours = int(f.get("Hours") or 0),
+            days = int(f.get("Days") or 0),
+            period = datetime.timedelta(days=int(f.get("Period") or 0)),
+            areas = f.get("Name (from Area)") or [],
+            schedulable = bool(f.get("Schedulable")),
+            approved = bool(f.get("Approved")),
+            image_link = f.get("Image Link"),
+            clearances = [m for m in mapped if m],
+            approved_instructors = f.get("Instructors"), # TODO make work
+        )
+
+class ScheduledClass(Class):
+    """Represents a class template with scheduling information applied"""
+    instructor: InstructorID
+    sessions: list[Interval]
+    exclusions: list[Interval]
+
+    @classmethod
+    def from_schedule(cls, row):
+        raise Exception("TODO")
+
+
+def get_class_automation_schedule(include_rejected=True, raw=True):
     """Grab the current automated class schedule"""
-    return get_all_records("class_automation", "schedule")
+    for row in get_all_records("class_automation", "schedule"):
+        if include_rejected and row["fields"].get("Rejected"):
+            yield (row if raw else ScheduledClass.from_schedule(row))
 
 
 def get_scheduled_class(rec):
@@ -81,16 +139,37 @@ def get_instructor_email_map(require_teachable_classes=False, require_active=Fal
 def fetch_instructor_capabilities(name):
     """Fetches capabilities for a specific instructor"""
     for row in get_all_records("class_automation", "capabilities"):
-        if row["fields"].get("Instructor").lower() == name.lower():
-            return row
-    return None
+        f = row["fields"]
+        if f.get("Instructor").lower() != name.lower():
+            continue
+        result = {
+            "id": row["id"],
+            "w9": f.get("W9 Form"),
+            "direct_deposit": f.get("Direct Deposit Info"),
+            "bio": f.get("Bio"),
+            "classes": [],
+            "profile_pic": None,
+        }
+        if "Class" in f.keys():
+            if NOCODB_CLASS_REF_FIELD[0] in f:
+                class_ids = [
+                    str(lnk[NOCODB_CLASS_REF_FIELD[1]])
+                    for lnk in f[NOCODB_CLASS_REF_FIELD[0]]
+                ]
+            else:
+                class_ids = _idref(row, "Class")
+            result["classes"] = {c[0]: c[1] for c in zip(class_ids, f["Name (from Class)"])}
+
+        img = (f.get("Profile Pic") or [{"url": None}])[0]
+        if img:
+            result["profile_pic"] = img.get("url") or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+        return result
 
 
 NOCODB_CLASS_REF_FIELD = (
     "_nc_m2m_Class_Templates_Instructor_Capas",
     "Class_Templates_id",
 )
-
 
 def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
@@ -114,6 +193,15 @@ def get_all_class_templates():
     """Get all class templates"""
     return get_all_records("class_automation", "classes")
 
+
+
+def get_class_template(cls_id) -> Class:
+    for row in get_all_class_templates():
+        f = row["fields"]
+        cid = f.get("ID", f.get("ID_1"))
+        if cid == cls_id:
+            return Class.from_template_fields(cid, f)
+    return None
 
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""

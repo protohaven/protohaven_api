@@ -9,6 +9,7 @@ import Calendar from '$lib/dashboard/calendar.svelte';
 import ClassDetails from '$lib/dashboard/class_details.svelte';
 import Profile from '$lib/dashboard/profile.svelte';
 import Scheduler from '$lib/dashboard/scheduler.svelte';
+import Scheduler2 from '$lib/dashboard/scheduler2.svelte';
 import AdminPanel from '$lib/dashboard/admin_panel.svelte';
 import FetchError from '$lib/fetch_error.svelte';
 
@@ -28,12 +29,27 @@ onMount(() => {
   if (!e) {
 	  promise = get("/whoami").then((d) => {
       admin = (d.roles || []).indexOf("Education Lead") !== -1;
+      fetch_instructor_profile(d.email);
       return d;
     });
   } else {
     promise = Promise.resolve({email: e});
+    fetch_instructor_profile(e);
   }
 });
+
+
+let profile = null;
+let templates = null;
+function fetch_instructor_profile(email) {
+  const url = "/instructor/about?email=" + encodeURIComponent(email);
+  console.log(`getting profile data for email ${email} -> ${url}`);
+  profile = get(url).then((result) =>{
+    console.log(result.classes);
+    templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
+    return result;
+  });
+}
 
 let scheduler_open = false;
 let fullname = "";
@@ -59,16 +75,23 @@ let airtable_id = "";
     <AdminPanel/>
   {/if}
   <main>
-    <Scheduler email={p.email} inst={fullname} inst_id={airtable_id} bind:open={scheduler_open}/>
     <Container>
+    {#await profile}
+      <Spinner/>
+    {:then p}
+    <Scheduler2 email={p.email} inst={fullname} classes={p.classes || {}} {templates} inst_id={airtable_id} bind:open={scheduler_open}/>
+    
     <Row>
     <Col>
-      <Profile email={p.email} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
+      <Profile {profile} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
     </Col>
     <Col>
       <ClassDetails email={p.email} {scheduler_open}/>
     </Col>
     </Row>
+    {:catch error}
+        <FetchError {error}/>
+    {/await}
     </Container>
   </main>
 {:catch error}
