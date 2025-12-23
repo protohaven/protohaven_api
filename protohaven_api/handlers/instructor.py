@@ -9,16 +9,9 @@ from typing import Any, Dict, List, Optional, Union
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
+from protohaven_api.automation.classes.scheduler import push_schedule
 from protohaven_api.automation.classes.scheduler import (
-    generate_env as generate_scheduler_env,
-)
-from protohaven_api.automation.classes.scheduler import (
-    push_schedule,
-    solve_with_env,
-)
-from protohaven_api.automation.classes.solver import (
-    NoAvailabilityError,
-    expand_recurrence,
+    validate as validate_candidate_class,
 )
 from protohaven_api.config import ParserError, get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
@@ -96,13 +89,6 @@ def prefill_form(  # pylint: disable=too-many-locals, too-many-arguments
     return result
 
 
-def _classes_in_caps(caps: Dict[str, Any]) -> bool:
-    c = caps["fields"].get("Class", [])
-    if isinstance(c, list):
-        return len(c) > 0
-    return True
-
-
 def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
@@ -135,34 +121,65 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
         caps = airtable.fetch_instructor_capabilities(result["fullname"])
     if caps:
         result["airtable_id"] = caps["id"]
-        if _classes_in_caps(caps):
+        if len(caps["classes"]) > 0:
             result["capabilities_listed"] = "OK"
-
+        result["classes"] = caps["classes"]
         missing_info = [
             x
             for x in [
-                "W9" if not caps["fields"].get("W9 Form") else None,
+                "W9" if not caps["w9"] else None,
                 (
                     "Direct Deposit"
-                    if not caps["fields"].get("Direct Deposit Info")
+                    if not caps["direct_deposit"]
                     else None
                 ),
-                "Profile Pic" if not caps["fields"].get("Profile Pic") else None,
-                "Bio" if not caps["fields"].get("Bio") else None,
+                "Profile Pic" if not caps["profile_pic"] else None,
+                "Bio" if not caps["bio"] else None,
             ]
             if x
         ]
-        img = (caps["fields"].get("Profile Pic") or [{"url": None}])[0]
-        result["profile_img"] = (
-            img.get("url") or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
-        )
-        result["bio"] = caps["fields"].get("Bio")
+        result["profile_img"] = caps["profile_pic"]
+        result["bio"] = caps["bio"]
         if len(missing_info) > 0:
             result["paperwork"] = f"Missing {', '.join(missing_info)}"
         else:
             result["paperwork"] = "OK"
 
     return result
+
+def _resolve_email():
+    email = request.args.get("email")
+    if email is not None:
+        ue = user_email()
+        if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
+            return None, Response("Access Denied for admin parameter `email`", status=401)
+    else:
+        email = user_email()
+        if not email:
+            return None, Response("You are not logged in.", status=401)
+
+
+@page.route("/instructor/class/templates")
+@require_login_role(Role.INSTRUCTOR)
+def instructor_class_templates():
+    """Used in scheduling V2 to fetch instructor-relevant details about specific class templates"""
+    ids = set(request.args.get("ids").split(','))
+    if len(ids) == 0:
+        return Response("Requires URL parameter 'ids'", status=400)
+    result = {}
+    for row in airtable.get_all_class_templates():
+        f = row["fields"]
+        rid = str(row["id"])
+        if rid in ids and f.get("Approved") and f.get("Schedulable"):
+            result[rid] = {
+                "capacity": f.get("Capacity"),
+                "days": f.get("Days"),
+                "hours": f.get("Hours"),
+                "price": f.get("Price"),
+                "clearances": f.get("Form Name (from Clearance)"),
+            }
+    return result
+
 
 
 @page.route("/instructor/class/attendees")
@@ -279,14 +296,6 @@ def _annotate_schedule_class(e):
     for date_field in ("Confirmed", "Instructor Log Date"):
         if e.get(date_field):
             e[date_field] = safe_parse_datetime(e[date_field])
-    e["Dates"] = [
-        d[0].strftime("%A %b %-d, %-I%p")
-        for d in expand_recurrence(
-            (e.get("Recurrence (from Class)") or [None])[0],
-            (e.get("Hours (from Class)") or [0])[0],
-            date,
-        )
-    ]
     return e
 
 
@@ -301,7 +310,6 @@ def instructor_class():
 def instructor_class_svelte_files(typ, path):
     """Return svelte compiled static page for instructor dashboard"""
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
-
 
 @page.route("/instructor/class_details")
 @require_login_role(Role.INSTRUCTOR)
@@ -422,42 +430,19 @@ def admin_data():
     return dict(result)
 
 
-@page.route("/instructor/setup_scheduler_env", methods=["GET"])
+@page.route("/instructor/validate", methods=["GET"])
 @require_login_role(Role.INSTRUCTOR)
-def setup_scheduler_env():
+def validate_class():
     """Create a class scheduler environment to run"""
-    try:
-        return generate_scheduler_env(
-            safe_parse_datetime(request.args.get("start")),
-            safe_parse_datetime(request.args.get("end"))
-            + datetime.timedelta(
-                hours=get_config("general/ui_constants/hours_in_day", 24)
-            ),  # End of final day
-            [request.args.get("inst")],
-        )
-    except ParserError:
-        return Response(
-            "Please select valid dates, with the start date before the end date",
-            status=400,
-        )
-    except RuntimeError as e:
-        return Response("Runtime error: " + str(e), status=400)
-
-
-@page.route("/instructor/run_scheduler", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR)
-def run_scheduler():
-    """Run the class scheduler with a specific environment"""
-    try:
-        result, score = solve_with_env(request.json)
-    except NoAvailabilityError:
-        return Response(
-            "No availability specified for this scheduling window. "
-            "Add your availability to the calendar,"
-            " then re-run the scheduler.",
-            400,
-        )
-    return {"result": result, "score": score}
+    data = request.json
+    starts = []
+    for d, t in data["starts"]:
+        starts.append(dateparser.parse(f"{d} {t}"))
+    return validate_candidate_class(
+        inst=_resolve_email(),
+        tmpl=data["tmpl"],
+        starts=starts,
+    )
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -473,6 +458,8 @@ def push_classes():
         return Response(
             "push_classes requires exactly one instructor class set", status=400
         )
+
+    raise Exception("TODO parse the data per validate_class")
 
     fullname = list(data.keys())[0]
     ufn = user_fullname()

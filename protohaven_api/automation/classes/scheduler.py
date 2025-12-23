@@ -4,18 +4,9 @@ import datetime
 import logging
 import traceback
 from collections import defaultdict
+from dataclasses import dataclass
 
-from protohaven_api.automation.classes.solver import (
-    Class,
-    Instructor,
-    expand_recurrence,
-    solve,
-)
-from protohaven_api.automation.classes.validation import (
-    date_range_overlaps,
-    sort_and_merge_date_ranges,
-    validate_candidate_class_time,
-)
+from protohaven_api.automation.classes import validation as val
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, booked, wiki
 from protohaven_api.integrations.airtable_base import _idref, get_all_records
@@ -24,7 +15,7 @@ from protohaven_api.integrations.comms import Msg
 log = logging.getLogger("class_automation.scheduler")
 
 
-def get_reserved_area_occupancy(from_date, to_date):
+def get_reserved_area_occupancy(from_date: datetime.datetime, to_date: datetime.datetime) -> dict[val.AreaID, list[val.NamedInterval]]:
     """Fetches reservations between `from_date` and `to_date` and
     groups them by the area they occupy. This is intended
     to prevent class scheduling automation from colliding with
@@ -33,7 +24,7 @@ def get_reserved_area_occupancy(from_date, to_date):
     id_to_area = {}
     for row in get_all_records("tools_and_equipment", "tools"):
         rid = row["fields"].get("BookedResourceId")
-        area = row["fields"].get("Name (from Shop Area)")
+        area: AreaID = row["fields"].get("Name (from Shop Area)")
         if rid and area:
             id_to_area[str(rid)] = area
     for res in booked.get_reservations(from_date, to_date)["reservations"]:
@@ -55,390 +46,117 @@ def get_reserved_area_occupancy(from_date, to_date):
     return occupancy
 
 
-def fetch_formatted_availability(inst_filter, time_min, time_max):
-    """Given a list of instructor names and a time interval,
-    return tuples of times bounding their availability"""
-    result = {}
-    for inst in inst_filter:
-        rows = airtable.get_instructor_availability(inst)
-        # Have to drop the record IDs
-        result[inst] = [
-            [t0.isoformat(), t1.isoformat(), row_id]
-            for row_id, t0, t1 in sort_and_merge_date_ranges(
-                airtable.expand_instructor_availability(rows, time_min, time_max)
-            )
-        ]
-    return result
+@dataclass
+class ClassAreaEnv():
+    exclusions: dict[ClassID, list[Exclusion]]
+    clearance_exclusions: dict[ClassID, list[Exclusion]]
+    area_occupancy: dict[AreaID, list[NamedInterval]]
+    instructor_occupancy: dict[InstructorID, list[NamedInterval]]
 
-
-def slice_date_range(
-    start_date: datetime.datetime, end_date: datetime.datetime, class_duration: int
-):
-    """Convert all time between two datetime values into a set of
-    discrete datetimes marking the potential onset of a class"""
-    # Would be best to switch to time-bucketed scheduling that would allow for
-    # more variety of classes without hard-constraiing start times to prevent
-    # overlaps.
-    day_class_hours = [10, 13, 14, 18]
-    evening_threshold = 17
-    evening_only_days = {0, 1, 2, 3, 4}  # Monday is 0, Sunday is 6
-    ret = []
-    base_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz)
-    for i in range((end_date - start_date).days + 1):
-        for j in day_class_hours:
-            candidate = base_date + datetime.timedelta(days=i, hours=j)
-            if candidate.weekday() in evening_only_days and j < evening_threshold:
-                continue  # Some days, we only allow classes to run in the evening
-            if (
-                candidate >= start_date
-                and candidate + datetime.timedelta(hours=class_duration) <= end_date
-            ):
-                ret.append(candidate)
-    return ret
-
-
-def compute_score(cls):  # pylint: disable=unused-argument
-    """Compute an integer score based on a class' desirability to run"""
-    return 1.0  # Improve this later
-
-
-def build_instructor(  # pylint: disable=too-many-locals,too-many-arguments
-    name, avail, caps, instructor_occupancy, area_occupancy, class_by_id
-):
-    """Create and return an Instructor object for use in the solver"""
-    candidates = defaultdict(list)
-    rejected = defaultdict(list)
-    if len(caps) == 0:
-        rejected["Instructor Validation"].append(
-            {
-                "time": None,
-                "reason": "Instructor has no capabilities listed - "
-                "please contact an education lead.",
-            }
-        )
-        return Instructor(name, candidates, rejected)
-
-    # Convert instructor-provided availability ranges into discrete "class at time" candidates,
-    # making notes on which candidates are rejected and why
-    avail = [[safe_parse_datetime(a) for a in aa[:2]] for aa in avail]
-    for t0, t1 in avail:
-        for c in caps:
-            cbid = class_by_id.get(c)
-            if not cbid:
-                rejected["Availability Validation"].append(
-                    {
-                        "time": None,
-                        "reason": f"Could not find class info in Airtable (id {c})",
-                    }
-                )
-                continue
-            sliced = slice_date_range(t0, t1, cbid.hours)
-            if len(sliced) == 0:
-                rejected["Availability Validation"].append(
-                    {
-                        "time": t0.isoformat(),
-                        "reason": "Available time does not include one of the scheduler's "
-                        "allowed class times (e.g. weekdays 6pm-9pm, see wiki for details)",
-                    }
-                )
-                continue
-
-            for start in sliced:
-                valid, reason = validate_candidate_class_time(
-                    cbid, start, instructor_occupancy, area_occupancy, avail
-                )
-                if not valid:
-                    rejected[c].append({"time": t0.isoformat(), "reason": reason})
-                else:
-                    candidates[c].append(start)
-
-    candidates = dict(candidates)
-
-    # Append empty lists for remaining capabilities,
-    # to indicate we have that capability but no scheduling window
-    for c in caps:
-        if c not in candidates:
-            candidates[c] = []
-
-    return Instructor(name, candidates, dict(rejected))
+    @classmethod
+    def with_defaults(cls):
+        return cls(
+            defaultdict(list),
+            defaultdict(list),
+            defaultdict(list),
+            defaultdict(list))
 
 
 def gen_class_and_area_stats(
-    cur_sched, start_date, end_date, clearance_code_mapping, reserved_areas
+    start_date: datetime.datetime,
+    end_date: datetime.datetime,
 ):  # pylint: disable=too-many-locals
     """Build a map of when each class in the current schedule was last run, plus
     a list of times where areas are occupied, within the bounds of start_date and end_date
     """
-    exclusions = defaultdict(list)
-    clearance_exclusion = defaultdict(list)
-    area_occupancy = defaultdict(list)
-    instructor_occupancy = defaultdict(list)
-    clearance_exclusion_range = get_config(
+    env = ClassAreaEnv.with_defaults()
+    clearance_exclusion_range = datetime.timedelta(days=get_config(
         "general/class_scheduling/clearance_exclusion_range_days"
-    )
+    ))
 
-    for c in cur_sched:
-        t = safe_parse_datetime(c["fields"]["Start Time"])
-        pd = (c["fields"].get("Period (from Class)") or [None])[0]
-        if not pd:
+    for c in airtable.get_class_automation_schedule(include_rejected=False, raw=False):
+        if not c.period:
             log.warning(f"Class missing template info: {c}")
             continue
-        rec = _idref(c, "Class")[0]
-
-        dates = list(
-            expand_recurrence(
-                (c["fields"].get("Recurrence (from Class)") or [None])[0],
-                c["fields"]["Hours (from Class)"][0],
-                t,
-            )
-        )
 
         # Repeats of the class are excluded based on the start and end run date
-        exclusion_window = [
-            dates[0][0] - datetime.timedelta(days=pd),
-            dates[-1][0] + datetime.timedelta(days=pd),
-            t,  # Main date is included for reference
-        ]
+        exclusion_window = val.Exclusion(
+            start=c.sessions[0][0] - c.period,
+            end=c.sessions[-1][0] + c.period,
+            main_date=t,
+            from=c.name,
+            )
+        if exclusion_window.start <= end_date or exclusion_window.end >= start_date:
+            env.exclusions[c.class_id].append(exclusion_window)
 
-        # Clearances are excluded only based on start date
-        clearance_exclusion_window = [
-            dates[0][0] - datetime.timedelta(days=clearance_exclusion_range),
-            dates[0][0] + datetime.timedelta(days=clearance_exclusion_range),
-            t,  # Main date is included for reference
-        ]
-        if exclusion_window[0] <= end_date or exclusion_window[1] >= start_date:
-            exclusions[rec].append(exclusion_window)
+        # Clearances are excluded only based on start date, i.e. when a member
+        # would have been able to register for the clearance
+        clearance_exclusion_window = val.Exclusion(
+            start = c.sessions[0][0] - clearance_exclusion_range,
+            end = c.sessions[0][0] + clearance_exclusion_range,
+            main_date = t,  # Main date is included for reference
+            from=c.name,
+            )
         if (
             clearance_exclusion_window[0] <= end_date
             or clearance_exclusion_window[1] >= start_date
         ):
-            for clr in c["fields"].get("Clearance (from Class)") or []:
-                mapped = clearance_code_mapping.get(clr)
-                if mapped:
-                    clearance_exclusion[mapped].append(clearance_exclusion_window)
+            for clr in c.clearances:
+                clearance_exclusion[mapped].append(clearance_exclusion_window)
 
-        for t0, t1 in dates:
-            if date_range_overlaps(t0, t1, start_date, end_date):
-                aoc = [
-                    t0,
-                    t1,
-                    c["fields"]["Name (from Class)"],
-                ]  # Include class name for later reference
-                area_occupancy[c["fields"]["Name (from Area) (from Class)"][0]].append(
-                    aoc
-                )
-                instructor_occupancy[c["fields"]["Instructor"].lower()].append(aoc)
+        for t0, t1 in c.sessions:
+            if val.date_range_overlaps(t0, t1, start_date, end_date):
+                aoc: NamedInterval = (t0, t1, c.name)
+                for area in c.areas:
+                    env.area_occupancy[area].append(aoc)
+                env.instructor_occupancy[c.instructor].append(aoc)
 
     # Also pull in data from Booked scheduler to prevent overlap with manual reservations
-    for area, aocs in reserved_areas.items():
-        area_occupancy[area] += aocs
-
-    for v in area_occupancy.values():
+    for area, aocs in get_reserved_area_occupancy(start_date, end_date).items():
+        env.area_occupancy[area] += aocs
+    for v in env.area_occupancy.values():
         v.sort(key=lambda o: o[1])
-    return exclusions, area_occupancy, clearance_exclusion, instructor_occupancy
-
-
-def load_schedulable_classes(class_exclusions, clearance_exclusions):
-    """Load all classes which are schedulable, as Class instances.
-    If there's anything that requires the instructor's attention, it's
-    appended to a list of notes as part of the return value.
-    """
-    classes = []
-    notices = defaultdict(list)
-
-    wiki_docs = None
-    if get_config(
-        "general/class_scheduling/require_wiki_page_for_scheduling", as_bool=True
-    ):
-        try:
-            wiki_docs = wiki.get_class_docs_report()
-            log.debug(
-                f"Loaded {len(wiki_docs)} wiki class docs for assessing schedulable classes"
-            )
-        except Exception:  # pylint: disable=broad-exception-caught
-            traceback.print_exc()
-            log.error("Failing open; wiki pages will not be required to schedule")
-            wiki_docs = None
-
-    for c in airtable.get_all_class_templates():
-        if c["fields"].get("Schedulable") is True:
-            missing = [
-                f for f in ("Name", "Hours", "Name (from Area)") if f not in c["fields"]
-            ]
-            if len(missing) > 0:
-                notices[c["id"]].append(
-                    f"{c['fields'].get('Name')} template missing required fields: "
-                    f"{', '.join(missing)} "
-                    "- cannot schedule; contact an Edu Lead to resolve this"
-                )
-                continue
-
-            # Note that we only check presence in the wiki here; approvals aren't required.
-            if wiki_docs is not None and c["fields"].get("Name") not in wiki_docs:
-                notices[c["id"]].append(
-                    f"{c['fields']['Name']} missing wiki page - this class will not schedule until "
-                    "there is a wiki page at https://wiki.protohaven.org with a class_name "
-                    f" tag set to the name of the class ({c['fields']['Name']})"
-                )
-                continue
-
-            if not c["fields"].get("Image Link"):
-                notices[c["id"]].append(
-                    "Class is missing a promo image - registrations will suffer. Reach out "
-                    "in the #instructors Discord channel or to "
-                    "education@protohaven.org."
-                )
-
-            exclusions = [ee + ["class"] for ee in class_exclusions.get(c["id"], [])]
-            exclusions += [
-                ee + [f"clearance ({clr})"]
-                for clr in _idref(c, "Clearance")
-                for ee in (clearance_exclusions.get(clr) or [])
-            ]
-            classes.append(
-                Class(
-                    str(c["id"]),
-                    c["fields"]["Name"],
-                    hours=c["fields"]["Hours"],
-                    recurrence=c["fields"].get("Recurrence") or None,
-                    areas=c["fields"]["Name (from Area)"],
-                    exclusions=exclusions,
-                    score=compute_score(c),
-                )
-            )
-    return classes, notices
-
-
-def generate_env(
-    start_date,
-    end_date,
-    instructor_filter=None,
-    include_proposed=True,
-):  # pylint: disable=too-many-locals
-    """Generates the environment to be passed to the solver"""
-
-    # Load instructor capabilities  and availability
-    if instructor_filter is not None:
-        instructor_filter = [k.lower() for k in instructor_filter]
-        log.info(f"Filter: {instructor_filter}")
-    instructor_caps = airtable.fetch_instructor_teachable_classes()
-    avail_formatted = fetch_formatted_availability(
-        instructor_filter, start_date, end_date
-    )
-
-    cur_sched = [
-        c
-        for c in airtable.get_class_automation_schedule()
-        if c["fields"].get("Rejected") is None
-    ]
-    if not include_proposed:
-        cur_sched = [c for c in cur_sched if c["fields"].get("Neon ID") is not None]
-
-    reserved_areas = get_reserved_area_occupancy(start_date, end_date)
-    log.info(f"Computed reservations for {len(reserved_areas)} area(s)")
-
-    # Compute ancillary info about what times/areas/instructors are occupied by which classes
-
-    clearance_code_mapping = {
-        rec["id"]: rec["fields"].get("Code")
-        for rec in airtable.get_all_records("class_automation", "clearance_codes")
-    }
-
-    (
-        exclusions,
-        area_occupancy,
-        clearance_exclusions,
-        instructor_occupancy,
-    ) = gen_class_and_area_stats(
-        cur_sched, start_date, end_date, clearance_code_mapping, reserved_areas
-    )
-    log.info(
-        f"Computed exclusion times of {len(exclusions)} different classes, "
-        f"{len(clearance_exclusions)} clearances"
-    )
-    log.info(
-        f"Computed occupancy of {len(area_occupancy)} different areas, "
-        f"{len(instructor_occupancy)} instructors"
-    )
-
-    # Load classes from airtable
-    classes, notices = load_schedulable_classes(exclusions, clearance_exclusions)
-    class_by_id = {c.class_id: c for c in classes}
-    log.info(f"Loaded {len(classes)} classes")
-
-    instructors = []
-    skipped = 0
-    for k, v in avail_formatted.items():
-        k = k.lower()
-        if instructor_filter is not None and k not in instructor_filter:
-            log.debug(f"Skipping instructor {k} (not in filter)")
-            continue
-
-        caps = [
-            class_id
-            for class_id in instructor_caps.get(k, [])
-            if class_id in class_by_id
-        ]
-        if len(caps) == 0:
-            log.warning(
-                f"Instructor {k} has no capabilities listed in Airtable "
-                f"and will be skipped (schedule: {v})"
-            )
-            log.warning(
-                f"Instructors with capabilities: {list(instructor_caps.keys())}"
-            )
-            skipped += 1
-            continue
-
-        inst_occ = instructor_occupancy.get(k) or []
-        instructors.append(
-            build_instructor(
-                k,
-                v,
-                caps,
-                inst_occ,
-                area_occupancy,
-                class_by_id,
-            )
-        )
-
-    if skipped > 0:
-        log.warning(
-            f"Direct the {skipped} instructor(s) missing capabilities "
-            "to this form to submit them: https://airtable.com/applultHGJxHNg69H/shr5VVjEbKd0a1DIa"
-        )
 
     log.info(
-        f"Loaded {len(instructors)} instructors and {len(classes)} schedulable classes"
+        f"Computed exclusion times of {len(env.exclusions)} different classes, "
+        f"{len(env.clearance_exclusions)} clearances"
     )
-    unavailable = set(instructor_caps.keys()) - {i.name for i in instructors}
-    if len(unavailable) > 0 and instructor_filter is None:
-        log.warning(
-            f"{len(unavailable)} instructor(s) with caps are not "
-            f"present in the final list: {unavailable}"
-        )
+    log.info(
+        f"Computed occupancy of {len(env.area_occupancy)} different areas, "
+        f"{len(env.instructor_occupancy)} instructors"
+    )
 
-    # Regardless of capabilities, the class must also be set as schedulable
-    all_inst_caps = set()
-    for i in instructors:
-        all_inst_caps = all_inst_caps.union(i.caps)
+def validate(inst_id: InstructorID, cls_id: RecordID, sessions: list[Interval]) -> list[str]:
+    """Validates a given class to make sure it doesn't conflict with anything"""
 
-    log.info(f"All capabilities: {all_inst_caps}")
-    return {
-        "classes": [c.as_dict() for c in classes if c.class_id in all_inst_caps],
-        "notices": notices,
-        "instructors": [i.as_dict() for i in instructors],
-        "area_occupancy": dict(
-            area_occupancy.items()
-        ),  # Convert defaultdict to dict for yaml serialization
-    }
+    # ============= Basic validation of teachability ===================
+    c = airtable.get_class_template(cls_id)
+    if not c:
+        return ["Class not found"]
+    if not c.approved:
+        return ["Class not approved"]
+    if not c.schedulable:
+        return ["Class not schedulable"]
+    if not inst_id in c.approved_instructors:
+        return ["You are not assigned to teach this class"]
 
+    # ============== Gathering data for detailed timing checks =============
+    # Time boundary for searching for reservations etc.
+    start_date = min(t for tt in sessions for t in tt)
+    end_date = max(t for tt in sessions for t in tt)
+    env: ClassAreaEnv = gen_class_and_area_stats(start_date, end_date)
 
-def solve_with_env(env):
-    """Solves a scheduling problem given a specific env"""
-    classes = [Class(**c) for c in env["classes"]]
-    instructors = [Instructor(**i) for i in env["instructors"]]
-    return solve(classes, instructors)
+    # ============ Validate timing of the class ==============
+    errors = []
+    if len(c.sessions) != c.days:
+        errors.append(f"{len(c.sessions)}d of sessions not sufficient for {c.days}d class")
+
+    for tt, i in enumerate(c.sessions):
+        valid, reason = val.validate_candidate_class_session(tt, c, env)
+        if not valid:
+            errors.append(f"Session {i+1}: {reason}")
+
+    return errors
 
 
 def format_class(cls):
