@@ -5,12 +5,11 @@ import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
 import { Card, CardHeader, CardTitle, CardBody, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
-import Calendar from '$lib/dashboard/calendar.svelte';
-import ClassDetails from '$lib/dashboard/class_details.svelte';
-import Profile from '$lib/dashboard/profile.svelte';
-import Scheduler from '$lib/dashboard/scheduler.svelte';
-import Scheduler2 from '$lib/dashboard/scheduler2.svelte';
-import AdminPanel from '$lib/dashboard/admin_panel.svelte';
+import Calendar from '$lib/instructor/calendar.svelte';
+import ClassDetails from '$lib/instructor/class_details.svelte';
+import Profile from '$lib/instructor/profile.svelte';
+import Scheduler from '$lib/instructor/scheduler.svelte';
+import AdminPanel from '$lib/instructor/admin_panel.svelte';
 import FetchError from '$lib/fetch_error.svelte';
 
 
@@ -79,7 +78,7 @@ let airtable_id = "";
     {#await profile}
       <Spinner/>
     {:then p}
-    <Scheduler2 email={p.email} inst={fullname} classes={p.classes || {}} {templates} inst_id={airtable_id} bind:open={scheduler_open}/>
+    <Scheduler email={p.email} inst={fullname} classes={p.classes || {}} {templates} inst_id={airtable_id} bind:open={scheduler_open}/>
     
     <Row>
     <Col>
