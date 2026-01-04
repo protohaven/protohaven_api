@@ -9,10 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
-from protohaven_api.automation.classes.scheduler import push_schedule
-from protohaven_api.automation.classes.scheduler import (
-    validate as validate_candidate_class,
-)
+from protohaven_api.automation.classes import scheduler
+from protohaven_api.automation.classes import validation as val
 from protohaven_api.config import ParserError, get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
 from protohaven_api.integrations import (
@@ -128,11 +126,7 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
             x
             for x in [
                 "W9" if not caps["w9"] else None,
-                (
-                    "Direct Deposit"
-                    if not caps["direct_deposit"]
-                    else None
-                ),
+                ("Direct Deposit" if not caps["direct_deposit"] else None),
                 "Profile Pic" if not caps["profile_pic"] else None,
                 "Bio" if not caps["bio"] else None,
             ]
@@ -147,23 +141,27 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
 
     return result
 
+
 def _resolve_email():
     email = request.args.get("email")
     if email is not None:
         ue = user_email()
         if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
-            return None, Response("Access Denied for admin parameter `email`", status=401)
+            return None, Response(
+                "Access Denied for admin parameter `email`", status=401
+            )
     else:
         email = user_email()
         if not email:
             return None, Response("You are not logged in.", status=401)
+    return email, None
 
 
 @page.route("/instructor/class/templates")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_templates():
     """Used in scheduling V2 to fetch instructor-relevant details about specific class templates"""
-    ids = set(request.args.get("ids").split(','))
+    ids = set(request.args.get("ids").split(","))
     if len(ids) == 0:
         return Response("Requires URL parameter 'ids'", status=400)
     result = {}
@@ -179,7 +177,6 @@ def instructor_class_templates():
                 "clearances": f.get("Form Name (from Clearance)"),
             }
     return result
-
 
 
 @page.route("/instructor/class/attendees")
@@ -311,6 +308,7 @@ def instructor_class_svelte_files(typ, path):
     """Return svelte compiled static page for instructor dashboard"""
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
+
 @page.route("/instructor/class_details")
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_details():
@@ -430,19 +428,28 @@ def admin_data():
     return dict(result)
 
 
-@page.route("/instructor/validate", methods=["GET"])
+@page.route("/instructor/validate", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def validate_class():
-    """Create a class scheduler environment to run"""
+    """Validates the instructor's selected class and session times, returning
+    a list of error messages if anything fails validation"""
     data = request.json
-    starts = []
-    for d, t in data["starts"]:
-        starts.append(dateparser.parse(f"{d} {t}"))
-    return validate_candidate_class(
-        inst=_resolve_email(),
-        tmpl=data["tmpl"],
-        starts=starts,
-    )
+    if "cls_id" not in data:
+        return Response("`cls_id` required in JSON body", status=400)
+    cls_id = str(data["cls_id"])
+    if "sessions" not in data:
+        return Response("`sessions` required in JSON body", status=400)
+    sessions: list[val.Interval] = []
+    for s in data["sessions"]:
+        log.info(f"Parsing session {s}")
+        sessions.append(tuple(safe_parse_datetime(t) for t in s))
+    inst_id, rep = _resolve_email()
+    if rep:
+        return rep
+    log.info(f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}")
+    errors = scheduler.validate(inst_id, cls_id, sessions)
+    log.info(f"Result: {errors}")
+    return {"valid": len(errors) == 0, "errors": errors}
 
 
 @page.route("/instructor/push_classes", methods=["POST"])
@@ -470,7 +477,7 @@ def push_classes():
 
     # We automatically confirm classes pushed via instructor dashboard since the instructor
     # is the one pushing the class.
-    push_schedule(data, autoconfirm=True)
+    scheduler.push_schedule(data, autoconfirm=True)
     return {"success": True}
 
 

@@ -37,6 +37,10 @@ def safe_parse_datetime(date_str: str) -> datetime.datetime:
     return parsed.astimezone(tz)
 
 
+def truncate_date(d, hour=0):
+    return d.replace(hour=hour, minute=0, second=0, microsecond=0, tzinfo=tz)
+
+
 # Configuration file paths
 ENV_DEFAULTS_PATH = ".env.default"
 ENV_SECRETS_PATH = ".env.secret"

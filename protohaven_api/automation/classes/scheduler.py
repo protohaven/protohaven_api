@@ -7,15 +7,19 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from protohaven_api.automation.classes import validation as val
+from protohaven_api.automation.classes.validation import ClassAreaEnv
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, booked, wiki
+from protohaven_api.integrations.airtable import AreaID, InstructorID, RecordID
 from protohaven_api.integrations.airtable_base import _idref, get_all_records
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.scheduler")
 
 
-def get_reserved_area_occupancy(from_date: datetime.datetime, to_date: datetime.datetime) -> dict[val.AreaID, list[val.NamedInterval]]:
+def get_reserved_area_occupancy(
+    from_date: datetime.datetime, to_date: datetime.datetime
+) -> dict[AreaID, list[val.NamedInterval]]:
     """Fetches reservations between `from_date` and `to_date` and
     groups them by the area they occupy. This is intended
     to prevent class scheduling automation from colliding with
@@ -46,33 +50,17 @@ def get_reserved_area_occupancy(from_date: datetime.datetime, to_date: datetime.
     return occupancy
 
 
-@dataclass
-class ClassAreaEnv():
-    exclusions: dict[ClassID, list[Exclusion]]
-    clearance_exclusions: dict[ClassID, list[Exclusion]]
-    area_occupancy: dict[AreaID, list[NamedInterval]]
-    instructor_occupancy: dict[InstructorID, list[NamedInterval]]
-
-    @classmethod
-    def with_defaults(cls):
-        return cls(
-            defaultdict(list),
-            defaultdict(list),
-            defaultdict(list),
-            defaultdict(list))
-
-
 def gen_class_and_area_stats(
     start_date: datetime.datetime,
     end_date: datetime.datetime,
-):  # pylint: disable=too-many-locals
+) -> ClassAreaEnv:  # pylint: disable=too-many-locals
     """Build a map of when each class in the current schedule was last run, plus
     a list of times where areas are occupied, within the bounds of start_date and end_date
     """
     env = ClassAreaEnv.with_defaults()
-    clearance_exclusion_range = datetime.timedelta(days=get_config(
-        "general/class_scheduling/clearance_exclusion_range_days"
-    ))
+    clearance_exclusion_range = datetime.timedelta(
+        days=get_config("general/class_scheduling/clearance_exclusion_range_days")
+    )
 
     for c in airtable.get_class_automation_schedule(include_rejected=False, raw=False):
         if not c.period:
@@ -84,19 +72,19 @@ def gen_class_and_area_stats(
             start=c.sessions[0][0] - c.period,
             end=c.sessions[-1][0] + c.period,
             main_date=t,
-            from=c.name,
-            )
+            origin=c.name,
+        )
         if exclusion_window.start <= end_date or exclusion_window.end >= start_date:
             env.exclusions[c.class_id].append(exclusion_window)
 
         # Clearances are excluded only based on start date, i.e. when a member
         # would have been able to register for the clearance
         clearance_exclusion_window = val.Exclusion(
-            start = c.sessions[0][0] - clearance_exclusion_range,
-            end = c.sessions[0][0] + clearance_exclusion_range,
-            main_date = t,  # Main date is included for reference
-            from=c.name,
-            )
+            start=c.sessions[0][0] - clearance_exclusion_range,
+            end=c.sessions[0][0] + clearance_exclusion_range,
+            main_date=t,  # Main date is included for reference
+            origin=c.name,
+        )
         if (
             clearance_exclusion_window[0] <= end_date
             or clearance_exclusion_window[1] >= start_date
@@ -126,19 +114,25 @@ def gen_class_and_area_stats(
         f"{len(env.instructor_occupancy)} instructors"
     )
 
-def validate(inst_id: InstructorID, cls_id: RecordID, sessions: list[Interval]) -> list[str]:
+    return env
+
+
+def validate(
+    inst_id: InstructorID, cls_id: RecordID, sessions: list[val.Interval]
+) -> list[str]:
     """Validates a given class to make sure it doesn't conflict with anything"""
 
     # ============= Basic validation of teachability ===================
     c = airtable.get_class_template(cls_id)
     if not c:
-        return ["Class not found"]
+        return [f"Class not found ({cls_id})"]
     if not c.approved:
-        return ["Class not approved"]
+        return [f"Class not approved ({cls_id})"]
     if not c.schedulable:
-        return ["Class not schedulable"]
+        return [f"Class not schedulable ({cls_id})"]
+    log.info(f"{inst_id} vs approved instructors: {c.approved_instructors}")
     if not inst_id in c.approved_instructors:
-        return ["You are not assigned to teach this class"]
+        return [f"You are not assigned to teach this class ({cls_id})"]
 
     # ============== Gathering data for detailed timing checks =============
     # Time boundary for searching for reservations etc.
@@ -148,13 +142,15 @@ def validate(inst_id: InstructorID, cls_id: RecordID, sessions: list[Interval]) 
 
     # ============ Validate timing of the class ==============
     errors = []
-    if len(c.sessions) != c.days:
-        errors.append(f"{len(c.sessions)}d of sessions not sufficient for {c.days}d class")
+    if len(sessions) != c.days:
+        errors.append(
+            f"{len(sessions)}d of sessions not sufficient for {c.days}d class"
+        )
 
-    for tt, i in enumerate(c.sessions):
+    for i, tt in enumerate(sessions):
         valid, reason = val.validate_candidate_class_session(tt, c, env)
         if not valid:
-            errors.append(f"Session {i+1}: {reason}")
+            errors.append(f"{tt[0].strftime('%m/%d/%Y %-I:%M %p')}: {reason}")
 
     return errors
 
