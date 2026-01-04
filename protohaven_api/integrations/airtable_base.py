@@ -25,6 +25,10 @@ def get_record(base, tbl, rec):
     status, content = get_connector().db_request("GET", base, tbl, rec)
     if status != 200:
         raise RuntimeError(f"Airtable fetch {base} {tbl} {rec}", status, content)
+    if get_connector().db_format() == "nocodb":
+        # Original implementation is with Airtable; NocoDB has a different response format
+        # so we massage it to look like an Airtable response.
+        return {"id": content["Id"], "fields": content}
     return content
 
 
@@ -138,7 +142,16 @@ def insert_records(records, base, tbl, link_fields=None):
 def update_record(data, base, tbl, rec):
     """Updates/patches a record in a named table"""
     post_data = {"fields": data}
-    return get_connector().db_request("PATCH", base, tbl, rec=rec, data=post_data)
+    result = get_connector().db_request("PATCH", base, tbl, rec=rec, data=post_data)
+    if get_connector().db_format() != "nocodb":
+        return result
+
+    # Nocodb doesn't return the rest of the object on an update, so we have to
+    # do it in a separate request to match Airtable.
+    # We rely on get_record's error handling and just pass 200 here
+    return 200, get_record(base, tbl, rec)
+
+
 
 
 def delete_record(base, tbl, rec):

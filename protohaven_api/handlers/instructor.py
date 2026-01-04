@@ -4,6 +4,7 @@ import datetime
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Union
 
 from dateutil import parser as dateparser
@@ -38,61 +39,14 @@ HIDE_CONFIRMED_DAYS_AFTER = get_config(
 )
 
 
-def prefill_form(  # pylint: disable=too-many-locals, too-many-arguments
-    instructor: str,
-    start_date: datetime.datetime,
-    hours: float,
-    class_name: str,
-    pass_emails: List[str],
-    clearances: List[str],
-    volunteer: bool,
-    event_id: str,
-) -> str:
-    """Return prefilled instructor log submission form"""
-    individual = airtable.get_instructor_log_tool_codes()
-    clearance_codes = []
-    tool_codes = []
-    for c in clearances:
-        if c in individual:
-            tool_codes.append(c)
-        else:
-            clearance_codes.append(c)
-
-    # Get form configuration
-    form_base = get_config("forms/instructor_log/base_url")
-    form_keys = get_config("forms/instructor_log/keys")
-    form_values = get_config("forms/instructor_log/values")
-
-    start_yyyy_mm_dd = start_date.strftime("%Y-%m-%d")
-    result = f"{form_base}?usp=pp_url"
-    result += f"&{form_keys['instructor']}={instructor}"
-    result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
-    result += f"&{form_keys['hours']}={hours}"
-    result += f"&{form_keys['class_name']}={class_name}"
-    if volunteer:
-        result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
-    result += f"&{form_keys['session_type']}={form_values['single_session']}"
-    result += f"&{form_keys['pass_emails']}={', '.join(pass_emails)}"
-    for cc in clearance_codes:
-        result += f"&{form_keys['clearance_codes']}={cc}"
-    tool_usage_value = (
-        form_values["tool_usage_yes"]
-        if len(tool_codes) > 0
-        else form_values["tool_usage_no"]
-    )
-    result += f"&{form_keys['tool_usage']}={tool_usage_value}"
-    result += f"&{form_keys['event_id']}={event_id}"
-    for tc in tool_codes:
-        result += f"&{form_keys['tool_codes']}={tc}"
-    return result
-
 
 def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
     result = {
         "neon_id": None,
-        "email": "OK",
+        "email_status": "OK",
+        "email": None,
         "airtable_id": None,
         "fullname": "unknown",
         "active_membership": "inactive",
@@ -107,6 +61,8 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
         result["email"] = f"{len(inst)} duplicate accounts in Neon"
     inst_member = inst[0]  # Get the first member from the list
 
+    log.info(str(inst_member))
+    result["email"] = inst_member.email
     result["neon_id"] = inst_member.neon_id
     if inst_member.account_current_membership_status == "Active":
         result["active_membership"] = "OK"
@@ -165,17 +121,9 @@ def instructor_class_templates():
     if len(ids) == 0:
         return Response("Requires URL parameter 'ids'", status=400)
     result = {}
-    for row in airtable.get_all_class_templates():
-        f = row["fields"]
-        rid = str(row["id"])
-        if rid in ids and f.get("Approved") and f.get("Schedulable"):
-            result[rid] = {
-                "capacity": f.get("Capacity"),
-                "days": f.get("Days"),
-                "hours": f.get("Hours"),
-                "price": f.get("Price"),
-                "clearances": f.get("Form Name (from Clearance)"),
-            }
+    for c in airtable.get_all_class_templates(raw=False):
+        if str(c.class_id) in ids and c.approved and c.schedulable:
+            result[c.class_id] = c.as_response()
     return result
 
 
@@ -216,7 +164,7 @@ def instructor_class_selector_redirect2() -> Any:
     return redirect("/instructor")
 
 
-def get_dashboard_schedule_sorted(email, now=None):
+def get_dashboard_schedule_sorted(email, now=None) -> list[airtable.ScheduledClass]:
     """Fetches the instructor availability schedule for an individual instructor.
     Excludes unconfirmed classes sooner than HIDE_UNCONFIRMED_DAYS_AHEAD
     as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
@@ -225,29 +173,16 @@ def get_dashboard_schedule_sorted(email, now=None):
         now = tznow()
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
-    for s in airtable.get_class_automation_schedule():
-        if s["fields"]["Email"].lower() != email or s["fields"].get("Rejected"):
+    for s in airtable.get_class_automation_schedule(raw=False):
+        if s.instructor_email != email or s.rejected:
             continue
-
-        start_date = safe_parse_datetime(s["fields"]["Start Time"])
-        dates = list(
-            expand_recurrence(
-                (s["fields"].get("Recurrence (from Class)") or [None])[0],
-                (s["fields"].get("Hours (from Class)") or [0])[0],
-                start_date,
-            )
-        )
-        end_date = dates[-1][0]
-        confirmed = s["fields"].get("Confirmed", None) is not None
-        if confirmed and end_date <= age_out_thresh:
+        if s.confirmed and s.end_time <= age_out_thresh:
             continue
-        if not confirmed and start_date <= confirmation_thresh:
+        if not s.confirmed and s.start_time <= confirmation_thresh:
             continue
+        sched.append(s)
 
-        s["fields"]["_id"] = s["id"]
-        sched.append([s["id"], s["fields"]])
-
-    sched.sort(key=lambda s: s[1]["Start Time"])
+    sched.sort(key=lambda s: s.start_time)
     return sched
 
 
@@ -264,36 +199,12 @@ def instructor_about():
         email = user_email()
         if not email:
             return Response("You are not logged in.", status=401)
-    inst = list(neon.search_members_by_email(email.lower()))
+    inst = list(neon.search_members_by_email(email.lower(), fields=neon.MEMBER_SEARCH_OUTPUT_FIELDS + ["Email 1"]))
     if len(inst) == 0:
         return Response(
             f"Instructor data not found for email {email.lower()}", status=404
         )
     return get_instructor_readiness(inst)
-
-
-def _annotate_schedule_class(e):
-    date = safe_parse_datetime(e["Start Time"])
-
-    # If it's in neon, generate a log URL.
-    # Placeholder for attendee names/emails as that's loaded
-    # lazily on page load.
-    if e.get("Neon ID"):
-        e["prefill"] = prefill_form(
-            instructor=e.get("Instructor") or "UNKNOWN",
-            start_date=date,
-            hours=(e.get("Hours (from Class)") or [0])[0],
-            class_name=(e.get("Name (from Class)") or ["UNKNOWN"])[0],
-            pass_emails=["$ATTENDEE_NAMES"],
-            clearances=e.get("Form Name (from Clearance) (from Class)", ["n/a"]),
-            volunteer=e.get("Volunteer", False),
-            event_id=e.get("Neon ID") or "UNKNOWN",
-        )
-
-    for date_field in ("Confirmed", "Instructor Log Date"):
-        if e.get(date_field):
-            e[date_field] = safe_parse_datetime(e[date_field])
-    return e
 
 
 @page.route("/instructor")
@@ -313,18 +224,12 @@ def instructor_class_svelte_files(typ, path):
 @require_login_role(Role.INSTRUCTOR)
 def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
-    email = request.args.get("email")
-    if email is not None:
-        ue = user_email()
-        if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
-            return Response("Access Denied for admin parameter `email`", status=401)
-    else:
-        email = user_email()
+    email, rep = _resolve_email()
+    if rep:
+        return rep
+
     email = email.lower()
-    sched = [
-        (k, _annotate_schedule_class(e))
-        for k, e in get_dashboard_schedule_sorted(email)
-    ]
+    sched = get_dashboard_schedule_sorted(email)
 
     # Look up the name on file in the capabilities list - this is used to match
     # on manually entered calendar availability
@@ -333,7 +238,7 @@ def instructor_class_details():
     )
 
     return {
-        "schedule": sched,
+        "schedule": [c.as_response() for c in sched],
         "now": tznow(),
         "email": email,
         "name": caps_name,
@@ -351,7 +256,7 @@ def instructor_class_update():
     status, result = airtable.respond_class_automation_schedule(eid, pub)
     if status != 200:
         raise RuntimeError(result)
-    return _annotate_schedule_class(result["fields"])
+    return airtable.ScheduledClass.from_schedule(result).as_response()
 
 
 @page.route("/instructor/class/supply_req", methods=["POST"])
@@ -360,7 +265,7 @@ def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
     data = request.json
     eid = data["eid"]
-    c = airtable.get_scheduled_class(eid)
+    c = airtable.get_scheduled_class(eid, raw=False)
     if not c:
         raise RuntimeError(f"Not found: class {eid}")
 
@@ -369,15 +274,14 @@ def instructor_class_supply_req():
     if status != 200:
         raise RuntimeError(f"Error setting supply state: {result}")
 
-    d = safe_parse_datetime(c["fields"]["Start Time"])
     comms.send_discord_message(
         f"{user_fullname()} set {state} for "
-        f"{', '.join(c['fields']['Name (from Class)'])} with {c['fields']['Instructor']} "
-        f"on {d.strftime('%Y-%m-%d %-I:%M %p')}",
+        f"{c.name} with {c.instructor_name} "
+        f"on {c.start_time.strftime('%Y-%m-%d %-I:%M %p')}",
         "#supply-automation",
         blocking=False,
     )
-    return _annotate_schedule_class(result["fields"])
+    return airtable.ScheduledClass.from_schedule(result).as_response()
 
 
 @page.route("/instructor/class/volunteer", methods=["POST"])
@@ -390,7 +294,8 @@ def instructor_class_volunteer():
     status, result = airtable.mark_schedule_volunteer(eid, v)
     if status != 200:
         raise RuntimeError(result)
-    return _annotate_schedule_class(result["fields"])
+    log.info(str(result))
+    return airtable.ScheduledClass.from_schedule(result).as_response()
 
 
 @page.route("/instructor/admin_data", methods=["GET"])
@@ -428,22 +333,27 @@ def admin_data():
     return dict(result)
 
 
-@page.route("/instructor/validate", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR)
-def validate_class():
-    """Validates the instructor's selected class and session times, returning
-    a list of error messages if anything fails validation"""
+def _resolve_class_proposal_params():
     data = request.json
     if "cls_id" not in data:
-        return Response("`cls_id` required in JSON body", status=400)
+        return None, None, None, Response("`cls_id` required in JSON body", status=400)
     cls_id = str(data["cls_id"])
     if "sessions" not in data:
-        return Response("`sessions` required in JSON body", status=400)
+        return None, None, None, Response("`sessions` required in JSON body", status=400)
     sessions: list[val.Interval] = []
     for s in data["sessions"]:
         log.info(f"Parsing session {s}")
         sessions.append(tuple(safe_parse_datetime(t) for t in s))
     inst_id, rep = _resolve_email()
+    return cls_id, sessions, inst_id, rep
+
+
+@page.route("/instructor/validate", methods=["POST"])
+@require_login_role(Role.INSTRUCTOR)
+def validate_class():
+    """Validates the instructor's selected class and session times, returning
+    a list of error messages if anything fails validation"""
+    cls_id, sessions, inst_id, rep = _resolve_class_proposal_params()
     if rep:
         return rep
     log.info(f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}")
@@ -452,33 +362,23 @@ def validate_class():
     return {"valid": len(errors) == 0, "errors": errors}
 
 
-@page.route("/instructor/push_classes", methods=["POST"])
+@page.route("/instructor/push_class", methods=["POST"])
 @require_login_role(Role.INSTRUCTOR)
 def push_classes():
-    """Push specific classes to airtable.
-    2024-04-18: Note that this allows the instructor to push *any* classes at any time,
-    which isn't super great. But the odds of misuse are pretty low presently
-    so fine to ignore for now."""
-
-    data = request.json
-    if len(data) != 1:
-        return Response(
-            "push_classes requires exactly one instructor class set", status=400
-        )
-
-    raise Exception("TODO parse the data per validate_class")
-
-    fullname = list(data.keys())[0]
-    ufn = user_fullname()
-    if ufn != fullname and require_login_role(Role.ADMIN)(lambda: True)() is not True:
-        return Response(
-            f"Access Denied for pushing classes for instructor '{fullname}'", status=401
-        )
+    """Push specific classes to airtable, after running validation checks one last time."""
+    cls_id, sessions, inst_id, rep = _resolve_class_proposal_params()
+    if rep:
+        return rep
+    log.info(f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}")
+    errors = scheduler.validate(inst_id, cls_id, sessions)
+    log.info(f"Result: {errors}")
+    if len(errors) > 0:
+        return {"valid": len(errors) == 0, "errors": errors}
 
     # We automatically confirm classes pushed via instructor dashboard since the instructor
     # is the one pushing the class.
-    scheduler.push_schedule(data, autoconfirm=True)
-    return {"success": True}
+    scheduler.push_class_to_schedule(inst_id, cls_id, sessions)
+    return {"valid": True, "errors": [], "success": True}
 
 
 @page.route("/instructor/class/neon_state", methods=["GET"])

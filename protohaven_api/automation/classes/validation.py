@@ -1,6 +1,7 @@
 """Provide date and availability validation methods for class scheduling"""
 
 import datetime
+import logging
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from protohaven_api.integrations.airtable import (
     Interval,
     RecordID,
 )
+
+log = logging.getLogger("automation.classes.validation")
 
 type Datetime = datetime.datetime
 type StrInterval = tuple[str, str]
@@ -132,7 +135,7 @@ us_holidays = holidays.US()  # pylint: disable=no-member
 
 
 def validate_candidate_class_session(  # pylint: disable=too-many-return-statements, too-many-locals
-    i: Interval, c: Class, env: ClassAreaEnv
+    inst: InstructorID, i: Interval, c: Class, env: ClassAreaEnv
 ) -> tuple[bool, str]:
     """Ensure solver.Class `c` being taught at `start` is not invalid for reasons e.g.
     - Scheduled on a US holiday
@@ -168,11 +171,11 @@ def validate_candidate_class_session(  # pylint: disable=too-many-return-stateme
         return False, f"Occurs on a Protohaven holiday ({ph_holidays.get(t0)})"
 
     # Prevent if instructor is already busy on this day
-    for occ in env.instructor_occupancy:
+    for occ in env.instructor_occupancy.get(inst) or []:
         if t0.date() == occ[0].date():
             return (
                 False,
-                f"Same day as another class being taught by instructor ({occ[2]})",
+                f"Same day as another class you're teaching ({occ[2]})",
             )
 
     # Prevent if area is already occupied
@@ -185,14 +188,15 @@ def validate_candidate_class_session(  # pylint: disable=too-many-return-stateme
             )
 
     # Prevent this particular time if it's in an exclusion region
+    log.info(f"Exclusions for {c.class_id}: {env.exclusions}")
     excluding_class_dates = date_within_exclusions(t0, env.exclusions[c.class_id])
     if excluding_class_dates:
-        e1, e2, esched, eattr = excluding_class_dates
         return (
             False,
-            f"Too soon before/after same {eattr} (scheduled for "
-            f"{esched.strftime('%Y-%m-%d')}; no repeats allowed "
-            f"between {e1.strftime('%Y-%m-%d')} and {e2.strftime('%Y-%m-%d')})",
+            f"Too soon before/after same {excluding_class_dates.origin} (scheduled for "
+            f"{excluding_class_dates.main_date.strftime('%Y-%m-%d')}; no repeats allowed "
+            f"between {excluding_class_dates.start.strftime('%Y-%m-%d')} and "
+            f"{excluding_class_dates.end.strftime('%Y-%m-%d')})",
         )
 
     return True, ""

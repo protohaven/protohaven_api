@@ -68,36 +68,39 @@ def gen_class_and_area_stats(
             continue
 
         # Repeats of the class are excluded based on the start and end run date
+        first = c.sessions[0][0]
+        last = c.sessions[-1][0]
         exclusion_window = val.Exclusion(
-            start=c.sessions[0][0] - c.period,
-            end=c.sessions[-1][0] + c.period,
-            main_date=t,
+            start=first - c.period,
+            end=last + c.period,
+            main_date=first,
             origin=c.name,
         )
         if exclusion_window.start <= end_date or exclusion_window.end >= start_date:
+            log.info(f"Adding class ID {c.class_id} exclusions {exclusion_window}")
             env.exclusions[c.class_id].append(exclusion_window)
 
         # Clearances are excluded only based on start date, i.e. when a member
         # would have been able to register for the clearance
         clearance_exclusion_window = val.Exclusion(
-            start=c.sessions[0][0] - clearance_exclusion_range,
-            end=c.sessions[0][0] + clearance_exclusion_range,
-            main_date=t,  # Main date is included for reference
+            start=first - clearance_exclusion_range,
+            end=first + clearance_exclusion_range,
+            main_date=first,  # Main date is included for reference
             origin=c.name,
         )
         if (
-            clearance_exclusion_window[0] <= end_date
-            or clearance_exclusion_window[1] >= start_date
+            clearance_exclusion_window.start <= end_date
+            or clearance_exclusion_window.end >= start_date
         ):
             for clr in c.clearances:
-                clearance_exclusion[mapped].append(clearance_exclusion_window)
+                env.clearance_exclusions[clr].append(clearance_exclusion_window)
 
         for t0, t1 in c.sessions:
             if val.date_range_overlaps(t0, t1, start_date, end_date):
-                aoc: NamedInterval = (t0, t1, c.name)
+                aoc: val.NamedInterval = (t0, t1, c.name)
                 for area in c.areas:
                     env.area_occupancy[area].append(aoc)
-                env.instructor_occupancy[c.instructor].append(aoc)
+                env.instructor_occupancy[c.instructor_email].append(aoc)
 
     # Also pull in data from Booked scheduler to prevent overlap with manual reservations
     for area, aocs in get_reserved_area_occupancy(start_date, end_date).items():
@@ -116,6 +119,9 @@ def gen_class_and_area_stats(
 
     return env
 
+
+def _fmt_date(d):
+    return d.strftime('%m/%d/%Y %-I:%M %p')
 
 def validate(
     inst_id: InstructorID, cls_id: RecordID, sessions: list[val.Interval]
@@ -147,10 +153,21 @@ def validate(
             f"{len(sessions)}d of sessions not sufficient for {c.days}d class"
         )
 
+    for t1, t2 in sessions:
+        if t1 >= t2:
+            errors.append(f"Session start ({t1}) must be before session end ({t2})")
+    if sorted(sessions, key=lambda t: t[0]) != sessions:
+        errors.append("Sessions must be in chronological order")
+
+    for i, t1 in enumerate(sessions):
+        for t2 in sessions[i+1:]:
+            if val.date_range_overlaps(*t1, *t2):
+                errors.append(f"Overlapping sessions {_fmt_date(t1[0])} and {_fmt_date(t2[0])}")
+
     for i, tt in enumerate(sessions):
-        valid, reason = val.validate_candidate_class_session(tt, c, env)
+        valid, reason = val.validate_candidate_class_session(inst_id, tt, c, env)
         if not valid:
-            errors.append(f"{tt[0].strftime('%m/%d/%Y %-I:%M %p')}: {reason}")
+            errors.append(f"{_fmt_date(tt[0])}: {reason}")
 
     return errors
 
@@ -162,28 +179,20 @@ def format_class(cls):
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
-def push_schedule(sched, autoconfirm=False):
+def push_class_to_schedule(inst_id, cls_id, sessions):
     """Pushes the created schedule to airtable"""
-    payload = []
-    now = tznow().isoformat()
-    email_map = {k.lower(): v for k, v in airtable.get_instructor_email_map().items()}
-    for inst, classes in sched.items():
-        for record_id, _, date in classes:
-            date = safe_parse_datetime(date)
-            payload.append(
-                {
-                    "Instructor": inst,
-                    "Email": email_map[inst.lower()],
-                    "Start Time": date.isoformat(),
-                    "Class": [record_id],
-                    "Confirmed": now if autoconfirm else None,
-                }
-            )
-    for p in payload:
-        log.info(f"Append classes to schedule: {p}")
-        status, content = airtable.append_classes_to_schedule([p])
-        if status != 200:
-            raise RuntimeError(content)
+    name_map = {v.lower(): k for k, v in airtable.get_instructor_email_map().items()}
+    payload = {
+        "Instructor": name_map.get(inst_id.lower().strip()),
+        "Email": inst_id.strip().lower(),
+        "Sessions": ",".join([ss[0].isoformat() for ss in sessions]),
+        "Class": [cls_id],
+        "Confirmed": tznow().isoformat(),
+    }
+    log.info(f"Append class to schedule: {payload}")
+    status, content = airtable.append_classes_to_schedule([payload])
+    if status != 200:
+        raise RuntimeError(content)
 
 
 def gen_schedule_push_notifications(sched):

@@ -1,9 +1,8 @@
 <script type="typescript">
 import { onMount } from 'svelte';
-import { Button, Row, Modal, ModalHeader, ModalFooter, ModalBody, Col, Card, CardHeader, CardTitle, CardSubtitle, Image, CardText, CardFooter, CardBody, Icon, Spinner, FormGroup, ListGroup, ListGroupItem, Navbar, NavbarBrand, Nav, NavItem, Alert } from '@sveltestrap/sveltestrap';
+import { Button,  Modal, ModalHeader, ModalFooter, ModalBody, Card, CardHeader, CardTitle, Image, CardFooter, CardBody, Icon, ListGroup, ListGroupItem } from '@sveltestrap/sveltestrap';
 
 export let c;
-
 
 function open_signup(id) {
   let url = "https://protohaven.app.neoncrm.com/np/clients/protohaven/eventRegistration.jsp?event="+c['id'];

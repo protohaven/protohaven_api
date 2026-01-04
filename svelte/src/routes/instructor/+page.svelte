@@ -44,7 +44,7 @@ function fetch_instructor_profile(email) {
   const url = "/instructor/about?email=" + encodeURIComponent(email);
   console.log(`getting profile data for email ${email} -> ${url}`);
   profile = get(url).then((result) =>{
-    console.log(result.classes);
+    console.log("Instructor profile:", result);
     templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
     return result;
   });

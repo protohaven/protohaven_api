@@ -48,6 +48,7 @@ import {get, post} from '$lib/api.ts';
     {/if}
     <CardSubtitle>Status</CardSubtitle>
       <ListGroup>
+	<ListGroupItem color={li_color(p.email_status)}>Email: {p.email_status}</ListGroupItem>
 	<ListGroupItem color={li_color(p.active_membership)}>Membership: {p.active_membership}</ListGroupItem>
 	<ListGroupItem color={li_color(p.capabilities_listed)}>Capabilities: {p.capabilities_listed}</ListGroupItem>
 	<ListGroupItem color={li_color(p.paperwork)}>Paperwork: {p.paperwork}</ListGroupItem>

@@ -4,8 +4,9 @@ import datetime
 import json
 import logging
 import re
+import urllib.parse
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from typing import Iterator
 
@@ -37,13 +38,6 @@ type ForecastOverride = tuple[str, list[str], str]
 type Interval = tuple[datetime.datetime, datetime.datetime]
 
 
-@lru_cache(maxsize=1)
-def _clearance_code_mapping() -> dict[RecordID, ToolCode]:
-    return {
-        rec["id"]: rec["fields"].get("Code")
-        for rec in get_all_records("class_automation", "clearance_codes")
-    }
-
 
 @dataclass
 class Class:
@@ -53,6 +47,8 @@ class Class:
     name: str
     hours: int
     days: int
+    capacity: int
+    price: int
     period: datetime.timedelta
     approved: bool
     schedulable: bool
@@ -63,46 +59,165 @@ class Class:
 
     @classmethod
     def from_template(cls, row):
-        ccm = _clearance_code_mapping()
         f = row["fields"]
-        mapped = [ccm.get(clr) for clr in f.get("Clearance (from Class)") or []]
         return cls(
-            class_id=row["id"],
+            class_id=str(row["id"]),
             name=f.get("Name"),
             hours=int(f.get("Hours") or 0),
             days=int(f.get("Days") or 0),
+            capacity=int(f.get("Capacity") or 0),
+            price=int(f.get("Price") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
             areas=f.get("Name (from Area)") or [],
             schedulable=bool(f.get("Schedulable")),
             approved=bool(f.get("Approved")),
             image_link=f.get("Image Link"),
-            clearances=[m for m in mapped if m],
+            clearances=f.get("Form Name (from Clearance)") or [],
             approved_instructors=f.get("Email (from Instructor Capabilities)") or [],
         )
 
+    def as_response(self):
+        """Return a dict that can be used as a flask response, including prefill"""
+        return {**asdict(self),
+                "period": self.period.total_seconds() / (24*3600),
+            }
 
-class ScheduledClass(Class):
+@dataclass
+class ScheduledClass():
     """Represents a class template with scheduling information applied"""
 
-    instructor: InstructorID
+    schedule_id: RecordID
+    class_id: RecordID
+    neon_id: str # Neon Event ID
+    name: str
+    hours: int
+    period: datetime.timedelta
+    capacity: int
+    supply_state: str
+    areas: list[str]
+    confirmed: datetime.datetime
+    rejected: datetime.datetime
+    image_link: str
+    clearances: list[str]
+    price: int
+    instructor_name: str
+    instructor_email: InstructorID
     sessions: list[Interval]
-    exclusions: list[Interval]
+    volunteer: bool
 
     @classmethod
     def from_schedule(cls, row):
-        raise Exception("TODO")
+        f = row["fields"]
+        hours = int(f.get("Hours (from Class)")[0] or 0)
+        if not f.get("Sessions"):
+            raise RuntimeError("Scheduled class must have sessions")
+
+        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(',')]
+        sessions = [(d, d + datetime.timedelta(hours=hours)) for d in starts]
+
+        if "Class" in f.keys():
+            REF_FIELDS = ['_nc_m2m_Class_Templates_Schedules', 'Class_Templates_id']
+            if REF_FIELDS[0] in f:
+                class_ids = [
+                    str(lnk[REF_FIELDS[1]])
+                    for lnk in f[REF_FIELDS[0]]
+                ]
+            else:
+                class_ids = _idref(row, "Class")
+        log.info(f"Row {row}")
+
+        return cls(
+            schedule_id=str(row["id"]),
+            class_id=str(class_ids[0]),
+            neon_id=f.get("Neon ID") or None,
+            name=f.get("Name (from Class)")[0],
+            hours=hours,
+            period=datetime.timedelta(days=int((f.get("Period (from Class)") or [0])[0])),
+            capacity=int((f.get("Capacity (from Class)") or [0])[0]),
+            supply_state=f.get("Supply State") or "Unknown supply state",
+            areas=f.get("Name (from Area)") or [],
+            confirmed=safe_parse_datetime(f.get("Confirmed")) if f.get("Confirmed") else None,
+            rejected=safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None,
+            image_link=f.get("Image Link (from Class)"),
+            clearances=f.get("Form Name (from Clearance) (from Class)") or [],
+            price=f.get("Price (from Class)"),
+            instructor_email=f.get("Email").strip().lower(),
+            instructor_name=f.get("Instructor"),
+            sessions=sessions,
+            volunteer=f.get("Volunteer"),
+        )
+
+
+    def prefill_form(self, pass_emails: list[str]):
+        """Return prefilled instructor log submission form"""
+        individual = get_instructor_log_tool_codes()
+        clearance_codes = []
+        tool_codes = []
+        for c in self.clearances:
+            if c in individual:
+                tool_codes.append(c)
+            else:
+                clearance_codes.append(c)
+
+        # Get form configuration
+        form_base = get_config("forms/instructor_log/base_url")
+        form_keys = get_config("forms/instructor_log/keys")
+        form_values = get_config("forms/instructor_log/values")
+
+        start_yyyy_mm_dd = self.start_time.strftime("%Y-%m-%d")
+        result = f"{form_base}?usp=pp_url"
+        result += f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_email)}"
+        result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
+        result += f"&{form_keys['hours']}={self.hours}"
+        result += f"&{form_keys['class_name']}={urllib.parse.quote(self.name)}"
+        if self.volunteer:
+            result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
+        result += f"&{form_keys['session_type']}={form_values['single_session']}"
+        result += f"&{form_keys['pass_emails']}={urllib.parse.quote(', '.join(pass_emails))}"
+        for cc in clearance_codes:
+            result += f"&{form_keys['clearance_codes']}={cc}"
+        tool_usage_value = (
+            form_values["tool_usage_yes"]
+            if len(tool_codes) > 0
+            else form_values["tool_usage_no"]
+        )
+        result += f"&{form_keys['tool_usage']}={tool_usage_value}"
+        result += f"&{form_keys['event_id']}={self.neon_id or 'UNKNOWN'}"
+        for tc in tool_codes:
+            result += f"&{form_keys['tool_codes']}={tc}"
+        return result
+
+
+    @property
+    def start_time(self):
+        return min(s[0] for s in self.sessions)
+
+    @property
+    def end_time(self):
+        return max(s[1] for s in self.sessions)
+
+    def as_response(self, pass_emails=None):
+        """Return a dict that can be used as a flask response, including prefill"""
+        if not pass_emails:
+            pass_emails = ["$ATTENDEE_NAMES"]
+        return {**asdict(self), "prefill": self.prefill_form(pass_emails),
+                "period": self.period.total_seconds() / (24*3600),
+            }
 
 
 def get_class_automation_schedule(include_rejected=True, raw=True):
     """Grab the current automated class schedule"""
     for row in get_all_records("class_automation", "schedule"):
-        if include_rejected and row["fields"].get("Rejected"):
+        if not row["fields"].get("Rejected") or include_rejected:
             yield (row if raw else ScheduledClass.from_schedule(row))
 
 
-def get_scheduled_class(rec):
+def get_scheduled_class(rec, raw=True):
     """Get the specific scheduled class row by reference"""
-    return get_record("class_automation", "schedule", rec)
+    result = get_record("class_automation", "schedule", rec)
+    if result and not raw:
+        return ScheduledClass.from_schedule(result)
+    return result
 
 
 def get_notifications_after(tag, after_date):
@@ -198,14 +313,19 @@ def fetch_instructor_teachable_classes():
     return instructor_caps
 
 
-def get_all_class_templates():
+def get_all_class_templates(raw=True):
     """Get all class templates"""
-    return get_all_records("class_automation", "classes")
+    result = get_all_records("class_automation", "classes")
+    if raw:
+        yield from result
+    for row in result:
+        yield Class.from_template(row)
 
 
 def get_class_template(cls_id: RecordID) -> Class:
     for row in get_all_class_templates():
-        if str(row["id"]) == cls_id:
+        log.info(f"{row["id"]} vs {cls_id}")
+        if str(row["id"]) == str(cls_id):
             return Class.from_template(row)
     return None
 

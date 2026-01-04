@@ -51,36 +51,39 @@
     do_validate();
   }
 
-  let validation_result = {valid: false, errors: []};
-  function do_validate() {
+  function post_data() {
     const sessions = selected.starts.map(([date, time]) => {
-        console.log(date, time);
-        const t1 = new Date(`${date} ${time}`);
-        const t2 = new Date(t1.getTime() + selected.tmpl.hours * 60 * 60 * 1000);
-        console.log(t1, t2);
-        return [isodatetime(t1), isodatetime(t2)];
-      });
-    console.log("Running validation on cls_id " + selected.id + "; sessions are ", sessions);
-    running = true;
-    post("/instructor/validate", {
+      console.log(date, time);
+      const t1 = new Date(`${date} ${time}`);
+      const t2 = new Date(t1.getTime() + selected.tmpl.hours * 60 * 60 * 1000);
+      console.log(t1, t2);
+      return [isodatetime(t1), isodatetime(t2)];
+    });
+    console.log("cls_id " + selected.id + "; sessions ", sessions);
+    return {
       cls_id: selected.id,
       sessions,
-    }).then((data) => {
-      console.log("Validation result", data);
+    };
+  }
+
+  let validation_result = {valid: false, errors: []};
+  function do_validate() {
+    running = true;
+    post("/instructor/validate", post_data()).then((data) => {
       validation_result = {valid: data.valid, errors: data.errors};
     })
     .catch((err) => {
-      console.error(err);
       validation_result = {valid: false, errors: [`Validation request error: ${err}`, `Contact #software channel in Discord`]};
     }).finally(() => running = false);
   }
 
   function save_schedule() {
-    throw Error("TODO build push request");
-    post("/instructor/push_classes", data).then((rep) => {
+    post("/instructor/push_class", post_data()).then((rep) => {
+      console.log(rep);
       open = false;
-      running = false;
-    });
+    }).catch((err) => {
+      validation_result = {valid: false, errors: [`Save error: ${err}`, `Contact #software channel in Discord`]};
+    }).finally(() => running = false);;
   }
 </script>
 
@@ -110,6 +113,7 @@
       <div><strong>Hours per session:</strong> {selected.tmpl.hours}</div>
       <div><strong>Capacity:</strong> {selected.tmpl.capacity}</div>
       <div><strong>Price:</strong> ${selected.tmpl.price}</div>
+      <div><strong>Min days between runs:</strong> {selected.tmpl.period}</div>
       <div><strong>Clearances earned:</strong></div>
       {#if selected.tmpl.clearances.length > 0}
       <ListGroup>
@@ -142,6 +146,9 @@
               {/each}
             </DropdownMenu>
           </Dropdown>
+          </Col>
+          <Col xs="auto">
+              ({selected.tmpl.hours}hr session)
           </Col>
         </Row>
       {/each}

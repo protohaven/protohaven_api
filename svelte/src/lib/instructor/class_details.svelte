@@ -6,14 +6,16 @@ import ClassCard from './class_card.svelte';
 import {get, post} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
-let classes = [];
 let readiness = {};
 export let email;
 export let scheduler_open; // Watched to trigger refresh
 
 let promise;
 function refresh() {
-  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data) => data.schedule);
+  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data) => {
+    console.log(data.schedule);
+    return data.schedule;
+  });
 }
 
 $: {
@@ -30,7 +32,7 @@ $: {
 {#if classes }
   {#each classes as c}
     {#if !c['Rejected']}
-    <ClassCard eid={c[0]} c_init={c[1]}/>
+      <ClassCard eid={c.class_id} c_init={c}/>
     {/if}
   {/each}
 
