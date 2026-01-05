@@ -76,42 +76,42 @@ def test_gen_class_emails(cli, mocker):
     assert cli("gen_class_emails", []) == TESTVAL
 
 
-def tcls(start=d(30).isoformat(), confirmed=d(0).isoformat(), neon_id=""):
-    return {
-        "id": "abcd",
-        "fields": {
-            "ID": "123",
-            "Start Time": start,
-            "Name (from Class)": ["Test Class"],
-            "Neon ID": neon_id,
-            "Confirmed": confirmed,
-            "Instructor": "inst1",
-            "Short Description (from Class)": ["testdesc"],
-            "Image Link (from Class)": ["http://testimg"],
-            "Hours (from Class)": [3],
-            "Capacity (from Class)": [6],
-            "Price (from Class)": [90],
-            "Name (from Area) (from Class)": [90],
-            "Email": "a@b.com",
-        },
-    }
-
-
-Tc = namedtuple("Tc", "desc,cls")
+Tc = namedtuple("Tc", "desc,overrides")
 
 
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("No classes", []),
-        Tc("Too soon in future", [tcls(start=d(13).isoformat())]),
-        Tc("Unconfirmed", [tcls(confirmed=None)]),
-        Tc("Already scheduled", [tcls(neon_id="1234")]),
+        Tc("Scheduled before today", {"start_time": d(-2)}),
+        Tc("Too soon in future", {"start_time": d(13)}),
+        Tc("Unconfirmed", {"confirmed": None}),
+        Tc("Already scheduled", {"neon_id": "1234"}),
     ],
     ids=idfn,
 )
-def test_post_classes_to_neon_no_actions(cli, mocker, tc):
+def test_resolve_schedule_ignored_events(cli, mocker, tc):
     """Test cases where the scheduling action is skipped"""
+    tcls = mocker.MagicMock(
+        **{
+            "class_id": "abcd",
+            "start_time": d(20),
+            "name": "test class",
+            "neon_id": None,
+            "confirmed": d(-1),
+            "instructor_name": "inst1",
+            "description": {
+                "Short escrpition": "testdesc",
+            },
+            "image_url": "http://testimg",
+            "hours": 3,
+            "capacity": 6,
+            "price": 90,
+            "area": 90,
+            "instructor_email": "a@b.com",
+            **tc.overrides,
+        }
+    )
+
     mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
         C.Commands,
@@ -120,10 +120,10 @@ def test_post_classes_to_neon_no_actions(cli, mocker, tc):
         side_effect=RuntimeError("Should not have scheduled"),
     )
     mocker.patch.object(
-        C.airtable, "get_class_automation_schedule", return_value=tc.cls
+        C.airtable, "get_class_automation_schedule", return_value=[tcls]
     )
     mocker.patch.object(C, "tznow", return_value=d(0))
-    assert cli("post_classes_to_neon", ["--apply"]) == []
+    assert not list(C.resolve_schedule(14, None))
 
 
 def test_format_class_description(mocker):
@@ -139,20 +139,21 @@ def test_format_class_description(mocker):
     )
 
     result = cmd._format_class_description(
-        {
-            "fields": {
-                "Image Link": ["link"],
-                "Short Description": ["short_desc"],
-                "What you Will Create": ["what_create"],
-                "What to Bring/Wear": ["what_bring"],
-                "Clearances Earned": ["clearances"],
-                "Age Requirement": ["16+"],
-                "Start Time": d(0, 8).isoformat(),
-                "Hours": [3],
-                "Recurrence": ["RRULE:FREQ=WEEKLY;COUNT=3"],
-            }
-        },
-        suf="",
+        mocker.MagicMock(
+            image_link="link",
+            description={
+                "Short Description": "short_desc",
+                "What you Will Create": "what_create",
+                "What to Bring/Wear": "what_bring",
+                "Clearances Earned": "clearances",
+                "Age Requirement": "16+",
+            },
+            sessions=[
+                (d(0, 8), d(0, 11)),
+                (d(7, 8), d(7, 11)),
+                (d(14, 8), d(14, 11)),
+            ],
+        )
     )
     assert (
         result

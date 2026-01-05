@@ -38,7 +38,6 @@ type ForecastOverride = tuple[str, list[str], str]
 type Interval = tuple[datetime.datetime, datetime.datetime]
 
 
-
 @dataclass
 class Class:
     """Represents a class template"""
@@ -78,17 +77,19 @@ class Class:
 
     def as_response(self):
         """Return a dict that can be used as a flask response, including prefill"""
-        return {**asdict(self),
-                "period": self.period.total_seconds() / (24*3600),
-            }
+        return {
+            **asdict(self),
+            "period": self.period.total_seconds() / (24 * 3600),
+        }
+
 
 @dataclass
-class ScheduledClass():
+class ScheduledClass:
     """Represents a class template with scheduling information applied"""
 
     schedule_id: RecordID
     class_id: RecordID
-    neon_id: str # Neon Event ID
+    neon_id: str  # Neon Event ID
     name: str
     hours: int
     period: datetime.timedelta
@@ -104,6 +105,7 @@ class ScheduledClass():
     instructor_email: InstructorID
     sessions: list[Interval]
     volunteer: bool
+    description: dict[str, str]
 
     @classmethod
     def from_schedule(cls, row):
@@ -112,16 +114,13 @@ class ScheduledClass():
         if not f.get("Sessions"):
             raise RuntimeError("Scheduled class must have sessions")
 
-        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(',')]
+        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
         sessions = [(d, d + datetime.timedelta(hours=hours)) for d in starts]
 
         if "Class" in f.keys():
-            REF_FIELDS = ['_nc_m2m_Class_Templates_Schedules', 'Class_Templates_id']
+            REF_FIELDS = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
             if REF_FIELDS[0] in f:
-                class_ids = [
-                    str(lnk[REF_FIELDS[1]])
-                    for lnk in f[REF_FIELDS[0]]
-                ]
+                class_ids = [str(lnk[REF_FIELDS[1]]) for lnk in f[REF_FIELDS[0]]]
             else:
                 class_ids = _idref(row, "Class")
         log.info(f"Row {row}")
@@ -132,12 +131,18 @@ class ScheduledClass():
             neon_id=f.get("Neon ID") or None,
             name=f.get("Name (from Class)")[0],
             hours=hours,
-            period=datetime.timedelta(days=int((f.get("Period (from Class)") or [0])[0])),
+            period=datetime.timedelta(
+                days=int((f.get("Period (from Class)") or [0])[0])
+            ),
             capacity=int((f.get("Capacity (from Class)") or [0])[0]),
             supply_state=f.get("Supply State") or "Unknown supply state",
             areas=f.get("Name (from Area)") or [],
-            confirmed=safe_parse_datetime(f.get("Confirmed")) if f.get("Confirmed") else None,
-            rejected=safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None,
+            confirmed=(
+                safe_parse_datetime(f.get("Confirmed")) if f.get("Confirmed") else None
+            ),
+            rejected=(
+                safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None
+            ),
             image_link=f.get("Image Link (from Class)"),
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
             price=f.get("Price (from Class)"),
@@ -145,8 +150,17 @@ class ScheduledClass():
             instructor_name=f.get("Instructor"),
             sessions=sessions,
             volunteer=f.get("Volunteer"),
+            description={
+                k: f.get(k + " (from Class)")[0]
+                for k in (
+                    "Short Description",
+                    "What you Will Create",
+                    "What to Bring/Wear",
+                    "Clearances Earned",
+                    "Age Requirement",
+                )
+            },
         )
-
 
     def prefill_form(self, pass_emails: list[str]):
         """Return prefilled instructor log submission form"""
@@ -166,14 +180,18 @@ class ScheduledClass():
 
         start_yyyy_mm_dd = self.start_time.strftime("%Y-%m-%d")
         result = f"{form_base}?usp=pp_url"
-        result += f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_email)}"
+        result += (
+            f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_email)}"
+        )
         result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
         result += f"&{form_keys['hours']}={self.hours}"
         result += f"&{form_keys['class_name']}={urllib.parse.quote(self.name)}"
         if self.volunteer:
             result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
         result += f"&{form_keys['session_type']}={form_values['single_session']}"
-        result += f"&{form_keys['pass_emails']}={urllib.parse.quote(', '.join(pass_emails))}"
+        result += (
+            f"&{form_keys['pass_emails']}={urllib.parse.quote(', '.join(pass_emails))}"
+        )
         for cc in clearance_codes:
             result += f"&{form_keys['clearance_codes']}={cc}"
         tool_usage_value = (
@@ -187,7 +205,6 @@ class ScheduledClass():
             result += f"&{form_keys['tool_codes']}={tc}"
         return result
 
-
     @property
     def start_time(self):
         return min(s[0] for s in self.sessions)
@@ -200,9 +217,11 @@ class ScheduledClass():
         """Return a dict that can be used as a flask response, including prefill"""
         if not pass_emails:
             pass_emails = ["$ATTENDEE_NAMES"]
-        return {**asdict(self), "prefill": self.prefill_form(pass_emails),
-                "period": self.period.total_seconds() / (24*3600),
-            }
+        return {
+            **asdict(self),
+            "prefill": self.prefill_form(pass_emails),
+            "period": self.period.total_seconds() / (24 * 3600),
+        }
 
 
 def get_class_automation_schedule(include_rejected=True, raw=True):

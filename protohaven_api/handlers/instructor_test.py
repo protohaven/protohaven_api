@@ -47,23 +47,21 @@ def dt(days=0, hours=0):
     return now + datetime.timedelta(days=days, hours=hours)
 
 
-def _sched(_id, email=TEST_EMAIL, start=now, days=1, confirmed=None):
-    """Create and return a fake Airtable schedule record"""
-    return {
-        "id": _id,
-        "fields": {
-            "Email": email,
-            "Start Time": start.isoformat(),
-            "Confirmed": None if not confirmed else confirmed.isoformat(),
-            "Recurrence (from Class)": (
-                [f"RRULE:FREQ=WEEKLY;COUNT={days}"] if days > 1 else None
-            ),
-        },
-    }
-
-
 def test_dashboard_schedule(mocker):
     """Confirm behavior of shown and hidden schedule items for the instructor dashboard"""
+
+    def _sched(_id, email=TEST_EMAIL, start=now, days=1, confirmed=None):
+        """Create and return a fake Airtable schedule record"""
+        return mocker.MagicMock(
+            schedule_id=_id,
+            instructor_email=email,
+            sessions=[
+                start.isoformat(),
+                (start + datetime.timedelta(hours=3)).isoformat(),
+            ],
+            confirmed=None if not confirmed else confirmed.isoformat(),
+        )
+
     mocker.patch(
         "protohaven_api.integrations.airtable.get_class_automation_schedule",
         return_value=[
@@ -92,22 +90,6 @@ def test_dashboard_schedule(mocker):
     )
     got = {g[0] for g in instructor.get_dashboard_schedule_sorted(TEST_EMAIL)}
     assert got == {"Unconfirmed, not too close", "Confirmed, after run, not too old"}
-
-
-def test_prefill(mocker):
-    mocker.patch.object(
-        instructor.airtable, "get_instructor_log_tool_codes", return_value=[]
-    )
-    assert instructor.prefill_form(
-        instructor="test_instructor",
-        start_date=datetime.datetime.now(),
-        hours=3,
-        class_name="test class",
-        pass_emails="a@b.com, c@d.com",
-        clearances=["3DF"],
-        volunteer=False,
-        event_id=12345,
-    )
 
 
 def test_instructor_class_attendees(inst_client, mocker):

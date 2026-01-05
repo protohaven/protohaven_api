@@ -5,7 +5,6 @@ from collections import namedtuple
 import pytest
 
 from protohaven_api.automation.classes import validation as v
-from protohaven_api.automation.classes.solver import Class
 from protohaven_api.testing import d, idfn
 
 Tc = namedtuple("tc", "desc,a0,a1,b0,b1,want")
@@ -34,10 +33,12 @@ def test_date_range_overlaps(tc):
 
 fields = {
     "desc": None,
-    "t0": d(1),
     "inst_occupancy": [],
     "area_occupancy": {},
-    "avail": [(d(0), d(2))],
+    "exclusions": {
+        "tc": [v.Exclusion(start=d(5), end=d(10), main_date=d(7), origin="for reasons")]
+    },
+    "interval": (d(3, 16), d(3, 19)),
     "want_reason": None,
     "class_hours": 3,
     "recurrence": None,
@@ -51,67 +52,54 @@ Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
         Tc("pass, simple"),
         Tc(
             "fail, holiday",
-            t0=d(0, 14),
-            want_reason="Occurs on a US holiday",
+            interval=(d(0, 14), d(0, 17)),
+            want_reason="Occurs on a US holiday (New Year's Day)",
         ),  # Jan 1, 2025 i.e. new years' day
         Tc(
+            "hours mismatch",
+            interval=(d(0, 14), d(0, 18)),  # 4h instead of 3h
+            want_reason="duration is 4.0h, want 3h",
+        ),
+        Tc(
             "fail, instructor occupied that day",
-            t0=d(1, 12),
-            inst_occupancy=[[d(1, 16), d(1, 19), "Other Class"]],
-            want_reason="Same day as another class being taught by instructor (Other Class)",
+            inst_occupancy=[(d(3, 12), d(3, 14), "Other Class")],
+            want_reason="Same day as another class you're teaching (Other Class)",
         ),
         Tc(
             "fail, area overlap",
-            t0=d(1, 18),
-            area_occupancy={"a0": [[d(1, 18), d(1, 19), "Occupying Event"]]},
+            area_occupancy={"a0": [(d(3, 16), d(3, 17), "Occupying Event")]},
             want_reason="Area already occupied (Occupying Event)",
         ),
         Tc(
             "fail, too soon",
-            t0=d(6),
-            avail=[(d(0), d(8))],
-            want_reason="Too soon before/after same class (scheduled for 2025-01-08; "
-            "no repeats allowed between 2025-01-06 and 2025-01-11)",
+            interval=(d(5, 16), d(5, 19)),
+            want_reason="Too soon before/after same for reasons (scheduled for 2025-01-08; no repeats allowed between 2025-01-06 and 2025-01-11)",
         ),
         Tc(
             "pass, complex",
-            t0=d(4, 18),
-            inst_occupancy=[[d(3, 18), d(3, 21), "Other Class"]],
-            area_occupancy={"a0": [[d(3, 18), d(3, 21), "Occupying Event"]]},
-            avail=[(d(0), d(6))],
-        ),
-        Tc(
-            "pass, multi-day",
-            t0=d(20),
-            avail=[(d(20), d(21)), (d(27), d(28)), (d(34), d(35))],
-            recurrence="RRULE:FREQ=WEEKLY;COUNT=3",
-        ),
-        Tc(
-            "fail, multi-day but unavailable on second session",
-            t0=d(20),
-            avail=[(d(20), d(21)), (d(27), d(28))],
-            recurrence="RRULE:FREQ=WEEKLY;COUNT=3",
-            want_reason=(
-                "Class time (2025-02-04 00:00:00-05:00 - 2025-02-04 03:00:00-05:00) "
-                "does not fall within instructor availability"
-            ),
+            interval=(d(4, 18), d(4, 21)),
+            inst_occupancy=[(d(3, 18), d(3, 21), "Other Class")],
+            area_occupancy={"a0": [(d(3, 18), d(3, 21), "Occupying Event")]},
         ),
     ],
     ids=idfn,
 )
-def test_validate_candidate_class_time(tc):
+def test_validate_candidate_class_session(tc, mocker):
     """Test cases for validate_candidate_class_time"""
-    testclass = Class(
-        "test_id",
-        "Test Class",
-        hours=tc.class_hours,
-        recurrence=tc.recurrence,
-        areas=["a0"],
-        exclusions=[[d(5), d(10), d(7), "class"]],
-        score=1.0,
+    env = v.ClassAreaEnv(
+        clearance_exclusions={},
+        area_occupancy=tc.area_occupancy,
+        instructor_occupancy={"test_inst": tc.inst_occupancy},
+        exclusions=tc.exclusions,
     )
-    valid, reason = v.validate_candidate_class_time(
-        testclass, tc.t0, tc.inst_occupancy, tc.area_occupancy, tc.avail
+    test_class = mocker.MagicMock(
+        class_id="tc",
+        name="Test Class",
+        hours=tc.class_hours,
+        areas=["a0"],
+    )
+    valid, reason = v.validate_candidate_class_session(
+        "test_inst", tc.interval, test_class, env
     )
     if valid and tc.want_reason:
         raise RuntimeError(f"got valid; want invalid with reason {tc.want_reason}")
@@ -150,49 +138,16 @@ Tc = namedtuple("TC", "desc,d,exclusions,want")
         Tc(
             "Simple containment",
             d(0, 12),
-            [(d(0), d(1), "foo", "bar")],
-            [d(0), d(1), "foo", "bar"],
+            [(d(0), d(1), d(0, 12), "bar")],
+            [d(0), d(1), d(0, 12), "bar"],
         ),
-        Tc("Too late", d(2), [(d(0), d(1), "foo", "bar")], False),
-        Tc("Too early", d(-1), [(d(0), d(1), "foo", "bar")], False),
+        Tc("Too late", d(2), [(d(0), d(1), d(0, 12), "bar")], False),
+        Tc("Too early", d(-1), [(d(0), d(1), d(0, 12), "bar")], False),
     ],
     ids=idfn,
 )
 def test_date_within_exclusions(tc):
     """Verify behavior of date math in date_within_exclusions"""
-    assert v.date_within_exclusions(tc.d, tc.exclusions) == tc.want
-
-
-Tc = namedtuple("TC", "desc,dd,want")
-
-
-@pytest.mark.parametrize(
-    "tc",
-    [
-        Tc("Empty case", [], []),
-        Tc("Base case", [("a", d(0, 12), d(0, 13))], [("a", d(0, 12), d(0, 13))]),
-        Tc(
-            "Simple merge",
-            [("a", d(0, 12), d(0, 14)), ("b", d(0, 13), d(0, 15))],
-            [("a", d(0, 12), d(0, 15))],
-        ),
-        Tc(
-            "Duplicate merge",
-            [("a", d(0, 12), d(0, 14)), ("b", d(0, 12), d(0, 14))],
-            [("a", d(0, 12), d(0, 14))],
-        ),
-        Tc(
-            "Merge does not affect next date if separate",
-            [
-                ("a", d(0, 12), d(0, 13)),
-                ("b", d(0, 12), d(0, 14)),
-                ("c", d(0, 14), d(0, 15)),
-            ],
-            [("a", d(0, 12), d(0, 14)), ("c", d(0, 14), d(0, 15))],
-        ),
-    ],
-    ids=idfn,
-)
-def test_sort_and_merge_date_ranges(tc):
-    """Test cases for sort_and_merge_date_ranges function"""
-    assert list(v.sort_and_merge_date_ranges(tc.dd)) == tc.want
+    ee = [v.Exclusion(*e) for e in tc.exclusions]
+    want = v.Exclusion(*tc.want) if tc.want else tc.want
+    assert v.date_within_exclusions(tc.d, ee) == want

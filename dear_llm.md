@@ -1,3 +1,9 @@
+## Environment setup
+
+Before starting, create a venv and `pip install -r requirements.txt` to pull python dependencies.
+
+Also `pip install pre-commit` to prepare for post-development steps.
+
 ## Python Unit Testing
 
 * Prefer `mocker.patch.object` over `mocker.patch`

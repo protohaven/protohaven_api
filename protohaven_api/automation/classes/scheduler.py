@@ -2,16 +2,19 @@
 
 import datetime
 import logging
-import traceback
 from collections import defaultdict
-from dataclasses import dataclass
 
 from protohaven_api.automation.classes import validation as val
 from protohaven_api.automation.classes.validation import ClassAreaEnv
-from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
-from protohaven_api.integrations import airtable, booked, wiki
-from protohaven_api.integrations.airtable import AreaID, InstructorID, RecordID
-from protohaven_api.integrations.airtable_base import _idref, get_all_records
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
+from protohaven_api.integrations import airtable, booked
+from protohaven_api.integrations.airtable import (
+    AreaID,
+    InstructorID,
+    Interval,
+    RecordID,
+)
+from protohaven_api.integrations.airtable_base import get_all_records
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.scheduler")
@@ -50,10 +53,10 @@ def get_reserved_area_occupancy(
     return occupancy
 
 
-def gen_class_and_area_stats(
+def gen_class_and_area_stats(  # pylint: disable=too-many-locals
     start_date: datetime.datetime,
     end_date: datetime.datetime,
-) -> ClassAreaEnv:  # pylint: disable=too-many-locals
+) -> ClassAreaEnv:
     """Build a map of when each class in the current schedule was last run, plus
     a list of times where areas are occupied, within the bounds of start_date and end_date
     """
@@ -121,9 +124,10 @@ def gen_class_and_area_stats(
 
 
 def _fmt_date(d):
-    return d.strftime('%m/%d/%Y %-I:%M %p')
+    return d.strftime("%m/%d/%Y %-I:%M %p")
 
-def validate(
+
+def validate(  # pylint: disable=too-many-branches
     inst_id: InstructorID, cls_id: RecordID, sessions: list[val.Interval]
 ) -> list[str]:
     """Validates a given class to make sure it doesn't conflict with anything"""
@@ -152,6 +156,12 @@ def validate(
         errors.append(
             f"{len(sessions)}d of sessions not sufficient for {c.days}d class"
         )
+    else:
+        for i in range(len(sessions) - 1):
+            if (sessions[i + 1][0] - sessions[i][0]).total_seconds / (24 * 3600) > 10:
+                errors.append(
+                    f"More than 10 days between sessions {sessions[i][0]} and {sessions[i+1][0]}"
+                )
 
     for t1, t2 in sessions:
         if t1 >= t2:
@@ -160,9 +170,11 @@ def validate(
         errors.append("Sessions must be in chronological order")
 
     for i, t1 in enumerate(sessions):
-        for t2 in sessions[i+1:]:
+        for t2 in sessions[i + 1 :]:
             if val.date_range_overlaps(*t1, *t2):
-                errors.append(f"Overlapping sessions {_fmt_date(t1[0])} and {_fmt_date(t2[0])}")
+                errors.append(
+                    f"Overlapping sessions {_fmt_date(t1[0])} and {_fmt_date(t2[0])}"
+                )
 
     for i, tt in enumerate(sessions):
         valid, reason = val.validate_candidate_class_session(inst_id, tt, c, env)
@@ -179,7 +191,9 @@ def format_class(cls):
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
-def push_class_to_schedule(inst_id, cls_id, sessions):
+def push_class_to_schedule(
+    inst_id: InstructorID, cls_id: RecordID, sessions: list[Interval]
+):
     """Pushes the created schedule to airtable"""
     name_map = {v.lower(): k for k, v in airtable.get_instructor_email_map().items()}
     payload = {

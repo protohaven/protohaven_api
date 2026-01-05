@@ -11,15 +11,14 @@ from functools import lru_cache
 import markdown
 
 from protohaven_api.automation.classes import builder
-from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.commands.reservations import reservation_dict_from_record
 from protohaven_api.config import (  # pylint: disable=import-error
     safe_parse_datetime,
     tznow,
 )
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
+    booked,
     comms,
     neon_base,
 )
@@ -27,6 +26,41 @@ from protohaven_api.integrations.comms import Msg
 from protohaven_api.integrations.data.neon import Category
 
 log = logging.getLogger("cli.classes")
+
+
+def resolve_schedule(min_future_days, overrides):
+    now = tznow()
+    for event in airtable.get_class_automation_schedule(raw=False):
+        if overrides:
+            if str(event.class_id) in overrides:
+                log.warning(f"Adding override class with ID {event.class_id}")
+            else:
+                continue  # Skip if not in override list
+        else:
+            if event.start_time < now:
+                log.info(f"Skipping event {event.class_id} from the past {event.name}")
+                continue
+            # Quietly ignore already-scheduled events
+            if (event.neon_id or "") != "":
+                log.info(
+                    f"Skipping scheduled event {event.class_id} {event.neon_id}: "
+                    f"{event.name}"
+                )
+                continue
+
+            if not event.confirmed:
+                log.info(
+                    f"Skipping unconfirmed: {event.start_time} {event.name} "
+                    f"with {event.instructor_name}"
+                )
+                continue
+            if event.start_time < now + datetime.timedelta(days=min_future_days):
+                log.info(
+                    f"Skipping too-soon: {event.start_time} {event.name} "
+                    f"with {event.instructor_name}"
+                )
+                continue
+        yield event
 
 
 class Commands:
@@ -161,13 +195,11 @@ class Commands:
         log.info(f"Generated {len(result)} notification(s)")
 
     def _apply_pricing(self, event_id, evt, include_discounts, session):
-        price = evt["fields"]["Price (from Class)"][0]
-        qty = evt["fields"]["Capacity (from Class)"][0]
-        log.debug(f"{event_id} {evt['fields']['Name (from Class)']} {price} {qty}")
+        log.debug(f"{event_id} {evt.name} {evt.price} {evt.capacity}")
         session.assign_pricing(
             event_id,
-            price,
-            qty,
+            evt.price,
+            evt.capacity,
             include_discounts=include_discounts,
             clear_existing=True,
         )
@@ -187,20 +219,13 @@ class Commands:
     def _schedule_event(  # pylint: disable=too-many-arguments
         self, event, desc, published=True, registration=True, dry_run=True
     ):
-        start = safe_parse_datetime(event["fields"]["Start Time"])
-        dates = list(
-            expand_recurrence(
-                (event["fields"].get("Recurrence (from Class)") or [None])[0],
-                event["fields"]["Hours (from Class)"][0],
-                start,
-            )
-        )
+        dates = [safe_parse_datetime(s) for s in event["fields"]["Sessions"].split(",")]
         name = event["fields"]["Name (from Class)"][0]
         capacity = event["fields"]["Capacity (from Class)"][0]
         return neon_base.create_event(
             name,
             desc,
-            start,
+            dates[0][0],
             dates[-1][1],
             category=self._neon_category_from_event_name(name),
             max_attendees=capacity,
@@ -223,21 +248,16 @@ class Commands:
             )
         ]
 
-    def _format_class_sessions(self, cls, suf=" (from Class)"):
+    def _format_class_sessions(self, cls):
         """Format the dates and times for an airtable class"""
-        start = safe_parse_datetime(cls["fields"]["Start Time"])
         lines = []
-        for d0, d1 in expand_recurrence(
-            (cls["fields"].get("Recurrence" + suf) or [None])[0],
-            cls["fields"]["Hours" + suf][0],
-            start,
-        ):
+        for d0, d1 in cls.sessions:
             lines.append(f"{d0.strftime('%A %b %-d, %-I%p')} - {d1.strftime('%-I%p')}")
         result = "**Class Dates**\n\n"
         result += "\n".join([f"* {l}" for l in lines])
         return result
 
-    def _format_class_description(self, cls, suf=" (from Class)"):
+    def _format_class_description(self, cls):
         """Construct description of class from airtable columns; strip 'from Class' suffix"""
         (
             rules_and_expectations,
@@ -245,26 +265,25 @@ class Commands:
             age_section_fmt,
         ) = self._fetch_boilerplate()
         result = ""
-        img = cls["fields"].get("Image Link" + suf)
-        if isinstance(img, list) and len(img) > 0:
-            result += f'<p><img height="200" src="{img[0]}"/></p>\n'
-        result += markdown.markdown(cls["fields"]["Short Description" + suf][0]) + "\n"
+        if cls.image_link:
+            result += f'<p><img height="200" src="{cls.image_link}"/></p>\n'
+        result += markdown.markdown(cls.description["Short Description"]) + "\n"
         sections = []
         for col in (
             "What you Will Create",
             "What to Bring/Wear",
             "Clearances Earned",
         ):
-            body = cls["fields"].get(col + suf, [""])[0]
+            body = cls.description[col]
             if body is not None and body.strip() != "":
                 sections.append((col, body))
 
-        if cls["fields"].get("Age Requirement" + suf) is not None:
+        if cls["description"].get("Age Requirement") is not None:
             sections.append(
                 (
                     "Age Requirement",
                     age_section_fmt.format(
-                        age=cls["fields"]["Age Requirement" + suf][0]
+                        age=cls.description["Age Requirement"],
                     ),
                 )
             )
@@ -272,51 +291,42 @@ class Commands:
         result += "\n\n".join(
             [markdown.markdown(f"**{hdr}**\n\n{body}") for hdr, body in sections]
         )
-        result += markdown.markdown(self._format_class_sessions(cls, suf))
+        result += markdown.markdown(self._format_class_sessions(cls))
         result += markdown.markdown(rules_and_expectations)
         result += markdown.markdown(cancellation_policy)
         return result
 
-    def _resolve_schedule(self, min_future_days, overrides):
-        now = tznow()
-        for event in airtable.get_class_automation_schedule():
-            cid = event["fields"].get("ID") or event["fields"].get("ID_1")
-            start = safe_parse_datetime(event["fields"]["Start Time"])
-            if overrides:
-                if str(cid) in overrides:
-                    log.warning(f"Adding override class with ID {cid}")
-                else:
-                    continue  # Skip if not in override list
-            else:
-                if start < now:
-                    log.debug(
-                        f"Skipping event {cid} from the past {event['fields']['Name (from Class)']}"
+    def _reserve_equipment_for_event(self, event, apply):
+        """Reserves equipment for a class"""
+        # Convert areas to booked IDs using tool table
+        areas = set(event.areas)
+        resources = []
+        for row in airtable.get_all_records("tools_and_equipment", "tools"):
+            for a in row["fields"].get("Name (from Shop Area)", []):
+                if a in areas and row["fields"].get("BookedResourceId"):
+                    resources.append(
+                        (
+                            row["fields"]["Tool Name"],
+                            row["fields"]["BookedResourceId"],
+                        )
                     )
-                    continue
-                # Quietly ignore already-scheduled events
-                if (event["fields"].get("Neon ID") or "") != "":
-                    log.debug(
-                        f"Skipping scheduled event {cid} {event['fields']['Neon ID']}: "
-                        f"{event['fields']['Name (from Class)']}"
-                    )
-                    continue
+                    break
 
-                if not event["fields"].get("Confirmed"):
-                    log.debug(
-                        f"Skipping unconfirmed: {start} {event['fields']['Name (from Class)'][0]} "
-                        f"with {event['fields']['Instructor']}"
+        log.info(f"Class {event.name} has {len(resources)} resources:")
+        for name, resource_id in resources:
+            for start, end in event.sessions:
+                log.info(
+                    f"  Reserving {name} (Booked ID {resource_id}) from "
+                    f"{start} to {end} (apply={apply})"
+                )
+                if apply:
+                    log.info(
+                        str(
+                            booked.reserve_resource(
+                                resource_id, start, end, title=event.name
+                            )
+                        )
                     )
-                    continue
-                if start < now + datetime.timedelta(days=min_future_days):
-                    log.debug(
-                        f"Skipping too-soon: {start} {event['fields']['Name (from Class)'][0]} "
-                        f"with {event['fields']['Instructor']}"
-                    )
-                    continue
-
-            event["start"] = start
-            event["cid"] = cid
-            yield event
 
     @command(
         arg(
@@ -374,9 +384,11 @@ class Commands:
             f"Classes will {'NOT ' if not args.registration else ''}be open for registration"
         )
         num = 0
-        to_schedule = list(self._resolve_schedule(args.min_future_days, args.ovr))
+        to_schedule: list[airtable.Class] = list(
+            self.resolve_schedule(args.min_future_days, args.ovr)
+        )
         scheduled_by_instructor = defaultdict(list)
-        to_schedule.sort(key=lambda e: e["start"])
+        to_schedule.sort(key=lambda e: e.start_time)
 
         log.info("Attempting auth as user to allow for pricing changes")
         session = neon_base.NeonOne()
@@ -384,8 +396,7 @@ class Commands:
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
-                f"{event['start']} {event['cid']} {event['fields']['Instructor']}: "
-                f"{event['fields']['Name (from Class)'][0]}"
+                f"{event.start_date} {event.class_id} {event.instructor_name}: {event.name}"
             )
 
             if args.apply:
@@ -401,26 +412,25 @@ class Commands:
                     )
                     log.info(f"- Neon event {result_id} created")
                     assert result_id
+                    event.neon_id = str(result_id)
 
                     log.info("- Applying pricing (uses Firefox process via playwright)")
                     self._apply_pricing(result_id, event, args.discounts, session)
                     log.info("- Pricing applied")
 
                     airtable.update_record(
-                        {"Neon ID": str(result_id)},
+                        {"Neon ID": event.neon_id},
                         "class_automation",
                         "schedule",
-                        event["id"],
+                        event.schedule_id,
                     )
                     log.info("- Neon ID updated in Airtable")
 
                     if args.reserve:
                         log.info("Reserving equipment for scheduled classes")
-                        self._reserve_equipment_for_class_internal(  # pylint: disable=no-member
-                            reservation_dict_from_record(event), args.apply
-                        )
+                        self._reserve_equipment_for_event(event, args.apply)
 
-                    scheduled_by_instructor[event["fields"]["Instructor"]].append(event)
+                    scheduled_by_instructor[event.instructor_id].append(event)
                     log.info("Added to notification list")
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")
@@ -432,7 +442,7 @@ class Commands:
                             {"Neon ID": ""},
                             "class_automation",
                             "schedule",
-                            event["id"],
+                            event.schedule_id,
                         )
                     try:
                         comms.send_discord_message(
