@@ -20,6 +20,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon_base,
 )
+from protohaven_api.integrations.airtable import InstructorID, ScheduledClass
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.builder")
@@ -62,50 +63,48 @@ def get_unscheduled_instructors(start, end, require_active=True):
         yield (name, email)
 
 
-def gen_class_scheduled_alerts(scheduled_by_instructor):
+def gen_class_scheduled_alerts(
+    scheduled_by_instructor: dict[InstructorID, ScheduledClass],
+):
     """Generate alerts about classes getting scheduled"""
     results = []
 
-    def format_class(cls, inst=False):
-        start = safe_parse_datetime(cls["fields"]["Start Time"])
+    def _fmt(c, inst):
         # Out of an abundance of paranoia, we lock incase there's a competing
         # thread setting the locale.
         with LOCALE_LOCK:
             locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
             return {
-                "t": start,
-                "start": start.strftime("%b %d %Y, %-I%p"),
-                "name": cls["fields"]["Name (from Class)"][0],
-                "inst": cls["fields"]["Instructor"] if inst else None,
+                "t": c.start_time,
+                "start": c.start_time.strftime("%b %d %Y, %-I%p"),
+                "name": c.name,
+                "inst": c.instructor_email if inst else None,
             }
 
     details = {"action": ["SCHEDULE"], "targets": []}
     channel_class_list = []
     for inst, classes in scheduled_by_instructor.items():
-        formatted = [format_class(c) for c in classes]
-        formatted.sort(key=lambda c: c["t"])
-        email = classes[0]["fields"]["Email"]
+        assert len(classes) > 0
+        classes.sort(key=lambda c: c.start_time)
         results.append(
             Msg.tmpl(
                 "class_scheduled",
                 inst=inst,
                 n=len(classes),
-                formatted=formatted,
-                target=email,
+                formatted=[_fmt(c, inst=False) for c in classes],
+                target=classes[0].instructor_email,
             )
         )
-        details["targets"].append(email)
+        details["targets"].append(classes[0].instructor_email)
         channel_class_list += classes
 
     if len(results) > 0:
-        channel_class_list.sort(
-            key=lambda c: safe_parse_datetime(c["fields"]["Start Time"])
-        )
+        channel_class_list.sort(key=lambda c: c.start_time)
         results.append(
             Msg.tmpl(
                 "instructors_new_classes",
                 n=len(channel_class_list),
-                classes=[format_class(c, inst=True) for c in channel_class_list],
+                classes=[_fmt(c, inst=True) for c in channel_class_list],
                 target="#instructors",
             )
         )

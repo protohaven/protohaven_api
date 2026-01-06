@@ -194,16 +194,6 @@ class Commands:
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
 
-    def _apply_pricing(self, event_id, evt, include_discounts, session):
-        log.debug(f"{event_id} {evt.name} {evt.price} {evt.capacity}")
-        session.assign_pricing(
-            event_id,
-            evt.price,
-            evt.capacity,
-            include_discounts=include_discounts,
-            clear_existing=True,
-        )
-
     @classmethod
     def _neon_category_from_event_name(cls, name):
         """Parses the event name and returns a category matching what kind of event it is"""
@@ -215,24 +205,6 @@ class Commands:
         if int(m[1]) >= 110:
             return Category.PROJECT_BASED_WORKSHOP
         return Category.SKILLS_AND_SAFETY_WORKSHOP
-
-    def _schedule_event(  # pylint: disable=too-many-arguments
-        self, event, desc, published=True, registration=True, dry_run=True
-    ):
-        dates = [safe_parse_datetime(s) for s in event["fields"]["Sessions"].split(",")]
-        name = event["fields"]["Name (from Class)"][0]
-        capacity = event["fields"]["Capacity (from Class)"][0]
-        return neon_base.create_event(
-            name,
-            desc,
-            dates[0][0],
-            dates[-1][1],
-            category=self._neon_category_from_event_name(name),
-            max_attendees=capacity,
-            dry_run=dry_run,
-            published=published,
-            registration=registration,
-        )
 
     @lru_cache(maxsize=1)
     def _fetch_boilerplate(self):
@@ -278,7 +250,7 @@ class Commands:
             if body is not None and body.strip() != "":
                 sections.append((col, body))
 
-        if cls["description"].get("Age Requirement") is not None:
+        if cls.description.get("Age Requirement") is not None:
             sections.append(
                 (
                     "Age Requirement",
@@ -296,7 +268,8 @@ class Commands:
         result += markdown.markdown(cancellation_policy)
         return result
 
-    def _reserve_equipment_for_event(self, event, apply):
+    @classmethod
+    def reserve_equipment_for_event(cls, event, apply):
         """Reserves equipment for a class"""
         # Convert areas to booked IDs using tool table
         areas = set(event.areas)
@@ -385,7 +358,7 @@ class Commands:
         )
         num = 0
         to_schedule: list[airtable.Class] = list(
-            self.resolve_schedule(args.min_future_days, args.ovr)
+            resolve_schedule(args.min_future_days, args.ovr)
         )
         scheduled_by_instructor = defaultdict(list)
         to_schedule.sort(key=lambda e: e.start_time)
@@ -396,27 +369,41 @@ class Commands:
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
-                f"{event.start_date} {event.class_id} {event.instructor_name}: {event.name}"
+                f"{event.start_time} {event.class_id} {event.instructor_name}: {event.name}"
             )
 
             if args.apply:
                 num += 1
                 result_id = None
                 try:
-                    result_id = self._schedule_event(
-                        event,
+                    result_id = neon_base.create_event(
+                        event.name,
                         self._format_class_description(event),
+                        event.sessions[0][0],
+                        event.sessions[-1][1],
+                        category=self._neon_category_from_event_name(event.name),
+                        max_attendees=event.capacity,
                         dry_run=not args.apply,
                         published=args.publish,
                         registration=args.registration,
                     )
-                    log.info(f"- Neon event {result_id} created")
+                    log.info(
+                        f"- Neon event {result_id} created: {event.name}, ${event.price}, {event.capacity} students"
+                    )
                     assert result_id
                     event.neon_id = str(result_id)
 
-                    log.info("- Applying pricing (uses Firefox process via playwright)")
-                    self._apply_pricing(result_id, event, args.discounts, session)
-                    log.info("- Pricing applied")
+                    log.info(
+                        "- Assigning pricing (uses Firefox process via playwright)"
+                    )
+                    session.assign_pricing(
+                        event.neon_id,
+                        event.price,
+                        event.capacity,
+                        include_discounts=args.discounts,
+                        clear_existing=True,
+                    )
+                    log.info("- Pricing assigned")
 
                     airtable.update_record(
                         {"Neon ID": event.neon_id},
@@ -428,9 +415,9 @@ class Commands:
 
                     if args.reserve:
                         log.info("Reserving equipment for scheduled classes")
-                        self._reserve_equipment_for_event(event, args.apply)
+                        self.reserve_equipment_for_event(event, args.apply)
 
-                    scheduled_by_instructor[event.instructor_id].append(event)
+                    scheduled_by_instructor[event.instructor_email].append(event)
                     log.info("Added to notification list")
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")

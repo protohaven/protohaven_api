@@ -36,7 +36,7 @@ def fixture_e(mocker):
     mocker.patch.object(C.airtable, "update_record")
     mocker.patch.object(C.neon, "set_event_scheduled_state")
     mocker.patch.object(C.neon, "assign_pricing")
-    mocker.patch.object(C.neon, "create_event")
+    mocker.patch.object(C.neon_base, "create_event")
     mocker.patch.object(C.scheduler, "push_schedule")
     return C
 
@@ -100,7 +100,7 @@ def test_resolve_schedule_ignored_events(cli, mocker, tc):
             "confirmed": d(-1),
             "instructor_name": "inst1",
             "description": {
-                "Short escrpition": "testdesc",
+                "Short Description": "testdesc",
             },
             "image_url": "http://testimg",
             "hours": 3,
@@ -114,8 +114,8 @@ def test_resolve_schedule_ignored_events(cli, mocker, tc):
 
     mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
-        C.Commands,
-        "_schedule_event",
+        C.neon_base,
+        "create_event",
         create=True,
         side_effect=RuntimeError("Should not have scheduled"),
     )
@@ -161,17 +161,75 @@ def test_format_class_description(mocker):
     )
 
 
+def _tcls(mocker):
+    """Used as a test class for test_post_classes_to_neon tests"""
+    c = mocker.MagicMock(
+        spec=True,  # Don't autocreate attributes
+        class_id="abcd",
+        schedule_id="efgh",
+        start_time=d(20),
+        neon_id=None,
+        confirmed=d(-1),
+        instructor_name="inst1",
+        sessions=[
+            (d(20, 8), d(20, 11)),
+        ],
+        description={
+            "Short Description": "testdesc",
+            "What you Will Create": "a thing",
+            "What to Bring/Wear": "stuff",
+            "Clearances Earned": "several",
+            "Age Requirement": "yes",
+        },
+        image_link="http://testimg",
+        hours=3,
+        capacity=6,
+        price=90,
+        instructor_email="a@b.com",
+    )
+    c.name = "test class"
+    return c
+
+
 Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
 
 
 @pytest.mark.parametrize(
     "tc",
     [
-        Tc("defaults", [], True, True, True, True),
-        Tc("no publish", ["--no-publish"], False, True, True, True),
-        Tc("no registration", ["--no-registration"], True, False, True, True),
-        Tc("no discounts", ["--no-discounts"], True, True, False, True),
-        Tc("no reservation", ["--no-reserve"], True, True, True, False),
+        Tc("defaults", [], publish=True, register=True, discount=True, reserve=True),
+        Tc(
+            "no publish",
+            ["--no-publish"],
+            publish=False,
+            register=True,
+            discount=True,
+            reserve=True,
+        ),
+        Tc(
+            "no registration",
+            ["--no-registration"],
+            publish=True,
+            register=False,
+            discount=True,
+            reserve=True,
+        ),
+        Tc(
+            "no discounts",
+            ["--no-discounts"],
+            publish=True,
+            register=True,
+            discount=False,
+            reserve=True,
+        ),
+        Tc(
+            "no reservation",
+            ["--no-reserve"],
+            publish=True,
+            register=True,
+            discount=True,
+            reserve=False,
+        ),
     ],
     ids=idfn,
 )
@@ -184,11 +242,9 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
     )
     mocker.patch.object(C.neon_base, "create_event", return_value="123")
     mocker.patch.object(C.airtable, "update_record")
+    mocker.patch.object(C.Commands, "reserve_equipment_for_event", create=True)
     mocker.patch.object(
-        C.Commands, "_reserve_equipment_for_class_internal", create=True
-    )
-    mocker.patch.object(
-        C.airtable, "get_class_automation_schedule", return_value=[tcls()]
+        C.airtable, "get_class_automation_schedule", return_value=[_tcls(mocker)]
     )
     mocker.patch.object(C, "tznow", return_value=d(0))
     mocker.patch.object(
@@ -204,8 +260,8 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
     C.neon_base.create_event.assert_called_with(
         mocker.ANY,
         mocker.ANY,
-        d(30),
-        d(30) + datetime.timedelta(hours=3),
+        d(20, 8),
+        d(20, 11),
         category="27",
         max_attendees=6,
         dry_run=False,
@@ -221,45 +277,26 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
         "123", 90, 6, include_discounts=tc.discount, clear_existing=True
     )
     if tc.reserve:
-        C.Commands._reserve_equipment_for_class_internal.assert_called_with(
-            {
-                "areas": {90},
-                "name": ["Test Class"],
-                "intervals": mocker.ANY,
-                "resources": [],
-            },
-            True,
-        )
+        C.Commands.reserve_equipment_for_event.assert_called_once()
     mock_delete.assert_not_called()
 
 
 def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
     """Test that class creation is reverted when part of the process fails"""
     mocker.patch.object(C.comms, "send_discord_message")
-    mocker.patch.object(C.neon_base, "NeonOne")
-    # Setup test data
-    test_event = {
-        "id": "test_id",
-        "start": d(1),
-        "cid": "test_cid",
-        "fields": {
-            "Instructor": "Test Instructor",
-            "Name (from Class)": ["Test Class"],
-        },
-    }
-    mocker.patch.object(C.Commands, "_resolve_schedule", return_value=[test_event])
+    mock_neonone = mocker.MagicMock()
+    mock_neonone.assign_pricing.side_effect = Exception("Pricing failed!")
+    mocker.patch.object(C.neon_base, "NeonOne", return_value=mock_neonone)
+    mocker.patch.object(C, "resolve_schedule", return_value=[_tcls(mocker)])
 
     mock_delete = mocker.patch.object(
         C.neon_base, "delete_event_unsafe", return_value=True
     )
     mock_schedule = mocker.patch.object(
-        C.Commands, "_schedule_event", return_value="test_event_id"
+        C.neon_base, "create_event", return_value="test_event_id"
     )
     mocker.patch.object(
         C.Commands, "_format_class_description", return_value="test_description"
-    )
-    mock_pricing = mocker.patch.object(
-        C.Commands, "_apply_pricing", side_effect=Exception("Pricing failed!")
     )
     mock_airtable = mocker.patch.object(C.airtable, "update_record")
 
@@ -271,8 +308,52 @@ def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
         MatchStr("Reverted class #test_event_id"), "#class-automation", blocking=False
     )
     mock_schedule.assert_called_once()
-    mock_pricing.assert_called_once()
+    mock_neonone.assign_pricing.assert_called_once()
     mock_airtable.assert_called_once_with(
-        {"Neon ID": ""}, "class_automation", "schedule", "test_id"
+        {"Neon ID": ""}, "class_automation", "schedule", "efgh"
     )
     mock_delete.assert_called_once_with("test_event_id")
+
+
+def test_reserve_equipment_for_event(mocker):
+    """Test equipment reservation for class events"""
+    mock_booked = mocker.patch.object(C, "booked")
+    mock_airtable = mocker.patch.object(C, "airtable")
+    mock_event = mocker.Mock()
+    mock_event.name = "Test Class"
+    mock_event.areas = ["Wood Shop", "Metal Shop"]
+    mock_event.sessions = [(d(0, 9), d(0, 12)), (d(0, 13), d(0, 16))]
+    mock_airtable.get_all_records.return_value = [
+        {
+            "fields": {
+                "Name (from Shop Area)": [area],
+                "BookedResourceId": resource,
+                "Tool Name": tool,
+            }
+        }
+        for area, resource, tool in [
+            ("Wood Shop", "resource_wood", "Table Saw"),
+            ("Metal Shop", "resource_metal", "Welder"),
+            ("Jewelry", "resource_torch", "Torch"),
+            ("Wood Shop", None, "Hand Tools"),
+        ]
+    ]
+
+    C.Commands.reserve_equipment_for_event(mock_event, apply=True)
+    expected_args = [
+        ("resource_wood", d(0, 9), d(0, 12)),
+        ("resource_wood", d(0, 13), d(0, 16)),
+        ("resource_metal", d(0, 9), d(0, 12)),
+        ("resource_metal", d(0, 13), d(0, 16)),
+    ]
+    assert mock_booked.reserve_resource.call_count == len(expected_args)
+    for i, args in enumerate(expected_args):
+        call_args = mock_booked.reserve_resource.call_args_list[i]
+        assert call_args[0] == args
+        assert call_args[1] == {"title": "Test Class"}
+
+    # Test with apply=False
+    mock_booked.reset_mock()
+    mock_airtable.reset_mock()
+    C.Commands.reserve_equipment_for_event(mock_event, apply=False)
+    mock_booked.reserve_resource.assert_not_called()
