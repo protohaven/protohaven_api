@@ -32,7 +32,7 @@ function json_req(url, data, method) {
       }
 
       try {
-	    return JSON.parse(body);
+	      return JSON.parse(body);
       } catch (err) {
         throw Error(`JSON parse error: ${_trunc(body)}`);
       }

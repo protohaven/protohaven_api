@@ -21,20 +21,24 @@ end.setDate(end.getDate() + 40);
 end = end.toJSON().slice(0,10);
 let promise = new Promise((resolve,reject) => {});
 let admin = false;
+let user;
 onMount(() => {
   const urlParams = new URLSearchParams(window.location.search);
   let e = urlParams.get("email");
   console.log(`E is ${e}`);
-  if (!e) {
-	  promise = get("/whoami").then((d) => {
+	promise = get("/whoami").then((d) => {
       admin = (d.roles || []).indexOf("Education Lead") !== -1;
-      fetch_instructor_profile(d.email);
+      console.log(d)
+      user=d;
+      if (!e) {
+        promise = Promise.resolve(d);
+        fetch_instructor_profile(d.email);
+      } else {
+        promise = Promise.resolve({email: e});
+        fetch_instructor_profile(e);
+      }
       return d;
     });
-  } else {
-    promise = Promise.resolve({email: e});
-    fetch_instructor_profile(e);
-  }
 });
 
 
@@ -45,8 +49,12 @@ function fetch_instructor_profile(email) {
   console.log(`getting profile data for email ${email} -> ${url}`);
   profile = get(url).then((result) =>{
     console.log("Instructor profile:", result);
+    console.log("Seeking templates for classes:", result.classes);
     templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
     return result;
+  }).catch((e) => {
+      console.log(e);
+      throw e;
   });
 }
 
@@ -64,12 +72,23 @@ let airtable_id = "";
     <NavItem>
       <NavLink href="https://wiki.protohaven.org/books/instructors-handbook" target="_blank">Wiki/Help</NavLink>
     </NavItem>
+    <NavItem>
+    {#await promise}
+      <Spinner/>
+    {:then}
+      {#if !user || !user.fullname}
+        <NavLink href="http://api.protohaven.org/login?referrer=/techs">Login</NavLink>
+      {:else}
+        <NavLink href="/logout">{user.fullname} (Logout)</NavLink>
+      {/if}
+    {/await}
+    </NavItem>
   </Nav>
 </Navbar>
 {#await promise}
   <Spinner/>
   <strong>Resolving instructor data...</strong>
-{:then p}
+{:then}
   {#if admin}
     <AdminPanel/>
   {/if}

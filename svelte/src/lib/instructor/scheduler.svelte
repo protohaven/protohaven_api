@@ -9,11 +9,11 @@
   export let templates = {};
   export let classes = {};
   export let admin;
+  export let email;
 
+  let ovr = false;
   let validation_override = "";
-  $: {
-    let ovr = (validation_override.toLowercase().trim() === "i want to break automation");
-  }
+  $: ovr = (validation_override.replaceAll("\"", "").toLowerCase().trim() === "i own the consequences of my actions");
 
   function day_of_week(date) {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -68,13 +68,14 @@
     return {
       cls_id: selected.id,
       sessions,
+      skip_validation: ovr,
     };
   }
 
   let validation_result = {valid: false, errors: []};
   function do_validate() {
     running = true;
-    post("/instructor/validate", post_data()).then((data) => {
+    post("/instructor/validate?email=" + encodeURIComponent(email), post_data()).then((data) => {
       validation_result = {valid: data.valid, errors: data.errors};
     })
     .catch((err) => {
@@ -83,9 +84,13 @@
   }
 
   function save_schedule() {
-    post("/instructor/push_class", post_data()).then((rep) => {
+    post("/instructor/push_class?email=" + encodeURIComponent(email), post_data()).then((rep) => {
       console.log(rep);
-      open = false;
+      if (rep.valid) {
+        open = false;
+      } else {
+        validation_result = rep;
+      }
     }).catch((err) => {
       validation_result = {valid: false, errors: [`Save error: ${err}`, `Contact #software channel in Discord`]};
     }).finally(() => running = false);;
@@ -171,7 +176,7 @@
       </ListGroup>
 
       {#if admin}
-        <Input type="text" placeholder={"Type \"I want to break automation\" to ignore all warnings and proceed"} bind:value={validation_override} />
+        <Input class="my-3" type="text" placeholder={"Type \"I own the consequences of my actions\" here to ignore all errors and proceed"} bind:value={validation_override} />
       {/if}
     {/if}
   </ModalBody>
