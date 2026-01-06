@@ -55,14 +55,20 @@ class Class:  # pylint: disable=too-many-instance-attributes
     clearances: list[ToolCode]
 
     @classmethod
+    def resolve_hours(cls, hours, days):
+        if days:
+            return [float(hours)] * int(days)
+        else:
+            return [float(s) for s in str(hours).split(",") or []]
+
+    @classmethod
     def from_template(cls, row):
         """Converts an airtable template row into Class"""
         f = row["fields"]
-        log.info(f)
         return cls(
             class_id=str(row["id"]),
             name=f.get("Name"),
-            hours=[float(s) for s in str(f.get("Hours")).split(",") or []],
+            hours=cls.resolve_hours(f.get("Hours"), f.get("Days")),
             capacity=int(f.get("Capacity") or 0),
             price=int(f.get("Price") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
@@ -115,12 +121,10 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     def from_schedule(cls, row):
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
-        try:
-            hours = [
-                float(s) for s in str(f.get("Hours (from Class)")[0]).split(",") or []
-            ]
-        except AttributeError:
-            hours = []
+        hours = Class.resolve_hours(
+            (f.get("Hours (from Class)") or [None])[0],
+            (f.get("Days (from Class)") or [None])[0],
+        )
         if not f.get("Sessions"):
             raise RuntimeError("Scheduled class must have sessions")
         if not hours:
@@ -135,6 +139,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         sessions = [
             (d, d + datetime.timedelta(hours=hours[i])) for i, d in enumerate(starts)
         ]
+        class_ids = [None]
         if "Class" in f.keys():
             ref_fields = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
             if ref_fields[0] in f:
@@ -145,7 +150,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
             neon_id=f.get("Neon ID") or None,
-            name=f.get("Name (from Class)")[0],
+            name=(f.get("Name (from Class)") or ["Unknown"])[0],
             hours=hours,
             period=datetime.timedelta(
                 days=int((f.get("Period (from Class)") or [0])[0])

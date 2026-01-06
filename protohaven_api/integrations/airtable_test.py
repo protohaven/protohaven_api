@@ -438,3 +438,9 @@ def test_insert_quiz_result(mocker):
         "class_automation",
         "quiz_results",
     )
+
+
+def test_resolve_hours():
+    assert a.Class.resolve_hours(3, 2) == [3, 3]
+    assert a.Class.resolve_hours("3", "3") == [3, 3, 3]
+    assert a.Class.resolve_hours("3,2,1", None) == [3, 2, 1]
