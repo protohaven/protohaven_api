@@ -5,17 +5,19 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Literal
 
 import holidays
 
 from protohaven_api.automation.techs.techs import ph_holidays
-from protohaven_api.config import safe_parse_datetime, truncate_date, tz
+from protohaven_api.config import truncate_date
 from protohaven_api.integrations.airtable import (
     AreaID,
     Class,
     InstructorID,
     Interval,
     RecordID,
+    ScheduledClass,
 )
 
 log = logging.getLogger("automation.classes.validation")
@@ -38,6 +40,8 @@ class Exclusion:
 
 @dataclass
 class ClassAreaEnv:
+    """All data relevant for validity checking class scheduling proposals"""
+
     exclusions: dict[RecordID, list[Exclusion]]
     clearance_exclusions: dict[RecordID, list[Exclusion]]
     area_occupancy: dict[AreaID, list[NamedInterval]]
@@ -45,17 +49,10 @@ class ClassAreaEnv:
 
     @classmethod
     def with_defaults(cls):
+        """Apply defaults to all class parameters"""
         return cls(
             defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
         )
-
-
-def str_interval_to_interval(ii: list[StrInterval | Interval]) -> list[Interval]:
-    """Coalesce string dates into actual datetime objects"""
-    if len(ii) > 0 and isinstance(ii[0][0], str):
-        # Convert from string to Date if required
-        return [[*[safe_parse_datetime(e) for e in ee[:-1]], ee[-1]] for ee in ii]
-    return ii
 
 
 def date_range_overlaps(a0: Datetime, a1: Datetime, b0: Datetime, b1: Datetime) -> bool:
@@ -81,7 +78,9 @@ def has_area_conflict(
     return False
 
 
-def date_within_exclusions(d, exclusions: list[Exclusion]) -> Exclusion | bool:
+def date_within_exclusions(
+    d, exclusions: list[Exclusion]
+) -> Exclusion | Literal[False]:
     """Returns the matching exclusion date if `d` is
     within any of the tuples in the list of `exclusions`"""
     for e in exclusions:
@@ -102,7 +101,7 @@ def overlapping(c1: list[Interval], c2: list[Interval]) -> bool:
 
 
 def get_overlapping_by_time(
-    i: Interval, classes: Iterator[Class]
+    i: Interval, classes: Iterator[ScheduledClass]
 ) -> Iterator[NamedInterval]:
     """Yields a sequence of (class_id, start_time) of classes that would
     conflict with class `c1` running at time `t1`.
@@ -115,7 +114,7 @@ def get_overlapping_by_time(
 
 
 def get_overlapping_by_area(
-    a: set[AreaID], i: Interval, classes: Iterator[Class]
+    a: set[AreaID], i: Interval, classes: Iterator[ScheduledClass]
 ) -> Iterator[NamedInterval]:
     """Yields a sequence of NamedInterval  of classes that would
     conflict with class `c1` running at time `t1` in the same area.

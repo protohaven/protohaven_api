@@ -18,7 +18,7 @@ from dotenv import dotenv_values
 tz = dtz.gettz("America/New_York")
 
 
-def safe_parse_datetime(date_str: str) -> datetime.datetime:
+def safe_parse_datetime(date_str: str | datetime.datetime) -> datetime.datetime:
     """Safely parse a datetime string, handling timezone-naive strings correctly.
 
     Timezone-naive strings are interpreted as being in the target timezone (Eastern)
@@ -30,7 +30,11 @@ def safe_parse_datetime(date_str: str) -> datetime.datetime:
     Returns:
         A timezone-aware datetime object in Eastern time
     """
-    parsed = dateparser.parse(date_str)
+    parsed = (
+        date_str
+        if isinstance(date_str, datetime.datetime)
+        else dateparser.parse(date_str)
+    )
     if parsed.tzinfo is None or parsed.tzinfo.utcoffset(parsed) is None:
         return parsed.replace(tzinfo=tz)
 
@@ -38,6 +42,7 @@ def safe_parse_datetime(date_str: str) -> datetime.datetime:
 
 
 def truncate_date(d, hour=0):
+    """Truncates a datetime instance to a specific hour, or midnight of the day"""
     return d.replace(hour=hour, minute=0, second=0, microsecond=0, tzinfo=tz)
 
 

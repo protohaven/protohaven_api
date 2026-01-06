@@ -41,16 +41,16 @@ def get_reserved_area_occupancy(
             # There may be setup/teardown time incorporated in
             # the future for reservations though.
             occupancy[area].append(
-                [
+                (
                     res["bufferedStartDate"],
                     res["bufferedEndDate"],
                     f"{res['resourceName']} reservation by "
                     + f"{res['firstName']} {res['lastName']}, "
                     + "https://reserve.protohaven.org/Web/reservation/?rn="
                     + str(res["referenceNumber"]),
-                ]
+                )
             )
-    return occupancy
+    return dict(occupancy)
 
 
 def gen_class_and_area_stats(  # pylint: disable=too-many-locals
@@ -127,7 +127,7 @@ def _fmt_date(d):
     return d.strftime("%m/%d/%Y %-I:%M %p")
 
 
-def validate(  # pylint: disable=too-many-branches
+def validate(  # pylint: disable=too-many-branches, too-many-locals
     inst_id: InstructorID, cls_id: RecordID, sessions: list[val.Interval]
 ) -> list[str]:
     """Validates a given class to make sure it doesn't conflict with anything"""
@@ -158,7 +158,7 @@ def validate(  # pylint: disable=too-many-branches
         )
     else:
         for i in range(len(sessions) - 1):
-            if (sessions[i + 1][0] - sessions[i][0]).total_seconds / (24 * 3600) > 10:
+            if (sessions[i + 1][0] - sessions[i][0]).total_seconds() / (24 * 3600) > 10:
                 errors.append(
                     f"More than 10 days between sessions {sessions[i][0]} and {sessions[i+1][0]}"
                 )
@@ -169,11 +169,11 @@ def validate(  # pylint: disable=too-many-branches
     if sorted(sessions, key=lambda t: t[0]) != sessions:
         errors.append("Sessions must be in chronological order")
 
-    for i, t1 in enumerate(sessions):
-        for t2 in sessions[i + 1 :]:
-            if val.date_range_overlaps(*t1, *t2):
+    for i, s1 in enumerate(sessions):
+        for s2 in sessions[i + 1 :]:
+            if val.date_range_overlaps(*s1, *s2):
                 errors.append(
-                    f"Overlapping sessions {_fmt_date(t1[0])} and {_fmt_date(t2[0])}"
+                    f"Overlapping sessions {_fmt_date(s1[0])} and {_fmt_date(s2[0])}"
                 )
 
     for i, tt in enumerate(sessions):

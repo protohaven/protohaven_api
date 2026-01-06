@@ -4,8 +4,7 @@ import datetime
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
@@ -290,11 +289,7 @@ def instructor_class_volunteer():
     data = request.json
     eid = data["eid"]
     v = data["volunteer"]
-    status, result = airtable.mark_schedule_volunteer(eid, v)
-    if status != 200:
-        raise RuntimeError(result)
-    log.info(str(result))
-    return airtable.ScheduledClass.from_schedule(result).as_response()
+    return airtable.mark_schedule_volunteer(eid, v).as_response()
 
 
 @page.route("/instructor/admin_data", methods=["GET"])

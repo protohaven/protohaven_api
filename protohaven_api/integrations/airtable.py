@@ -1,4 +1,4 @@
-"""Airtable integration (classes, tool state etc)"""
+"""Airtable integration (classes, tool state etc)"""  # pylint: disable=too-many-lines
 
 import datetime
 import json
@@ -39,7 +39,7 @@ type Interval = tuple[datetime.datetime, datetime.datetime]
 
 
 @dataclass
-class Class:
+class Class:  # pylint: disable=too-many-instance-attributes
     """Represents a class template"""
 
     class_id: RecordID
@@ -58,6 +58,7 @@ class Class:
 
     @classmethod
     def from_template(cls, row):
+        """Converts an airtable template row into Class"""
         f = row["fields"]
         return cls(
             class_id=str(row["id"]),
@@ -84,7 +85,7 @@ class Class:
 
 
 @dataclass
-class ScheduledClass:
+class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     """Represents a class template with scheduling information applied"""
 
     schedule_id: RecordID
@@ -109,6 +110,7 @@ class ScheduledClass:
 
     @classmethod
     def from_schedule(cls, row):
+        """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
         hours = int(f.get("Hours (from Class)")[0] or 0)
         if not f.get("Sessions"):
@@ -118,9 +120,9 @@ class ScheduledClass:
         sessions = [(d, d + datetime.timedelta(hours=hours)) for d in starts]
 
         if "Class" in f.keys():
-            REF_FIELDS = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
-            if REF_FIELDS[0] in f:
-                class_ids = [str(lnk[REF_FIELDS[1]]) for lnk in f[REF_FIELDS[0]]]
+            ref_fields = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
+            if ref_fields[0] in f:
+                class_ids = [str(lnk[ref_fields[1]]) for lnk in f[ref_fields[0]]]
             else:
                 class_ids = _idref(row, "Class")
         log.info(f"Row {row}")
@@ -207,10 +209,12 @@ class ScheduledClass:
 
     @property
     def start_time(self):
+        """Return the start time of the class"""
         return min(s[0] for s in self.sessions)
 
     @property
     def end_time(self):
+        """Return the very last point in time for the class (end of the last session)"""
         return max(s[1] for s in self.sessions)
 
     def as_response(self, pass_emails=None):
@@ -342,6 +346,7 @@ def get_all_class_templates(raw=True):
 
 
 def get_class_template(cls_id: RecordID) -> Class:
+    """Fetches a class template object from Airtable"""
     for row in get_all_class_templates():
         log.info(f"{row["id"]} vs {cls_id}")
         if str(row["id"]) == str(cls_id):
@@ -435,11 +440,14 @@ def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
     return ScheduledClass.from_schedule(result)
 
 
-def mark_schedule_volunteer(eid, volunteer):
+def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
     """Mark volunteership or desire to run the Scheduled class for pay"""
-    return ScheduledClass.from_schedule(
-        update_record({"Volunteer": volunteer}, "class_automation", "schedule", eid)
+    status, result = update_record(
+        {"Volunteer": volunteer}, "class_automation", "schedule", eid
     )
+    if status != 200:
+        raise RuntimeError(f"Error setting volunteer status: {result}")
+    return ScheduledClass.from_schedule(result)
 
 
 def get_tools():
