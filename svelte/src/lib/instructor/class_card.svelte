@@ -120,7 +120,7 @@ function cancel(neon_id) {
     <ul>
       {#each c.sessions as ss}
       <li>
-          {new Date(ss[0]).toLocaleString()} - 
+          {new Date(ss[0]).toLocaleString()} -
           {new Date(ss[1]).toLocaleString()}</li>
       {/each}
     </ul>
@@ -161,7 +161,7 @@ function cancel(neon_id) {
   <div>Clearances earned:</div>
   <ul>
     {#each c.clearances as clr}
-    <li>{clr}</li> 
+    <li>{clr}</li>
     {/each}
   </ul>
   {:else}

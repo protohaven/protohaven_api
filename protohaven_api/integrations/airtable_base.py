@@ -152,8 +152,6 @@ def update_record(data, base, tbl, rec):
     return 200, get_record(base, tbl, rec)
 
 
-
-
 def delete_record(base, tbl, rec):
     """Deletes a record in a named table"""
     if get_connector().db_format() == "nocodb":

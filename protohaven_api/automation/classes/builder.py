@@ -10,6 +10,8 @@ from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
 
+from typings import Any
+
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import (  # pylint: disable=import-error
     safe_parse_datetime,
@@ -64,7 +66,7 @@ def get_unscheduled_instructors(start, end, require_active=True):
 
 
 def gen_class_scheduled_alerts(
-    scheduled_by_instructor: dict[InstructorID, ScheduledClass],
+    scheduled_by_instructor: dict[InstructorID, list[ScheduledClass]],
 ):
     """Generate alerts about classes getting scheduled"""
     results = []
@@ -81,8 +83,8 @@ def gen_class_scheduled_alerts(
                 "inst": c.instructor_name if inst else None,
             }
 
-    details = {"action": ["SCHEDULE"], "targets": []}
-    channel_class_list = []
+    details: dict[str, Any] = {"action": ["SCHEDULE"], "targets": []}
+    channel_class_list: list[ScheduledClass] = []
     for inst, classes in scheduled_by_instructor.items():
         assert len(classes) > 0
         classes.sort(key=lambda c: c.start_time)

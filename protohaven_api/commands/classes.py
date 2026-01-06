@@ -29,6 +29,7 @@ log = logging.getLogger("cli.classes")
 
 
 def resolve_schedule(min_future_days, overrides):
+    """Resolves class schedule, excluding ones not relevant"""
     now = tznow()
     for event in airtable.get_class_automation_schedule(raw=False):
         if overrides:
@@ -388,7 +389,8 @@ class Commands:
                         registration=args.registration,
                     )
                     log.info(
-                        f"- Neon event {result_id} created: {event.name}, ${event.price}, {event.capacity} students"
+                        f"- Neon event {result_id} created: {event.name}, "
+                        f"${event.price}, {event.capacity} students"
                     )
                     assert result_id
                     event.neon_id = str(result_id)
