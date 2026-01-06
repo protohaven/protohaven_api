@@ -444,3 +444,8 @@ def test_resolve_hours():
     assert a.Class.resolve_hours(3, 2) == [3, 3]
     assert a.Class.resolve_hours("3", "3") == [3, 3, 3]
     assert a.Class.resolve_hours("3,2,1", None) == [3, 2, 1]
+
+def test_resolve_starts():
+    assert a.ScheduledClass.resolve_starts(d(0).isoformat(), None, None, None) == [d(0)]
+    assert a.ScheduledClass.resolve_starts(f"{d(0).isoformat()}, {d(1).isoformat()}", None, None, None) == [d(0), d(1)]
+    assert a.ScheduledClass.resolve_starts(None, d(0).isoformat(), "2", "7") == [d(0), d(7)]

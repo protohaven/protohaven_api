@@ -56,6 +56,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
 
     @classmethod
     def resolve_hours(cls, hours, days):
+        """Compatibility layer to allow for rollback to previous data structure"""
         if days:
             return [float(hours)] * int(days)
         else:
@@ -118,6 +119,14 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     description: dict[str, str]
 
     @classmethod
+    def resolve_starts(cls, sessions, start_time, days, days_between):
+        """Compatibility for old table data"""
+        if sessions:
+            return [safe_parse_datetime(d) for d in sessions.split(",")]
+        d = safe_parse_datetime(start_time)
+        return [d + datetime.timedelta(days=i*int(days_between)) for i in range(int(days))]
+
+    @classmethod
     def from_schedule(cls, row):
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
@@ -130,7 +139,12 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         if not hours:
             raise RuntimeError("Class template data for session has no hours listed")
 
-        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
+        starts = cls.resolve_starts(
+            f.get("Sessions") or None,
+            f.get("Start Time") or None,
+            (f.get("Days (from Class)") or [None])[0]
+            (f.get("Days Between Sessions (from Class)") or [None])[0]
+        )
         if len(hours) < len(
             starts
         ):  # We need consistent lengths for pairing up data elsewhere
