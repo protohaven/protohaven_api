@@ -8,7 +8,12 @@
   export let inst_id;
   export let templates = {};
   export let classes = {};
+  export let admin;
 
+  let validation_override = "";
+  $: {
+    let ovr = (validation_override.toLowercase().trim() === "i want to break automation");
+  }
 
   function day_of_week(date) {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -97,7 +102,7 @@
     <Dropdown autoClose={true} class="my-3">
       <DropdownToggle caret>
           {#if !selected}
-            {Object.keys(classes).length} option(s) 
+            {Object.keys(classes).length} option(s)
           {:else}
             {classes[selected.id]}
           {/if}
@@ -118,7 +123,7 @@
       {#if selected.tmpl.clearances.length > 0}
       <ListGroup>
         {#each selected.tmpl.clearances as clr}
-        <ListGroupItem>{clr}</ListGroupItem>  
+        <ListGroupItem>{clr}</ListGroupItem>
         {/each}
       </ListGroup>
       {:else}
@@ -164,13 +169,17 @@
         <ListGroupItem color="warning">{e}</ListGroupItem>
       {/each}
       </ListGroup>
+
+      {#if admin}
+        <Input type="text" placeholder={"Type \"I want to break automation\" to ignore all warnings and proceed"} bind:value={validation_override} />
+      {/if}
     {/if}
   </ModalBody>
   <ModalFooter>
     {#if running }<Spinner/>Running....{/if}
     {#if !running && validation_result.valid}All validation checks passed <Icon name="check-all"/>{/if}
     {#if selected && !running && !validation_result.valid}Some validation checks failed <Icon name="exclamation-triangle"/>{/if}
-    <Button on:click={save_schedule} disabled={running || !validation_result.valid}>Save proposed classes</Button>
+    <Button on:click={save_schedule} disabled={!ovr && (running || !validation_result.valid)}>Save proposed classes</Button>
     <Button on:click={() => open = false} disabled={running}>Close</Button>
   </ModalFooter>
 </Modal>

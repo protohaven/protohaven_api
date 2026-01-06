@@ -78,8 +78,8 @@ let airtable_id = "";
     {#await profile}
       <Spinner/>
     {:then p}
-    <Scheduler email={p.email} inst={fullname} classes={p.classes || {}} {templates} inst_id={airtable_id} bind:open={scheduler_open}/>
-    
+    <Scheduler {admin} email={p.email} inst={fullname} classes={p.classes || {}} {templates} inst_id={airtable_id} bind:open={scheduler_open}/>
+
     <Row>
     <Col>
       <Profile {profile} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>

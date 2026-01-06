@@ -78,7 +78,7 @@ def gen_class_scheduled_alerts(
                 "t": c.start_time,
                 "start": c.start_time.strftime("%b %d %Y, %-I%p"),
                 "name": c.name,
-                "inst": c.instructor_email if inst else None,
+                "inst": c.instructor_name if inst else None,
             }
 
     details = {"action": ["SCHEDULE"], "targets": []}

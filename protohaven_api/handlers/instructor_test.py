@@ -42,53 +42,62 @@ TEST_EMAIL = "test@email.com"
 now = datetime.datetime.now()
 
 
-def dt(days=0, hours=0):
-    """Return a datetime that's `days` and `hours` offset from now"""
-    return now + datetime.timedelta(days=days, hours=hours)
-
-
 def test_dashboard_schedule(mocker):
     """Confirm behavior of shown and hidden schedule items for the instructor dashboard"""
 
-    def _sched(_id, email=TEST_EMAIL, start=now, days=1, confirmed=None):
+    def _sched(_id, email=TEST_EMAIL, start=now, confirmed=None, rejected=None):
         """Create and return a fake Airtable schedule record"""
+        end = start + datetime.timedelta(hours=3)
         return mocker.MagicMock(
+            spec=True,
             schedule_id=_id,
             instructor_email=email,
-            sessions=[
-                start.isoformat(),
-                (start + datetime.timedelta(hours=3)).isoformat(),
-            ],
-            confirmed=None if not confirmed else confirmed.isoformat(),
+            sessions=[(start, end)],
+            start_time=start,
+            end_time=end,
+            confirmed=confirmed,
+            rejected=rejected,
         )
 
-    mocker.patch(
-        "protohaven_api.integrations.airtable.get_class_automation_schedule",
+    mocker.patch.object(instructor, "tznow", return_value=d(0))
+    mocker.patch.object(
+        instructor.airtable,
+        "get_class_automation_schedule",
         return_value=[
             _sched(
                 "Unconfirmed, too close HIDDEN",
                 confirmed=None,
-                start=dt(instructor.HIDE_UNCONFIRMED_DAYS_AHEAD - 1),
+                start=d(instructor.HIDE_UNCONFIRMED_DAYS_AHEAD - 1),
+            ),
+            _sched(
+                "Email mismatch",
+                email="nomatch",
+                start=d(instructor.HIDE_UNCONFIRMED_DAYS_AHEAD + 1),
             ),
             _sched(
                 "Unconfirmed, not too close",
                 confirmed=None,
-                start=dt(instructor.HIDE_UNCONFIRMED_DAYS_AHEAD + 1),
+                start=d(instructor.HIDE_UNCONFIRMED_DAYS_AHEAD + 1),
             ),
             _sched(
                 "Confirmed, too old HIDDEN",
-                confirmed=now,
-                start=dt(-instructor.HIDE_CONFIRMED_DAYS_AFTER - 1),
+                confirmed=d(0),
+                start=d(-instructor.HIDE_CONFIRMED_DAYS_AFTER - 1),
             ),
             _sched(
                 "Confirmed, after run, not too old",
                 confirmed=now,
-                start=dt(-instructor.HIDE_CONFIRMED_DAYS_AFTER + 1),
+                start=d(-instructor.HIDE_CONFIRMED_DAYS_AFTER + 1),
+            ),
+            _sched(
+                "Rejected",
+                rejected=now,
+                start=d(-instructor.HIDE_UNCONFIRMED_DAYS_AHEAD + 1),
             ),
             _sched("Bad email", confirmed=now, start=now, email="bad@bad.com"),
         ],
     )
-    got = {g[0] for g in instructor.get_dashboard_schedule_sorted(TEST_EMAIL)}
+    got = {g.schedule_id for g in instructor.get_dashboard_schedule_sorted(TEST_EMAIL)}
     assert got == {"Unconfirmed, not too close", "Confirmed, after run, not too old"}
 
 
@@ -107,36 +116,14 @@ def test_instructor_class_attendees(inst_client, mocker):
     assert rep == [{"accountId": 123, "email": "a@b.com"}]
 
 
-def test_get_dashboard_schedule_sorted(mocker):
-    mocker.patch.object(
-        instructor.airtable,
-        "get_class_automation_schedule",
-        return_value=[
-            {"fields": {"Email": "nomatch"}},
-            {"fields": {"Email": "match", "Rejected": "2024-01-01"}},
-            {
-                "id": "asdf",
-                "fields": {
-                    "Email": "match",
-                    "Start Time": "2024-01-01",
-                    "Confirmed": "2024-01-01",
-                },
-            },
-        ],
-    )
-    sched = instructor.get_dashboard_schedule_sorted(
-        "match", now=safe_parse_datetime("2024-01-01")
-    )
-    assert len(sched) == 1
-    assert sched[0][0] == "asdf"
-
-
 def test_instructor_about_from_session(inst_client, mocker):
     mocker.patch.object(instructor.neon, "search_members_by_email", return_value=[{}])
     mocker.patch.object(instructor, "get_instructor_readiness")
     rep = inst_client.get("/instructor/about")
     assert rep.status_code == 200
-    instructor.neon.search_members_by_email.assert_called_with("foo@bar.com")
+    instructor.neon.search_members_by_email.assert_called_with(
+        "foo@bar.com", fields=mocker.ANY
+    )
 
 
 def test_instructor_about_both_email_and_session(mocker, inst_client):
@@ -177,14 +164,18 @@ def test_get_instructor_readiness_all_bad(mocker):
     result = instructor.get_instructor_readiness(
         [
             mocker.MagicMock(
+                spec=True,
                 neon_id=12345,
+                email="a@b.com",
                 account_current_membership_status="Inactive",
                 fname="First",
                 lname="Last",
                 discord_user=None,
             ),
             mocker.MagicMock(
+                spec=True,
                 neon_id=12346,
+                email="a@b.com",
                 fname="Duplicate",
                 lname="Person",
                 discord_user=None,
@@ -197,7 +188,8 @@ def test_get_instructor_readiness_all_bad(mocker):
         "fullname": "First Last",
         "active_membership": "Inactive",
         "discord_user": "missing",
-        "email": "2 duplicate accounts in Neon",
+        "email": "a@b.com",
+        "email_status": "2 duplicate accounts in Neon",
         "capabilities_listed": "missing",
         "paperwork": "unknown",
         "profile_img": None,
@@ -209,18 +201,17 @@ def test_get_instructor_readiness_all_ok(mocker):
     mocker.patch.object(instructor, "airtable")
     instructor.airtable.fetch_instructor_capabilities.return_value = {
         "id": "inst_id",
-        "fields": {
-            "Class": [1, 2, 3],
-            "W9 Form": "<file>",
-            "Direct Deposit Info": "<file>",
-            "Profile Pic": [{"url": "<url>"}],
-            "Bio": "test bio",
-        },
+        "classes": [1, 2, 3],
+        "w9": "<file>",
+        "direct_deposit": "<file>",
+        "profile_pic": "<url>",
+        "bio": "test bio",
     }
     result = instructor.get_instructor_readiness(
         [
             mocker.MagicMock(
                 neon_id=12345,
+                email="a@b.com",
                 account_current_membership_status="Active",
                 fname="First",
                 lname="Last",
@@ -234,8 +225,10 @@ def test_get_instructor_readiness_all_ok(mocker):
         "fullname": "First Last",
         "active_membership": "OK",
         "discord_user": "OK",
-        "email": "OK",
+        "email_status": "OK",
+        "email": "a@b.com",
         "capabilities_listed": "OK",
+        "classes": [1, 2, 3],
         "paperwork": "OK",
         "profile_img": "<url>",
         "bio": "test bio",
@@ -244,24 +237,17 @@ def test_get_instructor_readiness_all_ok(mocker):
 
 def test_instructor_class_supply_req(mocker, inst_client):
     """Test marking supplies as missing or confirmed for a class"""
-    mocker.patch.object(
-        instructor.airtable,
-        "get_scheduled_class",
-        return_value={
-            "fields": {
-                "Name (from Class)": ["Class Name"],
-                "Instructor": "Instructor Name",
-                "Start Time": d(0).isoformat(),
-            }
-        },
+    mcls = mocker.MagicMock(
+        instructor_name="Instructor Name",
+        start_time=d(0),
     )
+    mcls.name = "Class Name"
+
+    mocker.patch.object(instructor.airtable, "get_scheduled_class", return_value=mcls)
+    msched = mocker.MagicMock()
+    msched.as_response.return_value = "Foo"
     mocker.patch.object(
-        instructor.airtable,
-        "mark_schedule_supply_request",
-        return_value=(
-            200,
-            {"fields": {"id": "rec123", "Start Time": d(0).isoformat()}},
-        ),
+        instructor.airtable, "mark_schedule_supply_request", return_value=msched
     )
     mocker.patch.object(instructor.comms, "send_discord_message")
 
@@ -270,7 +256,9 @@ def test_instructor_class_supply_req(mocker, inst_client):
     )
 
     assert response.status_code == 200
-    instructor.airtable.get_scheduled_class.assert_called_once_with("class123")
+    instructor.airtable.get_scheduled_class.assert_called_once_with(
+        "class123", raw=False
+    )
     instructor.airtable.mark_schedule_supply_request.assert_called_once_with(
         "class123", "Supplies Requested"
     )
@@ -435,32 +423,6 @@ def test_availability_reservations(mocker, inst_client):
             ],
         ],
     }
-
-
-def test_run_scheduler_success(mocker, inst_client):
-    """Test successful scheduler run"""
-    mock_result = {"schedule": "test_schedule"}
-    mock_score = 95.5
-    mocker.patch.object(
-        instructor, "solve_with_env", return_value=(mock_result, mock_score)
-    )
-
-    response = inst_client.post("/instructor/run_scheduler", json={"test": "data"})
-
-    assert response.status_code == 200
-    assert response.json == {"result": mock_result, "score": mock_score}
-
-
-def test_run_scheduler_no_availability(mocker, inst_client):
-    """Test scheduler run with no availability"""
-    mocker.patch.object(
-        instructor, "solve_with_env", side_effect=instructor.NoAvailabilityError()
-    )
-
-    response = inst_client.post("/instructor/run_scheduler", json={"test": "data"})
-
-    assert response.status_code == 400
-    assert "No availability specified" in response.get_data(as_text=True)
 
 
 def test_log_quiz_submission(mocker, inst_client):

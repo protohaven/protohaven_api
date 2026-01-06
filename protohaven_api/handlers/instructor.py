@@ -39,7 +39,6 @@ HIDE_CONFIRMED_DAYS_AFTER = get_config(
 )
 
 
-
 def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     """Returns a list of actions instructors need to take to be fully onboarded.
     Note: `inst` is a neon result requiring Account Current Membership Status"""
@@ -58,7 +57,7 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     }
 
     if len(inst) > 1:
-        result["email"] = f"{len(inst)} duplicate accounts in Neon"
+        result["email_status"] = f"{len(inst)} duplicate accounts in Neon"
     inst_member = inst[0]  # Get the first member from the list
 
     log.info(str(inst_member))
@@ -199,7 +198,11 @@ def instructor_about():
         email = user_email()
         if not email:
             return Response("You are not logged in.", status=401)
-    inst = list(neon.search_members_by_email(email.lower(), fields=neon.MEMBER_SEARCH_OUTPUT_FIELDS + ["Email 1"]))
+    inst = list(
+        neon.search_members_by_email(
+            email.lower(), fields=neon.MEMBER_SEARCH_OUTPUT_FIELDS + ["Email 1"]
+        )
+    )
     if len(inst) == 0:
         return Response(
             f"Instructor data not found for email {email.lower()}", status=404
@@ -253,10 +256,8 @@ def instructor_class_update():
     eid = data["eid"]
     pub = data["pub"]
     # print("eid", eid, "pub", pub)
-    status, result = airtable.respond_class_automation_schedule(eid, pub)
-    if status != 200:
-        raise RuntimeError(result)
-    return airtable.ScheduledClass.from_schedule(result).as_response()
+    result = airtable.respond_class_automation_schedule(eid, pub)
+    return result.as_response()
 
 
 @page.route("/instructor/class/supply_req", methods=["POST"])
@@ -270,9 +271,7 @@ def instructor_class_supply_req():
         raise RuntimeError(f"Not found: class {eid}")
 
     state = "Supplies Requested" if data["missing"] else "Supplies Confirmed"
-    status, result = airtable.mark_schedule_supply_request(eid, state)
-    if status != 200:
-        raise RuntimeError(f"Error setting supply state: {result}")
+    result = airtable.mark_schedule_supply_request(eid, state)
 
     comms.send_discord_message(
         f"{user_fullname()} set {state} for "
@@ -281,7 +280,7 @@ def instructor_class_supply_req():
         "#supply-automation",
         blocking=False,
     )
-    return airtable.ScheduledClass.from_schedule(result).as_response()
+    return result.as_response()
 
 
 @page.route("/instructor/class/volunteer", methods=["POST"])
@@ -336,16 +335,39 @@ def admin_data():
 def _resolve_class_proposal_params():
     data = request.json
     if "cls_id" not in data:
-        return None, None, None, Response("`cls_id` required in JSON body", status=400)
+        return (
+            None,
+            None,
+            None,
+            Response("`cls_id` required in JSON body", status=400),
+            False,
+        )
     cls_id = str(data["cls_id"])
     if "sessions" not in data:
-        return None, None, None, Response("`sessions` required in JSON body", status=400)
+        return (
+            None,
+            None,
+            None,
+            Response("`sessions` required in JSON body", status=400),
+            False,
+        )
     sessions: list[val.Interval] = []
     for s in data["sessions"]:
         log.info(f"Parsing session {s}")
         sessions.append(tuple(safe_parse_datetime(t) for t in s))
     inst_id, rep = _resolve_email()
-    return cls_id, sessions, inst_id, rep
+
+    skip_val = data.get("skip_validation") or False
+    if skip_val and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
+        return (
+            None,
+            None,
+            None,
+            Response("`skip_validation` permission denied", status=400),
+            False,
+        )
+
+    return cls_id, sessions, inst_id, rep, data.get("skip_validation") or False
 
 
 @page.route("/instructor/validate", methods=["POST"])
@@ -353,7 +375,7 @@ def _resolve_class_proposal_params():
 def validate_class():
     """Validates the instructor's selected class and session times, returning
     a list of error messages if anything fails validation"""
-    cls_id, sessions, inst_id, rep = _resolve_class_proposal_params()
+    cls_id, sessions, inst_id, rep, _ = _resolve_class_proposal_params()
     if rep:
         return rep
     log.info(f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}")
@@ -366,14 +388,18 @@ def validate_class():
 @require_login_role(Role.INSTRUCTOR)
 def push_classes():
     """Push specific classes to airtable, after running validation checks one last time."""
-    cls_id, sessions, inst_id, rep = _resolve_class_proposal_params()
+    cls_id, sessions, inst_id, rep, skip_validation = _resolve_class_proposal_params()
     if rep:
         return rep
-    log.info(f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}")
-    errors = scheduler.validate(inst_id, cls_id, sessions)
-    log.info(f"Result: {errors}")
-    if len(errors) > 0:
-        return {"valid": len(errors) == 0, "errors": errors}
+
+    if not skip_validation:
+        log.info(
+            f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}"
+        )
+        errors = scheduler.validate(inst_id, cls_id, sessions)
+        log.info(f"Result: {errors}")
+        if len(errors) > 0:
+            return {"valid": len(errors) == 0, "errors": errors}
 
     # We automatically confirm classes pushed via instructor dashboard since the instructor
     # is the one pushing the class.

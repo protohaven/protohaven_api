@@ -394,14 +394,17 @@ def get_instructor_log_tool_codes():
     return individual
 
 
-def respond_class_automation_schedule(eid, pub):
+def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClass:
     """Confirm or unconfirm a row in the Schedule table of class automation"""
     t = tznow().isoformat()
     data = {
         "Confirmed": t if pub is True else "",
         "Rejected": t if pub is False else "",
     }
-    return update_record(data, "class_automation", "schedule", eid)
+    status, result = update_record(data, "class_automation", "schedule", eid)
+    if status != 200:
+        raise RuntimeError(f"Error updating class schedule state: {result}")
+    return ScheduledClass.from_schedule(result)
 
 
 def apply_violation_accrual(vid, accrued):
@@ -419,19 +422,24 @@ def set_booked_resource_id(airtable_id, resource_id):
     )
 
 
-def mark_schedule_supply_request(eid, state):
+def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
     """Mark a Scheduled class as needing supplies or fully supplied"""
-    return update_record(
+    status, result = update_record(
         {"Supply State": state},
         "class_automation",
         "schedule",
         eid,
     )
+    if status != 200:
+        raise RuntimeError(f"Error setting supply state: {result}")
+    return ScheduledClass.from_schedule(result)
 
 
 def mark_schedule_volunteer(eid, volunteer):
     """Mark volunteership or desire to run the Scheduled class for pay"""
-    return update_record({"Volunteer": volunteer}, "class_automation", "schedule", eid)
+    return ScheduledClass.from_schedule(
+        update_record({"Volunteer": volunteer}, "class_automation", "schedule", eid)
+    )
 
 
 def get_tools():
