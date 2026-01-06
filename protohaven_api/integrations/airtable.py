@@ -184,7 +184,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             sessions=sessions,
             volunteer=f.get("Volunteer"),
             description={
-                k: f.get(k + " (from Class)")[0]
+                k: (f.get(k + " (from Class)") or [""])[0]
                 for k in (
                     "Short Description",
                     "What you Will Create",
