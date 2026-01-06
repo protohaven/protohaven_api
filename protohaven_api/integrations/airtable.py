@@ -134,16 +134,14 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             (f.get("Hours (from Class)") or [None])[0],
             (f.get("Days (from Class)") or [None])[0],
         )
-        if not f.get("Sessions"):
-            raise RuntimeError("Scheduled class must have sessions")
         if not hours:
             raise RuntimeError("Class template data for session has no hours listed")
 
         starts = cls.resolve_starts(
             f.get("Sessions") or None,
             f.get("Start Time") or None,
-            (f.get("Days (from Class)") or [None])[0]
-            (f.get("Days Between Sessions (from Class)") or [None])[0]
+            (f.get("Days (from Class)") or [None])[0],
+            (f.get("Days Between Sessions (from Class)") or [None])[0],
         )
         if len(hours) < len(
             starts
