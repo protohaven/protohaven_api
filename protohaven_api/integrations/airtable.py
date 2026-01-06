@@ -62,7 +62,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
         return cls(
             class_id=str(row["id"]),
             name=f.get("Name"),
-            hours=[float(s) for s in f.get("Hours").split(",") or []],
+            hours=[float(s) for s in str(f.get("Hours")).split(",") or []],
             capacity=int(f.get("Capacity") or 0),
             price=int(f.get("Price") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
@@ -116,7 +116,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
         try:
-            hours = [float(s) for s in f.get("Hours (from Class)")[0].split(",") or []]
+            hours = [
+                float(s) for s in str(f.get("Hours (from Class)")[0]).split(",") or []
+            ]
         except AttributeError:
             hours = []
         if not f.get("Sessions"):
