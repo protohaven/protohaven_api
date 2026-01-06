@@ -1,4 +1,4 @@
-"""Provide date and availability validation methods for class scheduling"""
+"""Provide validation methods for class scheduling"""
 
 import datetime
 import logging
@@ -134,7 +134,7 @@ us_holidays = holidays.US()  # pylint: disable=no-member
 
 
 def validate_candidate_class_session(  # pylint: disable=too-many-return-statements, too-many-locals
-    inst: InstructorID, i: Interval, c: Class, env: ClassAreaEnv
+    inst: InstructorID, i: Interval, session_idx: int, c: Class, env: ClassAreaEnv
 ) -> tuple[bool, str]:
     """Ensure solver.Class `c` being taught at `start` is not invalid for reasons e.g.
     - Scheduled on a US holiday
@@ -147,8 +147,8 @@ def validate_candidate_class_session(  # pylint: disable=too-many-return-stateme
 
     # Prevent if interval is not sufficient for a session
     duration = (t1 - t0).seconds
-    if duration != c.hours * 3600:
-        return False, f"duration is {duration/3600}h, want {c.hours}h"
+    if duration != c.hours[session_idx] * 3600:
+        return False, f"duration is {duration/3600}h, want {c.hours[session_idx]}h"
 
     # Prevent scheduling outside of Protohaven business hours
     # Note that we base both open and close time on t0 to prevent

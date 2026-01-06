@@ -122,7 +122,6 @@ nocodb:
       email_log: "m4y3g9aigjo0x7m"
       schedule: "motauynqv5q473c"
       boilerplate: "m956in9b8grmer1"
-      availability: "ms8jby3zcv0s3jo"
       discounts: "mstauhc7ovslglt"
       quiz_results: "mqnrh78uhi9jeq9"
     policy_enforcement:
@@ -195,7 +194,6 @@ airtable:
       email_log: "tblEJqjHuYDhL09tY"
       schedule: "tbl5FGO2hj9t8vGo0"
       boilerplate: "tblZDWOcljKw0OnwN"
-      availability: "tbl4tOuZKNJduN4LC"
       discounts: "tbllyGvxfAFYsocN0"
       quiz_results: "tblFqvQsozEr4rI34"
     policy_enforcement:

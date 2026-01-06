@@ -40,8 +40,7 @@ fields = {
     },
     "interval": (d(3, 16), d(3, 19)),
     "want_reason": None,
-    "class_hours": 3,
-    "recurrence": None,
+    "class_hours": [3],
 }
 Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
 
@@ -73,7 +72,8 @@ Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
         Tc(
             "fail, too soon",
             interval=(d(5, 16), d(5, 19)),
-            want_reason="Too soon before/after same for reasons (scheduled for 2025-01-08; no repeats allowed between 2025-01-06 and 2025-01-11)",
+            want_reason="Too soon before/after same for reasons (scheduled for 2025-01-08; "
+            "no repeats allowed between 2025-01-06 and 2025-01-11)",
         ),
         Tc(
             "pass, complex",
@@ -99,7 +99,7 @@ def test_validate_candidate_class_session(tc, mocker):
         areas=["a0"],
     )
     valid, reason = v.validate_candidate_class_session(
-        "test_inst", tc.interval, test_class, env
+        "test_inst", tc.interval, 0, test_class, env
     )
     if valid and tc.want_reason:
         raise RuntimeError(f"got valid; want invalid with reason {tc.want_reason}")

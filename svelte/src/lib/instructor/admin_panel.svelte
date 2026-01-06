@@ -55,7 +55,7 @@ onMount(() => {
                 <td>{c.name}</td>
                 <td>{c.approved ? "Y" : "N"}</td>
                 <td>{c.schedulable ? "Y" : "N"}</td>
-                <td>{c.hours}h{#if c.recurrence}, {c.recurrence}{/if}</td>
+                <td>{c.hours}</td>
                 <td>{c.period}</td>
                 <td>{c.capacity} student(s)</td>
                 <td>${c.supply_cost}</td>

@@ -1,7 +1,6 @@
 <script type="typescript">
   import { Dropdown, DropdownMenu, DropdownItem, DropdownToggle, Row, Col, Button, Badge, Icon, Input, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, ListGroup, Accordion, AccordionItem, ListGroupItem, Alert } from '@sveltestrap/sveltestrap';
   import { onMount } from 'svelte';
-  import Calendar from '$lib/instructor/calendar.svelte';
   import {get, post, isodatetime} from '$lib/api.ts';
   export let open;
   export let inst;
@@ -23,8 +22,8 @@
 
   function candidate_times(session_duration) {
     let times = [];
-    const max_hr = 22 - session_duration
-    for (let hour = 10; hour <= max_hr; hour++) {
+    const max_hr = 22 - session_duration; // 10pm is close
+    for (let hour = 10; hour <= max_hr; hour++) { // 10am is open
       for (let minute of (hour < max_hr) ? [0, 30] : [0]) {
         const h12 = (hour < 13) ? hour : hour % 12;
         const h = h12.toString().padStart(2, '0');
@@ -46,10 +45,12 @@
     selected = {
       id: cls_id,
       tmpl,
-      starts: Array.from({ length: tmpl.days || 0 }, (_, i) => {
+      starts: Array.from({ length: tmpl.hours.length || 1 }, (_, i) => {
           const date = new Date();
           date.setDate(date.getDate() + 14 + i);
-          return [date.toISOString().split('T')[0].slice(0, 10), "6:00pm"];
+          const ct = candidate_times(tmpl.hours[i]);
+          const t = (ct.indexOf("06:00PM") === -1) ? ct.pop() : "06:00PM";
+          return [date.toISOString().split('T')[0].slice(0, 10), t];
       }),
     };
     console.log("Selected class:", cls_id, templates, selected);
@@ -57,10 +58,10 @@
   }
 
   function post_data() {
-    const sessions = selected.starts.map(([date, time]) => {
+    const sessions = selected.starts.map(([date, time], i) => {
       console.log(date, time);
       const t1 = new Date(`${date} ${time}`);
-      const t2 = new Date(t1.getTime() + selected.tmpl.hours * 60 * 60 * 1000);
+      const t2 = new Date(t1.getTime() + selected.tmpl.hours[i] * 60 * 60 * 1000);
       console.log(t1, t2);
       return [isodatetime(t1), isodatetime(t2)];
     });
@@ -120,7 +121,7 @@
     </Dropdown>
     {#if selected }
       <div><strong>Sessions:</strong> {selected.tmpl.days}</div>
-      <div><strong>Hours per session:</strong> {selected.tmpl.hours}</div>
+      <div><strong>Hours per session:</strong> {selected.tmpl.hours.join(', ')}</div>
       <div><strong>Capacity:</strong> {selected.tmpl.capacity}</div>
       <div><strong>Price:</strong> ${selected.tmpl.price}</div>
       <div><strong>Min days between runs:</strong> {selected.tmpl.period}</div>
@@ -149,7 +150,7 @@
               {selected.starts[i][1]}
             </DropdownToggle>
             <DropdownMenu class="dropdown-menu-scrollable">
-              {#each candidate_times(selected.tmpl.hours) as time}
+              {#each candidate_times(selected.tmpl.hours[i]) as time}
                 <DropdownItem on:click={() => selected.starts[i][1] = time} active={selected.starts[i][1] === time}>
                   {time}
                 </DropdownItem>
@@ -158,7 +159,7 @@
           </Dropdown>
           </Col>
           <Col xs="auto">
-              ({selected.tmpl.hours}hr session)
+              ({selected.tmpl.hours[i]}hr session)
           </Col>
         </Row>
       {/each}

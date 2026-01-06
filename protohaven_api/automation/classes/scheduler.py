@@ -177,7 +177,7 @@ def validate(  # pylint: disable=too-many-branches, too-many-locals
                 )
 
     for i, tt in enumerate(sessions):
-        valid, reason = val.validate_candidate_class_session(inst_id, tt, c, env)
+        valid, reason = val.validate_candidate_class_session(inst_id, tt, i, c, env)
         if not valid:
             errors.append(f"{_fmt_date(tt[0])}: {reason}")
 

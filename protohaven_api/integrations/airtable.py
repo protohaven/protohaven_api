@@ -11,7 +11,6 @@ from functools import lru_cache
 from typing import Iterator
 
 from dateutil import parser as dateparser
-from dateutil.rrule import rrulestr
 
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
@@ -44,8 +43,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
 
     class_id: RecordID
     name: str
-    hours: int
-    days: int
+    hours: list[int]
     capacity: int
     price: int
     period: datetime.timedelta
@@ -60,11 +58,11 @@ class Class:  # pylint: disable=too-many-instance-attributes
     def from_template(cls, row):
         """Converts an airtable template row into Class"""
         f = row["fields"]
+        log.info(f)
         return cls(
             class_id=str(row["id"]),
             name=f.get("Name"),
-            hours=int(f.get("Hours") or 0),
-            days=int(f.get("Days") or 0),
+            hours=[float(s) for s in f.get("Hours").split(",") or []],
             capacity=int(f.get("Capacity") or 0),
             price=int(f.get("Price") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
@@ -75,6 +73,11 @@ class Class:  # pylint: disable=too-many-instance-attributes
             clearances=f.get("Form Name (from Clearance)") or [],
             approved_instructors=f.get("Email (from Instructor Capabilities)") or [],
         )
+
+    @property
+    def days(self):
+        """Compute number of days of the class from the hours data"""
+        return len(self.hours)
 
     def as_response(self):
         """Return a dict that can be used as a flask response, including prefill"""
@@ -92,7 +95,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     class_id: RecordID
     neon_id: str  # Neon Event ID
     name: str
-    hours: int
+    hours: list[int]
     period: datetime.timedelta
     capacity: int
     supply_state: str
@@ -112,21 +115,30 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     def from_schedule(cls, row):
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
-        hours = int(f.get("Hours (from Class)")[0] or 0)
+        try:
+            hours = [float(s) for s in f.get("Hours (from Class)")[0].split(",") or []]
+        except AttributeError:
+            hours = []
         if not f.get("Sessions"):
             raise RuntimeError("Scheduled class must have sessions")
+        if not hours:
+            raise RuntimeError("Class template data for session has no hours listed")
 
         starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
-        sessions = [(d, d + datetime.timedelta(hours=hours)) for d in starts]
+        if len(hours) < len(
+            starts
+        ):  # We need consistent lengths for pairing up data elsewhere
+            hours += [hours[0]] * (len(starts) - len(hours))
 
+        sessions = [
+            (d, d + datetime.timedelta(hours=hours[i])) for i, d in enumerate(starts)
+        ]
         if "Class" in f.keys():
             ref_fields = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
             if ref_fields[0] in f:
                 class_ids = [str(lnk[ref_fields[1]]) for lnk in f[ref_fields[0]]]
             else:
                 class_ids = _idref(row, "Class")
-        log.info(f"Row {row}")
-
         return cls(
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
@@ -145,9 +157,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             rejected=(
                 safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None
             ),
-            image_link=f.get("Image Link (from Class)"),
+            image_link=f.get("Image Link (from Class)")[0],
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
-            price=f.get("Price (from Class)"),
+            price=int(f.get("Price (from Class)")[0]),
             instructor_email=f.get("Email").strip().lower(),
             instructor_name=f.get("Instructor"),
             sessions=sessions,
@@ -164,7 +176,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             },
         )
 
-    def prefill_form(self, pass_emails: list[str]):
+    def prefill_form(self, pass_emails: list[str], session_idx: int = 0):
         """Return prefilled instructor log submission form"""
         individual = get_instructor_log_tool_codes()
         clearance_codes = []
@@ -186,7 +198,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_email)}"
         )
         result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
-        result += f"&{form_keys['hours']}={self.hours}"
+        result += f"&{form_keys['hours']}={self.hours[session_idx]}"
         result += f"&{form_keys['class_name']}={urllib.parse.quote(self.name)}"
         if self.volunteer:
             result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
@@ -216,6 +228,11 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     def end_time(self):
         """Return the very last point in time for the class (end of the last session)"""
         return max(s[1] for s in self.sessions)
+
+    @property
+    def days(self):
+        """Returns days calculated from hours data"""
+        return len(self.hours)
 
     def as_response(self, pass_emails=None):
         """Return a dict that can be used as a flask response, including prefill"""
@@ -833,92 +850,6 @@ def pay_fee(fee_id):
 
 def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def get_instructor_availability(inst_rec):
-    """Fetches all rows from Availability airtable matching `inst` as instructor"""
-    for row in get_all_records("class_automation", "availability"):
-        row_inst = (row["fields"]["Instructor (from Instructor)"] or [""])[0].lower()
-        if inst_rec in row_inst:
-            yield row
-
-
-MAX_EXPANSION = 1000
-
-
-def expand_instructor_availability(rows, t0, t1):
-    """Given the `Availability` Airtable as `rows` and interval `t0` to
-    `t1`, return all events within the interval
-    as (airtable_id, start_time, end_time) tuples.
-
-    Note that this doesn't deduplicate or merge overlapping availabilities.
-    """
-    for row in rows:
-        start0, end0 = safe_parse_datetime(row["fields"]["Start"]), safe_parse_datetime(
-            row["fields"]["End"]
-        )
-        rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
-        try:
-            rr = rrulestr(rr, dtstart=start0) if rr != "" else None
-        except ValueError as e:
-            log.warning("Failed to parse rrule str: %s, %s", rr, str(e))
-            rr = None
-
-        if not rr:  # Empty or malformed
-            if (
-                t0 <= start0 <= t1 or t0 <= end0 <= t1 or (start0 <= t0 and t1 <= end0)
-            ):  # Only yield if event overlaps the interval
-                yield row["id"], max(start0, t0), min(end0, t1)
-        else:
-            duration = end0 - start0
-            for start in rr.xafter(
-                t0 - datetime.timedelta(hours=24), count=MAX_EXPANSION, inc=True
-            ):
-                end = start + duration
-                if start > t1:  # Stop iterating once we've slid past the interval
-                    break
-                if end < t0:  # Advance until we get dates within the interval
-                    continue
-                yield row["id"], max(start, t0), min(end, t1)
-
-
-def add_availability(inst_id, start, end, recurrence=""):
-    """Adds an optionally-recurring availability row to the Availability airtable"""
-    return insert_records(
-        [
-            {
-                "Instructor": [inst_id],
-                "Start": start.isoformat(),
-                "End": end.isoformat(),
-                "Recurrence": recurrence,
-            }
-        ],
-        "class_automation",
-        "availability",
-        link_fields=["Instructor"],
-    )
-
-
-def update_availability(
-    rec, inst_id, start, end, recurrence
-):  # pylint: disable=too-many-arguments
-    """Updates a specific availability record"""
-    return update_record(
-        {
-            "Instructor": [inst_id],
-            "Start": start.isoformat(),
-            "End": end.isoformat(),
-            "Recurrence": recurrence,
-        },
-        "class_automation",
-        "availability",
-        rec,
-    )
-
-
-def delete_availability(rec):
-    """Removes an Availability record"""
-    return delete_record("class_automation", "availability", rec)
 
 
 def get_forecast_overrides(include_pii) -> Iterator[tuple[str, ForecastOverride]]:

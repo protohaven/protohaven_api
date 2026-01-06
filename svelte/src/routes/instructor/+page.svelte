@@ -5,7 +5,6 @@ import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
 import { Card, CardHeader, CardTitle, CardBody, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
-import Calendar from '$lib/instructor/calendar.svelte';
 import ClassDetails from '$lib/instructor/class_details.svelte';
 import Profile from '$lib/instructor/profile.svelte';
 import Scheduler from '$lib/instructor/scheduler.svelte';

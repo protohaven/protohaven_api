@@ -3,7 +3,6 @@
 import datetime
 import logging
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional, Union
 
 from dateutil import parser as dateparser
@@ -11,16 +10,9 @@ from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.automation.classes import scheduler
 from protohaven_api.automation.classes import validation as val
-from protohaven_api.config import ParserError, get_config, safe_parse_datetime, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import (
-    airtable,
-    airtable_base,
-    booked,
-    comms,
-    neon,
-    neon_base,
-)
+from protohaven_api.integrations import airtable, airtable_base, comms, neon, neon_base
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_role, require_login_role
 
@@ -163,7 +155,7 @@ def instructor_class_selector_redirect2() -> Any:
 
 
 def get_dashboard_schedule_sorted(email, now=None) -> list[airtable.ScheduledClass]:
-    """Fetches the instructor availability schedule for an individual instructor.
+    """Fetches the class schedule for an individual instructor.
     Excludes unconfirmed classes sooner than HIDE_UNCONFIRMED_DAYS_AHEAD
     as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
     sched = []
@@ -318,7 +310,6 @@ def admin_data():
                 "supply_cost": fields.get("Supply Cost"),
                 "price": fields.get("Price"),
                 "hours": fields.get("Hours"),
-                "recurrence": fields.get("Recurrence"),
                 "period": fields.get("Period"),
                 "name (from area)": fields.get("Name (from Area)"),
                 "image link": fields.get("Image Link"),
@@ -436,99 +427,6 @@ def cancel_class():
     log.warning(f"Cancelling class {cid}")
     neon.set_event_scheduled_state(cid, scheduled=False)
     return {"success": True}
-
-
-def _get_availability(inst, t0, t1):
-    """We parallelize data fetching here to reduce the load time for
-    instructor dashboard calendar edits"""
-    with ThreadPoolExecutor() as executor:
-        avail_future = executor.submit(airtable.get_instructor_availability, inst)
-        sched_future = executor.submit(airtable.get_class_automation_schedule)
-        res_future = executor.submit(booked.get_reservations, t0, t1)
-
-        avail = list(avail_future.result())
-        sched_raw = list(sched_future.result())
-        res_raw = list(res_future.result().get("reservations", []))
-
-    expanded = list(airtable.expand_instructor_availability(avail, t0, t1))
-    sched = [
-        s
-        for s in sched_raw
-        if safe_parse_datetime(s["fields"]["Start Time"]) >= t0
-        and not s["fields"].get("Rejected")
-    ]
-    reservations = [
-        (
-            res["bufferedStartDate"],
-            res["bufferedEndDate"],
-            res["resourceName"],
-            f"{res['firstName']} {res['lastName']}",
-            f"https://reserve.protohaven.org/Web/reservation/?rn={res['referenceNumber']}",
-        )
-        for res in res_raw
-    ]
-    return {
-        "records": {r["id"]: r["fields"] for r in avail},
-        "availability": expanded,
-        "schedule": sched,
-        "reservations": reservations,
-    }
-
-
-@page.route("/instructor/calendar/availability", methods=["GET", "PUT", "DELETE"])
-def inst_availability():  # pylint: disable=too-many-return-statements
-    """Different methods for CRUD actions on Availability records in airtable, used to
-    describe an instructor's availability"""
-    if request.method == "GET":
-        inst = request.values.get("inst").lower()
-        try:
-            t0 = safe_parse_datetime(request.values["t0"])
-            t1 = safe_parse_datetime(request.values["t1"])
-        except (ParserError, TypeError):
-            return Response(
-                "Both t0 and t1 required in request to /instructor/calendar/availability",
-                status=400,
-            )
-        t1 += datetime.timedelta(
-            hours=get_config("general/ui_constants/hours_in_day", 24)
-        )  # End date is inclusive
-        return _get_availability(inst, t0, t1)
-
-    if request.method == "PUT":
-        rec = request.json.get("rec")
-        try:
-            inst_id = request.json["inst_id"]
-            t0 = safe_parse_datetime(request.json["t0"])
-            t1 = safe_parse_datetime(request.json["t1"])
-        except (ParserError, TypeError, KeyError):
-            return Response(
-                "t0, t1, inst_id required in json PUT to /instructor/calendar/availability",
-                status=400,
-            )
-        if t0 > t1:
-            return Response(
-                f"Start (t0) must be before End (t1) - got t0={t0}, t1={t1}",
-                status=400,
-            )
-        recurrence = request.json.get("recurrence")
-        if rec is not None:
-            status, result = airtable.update_availability(
-                rec, inst_id, t0, t1, recurrence
-            )
-            assert status == 200
-        else:
-            status, result = airtable.add_availability(inst_id, t0, t1, recurrence)
-            assert status == 200
-        log.info(f"PUT result {result}")
-        return result
-
-    if request.method == "DELETE":
-        rec = request.json.get("rec")
-        status, result = airtable.delete_availability(rec)
-        assert status == 200
-        return {"result": result}
-
-    return Response(f"Unsupported method '{request.method}'", status=400)
 
 
 @page.route("/instructor/clearance_quiz", methods=["POST"])
