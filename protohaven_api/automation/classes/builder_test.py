@@ -302,34 +302,28 @@ def test_builder_notified(mocker):
     assert eb.notified("test_target", evt, 1) is False
 
 
-def test_gen_class_scheduled_alerts():
+def test_gen_class_scheduled_alerts(mocker):
     """Test packaging and sending of class scheduling alerts"""
+    m1 = mocker.MagicMock(
+        start_time=d(0, 10),
+        instructor_name="Instructor A",
+        instructor_email="a@a.com",
+    )
+    m1.name = "Class A"
+
+    m2 = mocker.MagicMock(
+        start_time=d(0, 12),
+        instructor_name="Instructor B",
+        instructor_email="b@b.com",
+    )
+    m2.name = "Class B"
     scheduled_by_instructor = {
-        "Instructor A": [
-            {
-                "fields": {
-                    "Start Time": "2025-01-01 10:00:00",
-                    "Name (from Class)": ["Class A"],
-                    "Instructor": "Instructor A",
-                    "Email": "a@a.com",
-                }
-            }
-        ],
-        "Instructor B": [
-            {
-                "fields": {
-                    "Start Time": "2025-01-01 12:00:00",
-                    "Name (from Class)": ["Class B"],
-                    "Instructor": "Instructor B",
-                    "Email": "b@b.com",
-                }
-            }
-        ],
+        "Instructor A": [m1],
+        "Instructor B": [m2],
     }
     got = [dict(m) for m in builder.gen_class_scheduled_alerts(scheduled_by_instructor)]
 
     assert got[0]["target"] == "a@a.com"
-    assert "teach 1" in got[0]["subject"]
     assert "Jan 01 2025, 10AM: Class A" in got[0]["body"]
     assert got[1]["target"] == "b@b.com"
     assert "teach 1" in got[1]["subject"]

@@ -11,7 +11,6 @@ general:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
   class_scheduling:
     clearance_exclusion_range_days: 7
-    require_wiki_page_for_scheduling: ${REQUIRE_WIKI_PAGE_FOR_CLASS_SCHEDULING}
   unsafe:
     no_rbac: ${UNSAFE_NO_RBAC}
     login_as_user: ${UNSAFE_LOGIN_AS}
@@ -123,7 +122,6 @@ nocodb:
       email_log: "m4y3g9aigjo0x7m"
       schedule: "motauynqv5q473c"
       boilerplate: "m956in9b8grmer1"
-      availability: "ms8jby3zcv0s3jo"
       discounts: "mstauhc7ovslglt"
       quiz_results: "mqnrh78uhi9jeq9"
     policy_enforcement:
@@ -196,7 +194,6 @@ airtable:
       email_log: "tblEJqjHuYDhL09tY"
       schedule: "tbl5FGO2hj9t8vGo0"
       boilerplate: "tblZDWOcljKw0OnwN"
-      availability: "tbl4tOuZKNJduN4LC"
       discounts: "tbllyGvxfAFYsocN0"
       quiz_results: "tblFqvQsozEr4rI34"
     policy_enforcement:

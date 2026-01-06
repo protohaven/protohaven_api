@@ -14,9 +14,9 @@ let attendees = [];
 let neon_state = null;
 
 function fetch_neon_state(data) {
-  if (data['Neon ID']) {
-    console.log("Fetching state for", data['Neon ID']);
-    return get("/instructor/class/neon_state?id=" + encodeURIComponent(data['Neon ID'])).then((data) => {
+  if (data.neon_id) {
+    console.log("Fetching state for", data.neon_id);
+    return get("/instructor/class/neon_state?id=" + encodeURIComponent(data.neon_id)).then((data) => {
       neon_state = data;
       return data;
     });
@@ -25,9 +25,9 @@ function fetch_neon_state(data) {
 }
 
 function fetch_attendees(data) {
-  if (data['Neon ID']) {
-    console.log("Fetching attendees for", data['Neon ID']);
-    return get("/instructor/class/attendees?id=" + encodeURIComponent(data['Neon ID'])).then((data) => {
+  if (data.neon_id) {
+    console.log("Fetching attendees for", data.neon_id);
+    return get("/instructor/class/attendees?id=" + encodeURIComponent(data.neon_id)).then((data) => {
       attendees = data;
       return data;
     });
@@ -84,16 +84,16 @@ function cancel(neon_id) {
   <Spinner/>
 {:then c}
 <Card class="my-3" size={'lg'}>
-<CardHeader style={(c['Neon ID']) ? "background-color: rgb(230, 225, 249)" : ""}>
+<CardHeader style={(c.neon_id) ? "background-color: rgb(230, 225, 249)" : ""}>
   <CardTitle id={eid}>
-    {#if c['Neon ID']}
+    {#if c.neon_id}
       <i class="bi bi-calendar-check"></i>
     {:else}
       <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank"><i class="bi bi-question-circle"></i></a> PROPOSED:
     {/if}
-    {c['Name (from Class)'][0]}
+    {c.name}
   </CardTitle>
-  {#if !c['Neon ID']}
+  {#if !c.neon_id}
   <Tooltip target={eid} placement="right">
   	Proposed classes are not guaranteed to run; they aren't yet available for people to register in Neon. Click the ? icon for more details.
   </Tooltip>
@@ -111,15 +111,17 @@ function cancel(neon_id) {
     Error: {error.message}
   {/await}
 
-  {#if c['Rejected']}
+  {#if c.rejected}
     <Alert color="warning" class="mx-3">This card will disappear upon refreshing the page.</Alert>
   {/if}
 
   <CardSubtitle>Dates:</CardSubtitle>
   <CardText>
     <ul>
-      {#each c.Dates as d}
-      <li>{d}</li>
+      {#each c.sessions as ss}
+      <li>
+          {new Date(ss[0]).toLocaleString()} -
+          {new Date(ss[1]).toLocaleString()}</li>
       {/each}
     </ul>
   </CardText>
@@ -146,34 +148,44 @@ function cancel(neon_id) {
   <CardSubtitle>Details:</CardSubtitle>
   <CardText>
   <ul>
-  <li># Seats:  {c['Capacity (from Class)'][0]}</li>
-  <li>{c['Supply State']}
-    {#if c['Supply State'] == 'Supplies Requested'}
+  <li># Seats:  {c.capacity}</li>
+  <li>{c.supply_state}
+    {#if c.supply_state == 'Supplies Requested'}
       <strong>- remember to file <a href="https://form.asana.com/?k=syF2O04JfU-Z82q6NcEJKg&d=1199692158232291" target="_blank">purchase requests</a></strong>
     {/if}
   </li>
-  <li>Instruction: {#if c['Volunteer']}Volunteer (no pay){:else}Paid{/if} </li>
-  <li>Instructor confirmed:  {#if c['Confirmed']}on {c['Confirmed']}{:else}no{/if}</li>
+  <li>Instruction: {#if c.volunteer}Volunteer (no pay){:else}Paid{/if} </li>
+  <li>Instructor confirmed:  {#if c.confirmed}on {new Date(c.confirmed).toLocaleString()}{:else}no{/if}</li>
   </ul>
+  {#if c.clearances.length > 0}
+  <div>Clearances earned:</div>
+  <ul>
+    {#each c.clearances as clr}
+    <li>{clr}</li>
+    {/each}
+  </ul>
+  {:else}
+  No clearances earned
+  {/if}
   </CardText>
 </CardBody>
 <CardFooter class="d-flex">
   <Dropdown autoClose={true} >
   <DropdownToggle caret>Actions</DropdownToggle>
     <DropdownMenu>
-      <DropdownItem on:click={refresh(c['Neon ID'])}>Refresh Attendees</DropdownItem>
+      <DropdownItem on:click={refresh(c.neon_id)}>Refresh Attendees</DropdownItem>
 
-      {#if c['Supply State'] != 'Supplies Requested'}
+      {#if c.supply_state != 'Supplies Requested'}
       <DropdownItem on:click={() => supply(false)}>Supplies needed</DropdownItem>
       {/if}
-      {#if c['Supply State'] != 'Supplies Confirmed'}
+      {#if c.supply_state != 'Supplies Confirmed'}
       <DropdownItem on:click={() => supply(true)}>Supplies OK</DropdownItem>
       {/if}
 
       <DropdownItem divider/>
 
       <DropdownItem href="https://form.asana.com/?k=syF2O04JfU-Z82q6NcEJKg&d=1199692158232291" target="_blank">Purchase Request</DropdownItem>
-      {#if c['Volunteer']}
+      {#if c.volunteer}
         <DropdownItem on:click={() => volunteer(false)}>Switch to Paid</DropdownItem>
       {:else}
         <DropdownItem on:click={() => volunteer(true)}>Volunteer</DropdownItem>
@@ -181,13 +193,13 @@ function cancel(neon_id) {
 
       <DropdownItem divider/>
 
-      {#if c['Neon ID']}
-	<DropdownItem on:click={() => submit_log(c['prefill'])}>Submit Log</DropdownItem>
+      {#if c.neon_id}
+	<DropdownItem on:click={() => submit_log(c.prefill)}>Submit Log</DropdownItem>
       {/if}
 
 
-      {#if !c['Neon ID']}
-	{#if c['Confirmed']}
+      {#if !c.neon_id}
+	{#if c.confirmed}
 	<DropdownItem on:click={() => confirm(null)}>Unconfirm</DropdownItem>
 	{:else}
         <DropdownItem on:click={() => confirm(true)}>Confirm available</DropdownItem>
@@ -196,7 +208,7 @@ function cancel(neon_id) {
         <DropdownItem on:click={() => confirm(false)}>Mark unavailable (hides permanently)</DropdownItem>
       {:else}
 	<DropdownItem divider />
-	<DropdownItem on:click={() => cancel(c['Neon ID'])}>Cancel class (requires no attendees)</DropdownItem>
+	<DropdownItem on:click={() => cancel(c.neon_id)}>Cancel class (requires no attendees)</DropdownItem>
       {/if}
     </DropdownMenu>
   </Dropdown>

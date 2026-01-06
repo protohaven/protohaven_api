@@ -1,16 +1,16 @@
-"""Airtable integration (classes, tool state etc)"""
+"""Airtable integration (classes, tool state etc)"""  # pylint: disable=too-many-lines
 
 import datetime
 import json
 import logging
 import re
+import urllib.parse
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from typing import Iterator
 
 from dateutil import parser as dateparser
-from dateutil.rrule import rrulestr
 
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
@@ -30,18 +30,234 @@ log = logging.getLogger("integrations.airtable")
 
 type NeonID = str
 type ToolCode = str
+type AreaID = str
+type InstructorID = str  # Currently, the email address listed in the capabilities doc
 type RecordID = str
 type ForecastOverride = tuple[str, list[str], str]
+type Interval = tuple[datetime.datetime, datetime.datetime]
 
 
-def get_class_automation_schedule():
+@dataclass
+class Class:  # pylint: disable=too-many-instance-attributes
+    """Represents a class template"""
+
+    class_id: RecordID
+    name: str
+    hours: list[int]
+    capacity: int
+    price: int
+    period: datetime.timedelta
+    approved: bool
+    schedulable: bool
+    approved_instructors: list[InstructorID]
+    areas: list[AreaID]
+    image_link: str
+    clearances: list[ToolCode]
+
+    @classmethod
+    def from_template(cls, row):
+        """Converts an airtable template row into Class"""
+        f = row["fields"]
+        log.info(f)
+        return cls(
+            class_id=str(row["id"]),
+            name=f.get("Name"),
+            hours=[float(s) for s in f.get("Hours").split(",") or []],
+            capacity=int(f.get("Capacity") or 0),
+            price=int(f.get("Price") or 0),
+            period=datetime.timedelta(days=int(f.get("Period") or 0)),
+            areas=f.get("Name (from Area)") or [],
+            schedulable=bool(f.get("Schedulable")),
+            approved=bool(f.get("Approved")),
+            image_link=f.get("Image Link"),
+            clearances=f.get("Form Name (from Clearance)") or [],
+            approved_instructors=f.get("Email (from Instructor Capabilities)") or [],
+        )
+
+    @property
+    def days(self):
+        """Compute number of days of the class from the hours data"""
+        return len(self.hours)
+
+    def as_response(self):
+        """Return a dict that can be used as a flask response, including prefill"""
+        return {
+            **asdict(self),
+            "period": self.period.total_seconds() / (24 * 3600),
+        }
+
+
+@dataclass
+class ScheduledClass:  # pylint: disable=too-many-instance-attributes
+    """Represents a class template with scheduling information applied"""
+
+    schedule_id: RecordID
+    class_id: RecordID
+    neon_id: str  # Neon Event ID
+    name: str
+    hours: list[int]
+    period: datetime.timedelta
+    capacity: int
+    supply_state: str
+    areas: list[str]
+    confirmed: datetime.datetime
+    rejected: datetime.datetime
+    image_link: str
+    clearances: list[str]
+    price: int
+    instructor_name: str
+    instructor_email: InstructorID
+    sessions: list[Interval]
+    volunteer: bool
+    description: dict[str, str]
+
+    @classmethod
+    def from_schedule(cls, row):
+        """Converts airtable schedule row into ScheduledClass"""
+        f = row["fields"]
+        try:
+            hours = [float(s) for s in f.get("Hours (from Class)")[0].split(",") or []]
+        except AttributeError:
+            hours = []
+        if not f.get("Sessions"):
+            raise RuntimeError("Scheduled class must have sessions")
+        if not hours:
+            raise RuntimeError("Class template data for session has no hours listed")
+
+        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
+        if len(hours) < len(
+            starts
+        ):  # We need consistent lengths for pairing up data elsewhere
+            hours += [hours[0]] * (len(starts) - len(hours))
+
+        sessions = [
+            (d, d + datetime.timedelta(hours=hours[i])) for i, d in enumerate(starts)
+        ]
+        if "Class" in f.keys():
+            ref_fields = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
+            if ref_fields[0] in f:
+                class_ids = [str(lnk[ref_fields[1]]) for lnk in f[ref_fields[0]]]
+            else:
+                class_ids = _idref(row, "Class")
+        return cls(
+            schedule_id=str(row["id"]),
+            class_id=str(class_ids[0]),
+            neon_id=f.get("Neon ID") or None,
+            name=f.get("Name (from Class)")[0],
+            hours=hours,
+            period=datetime.timedelta(
+                days=int((f.get("Period (from Class)") or [0])[0])
+            ),
+            capacity=int((f.get("Capacity (from Class)") or [0])[0]),
+            supply_state=f.get("Supply State") or "Unknown supply state",
+            areas=f.get("Name (from Area)") or [],
+            confirmed=(
+                safe_parse_datetime(f.get("Confirmed")) if f.get("Confirmed") else None
+            ),
+            rejected=(
+                safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None
+            ),
+            image_link=f.get("Image Link (from Class)")[0],
+            clearances=f.get("Form Name (from Clearance) (from Class)") or [],
+            price=int(f.get("Price (from Class)")[0]),
+            instructor_email=f.get("Email").strip().lower(),
+            instructor_name=f.get("Instructor"),
+            sessions=sessions,
+            volunteer=f.get("Volunteer"),
+            description={
+                k: f.get(k + " (from Class)")[0]
+                for k in (
+                    "Short Description",
+                    "What you Will Create",
+                    "What to Bring/Wear",
+                    "Clearances Earned",
+                    "Age Requirement",
+                )
+            },
+        )
+
+    def prefill_form(self, pass_emails: list[str], session_idx: int = 0):
+        """Return prefilled instructor log submission form"""
+        individual = get_instructor_log_tool_codes()
+        clearance_codes = []
+        tool_codes = []
+        for c in self.clearances:
+            if c in individual:
+                tool_codes.append(c)
+            else:
+                clearance_codes.append(c)
+
+        # Get form configuration
+        form_base = get_config("forms/instructor_log/base_url")
+        form_keys = get_config("forms/instructor_log/keys")
+        form_values = get_config("forms/instructor_log/values")
+
+        start_yyyy_mm_dd = self.start_time.strftime("%Y-%m-%d")
+        result = f"{form_base}?usp=pp_url"
+        result += (
+            f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_email)}"
+        )
+        result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
+        result += f"&{form_keys['hours']}={self.hours[session_idx]}"
+        result += f"&{form_keys['class_name']}={urllib.parse.quote(self.name)}"
+        if self.volunteer:
+            result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
+        result += f"&{form_keys['session_type']}={form_values['single_session']}"
+        result += (
+            f"&{form_keys['pass_emails']}={urllib.parse.quote(', '.join(pass_emails))}"
+        )
+        for cc in clearance_codes:
+            result += f"&{form_keys['clearance_codes']}={cc}"
+        tool_usage_value = (
+            form_values["tool_usage_yes"]
+            if len(tool_codes) > 0
+            else form_values["tool_usage_no"]
+        )
+        result += f"&{form_keys['tool_usage']}={tool_usage_value}"
+        result += f"&{form_keys['event_id']}={self.neon_id or 'UNKNOWN'}"
+        for tc in tool_codes:
+            result += f"&{form_keys['tool_codes']}={tc}"
+        return result
+
+    @property
+    def start_time(self):
+        """Return the start time of the class"""
+        return min(s[0] for s in self.sessions)
+
+    @property
+    def end_time(self):
+        """Return the very last point in time for the class (end of the last session)"""
+        return max(s[1] for s in self.sessions)
+
+    @property
+    def days(self):
+        """Returns days calculated from hours data"""
+        return len(self.hours)
+
+    def as_response(self, pass_emails=None):
+        """Return a dict that can be used as a flask response, including prefill"""
+        if not pass_emails:
+            pass_emails = ["$ATTENDEE_NAMES"]
+        return {
+            **asdict(self),
+            "prefill": self.prefill_form(pass_emails),
+            "period": self.period.total_seconds() / (24 * 3600),
+        }
+
+
+def get_class_automation_schedule(include_rejected=True, raw=True):
     """Grab the current automated class schedule"""
-    return get_all_records("class_automation", "schedule")
+    for row in get_all_records("class_automation", "schedule"):
+        if not row["fields"].get("Rejected") or include_rejected:
+            yield (row if raw else ScheduledClass.from_schedule(row))
 
 
-def get_scheduled_class(rec):
+def get_scheduled_class(rec, raw=True):
     """Get the specific scheduled class row by reference"""
-    return get_record("class_automation", "schedule", rec)
+    result = get_record("class_automation", "schedule", rec)
+    if result and not raw:
+        return ScheduledClass.from_schedule(result)
+    return result
 
 
 def get_notifications_after(tag, after_date):
@@ -81,9 +297,36 @@ def get_instructor_email_map(require_teachable_classes=False, require_active=Fal
 def fetch_instructor_capabilities(name):
     """Fetches capabilities for a specific instructor"""
     for row in get_all_records("class_automation", "capabilities"):
-        if row["fields"].get("Instructor").lower() == name.lower():
-            return row
-    return None
+        f = row["fields"]
+        if f.get("Instructor").lower() != name.lower():
+            continue
+        result = {
+            "id": str(row["id"]),
+            "w9": f.get("W9 Form"),
+            "direct_deposit": f.get("Direct Deposit Info"),
+            "bio": f.get("Bio"),
+            "classes": [],
+            "profile_pic": None,
+        }
+        if "Class" in f.keys():
+            if NOCODB_CLASS_REF_FIELD[0] in f:
+                class_ids = [
+                    str(lnk[NOCODB_CLASS_REF_FIELD[1]])
+                    for lnk in f[NOCODB_CLASS_REF_FIELD[0]]
+                ]
+            else:
+                class_ids = _idref(row, "Class")
+            result["classes"] = {
+                str(c[0]): c[1] for c in zip(class_ids, f["Name (from Class)"])
+            }
+
+        img = (f.get("Profile Pic") or [{"url": None}])[0]
+        if img:
+            result["profile_pic"] = (
+                img.get("url")
+                or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+            )
+        return result
 
 
 NOCODB_CLASS_REF_FIELD = (
@@ -110,9 +353,22 @@ def fetch_instructor_teachable_classes():
     return instructor_caps
 
 
-def get_all_class_templates():
+def get_all_class_templates(raw=True):
     """Get all class templates"""
-    return get_all_records("class_automation", "classes")
+    result = get_all_records("class_automation", "classes")
+    if raw:
+        yield from result
+    for row in result:
+        yield Class.from_template(row)
+
+
+def get_class_template(cls_id: RecordID) -> Class:
+    """Fetches a class template object from Airtable"""
+    for row in get_all_class_templates():
+        log.info(f"{row["id"]} vs {cls_id}")
+        if str(row["id"]) == str(cls_id):
+            return Class.from_template(row)
+    return None
 
 
 def append_classes_to_schedule(payload):
@@ -160,14 +416,17 @@ def get_instructor_log_tool_codes():
     return individual
 
 
-def respond_class_automation_schedule(eid, pub):
+def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClass:
     """Confirm or unconfirm a row in the Schedule table of class automation"""
     t = tznow().isoformat()
     data = {
         "Confirmed": t if pub is True else "",
         "Rejected": t if pub is False else "",
     }
-    return update_record(data, "class_automation", "schedule", eid)
+    status, result = update_record(data, "class_automation", "schedule", eid)
+    if status != 200:
+        raise RuntimeError(f"Error updating class schedule state: {result}")
+    return ScheduledClass.from_schedule(result)
 
 
 def apply_violation_accrual(vid, accrued):
@@ -185,19 +444,27 @@ def set_booked_resource_id(airtable_id, resource_id):
     )
 
 
-def mark_schedule_supply_request(eid, state):
+def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
     """Mark a Scheduled class as needing supplies or fully supplied"""
-    return update_record(
+    status, result = update_record(
         {"Supply State": state},
         "class_automation",
         "schedule",
         eid,
     )
+    if status != 200:
+        raise RuntimeError(f"Error setting supply state: {result}")
+    return ScheduledClass.from_schedule(result)
 
 
-def mark_schedule_volunteer(eid, volunteer):
+def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
     """Mark volunteership or desire to run the Scheduled class for pay"""
-    return update_record({"Volunteer": volunteer}, "class_automation", "schedule", eid)
+    status, result = update_record(
+        {"Volunteer": volunteer}, "class_automation", "schedule", eid
+    )
+    if status != 200:
+        raise RuntimeError(f"Error setting volunteer status: {result}")
+    return ScheduledClass.from_schedule(result)
 
 
 def get_tools():
@@ -583,92 +850,6 @@ def pay_fee(fee_id):
 
 def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def get_instructor_availability(inst_rec):
-    """Fetches all rows from Availability airtable matching `inst` as instructor"""
-    for row in get_all_records("class_automation", "availability"):
-        row_inst = (row["fields"]["Instructor (from Instructor)"] or [""])[0].lower()
-        if inst_rec in row_inst:
-            yield row
-
-
-MAX_EXPANSION = 1000
-
-
-def expand_instructor_availability(rows, t0, t1):
-    """Given the `Availability` Airtable as `rows` and interval `t0` to
-    `t1`, return all events within the interval
-    as (airtable_id, start_time, end_time) tuples.
-
-    Note that this doesn't deduplicate or merge overlapping availabilities.
-    """
-    for row in rows:
-        start0, end0 = safe_parse_datetime(row["fields"]["Start"]), safe_parse_datetime(
-            row["fields"]["End"]
-        )
-        rr = (row["fields"].get("Recurrence") or "").replace("RRULE:", "")
-        try:
-            rr = rrulestr(rr, dtstart=start0) if rr != "" else None
-        except ValueError as e:
-            log.warning("Failed to parse rrule str: %s, %s", rr, str(e))
-            rr = None
-
-        if not rr:  # Empty or malformed
-            if (
-                t0 <= start0 <= t1 or t0 <= end0 <= t1 or (start0 <= t0 and t1 <= end0)
-            ):  # Only yield if event overlaps the interval
-                yield row["id"], max(start0, t0), min(end0, t1)
-        else:
-            duration = end0 - start0
-            for start in rr.xafter(
-                t0 - datetime.timedelta(hours=24), count=MAX_EXPANSION, inc=True
-            ):
-                end = start + duration
-                if start > t1:  # Stop iterating once we've slid past the interval
-                    break
-                if end < t0:  # Advance until we get dates within the interval
-                    continue
-                yield row["id"], max(start, t0), min(end, t1)
-
-
-def add_availability(inst_id, start, end, recurrence=""):
-    """Adds an optionally-recurring availability row to the Availability airtable"""
-    return insert_records(
-        [
-            {
-                "Instructor": [inst_id],
-                "Start": start.isoformat(),
-                "End": end.isoformat(),
-                "Recurrence": recurrence,
-            }
-        ],
-        "class_automation",
-        "availability",
-        link_fields=["Instructor"],
-    )
-
-
-def update_availability(
-    rec, inst_id, start, end, recurrence
-):  # pylint: disable=too-many-arguments
-    """Updates a specific availability record"""
-    return update_record(
-        {
-            "Instructor": [inst_id],
-            "Start": start.isoformat(),
-            "End": end.isoformat(),
-            "Recurrence": recurrence,
-        },
-        "class_automation",
-        "availability",
-        rec,
-    )
-
-
-def delete_availability(rec):
-    """Removes an Availability record"""
-    return delete_record("class_automation", "availability", rec)
 
 
 def get_forecast_overrides(include_pii) -> Iterator[tuple[str, ForecastOverride]]:

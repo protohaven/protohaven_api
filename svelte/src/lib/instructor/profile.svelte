@@ -6,16 +6,7 @@ import {get, post} from '$lib/api.ts';
 
   export let email;
   export let on_scheduler;
-
-  let profile = null;
-  let promise;
-  function refresh() {
-    const url = "/instructor/about?email=" + encodeURIComponent(email);
-    console.log(`getting profile data for email ${email} -> ${url}`);
-	  promise = get(url);
-  }
-  onMount(refresh);
-
+  export let profile; // Async fetch from parent
 
   function li_color(v) {
     v = v.toLowerCase();
@@ -36,7 +27,7 @@ import {get, post} from '$lib/api.ts';
 </script>
 
 <Card>
-{#await promise}
+{#await profile}
 	<CardHeader>
 		<CardTitle>Loading profile...</CardTitle>
 	</CardHeader>
@@ -57,6 +48,7 @@ import {get, post} from '$lib/api.ts';
     {/if}
     <CardSubtitle>Status</CardSubtitle>
       <ListGroup>
+	<ListGroupItem color={li_color(p.email_status)}>Email: {p.email_status}</ListGroupItem>
 	<ListGroupItem color={li_color(p.active_membership)}>Membership: {p.active_membership}</ListGroupItem>
 	<ListGroupItem color={li_color(p.capabilities_listed)}>Capabilities: {p.capabilities_listed}</ListGroupItem>
 	<ListGroupItem color={li_color(p.paperwork)}>Paperwork: {p.paperwork}</ListGroupItem>
@@ -69,7 +61,6 @@ import {get, post} from '$lib/api.ts';
     {/if}
   </CardBody>
   <CardFooter class="d-flex justify-content-end">
-      <Button class="mx-2" on:click={refresh}><Icon class="ml-auto" name="arrow-clockwise"/></Button>
       <Button class="mx-2" on:click={()=>on_scheduler(p.fullname, p.airtable_id)} disabled={p.capabilities_listed === 'missing'}>Scheduler</Button>
   </CardFooter>
 {:else}

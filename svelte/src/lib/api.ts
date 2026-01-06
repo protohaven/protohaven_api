@@ -4,6 +4,17 @@ export function base_ws() {
   return window.location.origin.replace("http", "ws");
 }
 
+function _trunc(body) {
+  if (!body) {
+    return "null";
+  }
+  let msg = body.toString().substr(0, 256);
+  if (body.length > 255) {
+    msg += '...';
+  }
+  return msg;
+}
+
 function json_req(url, data, method) {
   return fetch(url, {
     method,
@@ -12,12 +23,18 @@ function json_req(url, data, method) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(data),
-  }).then((rep) => rep.text())
-    .then((body) => {
+  }).then((rep) => {
+      return Promise.all([rep.status, rep.statusText, rep.text()]);
+  }).then(([status, statusText, body]) => {
+      if (status !== 200) {
+        console.log(status, statusText, body);
+        throw Error(`${status} ${statusText}: ${_trunc(body)}`);
+      }
+
       try {
-	    return JSON.parse(body);
+	      return JSON.parse(body);
       } catch (err) {
-	    throw Error(`Invalid reply from server: ${body}`);
+        throw Error(`JSON parse error: ${_trunc(body)}`);
       }
     });
 }

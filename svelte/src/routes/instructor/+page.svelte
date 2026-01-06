@@ -5,11 +5,10 @@ import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
 import { Card, CardHeader, CardTitle, CardBody, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
-import Calendar from '$lib/dashboard/calendar.svelte';
-import ClassDetails from '$lib/dashboard/class_details.svelte';
-import Profile from '$lib/dashboard/profile.svelte';
-import Scheduler from '$lib/dashboard/scheduler.svelte';
-import AdminPanel from '$lib/dashboard/admin_panel.svelte';
+import ClassDetails from '$lib/instructor/class_details.svelte';
+import Profile from '$lib/instructor/profile.svelte';
+import Scheduler from '$lib/instructor/scheduler.svelte';
+import AdminPanel from '$lib/instructor/admin_panel.svelte';
 import FetchError from '$lib/fetch_error.svelte';
 
 
@@ -21,19 +20,42 @@ end.setDate(end.getDate() + 40);
 end = end.toJSON().slice(0,10);
 let promise = new Promise((resolve,reject) => {});
 let admin = false;
+let user;
 onMount(() => {
   const urlParams = new URLSearchParams(window.location.search);
   let e = urlParams.get("email");
   console.log(`E is ${e}`);
-  if (!e) {
-	  promise = get("/whoami").then((d) => {
+	promise = get("/whoami").then((d) => {
       admin = (d.roles || []).indexOf("Education Lead") !== -1;
+      console.log(d)
+      user=d;
+      if (!e) {
+        promise = Promise.resolve(d);
+        fetch_instructor_profile(d.email);
+      } else {
+        promise = Promise.resolve({email: e});
+        fetch_instructor_profile(e);
+      }
       return d;
     });
-  } else {
-    promise = Promise.resolve({email: e});
-  }
 });
+
+
+let profile = null;
+let templates = null;
+function fetch_instructor_profile(email) {
+  const url = "/instructor/about?email=" + encodeURIComponent(email);
+  console.log(`getting profile data for email ${email} -> ${url}`);
+  profile = get(url).then((result) =>{
+    console.log("Instructor profile:", result);
+    console.log("Seeking templates for classes:", result.classes);
+    templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
+    return result;
+  }).catch((e) => {
+      console.log(e);
+      throw e;
+  });
+}
 
 let scheduler_open = false;
 let fullname = "";
@@ -49,26 +71,44 @@ let airtable_id = "";
     <NavItem>
       <NavLink href="https://wiki.protohaven.org/books/instructors-handbook" target="_blank">Wiki/Help</NavLink>
     </NavItem>
+    <NavItem>
+    {#await promise}
+      <Spinner/>
+    {:then}
+      {#if !user || !user.fullname}
+        <NavLink href="http://api.protohaven.org/login?referrer=/techs">Login</NavLink>
+      {:else}
+        <NavLink href="/logout">{user.fullname} (Logout)</NavLink>
+      {/if}
+    {/await}
+    </NavItem>
   </Nav>
 </Navbar>
 {#await promise}
   <Spinner/>
   <strong>Resolving instructor data...</strong>
-{:then p}
+{:then}
   {#if admin}
     <AdminPanel/>
   {/if}
   <main>
-    <Scheduler email={p.email} inst={fullname} inst_id={airtable_id} bind:open={scheduler_open}/>
     <Container>
+    {#await profile}
+      <Spinner/>
+    {:then p}
+    <Scheduler {admin} email={p.email} inst={fullname} classes={p.classes || {}} {templates} inst_id={airtable_id} bind:open={scheduler_open}/>
+
     <Row>
     <Col>
-      <Profile email={p.email} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
+      <Profile {profile} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
     </Col>
     <Col>
       <ClassDetails email={p.email} {scheduler_open}/>
     </Col>
     </Row>
+    {:catch error}
+        <FetchError {error}/>
+    {/await}
     </Container>
   </main>
 {:catch error}

@@ -4,144 +4,16 @@ import argparse
 import logging
 from functools import lru_cache
 
-from protohaven_api.automation.classes.solver import expand_recurrence
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import get_config, safe_parse_datetime
+from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, booked, neon
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.reservation")
 
 
-def reservation_dict_from_record(event):
-    """Like reservation_dict(), but from an airtable record"""
-    return reservation_dict(
-        event["fields"].get("Name (from Area) (from Class)") or [],
-        event["fields"]["Name (from Class)"],
-        event["fields"]["Start Time"],
-        (event["fields"].get("Recurrence (from Class)") or [None])[0],
-        event["fields"]["Hours (from Class)"][0],
-    )
-
-
-def reservation_dict(areas, name, start, recurrence, hours):
-    """Convert params into a 'reservation dict' used to reserve resources at particular intervals"""
-    start = safe_parse_datetime(start)
-    intervals = list(expand_recurrence(recurrence, hours, start))
-    return {"areas": set(areas), "name": name, "intervals": intervals, "resources": []}
-
-
 class Commands:
     """Commands for reserving equipment and configuring the Booked reservation system"""
-
-    @command(
-        arg(
-            "--cls",
-            help="Template class ID to reserve equipment for",
-            type=str,
-        ),
-        arg(
-            "--start",
-            help=("Start period of reservation"),
-            type=str,
-        ),
-        arg(
-            "--apply",
-            help=(
-                "Apply changes into Booked scheduler."
-                "If false, it will only be printed"
-            ),
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        ),
-    )
-    def reserve_equipment_from_template(self, args, _):
-        """Resolves template info to a list of equipment that should be reserved,
-        then reserves it"""
-        cls = [
-            t
-            for t in airtable.get_all_class_templates()
-            if str(t["fields"].get("ID") or t["fields"].get("ID_1")) == args.cls
-        ]
-        if len(cls) == 0:
-            raise RuntimeError(f"Failed to resolve class by id {args.cls}")
-        cls = cls[0]
-        self._reserve_equipment_for_class_internal(
-            reservation_dict(
-                cls["fields"]["Name (from Area)"],
-                cls["fields"]["Name"],
-                args.start,
-                cls["fields"].get("Recurrence") or None,
-                cls["fields"]["Hours"],
-            ),
-            args.apply,
-        )
-        log.info("Done")
-
-    @command(
-        arg(
-            "--cls",
-            help="Scheduled (Airtable) class IDs to reserve equipment for (comma separated)",
-            type=str,
-        ),
-        arg(
-            "--apply",
-            help=(
-                "Apply changes into Booked scheduler."
-                "If false, it will only be printed"
-            ),
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        ),
-    )
-    def reserve_equipment_for_class(self, args, _):
-        """Resolves class info to a list of equipment that should be reserved,
-        then reserves it by calling out to Booked"""
-        # Resolve areas from class ID. We track the area name and not
-        # record ID since we're operating on a synced copy of the areas when
-        # we go to look up tools and equipment
-        args_cls = [int(c) for c in args.cls.split(",")]
-        num = 0
-        for crec in airtable.get_class_automation_schedule():
-            cid = crec["fields"].get("ID") or crec["fields"].get("ID_1")
-            if cid not in args_cls:
-                continue
-            num += 1
-            self._reserve_equipment_for_class_internal(
-                reservation_dict_from_record(crec), args.apply
-            )
-        log.info(f"Done - {num} class(es) reservations attempted")
-
-    def _reserve_equipment_for_class_internal(self, rdict, apply):
-        """Internal version of the same method, for use by post_classes_to_neon
-        command in commands/classes.py"""
-        # Convert areas to booked IDs using tool table
-        for row in airtable.get_all_records("tools_and_equipment", "tools"):
-            for a in row["fields"].get("Name (from Shop Area)", []):
-                if a in rdict["areas"] and row["fields"].get("BookedResourceId"):
-                    rdict["resources"].append(
-                        (
-                            row["fields"]["Tool Name"],
-                            row["fields"]["BookedResourceId"],
-                        )
-                    )
-                    break
-
-        log.info(f"Class {rdict['name']} has {len(rdict['resources'])} resources:")
-        for name, resource_id in rdict["resources"]:
-            for start, end in rdict["intervals"]:
-                log.info(
-                    f"  Reserving {name} (Booked ID {resource_id}) from "
-                    f"{start} to {end} (apply={apply})"
-                )
-                if apply:
-                    log.info(
-                        str(
-                            booked.reserve_resource(
-                                resource_id, start, end, title=rdict["name"]
-                            )
-                        )
-                    )
 
     @lru_cache(maxsize=1)
     def _area_colors(self):
