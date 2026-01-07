@@ -176,13 +176,13 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             rejected=(
                 safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None
             ),
-            image_link=f.get("Image Link (from Class)")[0],
+            image_link=(f.get("Image Link (from Class)") or [None])[0],
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
-            price=int(f.get("Price (from Class)")[0]),
-            instructor_email=f.get("Email").strip().lower(),
-            instructor_name=f.get("Instructor"),
+            price=int((f.get("Price (from Class)") or [0])[0]),
+            instructor_email=(f.get("Email") or "").strip().lower(),
+            instructor_name=f.get("Instructor") or "",
             sessions=sessions,
-            volunteer=f.get("Volunteer"),
+            volunteer=f.get("Volunteer") or False,
             description={
                 k: (f.get(k + " (from Class)") or [""])[0]
                 for k in (
