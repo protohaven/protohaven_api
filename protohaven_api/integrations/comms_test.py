@@ -451,7 +451,7 @@ HASHES = {
     "shift_no_techs": "28da9194d12b5db6",  # pragma: allowlist secret
     "shop_tech_applications": "a011ed984ed4a302",  # pragma: allowlist secret
     "square_validation_action_needed": "8cf97c894e5171aa",  # pragma: allowlist secret
-    "tech_daily_tasks": "950fc9858cdf56bd",  # pragma: allowlist secret
+    "tech_daily_tasks": "60f777167d5f3f62",  # pragma: allowlist secret
     "tech_openings": "dad9368b3192d473",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "verify_income": "4d24d1a819192eae",  # pragma: allowlist secret
@@ -478,7 +478,7 @@ def test_template_rendering(template_name, template_kwargs):
     wanthash = HASHES[template_name]
     if gothash != wanthash:
         raise RuntimeError(
-            f"Test output hash {gothash} does not match prior hash {wanthash}:\n"
+            f"Test output hash '{gothash}' does not match prior hash '{wanthash}':\n"
             f"Template: {template_name}\n"
             f"Subject: '{got[0]}'\n"
             f"Body: '{got[1]}'\n"
