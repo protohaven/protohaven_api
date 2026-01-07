@@ -143,8 +143,7 @@
       </DropdownMenu>
     </Dropdown>
     {#if selected }
-      <div><strong>Sessions:</strong> {selected.tmpl.days}</div>
-      <div><strong>Hours per session:</strong> {selected.tmpl.hours.join(', ')}</div>
+      <div><strong>Session Hours:</strong> {selected.tmpl.hours.join(', ')}</div>
       <div><strong>Capacity:</strong> {selected.tmpl.capacity}</div>
       <div><strong>Price:</strong> ${selected.tmpl.price}</div>
       <div><strong>Min days between runs:</strong> {selected.tmpl.period}</div>
@@ -174,7 +173,7 @@
             </DropdownToggle>
             <DropdownMenu class="dropdown-menu-scrollable">
               {#each candidate_times(selected.tmpl.hours[i]) as time}
-                <DropdownItem on:click={() => selected.starts[i][1] = time} active={selected.starts[i][1] === time}>
+                <DropdownItem on:click={() => {selected.starts[i][1] = time; do_validate_debounced()}} active={selected.starts[i][1] === time}>
                   {time}
                 </DropdownItem>
               {/each}
@@ -205,7 +204,7 @@
     {/if}
   </ModalBody>
   <ModalFooter>
-    {#if running }<Spinner/>Running....{/if}
+    {#if running }<Spinner/>Validating....{/if}
     {#if !running && validation_result.valid}All validation checks passed <Icon name="check-all"/>{/if}
     {#if selected && !running && !validation_result.valid}Some validation checks failed <Icon name="exclamation-triangle"/>{/if}
     <Button on:click={save_schedule} disabled={!ovr && (running || !validation_result.valid)}>Save proposed classes</Button>

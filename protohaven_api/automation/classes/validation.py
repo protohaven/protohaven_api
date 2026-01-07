@@ -10,7 +10,7 @@ from typing import Literal
 import holidays
 
 from protohaven_api.automation.techs.techs import ph_holidays
-from protohaven_api.config import truncate_date
+from protohaven_api.config import truncate_date, tznow
 from protohaven_api.integrations.airtable import (
     AreaID,
     Class,
@@ -144,6 +144,10 @@ def validate_candidate_class_session(  # pylint: disable=too-many-return-stateme
     """
 
     t0, t1 = i
+    if t1 < t0:
+        return False, f"End time {t1} must occur before start time {t0}"
+    if t0 < tznow():
+        return False, f"Start time {t0} is in the past"
 
     # Prevent if interval is not sufficient for a session
     duration = (t1 - t0).seconds
