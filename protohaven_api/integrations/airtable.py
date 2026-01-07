@@ -59,8 +59,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
         """Compatibility layer to allow for rollback to previous data structure"""
         if days:
             return [float(hours)] * int(days)
-        else:
-            return [float(s) for s in str(hours).split(",") or []]
+        return [float(s) for s in str(hours).split(",") or []]
 
     @classmethod
     def from_template(cls, row):
@@ -124,7 +123,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         if sessions:
             return [safe_parse_datetime(d) for d in sessions.split(",")]
         d = safe_parse_datetime(start_time)
-        return [d + datetime.timedelta(days=i*int(days_between)) for i in range(int(days))]
+        return [
+            d + datetime.timedelta(days=i * int(days_between)) for i in range(int(days))
+        ]
 
     @classmethod
     def from_schedule(cls, row):
@@ -444,7 +445,7 @@ def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClas
     }
     status, result = update_record(data, "class_automation", "schedule", eid)
     if status != 200:
-        raise RuntimeError(f"Error updating class schedule state: {result}")
+        raise RuntimeError(f"Error updating class schedule state for {eid}: {result}")
     return ScheduledClass.from_schedule(result)
 
 
@@ -472,7 +473,7 @@ def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
         eid,
     )
     if status != 200:
-        raise RuntimeError(f"Error setting supply state: {result}")
+        raise RuntimeError(f"Error setting supply state for {eid}: {result}")
     return ScheduledClass.from_schedule(result)
 
 
@@ -482,7 +483,7 @@ def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
         {"Volunteer": volunteer}, "class_automation", "schedule", eid
     )
     if status != 200:
-        raise RuntimeError(f"Error setting volunteer status: {result}")
+        raise RuntimeError(f"Error setting volunteer status for {eid}: {result}")
     return ScheduledClass.from_schedule(result)
 
 

@@ -73,18 +73,41 @@
     };
   }
 
+  const DEBOUNCE_MS = 1000;
+  let debounce_timeout = null;
+  let controller = new AbortController(); // For cancelling validation early
+  function do_validate_debounced() {
+    // This attempts to limit unnecessary validation work on the server, which should make things feel more responsive overall.
+    // Requests are cancelled if a change is made while validation is in flight, and validation is only started
+    // after DEBOUNCE_MS of idle time in making edits.
+    if (controller) {
+      controller.abort(); // If we're gonna trigger validation eventually, let's stop running any old validation
+      controller = new AbortController();
+    }
+    if (debounce_timeout) {
+      clearTimeout(debounce_timeout);
+      debounce_timeout = null;
+    }
+    debounce_timeout = setTimeout(do_validate, DEBOUNCE_MS);
+  }
+
   let validation_result = {valid: false, errors: []};
   function do_validate() {
     running = true;
-    post("/instructor/validate?email=" + encodeURIComponent(email), post_data()).then((data) => {
+    post("/instructor/validate?email=" + encodeURIComponent(email), post_data(), (controller) ? controller.signal : null).then((data) => {
       validation_result = {valid: data.valid, errors: data.errors};
     })
     .catch((err) => {
-      validation_result = {valid: false, errors: [`Validation request error: ${err}`, `Contact #software channel in Discord`]};
+      if (err.toString().startsWith("AbortError")) {
+        console.error(err); // Aborts are user-caused and shouldn't show warnings/issues
+      } else {
+        validation_result = {valid: false, errors: [`Validation request error: ${err}`, `Contact #software channel in Discord`]};
+      }
     }).finally(() => running = false);
   }
 
   function save_schedule() {
+    running = true;
     post("/instructor/push_class?email=" + encodeURIComponent(email), post_data()).then((rep) => {
       console.log(rep);
       if (rep.valid) {
@@ -94,7 +117,7 @@
       }
     }).catch((err) => {
       validation_result = {valid: false, errors: [`Save error: ${err}`, `Contact #software channel in Discord`]};
-    }).finally(() => running = false);;
+    }).finally(() => running = false);
   }
 </script>
 
@@ -142,7 +165,7 @@
           {day_of_week(selected.starts[i][0])}
           </Col>
           <Col>
-            <Input type="date" placeholder="Start" bind:value={selected.starts[i][0]} on:change={do_validate}/>
+            <Input type="date" placeholder="Start" bind:value={selected.starts[i][0]} on:change={do_validate_debounced}/>
           </Col>
           <Col>
           <Dropdown autoclose={true}>

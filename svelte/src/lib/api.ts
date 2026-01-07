@@ -15,7 +15,7 @@ function _trunc(body) {
   return msg;
 }
 
-function json_req(url, data, method) {
+function json_req(url, data, method, signal=null) {
   return fetch(url, {
     method,
     headers: {
@@ -23,6 +23,7 @@ function json_req(url, data, method) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(data),
+    signal: signal,
   }).then((rep) => {
       return Promise.all([rep.status, rep.statusText, rep.text()]);
   }).then(([status, statusText, body]) => {
@@ -39,8 +40,8 @@ function json_req(url, data, method) {
     });
 }
 
-export function post(url, data) {
-  return json_req(url, data, 'POST');
+export function post(url, data, signal=null) {
+  return json_req(url, data, 'POST', signal=signal);
 }
 
 export function patch(url, data) {
