@@ -74,9 +74,12 @@ class Commands:  # pylint: disable=too-few-public-methods
 
         log.info(f"Building list of clearances starting from {dt}")
         earned = defaultdict(set)
-        for email, clearance_codes, tool_codes in sheets.get_passing_student_clearances(
-            dt=dt, from_row=args.from_row
-        ):
+        for (
+            email,
+            clearance_codes,
+            tool_codes,
+            _,
+        ) in sheets.get_passing_student_clearances(dt=dt, from_row=args.from_row):
             if user_filter and email.lower() not in user_filter:
                 continue
             if clearance_codes:

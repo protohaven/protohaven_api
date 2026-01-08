@@ -28,7 +28,9 @@ from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
 
+type Email = str
 type NeonID = str
+type ClearanceCode = str
 type ToolCode = str
 type AreaID = str
 type InstructorID = str  # Currently, the email address listed in the capabilities doc

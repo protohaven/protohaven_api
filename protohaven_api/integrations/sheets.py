@@ -1,12 +1,15 @@
 """Read from google spreadsheets"""
 
+import datetime
 import logging
 import re
+from typing import Iterator
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from protohaven_api.config import get_config, safe_parse_datetime
+from protohaven_api.integrations.airtable import ClearanceCode, Email, ToolCode
 
 log = logging.getLogger("integrations.sheets")
 
@@ -50,7 +53,9 @@ CLEARANCE_HDR = "Which clearance(s) was covered?"
 TOOLS_HDR = "Which tools?"
 
 
-def get_passing_student_clearances(dt=None, from_row=1300):
+def get_passing_student_clearances(
+    dt=None, from_row=1300
+) -> Iterator[tuple[Email, list[ClearanceCode], list[ToolCode], datetime.datetime]]:
     """Minimally parse and return instructor submissions after from_row in the sheet.
 
     Yields a sequence of (email, clearance_codes, tool_codes) for each student that
