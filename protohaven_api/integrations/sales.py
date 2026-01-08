@@ -1,9 +1,12 @@
 """Square point of sale integration for Protohaven"""
 
+import logging
 from functools import lru_cache
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data.connector import get as get_connector
+
+log = logging.getLogger("protohaven_api.integrations.sales")
 
 
 @lru_cache(maxsize=1)
@@ -23,7 +26,10 @@ def get_cards():
 def get_subscriptions():
     """Get all subscriptions - these are commonly used for storage"""
     result = client().subscriptions.search_subscriptions(body={})
+    n = 0
     while result:
+        n += 1
+        log.info(f"get_subscriptions fetch {n}")
         if not result.is_success():
             raise RuntimeError(result.errors)
         yield from result.body["subscriptions"]

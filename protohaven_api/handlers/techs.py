@@ -529,6 +529,7 @@ def techs_storage_subscriptions():
     log.info(f"Fetched {len(cust_map)} customers")
     log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
     result = []
+    log.info("Fetching and looping through subscriptions")
     for sub in sales.get_subscriptions():
         if sub["status"] != "ACTIVE":
             continue
@@ -559,7 +560,8 @@ def techs_storage_subscriptions():
                 "created_at": sub["created_at"],
                 "start_date": sub["start_date"],
                 "charged_through_date": sub["charged_through_date"],
-                "monthly_billing_anchor_date": sub["monthly_billing_anchor_date"],
+                "monthly_billing_anchor_date": sub.get("monthly_billing_anchor_date")
+                or "unknown",
                 "customer": cust_name,
                 "email": (
                     cust_email if am_lead_role() else None

@@ -16,29 +16,32 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 After deployment, verify that:
 
 * https://api.protohaven.org/
-  * [ ] After login, page redirects to /member, loads and displays clearances + links
+  * [x] After login, page redirects to /member, loads and displays clearances + links
+  * [x] Recert card shows link to wiki as well as some tools with recerts configured.
 * https://api.protohaven.org/welcome
-  * [ ] Member sign in fails with hello+testnonmember@protohaven.org
-  * [ ] Member sign in with hello+testalert@protohaven.org sends the notice
-  * [ ] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
-  * [ ] Member sign in with hello+testampmake@protohaven.org succeeds, no validation alerts
-  * [ ] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
+  * [x] Member sign in fails with hello+testnonmember@protohaven.org
+  * [x] Member sign in with hello+testalert@protohaven.org sends the notice
+  * [x] Member sign in with hello+testmember@protohaven.org succeeds but sends "multiple accounts" validation alert to `#membership-automation` on Discord
+  * [x] Member sign in with hello+testampmake@protohaven.org succeeds, no validation alerts
+  * [x] Guest sign in presents waiver and completes - check the `Sign Ins` airtable.
 * https://api.protohaven.org/events
-  * [ ] Displays upcoming calendar events
-  * [ ] Shows reservations
-  * [ ] Shows classes including instructor and attendee data, both Neon and Eventbrite
+  * [x] Displays upcoming calendar events
+  * [x] Shows reservations
+  * [x] Shows classes including instructor and attendee data, both Neon and Eventbrite
 * https://api.protohaven.org/techs
-  * [ ] Cal loads, individual shifts can be clicked and overridden, highlights current day
-  * [ ] Cal can change date range, highlights current day
-  * [ ] Cal swap overrides send an alert to the #techs channel
-  * [ ] Members tab shows today's sign-ins
-  * [ ] Tool states load
-  * [ ] Can view history for a tool by clicking the link
-  * [ ] Tool guide and clearance documentation status are shown
-  * [ ] Docs pages missing approvals can click to the wiki page
-  * [ ] Can sort tools by name, urgency, time in state etc.
-  * [ ] Can filter tools by area
-  * [ ] Storage tab allows for looking up Neon ID by name/email
+  * [x] Cal loads, individual shifts can be clicked and overridden
+  * [x] Cal can change date range, highlights current day
+  * [x] Cal swap overrides send an alert to the #techs channel
+  * [x] Nov 11 is not overriden to have zero techs (i.e. Veteran's Day not a Protohaven observed holiday)
+  * [x] Members tab shows today's sign-ins
+  * [x] Tool states load
+  * [x] Can view history for a tool by clicking the link
+  * [x] Tool guide and clearance documentation status are shown
+  * [x] Docs pages missing approvals can click to the wiki page
+  * [x] Can sort tools by name, urgency, time in state etc.
+  * [x] Can filter tools by area
+  * [x] Storage tab allows for looking up Neon ID by name/email
+  * [ ] Storage subscriptions card shows active subscriptions
   * [ ] Areas have some leads assigned to them
   * [ ] Areas has populated "additional contacts" section at the bottom of the pane
   * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
