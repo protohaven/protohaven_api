@@ -33,18 +33,22 @@ def resolve_schedule(min_future_days, overrides):
     now = tznow()
     for event in airtable.get_class_automation_schedule(raw=False):
         if overrides:
-            if str(event.class_id) in overrides:
-                log.warning(f"Adding override class with ID {event.class_id}")
+            if str(event.schedule_id) in overrides:
+                log.warning(
+                    f"Adding override class with schedule ID {event.schedule_id}"
+                )
             else:
                 continue  # Skip if not in override list
         else:
             if event.start_time < now:
-                log.info(f"Skipping event {event.class_id} from the past {event.name}")
+                log.info(
+                    f"Skipping event {event.schedule_id} from the past {event.name}"
+                )
                 continue
-            # Quietly ignore already-scheduled events
+
             if (event.neon_id or "") != "":
                 log.info(
-                    f"Skipping scheduled event {event.class_id} {event.neon_id}: "
+                    f"Skipping scheduled event {event.schedule_id} {event.neon_id}: "
                     f"{event.name}"
                 )
                 continue
@@ -55,6 +59,7 @@ def resolve_schedule(min_future_days, overrides):
                     f"with {event.instructor_name}"
                 )
                 continue
+
             if event.start_time < now + datetime.timedelta(days=min_future_days):
                 log.info(
                     f"Skipping too-soon: {event.start_time} {event.name} "
@@ -274,6 +279,7 @@ class Commands:
         """Reserves equipment for a class"""
         # Convert areas to booked IDs using tool table
         areas = set(event.areas)
+        log.info(f"Resolving equipment from event areas: {areas}")
         resources = []
         for row in airtable.get_all_records("tools_and_equipment", "tools"):
             for a in row["fields"].get("Name (from Shop Area)", []):
@@ -357,6 +363,18 @@ class Commands:
         log.info(
             f"Classes will {'NOT ' if not args.registration else ''}be open for registration"
         )
+        log.info(
+            f"Discounts will {'NOT ' if not args.discounts else ''}be applied to new classes"
+        )
+        log.info(
+            f"Equipment will {'NOT ' if not args.reserve else ''}be reserved for new classes"
+        )
+        if args.ovr:
+            log.info(
+                "Overriding to specifically schedule ONLY classes in Airtable "
+                f"Schedule with ID {args.ovr}"
+            )
+
         num = 0
         to_schedule: list[airtable.Class] = list(
             resolve_schedule(args.min_future_days, args.ovr)
@@ -370,13 +388,17 @@ class Commands:
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
-                f"{event.start_time} {event.class_id} {event.instructor_name}: {event.name}"
+                f"{event.start_time} {event.schedule_id} {event.instructor_name}: {event.name}"
+            )
+            log.info(
+                f"${event.price}, {event.capacity} students, sessions "
+                f"{[s[0].strftime('%Y-%m-%d %-I:%M %p') for s in event.sessions]}"
             )
 
-            if args.apply:
-                num += 1
-                result_id = None
-                try:
+            num += 1
+            result_id = None
+            try:
+                if args.apply:
                     result_id = neon_base.create_event(
                         event.name,
                         self._format_class_description(event),
@@ -388,16 +410,14 @@ class Commands:
                         published=args.publish,
                         registration=args.registration,
                     )
-                    log.info(
-                        f"- Neon event {result_id} created: {event.name}, "
-                        f"${event.price}, {event.capacity} students"
-                    )
-                    assert result_id
-                    event.neon_id = str(result_id)
+                else:
+                    result_id = "DRYRUN"
+                log.info(f"- Neon event {result_id} created")
+                assert result_id
+                event.neon_id = str(result_id)
 
-                    log.info(
-                        "- Assigning pricing (uses Firefox process via playwright)"
-                    )
+                log.info("- Assigning pricing (uses Firefox process via playwright)")
+                if args.apply:
                     session.assign_pricing(
                         event.neon_id,
                         event.price,
@@ -405,8 +425,11 @@ class Commands:
                         include_discounts=args.discounts,
                         clear_existing=True,
                     )
-                    log.info("- Pricing assigned")
+                else:
+                    log.info("  Skip (--no-apply)")
+                log.info("- Pricing assigned")
 
+                if args.apply:
                     airtable.update_record(
                         {"Neon ID": event.neon_id},
                         "class_automation",
@@ -414,33 +437,37 @@ class Commands:
                         event.schedule_id,
                     )
                     log.info("- Neon ID updated in Airtable")
+                else:
+                    log.info(
+                        f"  Skipped Neon ID update in airtable ({event.schedule_id})"
+                    )
 
-                    if args.reserve:
-                        log.info("Reserving equipment for scheduled classes")
-                        self.reserve_equipment_for_event(event, args.apply)
+                if args.reserve:
+                    log.info("Reserving equipment for scheduled classes")
+                    self.reserve_equipment_for_event(event, args.apply)
 
-                    scheduled_by_instructor[event.instructor_email].append(event)
-                    log.info("Added to notification list")
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")
-                    log.error(traceback.format_exc())
-                    if result_id:
-                        log.error("Failed; reverting event creation")
-                        log.info(neon_base.delete_event_unsafe(result_id))
-                        airtable.update_record(
-                            {"Neon ID": ""},
-                            "class_automation",
-                            "schedule",
-                            event.schedule_id,
-                        )
-                    try:
-                        comms.send_discord_message(
-                            f"Reverted class #{result_id}; creation failed: {str(e)[:256]}...\n"
-                            "Check Cronicle logs for details",
-                            "#class-automation",
-                            blocking=False,
-                        )
-                    except Exception:  # pylint: disable=broad-exception-caught
-                        pass
+                scheduled_by_instructor[event.instructor_email].append(event)
+                log.info("Added to notification list")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")
+                log.error(traceback.format_exc())
+                if result_id:
+                    log.error("Failed; reverting event creation")
+                    log.info(neon_base.delete_event_unsafe(result_id))
+                    airtable.update_record(
+                        {"Neon ID": ""},
+                        "class_automation",
+                        "schedule",
+                        event.schedule_id,
+                    )
+                try:
+                    comms.send_discord_message(
+                        f"Reverted class #{result_id}; creation failed: {str(e)[:256]}...\n"
+                        "Check Cronicle logs for details",
+                        "#class-automation",
+                        blocking=False,
+                    )
+                except Exception:  # pylint: disable=broad-exception-caught
+                    pass
 
         print_yaml(builder.gen_class_scheduled_alerts(scheduled_by_instructor))

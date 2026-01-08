@@ -170,7 +170,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             ),
             capacity=int((f.get("Capacity (from Class)") or [0])[0]),
             supply_state=f.get("Supply State") or "Unknown supply state",
-            areas=f.get("Name (from Area)") or [],
+            areas=f.get("Name (from Area) (from Class)") or [],
             confirmed=(
                 safe_parse_datetime(f.get("Confirmed")) if f.get("Confirmed") else None
             ),
