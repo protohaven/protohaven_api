@@ -50,9 +50,10 @@ function get_subs() {
       includes_email = includes_email || Boolean(d.email);
       let parsed = {};
       try {
-        parsed = JSON.parse(d["note"]);
+        parsed = JSON.parse(d["note"]) || {};
         console.log("Parsed", parsed);
       } catch (e) {
+        parsed = {};
         console.warn("Failed parsing note", d, e);
       }
       d["storage_type"] = parsed["storage_type"] || "Unknown";
@@ -141,7 +142,7 @@ function update_sub_note(sub) {
       <Spinner/>
     {/if}
     {#await subs_promise}
-      <Spinner/> Loading subscription... this may take up to a minute
+      <Spinner/> Loading storage subscriptions... this may take up to a minute
     {:then p}
         <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
           <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
