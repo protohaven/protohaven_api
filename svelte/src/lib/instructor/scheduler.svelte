@@ -20,16 +20,24 @@
       return days[new Date(`${date} 12:00pm`).getDay()];
   }
 
+  function human_time(timestr) {
+    let sp = timestr.split(':');
+    const hour = parseInt(sp[0], 10);
+    const h12 = (hour < 13) ? hour : hour % 12;
+    const h = h12.toString().padStart(2, '0');
+    const ap = (hour < 12) ? "AM" : "PM";
+    console.log(h, sp[1], ap);
+    return `${h}:${sp[1].trim()}${ap}`;
+  }
+
   function candidate_times(session_duration) {
     let times = [];
     const max_hr = 22 - session_duration; // 10pm is close
     for (let hour = 10; hour <= max_hr; hour++) { // 10am is open
       for (let minute of (hour < max_hr) ? [0, 30] : [0]) {
-        const h12 = (hour < 13) ? hour : hour % 12;
-        const h = h12.toString().padStart(2, '0');
+        const h = hour.toString().padStart(2, '0');
         const m = minute.toString().padStart(2, '0');
-        const ap = (hour < 12) ? "AM" : "PM";
-        times.push(`${h}:${m}${ap}`);
+        times.push(`${h}:${m}`);
       }
     }
     return times
@@ -49,7 +57,7 @@
           const date = new Date();
           date.setDate(date.getDate() + 14 + i);
           const ct = candidate_times(tmpl.hours[i]);
-          const t = (ct.indexOf("06:00PM") === -1) ? ct.pop() : "06:00PM";
+          const t = (ct.indexOf("18:00") === -1) ? ct.pop() : "18:00";
           return [date.toISOString().split('T')[0].slice(0, 10), t];
       }),
     };
@@ -60,7 +68,11 @@
   function post_data() {
     const sessions = selected.starts.map(([date, time], i) => {
       console.log(date, time);
-      const t1 = new Date(`${date} ${time}`);
+      // https://www.javaspring.net/blog/date-parsing-in-javascript-is-different-between-safari-and-chrome/#3-why-these-differences-exist-root-causes
+      // Kind of a hacky way to create a date, but at least it's compatible and works for EST including DST (probably)
+      const datestr = `${date}T${time}:00-0` + Math.floor(new Date().getTimezoneOffset() / 60) + ':00';
+      console.log(datestr);
+      const t1 = new Date(datestr);
       const t2 = new Date(t1.getTime() + selected.tmpl.hours[i] * 60 * 60 * 1000);
       console.log(t1, t2);
       return [isodatetime(t1), isodatetime(t2)];
@@ -169,12 +181,12 @@
           <Col>
           <Dropdown autoclose={true}>
             <DropdownToggle caret>
-              {selected.starts[i][1]}
+              {human_time(selected.starts[i][1])}
             </DropdownToggle>
             <DropdownMenu class="dropdown-menu-scrollable">
               {#each candidate_times(selected.tmpl.hours[i]) as time}
                 <DropdownItem on:click={() => {selected.starts[i][1] = time; do_validate_debounced()}} active={selected.starts[i][1] === time}>
-                  {time}
+                  {human_time(time)}
                 </DropdownItem>
               {/each}
             </DropdownMenu>
