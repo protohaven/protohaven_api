@@ -42,6 +42,7 @@ def test_sync_clearances_e2e(mocker, cli):
                 "test@example.com",
                 ["code1", "code2"],
                 ["tool1", "tool2"],
+                d(0),
             )
         ],
     )
