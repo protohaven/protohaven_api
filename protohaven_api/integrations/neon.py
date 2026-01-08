@@ -524,12 +524,14 @@ class AccountCache(WarmDict):
                 return {a.neon_id: a for a in aa}
         return v
 
-    def get(self, k, default=None):
+    def get(self, k, default=None, fetch_if_missing=True):
         """Attempt to lookup from cache, but verify directly with Neon if
         the returned account is inactive or missing"""
-        return self._handle_inactive_or_notfound(
-            str(k), super().get(str(k).lower().strip(), default)
-        )
+        if fetch_if_missing:
+            return self._handle_inactive_or_notfound(
+                str(k), super().get(str(k).lower().strip(), default)
+            )
+        return super().get(str(k).lower().strip(), default)
 
     def __setitem__(self, k, v):
         return super().__setitem__(str(k).lower(), v)

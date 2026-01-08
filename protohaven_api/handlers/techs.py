@@ -542,10 +542,11 @@ def techs_storage_subscriptions():
             None,
         )
 
-        # Also attempt to get the membership state, to identify non-members using storage
+        # Also attempt to get the membership state, to identify non-members using storage.
+        # We avoid re-fetching if missing because neon is heckin' slow and it times out the request
         mem_statuses = [
             (m.account_current_membership_status or None)
-            for m in (neon.cache.get(cust_email) or {}).values()
+            for m in (neon.cache.get(cust_email, fetch_if_missing=False) or {}).values()
             if m.neon_id != m.company_id
         ]
         status = "Unknown"
