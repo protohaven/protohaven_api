@@ -68,7 +68,7 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     mocker.patch.object(m.comms, "send_discord_message")
     got = cli("gen_maintenance_tasks", ["--apply"])
     assert len(got) == 1
-    assert "no new tasks" in got[0]["subject"]
+    assert "caught up" in got[0]["subject"]
     m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
 
 

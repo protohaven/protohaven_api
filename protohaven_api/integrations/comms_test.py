@@ -451,7 +451,7 @@ HASHES = {
     "shift_no_techs": "28da9194d12b5db6",  # pragma: allowlist secret
     "shop_tech_applications": "a011ed984ed4a302",  # pragma: allowlist secret
     "square_validation_action_needed": "8cf97c894e5171aa",  # pragma: allowlist secret
-    "tech_daily_tasks": "60f777167d5f3f62",  # pragma: allowlist secret
+    "tech_daily_tasks": "bf8354b0292e65ed",  # pragma: allowlist secret
     "tech_openings": "dad9368b3192d473",  # pragma: allowlist secret
     "tool_sync_summary": "dcc01eae3a3b66a3",  # pragma: allowlist secret
     "verify_income": "4d24d1a819192eae",  # pragma: allowlist secret
