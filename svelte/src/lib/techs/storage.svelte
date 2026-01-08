@@ -61,6 +61,9 @@ function get_subs() {
     }
     subs = [...data];
     console.log(subs)
+  }).catch((err) => {
+    console.error(err);
+    throw err;
   }).finally(() => fetching = false);
 }
 onMount(get_subs);

@@ -570,7 +570,7 @@ def techs_storage_subscriptions():
                 "plan": plan,
                 "price": price,
                 "membership_status": status,
-                "note": sub.get("note") or None,
+                "note": sub.get("note") or "",
                 "unpaid": (
                     [i for i in sub["invoice_ids"] if i in unpaid_invoices]
                     if am_lead_role()
