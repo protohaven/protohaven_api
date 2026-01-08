@@ -23,18 +23,6 @@ def test_set_booked_resource_id(mocker):
     assert "airtable_id" == kwargs["rec"]
 
 
-def _arec(email, start, end, rrule=""):
-    return {
-        "id": 123,
-        "fields": {
-            "Instructor": [123],
-            "Start": start.isoformat(),
-            "End": end.isoformat(),
-            "Recurrence": rrule,
-        },
-    }
-
-
 Tc = namedtuple("TC", "desc,entries,tag,want")
 
 
@@ -438,3 +426,115 @@ def test_insert_quiz_result(mocker):
         "class_automation",
         "quiz_results",
     )
+
+
+def test_resolve_hours():
+    assert a.Class.resolve_hours(3, 2) == [3, 3]
+    assert a.Class.resolve_hours("3", "3") == [3, 3, 3]
+    assert a.Class.resolve_hours("3,2,1", None) == [3, 2, 1]
+
+
+def test_resolve_starts():
+    assert a.ScheduledClass.resolve_starts(d(0).isoformat(), None, None, None) == [d(0)]
+    assert a.ScheduledClass.resolve_starts(
+        f"{d(0).isoformat()}, {d(1).isoformat()}", None, None, None
+    ) == [d(0), d(1)]
+    assert a.ScheduledClass.resolve_starts(None, d(0).isoformat(), "2", "7") == [
+        d(0),
+        d(7),
+    ]
+
+
+def test_from_schedule(mocker):
+    """Test converting airtable schedule row into ScheduledClass"""
+    # Create a mock row with all required fields
+    mock_row = {
+        "id": "rec123",
+        "fields": {
+            "Class": ["cls789"],
+            "Hours (from Class)": [3],
+            "Sessions": f"{d(6, 10).isoformat()},{d(7, 10).isoformat()}",
+            "Neon ID": "neon456",
+            "Name (from Class)": ["Test Class"],
+            "Period (from Class)": [7],
+            "Capacity (from Class)": [20],
+            "Supply State": "In stock",
+            "Name (from Area) (from Class)": ["Woodshop", "Metalshop"],
+            "Confirmed": d(0).isoformat(),
+            "Rejected": None,
+            "Image Link (from Class)": ["https://example.com/image.jpg"],
+            "Form Name (from Clearance) (from Class)": ["Safety Training"],
+            "Price (from Class)": [100],
+            "Email": "instructor@example.com",
+            "Instructor": "John Doe",
+            "Volunteer": False,
+            "Short Description (from Class)": ["A short description"],
+            "What you Will Create (from Class)": ["A wooden box"],
+            "What to Bring/Wear (from Class)": ["Safety glasses"],
+            "Clearances Earned (from Class)": ["Woodshop clearance"],
+            "Age Requirement (from Class)": ["18+"],
+        },
+    }
+
+    result = a.ScheduledClass.from_schedule(mock_row)
+    assert result.schedule_id == "rec123"
+    assert result.class_id == "cls789"
+    assert result.neon_id == "neon456"
+    assert result.name == "Test Class"
+    assert result.hours == [3, 3]
+    assert result.days == 2
+    assert result.period == datetime.timedelta(days=7)
+    assert result.capacity == 20
+    assert result.supply_state == "In stock"
+    assert result.areas == ["Woodshop", "Metalshop"]
+    assert result.confirmed == d(0)
+    assert result.rejected is None
+    assert result.image_link == "https://example.com/image.jpg"
+    assert result.clearances == ["Safety Training"]
+    assert result.price == 100
+    assert result.instructor_email == "instructor@example.com"
+    assert result.instructor_name == "John Doe"
+    assert result.volunteer is False
+    expected_sessions = [(d(6, 10), d(6, 13)), (d(7, 10), d(7, 13))]
+    assert result.sessions == expected_sessions
+    assert result.description == {
+        "Short Description": "A short description",
+        "What you Will Create": "A wooden box",
+        "What to Bring/Wear": "Safety glasses",
+        "Clearances Earned": "Woodshop clearance",
+        "Age Requirement": "18+",
+    }
+
+
+def test_from_template(mocker):
+    """Test converting an airtable template row into Class"""
+    row = {
+        "id": "rec123",
+        "fields": {
+            "Name": "Test Class",
+            "Hours": "3,3,3",
+            "Capacity": "20",
+            "Price": "100",
+            "Period": "30",
+            "Name (from Area)": ["Area1", "Area2"],
+            "Schedulable": True,
+            "Approved": True,
+            "Image Link": "http://example.com/image.jpg",
+            "Form Name (from Clearance)": ["TS1"],
+            "Email (from Instructor Capabilities)": ["instructor@example.com"],
+        },
+    }
+    result = a.Class.from_template(row)
+    assert result.class_id == "rec123"
+    assert result.name == "Test Class"
+    assert result.hours == [3, 3, 3]
+    assert result.capacity == 20
+    assert result.price == 100
+    assert result.period == datetime.timedelta(days=30)
+    assert result.days == 3
+    assert result.areas == ["Area1", "Area2"]
+    assert result.schedulable is True
+    assert result.approved is True
+    assert result.image_link == "http://example.com/image.jpg"
+    assert result.clearances == ["TS1"]
+    assert result.approved_instructors == ["instructor@example.com"]

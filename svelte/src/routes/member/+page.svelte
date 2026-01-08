@@ -131,6 +131,7 @@
     <Spinner/>Loading...
     {:then rc}
           <h5 style="my-3">Pending Recertifications:</h5>
+          <div><strong>For more info on the recertification process, see <a href="https://wiki.protohaven.org/books/policies/page/tool-recertification" target="_blank">our wiki</a>.</strong></div>
           {#if rc.pending.length > 0}
           <em>Note: If you need to recertify multiple tools of the same type (e.g., Laser 1 and Laser 2), you may only need to take one quiz for all of them. This is typically indicated on the first page of the online quiz.</em>
           <ListGroup>

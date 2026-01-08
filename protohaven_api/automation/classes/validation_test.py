@@ -81,6 +81,17 @@ Tc = namedtuple("tc", tuple(fields.keys()), defaults=tuple(fields.values()))
             inst_occupancy=[(d(3, 18), d(3, 21), "Other Class")],
             area_occupancy={"a0": [(d(3, 18), d(3, 21), "Occupying Event")]},
         ),
+        Tc(
+            "fail, end before start",
+            interval=(d(4, 21), d(4, 18)),
+            want_reason="End time 2025-01-05 18:00:00-05:00 must occur "
+            "before start time 2025-01-05 21:00:00-05:00",
+        ),
+        Tc(
+            "fail, start time in past",
+            interval=(d(-1, 16), d(-1, 180)),
+            want_reason="Start time 2024-12-31 16:00:00-05:00 is in the past",
+        ),
     ],
     ids=idfn,
 )
@@ -98,6 +109,7 @@ def test_validate_candidate_class_session(tc, mocker):
         hours=tc.class_hours,
         areas=["a0"],
     )
+    mocker.patch.object(v, "tznow", return_value=d(0, 12))
     valid, reason = v.validate_candidate_class_session(
         "test_inst", tc.interval, 0, test_class, env
     )

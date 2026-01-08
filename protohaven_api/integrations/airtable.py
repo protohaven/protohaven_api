@@ -55,14 +55,20 @@ class Class:  # pylint: disable=too-many-instance-attributes
     clearances: list[ToolCode]
 
     @classmethod
+    def resolve_hours(cls, hours, days):
+        """Compatibility layer to allow for rollback to previous data structure"""
+        if days:
+            return [float(hours)] * int(days)
+        return [float(s) for s in str(hours).split(",") or []]
+
+    @classmethod
     def from_template(cls, row):
         """Converts an airtable template row into Class"""
         f = row["fields"]
-        log.info(f)
         return cls(
             class_id=str(row["id"]),
             name=f.get("Name"),
-            hours=[float(s) for s in f.get("Hours").split(",") or []],
+            hours=cls.resolve_hours(f.get("Hours"), f.get("Days")),
             capacity=int(f.get("Capacity") or 0),
             price=int(f.get("Price") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
@@ -112,19 +118,32 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     description: dict[str, str]
 
     @classmethod
+    def resolve_starts(cls, sessions, start_time, days, days_between):
+        """Compatibility for old table data"""
+        if sessions:
+            return [safe_parse_datetime(d) for d in sessions.split(",")]
+        d = safe_parse_datetime(start_time)
+        return [
+            d + datetime.timedelta(days=i * int(days_between)) for i in range(int(days))
+        ]
+
+    @classmethod
     def from_schedule(cls, row):
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
-        try:
-            hours = [float(s) for s in f.get("Hours (from Class)")[0].split(",") or []]
-        except AttributeError:
-            hours = []
-        if not f.get("Sessions"):
-            raise RuntimeError("Scheduled class must have sessions")
+        hours = Class.resolve_hours(
+            (f.get("Hours (from Class)") or [None])[0],
+            (f.get("Days (from Class)") or [None])[0],
+        )
         if not hours:
             raise RuntimeError("Class template data for session has no hours listed")
 
-        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
+        starts = cls.resolve_starts(
+            f.get("Sessions") or None,
+            f.get("Start Time") or None,
+            (f.get("Days (from Class)") or [None])[0],
+            (f.get("Days Between Sessions (from Class)") or [None])[0],
+        )
         if len(hours) < len(
             starts
         ):  # We need consistent lengths for pairing up data elsewhere
@@ -133,6 +152,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         sessions = [
             (d, d + datetime.timedelta(hours=hours[i])) for i, d in enumerate(starts)
         ]
+        class_ids = [None]
         if "Class" in f.keys():
             ref_fields = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
             if ref_fields[0] in f:
@@ -143,29 +163,29 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
             neon_id=f.get("Neon ID") or None,
-            name=f.get("Name (from Class)")[0],
+            name=(f.get("Name (from Class)") or ["Unknown"])[0],
             hours=hours,
             period=datetime.timedelta(
                 days=int((f.get("Period (from Class)") or [0])[0])
             ),
             capacity=int((f.get("Capacity (from Class)") or [0])[0]),
             supply_state=f.get("Supply State") or "Unknown supply state",
-            areas=f.get("Name (from Area)") or [],
+            areas=f.get("Name (from Area) (from Class)") or [],
             confirmed=(
                 safe_parse_datetime(f.get("Confirmed")) if f.get("Confirmed") else None
             ),
             rejected=(
                 safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None
             ),
-            image_link=f.get("Image Link (from Class)")[0],
+            image_link=(f.get("Image Link (from Class)") or [None])[0],
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
-            price=int(f.get("Price (from Class)")[0]),
-            instructor_email=f.get("Email").strip().lower(),
-            instructor_name=f.get("Instructor"),
+            price=int((f.get("Price (from Class)") or [0])[0]),
+            instructor_email=(f.get("Email") or "").strip().lower(),
+            instructor_name=f.get("Instructor") or "",
             sessions=sessions,
-            volunteer=f.get("Volunteer"),
+            volunteer=f.get("Volunteer") or False,
             description={
-                k: f.get(k + " (from Class)")[0]
+                k: (f.get(k + " (from Class)") or [""])[0]
                 for k in (
                     "Short Description",
                     "What you Will Create",
@@ -425,7 +445,7 @@ def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClas
     }
     status, result = update_record(data, "class_automation", "schedule", eid)
     if status != 200:
-        raise RuntimeError(f"Error updating class schedule state: {result}")
+        raise RuntimeError(f"Error updating class schedule state for {eid}: {result}")
     return ScheduledClass.from_schedule(result)
 
 
@@ -453,7 +473,7 @@ def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
         eid,
     )
     if status != 200:
-        raise RuntimeError(f"Error setting supply state: {result}")
+        raise RuntimeError(f"Error setting supply state for {eid}: {result}")
     return ScheduledClass.from_schedule(result)
 
 
@@ -463,7 +483,7 @@ def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
         {"Volunteer": volunteer}, "class_automation", "schedule", eid
     )
     if status != 200:
-        raise RuntimeError(f"Error setting volunteer status: {result}")
+        raise RuntimeError(f"Error setting volunteer status for {eid}: {result}")
     return ScheduledClass.from_schedule(result)
 
 
