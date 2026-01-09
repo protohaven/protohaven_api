@@ -50,5 +50,5 @@
   <NavItem><NavLink href="#summary" on:click={on_tab}>Discord Summary</NavLink></NavItem>
   <NavItem><NavLink href="#opsreport" on:click={on_tab}>Ops Report</NavLink></NavItem>
 </Nav>
-<SummarizeDiscord {user} visible={activeTab == 'summary'} {user}/>
+<SummarizeDiscord visible={activeTab == 'summary'} {user}/>
 <OpsReport visible={activeTab == 'opsreport'} {user}/>
