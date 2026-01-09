@@ -93,6 +93,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         invalids = set()
         log.info("Earned clearances:")
         for email, clr in earned.items():
+            log.info(f"{email}: {clr}")
             clr = {c for c in clr if not c.strip().lower() == "n/a"}
             clr_validated = set(c for c in clr if c in all_codes)
             if len(clr) != len(clr_validated):

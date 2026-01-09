@@ -50,9 +50,10 @@ function get_subs() {
       includes_email = includes_email || Boolean(d.email);
       let parsed = {};
       try {
-        parsed = JSON.parse(d["note"]);
+        parsed = JSON.parse(d["note"]) || {};
         console.log("Parsed", parsed);
       } catch (e) {
+        parsed = {};
         console.warn("Failed parsing note", d, e);
       }
       d["storage_type"] = parsed["storage_type"] || "Unknown";
@@ -61,6 +62,9 @@ function get_subs() {
     }
     subs = [...data];
     console.log(subs)
+  }).catch((err) => {
+    console.error(err);
+    throw err;
   }).finally(() => fetching = false);
 }
 onMount(get_subs);
@@ -138,7 +142,7 @@ function update_sub_note(sub) {
       <Spinner/>
     {/if}
     {#await subs_promise}
-      <Spinner/> Loading subscription...
+      <Spinner/> Loading storage subscriptions... this may take up to a minute
     {:then p}
         <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
           <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
@@ -170,13 +174,13 @@ function update_sub_note(sub) {
             <th>Detail</th>
           </thead>
           <tbody>
-          {#each subs_sorted as sub}
+          {#each subs_sorted as sub, i}
             <tr>
                 <td>{sub.customer}
                 {#if sub.unpaid.length > 0}
-                <Badge id={sub.id} color="danger">{sub.unpaid.length}</Badge>
+                <Badge style="cursor: pointer;" id={"sub" + i} color="danger">{sub.unpaid.length}</Badge>
                 <Popover
-                    target={sub.id}
+                    target={"sub" + i}
                     placement="right"
                     title="Unpaid invoices"
                   >

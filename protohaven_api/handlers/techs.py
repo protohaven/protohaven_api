@@ -529,6 +529,7 @@ def techs_storage_subscriptions():
     log.info(f"Fetched {len(cust_map)} customers")
     log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
     result = []
+    log.info("Fetching and looping through subscriptions")
     for sub in sales.get_subscriptions():
         if sub["status"] != "ACTIVE":
             continue
@@ -541,10 +542,11 @@ def techs_storage_subscriptions():
             None,
         )
 
-        # Also attempt to get the membership state, to identify non-members using storage
+        # Also attempt to get the membership state, to identify non-members using storage.
+        # We avoid re-fetching if missing because neon is heckin' slow and it times out the request
         mem_statuses = [
             (m.account_current_membership_status or None)
-            for m in (neon.cache.get(cust_email) or {}).values()
+            for m in (neon.cache.get(cust_email, fetch_if_missing=False) or {}).values()
             if m.neon_id != m.company_id
         ]
         status = "Unknown"
@@ -559,7 +561,8 @@ def techs_storage_subscriptions():
                 "created_at": sub["created_at"],
                 "start_date": sub["start_date"],
                 "charged_through_date": sub["charged_through_date"],
-                "monthly_billing_anchor_date": sub["monthly_billing_anchor_date"],
+                "monthly_billing_anchor_date": sub.get("monthly_billing_anchor_date")
+                or "unknown",
                 "customer": cust_name,
                 "email": (
                     cust_email if am_lead_role() else None
@@ -567,7 +570,7 @@ def techs_storage_subscriptions():
                 "plan": plan,
                 "price": price,
                 "membership_status": status,
-                "note": sub.get("note") or None,
+                "note": sub.get("note") or "",
                 "unpaid": (
                     [i for i in sub["invoice_ids"] if i in unpaid_invoices]
                     if am_lead_role()
