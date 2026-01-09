@@ -43,16 +43,16 @@ After deployment, verify that:
   * [x] Storage tab allows for looking up Neon ID by name/email
   * [x] Storage subscriptions card shows active subscription state - but no unpaid invoices if not lead
   * [x] Storage subscription data is not shown if not logged in
-  * [ ] Storage subs have badges where unpaid invoices and can be clicked to show links
-  * [ ] Areas have some leads assigned to them
-  * [ ] Areas has populated "additional contacts" section at the bottom of the pane
-  * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
-  * [ ] Techs roster has some tech photos & bios shown
-  * [ ] Events tab can create, register, unregister, and delete a techs-only class
-  * [ ] Full name is visible only when logged in as a tech / tech lead
-  * [ ] Members tab shows "access denied" when not logged in
-  * [ ] Area leads only show first name when not signed in
-  * [ ] Unauthenticated user only sees at most the first names on Roster
+  * [x] Storage subs have badges where unpaid invoices and can be clicked to show links
+  * [x] Areas have some leads assigned to them
+  * [x] Areas has populated "additional contacts" section at the bottom of the pane
+  * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
+  * [x] Techs roster has some tech photos & bios shown
+  * [x] Events tab can create, register, unregister, and delete a techs-only class
+  * [x] Full tech name is visible on calendar only when logged in as a tech / tech lead
+  * [x] Members tab shows "access denied" when not logged in
+  * [x] Area leads only show first name when not signed in
+  * [x] Unauthenticated user only sees at most the first names on Roster
   * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
   * [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor

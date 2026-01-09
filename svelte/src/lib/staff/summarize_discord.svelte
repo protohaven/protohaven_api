@@ -21,9 +21,7 @@
     }
   }
   onMount(() => {
-    if (user) {
       fetchChannels();
-    }
   });
 
   $: {
@@ -132,7 +130,9 @@
       Select a time range and and list of channels, and receive a summary for newsletter or other media purpose.
     </p>
 
+    {#if !user}
     <Alert color="warning">You must be logged in to use this tool</Alert>
+    {/if}
 
     <FormGroup>
       <Label for="startDate">Start Date</Label>

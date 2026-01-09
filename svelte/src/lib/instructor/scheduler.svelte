@@ -159,6 +159,7 @@
       <div><strong>Capacity:</strong> {selected.tmpl.capacity}</div>
       <div><strong>Price:</strong> ${selected.tmpl.price}</div>
       <div><strong>Min days between runs:</strong> {selected.tmpl.period}</div>
+      <div><strong>Areas:</strong> {selected.tmpl.areas.join(', ')}</div>
       <div><strong>Clearances earned:</strong></div>
       {#if selected.tmpl.clearances.length > 0}
       <ListGroup>
