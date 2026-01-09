@@ -356,9 +356,19 @@ class Commands:
             return
 
         log.info(f"Expecting on-duty techs: {[t.name for t in techs_on_duty]}")
-        email_map = {t.email: t for t in techs_on_duty}
+        email_map = {}
+        for t in techs_on_duty:
+            for email in t.emails:
+                if email in email_map:
+                    error_msg = (
+                        'Collision detected: email "{email}" in '
+                        "member {t} AND member {member}. "
+                        "Ignoring {t}."
+                    ).format(email=email, t=t, member=email_map[email])
+                    log.warning(error_msg)
+                else:
+                    email_map[email] = t
         on_duty_ok = False
-        log.info("Sign ins:")
         for s in list(airtable.get_signins_between(start, end)):
             if s is None:
                 continue
@@ -370,7 +380,7 @@ class Commands:
                     f"{t.name} ({s.email}, signed in {timestamp.strftime('%-I%p')})"
                 )
             else:
-                log.info(s.email)
+                log.info(s.emails)
 
         result = []
         if not on_duty_ok:

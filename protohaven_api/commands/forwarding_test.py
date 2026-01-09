@@ -57,7 +57,7 @@ def test_tech_sign_ins(mocker, tc, cli):
                     "AM": {
                         "people": [
                             mocker.Mock(
-                                email="a@b.com",
+                                emails=["a@b.com", "a@example.com"],
                                 name="A B (they/them)",
                                 discord_user=None,
                                 shift=["Monday", "AM"],
@@ -67,7 +67,7 @@ def test_tech_sign_ins(mocker, tc, cli):
                     "PM": {
                         "people": [
                             mocker.Mock(
-                                email="c@d.com",
+                                emails=["c@d.com", "c@example.com"],
                                 name="C D (he/him)",
                                 discord_user=None,
                                 shift=["Monday", "PM"],
@@ -131,7 +131,7 @@ def test_tech_sign_ins_holiday(mocker, tc, cli):
                         "people": (
                             [
                                 mocker.Mock(
-                                    email="a@b.com",
+                                    emails=["a@b.com", "a@example.com"],
                                     name="A B (they/them)",
                                     shift=["Monday", "AM"],
                                 )
@@ -144,7 +144,7 @@ def test_tech_sign_ins_holiday(mocker, tc, cli):
                         "people": (
                             [
                                 mocker.Mock(
-                                    email="c@d.com",
+                                    emails=["c@d.com", "c@example.com"],
                                     name="C D (he/him)",
                                     shift=["Monday", "PM"],
                                 )
