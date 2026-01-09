@@ -360,7 +360,9 @@ class Commands:
         for t in techs_on_duty:
             for email in t.emails:
                 if email in email_map:
-                    log.warn(f'Collision detected: email "{email}" in member {t} AND member {email_map[email]}. Ignoring {t}.')
+                    log.warn(
+                        f'Collision detected: email "{email}" in member {t} AND member {email_map[email]}. Ignoring {t}.'
+                    )
                 else:
                     email_map[email] = t
         on_duty_ok = False
