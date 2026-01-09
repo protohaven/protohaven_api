@@ -53,22 +53,22 @@ After deployment, verify that:
   * [x] Members tab shows "access denied" when not logged in
   * [x] Area leads only show first name when not signed in
   * [x] Unauthenticated user only sees at most the first names on Roster
-  * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
   * [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
-  * [ ] Loads profile data for instructor
-  * [ ] Loads classes for instructor, including attendance data
-  * [ ] Adding a new class on a holiday triggers validation error
-  * [ ] Adding a new class on a day with similar area reservations triggers validation error
-  * [ ] Adding a new class too close to a recent run of that class triggers validation error
-  * [ ] Can confirm/unconfirm a class
-  * [ ] Log submission button works
+  * [x] Loads profile data for instructor
+  * [x] Loads classes for instructor, including attendance data
+  * [x] Adding a new class on a holiday triggers validation error
+  * [x] Adding a new class on a day with similar area reservations triggers validation error
+  * [x] Adding a new class too close to a recent run of that class triggers validation error
+  * [x] Can confirm/unconfirm a class
+  * [x] Log submission button works
 * https://api.protohaven.org/event_ticker
-  * [ ] Returns JSON of sample classes
+  * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
-  * [ ] Can summarize one or more discord channels, and view photos
-  * [ ] Access denied if logged in as hello+testmember@protohaven.org
-  * [ ] Ops dashboard shows content with no errors
+  * [x] Can summarize one or more discord channels, and view photos
+  * [x] Access denied if logged in as hello+testmember@protohaven.org
+  * [v] Ops dashboard shows content with no errors
 
 ## Discord events
 
