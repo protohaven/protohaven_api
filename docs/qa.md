@@ -41,7 +41,9 @@ After deployment, verify that:
   * [x] Can sort tools by name, urgency, time in state etc.
   * [x] Can filter tools by area
   * [x] Storage tab allows for looking up Neon ID by name/email
-  * [ ] Storage subscriptions card shows active subscriptions
+  * [x] Storage subscriptions card shows active subscription state - but no unpaid invoices if not lead
+  * [x] Storage subscription data is not shown if not logged in
+  * [ ] Storage subs have badges where unpaid invoices and can be clicked to show links
   * [ ] Areas have some leads assigned to them
   * [ ] Areas has populated "additional contacts" section at the bottom of the pane
   * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances

@@ -174,13 +174,13 @@ function update_sub_note(sub) {
             <th>Detail</th>
           </thead>
           <tbody>
-          {#each subs_sorted as sub}
+          {#each subs_sorted as sub, i}
             <tr>
                 <td>{sub.customer}
                 {#if sub.unpaid.length > 0}
-                <Badge id={sub.id} color="danger">{sub.unpaid.length}</Badge>
+                <Badge style="cursor: pointer;" id={"sub" + i} color="danger">{sub.unpaid.length}</Badge>
                 <Popover
-                    target={sub.id}
+                    target={"sub" + i}
                     placement="right"
                     title="Unpaid invoices"
                   >
