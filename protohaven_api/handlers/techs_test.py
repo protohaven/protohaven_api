@@ -733,7 +733,7 @@ def test_techs_storage_subscriptions(mocker, lead_client):
             "customer": "12345",
             "email": None,
             "monthly_billing_anchor_date": 29,
-            "note": None,
+            "note": "",
             "plan": "Test Plan",
             "price": 5000,
             "start_date": "2025-01-29",
