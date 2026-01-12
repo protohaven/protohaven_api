@@ -139,18 +139,18 @@
     <h5>Select a class to schedule</h5>
     {#await templates}
         <Spinner/> Loading...
-    {:then t}
+    {:then tt}
     <Dropdown autoClose={true} class="my-3">
       <DropdownToggle caret>
           {#if !selected}
-            {Object.keys(classes).length} option(s)
+            {Object.keys(tt).length} option(s)
           {:else}
             {classes[selected.id]}
           {/if}
       </DropdownToggle>
       <DropdownMenu>
-        {#each Object.entries(classes) as [cls_id, cls_name]}
-          <DropdownItem on:click={() => select(cls_id)}>{cls_name}</DropdownItem>
+        {#each Object.values(tt) as t}
+          <DropdownItem on:click={() => select(t.class_id)}>{t.name}</DropdownItem>
         {/each}
       </DropdownMenu>
     </Dropdown>
