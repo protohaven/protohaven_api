@@ -136,7 +136,12 @@ function cancel(neon_id) {
       {:else}
       <ul class="attendees">
 	{#each p as a}
-	<li>{a.firstName} {a.lastName} ({a.email}) {a.registrationStatus} on {a.registrationDate}</li>
+	<li>
+      {#if a.registrationStatus !== "SUCCEEDED" }
+      <strong>{a.registrationStatus}</strong> -
+      {/if}
+      {a.firstName} {a.lastName} ({a.email}) registered {a.registrationDate}
+  </li>
 	{/each}
       </ul>
       {/if}

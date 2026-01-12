@@ -187,7 +187,7 @@ def validate_candidate_class_session(  # pylint: disable=too-many-return-stateme
         if conflict:
             return (
                 False,
-                f"Area already occupied ({conflict})",
+                f"Area {a} already occupied ({conflict})",
             )
 
     # Prevent this particular time if it's in an exclusion region
