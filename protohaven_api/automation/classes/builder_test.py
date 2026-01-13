@@ -331,3 +331,14 @@ def test_gen_class_scheduled_alerts(mocker):
     assert got[2]["target"] == "#instructors"
     assert got[3]["target"] == "#class-automation"
     assert len(got) == 4
+
+
+def test_invalid_attendees_ignored(mocker, evt):
+    """Ensures that cancellations/refunds aren't considered active registrations"""
+    evt.attendees[0].valid = False
+    evt.attendees[1].valid = False
+    mocker.patch.object(builder.eauto, "fetch_upcoming_events", return_value=[evt])
+    mocker.patch.object(builder.airtable, "get_notifications_after", return_value={})
+    b = builder.ClassEmailBuilder()
+    b.fetch_and_aggregate_data()
+    assert not b.attendee_emails

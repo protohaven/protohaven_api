@@ -189,7 +189,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 ).items()
             }
             for a in evt.attendees:
-                self.attendee_emails[a.neon_id] = get_account_email(a.neon_id)
+                if a.valid:
+                    self.attendee_emails[a.neon_id] = get_account_email(a.neon_id)
             self.log.debug(f"Annotated {evt.neon_id}")
         self.log.info(f"Fetched and annotated {len(self.events)} event(s) fron Neon")
 
@@ -333,7 +334,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.log.info("Building attendee notifications")
         for evt, action in self.actionable_classes:
             for a in evt.attendees:
-                self._build_registrant_notification(evt, action, a)
+                if a.valid:
+                    self._build_registrant_notification(evt, action, a)
 
         self.log.info("Building techs notifications")
         for evt, action in self.actionable_classes:
