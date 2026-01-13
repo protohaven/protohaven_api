@@ -57,7 +57,9 @@ function submit_log(url) {
   for (let d of attendees) {
     attendees_for_log.push(`${d.firstName} ${d.lastName} (${d.email})`);
   }
-  url = url.replace("$ATTENDEE_NAMES", encodeURIComponent(attendees_for_log.join(", ")));
+  console.log("Attendees:", attendees_for_log);
+  url = url.replace("ATTENDEE_NAMES", encodeURIComponent(attendees_for_log.join(", ")));
+  console.log("Opening log url", url);
   window.open(url, "_blank");
 }
 
