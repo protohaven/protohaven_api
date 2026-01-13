@@ -313,7 +313,6 @@ class Member:  # pylint:disable=too-many-public-methods
     def income_based_rate(self):
         """Return Income Based Rate custom neon field"""
         val = self._get_custom_field("Income Based Rate", "optionValues")
-        log.info(f"{val}")
         if isinstance(val, list):
             val = val[0]
         if isinstance(val, dict):
@@ -755,7 +754,6 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def occupancy(self):
         """With attendee data, compute occupancy of the event"""
-        print(self.neon_attendee_data, self.eventbrite_attendee_data)
         if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
             raise NoAttendeeDataError("Missing attendee data for call to occupancy()")
         return 0 if not self.capacity else len(self.signups) / self.capacity
