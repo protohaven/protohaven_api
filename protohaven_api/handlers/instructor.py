@@ -246,7 +246,6 @@ def instructor_class_update():
     data = request.json
     eid = data["eid"]
     pub = data["pub"]
-    # print("eid", eid, "pub", pub)
     result = airtable.respond_class_automation_schedule(eid, pub)
     return result.as_response()
 
