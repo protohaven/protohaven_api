@@ -259,7 +259,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     def as_response(self, pass_emails=None):
         """Return a dict that can be used as a flask response, including prefill"""
         if not pass_emails:
-            pass_emails = ["$ATTENDEE_NAMES"]
+            pass_emails = ["ATTENDEE_NAMES"]
         return {
             **asdict(self),
             "prefill": self.prefill_form(pass_emails),
