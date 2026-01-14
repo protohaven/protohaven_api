@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from protohaven_api.config import get_config, safe_parse_datetime
-from protohaven_api.integrations.airtable import ClearanceCode, Email, ToolCode
+from protohaven_api.integrations.airtable import Email, ToolCode
 
 log = logging.getLogger("integrations.sheets")
 
@@ -55,11 +55,9 @@ TOOLS_HDR = "Which tools?"
 
 def get_passing_student_clearances(
     dt=None, from_row=1300
-) -> Iterator[tuple[Email, list[ClearanceCode], list[ToolCode], datetime.datetime]]:
+) -> Iterator[tuple[Email, list[ToolCode], datetime.datetime]]:
     """Minimally parse and return instructor submissions after from_row in the sheet.
-
-    Yields a sequence of (email, clearance_codes, tool_codes) for each student that
-    passed a class.
+    Yields a sequence of clearance info for each student that passed a class.
     """
     for sub in get_instructor_submissions_raw(from_row):
         if dt is not None and sub["Timestamp"] < dt:
@@ -72,12 +70,6 @@ def get_passing_student_clearances(
             m.replace("(", "").replace(")", "").replace(",", "").strip() for m in mm
         ]
 
-        clearance_codes = sub.get(CLEARANCE_HDR)
-        clearance_codes = (
-            [s.split(":")[0].strip() for s in clearance_codes.split(",")]
-            if clearance_codes
-            else None
-        )
         tool_codes = sub.get(TOOLS_HDR)
         tool_codes = (
             [s.split(":")[0].strip() for s in tool_codes.split(",")]
@@ -85,7 +77,7 @@ def get_passing_student_clearances(
             else None
         )
         for e in emails:
-            yield (e.strip().lower(), clearance_codes, tool_codes, sub["Timestamp"])
+            yield (e.strip().lower(), tool_codes, sub["Timestamp"])
 
 
 def get_sign_ins_between(start, end):

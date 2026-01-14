@@ -76,14 +76,11 @@ class Commands:  # pylint: disable=too-few-public-methods
         earned = defaultdict(set)
         for (
             email,
-            clearance_codes,
             tool_codes,
             _,
         ) in sheets.get_passing_student_clearances(dt=dt, from_row=args.from_row):
             if user_filter and email.lower() not in user_filter:
                 continue
-            if clearance_codes:
-                earned[email.strip()].update(clearances.resolve_codes(clearance_codes))
             if tool_codes:
                 earned[email.strip()].update(tool_codes)
         log.info(f"Clearance list built; {len(earned)} users in list")

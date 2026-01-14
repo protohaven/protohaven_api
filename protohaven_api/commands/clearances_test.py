@@ -40,21 +40,17 @@ def test_sync_clearances_e2e(mocker, cli):
         return_value=[
             (
                 "test@example.com",
-                ["code1", "code2"],
                 ["tool1", "tool2"],
                 d(0),
             )
         ],
-    )
-    mocker.patch.object(
-        C.clearances, "resolve_codes", lambda tc: [t + "_resolved" for t in tc]
     )
     m1 = mocker.patch.object(C.clearances, "update", return_value=["code1"])
     got = cli("sync_clearances", ["--apply"])
     m1.assert_called_with(
         "test@example.com",
         "PATCH",
-        {"code1_resolved", "code2_resolved", "tool1", "tool2"},
+        {"tool1", "tool2"},
         apply=True,
     )
     assert len(got) == 1

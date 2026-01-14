@@ -13,12 +13,11 @@ def test_user_clearances_notifies_discord(mocker, client):
         rbac, "is_enabled", return_value=False
     )  # Disable to allow testing
     mocker.patch.object(a.mclearance, "update", return_value=[])
-    mocker.patch.object(a.mclearance, "resolve_codes", return_value=[])
     mocker.patch.object(a.comms, "send_discord_message")
 
     rep = client.patch(
         "/user/clearances",
-        data={"emails": "test@example.com", "codes": "CLEAR1,CLEAR2"},
+        data={"emails": "test@example.com", "codes": "C1,C2"},
     )
     a.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
     assert rep.status_code == 200
@@ -29,26 +28,16 @@ def test_user_clearances(mocker, client):
     mocker.patch.object(
         rbac, "is_enabled", return_value=False
     )  # Disable to allow testing
-    c1 = {"name": "CLEAR1", "code": "C1", "id": 1}
-    c2 = {"name": "CLEAR2", "code": "C2", "id": 2}
-    mocker.patch.object(
-        a.mclearance,
-        "resolve_codes",
-        return_value=[c1, c2],
-    )
     mocker.patch.object(a.comms, "send_discord_message")
-    mocker.patch.object(
-        a.airtable, "get_clearance_to_tool_map", return_value={"MWB": ["ABG", "RBP"]}
-    )
     mocker.patch.object(a.mclearance, "update", return_value="Success")
     rep = client.patch(
         "/user/clearances",
-        data={"emails": "test@example.com", "codes": "CLEAR1,CLEAR2"},
+        data={"emails": "test@example.com", "codes": "C1,C2"},
     )
 
     assert rep.status_code == 200
     a.mclearance.update.assert_called_with(  # pylint: disable=no-member
-        "test@example.com", "PATCH", [c1, c2]
+        "test@example.com", "PATCH", ["C1", "C2"]
     )
 
 
