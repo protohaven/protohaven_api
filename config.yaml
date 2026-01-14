@@ -113,7 +113,6 @@ nocodb:
     tools_and_equipment:
       areas: "mkb05bg2fnjp5af"
       tools: "m70mnnu12pnc5fx"
-      clearances: "mt6i54nze3zpqsg"
       tool_reports: "mon1qz7fs6mp0j6"
     class_automation:
       clearance_codes: "mzgdpodpavc8x2x"
@@ -183,7 +182,6 @@ airtable:
       base_id: "appbIlORlmbIxNU1L"
       areas: "tblpZf4XLHiptLLzL"
       tools: "tblalZYdLVoTICzE6"
-      clearances: "tblsDjiWCOQLgDCHd"
       tool_reports: "tblZbQcalfrvUiNM6"
     class_automation:
       token: ${AIRTABLE_TOKEN_CLASS_AUTOMATION}

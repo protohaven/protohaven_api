@@ -26,9 +26,6 @@ def test_update_patch(mocker):
             mocker.MagicMock(neon_id=123, company_id=456, clearances=["CLEAR1"])
         ],
     )
-    mocker.patch.object(
-        c.airtable, "get_clearance_to_tool_map", return_value={"MWB": ["ABG", "RBP"]}
-    )
     mocker.patch.object(c.neon, "set_clearances", return_value="Success")
     mock_notify = mocker.patch.object(c.mqtt, "notify_clearance")
 
@@ -186,8 +183,7 @@ def test_build_recert_env(mocker):
     }
 
     mock_instructor_clearances = [
-        ("test@example.com", ["clearance1"], [], d(1)),  # maps to tool1
-        ("test@example.com", [], ["tool1"], d(0)),
+        ("test@example.com", ["tool1"], d(1)),
     ]
     mock_reservations = {"123": {"tool1": [d(0)]}}
     mock_pending = mocker.MagicMock(neon_id="123", tool_code="tool1")
@@ -210,11 +206,6 @@ def test_build_recert_env(mocker):
         return_value=mock_instructor_clearances,
     )
     mocker.patch.object(c, "_structured_reservations", return_value=mock_reservations)
-    mocker.patch.object(
-        c,
-        "resolve_codes",
-        side_effect=lambda codes: [{"clearance1": "tool1"}.get(c) for c in codes],
-    )
 
     # Execute the function
     result = c.build_recert_env(d(0), 1300)

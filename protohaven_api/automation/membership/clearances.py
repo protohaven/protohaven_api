@@ -7,13 +7,18 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Literal
 
 from dateutil import parser as dateparser
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon, neon_base, sheets
+from protohaven_api.integrations.airtable import Email, NeonID, ToolCode
+from protohaven_api.integrations.models import Member
 
 log = logging.getLogger("handlers.admin")
+
+type UpdateMethod = Literal["PATCH"] | Literal["DELETE"] | Literal["GET"]
 
 
 @lru_cache(maxsize=1)
@@ -25,7 +30,7 @@ def code_mapping():
     return name_to_code, code_to_id
 
 
-def update(email, method, delta, apply=True):
+def update(email: Email, method: UpdateMethod, delta: set[ToolCode], apply=True):
     """Update clearances for `email` user"""
     m = list(neon.search_members_by_email(email))
     if len(m) == 0:
@@ -33,15 +38,17 @@ def update(email, method, delta, apply=True):
     return update_by_member(m[0], method, delta, apply)
 
 
-def update_by_neon_id(neon_id, method, delta, apply=True):
+def update_by_neon_id(
+    neon_id: NeonID, method: UpdateMethod, delta: set[ToolCode], apply=True
+):
     """Update clearances for `email` user"""
     m = neon_base.fetch_account(neon_id, required=True)
     return update_by_member(m, method, delta, apply)
 
 
-def update_by_member(m, method, delta, apply=True):
+def update_by_member(m: Member, method: UpdateMethod, delta: set[ToolCode], apply=True):
     """Update clearances for `email` user"""
-    delta = set(delta)
+    delta = set(delta)  # So we don't accidentally modify the parent arg
     name_to_code, code_to_id = code_mapping()
     if m.neon_id == m.company_id:
         raise TypeError(
@@ -73,21 +80,6 @@ def update_by_member(m, method, delta, apply=True):
     return list(result)
 
 
-def resolve_codes(initial: list):
-    """Resolve clearance groups (e.g. MWB) into multiple tools (ABG, RBP...)"""
-    mapping = airtable.get_clearance_to_tool_map()  # cached
-    delta = []
-    for c in initial:
-        if c in mapping:
-            delta += list(mapping[c])
-        else:
-            delta.append(c)
-    return delta
-
-
-type Email = str
-type ToolCode = str
-type NeonID = str
 type Hours = float
 type TimeInterval = tuple[datetime.datetime, datetime.datetime]
 
@@ -253,7 +245,6 @@ def build_recert_env(  # pylint: disable=too-many-locals
         last_earned: dict[tuple[NeonID, ToolCode], datetime.datetime] = {}
         for (
             email,
-            clearance_codes,
             tool_codes,
             timestamp,
         ) in instructor_clearances:
@@ -261,7 +252,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
             if not nid:
                 log.debug(f"Failed to resolve email {email} to a Neon ID, ignoring")
                 continue
-            for code in resolve_codes(clearance_codes or []) + (tool_codes or []):
+            for code in tool_codes or []:
                 cur = last_earned.get((nid, code))
                 if not cur or timestamp > cur:
                     last_earned[(nid, code)] = timestamp

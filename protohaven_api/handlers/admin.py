@@ -49,10 +49,9 @@ def user_clearances():
 
     delta = []
     if request.method != "GET":
-        initial = [c.strip() for c in request.values.get("codes").split(",")]
-        if len(initial) == 0:
+        delta = [c.strip() for c in request.values.get("codes").split(",")]
+        if len(delta) == 0:
             return Response("Missing required param 'codes'", status=400)
-        delta = mclearance.resolve_codes(initial)
 
     for e in emails:
         try:

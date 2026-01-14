@@ -30,7 +30,6 @@ log = logging.getLogger("integrations.airtable")
 
 type Email = str
 type NeonID = str
-type ClearanceCode = str
 type ToolCode = str
 type AreaID = str
 type InstructorID = str  # Currently, the email address listed in the capabilities doc
@@ -217,7 +216,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         start_yyyy_mm_dd = self.start_time.strftime("%Y-%m-%d")
         result = f"{form_base}?usp=pp_url"
         result += (
-            f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_email)}"
+            f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_name)}"
         )
         result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
         result += f"&{form_keys['hours']}={self.hours[session_idx]}"
@@ -681,27 +680,6 @@ def get_tool_id_and_name(tool_code: str):
         ):
             return (t["id"], t["fields"].get("Tool Name"))
     return None, None
-
-
-@lru_cache(maxsize=1)
-def get_clearance_to_tool_map():
-    """Returns a mapping of clearance codes (e.g. MWB) to individual tool codes"""
-    airtable_clearances = get_all_records("tools_and_equipment", "clearances")
-    airtable_tools = get_all_records("tools_and_equipment", "tools")
-    tool_code_by_id = {t["id"]: t["fields"]["Tool Code"] for t in airtable_tools}
-    clearance_to_tool = {}
-    for c in airtable_clearances:
-        cc = c["fields"].get("Clearance Code")
-        if cc is None:
-            log.debug(f"Skipping (missing clearance code): '{c['fields'].get('Name')}'")
-            continue
-        ctt = set()
-        for tool_id in c["fields"].get("Tool Records", []):
-            ct = tool_code_by_id.get(tool_id)
-            if ct is not None:
-                ctt.add(ct)
-        clearance_to_tool[cc] = ctt
-    return clearance_to_tool
 
 
 def insert_signin(evt):
