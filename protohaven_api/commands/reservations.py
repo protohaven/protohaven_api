@@ -5,7 +5,6 @@ import logging
 from functools import lru_cache
 
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import get_config
 from protohaven_api.integrations import airtable, booked, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -93,6 +92,11 @@ class Commands:
             help="CSV of Airtable tool codes to constrain sync to",
             default=None,
         ),
+        arg(
+            "--exclude_areas",
+            help="CSV of areas to exclude from syncing",
+            default=None,
+        ),
     )
     def sync_reservable_tools(  # pylint: disable=too-many-branches, too-many-statements, too-many-locals
         self, args, pct
@@ -115,16 +119,18 @@ class Commands:
         if args.filter is not None:
             args.filter = {a.strip() for a in args.filter.split(",")}
             log.warning(f"Filtering to tools by tool code: {args.filter}")
-
-        exclude_areas = set(get_config("booked/exclude_areas"))
-        log.info(f"Will exclude syncing areas: {exclude_areas}")
+        if args.exclude_areas is not None:
+            args.exclude_areas = {a.strip() for a in args.exclude_areas.split(",")}
+            log.warning(f"Excluding areas: {args.exclude_areas}")
+        else:
+            args.exclude_areas = set()
         groups = {
             k.replace("&amp;", "&"): v
             for k, v in booked.get_resource_group_map().items()
         }
         pct[0] = 1
-        in_airtable = set(self._area_colors().keys()) - exclude_areas
-        in_booked = set(groups.keys()) - exclude_areas
+        in_airtable = set(self._area_colors().keys()) - args.exclude_areas
+        in_booked = set(groups.keys()) - args.exclude_areas
 
         log.info(
             f"Resolved {len(in_airtable)} airtable areas and {len(in_booked)} booked "

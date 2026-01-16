@@ -1,12 +1,15 @@
 """handlers for member pages"""
 
+import datetime
 import logging
 import threading
+from typing import Any
 
 from flask import Blueprint, Response, current_app, request, session
 
 from protohaven_api.automation.roles.roles import setup_discord_user_sync
 from protohaven_api.integrations import airtable, neon
+from protohaven_api.integrations.airtable import NeonID, ToolCode
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_role, require_login
 
@@ -29,24 +32,30 @@ def member_svelte_files(typ, path):
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
-@page.route("/member/set_discord", methods=["POST"])
-@require_login
-def set_discord_nick():
-    """Set the nickname of a particular discord user"""
-    discord_id = (request.json.get("discord_id") or "").strip()
+def _fetch_neon_id() -> NeonID | Response:
     neon_id = (request.json.get("neon_id") or session.get("neon_id") or "").strip()
-
-    if not discord_id:
-        return Response("discord_id field required", status=400)
     if not neon_id:
         return Response(
             "You must be logged in as the user you're attempting to change", status=401
         )
 
-    if neon_id != "":
-        nid = (session.get("neon_id") or "").strip()
-        if nid != neon_id and not am_role(Role.ADMIN):
-            return Response("Access Denied for admin parameter `neon_id`", status=401)
+    nid = (session.get("neon_id") or "").strip()
+    if nid != neon_id and not am_role(Role.ADMIN):
+        return Response("Access Denied for admin parameter `neon_id`", status=401)
+    return neon_id
+
+
+@page.route("/member/set_discord", methods=["POST"])
+@require_login
+def set_discord_nick():
+    """Set the nickname of a particular discord user"""
+    discord_id = (request.json.get("discord_id") or "").strip()
+    neon_id = _fetch_neon_id()
+    if isinstance(neon_id, Response):
+        return neon_id
+
+    if not discord_id:
+        return Response("discord_id field required", status=400)
     result = neon.set_discord_user(neon_id, discord_id)
     if not result.get("accountId") == str(neon_id):
         return Response(
@@ -66,10 +75,12 @@ def set_discord_nick():
 @require_login
 def get_recert_data():
     """Get recertification data for the logged in member"""
-    neon_id = int(session.get("neon_id"))
+    neon_id = _fetch_neon_id()
+    if isinstance(neon_id, Response):
+        return neon_id
     configs = airtable.get_tool_recert_configs_by_code()
 
-    pending = []
+    pending: list[tuple[ToolCode, datetime.datetime, dict[str, Any]]] = []
     for (
         nid,
         tool_code,
@@ -77,7 +88,7 @@ def get_recert_data():
         res_deadline,
         _,
     ) in airtable.get_pending_recertifications():
-        if int(nid) != neon_id:
+        if nid != neon_id:
             continue
         c = configs.get(tool_code)
         if not c:

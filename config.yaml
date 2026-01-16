@@ -300,20 +300,6 @@ booked:
   tool_type_id: 8
   schedule_id: 1
   base_url: "https://reserve.protohaven.org/Web/Services/" # Must end in slash to be appended to
-  exclude_areas:
-  - "Class Supplies"
-  - "Maintenance"
-  - "Staff Room"
-  - "Back Yard"
-  - "Fishbowl"
-  - "Maker Market"
-  - "Rack Storage"
-  - "Restroom 1"
-  - "Restroom 2"
-  - "Kitchen"
-  - "Gallery"
-  - "Custodial Room"
-  - "All"
   notify_mqtt: true
 forms:
   signin:
