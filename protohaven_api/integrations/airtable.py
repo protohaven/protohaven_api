@@ -4,11 +4,12 @@ import datetime
 import json
 import logging
 import re
+import traceback
 import urllib.parse
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from functools import lru_cache
-from typing import Iterator
+from typing import Any, Iterator
 
 from dateutil import parser as dateparser
 
@@ -56,11 +57,15 @@ class Class:  # pylint: disable=too-many-instance-attributes
     clearances: list[ToolCode]
 
     @classmethod
-    def resolve_hours(cls, hours, days):
+    def resolve_hours(cls, hours, days) -> list[float]:
         """Compatibility layer to allow for rollback to previous data structure"""
-        if days:
+        try:
+            if not days:
+                return [float(s) for s in str(hours).split(",") or []]
             return [float(hours)] * int(days)
-        return [float(s) for s in str(hours).split(",") or []]
+        except ValueError:
+            traceback.print_exc()
+            return [0.0]
 
     @classmethod
     def from_template(cls, row):
@@ -507,7 +512,7 @@ class RecertConfig:  # pylint: disable=too-few-public-methods, too-many-instance
     bypass_cutoff: datetime.timedelta
     humanized: str
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Convert the instance to a dictionary for serialization."""
         return {
             "tool": self.tool,
@@ -521,7 +526,7 @@ class RecertConfig:  # pylint: disable=too-few-public-methods, too-many-instance
         }
 
 
-def get_tool_recert_configs_by_code():
+def get_tool_recert_configs_by_code() -> dict[ToolCode, RecertConfig]:
     """Returns formatted recertification configs, keyed by tool code"""
     tool_configs = {}
     cutoff = datetime.timedelta(
@@ -532,7 +537,7 @@ def get_tool_recert_configs_by_code():
         if not f.get("Tool Code"):
             continue
         cfg = RecertConfig(
-            tool=f.get("Tool Code"),
+            tool=str(f.get("Tool Code")),
             tool_name=f.get("Tool Name") or "UNKNOWN",
             quiz_url=f.get("Recert Quiz"),
             expiration=datetime.timedelta(days=f.get("Days until Recert Needed") or 0),
@@ -554,13 +559,13 @@ def get_tool_recert_configs_by_code():
 class PendingRecert:
     """Represents a pending recertification in the Recertifications table in Airtable"""
 
-    neon_id: str
-    tool_code: str
+    neon_id: NeonID
+    tool_code: ToolCode
     inst_deadline: datetime.datetime
     res_deadline: datetime.datetime
     notified: datetime.datetime
     suspended: bool
-    rec_id: str | None
+    rec_id: RecordID | None
 
 
 def get_pending_recertifications() -> Iterator[PendingRecert]:
@@ -569,8 +574,8 @@ def get_pending_recertifications() -> Iterator[PendingRecert]:
         if not rec["fields"].get("Tool Code"):
             continue
         yield PendingRecert(
-            neon_id=rec["fields"]["Neon ID"],
-            tool_code=rec["fields"]["Tool Code"].strip(),
+            neon_id=str(rec["fields"]["Neon ID"]),
+            tool_code=str(rec["fields"]["Tool Code"]).strip(),
             inst_deadline=dateparser.parse(
                 rec["fields"]["Instruction Deadline"]
             ).astimezone(tz),
