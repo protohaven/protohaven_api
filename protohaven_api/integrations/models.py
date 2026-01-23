@@ -323,7 +323,9 @@ class Member:  # pylint:disable=too-many-public-methods
 
     @property
     def membership_level(self):
-        """Fetches membership level - note that this is only available via search result"""
+        """Fetches membership level - note that this is only available via search result
+        or with full membership information
+        """
         if "Membership Level" in self.neon_search_data:
             mem = self.neon_search_data.get("Membership Level")
             return mem
@@ -332,6 +334,33 @@ class Member:  # pylint:disable=too-many-public-methods
             return mem.level
         return ""
 
+    def event_discount_pct(self) -> int:  # pylint: disable=too-many-return-statements
+        """Compute the correct percentage discount for events"""
+        if self.account_current_membership_status != "ACTIVE":
+            return 0
+        ibr = self.income_based_rate
+        level = self.membership_level
+        if ibr == "Extremely Low Income - 70%":
+            return 70
+        if ibr == "Very Low Income - 50%":
+            return 50
+        if level == "Instructor":
+            return 50
+        if ibr == "Low Income - 20%":
+            return 20
+        if level in [
+            "General Membership",
+            "Primary Family Membership",
+            "Additional Family Membership",
+            "Company Membership",
+            "Corporate Membership",
+            "Weekend Membership",
+            "Weeknight Membership",
+            "Non-profit Membership",
+        ]:
+            return 20
+        return 0
+
     @property
     def household_id(self):
         """Fetches household ID - note that this is only available via search result"""
@@ -339,7 +368,9 @@ class Member:  # pylint:disable=too-many-public-methods
 
     @property
     def membership_term(self):
-        """Fetches membership term - note that this is only available via search result"""
+        """Fetches membership term - note that this is only available via search result
+        or with full membership information
+        """
         mem = self.neon_search_data.get("Membership Term")
         if mem:
             return mem

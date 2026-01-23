@@ -1,6 +1,7 @@
 """Tests for eventbrite integration"""
 
 from protohaven_api.integrations import eventbrite as e
+from protohaven_api.testing import d
 
 
 def test_is_valid_id():
@@ -51,3 +52,35 @@ def test_fetch_event(mocker):
     mocker.patch.object(e, "get_connector", return_value=mock_connector)
     got = e.fetch_event("123")
     assert got == mock_response
+
+
+def test_generate_discount_code(mocker):
+    """Test creating an Eventbrite discount code"""
+    mocker.patch.object(e, "tznow", return_value=d(0))
+    mock_code = "ABC123XY"
+
+    mocker.patch.object(e.random, "choices", return_value=list(mock_code))
+    mocker.patch.object(e, "get_config", return_value="test_org_id")
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.return_value = {"id": mock_code}
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+
+    got = e.generate_discount_code("456", 25, 4)
+
+    assert got == mock_code
+    expected_params = {
+        "discount": {
+            "type": "coded",
+            "event_id": "456",
+            "code": mock_code,
+            "percent_off": "25",
+            "currency": "USD",
+            "quantity_available": 1,
+            "end_date": "2025-01-01T04:00:00Z",
+            "start_date": "2025-01-01T00:00:00Z",
+            "ticket_classes": [],
+        }
+    }
+    mock_connector.eventbrite_request.assert_called_once_with(
+        "POST", "/organizations/test_org_id/discounts/", expected_params
+    )

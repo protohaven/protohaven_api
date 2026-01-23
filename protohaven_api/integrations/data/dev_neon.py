@@ -64,8 +64,8 @@ def _neon_dev_outputify(rec, field):
         "Household ID": lambda a: a.get("householdId"),
         "Company ID": lambda a: a.get("companyId"),
         "Email 1": lambda a: a["primaryContact"].get("email1"),
-        "Membership Level": lambda a: None,
-        "Membership Term": lambda a: None,
+        "Membership Level": lambda a: "General Membership",
+        "Membership Term": lambda a: "General - $115/mo",
     }[field]
     if extractor:
         return extractor(acc)
@@ -92,6 +92,13 @@ def _neon_dev_search_filter(  # pylint: disable=too-many-return-statements, too-
 
     # This could almost certainly be made less redundant
     if operator == "EQUAL":
+        if field == "Account ID":
+
+            def accid_filter(rec):
+                acc = first(rec, "individualAccount", "companyAccount")
+                return str(acc["accountId"]).strip() == value.strip().lower()
+
+            return accid_filter
         if field == "Email":
 
             def email_filter(rec):

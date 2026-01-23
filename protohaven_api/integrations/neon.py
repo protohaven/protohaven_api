@@ -297,6 +297,21 @@ def search_members_by_email(
     )
 
 
+def search_member_by_neon_id(neon_id, fields=None) -> Member:
+    """Lookup a user by their neon ID; returns a single entry.
+    Use this for fetching search fields that would otherwise be expensive, e.g.
+    membership term"""
+    result = list(
+        _search_members_internal(
+            [("Account ID", "EQUAL", neon_id)],
+            fields,
+            fetch_memberships=False,
+            also_fetch=False,
+        )
+    )
+    return None if not result else result[0]
+
+
 def search_members_by_name(  # pylint: disable=too-many-arguments
     fname,
     lname,
