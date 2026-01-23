@@ -129,6 +129,17 @@ class Member:  # pylint:disable=too-many-public-methods
     neon_membership_data: list[dict] | None = None
     airtable_bio_data: dict = field(default_factory=dict)
 
+    MEMBERSHIP_DISCOUNT_TERMS = [
+        "General Membership",
+        "Primary Family Membership",
+        "Additional Family Membership",
+        "Company Membership",
+        "Corporate Membership",
+        "Weekend Membership",
+        "Weeknight Membership",
+        "Non-profit Membership",
+    ]
+
     @classmethod
     def from_neon_fetch(cls, data):
         """Parses out all relevant info for a member
@@ -348,16 +359,7 @@ class Member:  # pylint:disable=too-many-public-methods
             return 50
         if ibr == "Low Income - 20%":
             return 20
-        if level in [
-            "General Membership",
-            "Primary Family Membership",
-            "Additional Family Membership",
-            "Company Membership",
-            "Corporate Membership",
-            "Weekend Membership",
-            "Weeknight Membership",
-            "Non-profit Membership",
-        ]:
+        if level in self.MEMBERSHIP_DISCOUNT_TERMS:
             return 20
         return 0
 

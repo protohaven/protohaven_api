@@ -729,16 +729,7 @@ pricing = [
         "cond": [
             active_or_future_membership_condition(),
             membership_condition(
-                [
-                    "General Membership",
-                    "Primary Family Membership",
-                    "Additional Family Membership",
-                    "Company Membership",
-                    "Corporate Membership",
-                    "Weekend Membership",
-                    "Weeknight Membership",
-                    "Non-profit Membership",
-                ],
+                Member.MEMBERSHIP_DISCOUNT_TERMS,
                 # These are IDs of the membership types. For reference, see
                 # https://protohaven.app.neoncrm.com/np/admin/systemsetting/membershipHome.do
                 # And look at the suffix of the `Edit` urls.
