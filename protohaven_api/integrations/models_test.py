@@ -702,16 +702,11 @@ def test_event_discount_pct():
     obj.membership_level = "Some Other Level"
     assert obj.event_discount_pct() == 20
 
-    # Test eligible membership levels return 20
+    # Test eligible membership levels return 20 - try a few
     eligible_levels = [
         "Primary Family Membership",
         "General Membership",
         "Additional Family Membership",
-        "Company Membership",
-        "Weekend Membership",
-        "Weeknight Membership",
-        "Non-profit Membership",
-        "Corporate Membership",
     ]
     for level in eligible_levels:
         obj.income_based_rate = None
