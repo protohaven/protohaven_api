@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Flask, Response
+from flask import Flask, Response, request
 
 from protohaven_api.integrations import airtable_base
 
@@ -36,8 +36,18 @@ def get_event(evt_id):
 client = app.test_client()
 
 
+@app.route("/organizations/<org_id>/discounts/", methods=["POST"])
+def post_discount(_):
+    """Stub discount creation handler"""
+    code = request.json.get("discount").get("code")
+    # Just pass the code right back
+    return {"id": code}
+
+
 def handle(mode, url, params=None):  # pylint: disable=unused-argument
     """Local execution of mock flask endpoints for Eventbrite"""
     if mode == "GET":
         return client.get(url)
+    if mode == "POST":
+        return client.post(url)
     raise RuntimeError(f"mode not supported: {mode}")

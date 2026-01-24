@@ -661,3 +661,64 @@ def test_image_url():
     e.eventbrite_data = None
     e.description = None
     assert e.image_url is None
+
+
+def test_event_discount_pct():
+    """Test event_discount_pct returns correct percentages based
+    on membership status, income based rate, and membership level"""
+
+    # Test non-active membership returns 0
+    class MockMember(Member):
+        """Mock the member so we can set fields"""
+
+        income_based_rate = None
+        account_current_membership_status = None
+        membership_level = None
+
+    obj = MockMember()
+    obj.account_current_membership_status = "INACTIVE"
+    obj.income_based_rate = "Extremely Low Income - 70%"
+    obj.membership_level = "General Membership"
+    assert obj.event_discount_pct() == 0
+
+    # Test Extremely Low Income - 70%
+    obj.account_current_membership_status = "ACTIVE"
+    obj.income_based_rate = "Extremely Low Income - 70%"
+    obj.membership_level = "General Membership"
+    assert obj.event_discount_pct() == 70
+
+    # Test Very Low Income - 50%
+    obj.income_based_rate = "Very Low Income - 50%"
+    obj.membership_level = "General Membership"
+    assert obj.event_discount_pct() == 50
+
+    # Test Instructor level returns 50 regardless of IBR
+    obj.income_based_rate = None
+    obj.membership_level = "Instructor"
+    assert obj.event_discount_pct() == 50
+
+    # Test Low Income - 20%
+    obj.income_based_rate = "Low Income - 20%"
+    obj.membership_level = "Some Other Level"
+    assert obj.event_discount_pct() == 20
+
+    # Test eligible membership levels return 20 - try a few
+    for level in Member.MEMBERSHIP_DISCOUNT_TERMS:
+        obj.income_based_rate = None
+        obj.membership_level = level
+        assert obj.event_discount_pct() == 20
+
+    # Test non-eligible membership level returns 0
+    obj.membership_level = "Some Other Level"
+    assert obj.event_discount_pct() == 0
+
+    # Test that IBR takes precedence over membership level
+    obj.income_based_rate = "Extremely Low Income - 70%"
+    obj.membership_level = "General Membership"
+    assert obj.event_discount_pct() == 70
+
+    obj.income_based_rate = "Very Low Income - 50%"
+    assert obj.event_discount_pct() == 50
+
+    obj.income_based_rate = "Low Income - 20%"
+    assert obj.event_discount_pct() == 20
