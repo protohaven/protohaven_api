@@ -114,6 +114,7 @@ def goto_class():
     discount code based on the signed in session's membership type, income, and active status
     """
     evt_id = (request.args.get("id") or "").strip()
+    log.info(f"goto_class {evt_id}")
     if not eventbrite.is_valid_id(evt_id):
         # If not eventbrite, then it's a Neon event which uses logged-in session to apply discounts
         return redirect(
@@ -126,7 +127,12 @@ def goto_class():
     if not neon_id:
         return Response("You are not signed in", status=400)
     m = neon.search_member_by_neon_id(
-        neon_id, fields=["Membership Term", neon.CustomField.INCOME_BASED_RATE]
+        neon_id,
+        fields=[
+            "Account Current Membership Status",
+            "Membership Level",
+            neon.CustomField.INCOME_BASED_RATE,
+        ],
     )
     if not m:
         return Response(
@@ -135,9 +141,13 @@ def goto_class():
     url = "https://www.eventbrite.com/e/838895217177/"
     percent_off = m.event_discount_pct()
     if percent_off > 0:
-        log.info("Generating discount for member #{neon_id} for eventbrite #{evt_id}")
+        log.info(f"Generating discount for member #{neon_id} for eventbrite #{evt_id}")
         code = eventbrite.generate_discount_code(evt_id, percent_off)
         log.info(f"Generated code {code}; redirecting to event with code applied")
         # https://intercom.help/eventbrite-marketing/en/articles/7239804-create-a-code-that-gives-a-discount-or-reveals-hidden-tickets
         url += f"?discount={code}"
+    else:
+        log.info(
+            f"No discount eligible for member #{neon_id}; redirecting without code applied"
+        )
     return redirect(url)

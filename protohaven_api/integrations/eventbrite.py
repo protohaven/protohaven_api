@@ -79,7 +79,7 @@ def generate_discount_code(
         }
     }
     url = f"/organizations/{get_config('eventbrite/organization_id')}/discounts/"
-    response = get_connector().eventbrite_request("POST", url, params)
+    response = get_connector().eventbrite_request("POST", url, json=params)
     if not response["id"]:
         raise RuntimeError(f"Failed to create eventbrite discount code: {response}")
     return response["id"]

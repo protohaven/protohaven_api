@@ -4,6 +4,7 @@
   import {get, post} from '$lib/api.ts';
 
   import FetchError from '$lib/fetch_error.svelte';
+  import EventList from '$lib/member/event_list.svelte';
   import {Accordion, AccordionItem, Badge, Card, Spinner, ListGroup, ListGroupItem, CardTitle, CardSubtitle, CardHeader, CardBody, CardFooter, Button, Input, Navbar, NavbarBrand, Nav, NavItem, NavLink } from '@sveltestrap/sveltestrap';
 
   let first;
@@ -119,6 +120,15 @@
     {#each p.clearances as c}
       <Badge color="light">{c}</Badge>
     {/each}
+  </CardBody>
+  </Card>
+
+  <Card class="my-3">
+  <CardHeader>
+        <CardTitle>Events</CardTitle>
+  </CardHeader>
+  <CardBody>
+        <EventList/>
   </CardBody>
   </Card>
 
