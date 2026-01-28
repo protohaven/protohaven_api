@@ -20,6 +20,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     booked,
     comms,
+    eventbrite,
     neon_base,
 )
 from protohaven_api.integrations.comms import Msg
@@ -352,6 +353,12 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=True,
         ),
+        arg(
+            "--use-eventbrite",
+            help="Post class to eventbrite instead of to Neon CRM",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
     )
     def post_classes_to_neon(
         self, args, _
@@ -383,7 +390,7 @@ class Commands:
         to_schedule.sort(key=lambda e: e.start_time)
 
         log.info("Attempting auth as user to allow for pricing changes")
-        session = neon_base.NeonOne()
+        session = None if args.use_eventbrite else neon_base.NeonOne()
 
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
@@ -398,7 +405,7 @@ class Commands:
             num += 1
             result_id = None
             try:
-                if args.apply:
+                if args.apply and not args.use_eventbrite:
                     result_id = neon_base.create_event(
                         event.name,
                         self._format_class_description(event),
@@ -410,6 +417,14 @@ class Commands:
                         published=args.publish,
                         registration=args.registration,
                     )
+                elif args.apply and args.use_eventbrite:
+                    result_id = eventbrite.create_event(
+                        event.name,
+                        self._format_class_description(event),
+                        event.sessions,
+                        max_attendees=event.capacity,
+                        published=args.publish,
+                    )
                 else:
                     result_id = "DRYRUN"
                 log.info(f"- Neon event {result_id} created")
@@ -417,13 +432,24 @@ class Commands:
                 event.neon_id = str(result_id)
 
                 log.info("- Assigning pricing (uses Firefox process via playwright)")
-                if args.apply:
+                if args.apply and not args.use_eventbrite:
                     session.assign_pricing(
                         event.neon_id,
                         event.price,
                         event.capacity,
                         include_discounts=args.discounts,
                         clear_existing=True,
+                    )
+                elif args.apply and args.use_eventbrite:
+                    log.info(
+                        str(
+                            eventbrite.assign_pricing(
+                                event.neon_id,
+                                event.price,
+                                event.capacity,
+                                event.sessions[0][0] - datetime.timedelta(hours=24),
+                            )
+                        )
                     )
                 else:
                     log.info("  Skip (--no-apply)")
@@ -453,7 +479,11 @@ class Commands:
                 log.error(traceback.format_exc())
                 if result_id:
                     log.error("Failed; reverting event creation")
-                    log.info(neon_base.delete_event_unsafe(result_id))
+                    if args.use_eventbrite:
+                        log.info(eventbrite.delete_event_unsafe(result_id))
+                    else:
+                        log.info(neon_base.delete_event_unsafe(result_id))
+
                     airtable.update_record(
                         {"Neon ID": ""},
                         "class_automation",
