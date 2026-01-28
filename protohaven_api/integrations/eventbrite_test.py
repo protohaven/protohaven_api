@@ -82,5 +82,5 @@ def test_generate_discount_code(mocker):
         }
     }
     mock_connector.eventbrite_request.assert_called_once_with(
-        "POST", "/organizations/test_org_id/discounts/", expected_params
+        "POST", "/organizations/test_org_id/discounts/", json=expected_params
     )
