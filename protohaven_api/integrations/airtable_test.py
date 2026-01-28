@@ -19,8 +19,11 @@ def test_set_booked_resource_id(mocker):
     a.set_booked_resource_id("airtable_id", "resource_id")
 
     fname, args, kwargs = ab.get_connector().db_request.mock_calls[0]
-    assert kwargs["data"] == {"fields": {"BookedResourceId": "resource_id"}}
-    assert "airtable_id" == kwargs["rec"]
+    assert kwargs["data"] == {
+        "records": [
+            {"id": "airtable_id", "fields": {"BookedResourceId": "resource_id"}}
+        ]
+    }
 
 
 Tc = namedtuple("TC", "desc,entries,tag,want")
@@ -321,6 +324,7 @@ def test_mark_coupon_assigned(mocker):
 def test_create_fees_batched(mocker):
     """Ensure that create_fees does not overload insert_records' max
     batch size"""
+    m = mocker.patch.object(a, "_refid", side_effect=lambda x: x)
     m = mocker.patch.object(a, "insert_records", return_value="ok")
     a.create_fees([["123", 5, 1] for i in range(20)])
     assert len(m.mock_calls) == 2

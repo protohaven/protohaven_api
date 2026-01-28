@@ -16,6 +16,7 @@ from dateutil import parser as dateparser
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations.airtable_base import (
     _idref,
+    _refid,
     delete_record,
     get_all_records,
     get_all_records_after,
@@ -138,8 +139,8 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
         hours = Class.resolve_hours(
-            (f.get("Hours (from Class)") or [None])[0],
-            (f.get("Days (from Class)") or [None])[0],
+            _unwrap(f, "Hours (from Class)"),
+            _unwrap(f, "Days (from Class)"),
         )
         if not hours:
             raise RuntimeError("Class template data for session has no hours listed")
@@ -147,8 +148,8 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         starts = cls.resolve_starts(
             f.get("Sessions") or None,
             f.get("Start Time") or None,
-            (f.get("Days (from Class)") or [None])[0],
-            (f.get("Days Between Sessions (from Class)") or [None])[0],
+            _unwrap(f, "Days (from Class)"),
+            _unwrap(f, "Days Between Sessions (from Class)"),
         )
         if len(hours) < len(
             starts
@@ -160,21 +161,17 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         ]
         class_ids = [None]
         if "Class" in f.keys():
-            ref_fields = ["_nc_m2m_Class_Templates_Schedules", "Class_Templates_id"]
-            if ref_fields[0] in f:
-                class_ids = [str(lnk[ref_fields[1]]) for lnk in f[ref_fields[0]]]
-            else:
-                class_ids = _idref(row, "Class")
+            class_ids = _idref(row, "Class")
         return cls(
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
             neon_id=f.get("Neon ID") or None,
-            name=(f.get("Name (from Class)") or ["Unknown"])[0],
+            name=_unwrap(f, "Name (from Class)"),
             hours=hours,
             period=datetime.timedelta(
-                days=int((f.get("Period (from Class)") or [0])[0])
+                days=int(_unwrap(f, "Period (from Class)") or 0),
             ),
-            capacity=int((f.get("Capacity (from Class)") or [0])[0]),
+            capacity=int(_unwrap(f, "Capacity (from Class)") or 0),
             supply_state=f.get("Supply State") or "Unknown supply state",
             areas=f.get("Name (from Area) (from Class)") or [],
             confirmed=(
@@ -183,15 +180,15 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             rejected=(
                 safe_parse_datetime(f.get("Rejected")) if f.get("Rejected") else None
             ),
-            image_link=(f.get("Image Link (from Class)") or [None])[0],
+            image_link=_unwrap(f, "Image Link (from Class)"),
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
-            price=int((f.get("Price (from Class)") or [0])[0]),
+            price=int(_unwrap(f, "Price (from Class)") or 0),
             instructor_email=(f.get("Email") or "").strip().lower(),
             instructor_name=f.get("Instructor") or "",
             sessions=sessions,
             volunteer=f.get("Volunteer") or False,
             description={
-                k: (f.get(k + " (from Class)") or [""])[0]
+                k: _unwrap(f, k + " (from Class)") or ""
                 for k in (
                     "Short Description",
                     "What you Will Create",
@@ -271,6 +268,17 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         }
 
 
+def _unwrap(row, field):
+    """Lookup fields in Airtable vs Nocodb may be differently configured
+    (e.g. many-to-many vs one-to-many). This causes a difference in
+    data type that requires "unwrapping" many-to-many fields that are
+    used as one-to-many, as in the Schedule table of airtable."""
+    v = row.get(field)
+    if isinstance(v, list):
+        return v[0]
+    return v
+
+
 def get_class_automation_schedule(include_rejected=True, raw=True):
     """Grab the current automated class schedule"""
     for row in get_all_records("class_automation", "schedule"):
@@ -334,14 +342,9 @@ def fetch_instructor_capabilities(name):
             "classes": [],
             "profile_pic": None,
         }
+        log.info(str(row))
         if "Class" in f.keys():
-            if NOCODB_CLASS_REF_FIELD[0] in f:
-                class_ids = [
-                    str(lnk[NOCODB_CLASS_REF_FIELD[1]])
-                    for lnk in f[NOCODB_CLASS_REF_FIELD[0]]
-                ]
-            else:
-                class_ids = _idref(row, "Class")
+            class_ids = _idref(row, "Class")
             result["classes"] = {
                 str(c[0]): c[1] for c in zip(class_ids, f["Name (from Class)"])
             }
@@ -355,12 +358,6 @@ def fetch_instructor_capabilities(name):
         return result
 
 
-NOCODB_CLASS_REF_FIELD = (
-    "_nc_m2m_Class_Templates_Instructor_Capas",
-    "Class_Templates_id",
-)
-
-
 def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
     instructor_caps = defaultdict(list)
@@ -369,13 +366,7 @@ def fetch_instructor_teachable_classes():
             continue
         inst = row["fields"]["Instructor"].strip().lower()
         if "Class" in row["fields"].keys():
-            if NOCODB_CLASS_REF_FIELD[0] in row["fields"]:
-                instructor_caps[inst] += [
-                    str(lnk[NOCODB_CLASS_REF_FIELD[1]])
-                    for lnk in row["fields"][NOCODB_CLASS_REF_FIELD[0]]
-                ]
-            else:
-                instructor_caps[inst] += _idref(row, "Class")
+            instructor_caps[inst] += _idref(row, "Class")
     return instructor_caps
 
 
@@ -400,9 +391,9 @@ def get_class_template(cls_id: RecordID) -> Class:
 def append_classes_to_schedule(payload):
     """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
     assert isinstance(payload, list)
-    return insert_records(
-        payload, "class_automation", "schedule", link_fields=["Class"]
-    )
+    for c in payload:  # Ensure correct format for linking
+        c["Class"] = [_refid(i) for i in c["Class"]]
+    return insert_records(payload, "class_automation", "schedule")
 
 
 def get_role_intents():
@@ -749,7 +740,7 @@ def open_violation(  # pylint: disable=too-many-arguments
             {
                 "Reporter": reporter,
                 "Suspect": suspect,
-                "Relevant Sections": [section_map[int(s)] for s in sections],
+                "Relevant Sections": [_refid(section_map[int(s)]) for s in sections],
                 "Evidence": evidence,
                 "Onset": onset.isoformat(),
                 "Daily Fee": fee,
@@ -788,7 +779,10 @@ def get_policy_fees():
 
 def create_fees(fees, batch_size=10):
     """Create fees for each violation and fee amount in the map"""
-    data = [{"Created": t, "Violation": [vid], "Amount": amt} for vid, amt, t in fees]
+    data = [
+        {"Created": t, "Violation": [_refid(vid)], "Amount": amt}
+        for vid, amt, t in fees
+    ]
     for i in range(0, len(data), batch_size):
         batch = data[i : i + batch_size]
         rep = insert_records(batch, "policy_enforcement", "fees")

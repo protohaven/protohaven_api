@@ -26,7 +26,7 @@
     const h12 = (hour < 13) ? hour : hour % 12;
     const h = h12.toString().padStart(2, '0');
     const ap = (hour < 12) ? "AM" : "PM";
-    console.log(h, sp[1], ap);
+    // console.log(h, sp[1], ap);
     return `${h}:${sp[1].trim()}${ap}`;
   }
 
@@ -70,10 +70,13 @@
     const sessions = selected.starts.map(([date, time], i) => {
       console.log(date, time);
       // https://www.javaspring.net/blog/date-parsing-in-javascript-is-different-between-safari-and-chrome/#3-why-these-differences-exist-root-causes
-      // Kind of a hacky way to create a date, but at least it's compatible and works for EST including DST (probably)
-      const datestr = `${date}T${time}:00-0` + Math.floor(new Date().getTimezoneOffset() / 60) + ':00';
-      console.log(datestr);
-      const t1 = new Date(datestr);
+      // Kind of a hacky way to create a date, but at least it's compatible and works EST/EDT
+      const t1 = new Date(date);
+      const [hr, min] = time.split(':');
+      t1.setHours(parseInt(hr));
+      t1.setMinutes(parseInt(min));
+      console.log(t1);
+
       const t2 = new Date(t1.getTime() + selected.tmpl.hours[i] * 60 * 60 * 1000);
       console.log(t1, t2);
       return [isodatetime(t1), isodatetime(t2)];

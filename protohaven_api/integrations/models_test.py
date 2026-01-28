@@ -676,13 +676,13 @@ def test_event_discount_pct():
         membership_level = None
 
     obj = MockMember()
-    obj.account_current_membership_status = "INACTIVE"
+    obj.account_current_membership_status = "Inactive"
     obj.income_based_rate = "Extremely Low Income - 70%"
     obj.membership_level = "General Membership"
     assert obj.event_discount_pct() == 0
 
     # Test Extremely Low Income - 70%
-    obj.account_current_membership_status = "ACTIVE"
+    obj.account_current_membership_status = "Active"
     obj.income_based_rate = "Extremely Low Income - 70%"
     obj.membership_level = "General Membership"
     assert obj.event_discount_pct() == 70
@@ -703,7 +703,7 @@ def test_event_discount_pct():
     assert obj.event_discount_pct() == 20
 
     # Test eligible membership levels return 20 - try a few
-    for level in Member.MEMBERSHIP_DISCOUNT_TERMS:
+    for level in Member.MEMBERSHIP_DISCOUNT_LEVELS:
         obj.income_based_rate = None
         obj.membership_level = level
         assert obj.event_discount_pct() == 20

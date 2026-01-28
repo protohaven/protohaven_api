@@ -10,7 +10,8 @@ import time
 from email.mime.text import MIMEText
 from functools import lru_cache
 from threading import Lock
-from urllib.parse import urljoin
+from typing import Any
+from urllib.parse import urlencode, urljoin
 
 import asana
 import requests
@@ -75,10 +76,13 @@ class Connector:  # pylint: disable=too-many-public-methods
         """Create a new session using the requests lib"""
         return requests.Session()
 
-    def _construct_db_request_url_and_headers(self, _1, base, tbl, rec, suffix, _2):
+    def _construct_db_request_url_and_headers(
+        self, base: str, tbl: str, rec: str | None, params: dict[str, Any] | None
+    ):
         cfg = get_config("airtable")
         path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
-        path += (f"/{rec}" if rec else "") + (suffix or "")
+        path += f"/{rec}" if rec else ""
+        path += ("?" + urlencode(params)) if params else ""
         headers = {
             "Authorization": f"Bearer {cfg['data'][base]['token']}",
             "Content-Type": "application/json",
@@ -94,11 +98,11 @@ class Connector:  # pylint: disable=too-many-public-methods
         return data
 
     def db_request(  # pylint: disable=too-many-arguments
-        self, mode, base, tbl, rec=None, suffix=None, data=None, link_field=None
+        self, mode, base, tbl, rec=None, params=None, data=None
     ):
         """Make an airtable request using the requests module"""
         url, headers = self._construct_db_request_url_and_headers(
-            mode, base, tbl, rec, suffix, link_field
+            base, tbl, rec, params
         )
         if data is not None:
             data = json.dumps(self._format_db_request_data(mode, rec, data))
@@ -113,7 +117,7 @@ class Connector:  # pylint: disable=too-many-public-methods
                     raise rt
                 log.warning(
                     f"ReadTimeout on airtable request {mode} {base} {tbl} "
-                    f"{rec} {suffix}, retry #{i+1}"
+                    f"{rec} {params}, retry #{i+1}"
                 )
                 time.sleep(int(random.random() * self.max_retry_delay_sec))
         return None, None

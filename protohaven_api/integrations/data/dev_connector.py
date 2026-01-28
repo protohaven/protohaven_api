@@ -2,7 +2,8 @@
 
 import logging
 from json import loads
-from urllib.parse import urljoin
+from typing import Any
+from urllib.parse import urlencode, urljoin
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations.data import (
@@ -48,37 +49,17 @@ class DevConnector(Connector):
         return "nocodb"
 
     def _construct_db_request_url_and_headers(  # pylint: disable=too-many-arguments
-        self, mode, base, tbl, rec, suffix, link_field
+        self, base: str, tbl: str, rec: str | None, params: dict[str, Any] | None
     ):
         cfg = get_config("nocodb")
-        if link_field:
-            link_field = cfg["link_field_ids"][base][tbl][link_field]
-            path = f"/api/v2/tables/{cfg['data'][base][tbl]}/links/{link_field}/records"
-        else:
-            path = f"/api/v2/tables/{cfg['data'][base][tbl]}/records"
-
-        # Patch includes record ID in data, others append the ID to URL
-        if rec and mode != "PATCH":
-            path += f"/{rec}"
-        if suffix:
-            path += suffix
+        path = f"/api/v3/data/{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}/records"
+        path += f"/{rec}" if rec else ""
+        path += ("?" + urlencode(params)) if params else ""
         headers = {
             "xc-token": cfg["requests"]["token"],
             "Content-Type": "application/json",
         }
         return urljoin(cfg["requests"]["url"], path), headers
-
-    def _format_db_request_data(self, mode, rec, data):
-        if mode == "POST" and not isinstance(data, list):
-            # De-encapsulate data, see
-            # https://nocodb.com/apis/v2/data#tag/Table-Records/operation/db-data-table-row-create
-            data = [r["fields"] for r in data["records"]]
-        elif mode == "PATCH":
-            # Record ID lives in row when patching
-            # We also unwrap from "fields" - see
-            # https://nocodb.com/apis/v2/data#tag/Table-Records/operation/db-data-table-row-update
-            data = [{**data["fields"], "Id": int(rec)}]
-        return data
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
