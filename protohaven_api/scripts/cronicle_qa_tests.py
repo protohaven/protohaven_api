@@ -261,6 +261,16 @@ if __name__ == "__main__":
                 ),
             },
         ),
+        (
+            "recertification",
+            test_simple,
+            "emitg0mgfzf",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS_EMAIL_OVERRIDE": EOVR,
+                "ARGS": "--no-apply",
+            },
+        ),
     ]
     asana_task_completing_commands = [
         # Note: need to submit a fake phone message here
