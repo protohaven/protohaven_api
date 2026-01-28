@@ -112,10 +112,12 @@ nocodb:
     token: "LjsLEB_Iyi_BVk2fO26X5LJOI-hCnw7k4jIC4G7r" # pragma: allowlist secret
   data:
     tools_and_equipment:
+      base_id: "pnooicpn486i8zt"
       areas: "mkb05bg2fnjp5af"
       tools: "m70mnnu12pnc5fx"
       tool_reports: "mon1qz7fs6mp0j6"
     class_automation:
+      base_id: "pv1gx53aphpp49n"
       clearance_codes: "mzgdpodpavc8x2x"
       classes: "m3t3xquljpfvihq"
       capabilities: "mzazxu9bgb3vdf0"
@@ -125,10 +127,12 @@ nocodb:
       discounts: "mstauhc7ovslglt"
       quiz_results: "mqnrh78uhi9jeq9"
     policy_enforcement:
+      base_id: "pl9j7m2uj14nfwg"
       sections: "mxq6xd6e7nqmnm0"
       violations: "m1jbelb76ix3cn4"
       fees: "myl3brdewxm9uti"
     people:
+      base_id: "p5s997hwsl4pccd"
       shop_tech_forecast_overrides: "mbnsv0gknsanym3"
       sign_in_announcements: "mpq6eu6gljxpojl"
       sign_in_survey_responses: "m0ug87cgzm31t0b"
@@ -137,6 +141,7 @@ nocodb:
       volunteers_staff: "mkygxd0r8l1yhah"
       recertification: "m1cksb6rz2fpwcw"
     tasks:
+      base_id: "pn8bh1kvisfjyg4"
       asset_disposal: "mn7n4cayp1kntjb"
       shop_and_maintenance_tasks: "mb9vrl8klha39w3"
       private_instruction: "mzvlt891rbk8gis"
@@ -146,9 +151,11 @@ nocodb:
       shop_tech_applicants: "m36hkdzy4imx8xy"
       purchase_requests: "mx7pt89olvqpxd7"
     fake_discord:
+      base_id: "p2rvjew9whculgr"
       members: "m63a1kzdhf4yepz"
       channels: "mbv0l6lew4hr863"
     fake_neon:
+      base_id: "p5505lo0x0b4yuj"
       accounts: "mnk0ozc78npm418"
       memberships: "mv3lhkooul6is39"
       events: "mjxxyvyn5a8qegm"
@@ -156,24 +163,23 @@ nocodb:
       tickets: "mx3ak3a6hdre0c9"
       clearance_codes: "mmk3g8k9pwcykd0"
     fake_wyze:
+      base_id: "pjb065n0m7ilebg"
       devices: "mhjg19llr23inaa"
     fake_booked:
+      base_id: "pqilzsr8ub5ranp"
       reservations: "mkbmiwjyi3ow1ae"
     fake_eventbrite:
+      base_id: "p64xh2j5k3kjjad"
       events: "m90g2ef9xvyfynt"
     fake_google:
+      base_id: "pvnixx9sl858enx"
       calendar: "mafe10fw4jk19u6"
     fake_square:
+      base_id: "pn1hy7vz8wck72c"
       subscriptions: "mrmqtcak7xx1nzr"
       subscription_plans: "mkqdo8170eybp61"
       customers: "m4fuq3b2aj9fr1t"
       invoices: "m86a3t2edajbznx"
-  link_field_ids:
-    class_automation:
-      availability:
-        Instructor: "cm6okvc2szaigxk"
-      schedule:
-        Class: "csv92ymx3j996xg"
 airtable:
   requests:
     url: "https://api.airtable.com/v0/"
