@@ -5,12 +5,13 @@ import logging
 import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 from flask import Blueprint, Response, current_app, redirect, request, session
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as tauto
-from protohaven_api.config import safe_parse_datetime, tz, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import airtable, comms, neon, neon_base, sales, wiki
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_lead_role, am_neon_id, am_role, require_login_role
@@ -47,7 +48,6 @@ EXCLUDED_AREAS = [
     "Kitchen",
     "Digital",
     "Design Hub",
-    "Fishbowl",
     "Hand Tools",
     "Staff Room",
     "Maintenance",
@@ -56,11 +56,14 @@ EXCLUDED_AREAS = [
     "Class Supplies",
     "Custodial Room",
     "Rack Storage",
-    "Restroom 1",
-    "Restroom 2",
+    "Right Restroom",
+    "Left Restroom",
+    "Other",
+    "Rental Room",
 ]
 
 
+@lru_cache(maxsize=1)
 def _fetch_tool_areas():
     return {
         a["fields"]["Name"].strip()
@@ -218,6 +221,14 @@ def _notify_override(name, shift, techs):
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_forecast_override():
     """Update/remove forecast overrides on shop tech forecast"""
+    # We want to know who's modifying the schedule, not just the generic shop tech user
+    if am_neon_id(get_config("general/shop_tech_neon_id")):
+        return Response(
+            "Generic shop tech user is not allowed to modify the shift schedule."
+            "Please log in as a specific tech to change the schedule.",
+            status=400,
+        )
+
     data = request.json
     _id = data.get("id")
     fullname = data.get("fullname")
@@ -295,11 +306,17 @@ def techs_list():
             t["shop_tech_last_day"] = t["shop_tech_last_day"].strftime("%Y-%m-%d")
         techs_results.append(t)
 
-    return {"tech_lead": am_role(Role.SHOP_TECH_LEAD), "techs": techs_results}
+    return {"tech_lead": am_lead_role(), "techs": techs_results}
 
 
 @page.route("/techs/update", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD, Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def tech_update():
     """Update the custom fields of a shop tech in Neon"""
     data = request.json
@@ -313,7 +330,7 @@ def tech_update():
         "shop_tech_first_day",
         "shop_tech_last_day",
     )
-    if not am_role(Role.SHOP_TECH_LEAD):
+    if not am_lead_role():
         if not am_neon_id(nid):
             return Response("Access Denied", status=401)
 
@@ -385,7 +402,9 @@ def rm_tech_event():
 
 
 @page.route("/techs/enroll", methods=["POST"])
-@require_login_role(Role.SHOP_TECH_LEAD, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
@@ -440,8 +459,8 @@ def techs_backfill_events():
 
     return {
         "events": for_techs,
-        "can_register": am_role(Role.SHOP_TECH) or am_role(Role.SHOP_TECH_LEAD),
-        "can_edit": am_role(Role.SHOP_TECH_LEAD)
+        "can_register": am_role(Role.SHOP_TECH) or am_lead_role(),
+        "can_edit": am_lead_role()
         or am_role(Role.EDUCATION_LEAD)
         or am_role(Role.STAFF),
     }
@@ -474,7 +493,15 @@ def _notify_registration(account_id, event_id, action):
 @page.route("/techs/event", methods=["POST"])
 @require_login_role(Role.SHOP_TECH, redirect_to_login=False)
 def techs_event_registration():
-    """Enroll a Neon account in the shop tech program, via Neon ID"""
+    """Register a shop tech for an event, via Neon ID"""
+    # We want to know who's modifying the schedule, not just the generic shop tech user
+    if am_neon_id(get_config("general/shop_tech_neon_id")):
+        return Response(
+            "Generic shop tech user is not allowed to register for events."
+            "Please log in as a specific tech, then retry.",
+            status=400,
+        )
+
     account_id = session["neon_id"]
     data = request.json
     event_id = data.get("event_id")

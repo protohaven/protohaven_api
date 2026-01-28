@@ -32,9 +32,10 @@
 
   function candidate_times(session_duration) {
     let times = [];
-    const max_hr = 22 - session_duration; // 10pm is close
-    for (let hour = 10; hour <= max_hr; hour++) { // 10am is open
-      for (let minute of (hour < max_hr) ? [0, 30] : [0]) {
+    const MAX_HR = (admin) ? 24 : 22 - session_duration; // 10pm is close
+    const MIN_HR = (admin) ? 0 : 10; // 10am is open
+    for (let hour = MIN_HR; hour <= MAX_HR; hour++) { // 10am is open
+      for (let minute of (hour < MAX_HR) ? [0, 30] : [0]) {
         const h = hour.toString().padStart(2, '0');
         const m = minute.toString().padStart(2, '0');
         times.push(`${h}:${m}`);

@@ -6,6 +6,7 @@ general:
   cors: ${CORS}
   session_secret: ${SESSION_SECRET}
   admin_users: ["1245"]
+  shop_tech_neon_id: "1146"
   precache_sign_in: ${PRECACHE_SIGN_IN}
   external_access_codes:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]

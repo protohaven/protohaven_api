@@ -8,6 +8,7 @@ import {get, post} from '$lib/api.ts';
 import EditCell from './editable_td.svelte'
 
 export let visible;
+let loaded = false;
 let search = "";
 let searching = false;
 let promise = new Promise((r,_)=>{r([])});
@@ -61,13 +62,13 @@ function get_subs() {
       d["storage_detail"] = parsed["storage_detail"] || d["note"] || "Unknown";
     }
     subs = [...data];
-    console.log(subs)
+    loaded = true;
+    console.log(subs);
   }).catch((err) => {
     console.error(err);
     throw err;
   }).finally(() => fetching = false);
 }
-onMount(get_subs);
 
 function handle_storage_type_select(evt, sub, typ){
   // Do async to allow the dropdown time to close
@@ -99,6 +100,11 @@ function update_sub_note(sub) {
     }).finally(() => sub_note_editing = false);
 }
 
+$: {
+  if (visible && !loaded) {
+    get_subs();
+  }
+}
 </script>
 
 {#if visible}

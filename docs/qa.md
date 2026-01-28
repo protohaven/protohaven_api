@@ -32,6 +32,7 @@ After deployment, verify that:
   * [x] Cal loads, individual shifts can be clicked and overridden
   * [x] Cal can change date range, highlights current day
   * [x] Cal swap overrides send an alert to the #techs channel
+  * [ ] Generic shop tech account is not permitted to modify the calendar
   * [x] Nov 11 is not overriden to have zero techs (i.e. Veteran's Day not a Protohaven observed holiday)
   * [x] Members tab shows today's sign-ins
   * [x] Tool states load
@@ -49,6 +50,7 @@ After deployment, verify that:
   * [x] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances
   * [x] Techs roster has some tech photos & bios shown
   * [x] Events tab can create, register, unregister, and delete a techs-only class
+  * [ ] Generic shop tech account is not permitted to register for a tech-only class
   * [x] Full tech name is visible on calendar only when logged in as a tech / tech lead
   * [x] Members tab shows "access denied" when not logged in
   * [x] Area leads only show first name when not signed in
