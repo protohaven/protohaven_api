@@ -729,8 +729,8 @@ pricing = [
         "cond": [
             active_or_future_membership_condition(),
             membership_condition(
-                Member.MEMBERSHIP_DISCOUNT_TERMS,
-                # These are IDs of the membership types. For reference, see
+                Member.MEMBERSHIP_DISCOUNT_LEVELS,
+                # These are IDs of the membership levels. For reference, see
                 # https://protohaven.app.neoncrm.com/np/admin/systemsetting/membershipHome.do
                 # And look at the suffix of the `Edit` urls.
                 # These must be listed in order with the strings above.

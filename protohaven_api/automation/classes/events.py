@@ -3,7 +3,7 @@
 import datetime
 from concurrent import futures
 from functools import partial
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, eventbrite, neon, neon_base
@@ -21,11 +21,11 @@ def _should(condition: bool | Callable[[Any], bool], v: Any) -> bool:
 
 
 def _fetch_upcoming_events_neon(
-    after,
-    published=True,
-    fetch_attendees=False,
-    fetch_tickets=False,
-):
+    after: datetime.datetime,
+    published: bool = True,
+    fetch_attendees: bool = False,
+    fetch_tickets: bool = False,
+) -> Iterator[list[Event]]:
     """Fetch only neon upcoming events"""
     q_params = {
         "endDateAfter": after.strftime("%Y-%m-%d"),
@@ -51,12 +51,12 @@ def _fetch_upcoming_events_neon(
 
 
 def fetch_upcoming_events(  # pylint: disable=too-many-locals
-    back_days=7,
-    published=True,
-    merge_airtable=False,
-    fetch_attendees=False,
-    fetch_tickets=False,
-):
+    back_days: int = 7,
+    published: bool = True,
+    merge_airtable: bool = False,
+    fetch_attendees: bool = False,
+    fetch_tickets: bool = False,
+) -> Iterator[Event]:
     """Load upcoming events from all sources, with `back_days` of trailing event data.
     Note that querying is done based on the end date so multi-week intensives
     can still appear even if they started earlier than `back_days`."""
@@ -74,7 +74,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
         eb_gen = eventbrite.fetch_events(
             status="live,started,ended,completed", batching=True
         )
-        not_done = {
+        not_done: set[futures.Future] = {
             executor.submit(lambda: (neon_gen, next(neon_gen))),
             executor.submit(lambda: (eb_gen, next(eb_gen))),
         }
@@ -91,6 +91,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
         # we have to submit them to the thread pool multiple times to
         # maintain asynchronous results
         while True:
+            done: set[futures.Future] = set()
             done, not_done = futures.wait(not_done, return_when=futures.FIRST_COMPLETED)
             for d in done:
                 try:

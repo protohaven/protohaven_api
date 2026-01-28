@@ -37,17 +37,17 @@ client = app.test_client()
 
 
 @app.route("/organizations/<org_id>/discounts/", methods=["POST"])
-def post_discount(_):
+def post_discount(org_id):  # pylint: disable=unused-argument
     """Stub discount creation handler"""
     code = request.json.get("discount").get("code")
     # Just pass the code right back
     return {"id": code}
 
 
-def handle(mode, url, params=None):  # pylint: disable=unused-argument
+def handle(mode, url, params=None, json=None):  # pylint: disable=unused-argument
     """Local execution of mock flask endpoints for Eventbrite"""
     if mode == "GET":
         return client.get(url)
     if mode == "POST":
-        return client.post(url)
+        return client.post(url, json=json)
     raise RuntimeError(f"mode not supported: {mode}")

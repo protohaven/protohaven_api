@@ -129,7 +129,7 @@ class Member:  # pylint:disable=too-many-public-methods
     neon_membership_data: list[dict] | None = None
     airtable_bio_data: dict = field(default_factory=dict)
 
-    MEMBERSHIP_DISCOUNT_TERMS = [
+    MEMBERSHIP_DISCOUNT_LEVELS = [
         "General Membership",
         "Primary Family Membership",
         "Additional Family Membership",
@@ -337,6 +337,7 @@ class Member:  # pylint:disable=too-many-public-methods
         """Fetches membership level - note that this is only available via search result
         or with full membership information
         """
+        log.info(str(self.neon_search_data))
         if "Membership Level" in self.neon_search_data:
             mem = self.neon_search_data.get("Membership Level")
             return mem
@@ -347,7 +348,7 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def event_discount_pct(self) -> int:  # pylint: disable=too-many-return-statements
         """Compute the correct percentage discount for events"""
-        if self.account_current_membership_status != "ACTIVE":
+        if self.account_current_membership_status != "Active":
             return 0
         ibr = self.income_based_rate
         level = self.membership_level
@@ -359,7 +360,7 @@ class Member:  # pylint:disable=too-many-public-methods
             return 50
         if ibr == "Low Income - 20%":
             return 20
-        if level in self.MEMBERSHIP_DISCOUNT_TERMS:
+        if level in self.MEMBERSHIP_DISCOUNT_LEVELS:
             return 20
         return 0
 
