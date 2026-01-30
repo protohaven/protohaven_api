@@ -29,6 +29,7 @@ general:
     hours_in_day: 24
   recertification:
     bypass_hours_window_days: 90
+    enabled_users: ${RECERT_ENABLED_USERS}
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle

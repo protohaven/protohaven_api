@@ -19,7 +19,10 @@ logging.basicConfig(level=get_config("general/log_level").upper())
 log = logging.getLogger("main")
 log.info("Creating flask server")
 
+server_mode = get_config("general/server_mode").lower()
+
 app = configure_app(
+    cookie_domain=".protohaven.org" if server_mode == "prod" else ".localhost",
     behind_proxy=get_config("general/behind_proxy", as_bool=True),
     cors_all_routes=get_config("general/cors", as_bool=True),
     session_secret=get_config("general/session_secret"),
@@ -30,8 +33,6 @@ if get_config("general/unsafe/no_rbac", as_bool=True):
         "DANGER DANGER DANGER\n\nRBAC DISABLED; EVERYONE CAN DO EVERYTHING\n\nDANGER DANGER DANGER"
     )
     set_rbac(False)
-
-server_mode = get_config("general/server_mode").lower()
 
 log.info(f"Initializing connector ({server_mode})")
 init_connector(Connector if server_mode == "prod" else DevConnector)

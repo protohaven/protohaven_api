@@ -19,6 +19,7 @@ const PROXY_PATHS = [
   '/whoami',
   '/neon_lookup',
   '/class_listing',
+  '/member/goto_class',
   '/welcome/announcement_ack',
 ];
 const WS_PROXY_PATHS = [

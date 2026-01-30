@@ -8,12 +8,26 @@ export function App( { imgSize, initialData } ) {
 		return <div style={{textAlign: "center", fontWeight: "bold"}}>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohave.norg">hello@protohaven.org</a></div>;
 	}
 
+	const API_BASE_URL = (location.hostname === "localhost") ? "http://localhost:5173" : "https://api.protohaven.org";
+
 	const [classes, setClasses] = useState([]);
 	const [areas, setAreas] = useState(new Set());
 	const [levels, setLevels] = useState(new Set());
 	const [filters, setFilters] = useState({area: null, level: null, age: 9999, from_date: null, to_date: null, show_full: true});
 	const [pricing, setPricing] = useState({});
+	const [user, setUser] = useState({});
 	useEffect(() => {
+		// See if we should go through the API server when clicking through on classes
+		fetch(API_BASE_URL + "/whoami", {credentials:"include"}).then((rep) => rep.json()).then((data) => {
+			setUser(data);
+			console.log(data);
+		}).catch((e) => {
+			if (e.message.indexOf("You are not logged in") !== -1) {
+				console.log("Not logged in; user will be sent directly to events");
+			}
+			throw e;
+		});
+
 		// Maintain a copy of loading vars so that
 		// callbacks have shared context
 		let tmpClasses = {};
@@ -49,6 +63,8 @@ export function App( { imgSize, initialData } ) {
 			});
 		});
 	}, []);
+
+
 	const items = classes.map((c) => {
 		const p = pricing[c.name] || {remaining: null, price: null, discount: null};
 		let timesWithinRange = Object.entries(c.times).filter((t) => (!filters.from_date || t[1].d0 >= filters.from_date) && (!filters.to_date || t[1].d1 <= filters.to_date));
@@ -59,7 +75,7 @@ export function App( { imgSize, initialData } ) {
 			(!filters.level || filters.level === c.levelDesc) &&
 			((!filters.from_date && !filters.to_date) || timesWithinRange.length > 0)
 		)
-		return [visible, <Item key={c.name} {...c} times={timesWithinRange} pricing={p} filters={filters} visible={visible} />];
+		return [visible, <Item key={c.name} {...c} times={timesWithinRange} pricing={p} filters={filters} visible={visible} user={user} base_url={API_BASE_URL} />];
 	});
 	const any_visible = items.map((i) => i[0]).reduce((a,b) => a || b, false);
 
@@ -110,6 +126,8 @@ export function App( { imgSize, initialData } ) {
 					setFilters({...filters, to_date});
 				}}/>
 			</div>
+			{user && user.fullname &&
+				<div><em>Logged in as <a href={API_BASE_URL + "/member"} target="_blank">{user.fullname}</a></em></div>}
 		</div>
 		<div className="ph-grid">
 		{items.map((i) => i[1])}

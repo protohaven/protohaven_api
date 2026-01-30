@@ -4,14 +4,22 @@
   import {get, post} from '$lib/api.ts';
 
   import FetchError from '$lib/fetch_error.svelte';
-  import {Spinner, ListGroup, ListGroupItem } from '@sveltestrap/sveltestrap';
+  import {Spinner, ListGroup, ListGroupItem, Card, CardHeader, CardBody, CardTitle } from '@sveltestrap/sveltestrap';
 
+  export let visible;
   let promise = new Promise(()=>{});
   onMount(() => {
 	  promise = get("/class_listing");
   });
 </script>
 
+{#if visible}
+<Card class="my-3">
+<CardHeader>
+      <CardTitle>Events</CardTitle>
+</CardHeader>
+<CardBody>
+<p>These links apply discount codes based on your membership status and type.</p>
 {#await promise}
 <Spinner/>Loading...
 {:then p}
@@ -27,3 +35,6 @@
 {:catch error}
   <FetchError {error}/>
 {/await}
+</CardBody>
+</Card>
+{/if}
