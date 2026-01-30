@@ -1,9 +1,13 @@
 """Facilitates fetching event information from Eventbrite"""
 
 import datetime
+import logging
 import random
 import string
+from io import BytesIO
 from typing import Iterator
+
+import requests
 
 from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.airtable import Interval
@@ -12,6 +16,8 @@ from protohaven_api.integrations.models import Event
 
 type EventbriteID = str
 type DiscountCode = str
+
+log = logging.getLogger("protohaven_api.integrations.eventbrite")
 
 
 def _eb_timestr(d: datetime.datetime) -> str:
@@ -86,83 +92,129 @@ def generate_discount_code(
     return response["id"]
 
 
+def _utcfmt(d: datetime.datetime) -> str:
+    return (
+        d.astimezone(datetime.timezone.utc).isoformat(timespec="seconds").split("+")[0]
+        + "Z"
+    )
+
+
 def create_event(  # pylint: disable=too-many-arguments
     name: str,
-    desc: str,
     sessions: list[Interval],
     max_attendees: int = 6,
     published: bool = True,
+    logo_id: int | None = None,
 ) -> EventbriteID:
     """Create an event in Eventbrite, possibly creating an Event Series if there are
     multiple sessions."""
     params = {
         "event": {
             "name": {
-                "text": name,
-            },
-            "description": {
-                "html": desc,
+                "html": name
+                + ("" if len(sessions) <= 1 else f" ({len(sessions)} sessions)"),
             },
             "start": {
-                "timezone": "UTC",
-                "utc": sessions[0][0].astimezone(datetime.timezone.utc).isoformat(),
+                "timezone": "America/New_York",
+                "utc": _utcfmt(sessions[0][0]),
             },
             "end": {
-                "timezone": "UTC",
-                "utc": sessions[-1][1].astimezone(datetime.timezone.utc).isoformat(),
+                "timezone": "America/New_York",
+                "utc": _utcfmt(sessions[-1][1]),
             },
+            # Venues are separate entities stored on Eventbrite server. This assumes
+            # we're always hosting at Protohaven
+            # https://www.eventbrite.com/platform/api#/reference/venue/list/list-venues-by-organization?console=1
+            "venue_id": "103409419",
             "currency": "USD",
             "listed": published,
             "show_remaining": True,
             "capacity": max_attendees,
-            "is_series": len(sessions) > 1,
+            "logo_id": logo_id,
+            # "is_series": len(sessions) > 1,
         }
     }
-    url = f"/organiations/{get_config('eventbrite/organization_id')}/events"
+    url = f"/organizations/{get_config('eventbrite/organization_id')}/events/"
     response = get_connector().eventbrite_request("POST", url, json=params)
     event_id = response.get("id") or None
     if not event_id:
         raise RuntimeError(f"Failed to create eventbrite event: {response}")
 
-    for t0, t1 in sessions[1:]:
-        # We create a separate schedule for each session, as Eventbrite's setup requires
-        # every event in the schedule to have the same duration
-        url = f"/events/{event_id}/schedules/"
-        startstr = (
-            t0.astimezone(datetime.timezone.utc)
-            .isoformat()
-            .replace("-", "")
-            .replace(":", "")
-        )
-        params = {
-            "schedule": {
-                "occurrence_duration": (t1 - t0).total_seconds(),
-                "recurrence_rule": f"DTSTART:{startstr}",
-            }
-        }
-        response = get_connector().eventbrite_request("POST", url, json=params)
-        if not response.get("id"):
-            raise RuntimeError(
-                f"Failed to set session for eventbrite event {event_id}: {response}"
-            )
+    # for t0, t1 in sessions[1:]:
+    #     # We create a separate schedule for each session, as Eventbrite's setup requires
+    #     # every event in the schedule to have the same duration
+    #     url = f"/events/{event_id}/schedules/"
+
+    #     # Eventbrite expects ISO8601 without punctuation and no timezone offset
+    #     startstr = _utcfmt(t0).replace('-', '').replace(':','')
+    #     params = {
+    #         "schedule": {
+    #             "occurrence_duration": round((t1 - t0).total_seconds()),
+    #             "recurrence_rule": f"DTSTART:{startstr}\nRRULE:FREQ=DAILY;COUNT=1",
+    #         }
+    #     }
+    #     response = get_connector().eventbrite_request("POST", url, json=params)
+    #     if not response.get("id"):
+    #         raise RuntimeError(
+    #             f"Failed to set session for eventbrite event {event_id}: {response}"
+    #         )
 
     return event_id
 
 
-def assign_pricing(
-    event_id: EventbriteID, price: int, seats: int, sale_closes: datetime.datetime
-):
+def set_structured_content(event_id: EventbriteID, desc: str, content_version=2):
+    """Sets the structured content (Overview) of the event.
+
+    Note: `content_version` is an incremental ID at the event level.
+    ID 1 is apparently already taken.
+
+    If setting contenton an existing event, the content_version will
+    need to be incremented.
+    """
+    content = {
+        "access_type": "public",
+        "modules": [
+            {
+                "data": {
+                    "body": {
+                        "alignment": "left",
+                        # Note: this field is HTML aware, but filters out
+                        # non-text elements (e.g. img tags)
+                        "text": desc,
+                    }
+                },
+                "layout": "image_left",
+                "type": "text",
+            }
+        ],
+        "purpose": "listing",
+    }
+    response = get_connector().eventbrite_request(
+        "POST",
+        f"/events/{event_id}/structured_content/{content_version}/",
+        json=content,
+    )
+    if not response.get("page_version_number"):
+        raise RuntimeError(
+            f"Failed to set structured content for eventbrite event {event_id}: {response}"
+        )
+    return content_version
+
+
+def assign_pricing(event_id: EventbriteID, price: int, seats: int):
     """Creates a ticket class attached to `event_id`.
     Note that discounts are instantly generated on redirect via /member/goto_class.
     """
     params = {
         "ticket_class": {
-            "maximum_quantity": seats,
-            "cost": f"USD,{price*100}",
-            "display_name": "General Admission",
-            "quantity_sold": 0,
-            "sales_start": "",
-            "sales_end": sale_closes.astimezone(datetime.timezone.utc).isoformat(),
+            "quantity_total": seats,
+            "cost": f"USD,{round(price*100)}" if price != 0 else None,
+            "free": (price == 0),
+            "name": "General Admission",
+            "sales_end_relative": {
+                "relative_to_event": "start_time",
+                "offset": 3600 * 24,
+            },
             "hide_sale_dates": True,
         }
     }
@@ -200,3 +252,49 @@ def set_event_scheduled_state(event_id: EventbriteID, scheduled: bool = True):
     if not response.get("unpublished"):
         raise RuntimeError(f"Failed to unpublish event {event_id}: {response}")
     return response
+
+
+def upload_logo_image(image_url: str):
+    """Sets the logo of the event to an image from a URL.
+    See https://www.eventbrite.com/platform/docs/image-upload.
+
+    Behind the scenes, this uploads to an S3 bucket owned by Eventbrite."""
+
+    img = requests.get(image_url, timeout=30)
+    img.raise_for_status()
+    content_type = img.headers.get("Content-Type", "image/jpeg")
+    file_extension = content_type.split("/")[-1]
+
+    # First request to fetch the upload token
+    prep = get_connector().eventbrite_request(
+        "GET", "/media/upload/?type=image-event-logo"
+    )
+
+    # Second request to upload the image (probably Amazon S3)
+    response = requests.post(
+        prep["upload_url"],
+        data=prep["upload_data"],
+        files={
+            prep["file_parameter_name"]: (
+                f"image.{file_extension}",
+                BytesIO(img.content),
+                content_type,
+            ),
+        },
+        timeout=get_config("connector/timeout"),
+    )
+    response.raise_for_status()
+
+    # Final request to notify successful save
+    confirm_rep = get_connector().eventbrite_request(
+        "POST",
+        "/media/upload/",
+        json={
+            "upload_token": prep["upload_token"],
+            "crop_mask": {"top_left": {"y": 1, "x": 1}, "width": 1280, "height": 640},
+        },
+    )
+    if not confirm_rep.get("id"):
+        raise RuntimeError(f"Failed to confirm image upload to Eventbrite: {response}")
+
+    return confirm_rep.get("id")
