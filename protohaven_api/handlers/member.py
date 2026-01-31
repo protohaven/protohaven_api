@@ -35,6 +35,12 @@ def member_svelte_files(typ, path):
 
 
 def _fetch_neon_id() -> NeonID | Response:
+    """Helper to grab Neon ID information from either the session, GET parameter,
+    or JSON body of a POST request.
+
+    For any instance where a non-session Neon ID is used, we confirm the logged in
+    account is an administrator and can impersonate other Neon IDs in requests.
+    """
     neon_id = None
     if request.content_type == "application/json":
         neon_id = str(request.json.get("neon_id"))
@@ -76,6 +82,8 @@ def set_discord_nick():
 
 
 def _recert_enabled(neon_id: NeonID):
+    """As of 2026-01-31, recertification is still in testing and only enabled for
+    certain opt-in test users"""
     enabled_users = get_config("general/recertification/enabled_users") or ""
     if not enabled_users:
         return False

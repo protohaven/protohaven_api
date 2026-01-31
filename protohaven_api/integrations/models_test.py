@@ -486,6 +486,20 @@ def test_event_properties():
         assert evt.supply_state == "Ordered"
 
 
+def test_event_url():
+    """Confirm URL building behavior based on event ID and origin"""
+    e = Event()
+    e.eventbrite_data = {"id": 12345}
+    assert e.url == "https://www.eventbrite.com/e/12345/"
+
+    e.eventbrite_data = None
+    e.neon_raw_data = {"id": 67890}
+    assert (
+        e.url
+        == "https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=67890"
+    )
+
+
 def test_event_capacity_none_vs_zero():
     """Ensure a distinction between no capacity and no data"""
     e = Event()
