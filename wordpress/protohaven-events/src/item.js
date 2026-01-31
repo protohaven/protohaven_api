@@ -1,6 +1,10 @@
 import { useEffect, useState } from '@wordpress/element';
 
-function gotoURL(url){
+function gotoURL(url, user, base_url){
+	if (user && user.neon_id) {
+		// When logged in, we use an interstitial page to apply discounts for Eventbrite
+		url = `${base_url}/member/goto_class?url=${encodeURIComponent(url)}`;
+	}
 	window.open(url, '_blank').focus();
 }
 
@@ -39,7 +43,7 @@ function FmtTimes( { times, expanded, onExpand } ) {
 	</>);
 }
 
-export function Item( {title, area, desc, levelDesc, age, features, img, times, visible} ) {
+export function Item( {title, area, desc, levelDesc, age, features, img, times, visible, user, base_url} ) {
 	const [expanded, setExpanded] = useState(false);
 	let containerClass = "ph-item";
 	if (!visible) {
@@ -78,7 +82,7 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 				<div>Ages {age}+</div>
 				<div>{levelDesc}</div>
 			</div>
-			<button className="ph-footer" onClick={() => gotoURL(link)} disabled={valid_ticketing && !total_remaining}>
+			<button className="ph-footer" onClick={() => gotoURL(link, user, base_url)} disabled={valid_ticketing && !total_remaining}>
 				{price !== null && <div className="ph-price">${price}</div>}
 				{discount && <div className="ph-discount">(${discount} for members)</div>}
 				{(price === null || price === undefined) && <div className="ph-price">...</div>}

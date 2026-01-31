@@ -868,11 +868,19 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def url(self):
         """Fetches the canonical URL for this event"""
-        if self.eventbrite_data:
-            return self.eventbrite_data.get("url")
-        nid = self.neon_id
-        if nid:
-            return f"https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event={nid}"
+        evt_id = self.neon_id
+        if self.eventbrite_data and evt_id:
+            # Note: while eventbrite does have a "canonical URL" in its data,
+            # we use this shortened form of the event so that other places can
+            # parse out the event ID for further operation.
+            # See for instance the route for /member/goto_class
+            return f"https://www.eventbrite.com/e/{evt_id}/"
+
+        if evt_id:
+            return (
+                "https://protohaven.app.neoncrm.com/np/clients"
+                f"/protohaven/event.jsp?event={evt_id}"
+            )
         return None
 
     def __getattr__(self, attr):

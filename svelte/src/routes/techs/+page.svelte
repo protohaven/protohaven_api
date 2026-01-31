@@ -17,7 +17,6 @@
   let activeTab;
   onMount(() => {
     activeTab = (window.location.hash || "#cal").substring(1).trim();
-    console.log("active", activeTab);
     const urlParams = new URLSearchParams(window.location.search);
     let e= urlParams.get("email");
     if (!e) {
