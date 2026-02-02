@@ -25,7 +25,10 @@ function run_filedump($outpath) {
   # /app/www/public/uploads -> /config/www/uploads
   $cmd = "tar -czvf $outpath /config/www";
   Log::info("$cmd\n");
+  $time_start = microtime(true);
   exec($cmd, $output, $retval);
+  $time_end = microtime(true);
+  Log::info("File dump completed; took " . ($time_end - $time_start) . "s\n");
   return $retval;
 }
 

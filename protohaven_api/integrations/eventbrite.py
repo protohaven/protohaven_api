@@ -56,12 +56,13 @@ def fetch_events(
         params["continuation"] = rep["pagination"]["continuation"]
 
 
-def fetch_event(evt_id: EventbriteID) -> Event:
+def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:
     """Fetch a single event from eventbrite"""
+    params = {}
+    if include_ticketing:
+        params["expand"] = "ticket_classes"
     return Event.from_eventbrite_search(
-        get_connector().eventbrite_request(
-            "GET", f"/events/{evt_id}", params={"expand": "ticket_classes"}
-        )
+        get_connector().eventbrite_request("GET", f"/events/{evt_id}", params=params)
     )
 
 

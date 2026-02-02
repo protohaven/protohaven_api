@@ -4,8 +4,10 @@ import datetime
 import logging
 import secrets
 from collections import defaultdict
+from typing import Iterable
 
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
+from protohaven_api.integrations.airtable import AreaID, Interval, ToolCode
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.warm_cache import WarmDict
 
@@ -17,7 +19,6 @@ STATUS_AVAILABLE = 1
 
 
 ResourceID = int
-ToolCode = str
 
 
 def get_resources():
@@ -38,6 +39,18 @@ def get_resource_map() -> dict[ToolCode, ResourceID]:
         for attr in d["customAttributes"]:
             if attr["id"] == tool_code_id and attr["value"]:
                 result[attr["value"]] = d["resourceId"]
+                break
+    return result
+
+
+def get_resource_area_map() -> dict[AreaID, list[ResourceID]]:
+    """Collects resource IDs by their tagged area"""
+    result = defaultdict(list)
+    area_id = get_config("booked/resource_custom_attribute/area")
+    for d in get_resources():
+        for attr in d["customAttributes"]:
+            if attr["id"] == area_id and attr["value"]:
+                result[attr["value"]].append(d["resourceId"])
                 break
     return result
 
@@ -128,6 +141,33 @@ def delete_reservation(refnum):
     this one!"""
     url = f"/Reservations/{refnum}"
     return get_connector().booked_request("DELETE", url)
+
+
+def get_reservations_for_areas(
+    interval: Interval, areas: set[AreaID], user_id=None
+) -> Iterable[int]:
+    """Fetches a list of reference numbers for reservations within a time interval,
+    for specific areas, and by a specific user.
+
+    If no user is specified, the Booked automation user is assumed and no "human-created"
+    reservations will be returned. This is handy for performing operations on
+    previously-created automated reservations.
+    """
+    user_id = user_id or str(get_config("booked/automation_user_id"))
+    assert user_id
+
+    # Resolve areas to resources
+    res_to_area = get_resource_area_map()
+    resource_filter = {
+        a for area, aa in res_to_area.items() for a in aa if area in areas
+    }
+
+    for res in get_reservations(*interval):
+        if str(res["userid"]) != user_id:
+            continue
+        if res["resourceId"] not in resource_filter:
+            continue
+        yield res
 
 
 def reserve_resource(

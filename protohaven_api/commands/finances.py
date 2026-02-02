@@ -575,11 +575,20 @@ class Commands:
                 log.debug(f"Skipping {m.neon_id}: not in filter")
                 continue
 
+            if not m.email:
+                log.error(
+                    f"No email address associated with member {m.neon_id}; skipping"
+                )
+                continue
+
             mem = m.latest_membership(successful_only=True)
             if not mem:
                 log.error(f"No latest membership for member {m.neon_id}; skipping")
                 continue
 
+            log.info(
+                f"Initializing membership for #{m.neon_id} {m.fname} {m.lname} ({m.email})"
+            )
             kwargs = {
                 "account_id": m.neon_id,
                 "membership_name": mem.level,  # Level includes "AMP" which is selected for
@@ -592,6 +601,9 @@ class Commands:
                 "_id": f"init member {m.neon_id}",
             }
             summary.append(kwargs)
+            log.info(
+                f"Initializing membership for #{m.neon_id} {m.fname} {m.lname} ({m.email})"
+            )
             result += memauto.init_membership(**kwargs)
             num += 1
             if num >= args.limit:

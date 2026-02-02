@@ -41,11 +41,13 @@ def _search_upcoming_events(from_date, to_date):
         yield Event.from_neon_search(evt)
 
 
-def fetch_event(event_id, fetch_tickets=False):
+def fetch_event(event_id, tickets=False, attendees=False):
     """Fetch data on an individual (legacy) event in Neon"""
     evt = Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
-    if fetch_tickets:
+    if tickets:
         evt.set_ticket_data(fetch_tickets_internal_do_not_use_directly(event_id))
+    if attendees:
+        evt.set_attendee_data(fetch_attendees(event_id))
     return evt
 
 
