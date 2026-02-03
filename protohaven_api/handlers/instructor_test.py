@@ -103,7 +103,7 @@ def test_dashboard_schedule(mocker):
 
 def test_instructor_class_attendees(inst_client, mocker):
     mocker.patch.object(
-        instructor.neon, "fetch_attendees", return_value=[{"accountId": 123}]
+        instructor.eauto, "fetch_attendees", return_value=[{"accountId": 123}]
     )
     mocker.patch.object(
         instructor.neon.neon_base,

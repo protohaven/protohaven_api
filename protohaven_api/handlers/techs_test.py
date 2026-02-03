@@ -545,14 +545,14 @@ def test_rm_tech_event(mocker, lead_client):
     mock_event = mocker.MagicMock(neon_id=eid)
     mock_event.name = tl.TECH_ONLY_PREFIX + "Test Event"
 
-    mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
-    mocker.patch.object(tl.neon, "set_event_scheduled_state", return_value={})
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=mock_event)
+    mocker.patch.object(tl.eauto, "set_event_scheduled_state", return_value={})
 
     response = lead_client.post("/techs/rm_event", json={"eid": eid})
     assert response.status_code == 200
 
-    tl.neon.fetch_event.assert_called_once_with(eid)
-    tl.neon.set_event_scheduled_state.assert_called_once_with(eid, scheduled=False)
+    tl.eauto.fetch_event.assert_called_once_with(eid)
+    tl.eauto.set_event_scheduled_state.assert_called_once_with(eid, scheduled=False)
 
 
 def test_rm_tech_event_missing_eid(mocker, lead_client):

@@ -309,6 +309,7 @@ booked:
   schedule_id: 1
   base_url: "https://reserve.protohaven.org/Web/Services/" # Must end in slash to be appended to
   notify_mqtt: true
+  automation_user_id: 103
 forms:
   signin:
     base_url: "https://docs.google.com/forms/d/e/1FAIpQLSfen4NHmAivUPKuvMIqT8UeRqD9meoxq31ZHNG17upDWiTGkQ/"

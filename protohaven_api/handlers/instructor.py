@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.classes import scheduler
 from protohaven_api.automation.classes import validation as val
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
@@ -132,8 +133,7 @@ def instructor_class_attendees() -> Union[Response, str]:
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
     try:
-        # TODO handle eventbrite classes
-        result = list(neon.fetch_attendees(event_id))
+        result = list(eauto.fetch_attendees(event_id))
     except RuntimeError:
         log.warning(f"Failed to fetch event #{event_id}")
         result = []
@@ -410,8 +410,7 @@ def class_neon_state():
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
-    # TODO handle eventbrite attendee fetching
-    evt = neon.fetch_event(event_id)
+    evt = eauto.fetch_event(event_id)
     return {
         "publishEvent": evt.published,
         "archived": evt.archived,
@@ -431,8 +430,7 @@ def cancel_class():
     if user_email().strip().lower() != c.instructor_email and not am_lead_role():
         return Response("Access denied", status=400)
 
-    # TODO handle cancellation in eventbrite
-    num_attendees = len(list(neon.fetch_attendees(c.neon_id)))
+    num_attendees = len(list(eauto.fetch_attendees(c.neon_id)))
     if num_attendees > 0:
         return Response(
             f"Unable to cancel class with {num_attendees} attendee(s). Contact "
@@ -441,7 +439,7 @@ def cancel_class():
         )
 
     log.warning(f"Cancelling class {c.neon_id}")
-    neon.set_event_scheduled_state(c.neon_id, scheduled=False)
+    log.info(str(eauto.set_event_scheduled_state(c.neon_id, scheduled=False)))
 
     if data["areas"] and data["sessions"]:
         log.warning("Attempting to delete auto-reservations")

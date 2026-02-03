@@ -47,7 +47,7 @@ def get_unscheduled_instructors(start, end, require_active=True):
     for cls in airtable.get_class_automation_schedule():
         for t, _ in cls.sessions:
             if start <= t <= end:
-                already_scheduled[cls["fields"]["Email"].lower()] = True
+                already_scheduled[cls.instructor_email.lower()] = True
     log.info(
         f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
     )
@@ -171,7 +171,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         instructors and attendees about class status"""
         self.events = []
         for evt in eauto.fetch_upcoming_events(
-            published=self.published, merge_airtable=True, fetch_attendees=True
+            published=self.published, merge_airtable=True, attendees=True
         ):
             if evt.in_blocklist():
                 self.log.debug(f"Ignore annotating blocklist event {evt.neon_id}")

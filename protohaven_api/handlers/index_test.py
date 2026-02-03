@@ -213,31 +213,9 @@ def test_event_ticket_info_eventbrite(mocker, client):
             }
         ]
     )
-    mocker.patch.object(index.eventbrite, "is_valid_id", return_value=True)
-    mocker.patch.object(index.eventbrite, "fetch_event", return_value=mock_eb_event)
+    mocker.patch.object(index.eauto, "fetch_event", return_value=mock_eb_event)
     rep = client.get("/events/tickets?id=eb123")
     assert json.loads(rep.data.decode("utf8")) == mock_eb_event.ticket_options
-    index.eventbrite.fetch_event.assert_called_once_with("eb123")
-
-
-def test_event_ticket_info_neon(mocker, client):
-    """Test event_ticket_info handler with neon ID"""
-    mock_neon_event = mocker.MagicMock(
-        ticket_options=[
-            {
-                "id": "eb123",
-                "name": "Eventbrite Event",
-                "price": 5.0,
-                "total": 8,
-                "sold": 3,
-            }
-        ]
-    )
-    mocker.patch.object(index.eventbrite, "is_valid_id", return_value=False)
-    mocker.patch.object(index.neon, "fetch_event", return_value=mock_neon_event)
-    rep = client.get("/events/tickets?id=neon456")
-    assert json.loads(rep.data.decode("utf8")) == mock_neon_event.ticket_options
-    neon.fetch_event.assert_called_once_with("neon456", fetch_tickets=True)
 
 
 def test_event_ticket_info_no_id(mocker, client):

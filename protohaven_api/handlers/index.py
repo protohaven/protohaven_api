@@ -190,10 +190,7 @@ def event_ticket_info():
     event_id = request.args.get("id")
     if event_id is None:
         raise RuntimeError("Requires param id")
-    if eventbrite.is_valid_id(event_id):
-        evt = eventbrite.fetch_event(event_id)
-    else:
-        evt = neon.fetch_event(event_id, tickets=True)
+    evt = eauto.fetch_event(event_id, tickets=True)
     tickets = []
     for t in evt.ticket_options:
         # While this is technically a no-op, it's a reminder that this response

@@ -84,7 +84,7 @@ class Commands:
                 log.info(untaxed[-1])
 
             unpaid_urls = [
-                f"[{unpaid_invoices[i]}](https://app.squareup.com/dashboard/invoices/{i})"
+                f"[{unpaid_invoices[i]}](<https://app.squareup.com/dashboard/invoices/{i}>)"
                 for i in sub["invoice_ids"]
                 if i in unpaid_invoices
             ]
@@ -97,7 +97,7 @@ class Commands:
                 unpaid.append(
                     f"- {cust_name} ({cust_email}) - {plan} - {status} - charged through "
                     f"{charged_through.strftime('%Y-%m-%d')}, unpaid "
-                    f"{', '.join(unpaid_urls)} ([link]({url}))"
+                    f"{', '.join(unpaid_urls)} ([link](<{url}>))"
                 )
                 log.info(unpaid[-1])
 

@@ -5,14 +5,14 @@ import logging
 import random
 import string
 from io import BytesIO
-from typing import Iterator
+from typing import Iterable
 
 import requests
 
 from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.airtable import Interval
 from protohaven_api.integrations.data.connector import get as get_connector
-from protohaven_api.integrations.models import Event
+from protohaven_api.integrations.models import Attendee, Event
 
 type EventbriteID = str
 type DiscountCode = str
@@ -32,7 +32,7 @@ def is_valid_id(evt_id: EventbriteID) -> bool:
 
 def fetch_events(
     include_ticketing=True, status="live", batching=False
-) -> Iterator[Event] | Iterator[list[Event]]:
+) -> Iterable[Event] | Iterable[list[Event]]:
     """Fetches all events from Eventbrite.
     To view attendee counts etc, set include_ticketing=True
     use "status" to filter results
@@ -299,3 +299,8 @@ def upload_logo_image(image_url: str):
         raise RuntimeError(f"Failed to confirm image upload to Eventbrite: {response}")
 
     return confirm_rep.get("id")
+
+
+def fetch_attendees(event_id: EventbriteID) -> Iterable[Attendee]:
+    """Fetch attendee data for a specific Eventbrite event"""
+    yield from fetch_event(event_id, include_ticketing=True).attendees
