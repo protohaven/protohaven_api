@@ -167,7 +167,7 @@ def get_member_and_activation_state(email):
         notify_async(
             f"Sign-in with {email} returned multiple accounts "
             f"in Neon with same email:\n" + "\n".join(urls) + "\n@Staff: please "
-            "[deduplicate](https://protohaven.org/wiki/software/membership_validation)"
+            "[deduplicate](https://wiki.protohaven.org/books/it-maintenance/page/membership-validation)"
         )
         log.info("Notified of multiple accounts")
 
@@ -213,7 +213,7 @@ def handle_notify_inactive(status_str, fname, email, url):
             f"[{fname} ({email})]({url}) just signed in "
             "at the front desk but has a non-Active membership status in Neon: "
             f"status is {status_str} "
-            "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
+            "([wiki](https://wiki.protohaven.org/books/it-maintenance/page/membership-validation))\n"
         )
         log.info("Notified of non-active member sign in")
 
@@ -224,7 +224,7 @@ def handle_notify_violations(violations, fname, email, url):
         notify_async(
             f"[{fname} ({email})]({url}) just signed in "
             f"at the front desk with violations: `{violations}` "
-            "([wiki](https://protohaven.org/wiki/software/membership_validation))\n"
+            "([wiki](https://wiki.protohaven.org/books/it-maintenance/page/membership-validation))\n"
         )
         log.info("Notified of sign-in with violations")
 

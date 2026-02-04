@@ -1,3 +1,7 @@
+## Reading GitHub issues
+
+Use the GitHub REST API to read issue links provided by the user
+
 ## Environment setup
 
 Before starting, create a venv and `pip install -r requirements.txt` to pull python dependencies.
