@@ -285,9 +285,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
     )
 
 
-RecertsDict = dict[
-    tuple[NeonID, ToolCode], tuple[datetime.datetime, datetime.datetime]
-]
+RecertsDict = dict[tuple[NeonID, ToolCode], tuple[datetime.datetime, datetime.datetime]]
 
 
 def segment_by_recertification_needed(  # pylint: disable=too-many-locals

@@ -11,7 +11,7 @@ from flask_sock import Sock
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, eventbrite, mqtt, neon
+from protohaven_api.integrations import airtable, mqtt, neon
 from protohaven_api.integrations.booked import get_reservations
 from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -176,6 +176,7 @@ def events_dashboard_attendee_count():
     evt = eauto.fetch_event(event_id, attendees=True)
     if evt:
         return str(evt.attendee_count)
+    return "0"
 
 
 @page.route("/events/tickets")

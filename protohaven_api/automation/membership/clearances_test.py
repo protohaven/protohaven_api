@@ -58,7 +58,9 @@ def test_compute_recert_deadline(mocker):
 
     # Test: No reservations, just instruction deadline
     cfg.expiration = datetime.timedelta(days=365)
-    expected = (last_earned + cfg.expiration).replace(hour=0, minute=0, second=0, microsecond=0)
+    expected = (last_earned + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (
         expected,
         expected,
@@ -68,7 +70,9 @@ def test_compute_recert_deadline(mocker):
     # Member has to have a clearance to initiate recertification, but
     last_quiz = last_earned
     last_earned = None
-    expected = (last_quiz + cfg.expiration).replace(hour=0, minute=0, second=0, microsecond=0)
+    expected = (last_quiz + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (
         expected,
         expected,
@@ -81,8 +85,12 @@ def test_compute_recert_deadline(mocker):
         dateparser.parse("2026-11-20").astimezone(tz): 6,
         dateparser.parse("2026-11-25").astimezone(tz): 5,
     }
-    expected_inst = (last_quiz + cfg.expiration).replace(hour=0, minute=0, second=0, microsecond=0)
-    expected_res = (dateparser.parse("2026-11-20").astimezone(tz) + cfg.bypass_cutoff).replace(hour=0, minute=0, second=0, microsecond=0)
+    expected_inst = (last_quiz + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    expected_res = (
+        dateparser.parse("2026-11-20").astimezone(tz) + cfg.bypass_cutoff
+    ).replace(hour=0, minute=0, second=0, microsecond=0)
     assert c.compute_recert_deadlines(
         cfg, last_earned, last_quiz, recent_reservations
     ) == (
@@ -92,7 +100,9 @@ def test_compute_recert_deadline(mocker):
 
     # Test: not enough reservation
     recent_reservations = {d(380): 5}
-    expected = (last_quiz + cfg.expiration).replace(hour=0, minute=0, second=0, microsecond=0)
+    expected = (last_quiz + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     assert c.compute_recert_deadlines(
         cfg, last_earned, last_quiz, recent_reservations
     ) == (

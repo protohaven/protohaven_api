@@ -96,8 +96,10 @@ def test_event_tickets_formatting_expected_by_wordpress(mocker, client):
             }
         ]
     )
-    mocker.patch.object(index.eventbrite, "is_valid_id", return_value=True)
-    mocker.patch.object(index.eventbrite, "fetch_event", return_value=mock_eb_event)
+    from protohaven_api.integrations import eventbrite as eb
+
+    mocker.patch.object(eb, "is_valid_id", return_value=True)
+    mocker.patch.object(eb, "fetch_event", return_value=mock_eb_event)
     rep = json.loads(client.get("/events/tickets?id=eb123").data.decode("utf8"))
     assert isinstance(rep, list)
     for k in ("id", "name", "price", "total", "sold"):

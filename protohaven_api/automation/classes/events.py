@@ -75,8 +75,8 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
             status="live,started,ended,completed", batching=True
         )
         not_done: set[futures.Future] = {
-            executor.submit(lambda: (neon_gen, next(neon_gen))),
-            executor.submit(lambda: (eb_gen, next(eb_gen))),
+            executor.submit(lambda: (neon_gen, next(neon_gen))),  # type: ignore[call-overload]
+            executor.submit(lambda: (eb_gen, next(eb_gen))),  # type: ignore[call-overload]
         }
 
         # We need airtable data first so we can annotate
@@ -125,7 +125,7 @@ def fetch_event(
     return neon.fetch_event(event_id, tickets=tickets, attendees=attendees)
 
 
-def fetch_attendees(event_id: EventbriteID | NeonID) -> list[Attendee]:
+def fetch_attendees(event_id: EventbriteID | NeonID) -> Iterable[Attendee]:
     """Compatibility method to fetch attendee info from Neon or Eventbrite"""
     if eventbrite.is_valid_id(event_id):
         yield from eventbrite.fetch_attendees(event_id)

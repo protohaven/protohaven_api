@@ -102,18 +102,33 @@ def test_dashboard_schedule(mocker):
 
 
 def test_instructor_class_attendees(inst_client, mocker):
+    # Create a mock Attendee object
+    mock_attendee = mocker.MagicMock()
+    mock_attendee.neon_raw_data = {"accountId": 123}
+    mock_attendee.eventbrite_data = {}
+    mock_attendee.neon_id = 123
+    mock_attendee.email = "attendee@example.com"
+    mock_attendee.fname = "John"
+    mock_attendee.name = "John Doe"
+    mock_attendee.valid = True
+
     mocker.patch.object(
-        instructor.eauto, "fetch_attendees", return_value=[{"accountId": 123}]
+        instructor.eauto, "fetch_attendees", return_value=[mock_attendee]
     )
     mocker.patch.object(
         instructor.neon.neon_base,
         "fetch_account",
-        return_value=mocker.MagicMock(email="a@b.com"),
+        return_value=mocker.MagicMock(email="member@example.com"),
     )
     result = inst_client.get("/instructor/class/attendees?id=12345")
     assert result.status_code == 200
     rep = json.loads(result.data.decode("utf8"))
-    assert rep == [{"accountId": 123, "email": "a@b.com"}]
+    # Check the structure matches what the handler returns
+    assert len(rep) == 1
+    assert rep[0]["neon_id"] == 123
+    assert rep[0]["email"] == "attendee@example.com"
+    assert rep[0]["member_email"] == "member@example.com"
+    assert rep[0]["neon_raw_data"] == {"accountId": 123}
 
 
 def test_instructor_about_from_session(inst_client, mocker):

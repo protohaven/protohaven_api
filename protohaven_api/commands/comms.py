@@ -10,13 +10,12 @@ from os import getenv
 import yaml
 from discord.errors import Forbidden as ForbiddenError
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     comms,
-    neon,
 )
-from protohaven_api.automation.classes import events as eauto
 
 log = logging.getLogger("cli.comms")
 
@@ -80,7 +79,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             if k.lower().strip() == "cancel":
                 log.info(f"Cancelling #{v}")
                 if apply:
-                    log.info(str(eauto.set_event_scheduled_state(str(v), scheduled=False)))
+                    log.info(
+                        str(eauto.set_event_scheduled_state(str(v), scheduled=False))
+                    )
 
         if e["target"][0] in ("#", "@"):  # channels or users
             target = self._handle_discord(

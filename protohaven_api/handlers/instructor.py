@@ -133,19 +133,32 @@ def instructor_class_attendees() -> Union[Response, str]:
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
     try:
-        result = list(eauto.fetch_attendees(event_id))
+        attendees = list(eauto.fetch_attendees(event_id))
     except RuntimeError:
         log.warning(f"Failed to fetch event #{event_id}")
-        result = []
+        attendees = []
 
-    for a in result:
-        if a["accountId"]:
+    # Convert Attendee objects to dictionaries
+    result = []
+    for a in attendees:
+        attendee_dict = {
+            "neon_raw_data": a.neon_raw_data,
+            "eventbrite_data": a.eventbrite_data,
+            "neon_id": a.neon_id,
+            "email": a.email,
+            "fname": a.fname,
+            "name": a.name,
+            "valid": a.valid,
+        }
+        # Try to get member email from Neon if we have a neon_id
+        if a.neon_id:
             try:
-                m = neon_base.fetch_account(a["accountId"])
+                m = neon_base.fetch_account(a.neon_id)
                 if m is not None:
-                    a["email"] = m.email
+                    attendee_dict["member_email"] = m.email
             except RuntimeError:
                 pass
+        result.append(attendee_dict)
 
     return result
 

@@ -23,8 +23,7 @@ repos:
     - id: pylint
       name: pylint
       entry: pylint
-      language: python
-      # language: system
+      language: system
       types: [python]
       args:
         [
