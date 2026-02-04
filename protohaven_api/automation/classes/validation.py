@@ -22,10 +22,10 @@ from protohaven_api.integrations.airtable import (
 
 log = logging.getLogger("automation.classes.validation")
 
-type Datetime = datetime.datetime
-type StrInterval = tuple[str, str]
-type NamedInterval = tuple[Datetime, Datetime, str]
-type NamedStrInterval = tuple[str, str, str]
+Datetime = datetime.datetime
+StrInterval = tuple[str, str]
+NamedInterval = tuple[Datetime, Datetime, str]
+NamedStrInterval = tuple[str, str, str]
 
 
 @dataclass

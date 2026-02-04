@@ -48,6 +48,8 @@ def search_config_calls():
 
 @pytest.mark.parametrize("args,kwargs", search_config_calls())
 def test_config_references(args, kwargs):
+    """Tests that all calls to get_config reference paths that
+    exist in config.yaml"""
     assert len(args) > 0
     if (
         c.get_config(*[a.replace("'", "").replace('"', "") for a in args], **kwargs)

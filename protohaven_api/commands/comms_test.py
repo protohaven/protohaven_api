@@ -130,7 +130,7 @@ def test_send_comms(mocker, tc, cli):
     mocker.patch.object(c.comms, "send_email")
     mocker.patch.object(c.airtable, "log_intents_notified")
     mocker.patch.object(c.airtable, "log_comms")
-    mocker.patch.object(c.neon, "set_event_scheduled_state")
+    mocker.patch.object(c.eauto, "set_event_scheduled_state")
     mocker.patch.object(
         c.Commands,
         "_load_comms_data",
@@ -144,7 +144,7 @@ def test_send_comms(mocker, tc, cli):
         (c.airtable.log_comms, tc.log),
         (c.comms.send_discord_message, tc.discord),
         (c.airtable.log_intents_notified, tc.intents_notified),
-        (c.neon.set_event_scheduled_state, tc.scheduled_state),
+        (c.eauto.set_event_scheduled_state, tc.scheduled_state),
     ]:
         if tcall:
             fn.assert_has_calls([tcall])

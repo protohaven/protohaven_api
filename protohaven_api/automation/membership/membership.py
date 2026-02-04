@@ -29,7 +29,7 @@ def generate_coupon_id(n=8):
 def get_sample_classes(coupon_amount):
     """Fetch sample classes within the coupon amount for advertising in the welcome email"""
     sample_classes = []
-    for evt in eauto.fetch_upcoming_events(back_days=-1, fetch_tickets=True):
+    for evt in eauto.fetch_upcoming_events(back_days=-1, tickets=True):
         num_remaining = evt.has_open_seats_below_price(coupon_amount)
         if not num_remaining:
             continue

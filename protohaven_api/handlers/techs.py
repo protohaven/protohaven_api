@@ -389,7 +389,7 @@ def rm_tech_event():
     eid = str(data["eid"])
     if eid.strip() == "":
         return Response("eid field required", status=401)
-    evt = neon.fetch_event(eid)
+    evt = eauto.fetch_event(eid)
     if not evt:
         return Response(f"event with eid {eid} not found", status=404)
     if not evt.name.startswith(TECH_ONLY_PREFIX):
@@ -398,7 +398,7 @@ def rm_tech_event():
             status=400,
         )
 
-    return neon.set_event_scheduled_state(evt.neon_id, scheduled=False)
+    return eauto.set_event_scheduled_state(evt.neon_id, scheduled=False)
 
 
 @page.route("/techs/enroll", methods=["POST"])
@@ -437,7 +437,7 @@ def techs_backfill_events():
     # Should dedupe logic with builder.py eventually.
     # We look for unpublished events too since those may be tech events
     for evt in eauto.fetch_upcoming_events(
-        published=False, merge_airtable=True, fetch_attendees=_keep, fetch_tickets=_keep
+        published=False, merge_airtable=True, attendees=_keep, tickets=_keep
     ):
         if not _keep(evt):
             continue
@@ -470,19 +470,14 @@ def _notify_registration(account_id, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
     acc = neon_base.fetch_account(account_id, required=True)
-    evt = neon.fetch_event(event_id)
-    attendees = {
-        a["accountId"]
-        for a in neon.fetch_attendees(event_id)
-        if a["registrationStatus"] == "SUCCEEDED"
-    }
+    evt = eauto.fetch_event(event_id, attendees=True)
     verb = "registered for"
     if action != "register":
         verb = "unregistered from"
     msg = (
         f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events) "
         f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
-        f"; {evt.capacity - len(attendees)} seat(s) remain"
+        f"; {evt.capacity - evt.attendee_count} seat(s) remain"
     )
     # Tech-only classes shouldn't bother instructors
     if not evt.name.startswith(TECH_ONLY_PREFIX):

@@ -235,6 +235,14 @@ class Member:  # pylint:disable=too-many-public-methods
         )
 
     @property
+    def legal_fname(self):
+        """Excluding preferred name"""
+        v = self.neon_search_data.get("First Name") or self._raw_account().get(
+            "primaryContact", {}
+        ).get("firstName")
+        return v.strip() if v else None
+
+    @property
     def fname(self):
         """Get the preferred first name of the member
         Please try to use self.name instead unless interacting

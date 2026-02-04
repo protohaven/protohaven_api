@@ -58,18 +58,24 @@ def test_compute_recert_deadline(mocker):
 
     # Test: No reservations, just instruction deadline
     cfg.expiration = datetime.timedelta(days=365)
+    expected = (last_earned + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (
-        last_earned + cfg.expiration,
-        last_earned + cfg.expiration,
+        expected,
+        expected,
     )
 
     # Test: no earned info, but we took a quiz -> same deadline
     # Member has to have a clearance to initiate recertification, but
     last_quiz = last_earned
     last_earned = None
+    expected = (last_quiz + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     assert c.compute_recert_deadlines(cfg, last_earned, last_quiz, {}) == (
-        last_quiz + cfg.expiration,
-        last_quiz + cfg.expiration,
+        expected,
+        expected,
     )
 
     # Test: Reservations exceeding bypass_hours
@@ -79,20 +85,29 @@ def test_compute_recert_deadline(mocker):
         dateparser.parse("2026-11-20").astimezone(tz): 6,
         dateparser.parse("2026-11-25").astimezone(tz): 5,
     }
+    expected_inst = (last_quiz + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    expected_res = (
+        dateparser.parse("2026-11-20").astimezone(tz) + cfg.bypass_cutoff
+    ).replace(hour=0, minute=0, second=0, microsecond=0)
     assert c.compute_recert_deadlines(
         cfg, last_earned, last_quiz, recent_reservations
     ) == (
-        last_quiz + cfg.expiration,
-        dateparser.parse("2026-11-20").astimezone() + cfg.bypass_cutoff,
+        expected_inst,
+        expected_res,
     )
 
     # Test: not enough reservation
     recent_reservations = {d(380): 5}
+    expected = (last_quiz + cfg.expiration).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     assert c.compute_recert_deadlines(
         cfg, last_earned, last_quiz, recent_reservations
     ) == (
-        last_quiz + cfg.expiration,
-        last_quiz + cfg.expiration,
+        expected,
+        expected,
     )
 
 
@@ -161,7 +176,8 @@ def test_segment_by_recert_needed_no_clearances_but_pending(mocker):
         contact_info=None,
     )
     needed, not_needed = c.segment_by_recertification_needed(env, now=d(0))
-    assert needed == {(123, "LS1"): (c.RECERT_EPOCH + exp, c.RECERT_EPOCH + exp)}
+    expected = (c.RECERT_EPOCH + exp).replace(hour=0, minute=0, second=0, microsecond=0)
+    assert needed == {(123, "LS1"): (expected, expected)}
     assert not not_needed
 
 

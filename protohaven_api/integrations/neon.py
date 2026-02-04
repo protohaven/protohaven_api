@@ -4,7 +4,7 @@ import datetime
 import logging
 import re
 from functools import lru_cache
-from typing import Generator
+from typing import Iterable
 
 import rapidfuzz
 from flask import Response
@@ -13,7 +13,7 @@ from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Event, Member
+from protohaven_api.integrations.models import Attendee, Event, Member
 
 log = logging.getLogger("integrations.neon")
 
@@ -41,11 +41,13 @@ def _search_upcoming_events(from_date, to_date):
         yield Event.from_neon_search(evt)
 
 
-def fetch_event(event_id, fetch_tickets=False):
+def fetch_event(event_id, tickets=False, attendees=False):
     """Fetch data on an individual (legacy) event in Neon"""
     evt = Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
-    if fetch_tickets:
+    if tickets:
         evt.set_ticket_data(fetch_tickets_internal_do_not_use_directly(event_id))
+    if attendees:
+        evt.set_attendee_data(fetch_attendees(event_id, raw=True))
     return evt
 
 
@@ -105,9 +107,12 @@ def fetch_tickets_internal_do_not_use_directly(event_id):
     return content
 
 
-def fetch_attendees(event_id):
+def fetch_attendees(event_id: str, raw=False) -> Iterable[Attendee]:
     """Fetch attendee data on an individual (legacy) event in Neon"""
-    return neon_base.paginated_fetch("api_key1", f"/events/{event_id}/attendees")
+    for result in neon_base.paginated_fetch(
+        "api_key1", f"/events/{event_id}/attendees"
+    ):
+        yield result if raw else Attendee(neon_raw_data=result)
 
 
 @lru_cache(maxsize=1)
@@ -201,7 +206,7 @@ def search_active_members(
     fields: list[str],
     fetch_memberships=False,
     also_fetch=False,
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Lookup all accounts with active memberships"""
     yield from _search_members_internal(
         [
@@ -215,7 +220,7 @@ def search_active_members(
 
 def search_all_members(
     fields: list[str | int], fetch_memberships=False, also_fetch=False
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Lookup all accounts"""
     yield from _search_members_internal(
         [
@@ -252,7 +257,7 @@ def _search_members_internal(
     also_fetch=False,
     fetch_memberships=False,
     merge_bios=None,
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
 
@@ -285,7 +290,7 @@ def _search_members_internal(
 
 def search_members_by_email(
     email, operator="EQUAL", fields=None, also_fetch=False, fetch_memberships=False
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
     assert isinstance(operator, str)
@@ -319,7 +324,7 @@ def search_members_by_name(  # pylint: disable=too-many-arguments
     fields=None,
     fetch_memberships=False,
     also_fetch=False,
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Lookup a user by their email; note that emails aren't unique so we may
     return multiple results."""
     yield from _search_members_internal(
@@ -336,7 +341,7 @@ def search_members_with_role(
     fetch_memberships=False,
     merge_bios=None,
     also_fetch=False,
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Fetch all members with a specific assigned role (e.g. all shop techs)"""
     yield from _search_members_internal(
         [(str(CustomField.API_SERVER_ROLE), "CONTAIN", role["id"])],
@@ -349,7 +354,7 @@ def search_members_with_role(
 
 def search_new_members_needing_setup(
     max_days_ago, fields=None, fetch_memberships=False, also_fetch=False
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Fetch all members in need of automated setup; this includes
     all paying members past the start of the Onboarding V2 plan
     that haven't yet had automation applied to them."""
@@ -368,7 +373,7 @@ def search_new_members_needing_setup(
 
 def search_members_with_discord_association(
     fields=None, fetch_memberships=False
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Lookup all accounts with discord users associated"""
     yield from _search_members_internal(
         [(str(CustomField.DISCORD_USER), "NOT_BLANK", None)], fields, fetch_memberships
@@ -377,7 +382,7 @@ def search_members_with_discord_association(
 
 def search_members_with_discord_id(
     discord_id, fields=None, fetch_memberships=False
-) -> Generator[Member, None, None]:
+) -> Iterable[Member]:
     """Fetch all members with a specific Discord ID"""
     yield from _search_members_internal(
         [(str(CustomField.DISCORD_USER), "EQUAL", discord_id)],

@@ -5,17 +5,17 @@ import logging
 import random
 import string
 from io import BytesIO
-from typing import Iterator
+from typing import Iterable
 
 import requests
 
 from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations.airtable import Interval
 from protohaven_api.integrations.data.connector import get as get_connector
-from protohaven_api.integrations.models import Event
+from protohaven_api.integrations.models import Attendee, Event
 
-type EventbriteID = str
-type DiscountCode = str
+EventbriteID = str
+DiscountCode = str
 
 log = logging.getLogger("protohaven_api.integrations.eventbrite")
 
@@ -27,12 +27,15 @@ def _eb_timestr(d: datetime.datetime) -> str:
 def is_valid_id(evt_id: EventbriteID) -> bool:
     """Eventbrite IDs are massive versus Neon IDs; we can use this to determine whether
     an arbitrary event ID is from Eventbrite"""
-    return int(evt_id) >= 375402919237
+    try:
+        return int(evt_id) >= 375402919237
+    except (ValueError, TypeError):
+        return False
 
 
 def fetch_events(
     include_ticketing=True, status="live", batching=False
-) -> Iterator[Event] | Iterator[list[Event]]:
+) -> Iterable[Event] | Iterable[list[Event]]:
     """Fetches all events from Eventbrite.
     To view attendee counts etc, set include_ticketing=True
     use "status" to filter results
@@ -56,12 +59,13 @@ def fetch_events(
         params["continuation"] = rep["pagination"]["continuation"]
 
 
-def fetch_event(evt_id: EventbriteID) -> Event:
+def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:
     """Fetch a single event from eventbrite"""
+    params = {}
+    if include_ticketing:
+        params["expand"] = "ticket_classes"
     return Event.from_eventbrite_search(
-        get_connector().eventbrite_request(
-            "GET", f"/events/{evt_id}", params={"expand": "ticket_classes"}
-        )
+        get_connector().eventbrite_request("GET", f"/events/{evt_id}", params=params)
     )
 
 
@@ -298,3 +302,8 @@ def upload_logo_image(image_url: str):
         raise RuntimeError(f"Failed to confirm image upload to Eventbrite: {response}")
 
     return confirm_rep.get("id")
+
+
+def fetch_attendees(event_id: EventbriteID) -> Iterable[Attendee]:
+    """Fetch attendee data for a specific Eventbrite event"""
+    yield from fetch_event(event_id, include_ticketing=True).attendees

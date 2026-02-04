@@ -8,13 +8,21 @@ from typing import Any, Optional, Union
 from dateutil import parser as dateparser
 from flask import Blueprint, Response, current_app, redirect, request
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.classes import scheduler
 from protohaven_api.automation.classes import validation as val
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname
-from protohaven_api.integrations import airtable, airtable_base, comms, neon, neon_base
+from protohaven_api.integrations import (
+    airtable,
+    airtable_base,
+    booked,
+    comms,
+    neon,
+    neon_base,
+)
 from protohaven_api.integrations.models import Role
-from protohaven_api.rbac import am_role, require_login_role
+from protohaven_api.rbac import am_lead_role, am_role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
 
@@ -125,19 +133,32 @@ def instructor_class_attendees() -> Union[Response, str]:
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
     try:
-        result = list(neon.fetch_attendees(event_id))
+        attendees = list(eauto.fetch_attendees(event_id))
     except RuntimeError:
         log.warning(f"Failed to fetch event #{event_id}")
-        result = []
+        attendees = []
 
-    for a in result:
-        if a["accountId"]:
+    # Convert Attendee objects to dictionaries
+    result = []
+    for a in attendees:
+        attendee_dict = {
+            "neon_raw_data": a.neon_raw_data,
+            "eventbrite_data": a.eventbrite_data,
+            "neon_id": a.neon_id,
+            "email": a.email,
+            "fname": a.fname,
+            "name": a.name,
+            "valid": a.valid,
+        }
+        # Try to get member email from Neon if we have a neon_id
+        if a.neon_id:
             try:
-                m = neon_base.fetch_account(a["accountId"])
+                m = neon_base.fetch_account(a.neon_id)
                 if m is not None:
-                    a["email"] = m.email
+                    attendee_dict["member_email"] = m.email
             except RuntimeError:
                 pass
+        result.append(attendee_dict)
 
     return result
 
@@ -402,7 +423,7 @@ def class_neon_state():
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
-    evt = neon.fetch_event(event_id)
+    evt = eauto.fetch_event(event_id)
     return {
         "publishEvent": evt.published,
         "archived": evt.archived,
@@ -414,8 +435,15 @@ def class_neon_state():
 def cancel_class():
     """Cancel a class - fails if anyone is registered for it"""
     data = request.json
-    cid = data["neon_id"]
-    num_attendees = len(list(neon.fetch_attendees(cid)))
+    c = airtable.get_scheduled_class(data["class_id"])
+    if not c:
+        return Response("Not found", status=404)
+
+    # Only the scheduling instructor or a lead can cancel a class
+    if user_email().strip().lower() != c.instructor_email and not am_lead_role():
+        return Response("Access denied", status=400)
+
+    num_attendees = len(list(eauto.fetch_attendees(c.neon_id)))
     if num_attendees > 0:
         return Response(
             f"Unable to cancel class with {num_attendees} attendee(s). Contact "
@@ -423,8 +451,19 @@ def cancel_class():
             status=409,
         )
 
-    log.warning(f"Cancelling class {cid}")
-    neon.set_event_scheduled_state(cid, scheduled=False)
+    log.warning(f"Cancelling class {c.neon_id}")
+    log.info(str(eauto.set_event_scheduled_state(c.neon_id, scheduled=False)))
+
+    if data["areas"] and data["sessions"]:
+        log.warning("Attempting to delete auto-reservations")
+        for interval in c.sessions:
+            for res in booked.get_reservations_for_areas(interval, c.areas):
+                log.info(
+                    "Delete {res['referenceNumber']} resource {res['resourceId']} at "
+                    f"{res['bufferedStartDate']}"
+                )
+                log.info(str(booked.delete_reservation(res["referenceNumber"])))
+
     return {"success": True}
 
 

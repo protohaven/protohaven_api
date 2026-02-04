@@ -84,12 +84,15 @@ def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
         builder.airtable,
         "get_class_automation_schedule",
         return_value=[
-            {
-                "fields": {
-                    "Start Time": safe_parse_datetime("2024-02-21").isoformat(),
-                    "Email": "TeSt@email.com",
-                }
-            }
+            mocker.MagicMock(
+                instructor_email="TeSt@email.com",
+                sessions=[
+                    (
+                        safe_parse_datetime("2024-02-21"),
+                        safe_parse_datetime("2024-02-22"),
+                    )
+                ],
+            )
         ],
     )
 

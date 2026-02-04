@@ -12,11 +12,7 @@ from functools import lru_cache
 from typing import Any
 
 from protohaven_api.automation.classes import events as eauto
-from protohaven_api.config import (  # pylint: disable=import-error
-    safe_parse_datetime,
-    tz,
-    tznow,
-)
+from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon_base,
@@ -49,9 +45,9 @@ def get_unscheduled_instructors(start, end, require_active=True):
 
     already_scheduled = defaultdict(bool)
     for cls in airtable.get_class_automation_schedule():
-        d = safe_parse_datetime(cls["fields"]["Start Time"])
-        if start <= d <= end:
-            already_scheduled[cls["fields"]["Email"].lower()] = True
+        for t, _ in cls.sessions:
+            if start <= t <= end:
+                already_scheduled[cls.instructor_email.lower()] = True
     log.info(
         f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
     )
@@ -74,7 +70,11 @@ def gen_class_scheduled_alerts(
         # Out of an abundance of paranoia, we lock incase there's a competing
         # thread setting the locale.
         with LOCALE_LOCK:
-            locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+            try:
+                locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+            except locale.Error:
+                # Fall back to C locale if en_US.UTF-8 is not available
+                locale.setlocale(locale.LC_ALL, "C.UTF-8")
             return {
                 "t": c.start_time,
                 "start": c.start_time.strftime("%b %d %Y, %-I%p"),
@@ -175,7 +175,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         instructors and attendees about class status"""
         self.events = []
         for evt in eauto.fetch_upcoming_events(
-            published=self.published, merge_airtable=True, fetch_attendees=True
+            published=self.published, merge_airtable=True, attendees=True
         ):
             if evt.in_blocklist():
                 self.log.debug(f"Ignore annotating blocklist event {evt.neon_id}")

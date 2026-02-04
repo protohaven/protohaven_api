@@ -32,11 +32,7 @@ def test_fetch_upcoming_events_neon(mocker):
     )
 
     # Test with attendees and tickets
-    list(
-        eauto._fetch_upcoming_events_neon(
-            after, fetch_attendees=True, fetch_tickets=True
-        )
-    )
+    list(eauto._fetch_upcoming_events_neon(after, attendees=True, tickets=True))
     mock_event.set_attendee_data.assert_called_with(["a1", "a2"])
     mock_event.set_ticket_data.assert_called_with(["t1"])
 
@@ -80,9 +76,7 @@ def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
     )
 
     got = list(
-        eauto._fetch_upcoming_events_neon(
-            d(0), fetch_attendees=lambda evt: evt.neon_id == 1
-        )
+        eauto._fetch_upcoming_events_neon(d(0), attendees=lambda evt: evt.neon_id == 1)
     )
     assert got[0][0].neon_id == 1
     assert got[0][0].attendee_count == 1

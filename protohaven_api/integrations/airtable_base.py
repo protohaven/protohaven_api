@@ -105,7 +105,7 @@ def get_all_records_between(base, tbl, start_date, end_date, field="Created"):
         )
     else:
         params["filterByFormula"] = (
-            f"AND(IS_BEFORE(%7B{field}%7D, '{end_date.isoformat()}'), IS_AFTER(%7B{field}%7D,'{start_date.isoformat()}'))"  # pylint: disable=line-too-long
+            f"AND(IS_BEFORE({{{field}}}, '{end_date.isoformat()}'), IS_AFTER({{{field}}},'{start_date.isoformat()}'))"  # pylint: disable=line-too-long
         )
 
     return get_all_records(base, tbl, params)
@@ -118,9 +118,7 @@ def get_all_records_after(base, tbl, after_date, field="Created"):
     if get_connector().db_format() == "nocodb":
         params["where"] = f"({field},ge,exactDate,{after_date.isoformat()})"
     else:
-        params["filterByFormula"] = (
-            f"IS_AFTER(%7B{field}%7D,'{after_date.isoformat()}')"
-        )
+        params["filterByFormula"] = f"IS_AFTER({{{field}}},'{after_date.isoformat()}')"
 
     return get_all_records(base, tbl, params)
 

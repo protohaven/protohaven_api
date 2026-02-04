@@ -84,7 +84,7 @@ class Commands:
                 log.info(untaxed[-1])
 
             unpaid_urls = [
-                f"[{unpaid_invoices[i]}](https://app.squareup.com/dashboard/invoices/{i})"
+                f"[{unpaid_invoices[i]}](<https://app.squareup.com/dashboard/invoices/{i}>)"
                 for i in sub["invoice_ids"]
                 if i in unpaid_invoices
             ]
@@ -97,7 +97,7 @@ class Commands:
                 unpaid.append(
                     f"- {cust_name} ({cust_email}) - {plan} - {status} - charged through "
                     f"{charged_through.strftime('%Y-%m-%d')}, unpaid "
-                    f"{', '.join(unpaid_urls)} ([link]({url}))"
+                    f"{', '.join(unpaid_urls)} ([link](<{url}>))"
                 )
                 log.info(unpaid[-1])
 
@@ -575,11 +575,20 @@ class Commands:
                 log.debug(f"Skipping {m.neon_id}: not in filter")
                 continue
 
+            if not m.email:
+                log.error(
+                    f"No email address associated with member {m.neon_id}; skipping"
+                )
+                continue
+
             mem = m.latest_membership(successful_only=True)
             if not mem:
                 log.error(f"No latest membership for member {m.neon_id}; skipping")
                 continue
 
+            log.info(
+                f"Initializing membership for #{m.neon_id} {m.fname} {m.lname} ({m.email})"
+            )
             kwargs = {
                 "account_id": m.neon_id,
                 "membership_name": mem.level,  # Level includes "AMP" which is selected for
