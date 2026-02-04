@@ -46,6 +46,45 @@ LOG_LEVEL=debug CORS=true UNSAFE_NO_RBAC=true PH_SERVER_MODE=prod flask --app pr
 
 In either mode, the server is available at http://localhost:5000.
 
+## Running Tests
+
+### Setup
+
+1. Create a virtual environment:
+```bash
+make venv
+```
+
+Or manually:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install -e .
+```
+
+2. Run tests:
+```bash
+# Run all tests
+make test
+
+# Or use the test script
+./run_tests.sh
+
+# Run tests with coverage
+make test-coverage
+
+# Run specific test file
+source venv/bin/activate && python -m pytest protohaven_api/rbac_test.py -v
+```
+
+### Test Structure
+
+- Test files are named `*_test.py`
+- Tests are located alongside the code they test
+- Use pytest for testing
+- Coverage reports are generated with `make test-coverage`
+
 ## Running the CLI
 
 ```

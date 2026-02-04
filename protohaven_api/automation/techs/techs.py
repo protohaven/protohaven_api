@@ -70,7 +70,7 @@ class Day(TypedDict):
     PM: Shift
 
 
-type CalendarView = list[Day]
+CalendarView = list[Day]
 
 
 def _calendar_badge_color(num_people):

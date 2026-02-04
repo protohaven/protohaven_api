@@ -30,14 +30,14 @@ from protohaven_api.integrations.models import SignInEvent
 
 log = logging.getLogger("integrations.airtable")
 
-type Email = str
-type NeonID = str
-type ToolCode = str
-type AreaID = str
-type InstructorID = str  # Currently, the email address listed in the capabilities doc
-type RecordID = str
-type ForecastOverride = tuple[str, list[str], str]
-type Interval = tuple[datetime.datetime, datetime.datetime]
+Email = str
+NeonID = str
+ToolCode = str
+AreaID = str
+InstructorID = str  # Currently, the email address listed in the capabilities doc
+RecordID = str
+ForecastOverride = tuple[str, list[str], str]
+Interval = tuple[datetime.datetime, datetime.datetime]
 
 
 @dataclass
@@ -382,7 +382,7 @@ def get_all_class_templates(raw=True):
 def get_class_template(cls_id: RecordID) -> Class:
     """Fetches a class template object from Airtable"""
     for row in get_all_class_templates():
-        log.info(f"{row["id"]} vs {cls_id}")
+        log.info(f"{row['id']} vs {cls_id}")
         if str(row["id"]) == str(cls_id):
             return Class.from_template(row)
     return None

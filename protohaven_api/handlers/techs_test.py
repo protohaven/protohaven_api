@@ -178,6 +178,7 @@ def test_techs_event_registration_success_register(tech_client, mocker):
     )
     m = mocker.MagicMock(capacity=6, start_date=d(0))
     m.name = "Event Name"
+    m.attendee_count = 1
     mocker.patch.object(
         tl.neon,
         "fetch_event",
@@ -216,6 +217,7 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     )
     m = mocker.MagicMock(capacity=6, start_date=d(0))
     m.name = "Event Name"
+    m.attendee_count = 1
     mocker.patch.object(
         tl.neon,
         "fetch_event",

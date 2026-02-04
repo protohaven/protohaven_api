@@ -18,7 +18,7 @@ from protohaven_api.integrations.models import Member
 
 log = logging.getLogger("handlers.admin")
 
-type UpdateMethod = Literal["PATCH"] | Literal["DELETE"] | Literal["GET"]
+UpdateMethod = Literal["PATCH", "DELETE", "GET"]
 
 
 @lru_cache(maxsize=1)
@@ -80,8 +80,8 @@ def update_by_member(m: Member, method: UpdateMethod, delta: set[ToolCode], appl
     return list(result)
 
 
-type Hours = float
-type TimeInterval = tuple[datetime.datetime, datetime.datetime]
+Hours = float
+TimeInterval = tuple[datetime.datetime, datetime.datetime]
 
 RECERT_EPOCH = dateparser.parse("2024-01-01").astimezone(tz)
 
@@ -285,7 +285,7 @@ def build_recert_env(  # pylint: disable=too-many-locals
     )
 
 
-type RecertsDict = dict[
+RecertsDict = dict[
     tuple[NeonID, ToolCode], tuple[datetime.datetime, datetime.datetime]
 ]
 

@@ -16,6 +16,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     comms,
     neon,
 )
+from protohaven_api.automation.classes import events as eauto
 
 log = logging.getLogger("cli.comms")
 

@@ -14,8 +14,8 @@ from protohaven_api.integrations.airtable import Interval
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.models import Attendee, Event
 
-type EventbriteID = str
-type DiscountCode = str
+EventbriteID = str
+DiscountCode = str
 
 log = logging.getLogger("protohaven_api.integrations.eventbrite")
 
@@ -27,7 +27,10 @@ def _eb_timestr(d: datetime.datetime) -> str:
 def is_valid_id(evt_id: EventbriteID) -> bool:
     """Eventbrite IDs are massive versus Neon IDs; we can use this to determine whether
     an arbitrary event ID is from Eventbrite"""
-    return int(evt_id) >= 375402919237
+    try:
+        return int(evt_id) >= 375402919237
+    except (ValueError, TypeError):
+        return False
 
 
 def fetch_events(

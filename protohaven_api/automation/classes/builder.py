@@ -70,7 +70,11 @@ def gen_class_scheduled_alerts(
         # Out of an abundance of paranoia, we lock incase there's a competing
         # thread setting the locale.
         with LOCALE_LOCK:
-            locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+            try:
+                locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+            except locale.Error:
+                # Fall back to C locale if en_US.UTF-8 is not available
+                locale.setlocale(locale.LC_ALL, "C.UTF-8")
             return {
                 "t": c.start_time,
                 "start": c.start_time.strftime("%b %d %Y, %-I%p"),

@@ -15,7 +15,7 @@ from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.clearances")
 
-type PendingRecerts = dict[tuple[NeonID, ToolCode], airtable.PendingRecert]
+PendingRecerts = dict[tuple[NeonID, ToolCode], airtable.PendingRecert]
 
 
 class Commands:  # pylint: disable=too-few-public-methods
