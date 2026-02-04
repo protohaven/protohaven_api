@@ -58,8 +58,9 @@ def test_get_account_email(mocker):
 def test_get_unscheduled_instructors(mocker):
     """Test calendar reminder generation. This mostly replicates an equivalent test of the comms
     module but I'm including it here anyways."""
-    mocker.patch(
-        "protohaven_api.integrations.airtable.get_instructor_email_map",
+    mocker.patch.object(
+        builder.airtable,
+        "get_instructor_email_map",
         return_value={"Test Name": "test@email.com"},
     )
     mocker.patch.object(
@@ -76,8 +77,9 @@ def test_get_unscheduled_instructors(mocker):
 
 def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
     """Test calendar reminder generation doesn't notify if already scheduled"""
-    mocker.patch(
-        "protohaven_api.integrations.airtable.get_instructor_email_map",
+    mocker.patch.object(
+        builder.airtable,
+        "get_instructor_email_map",
         return_value={"Test Name": "test@email.com"},
     )
     mocker.patch.object(
@@ -110,16 +112,19 @@ def _mock_builder(  # pylint: disable=too-many-arguments
     notifications_after_fn=lambda _neon_id, _date: {},
     get_account_email_fn=lambda _id: "test@attendee.com",
 ):
-    mocker.patch(
-        "protohaven_api.automation.classes.events.fetch_upcoming_events",
+    mocker.patch.object(
+        builder.eauto,
+        "fetch_upcoming_events",
         return_value=upcoming_events,
     )
-    mocker.patch(
-        "protohaven_api.automation.classes.builder.get_account_email",
+    mocker.patch.object(
+        builder,
+        "get_account_email",
         side_effect=get_account_email_fn,
     )
-    mocker.patch(
-        "protohaven_api.integrations.airtable.get_notifications_after",
+    mocker.patch.object(
+        builder.airtable,
+        "get_notifications_after",
         side_effect=notifications_after_fn,
     )
 
