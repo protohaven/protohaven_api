@@ -398,7 +398,7 @@ def rm_tech_event():
             status=400,
         )
 
-    return neon.set_event_scheduled_state(evt.neon_id, scheduled=False)
+    return eauto.set_event_scheduled_state(evt.neon_id, scheduled=False)
 
 
 @page.route("/techs/enroll", methods=["POST"])

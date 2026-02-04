@@ -173,15 +173,9 @@ def events_dashboard_attendee_count():
     event_id = request.args.get("id")
     if event_id is None:
         raise RuntimeError("Requires param id")
-    if eventbrite.is_valid_id(event_id):
-        evt = eventbrite.fetch_event(event_id)
-        if evt:
-            return str(evt.attendee_count)
-    attendees = 0
-    for a in neon.fetch_attendees(event_id):
-        if a["registrationStatus"] == "SUCCEEDED":
-            attendees += 1
-    return str(attendees)
+    evt = eauto.fetch_event(event_id, attendees=True)
+    if evt:
+        return str(evt.attendee_count)
 
 
 @page.route("/events/tickets")

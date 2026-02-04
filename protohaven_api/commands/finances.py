@@ -601,9 +601,6 @@ class Commands:
                 "_id": f"init member {m.neon_id}",
             }
             summary.append(kwargs)
-            log.info(
-                f"Initializing membership for #{m.neon_id} {m.fname} {m.lname} ({m.email})"
-            )
             result += memauto.init_membership(**kwargs)
             num += 1
             if num >= args.limit:
