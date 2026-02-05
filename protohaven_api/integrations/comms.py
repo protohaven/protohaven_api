@@ -135,6 +135,38 @@ def send_discord_message(content, channel=None, blocking=True):
         try:
             s = m.group()
             name = m.group()[1:]
+
+            # Skip if it looks like an email domain (e.g., @gmail.com, @yahoo.com)
+            # Common email domain pattern: ends with .com, .org, .net, .edu, etc.
+            # or contains a dot and looks domain-like
+            if "." in name:
+                # Check if it ends with a common TLD
+                common_tlds = {
+                    "com",
+                    "org",
+                    "net",
+                    "edu",
+                    "gov",
+                    "io",
+                    "co",
+                    "uk",
+                    "us",
+                    "ca",
+                    "au",
+                    "de",
+                }
+                parts = name.lower().split(".")
+                if len(parts) >= 2 and parts[-1] in common_tlds:
+                    log.info(f"Skipping email-like mention: @{name}")
+                    return s
+
+                # Also skip if it has multiple dots (likely a domain)
+                if name.count(".") >= 2:
+                    log.info(
+                        f"Skipping domain-like mention with multiple dots: @{name}"
+                    )
+                    return s
+
             log.info(f"Found potential role/user name in content: @{name}")
             role_id = cfg["discord_roles"].get(name, None)
             if role_id is not None:
@@ -156,7 +188,11 @@ def send_discord_message(content, channel=None, blocking=True):
 
     # Usernames are alphanumeric and can contain periods and underscores
     # https://gamertweak.com/new-username-system-discord/
-    content = re.sub(r"@[\w\._]+", sub_roles_and_users, content, flags=re.MULTILINE)
+    # Improved regex: @ followed by 2+ chars of [a-zA-Z0-9._], not matching if @ is preceded by word char
+    # This avoids matching email addresses like user@gmail.com
+    content = re.sub(
+        r"(?<!\w)@[\w\._]{2,}", sub_roles_and_users, content, flags=re.MULTILINE
+    )
 
     for i in range(0, len(content), DISCORD_CHAR_LIMIT):
         chunk = content[i : i + DISCORD_CHAR_LIMIT]
