@@ -25,6 +25,10 @@ class PHClient(discord.Client):
         """Store the event loop when the client starts"""
         self._stored_loop = asyncio.get_running_loop()
 
+    def get_stored_loop(self):
+        """Get the stored event loop"""
+        return self._stored_loop
+
     @property
     def guild(self):
         """Fetches the guild name for the Protohaven server"""
@@ -257,16 +261,18 @@ def get_client():
 
 def invoke_sync(fn_name, *args, **kwargs):
     """Execute synchronous function on a running instance"""
-    if client._stored_loop is None:
+    stored_loop = client.get_stored_loop()
+    if stored_loop is None:
         raise RuntimeError("Discord bot client not initialized yet")
     return asyncio.run_coroutine_threadsafe(
-        getattr(client, fn_name)(*args, **kwargs), client._stored_loop
+        getattr(client, fn_name)(*args, **kwargs), stored_loop
     ).result()
 
 
 def invoke_sync_generator(fn_name, *args, **kwargs):
     """Execute synchronous function yielding results from an async generator"""
-    if client._stored_loop is None:
+    stored_loop = client.get_stored_loop()
+    if stored_loop is None:
         raise RuntimeError("Discord bot client not initialized yet")
 
     async def wrapper():
@@ -277,7 +283,7 @@ def invoke_sync_generator(fn_name, *args, **kwargs):
     try:
         while True:
             yield asyncio.run_coroutine_threadsafe(
-                generator.__anext__(), client._stored_loop
+                generator.__anext__(), stored_loop
             ).result()
     except StopAsyncIteration:
         pass

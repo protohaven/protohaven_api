@@ -188,7 +188,8 @@ def send_discord_message(content, channel=None, blocking=True):
 
     # Usernames are alphanumeric and can contain periods and underscores
     # https://gamertweak.com/new-username-system-discord/
-    # Improved regex: @ followed by 2+ chars of [a-zA-Z0-9._], not matching if @ is preceded by word char
+    # Improved regex: @ followed by 2+ chars of [a-zA-Z0-9._],
+    # not matching if @ is preceded by word char
     # This avoids matching email addresses like user@gmail.com
     content = re.sub(
         r"(?<!\w)@[\w\._]{2,}", sub_roles_and_users, content, flags=re.MULTILINE
