@@ -307,7 +307,7 @@ def test_get_next_available_coupon(mocker, tc):
 def test_mark_coupon_assigned(mocker):
     mock_update = mocker.patch.object(a, "update_record")
     mock_update.return_value = (200, {"id": "rec123"})
-    test_time = datetime.datetime(2025, 1, 1, tzinfo=tz)
+    test_time = d(0)  # 2025-01-01
     mocker.patch.object(a, "tznow", return_value=test_time)
 
     result = a.mark_coupon_assigned("rec123", "user@example.com")

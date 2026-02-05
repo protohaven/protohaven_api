@@ -602,7 +602,7 @@ def test_techs_members(mocker, tech_client):
     m.name = "Test User"
     mocker.patch.object(tl.airtable, "get_signins_between", return_value=[m])
     mocker.patch.object(tl, "tznow", return_value=d(0, 14))
-    mocker.patch("protohaven_api.handlers.techs.safe_parse_datetime", return_value=d(1))
+    mocker.patch.object(tl, "safe_parse_datetime", return_value=d(1))
 
     rep = tech_client.get("/techs/members?start=2024-01-01")
     tl.airtable.get_signins_between.assert_called_once_with(

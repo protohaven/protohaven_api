@@ -62,6 +62,7 @@ def test_safe_parse_datetime_naive():
     """Test safe_parse_datetime with timezone-naive strings"""
     # Test naive datetime string - should be interpreted as Eastern time
     result = c.safe_parse_datetime("2025-01-01 18:00:00")
+    # d(0, 18) gives 2025-01-01 18:00:00 with tz timezone
     expected = datetime.datetime(2025, 1, 1, 18, 0, 0, tzinfo=c.tz)
     assert result == expected
     assert result.tzinfo == c.tz

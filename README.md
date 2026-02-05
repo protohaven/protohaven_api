@@ -52,11 +52,6 @@ In either mode, the server is available at http://localhost:5000.
 
 1. Create a virtual environment:
 ```bash
-make venv
-```
-
-Or manually:
-```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip setuptools wheel
@@ -66,16 +61,13 @@ pip install -e .
 2. Run tests:
 ```bash
 # Run all tests
-make test
-
-# Or use the test script
-./run_tests.sh
+python -m pytest
 
 # Run tests with coverage
-make test-coverage
+python -m pytest --cov=protohaven_api
 
 # Run specific test file
-source venv/bin/activate && python -m pytest protohaven_api/rbac_test.py -v
+python -m pytest protohaven_api/rbac_test.py -v
 ```
 
 ### Test Structure
@@ -83,7 +75,7 @@ source venv/bin/activate && python -m pytest protohaven_api/rbac_test.py -v
 - Test files are named `*_test.py`
 - Tests are located alongside the code they test
 - Use pytest for testing
-- Coverage reports are generated with `make test-coverage`
+- Coverage reports are generated with `pytest --cov=protohaven_api`
 
 ## Running the CLI
 

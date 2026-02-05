@@ -1,3 +1,7 @@
+## Reading GitHub issues
+
+Use the GitHub REST API to read issue links provided by the user
+
 ## Environment setup
 
 Before starting, create a venv and `pip install -r requirements.txt` to pull python dependencies.
@@ -7,7 +11,8 @@ Also `pip install pre-commit` to prepare for post-development steps.
 ## Python Unit Testing
 
 * Prefer `mocker.patch.object` over `mocker.patch`
-* Do not mock: logging functions, `tz`, `dateparser`
+* Do not mock: logging functions, `tz` (the timezone object), `dateparser`
+* Mocking `tznow` (the current time function) is acceptable when tests need to control time
 * When providing test datetime objects, use the builtin `d()` and `t()` functions defined in `protohaven_api/testing.py`
 * If `return_value` is needed for a mock, define it as part of the call to `mocker.patch.object`.
 
