@@ -590,7 +590,8 @@ def test_as_member_expired(mocker):
         s.neon.set_waiver_status, (12345, "version 2023-03-14 on 2025-01-01")
     )
     s.notify_async.assert_called_with(
-        "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk but has a non-Active membership status in Neon: status is Inactive ([wiki](https://wiki.protohaven.org/books/it-maintenance/page/membership-validation))\n"
+        "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk but has a non-Active membership status in Neon: status is Inactive ([wiki](https://wiki.protohaven.org/books/it-maintenance/"
+        "page/membership-validation))\n"
     )
 
 
@@ -637,7 +638,8 @@ def test_as_member_violations(mocker):
         {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}}
     ]
     s.notify_async.assert_called_with(
-        "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with violations: `[{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]` ([wiki](https://wiki.protohaven.org/books/it-maintenance/page/membership-validation))\n"
+        "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with violations: `[{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]` ([wiki](https://wiki.protohaven.org/books/it-maintenance/"
+        "page/membership-validation))\n"
     )
 
 
