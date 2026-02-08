@@ -12,12 +12,10 @@ export let user;
 let loaded = false;
 let promise = new Promise((resolve) => {});
 
-let new_tech_email = "";
+let new_tech = {neon_id: null, name: "", email:""};
 let toast_msg = null;
 let potential_volunteers = [];
 let show_create_account = false;
-let new_account_name = "";
-let new_account_email = "";
 let enrolling = false;
 
 let techs = [];
@@ -44,9 +42,9 @@ function refresh() {
     });
 
     // Fetch potential volunteers if user is a tech lead
-    if (p.tech_lead) {
-      get("/techs/volunteers").then((volunteers) => {
-        potential_volunteers = volunteers;
+    if (data.tech_lead) {
+      get("/techs/volunteers").then((data) => {
+        potential_volunteers = data.volunteers;
       }).catch((err) => {
         console.error("Failed to fetch volunteers:", err);
       });
@@ -63,6 +61,16 @@ $: {
 
 let show_proposed = true;
 
+function is_enrolled(neon_id) {
+  console.log("is_enrolled", neon_id);
+  for (let t of techs || []) {
+    if (t.neon_id == neon_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function update_tech(t) {
   console.log("Update tech", t);
   post("/techs/update", t).then((rep) => {
@@ -74,31 +82,28 @@ function update_tech(t) {
 function set_enrollment(enroll) {
   enrolling = true;
 
-  let payload = {email: new_tech_email, enroll};
+  let payload = {
+    ...new_tech,
+    enroll
+  };
 
   // If we're creating a new account, include name and email
   if (show_create_account && enroll) {
-    payload = {
-      ...payload,
-      create_account: true,
-      name: new_account_name,
-      email: new_account_email
-    };
-    new_tech_email = new_account_email; // Use the new email for the enrollment
+    payload['create_account'] = true;
   }
 
   post("/techs/enroll", payload).then((data) => {
       console.log(data);
-      let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
+      let msg = `${payload.name} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}.`;
       toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
 
       // Reset form
       if (show_create_account) {
         show_create_account = false;
-        new_account_name = "";
-        new_account_email = "";
+        new_tech.name = "";
+        new_tech.email = "";
       }
-      new_tech_email = "";
+      new_tech.neon_id = null;
 
       // Refresh the list
       refresh();
@@ -110,14 +115,15 @@ function set_enrollment(enroll) {
     });
 }
 
-function disenroll_tech(email) {
-  if (!confirm(`Are you sure you want to disenroll ${email} as a shop tech?`)) {
+function disenroll_tech(t) {
+  if (!confirm(`Are you sure you want to disenroll ${t.name} as a shop tech?`)) {
+    console.log("Cancelled disenrollment");
     return;
   }
   enrolling = true;
-  post("/techs/enroll", {email, enroll: false}).then((data) => {
-      console.log(data);
-      let msg = `${email} successfully disenrolled. Refresh the page to see changes`;
+  post("/techs/enroll", {neon_id: t.neon_id, enroll: false}).then((data) => {
+      console.log("Enrollment result", data);
+      let msg = `${t.name} successfully disenrolled. Refresh the page to see changes`;
       toast_msg = {'color': 'success', msg, 'title': 'Disenrollment successful'};
       // Refresh the list after a short delay
       setTimeout(() => refresh(), 1000);
@@ -203,8 +209,8 @@ function clearance_click(id) {
       {#if !show_create_account}
         <Dropdown class="mx-1">
           <DropdownToggle color="light" caret disabled={enrolling}>
-            {#if new_tech_email}
-              {new_tech_email}
+            {#if new_tech.name || new_tech.email}
+              {new_tech.name} ({new_tech.email})
             {:else}
               Select volunteer...
             {/if}
@@ -212,7 +218,7 @@ function clearance_click(id) {
           <DropdownMenu>
             {#each potential_volunteers as volunteer}
               <DropdownItem on:click={() => {
-                new_tech_email = volunteer.email;
+                new_tech = {neon_id: volunteer.neon_id, name: volunteer.name, email: volunteer.email};
                 show_create_account = false;
               }}>
                 {volunteer.name} ({volunteer.email})
@@ -223,7 +229,8 @@ function clearance_click(id) {
             {/each}
             <DropdownItem divider />
             <DropdownItem on:click={() => {
-              new_tech_email = "";
+              new_tech.neon_id = null;
+              new_tech.email = "";
               show_create_account = true;
             }}>
               <Icon name="plus" class="me-1" /> Create new Neon account
@@ -232,26 +239,26 @@ function clearance_click(id) {
         </Dropdown>
       {:else}
         <div class="mx-1 d-flex align-items-center">
-          <Input class="me-1" text bind:value={new_account_name} placeholder="Full name" disabled={enrolling} />
-          <Input class="me-1" text bind:value={new_account_email} placeholder="Email address" disabled={enrolling} />
+          <Input class="me-1" text bind:value={new_tech.name} placeholder="Full name" disabled={enrolling} />
+          <Input class="me-1" text bind:value={new_tech.email} placeholder="Email address" disabled={enrolling} />
           <Button color="secondary" size="sm" on:click={() => {
             show_create_account = false;
-            new_account_name = "";
-            new_account_email = "";
+            new_tech.name = "";
+            new_tech.email = "";
           }} disabled={enrolling}>
             Cancel
           </Button>
         </div>
       {/if}
 
-      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling || !new_tech_email}>
+      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling || is_enrolled(new_tech.neon_id) || !new_tech.name || !new_tech.email}>
         {#if show_create_account}
           Create & Enroll
         {:else}
           Enroll
         {/if}
       </Button>
-      <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling || !new_tech_email}>Disenroll</Button>
+      <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling || (new_tech.neon_id && !is_enrolled(new_tech.neon_id)) || !new_tech.neon_id}>Disenroll</Button>
     {/if}
   </div>
   <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
@@ -264,7 +271,7 @@ function clearance_click(id) {
 	  <div class="d-flex justify-content-between align-items-center">
 	    <CardTitle>{t.name} ({t.email})</CardTitle>
 	    {#if p.tech_lead}
-	      <Button color="danger" size="sm" on:click={() => disenroll_tech(t.email)} title="Disenroll {t.name}">Disenroll</Button>
+	      <Button color="danger" size="sm" on:click={() => disenroll_tech(t)} title="Disenroll {t.name}">Disenroll</Button>
 	    {/if}
 	  </div>
 	</CardHeader>

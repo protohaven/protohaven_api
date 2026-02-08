@@ -285,6 +285,7 @@ def techs_list():
         t = {
             k: getattr(m, k)
             for k in (
+                "neon_id",
                 "name",
                 "email",
                 "clearances",
@@ -298,7 +299,6 @@ def techs_list():
                 "volunteer_picture",
             )
         }
-        t["id"] = m.neon_id
         # Convert back from date so it's properly displayed as text
         if t["shop_tech_first_day"] is not None:
             t["shop_tech_first_day"] = t["shop_tech_first_day"].strftime("%Y-%m-%d")
@@ -344,13 +344,13 @@ def techs_volunteers():
                 seen_emails.add(member.email.lower())
                 volunteers.append(
                     {
-                        "id": member.neon_id,
+                        "neon_id": member.neon_id,
                         "name": member.name,
                         "email": member.email,
                         "roles": [
                             r["name"]
                             for r in (member.roles or [])
-                            if r["id"] in [role["id"] for role in volunteer_roles]
+                            if r["id"] in [r2["id"] for r2 in volunteer_roles]
                         ],
                     }
                 )
@@ -472,16 +472,14 @@ def techs_enroll():
             }, 400
 
         try:
-            # Create the member first
-            neon.create_member(name, email)
-            # Then enroll them as a shop tech
-            return neon.patch_member_role(email, Role.SHOP_TECH, data["enroll"])
+            nid = neon.create_member(name, email)
+            return neon.patch_member_role(nid, Role.SHOP_TECH, data["enroll"])
         except (RuntimeError, KeyError, ValueError) as e:
             log.error(f"Failed to create and enroll member {name} ({email}): {e}")
             return {"error": f"Failed to create account: {str(e)}"}, 500
 
     # Existing account enrollment/disenrollment
-    return neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
+    return neon.patch_member_role(data["neon_id"], Role.SHOP_TECH, data["enroll"])
 
 
 @page.route("/techs/events")

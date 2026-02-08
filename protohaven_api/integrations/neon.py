@@ -13,7 +13,7 @@ from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Attendee, Event, Member
+from protohaven_api.integrations.models import Attendee, Event, Member, NeonID
 
 log = logging.getLogger("integrations.neon")
 
@@ -425,12 +425,12 @@ def create_coupon_codes(codes, amt, from_date=None, to_date=None):
     )
 
 
-def create_member(name, email):
+def create_member(name: str, email: str) -> NeonID:
     """Create a new member in Neon with the given name and email"""
     # Check if member already exists
     existing = list(search_members_by_email(email))
     if existing:
-        return existing[0]
+        return existing[0].neon_id
 
     # Parse name into first and last
     name_parts = name.strip().split()
@@ -457,20 +457,17 @@ def create_member(name, email):
         # The API returns the created account data
         # We need to fetch it to get the full Member object
         account_id = result.get("accountId")
-        if account_id:
-            return neon_base.fetch_account(account_id, fetch_memberships=False)
-        raise RuntimeError(f"Failed to create account: {result}")
+        if not account_id:
+            raise RuntimeError(f"Failed to create account: {result}")
+        return account_id
     except Exception as e:
         log.error(f"Failed to create member {name} ({email}): {e}")
         raise
 
 
-def patch_member_role(email, role, enabled):
+def patch_member_role(neon_id: NeonID, role, enabled: bool):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = list(search_members_by_email(email, fields=[CustomField.API_SERVER_ROLE]))
-    if len(mem) == 0:
-        raise KeyError()
-    mem = mem[0]
+    mem = neon_base.fetch_account(neon_id)
     roles = {v["id"]: v["name"] for v in (mem.roles or [])}
     if enabled:
         roles[role["id"]] = role["name"]
