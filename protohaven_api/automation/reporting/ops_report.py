@@ -271,7 +271,7 @@ def get_asana_purchase_requests() -> list[OpsItem]:
 @opsitem(
     category="Inventory",
     source="Sheet",
-    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/shop_manager_logbook')}",
+    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/ids/shop_manager_logbook')}",
     timescale="ongoing",
     target="0",
 )
@@ -301,7 +301,7 @@ def get_ops_manager_sheet_inventory() -> list[OpsItem]:
 
 @opsitem(
     source="Sheet",
-    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/shop_manager_logbook')}",
+    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/ids/shop_manager_logbook')}",
     timescale="ongoing",
     target="0",
 )
@@ -357,7 +357,7 @@ def get_ops_manager_sheet_events() -> list[OpsItem]:
 @opsitem(
     category="Financial",
     source="Sheet",
-    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/shop_manager_logbook')}",
+    url=f"https://docs.google.com/spreadsheets/d/{get_config('sheets/ids/shop_manager_logbook')}",
     timescale="ongoing",
     target="0",
 )

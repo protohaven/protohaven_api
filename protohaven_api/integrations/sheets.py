@@ -23,7 +23,7 @@ def get_sheet_range(sheet_id, range_name):
     This account must have read access for the call to succeed.
     """
     creds = service_account.Credentials.from_service_account_file(
-        get_config("sheets/credentials_path"), scopes=get_config("sheets/scopes")
+        get_config("sheets/ids/credentials_path"), scopes=get_config("sheets/scopes")
     )
     service = build("sheets", "v4", credentials=creds)
     # Call the Sheets API
@@ -38,7 +38,7 @@ def get_sheet_range(sheet_id, range_name):
 
 def get_instructor_submissions_raw(from_row=1300):
     """Get log submissions from instructors"""
-    sheet_id = get_config("sheets/instructor_hours")
+    sheet_id = get_config("sheets/ids/instructor_hours")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
     for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
         data = dict(zip(headers, row))
@@ -82,7 +82,7 @@ def get_passing_student_clearances(
 
 def get_sign_ins_between(start, end):
     """Returns sign-in events between start and end dates. Not very efficient."""
-    sheet_id = get_config("sheets/welcome_waiver_form")
+    sheet_id = get_config("sheets/ids/welcome_waiver_form")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:D")[0]
     # Remap long header names
     headers = [
@@ -104,7 +104,7 @@ def get_sign_ins_between(start, end):
 
 def get_ops_budget_state():
     """Returns ops budgeting state from shop manager logbook"""
-    sheet_id = get_config("sheets/shop_manager_logbook")
+    sheet_id = get_config("sheets/ids/shop_manager_logbook")
     headers = [
         h.strip().lower()
         for row in get_sheet_range(sheet_id, "Budget Summary!A2:A")
@@ -121,7 +121,7 @@ def get_ops_budget_state():
 
 def get_ops_event_log(start=None, end=None):
     """Returns all events logged in the shop manager logbook between start and end dates."""
-    sheet_id = get_config("sheets/shop_manager_logbook")
+    sheet_id = get_config("sheets/ids/shop_manager_logbook")
     headers = get_sheet_range(sheet_id, "Event Log!A1:E1")[0]
     for row in get_sheet_range(sheet_id, "Event Log!A2:E"):
         data = dict(zip(headers, row))
@@ -133,7 +133,7 @@ def get_ops_event_log(start=None, end=None):
 
 def get_ops_inventory():
     """Returns all inventory information in the shop manager logbook"""
-    sheet_id = get_config("sheets/shop_manager_logbook")
+    sheet_id = get_config("sheets/ids/shop_manager_logbook")
     headers = get_sheet_range(sheet_id, "Inventory!A1:F1")[0]
     for row in get_sheet_range(sheet_id, "Inventory!A2:F"):
         d = dict(zip(headers, row))
