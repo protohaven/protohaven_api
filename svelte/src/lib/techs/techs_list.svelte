@@ -14,6 +14,10 @@ let promise = new Promise((resolve) => {});
 
 let new_tech_email = "";
 let toast_msg = null;
+let potential_volunteers = [];
+let show_create_account = false;
+let new_account_name = "";
+let new_account_email = "";
 let enrolling = false;
 
 let techs = [];
@@ -38,6 +42,16 @@ function refresh() {
       }
       return {...t, shop_tech_shift: t.shop_tech_shift.join(' ')};
     });
+
+    // Fetch potential volunteers if user is a tech lead
+    if (p.tech_lead) {
+      get("/techs/volunteers").then((volunteers) => {
+        potential_volunteers = volunteers;
+      }).catch((err) => {
+        console.error("Failed to fetch volunteers:", err);
+      });
+    }
+
     return data;
   });
 }
@@ -59,13 +73,57 @@ function update_tech(t) {
 
 function set_enrollment(enroll) {
   enrolling = true;
-  post("/techs/enroll", {email: new_tech_email, enroll}).then((data) => {
+
+  let payload = {email: new_tech_email, enroll};
+
+  // If we're creating a new account, include name and email
+  if (show_create_account && enroll) {
+    payload = {
+      ...payload,
+      create_account: true,
+      name: new_account_name,
+      email: new_account_email
+    };
+    new_tech_email = new_account_email; // Use the new email for the enrollment
+  }
+
+  post("/techs/enroll", payload).then((data) => {
       console.log(data);
       let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
       toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
+
+      // Reset form
+      if (show_create_account) {
+        show_create_account = false;
+        new_account_name = "";
+        new_account_email = "";
+      }
+      new_tech_email = "";
+
+      // Refresh the list
+      refresh();
     }).catch((err) => {
       console.error(err);
       toast_msg = {'color': 'danger', 'msg': 'See console for details', 'title': 'Error Changing Enrollment'};
+    }).finally(() => {
+      enrolling = false;
+    });
+}
+
+function disenroll_tech(email) {
+  if (!confirm(`Are you sure you want to disenroll ${email} as a shop tech?`)) {
+    return;
+  }
+  enrolling = true;
+  post("/techs/enroll", {email, enroll: false}).then((data) => {
+      console.log(data);
+      let msg = `${email} successfully disenrolled. Refresh the page to see changes`;
+      toast_msg = {'color': 'success', msg, 'title': 'Disenrollment successful'};
+      // Refresh the list after a short delay
+      setTimeout(() => refresh(), 1000);
+    }).catch((err) => {
+      console.error(err);
+      toast_msg = {'color': 'danger', 'msg': 'See console for details', 'title': 'Error Disenrolling'};
     }).finally(() => {
       enrolling = false;
     });
@@ -142,8 +200,57 @@ function clearance_click(id) {
         </DropdownMenu>
     </Dropdown>
     {#if p.tech_lead }
-      <Input class="mx-1" text bind:value={new_tech_email} disabled={enrolling} placeholder="email address"/>
-      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling || !new_tech_email}>Enroll</Button>
+      {#if !show_create_account}
+        <Dropdown class="mx-1">
+          <DropdownToggle color="light" caret disabled={enrolling}>
+            {#if new_tech_email}
+              {new_tech_email}
+            {:else}
+              Select volunteer...
+            {/if}
+          </DropdownToggle>
+          <DropdownMenu>
+            {#each potential_volunteers as volunteer}
+              <DropdownItem on:click={() => {
+                new_tech_email = volunteer.email;
+                show_create_account = false;
+              }}>
+                {volunteer.name} ({volunteer.email})
+                {#if volunteer.roles.length > 0}
+                  <Badge color="info" pill class="ms-1">{volunteer.roles.length} role(s)</Badge>
+                {/if}
+              </DropdownItem>
+            {/each}
+            <DropdownItem divider />
+            <DropdownItem on:click={() => {
+              new_tech_email = "";
+              show_create_account = true;
+            }}>
+              <Icon name="plus" class="me-1" /> Create new Neon account
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      {:else}
+        <div class="mx-1 d-flex align-items-center">
+          <Input class="me-1" text bind:value={new_account_name} placeholder="Full name" disabled={enrolling} />
+          <Input class="me-1" text bind:value={new_account_email} placeholder="Email address" disabled={enrolling} />
+          <Button color="secondary" size="sm" on:click={() => {
+            show_create_account = false;
+            new_account_name = "";
+            new_account_email = "";
+          }} disabled={enrolling}>
+            Cancel
+          </Button>
+        </div>
+      {/if}
+
+      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling || !new_tech_email}>
+        {#if show_create_account}
+          Create & Enroll
+        {:else}
+          Enroll
+        {/if}
+      </Button>
       <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling || !new_tech_email}>Disenroll</Button>
     {/if}
   </div>
@@ -153,7 +260,14 @@ function clearance_click(id) {
   </Toast>
   {#each techs_sorted as t}
     <Card class="my-2">
-	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
+	<CardHeader>
+	  <div class="d-flex justify-content-between align-items-center">
+	    <CardTitle>{t.name} ({t.email})</CardTitle>
+	    {#if p.tech_lead}
+	      <Button color="danger" size="sm" on:click={() => disenroll_tech(t.email)} title="Disenroll {t.name}">Disenroll</Button>
+	    {/if}
+	  </div>
+	</CardHeader>
 	<CardBody>
 	<Container style="max-width: none;">
 	<Row cols={{ xxl: 2, xl: 2, l: 2, md: 2, sm: 1, xs: 1}}>

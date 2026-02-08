@@ -425,6 +425,46 @@ def create_coupon_codes(codes, amt, from_date=None, to_date=None):
     )
 
 
+def create_member(name, email):
+    """Create a new member in Neon with the given name and email"""
+    # Check if member already exists
+    existing = list(search_members_by_email(email))
+    if existing:
+        return existing[0]
+
+    # Parse name into first and last
+    name_parts = name.strip().split()
+    if len(name_parts) < 2:
+        first_name = name
+        last_name = ""
+    else:
+        first_name = " ".join(name_parts[:-1])
+        last_name = name_parts[-1]
+
+    # Create the account
+    account_data = {
+        "individualAccount": {
+            "primaryContact": {
+                "firstName": first_name,
+                "lastName": last_name,
+                "email1": email,
+            }
+        }
+    }
+
+    try:
+        result = neon_base.post("api_key2", "/accounts", account_data)
+        # The API returns the created account data
+        # We need to fetch it to get the full Member object
+        account_id = result.get("accountId")
+        if account_id:
+            return neon_base.fetch_account(account_id, fetch_memberships=False)
+        raise RuntimeError(f"Failed to create account: {result}")
+    except Exception as e:
+        log.error(f"Failed to create member {name} ({email}): {e}")
+        raise
+
+
 def patch_member_role(email, role, enabled):
     """Enables or disables a specific role for a user with the given `email`"""
     mem = list(search_members_by_email(email, fields=[CustomField.API_SERVER_ROLE]))

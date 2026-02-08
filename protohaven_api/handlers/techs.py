@@ -309,6 +309,58 @@ def techs_list():
     return {"tech_lead": am_lead_role(), "techs": techs_results}
 
 
+@page.route("/techs/volunteers")
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
+def techs_volunteers():
+    """Fetches all Neon accounts with volunteer roles for enrollment dropdown"""
+    volunteer_roles = [
+        Role.SHOP_TECH,
+        Role.SHOP_TECH_LEAD,
+        Role.EDUCATION_LEAD,
+        Role.STAFF,
+        Role.ADMIN,
+        Role.SOFTWARE_DEV,
+        Role.IT_MAINTENANCE,
+        Role.DEVOPS,
+        Role.MAINTENANCE_CREW,
+        Role.MEMBERSHIP_AND_PROGRAMMING,
+        Role.STRATEGIC_PLANNING,
+        Role.FINANCE,
+        Role.EXECUTIVE,
+        Role.OPERATIONS,
+    ]
+
+    # Get all members with any volunteer role
+    volunteers = []
+    seen_emails = set()
+
+    for role in volunteer_roles:
+        for member in neon.search_members_with_role(
+            role, fields=["First Name", "Last Name", "Email 1"]
+        ):
+            if member.email and member.email.lower() not in seen_emails:
+                seen_emails.add(member.email.lower())
+                volunteers.append(
+                    {
+                        "id": member.neon_id,
+                        "name": member.name,
+                        "email": member.email,
+                        "roles": [
+                            r["name"]
+                            for r in (member.roles or [])
+                            if r["id"] in [role["id"] for role in volunteer_roles]
+                        ],
+                    }
+                )
+
+    # Sort by name
+    volunteers.sort(key=lambda x: x["name"].lower())
+
+    return {"volunteers": volunteers}
+
+
 @page.route("/techs/update", methods=["POST"])
 @require_login_role(
     Role.SHOP_TECH_LEAD,
@@ -408,6 +460,27 @@ def rm_tech_event():
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
+
+    # Check if we need to create a new account
+    if data.get("create_account", False):
+        name = data.get("name", "")
+        email = data.get("email", "")
+
+        if not name or not email:
+            return {
+                "error": "Name and email are required when creating a new account"
+            }, 400
+
+        try:
+            # Create the member first
+            neon.create_member(name, email)
+            # Then enroll them as a shop tech
+            return neon.patch_member_role(email, Role.SHOP_TECH, data["enroll"])
+        except (RuntimeError, KeyError, ValueError) as e:
+            log.error(f"Failed to create and enroll member {name} ({email}): {e}")
+            return {"error": f"Failed to create account: {str(e)}"}, 500
+
+    # Existing account enrollment/disenrollment
     return neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
 
 
