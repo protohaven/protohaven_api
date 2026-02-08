@@ -55,7 +55,9 @@ def test_config_references(args, kwargs, file, lineno):
         c.get_config(*[a.replace("'", "").replace('"', "") for a in args], **kwargs)
         is None
     ):
-        raise AssertionError(f"get_config(*{args}, **{kwargs}) is None in file {file}:{lineno}")
+        raise AssertionError(
+            f"get_config(*{args}, **{kwargs}) is None in file {file}:{lineno}"
+        )
 
 
 def test_safe_parse_datetime_naive():
