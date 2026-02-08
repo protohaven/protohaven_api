@@ -129,7 +129,7 @@ $: {
     {:then p}
     <ListGroup>
     {#each p as r}
-      <ListGroupItem>{r}</ListGroupItem>
+      <ListGroupItem>{r.display}</ListGroupItem>
     {/each}
     </ListGroup>
     {:catch error}

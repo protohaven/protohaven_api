@@ -151,7 +151,14 @@ def neon_id_lookup():
     if search is None:
         return result
     for i in neon.cache.find_best_match(search):
-        result.append(f"{i.fname} {i.lname} (#{i.neon_id})")
+        result.append(
+            {
+                "neon_id": i.neon_id,
+                "name": f"{i.fname} {i.lname}",
+                "email": i.email,
+                "display": f"{i.fname} {i.lname} (#{i.neon_id})",
+            }
+        )
     return result
 
 

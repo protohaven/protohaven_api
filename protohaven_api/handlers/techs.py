@@ -309,58 +309,6 @@ def techs_list():
     return {"tech_lead": am_lead_role(), "techs": techs_results}
 
 
-@page.route("/techs/volunteers")
-@require_login_role(
-    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
-)
-def techs_volunteers():
-    """Fetches all Neon accounts with volunteer roles for enrollment dropdown"""
-    volunteer_roles = [
-        Role.SHOP_TECH,
-        Role.SHOP_TECH_LEAD,
-        Role.EDUCATION_LEAD,
-        Role.STAFF,
-        Role.ADMIN,
-        Role.SOFTWARE_DEV,
-        Role.IT_MAINTENANCE,
-        Role.DEVOPS,
-        Role.MAINTENANCE_CREW,
-        Role.MEMBERSHIP_AND_PROGRAMMING,
-        Role.STRATEGIC_PLANNING,
-        Role.FINANCE,
-        Role.EXECUTIVE,
-        Role.OPERATIONS,
-    ]
-
-    # Get all members with any volunteer role
-    volunteers = []
-    seen_emails = set()
-
-    for role in volunteer_roles:
-        for member in neon.search_members_with_role(
-            role, fields=["First Name", "Last Name", "Email 1"]
-        ):
-            if member.email and member.email.lower() not in seen_emails:
-                seen_emails.add(member.email.lower())
-                volunteers.append(
-                    {
-                        "neon_id": member.neon_id,
-                        "name": member.name,
-                        "email": member.email,
-                        "roles": [
-                            r["name"]
-                            for r in (member.roles or [])
-                            if r["id"] in [r2["id"] for r2 in volunteer_roles]
-                        ],
-                    }
-                )
-
-    # Sort by name
-    volunteers.sort(key=lambda x: x["name"].lower())
-
-    return {"volunteers": volunteers}
-
-
 @page.route("/techs/update", methods=["POST"])
 @require_login_role(
     Role.SHOP_TECH_LEAD,

@@ -223,3 +223,26 @@ def test_event_ticket_info_eventbrite(mocker, client):
 def test_event_ticket_info_no_id(mocker, client):
     rep = client.get("/events/tickets")
     assert rep.status != 200
+
+
+def test_neon_lookup(mocker, client):
+    """Test neon_lookup returns structured data"""
+    mock_member = mocker.MagicMock()
+    mock_member.neon_id = "123"
+    mock_member.fname = "John"
+    mock_member.lname = "Doe"
+    mock_member.email = "john@example.com"
+
+    mocker.patch.object(index.neon.cache, "find_best_match", return_value=[mock_member])
+
+    response = client.post("/neon_lookup", data={"search": "John"})
+    assert response.status_code == 200
+    result = json.loads(response.data.decode("utf8"))
+    assert result == [
+        {
+            "neon_id": "123",
+            "name": "John Doe",
+            "email": "john@example.com",
+            "display": "John Doe (#123)",
+        }
+    ]
