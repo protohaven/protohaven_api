@@ -23,7 +23,7 @@ def get_sheet_range(sheet_id, range_name):
     This account must have read access for the call to succeed.
     """
     creds = service_account.Credentials.from_service_account_file(
-        get_config("sheets/ids/credentials_path"), scopes=get_config("sheets/scopes")
+        get_config("sheets/credentials_path"), scopes=get_config("sheets/scopes")
     )
     service = build("sheets", "v4", credentials=creds)
     # Call the Sheets API
