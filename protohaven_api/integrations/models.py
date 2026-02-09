@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Objects modeling particular entities that are commonly passed between systems"""
 
 import datetime
