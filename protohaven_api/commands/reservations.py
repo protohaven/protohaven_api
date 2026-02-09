@@ -224,10 +224,13 @@ class Commands:
                 neon.CustomField.BOOKED_USER_ID,
             ]
         ):
-            if not member.can_reserve_tools():
+            if not member.email or not member.can_reserve_tools():
                 continue
             neon_members.append(member)
-        log.info(f"Fetched {len(neon_members)} neon members that can reserve tools")
+        log.info(
+            f"Fetched {len(neon_members)} neon members with email addresses that "
+            "can reserve tools"
+        )
         return neon_members
 
     def _fetch_booked_sources(self):
