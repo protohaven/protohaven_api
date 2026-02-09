@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Objects modeling particular entities that are commonly passed between systems"""
 
 import datetime
@@ -23,6 +24,41 @@ class NoAttendeeDataError(RuntimeError):
 
 
 NeonID = str
+
+
+@dataclass
+class BookedUser:
+    """A canonical format for Booked user data"""
+
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    raw_data: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_booked_response(cls, data: dict) -> "BookedUser":
+        """Creates a BookedUser from a Booked API response"""
+        return cls(
+            id=int(data["id"]),
+            first_name=data.get("firstName", ""),
+            last_name=data.get("lastName", ""),
+            email=data.get("emailAddress", "").lower(),
+            raw_data=data,
+        )
+
+    @property
+    def full_name(self) -> str:
+        """Returns the full name of the user"""
+        return f"{self.first_name} {self.last_name}".strip()
+
+    def __str__(self) -> str:
+        return (
+            f"BookedUser(id={self.id}, name='{self.full_name}', email='{self.email}')"
+        )
+
+    def __repr__(self) -> str:
+        return str(self)
 
 
 @dataclass

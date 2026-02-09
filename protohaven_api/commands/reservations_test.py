@@ -125,9 +125,12 @@ def test_sync_booked_members_not_in_booked(mocker, cli):
                 neon_id=12345,
                 booked_id=None,
                 can_reserve_tools=lambda: True,
+                full_name="John Doe",
             )
         ],
     )
+    from protohaven_api.integrations.models import BookedUser
+
     mocker.patch.object(r.booked, "get_all_users", return_value=[])
     mocker.patch.object(
         r.booked, "create_user_as_member", return_value={"userId": 456, "errors": []}
@@ -161,19 +164,28 @@ def test_sync_booked_members_associate_existing(mocker, cli):
                 neon_id=12345,
                 booked_id=None,
                 can_reserve_tools=lambda: True,
+                full_name="John Doe",
             )
         ],
     )
+    from protohaven_api.integrations.models import BookedUser
+
     mocker.patch.object(
         r.booked,
         "get_all_users",
         return_value=[
-            {
-                "id": 456,
-                "firstName": "John",
-                "lastName": "Doe",
-                "emailAddress": "john@example.com",
-            }
+            BookedUser(
+                id=456,
+                first_name="John",
+                last_name="Doe",
+                email="john@example.com",
+                raw_data={
+                    "id": 456,
+                    "firstName": "John",
+                    "lastName": "Doe",
+                    "emailAddress": "john@example.com",
+                },
+            )
         ],
     )
     mocker.patch.object(r.booked, "create_user_as_member")
@@ -209,16 +221,30 @@ def test_sync_booked_members_update_associated(mocker, cli):
                 neon_id=12345,
                 booked_id=456,
                 can_reserve_tools=lambda: True,
+                full_name="John Doe",
             )
         ],
     )
 
     # Note that no fields except the ID properly match the Neon values
+    from protohaven_api.integrations.models import BookedUser
+
     mocker.patch.object(
         r.booked,
         "get_all_users",
         return_value=[
-            {"id": 456, "firstName": "A", "lastName": "B", "emailAddress": "c@d.com"}
+            BookedUser(
+                id=456,
+                first_name="A",
+                last_name="B",
+                email="c@d.com",
+                raw_data={
+                    "id": 456,
+                    "firstName": "A",
+                    "lastName": "B",
+                    "emailAddress": "c@d.com",
+                },
+            )
         ],
     )
     mocker.patch.object(r.booked, "create_user_as_member")

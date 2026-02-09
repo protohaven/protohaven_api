@@ -143,7 +143,7 @@ def _structured_reservations(
     }
     result = defaultdict(list)
     booked_user_map: dict[int, Email] = {
-        int(u["id"]): u["emailAddress"] for u in booked.get_all_users()
+        user.id: user.email for user in booked.get_all_users()
     }
     for res in booked.get_reservations(from_date, to_date)["reservations"]:
         tool_code = res_id_to_tool_code.get(res["resourceId"])
