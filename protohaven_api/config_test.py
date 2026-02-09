@@ -42,12 +42,12 @@ def search_config_calls():
                             kwargs = {
                                 kw.arg: ast.unparse(kw.value) for kw in n.keywords
                             }
-                            calls.append((args, kwargs))
+                            calls.append((args, kwargs, file, n.lineno))
     return calls
 
 
-@pytest.mark.parametrize("args,kwargs", search_config_calls())
-def test_config_references(args, kwargs):
+@pytest.mark.parametrize("args,kwargs,file,lineno", search_config_calls())
+def test_config_references(args, kwargs, file, lineno):
     """Tests that all calls to get_config reference paths that
     exist in config.yaml"""
     assert len(args) > 0
@@ -55,7 +55,9 @@ def test_config_references(args, kwargs):
         c.get_config(*[a.replace("'", "").replace('"', "") for a in args], **kwargs)
         is None
     ):
-        raise AssertionError(f"get_config(*{args}, **{kwargs}) is None")
+        raise AssertionError(
+            f"get_config(*{args}, **{kwargs}) is None in file {file}:{lineno}"
+        )
 
 
 def test_safe_parse_datetime_naive():
