@@ -213,8 +213,8 @@ class Commands:
             print_yaml([])
 
     def _fetch_neon_sources(self):
-        neon_members = {}
-        for m in neon.search_all_members(
+        neon_members = []
+        for member in neon.search_all_members(
             [
                 "Company ID",
                 "First Name",
@@ -224,19 +224,17 @@ class Commands:
                 neon.CustomField.BOOKED_USER_ID,
             ]
         ):
-            if not m.can_reserve_tools():
+            if not member.can_reserve_tools():
                 continue
-            neon_members[(m.fname, m.lname, m.email)] = (m.neon_id, m.booked_id)
+            neon_members.append(member)
         log.info(f"Fetched {len(neon_members)} neon members that can reserve tools")
         return neon_members
 
     def _fetch_booked_sources(self):
-        booked_users = {
-            int(u["id"]): (u["firstName"], u["lastName"], u["emailAddress"].lower())
-            for u in booked.get_all_users()
-        }
-        log.info(f"Fetched {len(booked_users)} booked users")
-        return booked_users
+        booked_users = booked.get_all_users()
+        booked_user_data = {user.id: user for user in booked_users}
+        log.info(f"Fetched {len(booked_user_data)} booked users")
+        return booked_user_data
 
     @command(
         arg(
@@ -277,87 +275,111 @@ class Commands:
         pct.set_stages(4)
         neon_members = self._fetch_neon_sources()
         pct[0] = 1
-        booked_users = self._fetch_booked_sources()
-        email_to_booked_user_id = {v[2].lower(): k for k, v in booked_users.items()}
+        booked_user_data = self._fetch_booked_sources()
+        email_to_booked_user = {
+            user.email.lower(): user for user in booked_user_data.values()
+        }
         pct[1] = 1
 
         summary = []
-        booked_members = set()
-        for i, kv in enumerate(neon_members.items()):
+        booked_member_ids = set()
+        for i, member in enumerate(neon_members):
             pct[2] = i / len(neon_members)
-            k, v = kv
-            if k[2].lower() in args.exclude:
-                log.info(f"Skipping excluded {k[2]}")
+            member_email_lower = member.email.lower()
+            if member_email_lower in args.exclude:
+                log.info(f"Skipping excluded {member.email}")
                 continue
-            if args.include and k[2].lower() not in args.include:
-                log.info(f"Skipping not explicitly included {k[2]}")
+            if args.include and member_email_lower not in args.include:
+                log.info(f"Skipping not explicitly included {member.email}")
                 continue
 
-            aid, bid = v
-            if not bid:
-                log.info(f"Active member {k} with no Booked User ID")
-                if email_to_booked_user_id.get(k[2].lower()):
+            booked_id = member.booked_id
+            if not booked_id:
+                log.info(
+                    f"Active member {member.full_name} ({member.email}) with no Booked User ID"
+                )
+                existing_booked_user = email_to_booked_user.get(member_email_lower)
+                if existing_booked_user:
                     log.info(
-                        f"Existing booked user with email {k[2]}; associating that"
+                        f"Existing booked user with email {member.email}; associating that"
                     )
-                    bid = email_to_booked_user_id[k[2].lower()]
+                    booked_id = existing_booked_user.id
                 elif args.apply:
-                    u = booked.create_user_as_member(k[0], k[1], k[2])
+                    u = booked.create_user_as_member(
+                        member.fname, member.lname, member.email
+                    )
                     if u.get("errors"):
                         for e in u["errors"]:
                             log.error(e)
                         summary.append(
-                            f"Error(s) setting up Booked user for {k}: {u.get('errors')}"
+                            f"Error(s) setting up Booked user for {member.full_name}: "
+                            f"{u.get('errors')}"
                         )
                         continue
-                    bid = u["userId"]
+                    booked_id = u["userId"]
 
-                if bid and args.apply:
-                    booked_members.add(int(bid))
-                    neon.set_booked_user_id(aid, bid)
-                    summary.append(f"Booked #{bid} associated with neon #{aid} {k}")
+                if booked_id and args.apply:
+                    booked_member_ids.add(int(booked_id))
+                    neon.set_booked_user_id(member.neon_id, booked_id)
+                    summary.append(
+                        f"Booked #{booked_id} associated with neon #{member.neon_id} "
+                        f"{member.full_name}"
+                    )
                     log.info(summary[-1])
             else:
-                bk = booked_users.get(bid)
-                if not bk:
+                existing_booked_user = booked_user_data.get(booked_id)
+                if not existing_booked_user:
                     raise RuntimeError(
-                        f"Neon user {k} has invalid booked user ID {bid}"
+                        f"Neon user {member.full_name} has invalid booked user ID {booked_id}"
                     )
-                booked_members.add(bid)
-                if bk != k:
-                    summary.append(f"Update booked #{bid}: {bk} -> {k}")
+                booked_member_ids.add(booked_id)
+                # Check if the booked user data matches the neon member data
+                booked_user_tuple = (
+                    existing_booked_user.first_name,
+                    existing_booked_user.last_name,
+                    existing_booked_user.email,
+                )
+                member_tuple = (member.fname, member.lname, member.email.lower())
+                if booked_user_tuple != member_tuple:
+                    summary.append(
+                        f"Update booked #{booked_id}: {booked_user_tuple} -> {member_tuple}"
+                    )
                     log.info(summary[-1])
                     if args.apply:
-                        data = booked.get_user(bid)
+                        data = booked.get_user(booked_id)
                         if not data or not data.get("id"):
                             raise RuntimeError(
-                                f"Failed to get user data for {bid}: {data}"
+                                f"Failed to get user data for {booked_id}: {data}"
                             )
-                        data["firstName"] = k[0]
-                        data["lastName"] = k[1]
-                        data["emailAddress"] = k[2]
-                        rep = booked.update_user(bid, data)
+                        data["firstName"] = member.fname
+                        data["lastName"] = member.lname
+                        data["emailAddress"] = member.email
+                        rep = booked.update_user(booked_id, data)
                         log.info(f"Response {rep}")
 
         pct[3] = 0.5
-        cur_member_users = {
+        current_member_user_ids = {
             int(u.split("/")[-1]) for u in booked.get_members_group()["users"]
         }
-        added = [
-            f"#{bid} {booked_users.get(bid)}"
-            for bid in booked_members - cur_member_users
+        added_member_strings = [
+            f"#{user.id} {user.full_name} ({user.email})"
+            for user_id in booked_member_ids - current_member_user_ids
+            if (user := booked_user_data.get(user_id))
         ]
-        removed = [
-            f"#{bid} {booked_users.get(bid)}"
-            for bid in cur_member_users - booked_members
+        removed_member_strings = [
+            f"#{user.id} {user.full_name} ({user.email})"
+            for user_id in current_member_user_ids - booked_member_ids
+            if (user := booked_user_data.get(user_id))
         ]
-        if len(added) + len(removed) > 0:
+        if args.apply and booked_member_ids:
+            log.info(str(booked.assign_members_group_users(booked_member_ids)))
+
+        if len(added_member_strings) + len(removed_member_strings) > 0:
             summary.append(
-                f"Assigning Members group to {len(booked_members)} "
-                + f"booked users (added {added}, removed {removed})"
+                f"Assigning Members group to {len(booked_member_ids)} "
+                + f"booked users (added {added_member_strings}, removed {removed_member_strings})"
             )
             log.info(summary[-1])
-            log.info(str(booked.assign_members_group_users(booked_members)))
 
         if len(summary) > 0:
             print_yaml(

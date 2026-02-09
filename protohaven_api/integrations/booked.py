@@ -10,6 +10,7 @@ from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations.airtable import AreaID, Interval, ToolCode
 from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.warm_cache import WarmDict
+from protohaven_api.integrations.models import BookedUser
 
 log = logging.getLogger("booked")
 
@@ -307,9 +308,10 @@ def create_user_as_member(fname, lname, email):
     )
 
 
-def get_all_users():
+def get_all_users() -> list[BookedUser]:
     """Gets all users in Booked"""
-    return get_connector().booked_request("GET", "/Users/")["users"]
+    users_data = get_connector().booked_request("GET", "/Users/")["users"]
+    return [BookedUser.from_booked_response(user) for user in users_data]
 
 
 def get_user(user_id):
