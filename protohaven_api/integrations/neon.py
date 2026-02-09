@@ -637,7 +637,7 @@ class AccountCache(WarmDict):
         """Fetches the Neon ID associated with a Booked user ID"""
         return self.by_booked_id[booked_id].neon_id
 
-    def _find_best_match_internal(self, search_string, top_n=10):
+    def _find_best_match_internal(self, search_string, top_n, score_cutoff):
         """Find and return the top_n best matches to the key in `self` based on a search string."""
         # Could probably use a priority queue / heap here for faster lookups, but we only have
         # ~1000 or so records to sort through anyways.
@@ -647,12 +647,12 @@ class AccountCache(WarmDict):
             rapidfuzz.utils.default_process(search_string),
             self.fuzzy,
             scorer=rapidfuzz.fuzz.WRatio,
-            score_cutoff=65,
+            score_cutoff=score_cutoff,
             limit=top_n,
         ):
             yield m[2]
 
-    def find_best_match(self, search_string, top_n=10):
+    def find_best_match(self, search_string, top_n=10, score_cutoff=65):
         """Deduplicates find_best_match_internal"""
         result = set()
         search_string = re.sub(
@@ -662,7 +662,7 @@ class AccountCache(WarmDict):
             sp = search_string.split(" ")
             if len(sp) >= 2 and sp[0] and sp[1]:
                 yield from search_members_by_name(sp[0], sp[1], fields=self.FIELDS)
-        for m in self._find_best_match_internal(search_string, 2 * top_n):
+        for m in self._find_best_match_internal(search_string, 2 * top_n, score_cutoff):
             if m in result:  # prevent duplicates
                 continue
             result.add(m)

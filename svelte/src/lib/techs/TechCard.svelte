@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
   import { Card, CardHeader, CardTitle, CardBody, Container, Row, Col, Button, Modal } from '@sveltestrap/sveltestrap';
   import EditCell from './editable_td.svelte';
   import type { DisplayTech } from './types';

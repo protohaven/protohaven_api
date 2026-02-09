@@ -150,7 +150,9 @@ def neon_id_lookup():
     search = request.values.get("search")
     if search is None:
         return result
-    for i in neon.cache.find_best_match(search):
+    for i in neon.cache.find_best_match(
+        search, score_cutoff=int(request.values.get("min_score") or 65)
+    ):
         result.append(
             {
                 "neon_id": i.neon_id,

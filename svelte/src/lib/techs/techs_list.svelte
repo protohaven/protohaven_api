@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 import { onMount } from 'svelte';
 import {
   Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card,
@@ -72,15 +72,17 @@ $: {
 
 // Debounced search function
 const debouncedSearch = debounce(() => {
+  new_tech = {neon_id: null, name: "", email: ""};
   if (!search_term.trim()) {
     search_results = [];
     return;
   }
 
   searching = true;
-  search_promise = post(`/neon_lookup?search=${search_term}`)
+  search_promise = post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
     .then((results: SearchResult[]) => {
       search_results = results;
+      search_results.push({name: "+ Create New", email: "Neon CRM"});
     })
     .catch((err) => {
       console.error("Search failed:", err);
@@ -127,8 +129,9 @@ $: {
 }
 
 // Reactive search term
-$: {
-  if (search_term) {
+function on_search_term_edit(e) {
+  console.log(e);
+  if (search_term !== `${new_tech.name} (${new_tech.email})`) {
     search_neon_accounts();
   } else {
     search_results = [];
@@ -297,34 +300,21 @@ function clearance_click(id: string) {
             {#if !show_create_account}
               <div class="mx-1 position-relative">
                 <div class="d-flex align-items-center">
+                  <div data-help="this div needed for on:keydown">
                   <Input
                     class="me-1"
-                    text
+                    type="text"
                     bind:value={search_term}
+                    on:keydown={on_search_term_edit}
                     placeholder="Search by name or email"
                     disabled={enrolling}
                     aria-label="Search Neon accounts by name or email"
                     aria-describedby="search-help"
                   />
+                  </div>
                   {#if searching}
                     <Spinner size="sm" class="me-1" aria-label="Searching..."/>
                   {/if}
-                  <Button
-                    color="secondary"
-                    size="sm"
-                    on:click={() => {
-                      search_term = "";
-                      search_results = [];
-                      new_tech.neon_id = null;
-                      new_tech.name = "";
-                      new_tech.email = "";
-                      show_create_account = true;
-                    }}
-                    disabled={enrolling}
-                    aria-label="Create new account"
-                  >
-                    <Icon name="plus" class="me-1" /> New Account
-                  </Button>
                 </div>
 
                 <div id="search-help" class="visually-hidden">
@@ -345,10 +335,15 @@ function clearance_click(id: string) {
                           tag="button"
                           action
                           on:click={() => {
+                            if (result.name === "+ Create New") {
+                              show_create_account=true;
+                              search_results = [];
+                              return;
+                            }
                             new_tech.neon_id = result.neon_id;
                             new_tech.name = result.name;
                             new_tech.email = result.email;
-                            search_term = "";
+                            search_term = `${new_tech.name} (${new_tech.email})`; // For visibility
                             search_results = [];
                           }}
                           class="text-start"
@@ -366,7 +361,7 @@ function clearance_click(id: string) {
               <div class="mx-1 d-flex align-items-center">
                 <Input
                   class="me-1"
-                  text
+                  type="text"
                   bind:value={new_tech.name}
                   placeholder="Full name"
                   disabled={enrolling}
@@ -374,7 +369,7 @@ function clearance_click(id: string) {
                 />
                 <Input
                   class="me-1"
-                  text
+                  type="email"
                   bind:value={new_tech.email}
                   placeholder="Email address"
                   disabled={enrolling}
@@ -400,6 +395,7 @@ function clearance_click(id: string) {
 
             <Button
               class="mx-1"
+              size="sm"
               on:click={() => set_enrollment(true)}
               disabled={enrolling || is_enrolled(new_tech.neon_id) || !new_tech.name || !new_tech.email}
               aria-label={show_create_account ? "Create and enroll new account" : "Enroll selected account"}
@@ -412,6 +408,7 @@ function clearance_click(id: string) {
             </Button>
             <Button
               class="mx-1"
+              size="sm"
               on:click={() => set_enrollment(false)}
               disabled={enrolling || (new_tech.neon_id && !is_enrolled(new_tech.neon_id)) || !new_tech.neon_id}
               aria-label="Disenroll selected account"
