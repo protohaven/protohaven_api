@@ -22,6 +22,9 @@ class NoAttendeeDataError(RuntimeError):
     """Raised when no attendee data is provided for an event to compute derived properties"""
 
 
+NeonID = str
+
+
 @dataclass
 class Role:
     """Every Neon user has zero or more roles that can be checked for access."""

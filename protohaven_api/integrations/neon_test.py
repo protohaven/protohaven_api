@@ -18,14 +18,14 @@ TEST_USER = 1234
 def test_patch_member_role(mocker):
     """Member role patch adds to existing roles"""
     mocker.patch.object(
-        n,
-        "search_members_by_email",
-        return_value=[
-            mocker.MagicMock(neon_id=1324, roles=[{"name": "TEST", "id": "1234"}])
-        ],
+        n.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=1324, roles=[{"name": "TEST", "id": "1234"}]
+        ),
     )
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
-    n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
+    n.patch_member_role("1234", Role.INSTRUCTOR, enabled=True)
     m.assert_called_with(
         1324,
         (
@@ -41,12 +41,12 @@ def test_patch_member_role(mocker):
 def test_patch_member_role_empty(mocker):
     """Member role patch adds to existing roles"""
     mocker.patch.object(
-        n,
-        "search_members_by_email",
-        return_value=[mocker.MagicMock(neon_id=1324, roles=None)],
+        n.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(neon_id=1324, roles=None),
     )
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
-    n.patch_member_role("a@b.com", Role.INSTRUCTOR, enabled=True)
+    n.patch_member_role("1234", Role.INSTRUCTOR, enabled=True)
     m.assert_called_with(
         1324,
         (
@@ -61,21 +61,19 @@ def test_patch_member_role_empty(mocker):
 def test_patch_member_role_rm(mocker):
     """Member role patch preserves remaining roles"""
     mocker.patch.object(
-        n,
-        "search_members_by_email",
-        return_value=[
-            mocker.MagicMock(
-                neon_id=1324,
-                roles=[
-                    {"name": "TEST", "id": "1234"},
-                    {"name": "Instructor", "id": "75"},
-                ],
-            )
-        ],
+        n.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(
+            neon_id=1324,
+            roles=[
+                {"name": "TEST", "id": "1234"},
+                {"name": "Instructor", "id": "75"},
+            ],
+        ),
     )
     mocker.patch.object(n.neon_base, "get_connector")
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
-    n.patch_member_role("a@b.com", Role.INSTRUCTOR, False)
+    n.patch_member_role("1234", Role.INSTRUCTOR, False)
     m.assert_called_with(1324, (mocker.ANY, [{"name": "TEST", "id": "1234"}]))
 
 

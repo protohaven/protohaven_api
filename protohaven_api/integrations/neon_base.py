@@ -23,6 +23,8 @@ BASE_URL = get_config("neon/base_url")
 ADMIN_URL = get_config("neon/admin_url")
 SSO_URL = get_config("neon/sso_url")
 
+NeonID = str
+
 
 def paginated_fetch(api_key, path, params=None, batching=False):
     """Issue GET requests against Neon's V2 API, yielding all results across

@@ -285,6 +285,7 @@ def techs_list():
         t = {
             k: getattr(m, k)
             for k in (
+                "neon_id",
                 "name",
                 "email",
                 "clearances",
@@ -298,7 +299,6 @@ def techs_list():
                 "volunteer_picture",
             )
         }
-        t["id"] = m.neon_id
         # Convert back from date so it's properly displayed as text
         if t["shop_tech_first_day"] is not None:
             t["shop_tech_first_day"] = t["shop_tech_first_day"].strftime("%Y-%m-%d")
@@ -408,7 +408,26 @@ def rm_tech_event():
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
-    return neon.patch_member_role(data["email"], Role.SHOP_TECH, data["enroll"])
+
+    # Check if we need to create a new account
+    if data.get("create_account", False):
+        name = data.get("name", "")
+        email = data.get("email", "")
+
+        if not name or not email:
+            return {
+                "error": "Name and email are required when creating a new account"
+            }, 400
+
+        try:
+            nid = neon.create_member(name, email)
+            return neon.patch_member_role(nid, Role.SHOP_TECH, data["enroll"])
+        except (RuntimeError, KeyError, ValueError) as e:
+            log.error(f"Failed to create and enroll member {name} ({email}): {e}")
+            return {"error": f"Failed to create account: {str(e)}"}, 500
+
+    # Existing account enrollment/disenrollment
+    return neon.patch_member_role(data["neon_id"], Role.SHOP_TECH, data["enroll"])
 
 
 @page.route("/techs/events")

@@ -1,25 +1,65 @@
-<script type="typescript">
-
-import {onMount} from 'svelte';
-import { Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card, CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader } from '@sveltestrap/sveltestrap';
-import {get, post} from '$lib/api.ts';
+<script type="typescript" lang="ts">
+import { onMount } from 'svelte';
+import {
+  Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card,
+  CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody,
+  Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader,
+  ListGroup, ListGroupItem
+} from '@sveltestrap/sveltestrap';
+import { get, post } from '$lib/api.ts';
+import type { Tech, DisplayTech, SearchResult, ToastMessage, SortType, TechListData } from './types';
 import FetchError from '../fetch_error.svelte';
+import TechCard from './TechCard.svelte';
 
-import EditCell from './editable_td.svelte';
+// Utility functions
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
 
-export let visible;
-export let user;
+  return (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
+
+function handleApiError(error: any, context: string): ToastMessage {
+  console.error(`${context}:`, error);
+  return {
+    color: 'danger',
+    msg: `Failed to ${context}. Please try again.`,
+    title: 'Error'
+  };
+}
+
+// Component props
+export let visible: boolean;
+export let user: { email: string };
+
+// State
 let loaded = false;
-let promise = new Promise((resolve) => {});
+let promise: Promise<TechListData> = Promise.resolve({ techs: [], tech_lead: false });
 
-let new_tech_email = "";
-let toast_msg = null;
+let new_tech: { neon_id: string | null; name: string; email: string } = { neon_id: null, name: "", email: "" };
+let toast_msg: ToastMessage | null = null;
+let search_term = "";
+let search_results: SearchResult[] = [];
+let searching = false;
+let search_promise: Promise<SearchResult[]> = Promise.resolve([]);
+let show_create_account = false;
 let enrolling = false;
 
-let techs = [];
-let techs_sorted = []
-let user_data = null;
-let sort_type = "clearances_desc";
+let techs: DisplayTech[] = [];
+let techs_sorted: DisplayTech[] = [];
+let user_data: DisplayTech | null = null;
+let sort_type: SortType = "clearances_desc";
+
+// Reactive sort
 $: {
   if (sort_type === "clearances_desc") {
     techs_sorted = [...techs].sort((a, b) => b.clearances.length - a.clearances.length);
@@ -29,51 +69,187 @@ $: {
     techs_sorted = [...techs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   }
 }
-function refresh() {
-  promise = get("/techs/list").then((data) => {
-    loaded = true;
-    techs = data.techs.map((t) => {
-      if (t.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
-        user_data = t;
-      }
-      return {...t, shop_tech_shift: t.shop_tech_shift.join(' ')};
+
+// Debounced search function
+const debouncedSearch = debounce(() => {
+  new_tech = {neon_id: null, name: "", email: ""};
+  if (!search_term.trim()) {
+    search_results = [];
+    return;
+  }
+
+  searching = true;
+  search_promise = post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
+    .then((results: SearchResult[]) => {
+      search_results = results;
+      search_results.push({name: "+ Create New", email: "Neon CRM"});
+    })
+    .catch((err) => {
+      console.error("Search failed:", err);
+      search_results = [];
+      toast_msg = handleApiError(err, 'search Neon accounts');
+    })
+    .finally(() => {
+      searching = false;
     });
-    return data;
-  });
+}, 300);
+
+// Functions
+function refresh() {
+  promise = get("/techs/list")
+    .then((data: TechListData) => {
+      loaded = true;
+      techs = data.techs.map((t: Tech) => {
+        const displayTech: DisplayTech = {
+          ...t,
+          shop_tech_shift: Array.isArray(t.shop_tech_shift) ? t.shop_tech_shift.join(' ') : t.shop_tech_shift
+        };
+        if (t.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
+          user_data = displayTech;
+        }
+        return displayTech;
+      });
+      return data;
+    })
+    .catch((error) => {
+      toast_msg = handleApiError(error, 'load techs');
+      throw error;
+    });
 }
+
+function search_neon_accounts() {
+  debouncedSearch();
+}
+
+// Reactive visibility
 $: {
   if (visible && !loaded) {
     refresh();
   }
 }
 
-let show_proposed = true;
+// Reactive search term
+function on_search_term_edit(e) {
+  console.log(e);
+  if (search_term !== `${new_tech.name} (${new_tech.email})`) {
+    search_neon_accounts();
+  } else {
+    search_results = [];
+    new_tech.neon_id = null;
+    new_tech.name = "";
+    new_tech.email = "";
+  }
+}
 
-function update_tech(t) {
-  console.log("Update tech", t);
-  post("/techs/update", t).then((rep) => {
-      let msg = `${t['name']} updated`;
-      toast_msg = {'color': 'success', msg, 'title': 'Edit Success'};
+function is_enrolled(neon_id: string | null): boolean {
+  if (!neon_id) return false;
+  for (let t of techs || []) {
+    if (t.neon_id == neon_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function update_tech(t: DisplayTech) {
+  // Convert shop_tech_shift back to array for API
+  const apiTech = {
+    ...t,
+    shop_tech_shift: t.shop_tech_shift ? t.shop_tech_shift.split(' ').filter(Boolean) : []
+  };
+
+  post("/techs/update", apiTech)
+    .then(() => {
+      toast_msg = {
+        color: 'success',
+        msg: `${t.name} updated`,
+        title: 'Edit Success'
+      };
+    })
+    .catch((error) => {
+      toast_msg = handleApiError(error, 'update tech');
     });
 }
 
-function set_enrollment(enroll) {
+function set_enrollment(enroll: boolean) {
+  // If we're trying to enroll but haven't selected a Neon account from search,
+  // and we're not in create account mode, we can't proceed
+  if (enroll && !new_tech.neon_id && !show_create_account) {
+    toast_msg = {
+      color: 'warning',
+      msg: 'Please select a Neon account from search results or create a new account',
+      title: 'No account selected'
+    };
+    return;
+  }
+
   enrolling = true;
-  post("/techs/enroll", {email: new_tech_email, enroll}).then((data) => {
-      console.log(data);
-      let msg = `${new_tech_email} successfully ${(enroll) ? 'enrolled' : 'disenrolled'}. Refresh the page to see changes`;
-      toast_msg = {'color': 'success', msg, 'title': 'Enrollment changed'};
-    }).catch((err) => {
-      console.error(err);
-      toast_msg = {'color': 'danger', 'msg': 'See console for details', 'title': 'Error Changing Enrollment'};
-    }).finally(() => {
+
+  let payload = {
+    ...new_tech,
+    enroll
+  };
+
+  // If we're creating a new account, include name and email
+  if (show_create_account && enroll) {
+    payload['create_account'] = true;
+  }
+
+  post("/techs/enroll", payload)
+    .then(() => {
+      toast_msg = {
+        color: 'success',
+        msg: `${payload.name} successfully ${enroll ? 'enrolled' : 'disenrolled'}.`,
+        title: 'Enrollment changed'
+      };
+
+      // Reset form
+      search_term = "";
+      search_results = [];
+      if (show_create_account) {
+        show_create_account = false;
+        new_tech.name = "";
+        new_tech.email = "";
+      }
+      new_tech.neon_id = null;
+
+      // Refresh the list
+      refresh();
+    })
+    .catch((error) => {
+      toast_msg = handleApiError(error, 'change enrollment');
+    })
+    .finally(() => {
       enrolling = false;
     });
 }
 
-let modal_open = null;
-function clearance_click(id) {
-  console.log("clearance_click", id);
+function disenroll_tech(t: DisplayTech) {
+  if (!confirm(`Are you sure you want to disenroll ${t.name} as a shop tech?`)) {
+    return;
+  }
+
+  enrolling = true;
+  post("/techs/enroll", { neon_id: t.neon_id, enroll: false })
+    .then(() => {
+      toast_msg = {
+        color: 'success',
+        msg: `${t.name} successfully disenrolled.`,
+        title: 'Disenrollment successful'
+      };
+      // Refresh the list
+      refresh();
+    })
+    .catch((error) => {
+      toast_msg = handleApiError(error, 'disenroll tech');
+    })
+    .finally(() => {
+      enrolling = false;
+    });
+}
+
+let modal_open: string | null = null;
+function clearance_click(id: string) {
   if (modal_open !== id) {
     modal_open = id;
   } else {
@@ -83,118 +259,194 @@ function clearance_click(id) {
 </script>
 
 {#if visible}
-<Card>
+  <Card>
     <CardHeader>
       <CardTitle>Tech Roster</CardTitle>
       <CardSubtitle>Current info on all techs</CardSubtitle>
     </CardHeader>
-<CardBody>
-{#await promise}
-<Spinner/>
-{:then p}
-  {#if user_data }
-    <Card class="my-2">
-    <CardHeader><CardTitle>{user_data.name} ({user_data.email})</CardTitle></CardHeader>
     <CardBody>
-      <Container style="max-width: none;">
-      <Row cols={{ xxl: 2, xl: 2, l: 2, md: 2, sm: 1, xs: 1}}>
-        <Col>
-          <Row cols={{ xxl: 2, xl: 2, l: 2, md: 1, sm: 1, xs: 1}}>
-          {#if user_data.volunteer_bio}
-            <img src={user_data.volunteer_picture} style="max-width: 200px;">
-            <div>
-              <strong>Bio</strong>
-            <div>{user_data.volunteer_bio}</div>
-            </div>
-          {:else}
-            <a href="https://protohaven.org/mugshot" target="_blank">Submit your photo and bio!</a>
-          {/if}
-          </Row>
-        </Col>
-        <Col>
-          <EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.shop_tech_shift}/>
-          <EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.shop_tech_first_day}/>
-          <EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.shop_tech_last_day}/>
-          <EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(user_data)} bind:value={user_data.area_lead}/>
-          <EditCell title="Interest" enabled={true} on_change={() => update_tech(user_data)} bind:value={user_data.interest}/>
-          <EditCell title="Expertise" enabled={true} on_change={() => update_tech(user_data)} bind:value={user_data.expertise}/>
-          <Col><Button outline on:click={() => clearance_click(user_data.email)}>{user_data.clearances.length} Clearance(s)</Button></Col>
-        </Col>
-      </Row>
-      </Container>
-    </CardBody>
-    </Card>
-    <hr>
-  {/if}
+      {#await promise}
+        <Spinner aria-label="Loading tech roster..."/>
+      {:then p}
+        {#if user_data}
+          <TechCard
+            tech={user_data}
+            isCurrentUser={true}
+            isTechLead={p.tech_lead}
+            onUpdate={update_tech}
+            onDisenroll={disenroll_tech}
+            modalOpen={modal_open === user_data.email}
+            onToggleModal={() => clearance_click(user_data.email)}
+          />
+          <hr>
+        {/if}
 
-  <div class="d-flex">
-    {#if enrolling}
-      <Spinner/>
-    {/if}
-    <Dropdown>
-        <DropdownToggle color="light" caret>
-            Sort
-        </DropdownToggle>
-        <DropdownMenu>
-            <DropdownItem on:click={() => sort_type="clearances_asc" }>Least Clearances</DropdownItem>
-            <DropdownItem on:click={() => sort_type="clearances_desc" }>Most Clearances</DropdownItem>
-            <DropdownItem on:click={() => sort_type="name" }>By Name</DropdownItem>
-        </DropdownMenu>
-    </Dropdown>
-    {#if p.tech_lead }
-      <Input class="mx-1" text bind:value={new_tech_email} disabled={enrolling} placeholder="email address"/>
-      <Button class="mx-1" on:click={()=>set_enrollment(true)} disabled={enrolling || !new_tech_email}>Enroll</Button>
-      <Button class="mx-1" on:click={()=>set_enrollment(false)} disabled={enrolling || !new_tech_email}>Disenroll</Button>
-    {/if}
-  </div>
-  <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
-    <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-    <ToastBody>{toast_msg.msg}</ToastBody>
-  </Toast>
-  {#each techs_sorted as t}
-    <Card class="my-2">
-	<CardHeader><CardTitle>{t.name} ({t.email})</CardTitle></CardHeader>
-	<CardBody>
-	<Container style="max-width: none;">
-	<Row cols={{ xxl: 2, xl: 2, l: 2, md: 2, sm: 1, xs: 1}}>
-    <Col>
-      <Row cols={{ xxl: 2, xl: 2, l: 2, md: 1, sm: 1, xs: 1}}>
-      {#if t.volunteer_bio}
-        <img src={t.volunteer_picture} style="max-width: 200px;">
-        <div>
-          <strong>Bio</strong>
-        <div>{t.volunteer_bio}</div>
+        <div class="d-flex">
+          {#if enrolling}
+            <Spinner size="sm" class="me-2" aria-label="Processing enrollment..."/>
+          {/if}
+          <Dropdown>
+            <DropdownToggle color="light" caret aria-label="Sort options">
+              Sort
+            </DropdownToggle>
+            <DropdownMenu>
+              <DropdownItem on:click={() => sort_type = "clearances_asc"}>Least Clearances</DropdownItem>
+              <DropdownItem on:click={() => sort_type = "clearances_desc"}>Most Clearances</DropdownItem>
+              <DropdownItem on:click={() => sort_type = "name"}>By Name</DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+
+          {#if p.tech_lead}
+            {#if !show_create_account}
+              <div class="mx-1 position-relative">
+                <div class="d-flex align-items-center">
+                  <div data-help="this div needed for on:keydown">
+                  <Input
+                    class="me-1"
+                    type="text"
+                    bind:value={search_term}
+                    on:keydown={on_search_term_edit}
+                    placeholder="Search by name or email"
+                    disabled={enrolling}
+                    aria-label="Search Neon accounts by name or email"
+                    aria-describedby="search-help"
+                  />
+                  </div>
+                  {#if searching}
+                    <Spinner size="sm" class="me-1" aria-label="Searching..."/>
+                  {/if}
+                </div>
+
+                <div id="search-help" class="visually-hidden">
+                  Search for Neon accounts by name or email. Results will appear below.
+                </div>
+
+                {#if search_results.length > 0}
+                  <div
+                    class="position-absolute bg-white border rounded shadow mt-1"
+                    style="z-index: 1000; width: 100%; max-height: 300px; overflow-y: auto;"
+                    role="listbox"
+                    aria-label="Search results"
+                    aria-expanded="true"
+                  >
+                    <ListGroup flush>
+                      {#each search_results as result}
+                        <ListGroupItem
+                          tag="button"
+                          action
+                          on:click={() => {
+                            if (result.name === "+ Create New") {
+                              show_create_account=true;
+                              search_results = [];
+                              return;
+                            }
+                            new_tech.neon_id = result.neon_id;
+                            new_tech.name = result.name;
+                            new_tech.email = result.email;
+                            search_term = `${new_tech.name} (${new_tech.email})`; // For visibility
+                            search_results = [];
+                          }}
+                          class="text-start"
+                          role="option"
+                          aria-selected={new_tech.neon_id === result.neon_id}
+                        >
+                          {result.name} ({result.email})
+                        </ListGroupItem>
+                      {/each}
+                    </ListGroup>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="mx-1 d-flex align-items-center">
+                <Input
+                  class="me-1"
+                  type="text"
+                  bind:value={new_tech.name}
+                  placeholder="Full name"
+                  disabled={enrolling}
+                  aria-label="Full name for new account"
+                />
+                <Input
+                  class="me-1"
+                  type="email"
+                  bind:value={new_tech.email}
+                  placeholder="Email address"
+                  disabled={enrolling}
+                  aria-label="Email address for new account"
+                />
+                <Button
+                  color="secondary"
+                  size="sm"
+                  on:click={() => {
+                    show_create_account = false;
+                    new_tech.name = "";
+                    new_tech.email = "";
+                    search_term = "";
+                    search_results = [];
+                  }}
+                  disabled={enrolling}
+                  aria-label="Cancel new account creation"
+                >
+                  Cancel
+                </Button>
+              </div>
+            {/if}
+
+            <Button
+              class="mx-1"
+              size="sm"
+              on:click={() => set_enrollment(true)}
+              disabled={enrolling || is_enrolled(new_tech.neon_id) || !new_tech.name || !new_tech.email}
+              aria-label={show_create_account ? "Create and enroll new account" : "Enroll selected account"}
+            >
+              {#if show_create_account}
+                Create & Enroll
+              {:else}
+                Enroll
+              {/if}
+            </Button>
+            <Button
+              class="mx-1"
+              size="sm"
+              on:click={() => set_enrollment(false)}
+              disabled={enrolling || (new_tech.neon_id && !is_enrolled(new_tech.neon_id)) || !new_tech.neon_id}
+              aria-label="Disenroll selected account"
+            >
+              Disenroll
+            </Button>
+          {/if}
         </div>
-      {/if}
-      </Row>
-    </Col>
-    <Col>
-      <EditCell title="Shift" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shop_tech_shift}/>
-      <EditCell title="First Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shop_tech_first_day}/>
-      <EditCell title="Last Day" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.shop_tech_last_day}/>
-      <EditCell title="Area Lead" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.area_lead}/>
-      <EditCell title="Interest" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.interest}/>
-      <EditCell title="Expertise" enabled={p.tech_lead} on_change={() => update_tech(t)} bind:value={t.expertise}/>
-      <Col><Button outline on:click={() => clearance_click(t.email)}>{t.clearances.length} Clearance(s)</Button></Col>
-    </Col>
-	</Row>
-	</Container>
-	</CardBody>
-      </Card>
-      <Modal body header="Clearances" isOpen={modal_open == t.email} toggle={() => clearance_click(t.email)}>
-	{#each t.clearances as c}
-	  <div>{c}</div>
-	{/each}
-	{#if p.tech_lead }
-	<div class="my-3">
-	  <a href="https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform" target="_blank">Submit additional clearances</a>
-	</div>
-	{/if}
-      </Modal>
-    {/each}
-{:catch error}
-  <FetchError {error}/>
-{/await}
-</CardBody>
-</Card>
+
+        <Toast
+          class="me-1"
+          style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
+          autohide
+          isOpen={toast_msg}
+          on:close={() => (toast_msg = null)}
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
+          <ToastBody>{toast_msg.msg}</ToastBody>
+        </Toast>
+
+        {#each techs_sorted as t}
+          {#if t.email !== user_data?.email}
+            <TechCard
+              tech={t}
+              isCurrentUser={false}
+              isTechLead={p.tech_lead}
+              onUpdate={update_tech}
+              onDisenroll={disenroll_tech}
+              modalOpen={modal_open === t.email}
+              onToggleModal={() => clearance_click(t.email)}
+            />
+          {/if}
+        {/each}
+      {:catch error}
+        <FetchError {error}/>
+      {/await}
+    </CardBody>
+  </Card>
 {/if}

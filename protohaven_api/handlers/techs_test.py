@@ -54,7 +54,7 @@ def test_techs_list(mocker, tech_client):
         "clearances": [],
         "email": "a@b.com",
         "expertise": "Things",
-        "id": 123,
+        "neon_id": 123,
         "interest": "Stuff",
         "name": "Test Tech",
         "shop_tech_first_day": "2025-01-01",
@@ -100,8 +100,8 @@ def test_techs_enroll(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "patch_member_role", return_value=(mocker.MagicMock(), None)
     )
-    lead_client.post("/techs/enroll", json={"email": "a@b.com", "enroll": True})
-    tl.neon.patch_member_role.assert_called_with("a@b.com", Role.SHOP_TECH, True)
+    lead_client.post("/techs/enroll", json={"neon_id": "123", "enroll": True})
+    tl.neon.patch_member_role.assert_called_with("123", Role.SHOP_TECH, True)
 
 
 def test_techs_forecast_unprivileged(mocker, client):

@@ -13,7 +13,7 @@ from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Attendee, Event, Member
+from protohaven_api.integrations.models import Attendee, Event, Member, NeonID
 
 log = logging.getLogger("integrations.neon")
 
@@ -425,12 +425,49 @@ def create_coupon_codes(codes, amt, from_date=None, to_date=None):
     )
 
 
-def patch_member_role(email, role, enabled):
+def create_member(name: str, email: str) -> NeonID:
+    """Create a new member in Neon with the given name and email"""
+    # Check if member already exists
+    existing = list(search_members_by_email(email))
+    if existing:
+        return existing[0].neon_id
+
+    # Parse name into first and last
+    name_parts = name.strip().split()
+    if len(name_parts) < 2:
+        first_name = name
+        last_name = ""
+    else:
+        first_name = " ".join(name_parts[:-1])
+        last_name = name_parts[-1]
+
+    # Create the account
+    account_data = {
+        "individualAccount": {
+            "primaryContact": {
+                "firstName": first_name,
+                "lastName": last_name,
+                "email1": email,
+            }
+        }
+    }
+
+    try:
+        result = neon_base.post("api_key2", "/accounts", account_data)
+        # The API returns the created account data
+        # We need to fetch it to get the full Member object
+        account_id = result.get("accountId")
+        if not account_id:
+            raise RuntimeError(f"Failed to create account: {result}")
+        return account_id
+    except Exception as e:
+        log.error(f"Failed to create member {name} ({email}): {e}")
+        raise
+
+
+def patch_member_role(neon_id: NeonID, role, enabled: bool):
     """Enables or disables a specific role for a user with the given `email`"""
-    mem = list(search_members_by_email(email, fields=[CustomField.API_SERVER_ROLE]))
-    if len(mem) == 0:
-        raise KeyError()
-    mem = mem[0]
+    mem = neon_base.fetch_account(neon_id)
     roles = {v["id"]: v["name"] for v in (mem.roles or [])}
     if enabled:
         roles[role["id"]] = role["name"]
@@ -600,7 +637,7 @@ class AccountCache(WarmDict):
         """Fetches the Neon ID associated with a Booked user ID"""
         return self.by_booked_id[booked_id].neon_id
 
-    def _find_best_match_internal(self, search_string, top_n=10):
+    def _find_best_match_internal(self, search_string, top_n, score_cutoff):
         """Find and return the top_n best matches to the key in `self` based on a search string."""
         # Could probably use a priority queue / heap here for faster lookups, but we only have
         # ~1000 or so records to sort through anyways.
@@ -610,12 +647,12 @@ class AccountCache(WarmDict):
             rapidfuzz.utils.default_process(search_string),
             self.fuzzy,
             scorer=rapidfuzz.fuzz.WRatio,
-            score_cutoff=65,
+            score_cutoff=score_cutoff,
             limit=top_n,
         ):
             yield m[2]
 
-    def find_best_match(self, search_string, top_n=10):
+    def find_best_match(self, search_string, top_n=10, score_cutoff=65):
         """Deduplicates find_best_match_internal"""
         result = set()
         search_string = re.sub(
@@ -625,7 +662,7 @@ class AccountCache(WarmDict):
             sp = search_string.split(" ")
             if len(sp) >= 2 and sp[0] and sp[1]:
                 yield from search_members_by_name(sp[0], sp[1], fields=self.FIELDS)
-        for m in self._find_best_match_internal(search_string, 2 * top_n):
+        for m in self._find_best_match_internal(search_string, 2 * top_n, score_cutoff):
             if m in result:  # prevent duplicates
                 continue
             result.add(m)
