@@ -378,17 +378,18 @@ class ReservationCache(WarmDict):
                 )
         return result
 
+
 # Blackout time functions
 def get_blackouts(start_date=None, end_date=None, resource_id=None, schedule_id=None):
     """
     Get blackout times from Booked scheduler.
-    
+
     Args:
         start_date: Optional start date filter
-        end_date: Optional end date filter  
+        end_date: Optional end date filter
         resource_id: Optional resource ID filter
         schedule_id: Optional schedule ID filter
-    
+
     Returns:
         Dictionary with 'blackouts' key containing list of blackout times
     """
@@ -401,28 +402,35 @@ def get_blackouts(start_date=None, end_date=None, resource_id=None, schedule_id=
         params["resourceId"] = resource_id
     if schedule_id:
         params["scheduleId"] = schedule_id
-    
+
     return get_connector().booked_request("GET", "/Blackouts/", params=params)
 
 
 def get_blackout(blackout_id):
     """
     Get a specific blackout by ID.
-    
+
     Args:
         blackout_id: The blackout ID
-    
+
     Returns:
         Blackout details
     """
     return get_connector().booked_request("GET", f"/Blackouts/{blackout_id}")
 
 
-def create_blackout(start_date, end_date, resource_ids=None, 
-                    schedule_id=None, repeat_options=None, title=None, description=None):
+def create_blackout(
+    start_date,
+    end_date,
+    resource_ids=None,
+    schedule_id=None,
+    repeat_options=None,
+    title=None,
+    description=None,
+):
     """
     Create a new blackout time.
-    
+
     Args:
         start_date: Start datetime of blackout
         end_date: End datetime of blackout
@@ -431,7 +439,7 @@ def create_blackout(start_date, end_date, resource_ids=None,
         repeat_options: Repeat options dictionary (optional)
         title: Title for the blackout (optional)
         description: Description for the blackout (optional)
-    
+
     Returns:
         Created blackout details
     """
@@ -439,7 +447,7 @@ def create_blackout(start_date, end_date, resource_ids=None,
         "startDateTime": start_date.isoformat(),
         "endDateTime": end_date.isoformat(),
     }
-    
+
     if resource_ids:
         payload["resourceIds"] = resource_ids
     if schedule_id:
@@ -450,17 +458,17 @@ def create_blackout(start_date, end_date, resource_ids=None,
         payload["title"] = title
     if description:
         payload["description"] = description
-    
+
     return get_connector().booked_request("POST", "/Blackouts/", json=payload)
 
 
 def delete_blackout(blackout_id):
     """
     Delete a blackout time.
-    
+
     Args:
         blackout_id: The blackout ID to delete
-    
+
     Returns:
         Response from API
     """
