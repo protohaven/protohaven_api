@@ -403,7 +403,17 @@ def get_blackouts(start_date=None, end_date=None, resource_id=None, schedule_id=
     if schedule_id:
         params["scheduleId"] = schedule_id
 
-    return get_connector().booked_request("GET", "/Blackouts/", params=params)
+    res = get_connector().booked_request("GET", "/Blackouts/", params=params)
+    if "blackouts" in res:
+        res["blackhouts"] = [
+            {
+                **b,
+                "startDateTime": safe_parse_datetime(r["startDateTime"]),
+                "endDateTime": safe_parse_datetime(r["endDateTime"]),
+            }
+            for b in res["blackouts"]
+        ]
+    return res
 
 
 def get_blackout(blackout_id):
