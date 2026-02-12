@@ -13,6 +13,7 @@ from protohaven_api.commands import (
     maintenance,
     reservations,
     roles,
+    tech_shifts,
     violations,
 )
 from protohaven_api.config import get_config
@@ -51,6 +52,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
     roles.Commands,
     maintenance.Commands,
     clearances.Commands,
+    tech_shifts.Commands,
 ):
     """argparser-based CLI for protohaven operations"""
 

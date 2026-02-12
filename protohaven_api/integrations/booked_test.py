@@ -128,3 +128,98 @@ def test_stage_tool_update(mocker):
         "statusId (NOT_AVAILABLE->AVAILABLE)",
         "typeId (0->1)",
     }
+
+def test_get_blackouts(mocker):
+    """Test getting blackout times"""
+    mocker.patch.object(booked, "get_connector")
+    booked.get_connector().booked_request.return_value = {
+        "blackouts": [
+            {"id": 1, "title": "Maintenance"},
+            {"id": 2, "title": "Holiday"}
+        ]
+    }
+    
+    start_date = safe_parse_datetime("2024-01-01")
+    end_date = safe_parse_datetime("2024-01-31")
+    
+    result = booked.get_blackouts(start_date=start_date, end_date=end_date, resource_id=123)
+    
+    booked.get_connector().booked_request.assert_called_once_with(
+        "GET",
+        "/Blackouts/",
+        params={
+            "startDateTime": "2024-01-01T00:00:00-05:00",
+            "endDateTime": "2024-01-31T00:00:00-05:00",
+            "resourceId": 123
+        }
+    )
+    assert len(result["blackouts"]) == 2
+
+
+def test_get_blackout(mocker):
+    """Test getting a specific blackout"""
+    mocker.patch.object(booked, "get_connector")
+    booked.get_connector().booked_request.return_value = {
+        "id": 1,
+        "title": "Maintenance",
+        "startDate": "2024-01-01T09:00:00",
+        "endDate": "2024-01-01T17:00:00"
+    }
+    
+    result = booked.get_blackout(1)
+    
+    booked.get_connector().booked_request.assert_called_once_with(
+        "GET",
+        "/Blackouts/1"
+    )
+    assert result["id"] == 1
+    assert result["title"] == "Maintenance"
+
+
+def test_create_blackout(mocker):
+    """Test creating a blackout"""
+    mocker.patch.object(booked, "get_connector")
+    booked.get_connector().booked_request.return_value = {
+        "id": 1,
+        "title": "Maintenance",
+        "startDate": "2024-01-01T09:00:00",
+        "endDate": "2024-01-01T17:00:00"
+    }
+    
+    start_date = safe_parse_datetime("2024-01-01T09:00:00")
+    end_date = safe_parse_datetime("2024-01-01T17:00:00")
+    
+    result = booked.create_blackout(
+        start_date=start_date,
+        end_date=end_date,
+        resource_ids=[123, 456],
+        title="Maintenance",
+        description="System maintenance"
+    )
+    
+    booked.get_connector().booked_request.assert_called_once_with(
+        "POST",
+        "/Blackouts/",
+        json={
+            "startDateTime": "2024-01-01T09:00:00-05:00",
+            "endDateTime": "2024-01-01T17:00:00-05:00",
+            "resourceIds": [123, 456],
+            "title": "Maintenance",
+            "description": "System maintenance"
+        }
+    )
+    assert result["id"] == 1
+
+
+def test_delete_blackout(mocker):
+    """Test deleting a blackout"""
+    mocker.patch.object(booked, "get_connector")
+    booked.get_connector().booked_request.return_value = {"success": True}
+    
+    result = booked.delete_blackout(1)
+    
+    booked.get_connector().booked_request.assert_called_once_with(
+        "DELETE",
+        "/Blackouts/1"
+    )
+    assert result["success"] is True
