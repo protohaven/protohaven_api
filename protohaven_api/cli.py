@@ -5,6 +5,7 @@ import logging
 import sys
 
 from protohaven_api.commands import (
+    blackouts,
     classes,
     clearances,
     comms,
@@ -42,6 +43,7 @@ else:
 
 
 class ProtohavenCLI(  # pylint: disable=too-many-ancestors
+    blackouts.Commands,
     comms.Commands,
     reservations.Commands,
     classes.Commands,
