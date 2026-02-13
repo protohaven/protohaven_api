@@ -32,9 +32,9 @@ log = logging.getLogger("integrations.airtable")
 
 Email = str
 NeonID = str
+EventID = str  # Neon or Eventbrite event ID
 ToolCode = str
 AreaID = str
-InstructorID = str  # Currently, the email address listed in the capabilities doc
 RecordID = str
 ForecastOverride = tuple[str, list[str], str]
 Interval = tuple[datetime.datetime, datetime.datetime]
@@ -52,7 +52,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
     period: datetime.timedelta
     approved: bool
     schedulable: bool
-    approved_instructors: list[InstructorID]
+    approved_instructors: list[NeonID]
     areas: list[AreaID]
     image_link: str
     clearances: list[ToolCode]
@@ -106,7 +106,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
 
     schedule_id: RecordID
     class_id: RecordID
-    neon_id: str  # Neon Event ID
+    event_id: EventID
     name: str
     hours: list[int]
     period: datetime.timedelta
@@ -119,7 +119,8 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     clearances: list[str]
     price: int
     instructor_name: str
-    instructor_email: InstructorID
+    instructor_id: NeonID
+    instructor_email: str
     sessions: list[Interval]
     volunteer: bool
     description: dict[str, str]
@@ -183,8 +184,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             image_link=_unwrap(f, "Image Link (from Class)"),
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
             price=int(_unwrap(f, "Price (from Class)") or 0),
-            instructor_email=(f.get("Email") or "").strip().lower(),
             instructor_name=f.get("Instructor") or "",
+            instructor_email=(f.get("Email") or "").strip().lower(),
+            instructor_id=f.get("Instructor ID") or "",
             sessions=sessions,
             volunteer=f.get("Volunteer") or False,
             description={
@@ -309,24 +311,6 @@ def get_notifications_after(tag, after_date):
             safe_parse_datetime(row["fields"]["Created"])
         )
     return targets
-
-
-def get_instructor_email_map(require_teachable_classes=False, require_active=False):
-    """Get a mapping of the instructor's full name to
-    their email address, from the Capabilities automation table"""
-    result = {}
-    for row in get_all_records("class_automation", "capabilities"):
-        fields = row["fields"]
-        if fields.get("Email") is None:
-            continue
-        if require_teachable_classes:
-            classes = fields.get("Class") or []
-            if (isinstance(classes, int) and classes > 0) or len(classes) == 0:
-                continue
-        if require_active and not fields.get("Active"):
-            continue
-        result[fields["Instructor"].strip()] = fields["Email"].strip()
-    return result
 
 
 def get_instructor_neon_id_map(require_teachable_classes=False, require_active=False):

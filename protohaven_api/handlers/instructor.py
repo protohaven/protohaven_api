@@ -249,18 +249,10 @@ def instructor_class_details():
 
     email = email.lower()
     sched = get_dashboard_schedule_sorted(email)
-
-    # Look up the name on file in the capabilities list - this is used to match
-    # on manually entered calendar availability
-    caps_name = {v: k for k, v in airtable.get_instructor_email_map().items()}.get(
-        email, "<NOT FOUND>"
-    )
-
     return {
         "schedule": [c.as_response() for c in sched],
         "now": tznow(),
         "email": email,
-        "name": caps_name,
     }
 
 

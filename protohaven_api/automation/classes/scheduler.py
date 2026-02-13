@@ -8,12 +8,7 @@ from protohaven_api.automation.classes import validation as val
 from protohaven_api.automation.classes.validation import ClassAreaEnv
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, booked
-from protohaven_api.integrations.airtable import (
-    AreaID,
-    InstructorID,
-    Interval,
-    RecordID,
-)
+from protohaven_api.integrations.airtable import AreaID, Interval, NeonID, RecordID
 from protohaven_api.integrations.airtable_base import get_all_records
 from protohaven_api.integrations.comms import Msg
 
@@ -128,7 +123,7 @@ def _fmt_date(d):
 
 
 def validate(  # pylint: disable=too-many-branches, too-many-locals
-    inst_id: InstructorID, cls_id: RecordID, sessions: list[val.Interval]
+    inst_id: NeonID, cls_id: RecordID, sessions: list[val.Interval]
 ) -> list[str]:
     """Validates a given class to make sure it doesn't conflict with anything"""
 
@@ -140,7 +135,7 @@ def validate(  # pylint: disable=too-many-branches, too-many-locals
         return [f"Class not approved ({cls_id})"]
     if not c.schedulable:
         return [f"Class not schedulable ({cls_id})"]
-    log.info(f"{inst_id} vs approved instructors: {c.approved_instructors}")
+    log.info(f"#{inst_id} vs approved instructors: {c.approved_instructors}")
     if not inst_id in c.approved_instructors:
         return [f"You are not assigned to teach this class ({cls_id})"]
 
@@ -191,14 +186,14 @@ def format_class(cls):
     return f"- {start.strftime('%A %b %-d, %-I%p')}: {name}"
 
 
-def push_class_to_schedule(
-    inst_id: InstructorID, cls_id: RecordID, sessions: list[Interval]
-):
+def push_class_to_schedule(inst_id: NeonID, cls_id: RecordID, sessions: list[Interval]):
     """Pushes the created schedule to airtable"""
-    name_map = {v.lower(): k for k, v in airtable.get_instructor_email_map().items()}
+    m = neon_base.fetch_account(inst_id)
+    if not m:
+        raise RuntimeError(f"Failed to fetch details of Neon account #{inst_id}")
     payload = {
-        "Instructor": name_map.get(inst_id.lower().strip()),
-        "Email": inst_id.strip().lower(),
+        "Instructor": m.name,
+        "Email": m.email,
         "Sessions": ",".join([ss[0].isoformat() for ss in sessions]),
         "Class": [cls_id],
         "Confirmed": tznow().isoformat(),
@@ -207,20 +202,3 @@ def push_class_to_schedule(
     status, content = airtable.append_classes_to_schedule([payload])
     if status != 200:
         raise RuntimeError(content)
-
-
-def gen_schedule_push_notifications(sched):
-    """Generate notifications for scheduling automation when done out of band of instructor"""
-    if sched:
-        email_map = {
-            k.lower(): v for k, v in airtable.get_instructor_email_map().items()
-        }
-        for inst, classes in sched.items():
-            classes.sort(key=lambda c: c[2])
-            formatted = [format_class(f) for f in classes]
-            yield Msg.tmpl(
-                "schedule_push_notification",
-                title=inst.title(),
-                target=email_map[inst],
-                formatted=formatted,
-            )
