@@ -9,7 +9,7 @@ import threading
 from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
-from typing import Any
+from typing import Any, Iterator
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error

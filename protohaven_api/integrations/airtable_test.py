@@ -484,7 +484,7 @@ def test_from_schedule(mocker):
     result = a.ScheduledClass.from_schedule(mock_row)
     assert result.schedule_id == "rec123"
     assert result.class_id == "cls789"
-    assert result.neon_id == "neon456"
+    assert result.event_id == "neon456"
     assert result.name == "Test Class"
     assert result.hours == [3, 3]
     assert result.days == 2

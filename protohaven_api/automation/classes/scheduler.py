@@ -7,10 +7,9 @@ from collections import defaultdict
 from protohaven_api.automation.classes import validation as val
 from protohaven_api.automation.classes.validation import ClassAreaEnv
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, booked
+from protohaven_api.integrations import airtable, booked, neon_base
 from protohaven_api.integrations.airtable import AreaID, Interval, NeonID, RecordID
 from protohaven_api.integrations.airtable_base import get_all_records
-from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.scheduler")
 

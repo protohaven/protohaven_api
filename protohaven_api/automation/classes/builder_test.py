@@ -60,8 +60,8 @@ def test_get_unscheduled_instructors(mocker):
     module but I'm including it here anyways."""
     mocker.patch.object(
         builder.airtable,
-        "get_instructor_email_map",
-        return_value={"Test Name": "test@email.com"},
+        "get_instructor_neon_id_map",
+        return_value={"1234": "test@email.com"},
     )
     mocker.patch.object(
         builder.airtable, "get_class_automation_schedule", return_value=[]
@@ -72,22 +72,22 @@ def test_get_unscheduled_instructors(mocker):
             safe_parse_datetime("2024-02-20"), safe_parse_datetime("2024-03-30")
         )
     )
-    assert got[0] == ("Test Name", "test@email.com")
+    assert got[0] == ("1234", "test@email.com")
 
 
 def test_gen_get_unscheduled_instructors_already_scheduled(mocker):
     """Test calendar reminder generation doesn't notify if already scheduled"""
     mocker.patch.object(
         builder.airtable,
-        "get_instructor_email_map",
-        return_value={"Test Name": "test@email.com"},
+        "get_instructor_neon_id_map",
+        return_value={"1234": "test@email.com"},
     )
     mocker.patch.object(
         builder.airtable,
         "get_class_automation_schedule",
         return_value=[
             mocker.MagicMock(
-                instructor_email="TeSt@email.com",
+                instructor_id="1234",
                 sessions=[
                     (
                         safe_parse_datetime("2024-02-21"),

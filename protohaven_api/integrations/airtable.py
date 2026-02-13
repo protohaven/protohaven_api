@@ -166,7 +166,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         return cls(
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
-            neon_id=f.get("Neon ID") or None,
+            event_id=f.get("Neon ID") or None,
             name=_unwrap(f, "Name (from Class)"),
             hours=hours,
             period=datetime.timedelta(
@@ -239,7 +239,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             else form_values["tool_usage_no"]
         )
         result += f"&{form_keys['tool_usage']}={tool_usage_value}"
-        result += f"&{form_keys['event_id']}={self.neon_id or 'UNKNOWN'}"
+        result += f"&{form_keys['event_id']}={self.event_id or 'UNKNOWN'}"
         for tc in tool_codes:
             result += f"&{form_keys['tool_codes']}={tc}"
         return result
@@ -259,12 +259,20 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         """Returns days calculated from hours data"""
         return len(self.hours)
 
+    @property
+    def neon_id(self):
+        """Backward compatibility: returns event_id"""
+        return self.event_id
+
     def as_response(self, pass_emails=None):
         """Return a dict that can be used as a flask response, including prefill"""
         if not pass_emails:
             pass_emails = ["ATTENDEE_NAMES"]
+        result = asdict(self)
+        # Backward compatibility: include neon_id field
+        result["neon_id"] = self.event_id
         return {
-            **asdict(self),
+            **result,
             "prefill": self.prefill_form(pass_emails),
             "period": self.period.total_seconds() / (24 * 3600),
         }
