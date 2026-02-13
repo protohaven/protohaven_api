@@ -469,6 +469,7 @@ class Commands:
                                 event.neon_id,
                                 event.price,
                                 event.capacity,
+                                clear_existing=True,
                             )
                         )
                     )

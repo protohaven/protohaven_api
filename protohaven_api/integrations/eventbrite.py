@@ -205,10 +205,38 @@ def set_structured_content(event_id: EventbriteID, desc: str, content_version=2)
     return content_version
 
 
-def assign_pricing(event_id: EventbriteID, price: int, seats: int):
+def assign_pricing(
+    event_id: EventbriteID, price: int, seats: int, clear_existing: bool = False
+):
     """Creates a ticket class attached to `event_id`.
     Note that discounts are instantly generated on redirect via /member/goto_class.
+
+    If clear_existing is True, existing ticket classes will be deleted first.
     """
+    # Delete existing ticket classes if requested
+    if clear_existing:
+        # First, fetch the event to get existing ticket classes
+        event_data = get_connector().eventbrite_request(
+            "GET", f"/events/{event_id}", params={"expand": "ticket_classes"}
+        )
+        ticket_classes = event_data.get("ticket_classes", [])
+        for ticket_class in ticket_classes:
+            ticket_class_id = ticket_class.get("id")
+            if ticket_class_id:
+                try:
+                    # Try to delete the ticket class
+                    # Note: Eventbrite API might not allow deleting ticket classes
+                    # with existing orders, so we wrap this in try/except
+                    get_connector().eventbrite_request(
+                        "DELETE",
+                        f"/events/{event_id}/ticket_classes/{ticket_class_id}/",
+                    )
+                    log.info(f"Deleted existing ticket class {ticket_class_id}")
+                except RuntimeError as e:
+                    log.warning(f"Failed to delete ticket class {ticket_class_id}: {e}")
+                    # If we can't delete, we might still be able to update it
+                    # But for now, we'll just log the warning and continue
+
     params = {
         "ticket_class": {
             "quantity_total": seats,
@@ -217,7 +245,7 @@ def assign_pricing(event_id: EventbriteID, price: int, seats: int):
             "name": "General Admission",
             "sales_end_relative": {
                 "relative_to_event": "start_time",
-                "offset": 3600 * 24,
+                "offset": -3600 * 24,
             },
             "hide_sale_dates": True,
         }
