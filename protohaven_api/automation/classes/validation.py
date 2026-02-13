@@ -14,8 +14,8 @@ from protohaven_api.config import truncate_date, tznow
 from protohaven_api.integrations.airtable import (
     AreaID,
     Class,
-    InstructorID,
     Interval,
+    NeonID,
     RecordID,
     ScheduledClass,
 )
@@ -45,7 +45,7 @@ class ClassAreaEnv:
     exclusions: dict[RecordID, list[Exclusion]]
     clearance_exclusions: dict[RecordID, list[Exclusion]]
     area_occupancy: dict[AreaID, list[NamedInterval]]
-    instructor_occupancy: dict[InstructorID, list[NamedInterval]]
+    instructor_occupancy: dict[NeonID, list[NamedInterval]]
 
     @classmethod
     def with_defaults(cls):
@@ -134,7 +134,7 @@ us_holidays = holidays.US()  # pylint: disable=no-member
 
 
 def validate_candidate_class_session(  # pylint: disable=too-many-return-statements, too-many-locals
-    inst: InstructorID, i: Interval, session_idx: int, c: Class, env: ClassAreaEnv
+    inst: NeonID, i: Interval, session_idx: int, c: Class, env: ClassAreaEnv
 ) -> tuple[bool, str]:
     """Ensure solver.Class `c` being taught at `start` is not invalid for reasons e.g.
     - Scheduled on a US holiday

@@ -13,20 +13,21 @@ def test_push_class_to_schedule(mocker):
     mocker.patch.object(
         s.airtable, "append_classes_to_schedule", return_value=(200, None)
     )
+    mock_account = mocker.MagicMock()
+    mock_account.name = "Test Instructor"
+    mock_account.email = "a@b.com"
     mocker.patch.object(
-        s.airtable,
-        "get_instructor_email_map",
-        return_value={"test instructor": "a@b.com"},
+        s.neon_base,
+        "fetch_account",
+        return_value=mock_account,
     )
     now = tznow()
     mocker.patch.object(s, "tznow", return_value=now)
-    s.push_class_to_schedule(
-        "a@b.com", "20", [(d(0, 15), d(0, 18)), (d(1, 15), d(1, 18))]
-    )
+    s.push_class_to_schedule("1234", "20", [(d(0, 15), d(0, 18)), (d(1, 15), d(1, 18))])
     s.airtable.append_classes_to_schedule.assert_called_with(
         [
             {
-                "Instructor": "test instructor",
+                "Instructor": "Test Instructor",
                 "Email": "a@b.com",
                 "Sessions": f"{d(0,15).isoformat()},{d(1,15).isoformat()}",
                 "Class": ["20"],

@@ -32,9 +32,9 @@ log = logging.getLogger("integrations.airtable")
 
 Email = str
 NeonID = str
+EventID = str  # Neon or Eventbrite event ID
 ToolCode = str
 AreaID = str
-InstructorID = str  # Currently, the email address listed in the capabilities doc
 RecordID = str
 ForecastOverride = tuple[str, list[str], str]
 Interval = tuple[datetime.datetime, datetime.datetime]
@@ -52,7 +52,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
     period: datetime.timedelta
     approved: bool
     schedulable: bool
-    approved_instructors: list[InstructorID]
+    approved_instructors: list[NeonID]
     areas: list[AreaID]
     image_link: str
     clearances: list[ToolCode]
@@ -106,7 +106,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
 
     schedule_id: RecordID
     class_id: RecordID
-    neon_id: str  # Neon Event ID
+    event_id: EventID
     name: str
     hours: list[int]
     period: datetime.timedelta
@@ -119,7 +119,8 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     clearances: list[str]
     price: int
     instructor_name: str
-    instructor_email: InstructorID
+    instructor_id: NeonID
+    instructor_email: str
     sessions: list[Interval]
     volunteer: bool
     description: dict[str, str]
@@ -165,7 +166,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         return cls(
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
-            neon_id=f.get("Neon ID") or None,
+            event_id=f.get("Neon ID") or None,
             name=_unwrap(f, "Name (from Class)"),
             hours=hours,
             period=datetime.timedelta(
@@ -183,8 +184,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             image_link=_unwrap(f, "Image Link (from Class)"),
             clearances=f.get("Form Name (from Clearance) (from Class)") or [],
             price=int(_unwrap(f, "Price (from Class)") or 0),
-            instructor_email=(f.get("Email") or "").strip().lower(),
             instructor_name=f.get("Instructor") or "",
+            instructor_email=(f.get("Email") or "").strip().lower(),
+            instructor_id=f.get("Instructor ID") or "",
             sessions=sessions,
             volunteer=f.get("Volunteer") or False,
             description={
@@ -237,7 +239,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             else form_values["tool_usage_no"]
         )
         result += f"&{form_keys['tool_usage']}={tool_usage_value}"
-        result += f"&{form_keys['event_id']}={self.neon_id or 'UNKNOWN'}"
+        result += f"&{form_keys['event_id']}={self.event_id or 'UNKNOWN'}"
         for tc in tool_codes:
             result += f"&{form_keys['tool_codes']}={tc}"
         return result
@@ -257,12 +259,20 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         """Returns days calculated from hours data"""
         return len(self.hours)
 
+    @property
+    def neon_id(self):
+        """Backward compatibility: returns event_id"""
+        return self.event_id
+
     def as_response(self, pass_emails=None):
         """Return a dict that can be used as a flask response, including prefill"""
         if not pass_emails:
             pass_emails = ["ATTENDEE_NAMES"]
+        result = asdict(self)
+        # Backward compatibility: include neon_id field
+        result["neon_id"] = self.event_id
         return {
-            **asdict(self),
+            **result,
             "prefill": self.prefill_form(pass_emails),
             "period": self.period.total_seconds() / (24 * 3600),
         }
@@ -311,29 +321,32 @@ def get_notifications_after(tag, after_date):
     return targets
 
 
-def get_instructor_email_map(require_teachable_classes=False, require_active=False):
-    """Get a mapping of the instructor's full name to
-    their email address, from the Capabilities automation table"""
+def get_instructor_neon_id_map(require_teachable_classes=False, require_active=False):
+    """Get a mapping of Neon ID to email address from the Capabilities table"""
     result = {}
     for row in get_all_records("class_automation", "capabilities"):
-        if row["fields"].get("Email") is None:
+        fields = row["fields"]
+        if fields.get("Email") is None or not fields.get("Neon ID"):
             continue
         if require_teachable_classes:
-            classes = row["fields"].get("Class") or []
+            classes = fields.get("Class") or []
             if (isinstance(classes, int) and classes > 0) or len(classes) == 0:
                 continue
-        if require_active and not row["fields"].get("Active"):
+        if require_active and not fields.get("Active"):
             continue
-        result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
+        result[str(fields["Neon ID"]).strip()] = fields["Email"].strip()
     return result
 
 
-def fetch_instructor_capabilities(name):
-    """Fetches capabilities for a specific instructor"""
+def fetch_instructor_capabilities(neon_id):
+    """Fetches capabilities for a specific instructor by Neon ID"""
     for row in get_all_records("class_automation", "capabilities"):
         f = row["fields"]
-        if f.get("Instructor").lower() != name.lower():
+
+        # Match by Neon ID
+        if str(f.get("Neon ID", "")).strip() != str(neon_id):
             continue
+
         result = {
             "id": str(row["id"]),
             "w9": f.get("W9 Form"),
@@ -362,11 +375,12 @@ def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
     instructor_caps = defaultdict(list)
     for row in get_all_records("class_automation", "capabilities"):
-        if not row["fields"].get("Instructor"):
+        fields = row["fields"]
+        if not fields.get("Neon ID"):
             continue
-        inst = row["fields"]["Instructor"].strip().lower()
-        if "Class" in row["fields"].keys():
-            instructor_caps[inst] += _idref(row, "Class")
+        neon_id = str(fields["Neon ID"]).strip()
+        if "Class" in fields.keys():
+            instructor_caps[neon_id] += _idref(row, "Class")
     return instructor_caps
 
 

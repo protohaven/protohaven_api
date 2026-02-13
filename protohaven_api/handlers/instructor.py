@@ -70,7 +70,11 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
         result["discord_user"] = "OK"
     result["fullname"] = f"{inst_member.fname} {inst_member.lname}"
     if not caps:
-        caps = airtable.fetch_instructor_capabilities(result["fullname"])
+        # Use Neon ID to fetch capabilities instead of name
+        if result["neon_id"]:
+            caps = airtable.fetch_instructor_capabilities(result["neon_id"])
+        else:
+            caps = None
     if caps:
         result["airtable_id"] = caps["id"]
         if len(caps["classes"]) > 0:
@@ -245,18 +249,10 @@ def instructor_class_details():
 
     email = email.lower()
     sched = get_dashboard_schedule_sorted(email)
-
-    # Look up the name on file in the capabilities list - this is used to match
-    # on manually entered calendar availability
-    caps_name = {v: k for k, v in airtable.get_instructor_email_map().items()}.get(
-        email, "<NOT FOUND>"
-    )
-
     return {
         "schedule": [c.as_response() for c in sched],
         "now": tznow(),
         "email": email,
-        "name": caps_name,
     }
 
 
@@ -314,6 +310,7 @@ def admin_data():
             {
                 "name": inst["fields"].get("Instructor") or "unknown",
                 "email": inst["fields"].get("Email") or "unknown",
+                "neon_id": inst["fields"].get("Neon ID") or None,
                 "active": inst["fields"].get("Active") or False,
             }
         )

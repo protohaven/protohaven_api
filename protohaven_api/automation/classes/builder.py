@@ -9,7 +9,7 @@ import threading
 from collections import defaultdict
 from enum import Enum
 from functools import lru_cache
-from typing import Any
+from typing import Any, Iterator
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
@@ -17,7 +17,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon_base,
 )
-from protohaven_api.integrations.airtable import InstructorID, ScheduledClass
+from protohaven_api.integrations.airtable import Email, NeonID, ScheduledClass
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("class_automation.builder")
@@ -26,7 +26,7 @@ LOCALE_LOCK = threading.Lock()
 
 
 @lru_cache(maxsize=30)
-def get_account_email(account_id):
+def get_account_email(account_id: NeonID) -> Email:
     """Gets the matching email for a Neon account, by ID"""
     a = neon_base.fetch_account(account_id)
     if a:
@@ -34,7 +34,9 @@ def get_account_email(account_id):
     raise RuntimeError(f"Failed to resolve email for attendee: {account_id}")
 
 
-def get_unscheduled_instructors(start, end, require_active=True):
+def get_unscheduled_instructors(
+    start, end, require_active=True
+) -> Iterator[tuple[NeonID, Email]]:
     """Builds a set of instructors that do not have classes proposed or scheduled
     between `start` and `end`."""
     # Ensure start and end are timezone-aware
@@ -47,21 +49,21 @@ def get_unscheduled_instructors(start, end, require_active=True):
     for cls in airtable.get_class_automation_schedule():
         for t, _ in cls.sessions:
             if start <= t <= end:
-                already_scheduled[cls.instructor_email.lower()] = True
+                already_scheduled[cls.instructor_id] = True
     log.info(
         f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
     )
-    for name, email in airtable.get_instructor_email_map(
+    for nid, email in airtable.get_instructor_neon_id_map(
         require_teachable_classes=True,
         require_active=require_active,
     ).items():
-        if already_scheduled[email.lower().strip()]:
+        if already_scheduled[nid]:
             continue  # Don't nag folks that already have their classes set up
-        yield (name, email)
+        yield (nid, email)
 
 
 def gen_class_scheduled_alerts(
-    scheduled_by_instructor: dict[InstructorID, list[ScheduledClass]],
+    scheduled_by_instructor: dict[NeonID, list[ScheduledClass]],
 ):
     """Generate alerts about classes getting scheduled"""
     results = []
