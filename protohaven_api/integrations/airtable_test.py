@@ -382,13 +382,13 @@ def test_fetch_instructor_teachable_classes(mocker):
     mock_records = [
         {
             "fields": {
-                "Instructor": "  John Doe  ",
+                "Neon ID": "12345",
                 "Class": ["class1", "class2"],
             }
         },
         {
             "fields": {
-                "Instructor": "jane smith",
+                "Neon ID": "67890",
                 "Class": ["class3"],
             }
         },
@@ -398,7 +398,7 @@ def test_fetch_instructor_teachable_classes(mocker):
     mocker.patch.object(a, "get_all_records", return_value=mock_records)
     got = a.fetch_instructor_teachable_classes()
 
-    expected = {"john doe": ["class1", "class2"], "jane smith": ["class3"]}
+    expected = {"12345": ["class1", "class2"], "67890": ["class3"]}
     assert got == expected
 
 

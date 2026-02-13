@@ -197,6 +197,8 @@ def test_get_instructor_readiness_all_bad(mocker):
             ),
         ]
     )
+    # Verify fetch_instructor_capabilities was called with neon_id
+    instructor.airtable.fetch_instructor_capabilities.assert_called_once_with(12345)
     assert result == {
         "airtable_id": None,
         "neon_id": 12345,
@@ -234,6 +236,8 @@ def test_get_instructor_readiness_all_ok(mocker):
             ),
         ]
     )
+    # Verify fetch_instructor_capabilities was called with neon_id
+    instructor.airtable.fetch_instructor_capabilities.assert_called_once_with(12345)
     assert result == {
         "airtable_id": "inst_id",
         "neon_id": 12345,

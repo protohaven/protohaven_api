@@ -316,24 +316,45 @@ def get_instructor_email_map(require_teachable_classes=False, require_active=Fal
     their email address, from the Capabilities automation table"""
     result = {}
     for row in get_all_records("class_automation", "capabilities"):
-        if row["fields"].get("Email") is None:
+        fields = row["fields"]
+        if fields.get("Email") is None:
             continue
         if require_teachable_classes:
-            classes = row["fields"].get("Class") or []
+            classes = fields.get("Class") or []
             if (isinstance(classes, int) and classes > 0) or len(classes) == 0:
                 continue
-        if require_active and not row["fields"].get("Active"):
+        if require_active and not fields.get("Active"):
             continue
-        result[row["fields"]["Instructor"].strip()] = row["fields"]["Email"].strip()
+        result[fields["Instructor"].strip()] = fields["Email"].strip()
     return result
 
 
-def fetch_instructor_capabilities(name):
-    """Fetches capabilities for a specific instructor"""
+def get_instructor_neon_id_map(require_teachable_classes=False, require_active=False):
+    """Get a mapping of Neon ID to email address from the Capabilities table"""
+    result = {}
+    for row in get_all_records("class_automation", "capabilities"):
+        fields = row["fields"]
+        if fields.get("Email") is None or not fields.get("Neon ID"):
+            continue
+        if require_teachable_classes:
+            classes = fields.get("Class") or []
+            if (isinstance(classes, int) and classes > 0) or len(classes) == 0:
+                continue
+        if require_active and not fields.get("Active"):
+            continue
+        result[str(fields["Neon ID"]).strip()] = fields["Email"].strip()
+    return result
+
+
+def fetch_instructor_capabilities(neon_id):
+    """Fetches capabilities for a specific instructor by Neon ID"""
     for row in get_all_records("class_automation", "capabilities"):
         f = row["fields"]
-        if f.get("Instructor").lower() != name.lower():
+
+        # Match by Neon ID
+        if str(f.get("Neon ID", "")).strip() != str(neon_id):
             continue
+
         result = {
             "id": str(row["id"]),
             "w9": f.get("W9 Form"),
@@ -362,11 +383,12 @@ def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
     instructor_caps = defaultdict(list)
     for row in get_all_records("class_automation", "capabilities"):
-        if not row["fields"].get("Instructor"):
+        fields = row["fields"]
+        if not fields.get("Neon ID"):
             continue
-        inst = row["fields"]["Instructor"].strip().lower()
-        if "Class" in row["fields"].keys():
-            instructor_caps[inst] += _idref(row, "Class")
+        neon_id = str(fields["Neon ID"]).strip()
+        if "Class" in fields.keys():
+            instructor_caps[neon_id] += _idref(row, "Class")
     return instructor_caps
 
 
