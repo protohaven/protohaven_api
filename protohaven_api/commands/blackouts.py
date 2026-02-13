@@ -13,7 +13,7 @@ from protohaven_api.integrations.airtable import Interval
 log = logging.getLogger("cli.blackouts")
 
 
-class Commands:
+class Commands:  # pylint: disable=too-few-public-methods
     """Commands for managing tech shifts and related blackouts"""
 
     @command(
@@ -36,12 +36,15 @@ class Commands:
             default=None,
         ),
     )
-    def sync_booked_blackouts(self, args, _):
+    def sync_booked_blackouts(
+        self, args, _
+    ):  # pylint: disable=too-many-statements,too-many-branches,too-many-locals,line-too-long
         """Sync Booked blackouts with tech shift forecast.
 
         For each day in the forecast period:
         - If a shift (AM or PM) has 0 techs scheduled, create blackouts for that shift
-        - If both AM and PM shifts have 0 techs (or --block-full-day is true), create blackout for entire day
+        - If both AM and PM shifts have 0 techs (or --block-full-day is true),
+          create blackout for entire day
         - Remove existing blackouts when techs are now staffed for previously unstaffed shifts
         """
         # Parse start date
@@ -61,7 +64,8 @@ class Commands:
 
         # Get tech shift forecast
         log.info(
-            f"Getting tech shift forecast for {args.days_ahead} days starting from {start_date.date()}"
+            f"Getting tech shift forecast for {args.days_ahead} days "
+            f"starting from {start_date.date()}"
         )
         forecast_data = forecast.generate(
             start_date, args.days_ahead, include_pii=False
@@ -153,9 +157,10 @@ class Commands:
                             description=f"Automated blackout: {blackout['reason']}",
                         )
                         log.info(
-                            f"  Created blackout: {blackout['date']} (ID: {result.get('blackoutId', 'N/A')})"
+                            f"  Created blackout: {blackout['date']} "
+                            f"(ID: {result.get('blackoutId', 'N/A')})"
                         )
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=broad-exception-caught
                         log.error(
                             f"  Failed to create blackout for {blackout['date']} {e}"
                         )
@@ -167,9 +172,10 @@ class Commands:
                     try:
                         result = booked.delete_blackout(blackout["id"])
                         log.info(
-                            f"  Removed blackout (ID: {blackout['id']}): {blackout['start'].time()} to {blackout['end'].time()}"
+                            f"  Removed blackout (ID: {blackout['id']}): "
+                            f"{blackout['start'].time()} to {blackout['end'].time()}"
                         )
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=broad-exception-caught
                         log.error(
                             f"  Failed to remove blackout (ID: {blackout['id']}): {e}"
                         )

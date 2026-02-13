@@ -408,8 +408,8 @@ def get_blackouts(start_date=None, end_date=None, resource_id=None, schedule_id=
         res["blackhouts"] = [
             {
                 **b,
-                "startDateTime": safe_parse_datetime(r["startDateTime"]),
-                "endDateTime": safe_parse_datetime(r["endDateTime"]),
+                "startDateTime": safe_parse_datetime(res["startDateTime"]),
+                "endDateTime": safe_parse_datetime(res["endDateTime"]),
             }
             for b in res["blackouts"]
         ]
@@ -437,7 +437,7 @@ def create_blackout(
     repeat_options=None,
     title=None,
     description=None,
-):
+):  # pylint: disable=too-many-arguments
     """
     Create a new blackout time.
 
