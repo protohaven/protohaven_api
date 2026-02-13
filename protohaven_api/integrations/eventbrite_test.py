@@ -84,3 +84,76 @@ def test_generate_discount_code(mocker):
     mock_connector.eventbrite_request.assert_called_once_with(
         "POST", "/organizations/test_org_id/discounts/", json=expected_params
     )
+
+
+def test_assign_pricing(mocker):
+    """Test creating a ticket class with correct sales end time"""
+    mocker.patch.object(e, "get_config", return_value="test_org_id")
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.return_value = {
+        "resource_uri": "/ticket_class/123/"
+    }
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+
+    got = e.assign_pricing("event_123", 50, 6)
+
+    assert got == "/ticket_class/123/"
+    expected_params = {
+        "ticket_class": {
+            "quantity_total": 6,
+            "cost": "USD,5000",
+            "free": False,
+            "name": "General Admission",
+            "sales_end_relative": {
+                "relative_to_event": "start_time",
+                "offset": -3600 * 24,  # 24 hours BEFORE event
+            },
+            "hide_sale_dates": True,
+        }
+    }
+    mock_connector.eventbrite_request.assert_called_once_with(
+        "POST", "/events/event_123/ticket_classes/", json=expected_params
+    )
+
+
+def test_assign_pricing_clear_existing(mocker):
+    """Test creating a ticket class with clear_existing=True"""
+    mocker.patch.object(e, "get_config", return_value="test_org_id")
+    mock_connector = mocker.MagicMock()
+
+    # Mock the event fetch response with existing ticket classes
+    # and successful DELETE responses
+    mock_connector.eventbrite_request.side_effect = [
+        {"ticket_classes": [{"id": "ticket_456"}, {"id": "ticket_789"}]},
+        None,  # DELETE response for ticket_456
+        None,  # DELETE response for ticket_789
+        {"resource_uri": "/ticket_class/123/"},
+    ]
+
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+    mocker.patch.object(e.log, "info")
+    mocker.patch.object(e.log, "warning")
+
+    got = e.assign_pricing("event_123", 50, 6, clear_existing=True)
+
+    assert got == "/ticket_class/123/"
+
+    # Should have called eventbrite_request 4 times:
+    # 1. GET to fetch event with ticket classes
+    # 2. DELETE for ticket_456
+    # 3. DELETE for ticket_789
+    # 4. POST to create new ticket class
+    assert mock_connector.eventbrite_request.call_count == 4
+
+    # Check the calls
+    calls = mock_connector.eventbrite_request.call_args_list
+    assert calls[0][0] == ("GET", "/events/event_123")
+    assert calls[0][1]["params"] == {"expand": "ticket_classes"}
+
+    # Check DELETE calls (order might vary)
+    delete_urls = [call[0][1] for call in calls[1:3]]
+    assert "/events/event_123/ticket_classes/ticket_456/" in delete_urls
+    assert "/events/event_123/ticket_classes/ticket_789/" in delete_urls
+
+    # Check the POST call to create new ticket class
+    assert calls[3][0] == ("POST", "/events/event_123/ticket_classes/")
