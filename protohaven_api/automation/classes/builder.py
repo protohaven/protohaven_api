@@ -35,7 +35,7 @@ def get_account_email(account_id: NeonID) -> Email:
 
 
 def get_unscheduled_instructors(
-    start, end, require_active=True
+    start, end, require_active=True, require_teachable=True
 ) -> Iterator[tuple[NeonID, Email]]:
     """Builds a set of instructors that do not have classes proposed or scheduled
     between `start` and `end`."""
@@ -54,7 +54,7 @@ def get_unscheduled_instructors(
         f"Already scheduled for interval {start} - {end}: {set(already_scheduled.keys())}"
     )
     for nid, email in airtable.get_instructor_neon_id_map(
-        require_teachable_classes=True,
+        require_teachable_classes=require_teachable,
         require_active=require_active,
     ).items():
         if already_scheduled[nid]:
