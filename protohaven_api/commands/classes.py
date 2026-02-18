@@ -122,7 +122,9 @@ class Commands:
         summary = {"name": "Scheduling reminder", "action": ["SEND"], "targets": set()}
         filt = [f.strip() for f in args.filter.split(",")] if args.filter else None
         for nid, email in builder.get_unscheduled_instructors(
-            start, end, require_active=args.require_active,
+            start,
+            end,
+            require_active=args.require_active,
             require_teachable=args.require_teachable,
         ):
             if filt and nid not in filt and email not in filt:
