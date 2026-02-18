@@ -380,7 +380,7 @@ class Commands:
                     f"{t.name} ({s.email}, signed in {timestamp.strftime('%-I%p')})"
                 )
             else:
-                log.info(s.emails)
+                log.info(s.email)
 
         result = []
         if not on_duty_ok:

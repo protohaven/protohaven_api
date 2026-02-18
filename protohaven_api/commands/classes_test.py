@@ -54,6 +54,9 @@ def test_gen_instructor_schedule_reminder(mocker, cli):
     mocker.patch.object(
         C.builder, "get_unscheduled_instructors", return_value=[("Foo", "a@b.com")]
     )
+    mocker.patch.object(
+        C.neon_base, "fetch_account", return_value=mocker.MagicMock(fname="Foo")
+    )
     assert cli(
         "gen_instructor_schedule_reminder",
         ["--start", d(0).isoformat(), "--end", d(1).isoformat()],

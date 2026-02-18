@@ -96,13 +96,17 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=True,
         ),
+        arg(
+            "--require_teachable",
+            help="Only send reminders to instructors with teachable classes",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
     )
     def gen_instructor_schedule_reminder(self, args, _):
         """Reads the list of instructors from Airtable and generates
         reminder comms to all instructors, plus the #instructors discord,
         to propose additional class scheduling times"""
-
-        log.info("Hello world")
 
         start = (
             safe_parse_datetime(args.start)
@@ -117,16 +121,19 @@ class Commands:
         results = []
         summary = {"name": "Scheduling reminder", "action": ["SEND"], "targets": set()}
         filt = [f.strip() for f in args.filter.split(",")] if args.filter else None
-        for name, email in builder.get_unscheduled_instructors(
-            start, end, require_active=args.require_active
+        for nid, email in builder.get_unscheduled_instructors(
+            start,
+            end,
+            require_active=args.require_active,
+            require_teachable=args.require_teachable,
         ):
-            if filt and name not in filt and email not in filt:
+            if filt and nid not in filt and email not in filt:
                 continue
+            m = neon_base.fetch_account(nid)
             results.append(
                 Msg.tmpl(
                     "instructor_schedule_classes",
-                    name=name,
-                    firstname=name.split(" ")[0],
+                    firstname=m.fname,
                     start=start,
                     end=end,
                     target=email,
