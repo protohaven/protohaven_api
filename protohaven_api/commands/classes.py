@@ -120,13 +120,12 @@ class Commands:
         for nid, email in builder.get_unscheduled_instructors(
             start, end, require_active=args.require_active
         ):
-            if filt and name not in filt and email not in filt:
+            if filt and nid not in filt and email not in filt:
                 continue
             m = neon_base.fetch_account(nid)
             results.append(
                 Msg.tmpl(
                     "instructor_schedule_classes",
-                    name=m.name,
                     firstname=m.fname,
                     start=start,
                     end=end,
