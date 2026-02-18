@@ -122,7 +122,7 @@ class Commands:
         ):
             if filt and name not in filt and email not in filt:
                 continue
-            m = neon.fetch_account(nid)
+            m = neon_base.fetch_account(nid)
             results.append(
                 Msg.tmpl(
                     "instructor_schedule_classes",
