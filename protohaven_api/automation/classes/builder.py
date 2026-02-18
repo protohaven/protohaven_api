@@ -46,7 +46,7 @@ def get_unscheduled_instructors(
         end = end.replace(tzinfo=tz)
 
     already_scheduled = defaultdict(bool)
-    for cls in airtable.get_class_automation_schedule():
+    for cls in airtable.get_class_automation_schedule(raw=False):
         for t, _ in cls.sessions:
             if start <= t <= end:
                 already_scheduled[cls.instructor_id] = True
