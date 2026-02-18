@@ -41,7 +41,7 @@ def _fetch_upcoming_events_neon(
         for e in ee:
             evt = Event.from_neon_fetch(e)
             if _should(attendees, evt):
-                evt.set_attendee_data(neon.fetch_attendees(evt.neon_id))
+                evt.set_attendee_data(neon.fetch_attendees(evt.neon_id, raw=True))
             if _should(tickets, evt):
                 evt.set_ticket_data(
                     # Specifically allowed to do so here; others should
