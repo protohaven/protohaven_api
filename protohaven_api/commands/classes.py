@@ -117,16 +117,17 @@ class Commands:
         results = []
         summary = {"name": "Scheduling reminder", "action": ["SEND"], "targets": set()}
         filt = [f.strip() for f in args.filter.split(",")] if args.filter else None
-        for name, email in builder.get_unscheduled_instructors(
+        for nid, email in builder.get_unscheduled_instructors(
             start, end, require_active=args.require_active
         ):
             if filt and name not in filt and email not in filt:
                 continue
+            m = neon.fetch_account(nid)
             results.append(
                 Msg.tmpl(
                     "instructor_schedule_classes",
-                    name=name,
-                    firstname=name.split(" ")[0],
+                    name=m.name,
+                    firstname=m.fname,
                     start=start,
                     end=end,
                     target=email,
