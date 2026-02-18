@@ -104,9 +104,9 @@ class Class:  # pylint: disable=too-many-instance-attributes
 class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     """Represents a class template with scheduling information applied"""
 
-    schedule_id: RecordID
-    class_id: RecordID
-    event_id: EventID
+    schedule_id: RecordID  # Record ID for the Schedule table
+    class_id: RecordID  # Record ID for the Class Templates table
+    event_id: EventID  # Neon or Eventbrite published ID
     name: str
     hours: list[int]
     period: datetime.timedelta
@@ -166,7 +166,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         return cls(
             schedule_id=str(row["id"]),
             class_id=str(class_ids[0]),
-            event_id=f.get("Neon ID") or None,
+            event_id=f.get("Neon ID") or f.get("Event ID") or None,
             name=_unwrap(f, "Name (from Class)"),
             hours=hours,
             period=datetime.timedelta(
@@ -457,7 +457,7 @@ def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClas
     status, result = update_record(data, "class_automation", "schedule", eid)
     if status != 200:
         raise RuntimeError(f"Error updating class schedule state for {eid}: {result}")
-    return ScheduledClass.from_schedule(result)
+    return get_scheduled_class(eid, raw=False)
 
 
 def apply_violation_accrual(vid, accrued):
@@ -485,7 +485,7 @@ def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
     )
     if status != 200:
         raise RuntimeError(f"Error setting supply state for {eid}: {result}")
-    return ScheduledClass.from_schedule(result)
+    return get_scheduled_class(eid, raw=False)
 
 
 def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
@@ -495,7 +495,7 @@ def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
     )
     if status != 200:
         raise RuntimeError(f"Error setting volunteer status for {eid}: {result}")
-    return ScheduledClass.from_schedule(result)
+    return get_scheduled_class(eid, raw=False)
 
 
 def get_tools():
