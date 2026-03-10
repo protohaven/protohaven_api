@@ -76,13 +76,13 @@
           />
           <EditCell
             title="Interest"
-            enabled={true}
+            enabled={isTechLead || isCurrentUser}
             on_change={() => onUpdate(tech)}
             bind:value={tech.interest}
           />
           <EditCell
             title="Expertise"
-            enabled={true}
+            enabled={isTechLead || isCurrentUser}
             on_change={() => onUpdate(tech)}
             bind:value={tech.expertise}
           />

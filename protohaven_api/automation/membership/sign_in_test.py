@@ -461,7 +461,7 @@ def test_handle_waiver_checks_expiration(mocker):
 def test_as_guest_no_referrer(mocker):
     """Guest data with no referrer is omitted from form submission"""
     m = mocker.patch.object(s, "_apply_async")
-    got = s.as_guest({"person": "guest", "waiver_ack": True})
+    got = s.as_guest({"person": "guest", "email": "a@b.com", "waiver_ack": True})
     assert got["waiver_signed"] == True
     m.assert_not_called()
 

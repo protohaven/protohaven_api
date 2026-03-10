@@ -84,7 +84,7 @@ def set_discord_nick():
 def _recert_enabled(neon_id: NeonID):
     """As of 2026-01-31, recertification is still in testing and only enabled for
     certain opt-in test users"""
-    enabled_users = get_config("general/recertification/enabled_users") or ""
+    enabled_users = str(get_config("general/recertification/enabled_users")) or ""
     if not enabled_users:
         return False
     return re.match(enabled_users, neon_id)
@@ -104,22 +104,16 @@ def get_recert_data():
     configs = airtable.get_tool_recert_configs_by_code()
 
     pending: list[tuple[ToolCode, datetime.datetime, dict[str, Any]]] = []
-    for (
-        nid,
-        tool_code,
-        inst_deadline,
-        res_deadline,
-        _,
-    ) in airtable.get_pending_recertifications():
-        if nid != neon_id:
+    for pr in airtable.get_pending_recertifications():
+        if pr.neon_id != neon_id:
             continue
-        c = configs.get(tool_code)
+        c = configs.get(pr.tool_code)
         if not c:
             continue
         pending.append(
             (
-                tool_code,
-                max(inst_deadline, res_deadline).strftime("%Y-%m-%d"),
+                pr.tool_code,
+                max(pr.inst_deadline, pr.res_deadline).strftime("%Y-%m-%d"),
                 c.as_dict(),
             )
         )

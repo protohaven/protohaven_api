@@ -39,6 +39,7 @@ def test_class_no_clearances():
 
 
 TEST_EMAIL = "test@email.com"
+TEST_ID = "12345"
 now = datetime.datetime.now()
 
 
@@ -47,10 +48,12 @@ def test_dashboard_schedule(mocker):
 
     def _sched(_id, email=TEST_EMAIL, start=now, confirmed=None, rejected=None):
         """Create and return a fake Airtable schedule record"""
+        start = start.astimezone(tz)
         end = start + datetime.timedelta(hours=3)
         return mocker.MagicMock(
             spec=True,
             schedule_id=_id,
+            instructor_id=None,
             instructor_email=email,
             sessions=[(start, end)],
             start_time=start,
@@ -97,7 +100,10 @@ def test_dashboard_schedule(mocker):
             _sched("Bad email", confirmed=now, start=now, email="bad@bad.com"),
         ],
     )
-    got = {g.schedule_id for g in instructor.get_dashboard_schedule_sorted(TEST_EMAIL)}
+    got = {
+        g.schedule_id
+        for g in instructor.get_dashboard_schedule_sorted(TEST_ID, TEST_EMAIL)
+    }
     assert got == {"Unconfirmed, not too close", "Confirmed, after run, not too old"}
 
 
@@ -164,6 +170,11 @@ def test_class_details_both_email_and_session(mocker, inst_client):
     rbac.set_rbac(True)
     mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.INSTRUCTOR["name"]])
     mocker.patch.object(instructor, "get_dashboard_schedule_sorted")
+    mocker.patch.object(
+        instructor.neon,
+        "search_members_by_email",
+        return_value=[mocker.MagicMock(neon_id="12345")],
+    )
 
     rep = inst_client.get("/instructor/class_details?email=a@b.com")
     assert rep.status == "401 UNAUTHORIZED"

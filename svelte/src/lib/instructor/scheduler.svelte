@@ -224,7 +224,7 @@
     {#if running }<Spinner/>Validating....{/if}
     {#if !running && validation_result.valid}All validation checks passed <Icon name="check-all"/>{/if}
     {#if selected && !running && !validation_result.valid}Some validation checks failed <Icon name="exclamation-triangle"/>{/if}
-    <Button on:click={save_schedule} disabled={!ovr && (running || !validation_result.valid)}>Save proposed classes</Button>
+    <Button on:click={save_schedule} disabled={!ovr && (running || !validation_result.valid)}>Save</Button>
     <Button on:click={() => open = false} disabled={running}>Close</Button>
   </ModalFooter>
 </Modal>

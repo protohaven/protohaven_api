@@ -12,7 +12,7 @@ from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.classes import scheduler
 from protohaven_api.automation.classes import validation as val
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
-from protohaven_api.handlers.auth import user_email, user_fullname
+from protohaven_api.handlers.auth import user_email, user_fullname, user_id
 from protohaven_api.integrations import (
     airtable,
     airtable_base,
@@ -100,19 +100,27 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     return result
 
 
-def _resolve_email():
+def _resolve_id_and_email() -> tuple[str, str, Response]:
     email = request.args.get("email")
     if email is not None:
         ue = user_email()
         if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
-            return None, Response(
-                "Access Denied for admin parameter `email`", status=401
+            return (
+                None,
+                None,
+                Response("Access Denied for admin parameter `email`", status=401),
             )
+        # Account ID included by default
+        mm = list(neon.search_members_by_email(ue.lower(), fields=[]))
+        if len(mm) == 0:
+            return Response(f"No Neon accounts with email {email.lower()}", status=404)
+        nid = mm[0].neon_id
     else:
         email = user_email()
+        nid = user_id()
         if not email:
-            return None, Response("You are not logged in.", status=401)
-    return email, None
+            return None, None, Response("You are not logged in.", status=401)
+    return email, nid, None
 
 
 @page.route("/instructor/class/templates")
@@ -179,7 +187,9 @@ def instructor_class_selector_redirect2() -> Any:
     return redirect("/instructor")
 
 
-def get_dashboard_schedule_sorted(email, now=None) -> list[airtable.ScheduledClass]:
+def get_dashboard_schedule_sorted(
+    neon_id, email, now=None
+) -> list[airtable.ScheduledClass]:
     """Fetches the class schedule for an individual instructor.
     Excludes unconfirmed classes sooner than HIDE_UNCONFIRMED_DAYS_AHEAD
     as well as confirmed classes older than HIDE_CONFIRMED_DAYS_AFTER"""
@@ -189,7 +199,7 @@ def get_dashboard_schedule_sorted(email, now=None) -> list[airtable.ScheduledCla
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
     for s in airtable.get_class_automation_schedule(raw=False):
-        if s.instructor_email != email or s.rejected:
+        if (s.instructor_id != neon_id and s.instructor_email != email) or s.rejected:
             continue
         if s.confirmed and s.end_time <= age_out_thresh:
             continue
@@ -243,16 +253,17 @@ def instructor_class_svelte_files(typ, path):
 @require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
 def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
-    email, rep = _resolve_email()
+    email, neon_id, rep = _resolve_id_and_email()
     if rep:
         return rep
 
     email = email.lower()
-    sched = get_dashboard_schedule_sorted(email)
+    sched = get_dashboard_schedule_sorted(neon_id, email)
     return {
         "schedule": [c.as_response() for c in sched],
         "now": tznow(),
         "email": email,
+        "neon_id": neon_id,
     }
 
 
@@ -358,7 +369,7 @@ def _resolve_class_proposal_params():
     for s in data["sessions"]:
         log.info(f"Parsing session {s}")
         sessions.append(tuple(safe_parse_datetime(t) for t in s))
-    inst_id, rep = _resolve_email()
+    _, inst_id, rep = _resolve_id_and_email()
 
     skip_val = data.get("skip_validation") or False
     if not isinstance(skip_val, bool):  # Strict checks on validation override

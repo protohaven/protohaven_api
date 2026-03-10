@@ -5,7 +5,8 @@
 
   import FetchError from '$lib/fetch_error.svelte';
   import Clearances from '$lib/member/clearances.svelte';
-  import {Accordion, AccordionItem, Badge, Card, Spinner, ListGroup, ListGroupItem, CardTitle, CardSubtitle, CardHeader, CardBody, CardFooter, Button, Input, Navbar, NavbarBrand, Nav, NavItem, NavLink } from '@sveltestrap/sveltestrap';
+  import Recertification from '$lib/member/recertification.svelte';
+  import {Icon, Accordion, AccordionItem, Badge, Card, Spinner, ListGroup, ListGroupItem, CardTitle, CardSubtitle, CardHeader, CardBody, CardFooter, Button, Input, Navbar, NavbarBrand, Nav, NavItem, NavLink } from '@sveltestrap/sveltestrap';
 
   let first;
   let last;
@@ -22,7 +23,10 @@
 	  discord_id = urlParams.get("discord_id") || "";
     show_discord_setup = discord_id !== "";
 	  neon_id = urlParams.get("neon_id") || null;
-	  promise = get("/whoami");
+	  promise = get("/whoami").then((data) => {
+      neon_id = neon_id || data.neon_id;
+      return data;
+    });
     recertPromise = get("/member/recert_data").catch((e) => {
       if (e.toString().indexOf("Not yet enabled") !== -1) {
         console.log("Recert dashboard not yet enabled; continuing without");
@@ -63,6 +67,20 @@
     console.log("activeTab", activeTab);
   }
 </script>
+
+
+<style type="css">
+.ph-link {
+	display: block;
+	padding: var(--bs-nav-link-padding-y) var(--bs-nav-link-padding-x);
+	font-size: var(--bs-nav-link-font-size);
+	font-weight: var(--bs-nav-link-font-weight);
+	color: var(--bs-nav-link-color);
+	text-decoration: none;
+	background: none;
+	border: 0;
+}
+</style>
 
 {#await promise}
 <Spinner/>Loading...
@@ -106,27 +124,33 @@
   {#await recertPromise}
   {:then rc}
   {#if rc}
-  <NavItem><NavLink href="#recertification" on:click={on_tab}>Recertification</NavLink></NavItem>
+  <NavItem><NavLink href="#recertification" on:click={on_tab}>
+    {#await recertPromise}
+    {:then rc}
+    {#if rc.pending && rc.pending.length > 0 }
+      <Icon name="exclamation-triangle" />
+    {/if}
+    {/await}
+    Recertification
+  </NavLink></NavItem>
   {/if}
   {/await}
   <NavItem>
-    <NavLink><a href="/events" target="_blank">Shop Status</a></NavLink>
+    <a class="ph-link" href="/events" target="_blank">Shop Status</a>
   </NavItem>
-  {#if match(["Instructor", "Private Instructor"], p.roles)}
+  {#if match(["Instructor", "Private Instructor", "Education Lead", "Board Member", "Staff"], p.roles)}
   <NavItem>
-    <NavLink>
-      <a href="/instructor" target="_blank">Instructor Dashboard</a>
-    </NavLink>
+    <a class="ph-link" href="/instructor" target="_blank">Instructor Dashboard</a>
   </NavItem>
   {/if}
-  {#if match(["Shop Tech", "Shop Tech Lead"], p.roles) }
+  {#if match(["Shop Tech", "Shop Tech Lead", "Education Lead", "Board Member", "Staff"], p.roles) }
   <NavItem>
-    <NavLink><a href="/techs" target="_blank">Shop Tech Dashboard</a></NavLink>
+    <a class="ph-link" href="/techs" target="_blank">Shop Tech Dashboard</a>
   </NavItem>
   {/if}
   {#if match(["Board Member", "Staff"], p.roles)}
   <NavItem>
-    <NavLink><a href="/staff" target="_blank">Discord Summarizer</a></NavLink>
+    <a class="ph-link" href="/staff" target="_blank">Staff Tools</a>
   </NavItem>
   {/if}
 </Nav>

@@ -117,6 +117,10 @@ function start_edit(s, ap) {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+.today {
+  background-color: #eeeeff;
+  font-weight: bold;
+}
 .header {
   text-align: center;
   @media (max-width: 920px) {
@@ -159,7 +163,8 @@ function start_edit(s, ap) {
   {#if v.filler}
     <div class="filler"></div>
   {:else}
-    <Card class="day" style={isToday(v.date) ? "font-weight: bold;" : ""}>
+    <Card>
+      <span class={"day" + (isToday(v.date) ? " today" : "")}>
       <div>{v.date}</div>
       <div class="my-2">
       {#each ["AM", "PM"] as ap}
@@ -173,6 +178,7 @@ function start_edit(s, ap) {
       </Button>
       {/each}
       </div>
+      </span>
     </Card>
   {/if}
   {/each}

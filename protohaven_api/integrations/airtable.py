@@ -84,7 +84,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
             approved=bool(f.get("Approved")),
             image_link=f.get("Image Link"),
             clearances=f.get("Form Name (from Clearance)") or [],
-            approved_instructors=f.get("Email (from Instructor Capabilities)") or [],
+            approved_instructors=f.get("Neon ID (from Instructor Capabilities)") or [],
         )
 
     @property

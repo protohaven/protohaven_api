@@ -29,6 +29,14 @@ def user_fullname():
         return None
 
 
+def user_id():
+    """Get the logged in user's neon ID"""
+    nid = session.get("neon_id")
+    if not nid:
+        return None
+    return str(nid)
+
+
 def _redirect_uri():
     return f"{request.url_root}oauth_redirect"
 

@@ -59,7 +59,10 @@ function get_subs() {
       }
       d["storage_type"] = parsed["storage_type"] || "Unknown";
       d["storage_id"] = parsed["storage_id"] || "Unknown";
-      d["storage_detail"] = parsed["storage_detail"] || d["note"] || "Unknown";
+      d["storage_detail"] = parsed["storage_detail"];
+      if (d["storage_detail"] === undefined) {
+        d["storage_detail"] = d["note"] || "";
+      }
     }
     subs = [...data];
     loaded = true;

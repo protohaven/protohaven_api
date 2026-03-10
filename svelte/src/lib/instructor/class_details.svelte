@@ -32,7 +32,7 @@ $: {
 {#if classes }
   {#each classes as c}
     {#if !c['Rejected']}
-      <ClassCard eid={c.class_id} c_init={c}/>
+      <ClassCard schedule_id={c.schedule_id} c_init={c}/>
     {/if}
   {/each}
 

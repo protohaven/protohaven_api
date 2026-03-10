@@ -158,7 +158,7 @@ def get_inventory():
 def set_subscription_note(sub_id: str, note: str):
     """Sets the note text for a subscription in square"""
     result = client().subscriptions.update_subscription(
-        subscription_id=sub_id, note=note
+        subscription_id=sub_id, body={"subscription": {"note": note}}
     )
     if result.is_success():
         return result.body

@@ -4,7 +4,7 @@ import { Button, Row, Tooltip, Col, Card, CardHeader, CardTitle, CardSubtitle, C
 import {get, post} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
-export let eid;
+export let schedule_id;
 
 export let c_init;
 let meta_promise = Promise.resolve(c_init);
@@ -47,7 +47,7 @@ function refresh(neon_id) {
 //onMount(refresh);
 
 function confirm(pub) {
-  meta_promise = post("/instructor/class/update", {eid, pub})
+  meta_promise = post("/instructor/class/update", {eid: schedule_id, pub})
   promise = meta_promise.then(fetch_attendees);
   state_promise = meta_promise.then(fetch_neon_state);
 }
@@ -64,13 +64,13 @@ function submit_log(url) {
 }
 
 function supply(ok) {
-  meta_promise = post("/instructor/class/supply_req", {eid, missing: !ok})
+  meta_promise = post("/instructor/class/supply_req", {eid: schedule_id, missing: !ok})
   promise = meta_promise.then(fetch_attendees);
   state_promise = meta_promise.then(fetch_neon_state);
 }
 
 function volunteer(v) {
-  meta_promise = post("/instructor/class/volunteer", {eid, volunteer: v})
+  meta_promise = post("/instructor/class/volunteer", {eid: schedule_id, volunteer: v})
   promise = meta_promise.then(fetch_attendees);
   state_promise = meta_promise.then(fetch_neon_state);
 }
@@ -87,7 +87,7 @@ function cancel(class_id) {
 {:then c}
 <Card class="my-3" size={'lg'}>
 <CardHeader style={(c.neon_id) ? "background-color: rgb(230, 225, 249)" : ""}>
-  <CardTitle id={eid}>
+  <CardTitle id={schedule_id}>
     {#if c.neon_id}
       <i class="bi bi-calendar-check"></i>
     {:else}
@@ -96,7 +96,7 @@ function cancel(class_id) {
     {c.name}
   </CardTitle>
   {#if !c.neon_id}
-  <Tooltip target={eid} placement="right">
+  <Tooltip target={schedule_id} placement="right">
   	Proposed classes are not guaranteed to run; they aren't yet available for people to register in Neon. Click the ? icon for more details.
   </Tooltip>
   {/if}
@@ -139,10 +139,13 @@ function cancel(class_id) {
       <ul class="attendees">
 	{#each p as a}
 	<li>
-      {#if a.registrationStatus !== "SUCCEEDED" }
-      <strong>{a.registrationStatus}</strong> -
+      {#if a.neon_raw_data && a.neon_raw_data.registrationStatus !== "SUCCEEDED" }
+      <strong>{a.neon_raw_data.registrationStatus}</strong> -
       {/if}
-      {a.firstName} {a.lastName} ({a.email}) registered {a.registrationDate}
+      {a.name} ({a.email})
+      {#if a.neon_raw_data && a.neon_raw_data.registrationDate}
+        registered {a.neon_raw_data.registrationDate}
+      {/if}
   </li>
 	{/each}
       </ul>

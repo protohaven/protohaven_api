@@ -72,7 +72,10 @@ def test_tech_update(lead_client, mocker):
     mocker.patch.object(
         tl.neon, "set_tech_custom_fields", return_value=(mocker.MagicMock(), None)
     )
-    lead_client.post("/techs/update", json={"id": "123", "interest": "stuff"})
+    rep = lead_client.post(
+        "/techs/update", json={"neon_id": "123", "interest": "stuff"}
+    )
+    assert rep.status_code == 200
     tl.neon.set_tech_custom_fields.assert_called_with("123", interest="stuff")
 
 
@@ -83,14 +86,16 @@ def test_tech_update_as_tech(tech_client, mocker):
     )
 
     # Techs cannot edit each others' fields
-    rep = tech_client.post("/techs/update", json={"id": "123", "interest": "stuff"})
+    rep = tech_client.post(
+        "/techs/update", json={"neon_id": "123", "interest": "stuff"}
+    )
     assert rep.status_code == 401
     tl.neon.set_tech_custom_fields.assert_not_called()
 
     # Note that only the interest field is allowed to change
     rep = tech_client.post(
         "/techs/update",
-        json={"id": "1234", "interest": "stuff", "area_lead": "muahaha"},
+        json={"neon_id": "1234", "interest": "stuff", "area_lead": "muahaha"},
     )
     assert rep.status_code == 200
     tl.neon.set_tech_custom_fields.assert_called_with("1234", interest="stuff")
