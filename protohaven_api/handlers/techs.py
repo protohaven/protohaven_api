@@ -320,22 +320,23 @@ def techs_list():
 def tech_update():
     """Update the custom fields of a shop tech in Neon"""
     data = request.json
-    nid = data["id"]
+    nid = data["neon_id"]
 
-    editable_fields = (
-        "shop_tech_shift",
-        "area_lead",
-        "interest",
-        "expertise",
-        "shop_tech_first_day",
-        "shop_tech_last_day",
-    )
-    if not am_lead_role():
-        if not am_neon_id(nid):
+    if am_lead_role():
+        editable_fields = (
+            "shop_tech_shift",
+            "area_lead",
+            "interest",
+            "expertise",
+            "shop_tech_first_day",
+            "shop_tech_last_day",
+        )
+    else:
+        if am_neon_id(nid):
+            # Techs editing their own data can only edit a subset of fields
+            editable_fields = ("interest", "expertise")
+        else:
             return Response("Access Denied", status=401)
-
-        # Techs editing their own data can only edit a subset of fields
-        editable_fields = ("interest", "expertise")
 
     body = {k: v for k, v in data.items() if k in editable_fields}
     return neon.set_tech_custom_fields(nid, **body)
@@ -490,11 +491,11 @@ def _notify_registration(account_id, event_id, action):
     when a tech (un)registers to backfill a class."""
     acc = neon_base.fetch_account(account_id, required=True)
     evt = eauto.fetch_event(event_id, attendees=True)
-    verb = "registered for"
+    verb = "registered"
     if action != "register":
-        verb = "unregistered from"
+        verb = "unregistered"
     msg = (
-        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events) "
+        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events): "
         f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
         f"; {evt.capacity - evt.attendee_count} seat(s) remain"
     )
@@ -505,7 +506,13 @@ def _notify_registration(account_id, event_id, action):
 
 
 @page.route("/techs/event", methods=["POST"])
-@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.STAFF,
+    Role.EDUCATION_LEAD,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def techs_event_registration():
     """Register a shop tech for an event, via Neon ID"""
     # We want to know who's modifying the schedule, not just the generic shop tech user

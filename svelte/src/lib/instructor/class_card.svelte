@@ -139,10 +139,13 @@ function cancel(class_id) {
       <ul class="attendees">
 	{#each p as a}
 	<li>
-      {#if a.registrationStatus !== "SUCCEEDED" }
-      <strong>{a.registrationStatus}</strong> -
+      {#if a.neon_raw_data && a.neon_raw_data.registrationStatus !== "SUCCEEDED" }
+      <strong>{a.neon_raw_data.registrationStatus}</strong> -
       {/if}
-      {a.firstName} {a.lastName} ({a.email}) registered {a.registrationDate}
+      {a.name} {a.lastName} ({a.email})
+      {#if a.neon_raw_data && a.neon_raw_data.registrationDate}
+        registered {a.registrationDate}
+      {/if}
   </li>
 	{/each}
       </ul>

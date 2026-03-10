@@ -33,8 +33,8 @@ $: {
       <CardBody>
 	{#each p['area_leads'][area] as tech}
 	  <div>{tech.name}</div>
-	  <div>{tech.email}</div>
-	  <div>Shift: {tech.shift.join(' ')}</div>
+	  {#if tech.email}<div>{tech.email}</div>{/if}
+	  {#if tech.shift.length > 0 }<div>Shift: {tech.shift.join(' ')}</div>{/if}
 	{/each}
       </CardBody>
       </Card>
@@ -51,8 +51,8 @@ $: {
       <CardBody>
 	{#each p['other_leads'][a] as tech}
 	  <div>{tech.name}</div>
-	  <div>{tech.email}</div>
-	  <div>Shift: {tech.shift}</div>
+	  {#if tech.email}<div>{tech.email}</div>{/if}
+	  {#if tech.shift.length > 0 }<div>Shift: {tech.shift.join(' ')}</div>{/if}
 	{/each}
       </CardBody>
       </Card>
