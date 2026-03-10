@@ -456,7 +456,7 @@ def create_member(name: str, email: str) -> NeonID:
         result = neon_base.post("api_key2", "/accounts", account_data)
         # The API returns the created account data
         # We need to fetch it to get the full Member object
-        account_id = result.get("accountId")
+        account_id = result.get("id")
         if not account_id:
             raise RuntimeError(f"Failed to create account: {result}")
         return account_id
