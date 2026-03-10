@@ -51,8 +51,8 @@ After deployment, verify that:
   * [x] Storage sub type, ID, and note can all be edited and saved successfully
   * [x] Areas have some leads assigned to them
   * [x] Areas has populated "additional contacts" section at the bottom of the pane
-  * [ ] Techs roster can set interest, expertise, shift info if tech lead, but not if tech
-  * [ ] Techs roster can set interest and expertise (but not other fields) for the logged in user
+  * [x] If a lead: techs roster can set interest, expertise, shift info
+  * [x] If logged in as Shop Tech: techs roster can set interest and expertise (but not other fields) for that user
   * [x] Techs roster can view clearances and sort by name/clearances
   * [x] Techs roster has some tech photos & bios shown
   * [x] Techs roster not visible if not a tech (e.g. not logged in)
@@ -63,23 +63,25 @@ After deployment, verify that:
   * [x] Full tech name is visible on calendar only when logged in as a tech / tech lead
   * [x] Members tab shows "access denied" when not logged in
   * [x] Area leads only show first name when not signed in
-  * [ ] Unauthenticated user only sees at most the first names on Roster
+  * [x] Unauthenticated user cannot see tech roster
   * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
   * [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
-  * [ ] Loads profile data for instructor
-  * [ ] Loads classes for instructor, including attendance data
-  * [ ] Adding a new class on a holiday triggers validation error
-  * [ ] Adding a new class on a day with similar area reservations triggers validation error
-  * [ ] Adding a new class too close to a recent run of that class triggers validation error
-  * [ ] Can confirm/unconfirm a class
-  * [ ] Log submission button works
+  * [x] Loads profile data for instructor
+  * [x] Loads classes for instructor, including attendance data
+  * [x] Adding a new class on a holiday triggers validation error
+  * [x] Adding a new class on a day with similar area reservations triggers validation error
+  * [x] Adding a new class too close to a recent run of that class triggers validation error
+  * [x] Can confirm/unconfirm a class
+  * [x] Can set supplies needed / supplies OK
+  * [x] Can switch between volunteer and paid state for class
+  * [x] Log submission button works
 * https://api.protohaven.org/event_ticker
-  * [ ] Returns JSON of sample classes
+  * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
   * [ ] Can summarize one or more discord channels, and view photos
   * [ ] Access denied if logged in as hello+testmember@protohaven.org
-  * [v] Ops dashboard shows content with no errors
+  * [ ] Ops dashboard shows content with no errors
 
 ## Discord events
 

@@ -23,7 +23,10 @@
 	  discord_id = urlParams.get("discord_id") || "";
     show_discord_setup = discord_id !== "";
 	  neon_id = urlParams.get("neon_id") || null;
-	  promise = get("/whoami");
+	  promise = get("/whoami").then((data) => {
+      neon_id = neon_id || data.neon_id;
+      return data;
+    });
     recertPromise = get("/member/recert_data").catch((e) => {
       if (e.toString().indexOf("Not yet enabled") !== -1) {
         console.log("Recert dashboard not yet enabled; continuing without");
