@@ -64,7 +64,7 @@ After deployment, verify that:
   * [x] Members tab shows "access denied" when not logged in
   * [x] Area leads only show first name when not signed in
   * [x] Unauthenticated user cannot see tech roster
-  * [ ] In incognito window (not logged in) cannot make edits to tech data, cal overrides
+  * [x] In incognito window (not logged in) cannot make edits to tech data, cal overrides
   * [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech data, cal overrides
 * https://api.protohaven.org/instructor
   * [x] Loads profile data for instructor
@@ -79,9 +79,9 @@ After deployment, verify that:
 * https://api.protohaven.org/event_ticker
   * [x] Returns JSON of sample classes
 * https://api.protohaven.org/staff
-  * [ ] Can summarize one or more discord channels, and view photos
-  * [ ] Access denied if logged in as hello+testmember@protohaven.org
-  * [ ] Ops dashboard shows content with no errors
+  * [x] Can summarize one or more discord channels, and view photos
+  * [x] Access denied if logged in as hello+testmember@protohaven.org
+  * [x] Ops dashboard shows content with no errors
 
 ## Discord events
 
@@ -93,15 +93,15 @@ run the `on_member_join` hook which is configured by `main.py` to run
 
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove association.
 
-* [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+* [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
 
 Override and register the user in Neon via the link.
 
-* [ ] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
+* [x] Discord association [form](https://staging.api.protohaven.org/member?discord_id=asdf) correctly sets discord ID on Neon account
 
 Remove all roles from Discord user, and change its display name to something other than `Test Member`.
 
-* [ ] When missing roles & nickname format, adds them & notifies (both of role and nick change)
+* [x] When missing roles & nickname format, adds them & notifies (both of role and nick change)
 
 Add an extra role to the user via Discord. (Does this actually work via TEST_MEMBER_JOIN? Isn't it just cron based?)
 
@@ -114,20 +114,20 @@ Call these when SSH'd into the Cron server via ~/protohaven_api. Make sure to `s
 Membership creation webhook
 
 ```shell
-python3 -m protohaven_api.scripts.webhook_qa_tests new_member
+PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests new_member
 ```
-* [ ] runs successfully
+* [x] runs successfully
 
 Clearance webhook
 
 ```shell
-python3 -m protohaven_api.scripts.webhook_qa_tests clearance
+PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests clearance
 ```
-* [ ] runs successfully
+* [x] runs successfully
 
 Maintenance data webhook
 
 ```shell
-python3 -m protohaven_api.scripts.webhook maintenance
+PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
 ```
-* [ ] runs successfully
+* [x] runs successfully
