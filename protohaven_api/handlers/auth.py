@@ -31,7 +31,10 @@ def user_fullname():
 
 def user_id():
     """Get the logged in user's neon ID"""
-    return session.get("neon_id") or None
+    nid = session.get("neon_id")
+    if not nid:
+        return None
+    return str(nid)
 
 
 def _redirect_uri():

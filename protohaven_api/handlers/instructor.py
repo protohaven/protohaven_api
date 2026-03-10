@@ -253,7 +253,7 @@ def instructor_class_svelte_files(typ, path):
 @require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
 def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
-    neon_id, email, rep = _resolve_id_and_email()
+    email, neon_id, rep = _resolve_id_and_email()
     if rep:
         return rep
 
@@ -263,6 +263,7 @@ def instructor_class_details():
         "schedule": [c.as_response() for c in sched],
         "now": tznow(),
         "email": email,
+        "neon_id": neon_id,
     }
 
 
@@ -368,7 +369,7 @@ def _resolve_class_proposal_params():
     for s in data["sessions"]:
         log.info(f"Parsing session {s}")
         sessions.append(tuple(safe_parse_datetime(t) for t in s))
-    inst_id, _, rep = _resolve_id_and_email()
+    _, inst_id, rep = _resolve_id_and_email()
 
     skip_val = data.get("skip_validation") or False
     if not isinstance(skip_val, bool):  # Strict checks on validation override
