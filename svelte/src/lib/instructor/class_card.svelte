@@ -142,9 +142,9 @@ function cancel(class_id) {
       {#if a.neon_raw_data && a.neon_raw_data.registrationStatus !== "SUCCEEDED" }
       <strong>{a.neon_raw_data.registrationStatus}</strong> -
       {/if}
-      {a.name} {a.lastName} ({a.email})
+      {a.name} ({a.email})
       {#if a.neon_raw_data && a.neon_raw_data.registrationDate}
-        registered {a.registrationDate}
+        registered {a.neon_raw_data.registrationDate}
       {/if}
   </li>
 	{/each}
