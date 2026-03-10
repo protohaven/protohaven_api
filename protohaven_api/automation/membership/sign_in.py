@@ -291,6 +291,12 @@ def handle_announcements(last_ack, roles: list, clearances: list, is_active, tes
 def as_member(data, send):
     """Sign in as a member (per Neon CRM)"""
     result = result_base()
+
+    if data["email"].strip() == "":
+        result["notfound"] = True
+        log.warning("Empty email provided; cannot sign in as member")
+        return result
+
     send("Searching member database...", 40)
     log.info(f"Received sign in request '{data['email']}'")
     m, should_activate = get_member_and_activation_state(data["email"])
@@ -376,6 +382,11 @@ def as_member(data, send):
 def as_guest(data):
     """Sign in as a guest (no Neon info)"""
     result = result_base()
+    if data["email"].strip() == "":
+        result["notfound"] = True
+        log.warning("Empty email provided; cannot sign in as guest")
+        return result
+
     result["waiver_signed"] = data.get("waiver_ack", False)
     result["firstname"] = "Guest"
     if data.get("referrer"):  # i.e. the survey was completed or passed

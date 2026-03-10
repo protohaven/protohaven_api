@@ -17,8 +17,8 @@ After deployment, verify that:
 
 * https://api.protohaven.org/
   * [x] After login, page redirects to /member, loads and displays clearances
-  * [ ] Shop Status and Instructor Dashboard links are clickable - BUG FIX THIS
-  * [ ] Recert card is not visible unless opted in
+  * [ ] Shop Status and Instructor Dashboard links are clickable
+  * [ ] Recert card is not visible unless opted in (hello+testmember@protohaven.org should not see the link)
   * [ ] Recert card shows link to wiki as well as some tools with recerts configured.
 * https://api.protohaven.org/welcome
   * [ ] Member sign in fails with hello+testnonmember@protohaven.org
@@ -46,7 +46,8 @@ After deployment, verify that:
   * [ ] Storage tab allows for looking up Neon ID by name/email
   * [ ] Storage subscriptions card shows active subscription state - but no unpaid invoices if not lead
   * [ ] Storage subscription data is not shown if not logged in
-  * [ ] Storage subs have badges where unpaid invoices and can be clicked to show links
+  * [x] Storage subs have badges where unpaid invoices and can be clicked to show links
+  * [x] Storage sub type, ID, and note can all be edited and saved successfully
   * [ ] Areas have some leads assigned to them
   * [ ] Areas has populated "additional contacts" section at the bottom of the pane
   * [ ] Techs roster can set interest, expertise, shift and can view clearances and sort by name/clearances

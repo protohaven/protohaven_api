@@ -4,7 +4,7 @@
   import {get, post} from '$lib/api.ts';
 
   import FetchError from '$lib/fetch_error.svelte';
-  import {Spinner, ListGroup, ListGroupItem, Card, CardHeader, CardBody, CardTitle } from '@sveltestrap/sveltestrap';
+  import {Accordion, AccordionItem, Spinner, ListGroup, ListGroupItem, Card, CardHeader, CardBody, CardTitle, CardSubtitle } from '@sveltestrap/sveltestrap';
 
   export let visible;
   export let rc;
@@ -18,11 +18,10 @@
   <Card class="my-3">
   <CardHeader>
         <CardTitle>Recertification</CardTitle>
+          <CardSubtitle>For more info on the recertification process, see <a href="https://wiki.protohaven.org/books/policies/page/tool-recertification" target="_blank">our wiki</a>.</CardSubtitle>
   </CardHeader>
   <CardBody>
           <h5 style="my-3">Pending Recertifications:</h5>
-          <div>Recertification is a work in progress, estimated to roll out in 2026.</div>
-          <div><strong>For more info on the recertification process, see <a href="https://wiki.protohaven.org/books/policies/page/tool-recertification" target="_blank">our wiki</a>.</strong></div>
           {#if rc.pending.length > 0}
           <em>Note: If you need to recertify multiple tools of the same type (e.g., Laser 1 and Laser 2), you may only need to take one quiz for all of them. This is typically indicated on the first page of the online quiz.</em>
           <ListGroup>
