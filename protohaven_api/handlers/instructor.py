@@ -110,7 +110,8 @@ def _resolve_id_and_email() -> tuple[str, str, Response]:
                 None,
                 Response("Access Denied for admin parameter `email`", status=401),
             )
-        mm = list(neon.search_members_by_email(ue.lower(), fields="Account ID"))
+        # Account ID included by default
+        mm = list(neon.search_members_by_email(ue.lower(), fields=[]))
         if len(mm) == 0:
             return Response(f"No Neon accounts with email {email.lower()}", status=404)
         nid = mm[0].neon_id
