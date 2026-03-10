@@ -4,6 +4,7 @@ import pytest
 
 from protohaven_api.handlers import member
 from protohaven_api.integrations import eventbrite, neon
+from protohaven_api.integrations.airtable import PendingRecert
 from protohaven_api.testing import (  # pylint: disable=unused-import
     d,
     fixture_client,
@@ -46,9 +47,11 @@ def test_get_recert_data_success(mocker, memclient):
     }
 
     pending_data = [
-        (neon_id, "LTH", d(10), d(15), {}),
-        ("other_id", "MLL", d(5), d(8), {}),  # Should be filtered out
-        (neon_id, "MLL", d(20), d(18), {}),
+        PendingRecert(neon_id, "LTH", d(10), d(15), None, None, None),
+        PendingRecert(
+            "other_id", "MLL", d(5), d(8), None, None, None
+        ),  # Should be filtered out
+        PendingRecert(neon_id, "MLL", d(20), d(18), None, None, None),
     ]
 
     mocker.patch.object(member, "_fetch_neon_id", return_value=neon_id)
@@ -65,7 +68,7 @@ def test_get_recert_data_success(mocker, memclient):
     assert response.status_code == 200
     data = response.json
 
-    # Check pending items are filtered and sorted
+    # Check pending items rotohaven_apiare filtered and sorted
     assert len(data["pending"]) == 2
     assert data["pending"][0][0] == "LTH"
     assert data["pending"][1][0] == "MLL"
@@ -86,8 +89,10 @@ def test_get_recert_data_no_config_for_tool(mocker, memclient):
     }
 
     pending_data = [
-        (neon_id, "LTH", d(10), d(15), {}),
-        (neon_id, "UNKNOWN_TOOL", d(5), d(8), {}),  # No config, should be filtered
+        PendingRecert(neon_id, "LTH", d(10), d(15), None, None, None),
+        PendingRecert(
+            neon_id, "UNKNOWN_TOOL", d(5), d(8), None, None, None
+        ),  # No config, should be filtered
     ]
 
     mocker.patch.object(member, "_fetch_neon_id", return_value=neon_id)

@@ -526,7 +526,7 @@ def test_from_template(mocker):
             "Approved": True,
             "Image Link": "http://example.com/image.jpg",
             "Form Name (from Clearance)": ["TS1"],
-            "Email (from Instructor Capabilities)": ["instructor@example.com"],
+            "Neon ID (from Instructor Capabilities)": ["12345"],
         },
     }
     result = a.Class.from_template(row)
@@ -542,4 +542,4 @@ def test_from_template(mocker):
     assert result.approved is True
     assert result.image_link == "http://example.com/image.jpg"
     assert result.clearances == ["TS1"]
-    assert result.approved_instructors == ["instructor@example.com"]
+    assert result.approved_instructors == ["12345"]
