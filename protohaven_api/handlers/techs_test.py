@@ -669,6 +669,7 @@ def test_techs_storage_subscriptions(mocker, lead_client):
         "get_customer_name_map",
         return_value={"TEST_CUST": ("Test Name", "a@b.com")},
     )
+    mocker.patch.object(tl.airtable, "get_storage_agreements", return_value=[])
     mocker.patch.object(
         tl.sales,
         "get_subscriptions",

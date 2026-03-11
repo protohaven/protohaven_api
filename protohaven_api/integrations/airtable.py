@@ -958,6 +958,17 @@ def get_latest_passing_quizzes_by_email_and_tool(
     return result
 
 
+def get_storage_agreements() -> Iterator[dict[str, Any]]:
+    """Gets all storage agreements from Airtable"""
+    for row in get_all_records("people", "storage_agreements"):
+        yield {
+            **row["fields"],
+            "id": row["id"],
+            "Start Date": safe_parse_datetime(row["fields"]["Start Date"]),
+            "End Date": safe_parse_datetime(row["fields"]["End Date"]),
+        }
+
+
 class AirtableCache(WarmDict):
     """Prefetches airtable data for faster lookup"""
 

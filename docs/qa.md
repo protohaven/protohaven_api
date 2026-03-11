@@ -58,6 +58,7 @@ After deployment, verify that:
   * [x] Techs roster not visible if not a tech (e.g. not logged in)
   * [x] Techs roster can enroll by search and submit
   * [x] Techs roster can disenroll via button click and confirmation modal
+  * [ ] Techs roster can enroll and create a new member
   * [x] Events tab can create, register, unregister, and delete a techs-only class
   * [x] Generic shop tech account is not permitted to register for a tech-only class
   * [x] Full tech name is visible on calendar only when logged in as a tech / tech lead
