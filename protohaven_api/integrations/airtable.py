@@ -26,15 +26,17 @@ from protohaven_api.integrations.airtable_base import (
     update_record,
 )
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import SignInEvent
+from protohaven_api.integrations.models import (
+    AreaID,
+    ClearanceCodeFull,
+    EventID,
+    NeonID,
+    SignInEvent,
+    ToolCode,
+)
 
 log = logging.getLogger("integrations.airtable")
 
-Email = str
-NeonID = str
-EventID = str  # Neon or Eventbrite event ID
-ToolCode = str
-AreaID = str
 RecordID = str
 ForecastOverride = tuple[str, list[str], str]
 Interval = tuple[datetime.datetime, datetime.datetime]
@@ -55,7 +57,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
     approved_instructors: list[NeonID]
     areas: list[AreaID]
     image_link: str
-    clearances: list[ToolCode]
+    clearances: list[ClearanceCodeFull]
 
     @classmethod
     def resolve_hours(cls, hours, days) -> list[float]:
@@ -996,14 +998,16 @@ class AirtableCache(WarmDict):
                 continue
             yield pv
 
-    def announcements_after(self, d, roles, clearances):
+    def announcements_after(
+        self, d: datetime.datetime, roles, clearances: Iterator[ClearanceCodeFull]
+    ):
         """Gets all announcements, excluding those before `d`"""
         now = tznow()
 
         # Neon clearance data is of the format `<TOOL_CODE>: <TOOL_NAME>`.
         # announcements_after expects a set of tool names.
         log.info(f"Clearances: {clearances}")
-        clearances = [n.split(":")[1].strip() for n in clearances if ":" in n]
+        tool_names = [n.split(":")[1].strip() for n in clearances if ":" in n]
 
         for row in self["announcements"]:
             adate = safe_parse_datetime(row["fields"].get("Published", "2024-01-01"))
@@ -1013,7 +1017,7 @@ class AirtableCache(WarmDict):
             tools = set(row["fields"].get("Tool Name (from Tool Codes)", []))
             if len(tools) > 0:
                 cleared_for_tool = False
-                for c in clearances:
+                for c in tool_names:
                     if c in tools:
                         cleared_for_tool = True
                         break
