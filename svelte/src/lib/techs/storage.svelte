@@ -36,7 +36,7 @@ $: {
   } else if (sort_type === "type") {
     subs_sorted = [...subs].sort((a, b) => a.storage_type.localeCompare(b.storage_type));
   } else if (sort_type === "idnum") {
-    subs_sorted = [...subs].sort((a, b) => a.id.localeCompare(b.id));
+    subs_sorted = [...subs].sort((a, b) => a.id.toString().localeCompare(b.id.toString()));
   } else if (sort_type === "detail") {
     subs_sorted = [...subs].sort((a, b) => a.storage_detail.toLowerCase().localeCompare(b.storage_detail.toLowerCase()));
   }
@@ -63,6 +63,7 @@ function get_subs() {
       if (d["storage_detail"] === undefined) {
         d["storage_detail"] = d["note"] || "";
       }
+      d["editable"] = d["plan"] !== "Non-Square Agreement";
     }
     subs = [...data];
     loaded = true;
@@ -144,9 +145,10 @@ $: {
 <Card class="my-3">
 <CardHeader>
 <CardTitle>Storage Subscriptions</CardTitle>
-<CardSubtitle>View active subscriptions and add details</CardSubtitle>
+<CardSubtitle>View active subscriptions and add details*</CardSubtitle>
 </CardHeader>
 <CardBody>
+    <div class="my-2"><em>*Non-Square storage agreements are only editable via Airtable - see People > Storage Agreements</em></div>
     {#if sub_note_editing}
       <Spinner/>
     {/if}
@@ -158,7 +160,7 @@ $: {
           <ToastBody>{toast_msg.msg}</ToastBody>
         </Toast>
         <Dropdown>
-            <DropdownToggle color="light" caret>
+            <DropdownToggle color="secondary" caret>
                 Sort
             </DropdownToggle>
             <DropdownMenu>
@@ -208,19 +210,19 @@ $: {
                 <td>{sub.start_date}</td>
                 <td>
                 <Dropdown autoClose={true}>
-                    <DropdownToggle caret>{sub.storage_type}</DropdownToggle>
+                    <DropdownToggle color="light" caret>{sub.storage_type}</DropdownToggle>
                     <DropdownMenu>
                       {#each ["Cart", "Table", "Parking space", "Board/bar", "Sheet", "Locker", "Cage", "Rack", "Other", "Unknown"] as typ}
-                        <DropdownItem disabled={sub_note_editing} on:click={(e) => handle_storage_type_select(e, sub, typ)}>{typ}</DropdownItem>
+                        <DropdownItem disabled={!sub.editable || sub_note_editing} on:click={(e) => handle_storage_type_select(e, sub, typ)}>{typ}</DropdownItem>
                       {/each}
                     </DropdownMenu>
                 </Dropdown>
                 </td>
                 <td>
-                <EditCell enabled={!sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_id}/>
+                <EditCell enabled={sub.editable && !sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_id}/>
                 </td>
                 <td>
-                <EditCell  enabled={!sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_detail}/>
+                <EditCell  enabled={sub.editable && !sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_detail}/>
                 </td>
             </tr>
           {/each}

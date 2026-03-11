@@ -1,6 +1,7 @@
 """Site for tech leads to manage shop techs"""
 
 import datetime
+import json
 import logging
 import re
 from collections import defaultdict
@@ -570,13 +571,42 @@ def techs_storage_subscriptions():
             )
         )
         futures.append(executor.submit(sales.get_unpaid_invoices_by_id))
+        futures.append(executor.submit(airtable.get_storage_agreements))
 
-    sub_plan_map, cust_map, unpaid_invoices = [f.result() for f in futures]
+    sub_plan_map, cust_map, unpaid_invoices, storage_agreements = [
+        f.result() for f in futures
+    ]
+    storage_agreements = list(storage_agreements)
     unpaid_invoices = dict(unpaid_invoices)
     log.info(f"Fetched map of {len(sub_plan_map)} subscriptions")
     log.info(f"Fetched {len(cust_map)} customers")
     log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
-    result = []
+    log.info(f"Fetched {len(storage_agreements)} storage agreements")
+    result = [
+        {
+            "id": a["id"],
+            "created_at": a["Start Date"].isoformat(),
+            "start_date": a["Start Date"].strftime("%Y-%m-%d"),
+            "charged_through_date": a["End Date"].strftime("%Y-%m-%d"),
+            "monthly_billing_anchor_date": "unknown",
+            "customer": a.get("Name") or "N/A",
+            "email": (
+                a.get("Email") if am_lead_role() else None
+            ),  # Only tech leads / admins
+            "plan": "Non-Square Agreement",
+            "price": 0,
+            "membership_status": "N/A",
+            "note": json.dumps(
+                {
+                    "storage_id": a.get("Storage ID"),
+                    "storage_type": a.get("Type"),
+                    "storage_detail": a.get("Details"),
+                }
+            ),
+            "unpaid": [],
+        }
+        for a in storage_agreements
+    ]
     log.info("Fetching and looping through subscriptions")
     for sub in sales.get_subscriptions():
         if sub["status"] != "ACTIVE":
