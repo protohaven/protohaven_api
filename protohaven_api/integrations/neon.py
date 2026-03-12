@@ -3,6 +3,7 @@
 import datetime
 import logging
 import re
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Iterable
 
@@ -13,7 +14,15 @@ from protohaven_api.config import tznow, utcnow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
-from protohaven_api.integrations.models import Attendee, Event, Member, NeonID
+from protohaven_api.integrations.models import (
+    Attendee,
+    ClearanceCodeFull,
+    ClearanceCodeShort,
+    Event,
+    Member,
+    NeonID,
+    ToolCode,
+)
 
 log = logging.getLogger("integrations.neon")
 
@@ -115,14 +124,48 @@ def fetch_attendees(event_id: str, raw=False) -> Iterable[Attendee]:
         yield result if raw else Attendee(neon_raw_data=result)
 
 
+def resolve_clearance_code_full(
+    t: ToolCode | ClearanceCodeShort,
+) -> ClearanceCodeFull | None:
+    """Resolves a tool or clearance code to the full clearance code,
+    or None if the tool has no clearance code.
+
+    Clearance codes always match the code for the tool,
+    minus the integer suffix that indicates the instance of the tool.
+
+    e.g.:
+
+        "FRG2" -> "FRG: Forge"
+        "WGR" -> "WGR: Tungsten Grinder"
+    """
+    canonical = t.rstrip("1234567890").upper()
+    return _clearance_code_map().get(canonical) or None
+
+
 @lru_cache(maxsize=1)
-def fetch_clearance_codes():
+def _clearance_code_map() -> dict[ClearanceCodeShort, ClearanceCodeFull]:
+    return {c.short: c.full for c in fetch_clearance_codes()}
+
+
+@dataclass
+class ClearanceCodeData:
+    """Data from Neon custom field fetch"""
+
+    id: int
+    short: ClearanceCodeShort
+    full: ClearanceCodeFull
+
+
+@lru_cache(maxsize=1)
+def fetch_clearance_codes() -> list[ClearanceCodeData]:
     """Fetch all the possible clearance codes that can be used in Neon"""
     rep = neon_base.get("api_key1", f"/customFields/{CustomField.CLEARANCES}")
     result = []
     for c in rep["optionValues"]:
         code, _ = c["name"].split(":")
-        result.append({**c, "code": code.strip().upper()})
+        result.append(
+            ClearanceCodeData(id=c["id"], full=c["name"], short=code.strip().upper())
+        )
     return result
 
 

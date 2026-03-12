@@ -16,9 +16,7 @@ def fixture_cli(capsys):
 
 def test_sync_clearances_no_submissions(mocker, cli):
     """Test sync_clearances without applying changes"""
-    mocker.patch.object(
-        C.neon, "fetch_clearance_codes", return_value=[{"name": "code1"}]
-    )
+    mocker.patch.object(C.neon, "resolve_clearance_code_full", return_value=None)
     mocker.patch.object(C.sheets, "get_passing_student_clearances", return_value=[])
     got = cli("sync_clearances", [])
     assert not got
@@ -28,10 +26,8 @@ def test_sync_clearances_e2e(mocker, cli):
     """Test sync_clearances with applying changes"""
     mocker.patch.object(
         C.neon,
-        "fetch_clearance_codes",
-        return_value=[
-            {"name": c} for c in ("code1_resolved", "code2_resolved", "tool1", "tool2")
-        ],
+        "resolve_clearance_code_full",
+        side_effect=["TOOL: Tool Clearance", None, None],
     )
     mocker.patch.object(C, "tznow", return_value=d(0))
     mocker.patch.object(
@@ -40,21 +36,23 @@ def test_sync_clearances_e2e(mocker, cli):
         return_value=[
             (
                 "test@example.com",
-                ["tool1", "tool2"],
+                ["tool1", "another2"],
                 d(0),
             )
         ],
     )
-    m1 = mocker.patch.object(C.clearances, "update", return_value=["code1"])
+    m1 = mocker.patch.object(
+        C.clearances, "update", return_value=["TOOL: Tool Clearance"]
+    )
     got = cli("sync_clearances", ["--apply"])
     m1.assert_called_with(
         "test@example.com",
         "PATCH",
-        {"tool1", "tool2"},
+        {"TOOL: Tool Clearance"},
         apply=True,
     )
     assert len(got) == 1
-    assert "test@example.com: added code1" in got[0]["body"]
+    assert "test@example.com: added TOOL: Tool Clearance" in got[0]["body"]
 
 
 def test_recertification_no_work(mocker, cli):

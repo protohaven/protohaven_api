@@ -12,6 +12,11 @@ from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, neon, sheets
 from protohaven_api.integrations.airtable import NeonID, RecordID, ToolCode
 from protohaven_api.integrations.comms import Msg
+from protohaven_api.integrations.models import (
+    ClearanceCodeFull,
+    ClearanceCodeShort,
+    Email,
+)
 
 log = logging.getLogger("cli.clearances")
 
@@ -68,12 +73,8 @@ class Commands:  # pylint: disable=too-few-public-methods
         )
         dt = tznow() - datetime.timedelta(days=args.after_days_ago)
 
-        log.info("Fetching clearance codes")
-        all_codes = {c["name"].split(":")[0] for c in neon.fetch_clearance_codes()}
-        log.info(f"All codes: {all_codes}")
-
         log.info(f"Building list of clearances starting from {dt}")
-        earned = defaultdict(set)
+        earned: dict[Email, set[ClearanceCodeShort]] = defaultdict(set)
         for (
             email,
             tool_codes,
@@ -89,18 +90,22 @@ class Commands:  # pylint: disable=too-few-public-methods
         errors = []
         invalids = set()
         log.info("Earned clearances:")
-        for email, clr in earned.items():
-            log.info(f"{email}: {clr}")
-            clr = {c for c in clr if not c.strip().lower() == "n/a"}
-            clr_validated = set(c for c in clr if c in all_codes)
-            if len(clr) != len(clr_validated):
+        for email, clrs in earned.items():
+            log.info(f"{email}: {clrs}")
+            resolved: dict[ClearanceCodeShort, ClearanceCodeFull] = {
+                c: neon.resolve_clearance_code_full(c)
+                for c in clrs
+                if not c.strip().lower() == "n/a"
+            }
+            resolved = {k: v for k, v in resolved.items() if v is not None}
+            if len(clrs) != len(resolved):
                 log.warning(
-                    f"Ignoring invalid clearances for {email}: {clr - clr_validated}"
+                    f"Ignoring invalid clearances for {email}: {clrs - set(resolved.keys())}"
                 )
-                invalids.update(clr - clr_validated)
+                invalids.update(clrs - set(resolved.keys()))
             try:
                 mutations = clearances.update(
-                    email, "PATCH", clr_validated, apply=args.apply
+                    email, "PATCH", set(resolved.values()), apply=args.apply
                 )
                 if len(mutations) > 0:
                     changes.append(f"{email}: added {', '.join(mutations)}")

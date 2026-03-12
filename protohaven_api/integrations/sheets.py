@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from protohaven_api.config import get_config, safe_parse_datetime
-from protohaven_api.integrations.airtable import Email, ToolCode
+from protohaven_api.integrations.models import ClearanceCodeShort, Email
 
 log = logging.getLogger("integrations.sheets")
 
@@ -55,7 +55,7 @@ TOOLS_HDR = "Which tools?"
 
 def get_passing_student_clearances(
     dt=None, from_row=1300
-) -> Iterator[tuple[Email, list[ToolCode], datetime.datetime]]:
+) -> Iterator[tuple[Email, list[ClearanceCodeShort], datetime.datetime]]:
     """Minimally parse and return instructor submissions after from_row in the sheet.
     Yields a sequence of clearance info for each student that passed a class.
     """

@@ -15,21 +15,23 @@ def test_update_patch(mocker):
         c.neon,
         "fetch_clearance_codes",
         return_value=[
-            {"name": "CLEAR1", "code": "C1", "id": 1},
-            {"name": "CLEAR2", "code": "C2", "id": 2},
+            mocker.MagicMock(full="CLA: Clearance A", id=1),
+            mocker.MagicMock(full="CLB: Clearance B", id=2),
         ],
     )
     mocker.patch.object(
         c.neon,
         "search_members_by_email",
         return_value=[
-            mocker.MagicMock(neon_id=123, company_id=456, clearances=["CLEAR1"])
+            mocker.MagicMock(
+                neon_id=123, company_id=456, clearances=["CLA: Clearance A"]
+            )
         ],
     )
     mocker.patch.object(c.neon, "set_clearances", return_value="Success")
     mock_notify = mocker.patch.object(c.mqtt, "notify_clearance")
 
-    assert c.update("a@b.com", "PATCH", ["C2"]) == ["C2"]
+    assert c.update("a@b.com", "PATCH", ["CLB: Clearance B"]) == {"CLB: Clearance B"}
 
     # Note that clearance 1 is still set, since it was set already
     c.neon.set_clearances.assert_called_with(  # pylint: disable=no-member
@@ -37,7 +39,7 @@ def test_update_patch(mocker):
     )
     mock_notify.assert_has_calls(
         [
-            mocker.call(123, "C2", added=True),
+            mocker.call(123, "CLB: Clearance B", added=True),
         ],
         any_order=True,
     )

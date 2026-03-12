@@ -23,7 +23,13 @@ class NoAttendeeDataError(RuntimeError):
     """Raised when no attendee data is provided for an event to compute derived properties"""
 
 
+Email = str
+EventID = str  # Neon or Eventbrite event ID
 NeonID = str
+AreaID = str
+ToolCode = str  # e.g. "FRG1". Comes from Tools & Equipment table
+ClearanceCodeShort = str  # e.g. "FRG". Prefix of ClearanceCodeFull
+ClearanceCodeFull = str  # e.g. "FRG: Forge". Comes from Clearances table
 
 
 @dataclass
@@ -461,7 +467,7 @@ class Member:  # pylint:disable=too-many-public-methods
         return self._raw_account().get("company", None)
 
     @property
-    def clearances(self):
+    def clearances(self) -> list[ClearanceCodeFull]:
         """Fetches clearances for the account"""
         if self.neon_search_data and self.neon_search_data.get("Clearances"):
             return [v.strip() for v in self.neon_search_data["Clearances"].split("|")]
@@ -992,7 +998,7 @@ class SignInEvent:
         return safe_parse_datetime(c).astimezone(dtz.UTC)
 
     @property
-    def clearances(self):
+    def clearances(self) -> list[ClearanceCodeFull]:
         """Returns list of clearances"""
         cc = self.airtable_data["fields"].get("Clearances")
         return [c.strip() for c in cc.split(",")] if cc else []

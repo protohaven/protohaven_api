@@ -6,31 +6,23 @@ import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Literal
 
 from dateutil import parser as dateparser
 
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon, neon_base, sheets
-from protohaven_api.integrations.airtable import Email, NeonID, ToolCode
-from protohaven_api.integrations.models import Member
+from protohaven_api.integrations.airtable import NeonID, ToolCode
+from protohaven_api.integrations.models import ClearanceCodeFull, Email, Member
 
 log = logging.getLogger("handlers.admin")
 
 UpdateMethod = Literal["PATCH", "DELETE", "GET"]
 
 
-@lru_cache(maxsize=1)
-def code_mapping():
-    """Fetch neon's current mapping of clearance -> tool code and tool code -> id"""
-    all_codes = neon.fetch_clearance_codes()
-    name_to_code = {c["name"]: c["code"] for c in all_codes}
-    code_to_id = {c["code"]: c["id"] for c in all_codes}
-    return name_to_code, code_to_id
-
-
-def update(email: Email, method: UpdateMethod, delta: set[ToolCode], apply=True):
+def update(
+    email: Email, method: UpdateMethod, delta: set[ClearanceCodeFull], apply=True
+) -> set[ClearanceCodeFull]:
     """Update clearances for `email` user"""
     m = list(neon.search_members_by_email(email))
     if len(m) == 0:
@@ -39,26 +31,32 @@ def update(email: Email, method: UpdateMethod, delta: set[ToolCode], apply=True)
 
 
 def update_by_neon_id(
-    neon_id: NeonID, method: UpdateMethod, delta: set[ToolCode], apply=True
-):
+    neon_id: NeonID, method: UpdateMethod, delta: set[ClearanceCodeFull], apply=True
+) -> set[ClearanceCodeFull]:
     """Update clearances for `email` user"""
     m = neon_base.fetch_account(neon_id, required=True)
     return update_by_member(m, method, delta, apply)
 
 
-def update_by_member(m: Member, method: UpdateMethod, delta: set[ToolCode], apply=True):
+def update_by_member(
+    m: Member, method: UpdateMethod, delta: set[ClearanceCodeFull], apply=True
+) -> set[ClearanceCodeFull]:
     """Update clearances for `email` user"""
     delta = set(delta)  # So we don't accidentally modify the parent arg
-    name_to_code, code_to_id = code_mapping()
+    all_codes = neon.fetch_clearance_codes()
+    full_to_id = {c.full: c.id for c in all_codes}
     if m.neon_id == m.company_id:
         raise TypeError(
             f"Account with email {m.email} is a company; expected individual"
         )
-    codes = {name_to_code.get(n) for n in m.clearances if n != ""}
-    initial_codes = set(codes)
-    result = set()
+    codes: set[ClearanceCodeFull] = {
+        n for n in m.clearances if n != "" and n is not None
+    }
     if method == "GET":
-        return [c for c in codes if c is not None]
+        return codes
+
+    initial_codes: set[ClearanceCodeFull] = set(codes)
+    result: set[ClearanceCodeFull] = set()
     if method == "PATCH":
         result = delta - codes
         codes.update(delta)
@@ -68,16 +66,16 @@ def update_by_member(m: Member, method: UpdateMethod, delta: set[ToolCode], appl
 
     if codes == initial_codes:
         log.info(f"No change required for {m.email}; skipping {method}")
-        return []
+        return set()
 
-    ids = {code_to_id[c] for c in codes if c in code_to_id.keys()}
+    ids = {full_to_id[c] for c in codes if c in full_to_id.keys()}
     if apply:
         log.info(f"Setting clearances for {m.neon_id} to {ids}")
         content = neon.set_clearances(m.neon_id, ids, is_company=False)
         log.info("Neon response: %s", str(content))
         for d in delta:
             mqtt.notify_clearance(m.neon_id, d, added=method == "PATCH")
-    return list(result)
+    return set(result)
 
 
 Hours = float

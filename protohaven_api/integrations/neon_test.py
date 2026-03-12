@@ -282,3 +282,13 @@ def test_account_cache_miss_keyerror(mocker):
     mocker.patch.object(n, "search_members_by_email", return_value=[])
     with pytest.raises(KeyError):
         c["asdf"]
+
+
+def test_resolve_clearance_code_full(mocker):
+    mocker.patch.object(
+        n, "_clearance_code_map", return_value={"TOOL": "TOOL: Tool Name"}
+    )
+
+    assert not n.resolve_clearance_code_full("nonsense")
+    assert n.resolve_clearance_code_full("TOOL") == "TOOL: Tool Name"
+    assert n.resolve_clearance_code_full("TOOL123") == "TOOL: Tool Name"
