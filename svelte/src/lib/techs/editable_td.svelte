@@ -1,7 +1,7 @@
 <script type="typescript" lang="ts">
   import { Col, Row, Icon, Input, Button } from '@sveltestrap/sveltestrap';
 
-  export let title: string;
+  export let title: string = null;
   export let value: string;
   export let enabled: boolean;
   export let on_change: (value: string) => void;
