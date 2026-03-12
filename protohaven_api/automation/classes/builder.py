@@ -17,8 +17,9 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     neon_base,
 )
-from protohaven_api.integrations.airtable import Email, NeonID, ScheduledClass
+from protohaven_api.integrations.airtable import ScheduledClass
 from protohaven_api.integrations.comms import Msg
+from protohaven_api.integrations.models import Email, NeonID
 
 log = logging.getLogger("class_automation.builder")
 
