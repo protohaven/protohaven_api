@@ -658,7 +658,8 @@ def test_techs_tool_state(mocker, client):
     ]
 
 
-def test_techs_storage_subscriptions(mocker, lead_client):
+def test_techs_storage_subscriptions(mocker):
+    mocker.patch.object(tl, "am_lead_role", return_value=True)
     mocker.patch.object(
         tl.sales,
         "get_subscription_plan_map",
@@ -716,12 +717,14 @@ def test_techs_storage_subscriptions(mocker, lead_client):
             {},
         ],
     )
-
-    response = lead_client.get("/techs/storage_subscriptions")
-    assert response.status_code == 200
-    assert response.json == [
+    ws = mocker.MagicMock()
+    tl.storage_sub_sock(ws)
+    resp = [json.loads(c.args[0]) for c in ws.send.mock_calls]
+    resp = [r for r in resp if "log_info" not in r]
+    assert resp == [
         {
             "id": "111",
+            "status": "ACTIVE",
             "charged_through_date": "2025-08-29",
             "created_at": "2025-01-29T15:18:13-05:00",
             "customer": "Test Name",
@@ -736,6 +739,7 @@ def test_techs_storage_subscriptions(mocker, lead_client):
         },
         {
             "id": "222",
+            "status": "ACTIVE",
             "charged_through_date": "2025-08-29",
             "created_at": "2025-01-29T15:18:13-05:00",
             "customer": "12345",

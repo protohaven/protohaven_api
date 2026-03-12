@@ -4,7 +4,7 @@ import {onMount} from 'svelte';
 import { Badge, Toast, Popover, ToastHeader, ToastBody, Dropdown, DropdownToggle, DropdownMenu, DropdownItem, Table, ListGroup, ListGroupItem, Button, Card, CardHeader, CardTitle, CardSubtitle, CardBody, Input, Spinner } from '@sveltestrap/sveltestrap';
 
 import FetchError from '../fetch_error.svelte';
-import {get, post} from '$lib/api.ts';
+import {get, post, open_ws} from '$lib/api.ts';
 import EditCell from './editable_td.svelte'
 
 export let visible;
@@ -41,37 +41,50 @@ $: {
     subs_sorted = [...subs].sort((a, b) => a.storage_detail.toLowerCase().localeCompare(b.storage_detail.toLowerCase()));
   }
 }
+
+let sub_fetch_status = "";
 function get_subs() {
   fetching = true;
+  sub_fetch_status = "";
   console.log("get_subs");
-  subs_promise = get('/techs/storage_subscriptions').then((data) => {
-    subs = [];
-    includes_email = false;
-    for (let d of data) {
-      includes_email = includes_email || Boolean(d.email);
-      let parsed = {};
-      try {
-        parsed = JSON.parse(d["note"]) || {};
-        console.log("Parsed", parsed);
-      } catch (e) {
-        parsed = {};
-        console.warn("Failed parsing note", d, e);
-      }
-      d["storage_type"] = parsed["storage_type"] || "Unknown";
-      d["storage_id"] = parsed["storage_id"] || "Unknown";
-      d["storage_detail"] = parsed["storage_detail"];
-      if (d["storage_detail"] === undefined) {
-        d["storage_detail"] = d["note"] || "";
-      }
-      d["editable"] = d["plan"] !== "Non-Square Agreement";
-    }
-    subs = [...data];
+  const socket = open_ws('/techs/storage_subscriptions');
+  socket.addEventListener("close", (event) => {
+    console.log(event);
+    fetching = false;
     loaded = true;
-    console.log(subs);
-  }).catch((err) => {
-    console.error(err);
-    throw err;
-  }).finally(() => fetching = false);
+  });
+  subs = [];
+  includes_email = false;
+  socket.addEventListener("message", (event) => {
+    let d= JSON.parse(event.data);
+    if (d.error) {
+      alert(d.error);
+      return;
+    }
+    if (d.log_info) {
+      sub_fetch_status = d.log_info;
+      console.log(sub_fetch_status);
+      return;
+    }
+    includes_email = includes_email || Boolean(d.email);
+    let parsed = {};
+    try {
+      parsed = JSON.parse(d["note"]) || {};
+      console.log("Parsed", parsed);
+    } catch (e) {
+      parsed = {};
+      console.warn("Failed parsing note", d, e);
+    }
+    d["storage_type"] = parsed["storage_type"] || "Unknown";
+    d["storage_id"] = parsed["storage_id"] || "Unknown";
+    d["storage_detail"] = parsed["storage_detail"];
+    if (d["storage_detail"] === undefined) {
+      d["storage_detail"] = d["note"] || "";
+    }
+    d["editable"] = d["plan"] !== "Non-Square Agreement";
+    subs.push(d);
+    subs = subs;
+  });
 }
 
 function handle_storage_type_select(evt, sub, typ){
@@ -150,7 +163,7 @@ $: {
 <CardBody>
     <div class="my-2"><em>*Non-Square storage agreements are only editable via Airtable - see People > Storage Agreements</em></div>
     {#if sub_note_editing}
-      <Spinner/>
+      <Spinner/> {sub_fetch_status}
     {/if}
     {#await subs_promise}
       <Spinner/> Loading storage subscriptions... this may take up to a minute
@@ -205,7 +218,16 @@ $: {
                 {/if}
                 </td>
                 {#if includes_email}<td>{sub.email}</td>{/if}
-                <td>{sub.plan}</td>
+                <td>
+                {#if sub.plan == "Non-Square Agreement" }
+                  {sub.plan}
+                {:else}
+                  <a href={"https://app.squareup.com/dashboard/subscriptions-list/" + sub.id}>{sub.plan}</a>
+                {/if}
+                {#if sub.status !== "ACTIVE"}
+                  ({sub.status})
+                {/if}
+                </td>
                 <td>{sub.membership_status}</td>
                 <td>{sub.start_date}</td>
                 <td>

@@ -5,10 +5,11 @@ import json
 import logging
 import re
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent import futures
 from functools import lru_cache
 
 from flask import Blueprint, Response, current_app, redirect, request, session
+from flask_sock import Sock
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as tauto
@@ -549,67 +550,93 @@ def techs_event_registration():
     raise RuntimeError("Unknown error handling event registration state")
 
 
-@page.route("/techs/storage_subscriptions", methods=["GET"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD, Role.STAFF, Role.SHOP_TECH, redirect_to_login=False
-)
-def techs_storage_subscriptions():
+def setup_sock_routes(app):
+    """Set up all websocket routes; called by main.py"""
+    sock = Sock(app)
+    sock.route("/techs/storage_subscriptions")(storage_sub_sock)
+
+
+def storage_sub_sock(ws):  # pylint: disable=too-many-locals
     """Fetch tabular data about storage subscriptions in Square
 
     This offers a more "storage forward" interface vs Square, which is only
     sorted by customer name and shows a bunch of cancelled stuff too.
     """
 
-    log.info("Async fetching subscription data")
-    futures = []
-    with ThreadPoolExecutor() as executor:
-        futures.append(executor.submit(sales.get_subscription_plan_map))
+    if not (am_lead_role() or am_role(Role.SHOP_TECH)):
+        ws.send(json.dumps({"error": "permission denied"}))
+        ws.close()
+        return
+
+    def _ws_log(s):
+        log.info(s)
+        ws.send(json.dumps({"log_info": s}))
+
+    _ws_log("Async fetching subscription data")
+    all_fetches = []
+    with futures.ThreadPoolExecutor() as executor:
+        all_fetches.append(executor.submit(sales.get_subscription_plan_map))
         # We need the email despite PII limitations in order to lookup membership info
-        futures.append(
+        all_fetches.append(
             executor.submit(
                 sales.get_customer_name_map, include_pii=True, include_email=True
             )
         )
-        futures.append(executor.submit(sales.get_unpaid_invoices_by_id))
-        futures.append(executor.submit(airtable.get_storage_agreements))
+        all_fetches.append(executor.submit(sales.get_unpaid_invoices_by_id))
+        all_fetches.append(executor.submit(airtable.get_storage_agreements))
+
+    not_done = all_fetches
+    while True:
+        _, not_done = futures.wait(not_done)
+        if len(not_done) <= 0:
+            break
+        _ws_log(f"Awaiting {len(not_done)} data fetches")
 
     sub_plan_map, cust_map, unpaid_invoices, storage_agreements = [
-        f.result() for f in futures
+        f.result() for f in all_fetches
     ]
     storage_agreements = list(storage_agreements)
     unpaid_invoices = dict(unpaid_invoices)
+    _ws_log("Data fetches complete, parsing")
     log.info(f"Fetched map of {len(sub_plan_map)} subscriptions")
     log.info(f"Fetched {len(cust_map)} customers")
     log.info(f"Fetched {len(unpaid_invoices)} unpaid invoices")
     log.info(f"Fetched {len(storage_agreements)} storage agreements")
-    result = [
-        {
-            "id": a["id"],
-            "created_at": a["Start Date"].isoformat(),
-            "start_date": a["Start Date"].strftime("%Y-%m-%d"),
-            "charged_through_date": a["End Date"].strftime("%Y-%m-%d"),
-            "monthly_billing_anchor_date": "unknown",
-            "customer": a.get("Name") or "N/A",
-            "email": (
-                a.get("Email") if am_lead_role() else None
-            ),  # Only tech leads / admins
-            "plan": "Non-Square Agreement",
-            "price": 0,
-            "membership_status": "N/A",
-            "note": json.dumps(
+    for a in storage_agreements:
+        ws.send(
+            json.dumps(
                 {
-                    "storage_id": a.get("Storage ID"),
-                    "storage_type": a.get("Type"),
-                    "storage_detail": a.get("Details"),
+                    "id": a["id"],
+                    "status": "ACTIVE",
+                    "created_at": a["Start Date"].isoformat(),
+                    "start_date": a["Start Date"].strftime("%Y-%m-%d"),
+                    "charged_through_date": a["End Date"].strftime("%Y-%m-%d"),
+                    "monthly_billing_anchor_date": "unknown",
+                    "customer": a.get("Name") or "N/A",
+                    "email": (
+                        a.get("Email") if am_lead_role() else None
+                    ),  # Only tech leads / admins
+                    "plan": "Non-Square Agreement",
+                    "price": 0,
+                    "membership_status": "N/A",
+                    "note": json.dumps(
+                        {
+                            "storage_id": a.get("Storage ID"),
+                            "storage_type": a.get("Type"),
+                            "storage_detail": a.get("Details"),
+                        }
+                    ),
+                    "unpaid": [],
                 }
-            ),
-            "unpaid": [],
-        }
-        for a in storage_agreements
-    ]
+            )
+        )
     log.info("Fetching and looping through subscriptions")
     for sub in sales.get_subscriptions():
-        if sub["status"] != "ACTIVE":
+        unpaid = [i for i in sub["invoice_ids"] if i in unpaid_invoices]
+
+        # Include not only active subscriptions, but cancelled subs
+        # that haven't been fully paid out.
+        if sub["status"].upper() != "ACTIVE" and not (unpaid and am_lead_role()):
             continue
 
         plan, price = sub_plan_map.get(
@@ -633,30 +660,32 @@ def techs_storage_subscriptions():
                 status = check_status
                 break
 
-        result.append(
-            {
-                "id": sub["id"],
-                "created_at": sub["created_at"],
-                "start_date": sub["start_date"],
-                "charged_through_date": sub["charged_through_date"],
-                "monthly_billing_anchor_date": sub.get("monthly_billing_anchor_date")
-                or "unknown",
-                "customer": cust_name,
-                "email": (
-                    cust_email if am_lead_role() else None
-                ),  # Only tech leads / admins
-                "plan": plan,
-                "price": price,
-                "membership_status": status,
-                "note": sub.get("note") or "",
-                "unpaid": (
-                    [i for i in sub["invoice_ids"] if i in unpaid_invoices]
-                    if am_lead_role()
-                    else []
-                ),
-            }
+        ws.send(
+            json.dumps(
+                {
+                    "id": sub["id"],
+                    "status": sub["status"],
+                    "created_at": sub["created_at"],
+                    "start_date": sub["start_date"],
+                    "charged_through_date": sub["charged_through_date"],
+                    "monthly_billing_anchor_date": sub.get(
+                        "monthly_billing_anchor_date"
+                    )
+                    or "unknown",
+                    "customer": cust_name,
+                    "email": (
+                        cust_email if am_lead_role() else None
+                    ),  # Only tech leads / admins
+                    "plan": plan,
+                    "price": price,
+                    "membership_status": status,
+                    "note": sub.get("note") or "",
+                    "unpaid": (unpaid if am_lead_role() else []),
+                }
+            )
         )
-    return result
+    _ws_log("Done")
+    ws.close()
 
 
 @page.route("/techs/storage_subscriptions/<sub_id>/note", methods=["POST"])

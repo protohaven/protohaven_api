@@ -26,6 +26,7 @@ const WS_PROXY_PATHS = [
   '/welcome/ws',
   '/staff/summarize_discord',
   '/staff/ops_summary',
+  '/techs/storage_subscription',
 ];
 let proxy = {};
 for (let p of PROXY_PATHS) {

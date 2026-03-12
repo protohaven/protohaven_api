@@ -18,6 +18,7 @@ from protohaven_api.handlers.reservations import page as reservations_pages
 from protohaven_api.handlers.staff import page as staff_pages
 from protohaven_api.handlers.staff import setup_sock_routes as staff_ws_setup
 from protohaven_api.handlers.techs import page as techs_pages
+from protohaven_api.handlers.techs import setup_sock_routes as techs_ws_setup
 
 
 def configure_app(
@@ -75,4 +76,5 @@ def configure_app(
 
     index_ws_setup(app)
     staff_ws_setup(app)
+    techs_ws_setup(app)
     return app
