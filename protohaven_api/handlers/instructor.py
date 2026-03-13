@@ -59,7 +59,6 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
         result["email_status"] = f"{len(inst)} duplicate accounts in Neon"
     inst_member = inst[0]  # Get the first member from the list
 
-    log.info(str(inst_member))
     result["email"] = inst_member.email
     result["neon_id"] = inst_member.neon_id
     if inst_member.account_current_membership_status == "Active":
@@ -374,17 +373,7 @@ def _resolve_class_proposal_params():
     skip_val = data.get("skip_validation") or False
     if not isinstance(skip_val, bool):  # Strict checks on validation override
         skip_val = False
-    log.info(f"skip_val: {skip_val}")
-    if skip_val and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
-        return (
-            None,
-            None,
-            None,
-            Response("`skip_validation` permission denied", status=400),
-            False,
-        )
-
-    return cls_id, sessions, inst_id, rep, data.get("skip_validation") or False
+    return cls_id, sessions, inst_id, rep, skip_val
 
 
 @page.route("/instructor/validate", methods=["POST"])
@@ -409,18 +398,44 @@ def push_class():
     if rep:
         return rep
 
-    if not skip_validation:
-        log.info(
-            f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}"
-        )
-        errors = scheduler.validate(inst_id, cls_id, sessions)
-        log.info(f"Result: {errors}")
-        if len(errors) > 0:
+    m = neon_base.fetch_account(inst_id)
+    if not m:
+        raise RuntimeError(f"Failed to fetch details of Neon account #{inst_id}")
+
+    log.info(f"Validating instructor {inst_id} class schedule for {cls_id}: {sessions}")
+    errors = scheduler.validate(inst_id, cls_id, sessions)
+    log.info(f"Result: {errors}")
+    if len(errors) > 0:
+        if not skip_validation:
             return {"valid": len(errors) == 0, "errors": errors}
+
+        log.info("Fetching class template for warning to edu leads")
+        c = airtable.get_class_template(cls_id)
+        if not c:
+            raise RuntimeError(f"Failed to fetch class template {cls_id}")
+
+        # We send a blocking notification *before* unvalidated pushes to reduce the odds
+        # of the notification failing and classes getting force pushed without
+        # warning to education leads.
+        comms.send_discord_message(
+            f"@EduLeads: {user_fullname()} is **bypassing validation errors** "
+            "to schedule class:\n\n"
+            f"* Instructor: {m.name} ({m.email})\n"
+            f"* Class: {c.name} (${c.price}, {c.capacity} students)\n"
+            f"* Sessions: {', '.join([s[0].strftime('%Y-%m-%d %-I:%M %p') for s in sessions])}\n\n"
+            f"Errors bypassed:\n\n* {'\n* '.join(errors)}"
+            "\n\n**This event will likely schedule by tomorrow morning** - "
+            "if you think this is in error, cancel the proposed class via "
+            "the [instructor dashboard](https://api.protohaven.org/instructor) "
+            "and follow up immediately with the scheduling user.",
+            "#education-leads",
+            blocking=True,
+        )
 
     # We automatically confirm classes pushed via instructor dashboard since the instructor
     # is the one pushing the class.
     scheduler.push_class_to_schedule(inst_id, cls_id, sessions)
+
     return {"valid": True, "errors": [], "success": True}
 
 
