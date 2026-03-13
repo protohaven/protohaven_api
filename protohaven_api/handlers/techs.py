@@ -689,7 +689,13 @@ def storage_sub_sock(ws):  # pylint: disable=too-many-locals
 
 
 @page.route("/techs/storage_subscriptions/<sub_id>/note", methods=["POST"])
-@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.STAFF,
+    Role.EDUCATION_LEAD,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def set_sub_note(sub_id):
     """Sets the note on a square subscription"""
     data = request.json

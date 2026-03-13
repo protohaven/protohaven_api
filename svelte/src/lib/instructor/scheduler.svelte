@@ -214,16 +214,19 @@
         <ListGroupItem color="warning">{e}</ListGroupItem>
       {/each}
       </ListGroup>
-
-      {#if admin}
-        <Input class="my-3" type="text" placeholder={"Type \"I own the consequences of my actions\" here to ignore all errors and proceed"} bind:value={validation_override} />
+      <p><em>Type "I own the consequences of my actions" into the box below to ignore all errors and proceed.</em></p>
+      <Input class="my-3" type="text" placeholder="" bind:value={validation_override} />
+      {#if validation_override}
+      <p><em>An automated message will be sent to the Education Leads, but <strong>you are responsible for telling them about this class being scheduled without validation.</strong></em></p>
       {/if}
     {/if}
   </ModalBody>
   <ModalFooter>
     {#if running }<Spinner/>Validating....{/if}
     {#if !running && validation_result.valid}All validation checks passed <Icon name="check-all"/>{/if}
-    {#if selected && !running && !validation_result.valid}Some validation checks failed <Icon name="exclamation-triangle"/>{/if}
+    {#if selected && !running && !validation_result.valid}Some validation checks failed <Icon name="exclamation-triangle"/>
+    {#if ovr}<strong> proceed anyways?</strong>{/if}
+    {/if}
     <Button on:click={save_schedule} disabled={!ovr && (running || !validation_result.valid)}>Save</Button>
     <Button on:click={() => open = false} disabled={running}>Close</Button>
   </ModalFooter>
