@@ -118,14 +118,26 @@ def techs_docs_state():
 
 
 @page.route("/techs/members")
-@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def techs_members():
-    """Fetches today's sign-in information for members"""
+    """Fetches sign-in information for members within a date range"""
     start = request.values.get("start")
     start = (safe_parse_datetime(start) if start else tznow()).replace(
         hour=0, minute=0, second=0, tzinfo=tz
     )
-    end = start.replace(hour=23, minute=59, second=59)
+
+    end = request.values.get("end")
+    if end:
+        end = safe_parse_datetime(end).replace(hour=23, minute=59, second=59, tzinfo=tz)
+    else:
+        end = start.replace(hour=23, minute=59, second=59)
+
     log.info(f"Fetching signins from {start} to {end}")
     return [
         {
@@ -220,7 +232,13 @@ def _notify_override(name, shift, techs):
 
 
 @page.route("/techs/forecast/override", methods=["POST", "DELETE"])
-@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def techs_forecast_override():
     """Update/remove forecast overrides on shop tech forecast"""
     # We want to know who's modifying the schedule, not just the generic shop tech user

@@ -145,10 +145,11 @@ def class_listing():
 
 @page.route("/neon_lookup", methods=["POST"])
 def neon_id_lookup():
-    """Look up the ID of a user in Neon based on a search by name or email"""
+    """Look up basic info of a user in Neon based on a search by name or email"""
     result = []
     search = request.values.get("search")
     if search is None:
+        log.info("No search data provided")
         return result
     for i in neon.cache.find_best_match(
         search, score_cutoff=int(request.values.get("min_score") or 65)

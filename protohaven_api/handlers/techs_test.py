@@ -607,12 +607,36 @@ def test_techs_members(mocker, tech_client):
     m.name = "Test User"
     mocker.patch.object(tl.airtable, "get_signins_between", return_value=[m])
     mocker.patch.object(tl, "tznow", return_value=d(0, 14))
-    mocker.patch.object(tl, "safe_parse_datetime", return_value=d(1))
+
+    def safe_parse_datetime_side_effect(date_str):
+        if date_str == "2024-01-01":
+            return d(1)
+        elif date_str == "2024-01-05":
+            return d(5)
+        else:
+            return d(0)  # Default for no date specified
+
+    mocker.patch.object(
+        tl, "safe_parse_datetime", side_effect=safe_parse_datetime_side_effect
+    )
 
     rep = tech_client.get("/techs/members?start=2024-01-01")
     tl.airtable.get_signins_between.assert_called_once_with(
         d(1).replace(hour=0, minute=0, second=0),
         d(1).replace(hour=23, minute=59, second=59),
+    )
+    got = rep.json
+    assert len(got) == 1
+    assert got[0]["name"] == m.name
+
+    # Test with end date specified
+    rep = tech_client.get("/techs/members?start=2024-01-01&end=2024-01-05")
+    # Check the second call (index 1) since assert_called_once_with only checks first call
+    assert tl.airtable.get_signins_between.call_count == 2
+    call_args = tl.airtable.get_signins_between.call_args_list[1]
+    assert call_args[0] == (
+        d(1).replace(hour=0, minute=0, second=0),
+        d(5).replace(hour=23, minute=59, second=59),
     )
     got = rep.json
     assert len(got) == 1
