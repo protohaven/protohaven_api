@@ -330,7 +330,7 @@ def handle_announcements(last_ack, roles: list, clearances: list, is_active, tes
     return result
 
 
-def as_member(data, send):
+def as_member(data, send):  # pylint: disable=too-many-statements
     """Sign in as a member (per Neon CRM)"""
     result = result_base()
 
