@@ -550,6 +550,13 @@ def set_waiver_status(account_id, new_status):
     )
 
 
+def set_member_agreement_status(account_id, new_status):
+    """Overwrites existing member agreement status information on an account"""
+    return neon_base.set_custom_fields(
+        account_id, (CustomField.MEMBER_AGREEMENT_ACCEPTED, new_status)
+    )
+
+
 def update_announcement_status(account_id, now=None):
     """Updates announcement acknowledgement"""
     if now is None:

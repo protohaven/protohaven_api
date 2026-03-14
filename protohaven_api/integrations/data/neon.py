@@ -29,6 +29,7 @@ class CustomField:
     BOOKED_USER_ID = 165
     INCOME_BASED_RATE = 78
     LAST_REVIEW = 166
+    MEMBER_AGREEMENT_ACCEPTED = 167
 
     # PROOF_OF_INCOME doesn't exist in the output fields, likely because
     # it's a file attachment and not a "primitive" field type.

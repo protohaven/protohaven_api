@@ -8,7 +8,10 @@ def submit_google_form(form_name, data):
     """Submit a google form; see config.yaml for form names"""
 
     cfg = get_config("forms")[form_name]
-    params = {cfg["keys"][k]: v for k, v in data.items()}
+    params = {}
+    for k, v in data.items():
+        if k in cfg["keys"]:
+            params[cfg["keys"][k]] = v
     # Included by default on all google forms
     params["submit"] = "Submit"
     params["usp"] = "pp_url"

@@ -457,6 +457,17 @@ class Member:  # pylint:disable=too-many-public-methods
         return (None, None)
 
     @property
+    def member_agreement_accepted(self) -> tuple[str | None, datetime.datetime | None]:
+        """Return version and date of member agreement acceptance via custom neon field"""
+        v = self._get_custom_field("Member Agreement Accepted", "value") or ""
+        match = re.match(WAIVER_REGEX, v)
+        if match is not None:
+            last_version = match[1]
+            last_signed = safe_parse_datetime(match[2])
+            return (last_version, last_signed)
+        return (None, None)
+
+    @property
     def notify_board_and_staff(self) -> str:
         """Return Notify Board & Staff custom neon field"""
         return self._get_custom_field("Notify Board & Staff", "value") or ""
