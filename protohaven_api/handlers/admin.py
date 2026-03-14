@@ -9,7 +9,7 @@ from protohaven_api.automation.membership import clearances as mclearance
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
-from protohaven_api.integrations import airtable, comms, mqtt, neon_base, tasks
+from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
 from protohaven_api.rbac import (
     Role,
     require_dev_environment,
@@ -55,6 +55,17 @@ def user_clearances():
 
     for e in emails:
         try:
+            resolved = list(
+                filter(
+                    lambda d: d is not None,
+                    [neon.resolve_clearance_code_full(d) for d in delta],
+                )
+            )
+            if len(resolved) != len(delta):
+                raise KeyError(
+                    f"Could not fully resolve all codes: {delta}. Resolved codes: {resolved}"
+                )
+
             results[e] = {
                 "method": request.method,
                 "delta": delta,
