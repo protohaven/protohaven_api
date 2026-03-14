@@ -417,13 +417,14 @@ def push_class():
         # We send a blocking notification *before* unvalidated pushes to reduce the odds
         # of the notification failing and classes getting force pushed without
         # warning to education leads.
+        errors_text = "\n* ".join(errors)
         comms.send_discord_message(
             f"@EduLeads: {user_fullname()} is **bypassing validation errors** "
             "to schedule class:\n\n"
             f"* Instructor: {m.name} ({m.email})\n"
-            f"* Class: {c.name} (${c.price}, {c.capacity} students)\n"
+            f"* Class: {c.name} ($" + f"{c.price}, {c.capacity} students)\n"
             f"* Sessions: {', '.join([s[0].strftime('%Y-%m-%d %-I:%M %p') for s in sessions])}\n\n"
-            f"Errors bypassed:\n\n* {'\n* '.join(errors)}"
+            f"Errors bypassed:\n\n* {errors_text}"
             "\n\n**This event will likely schedule by tomorrow morning** - "
             "if you think this is in error, cancel the proposed class via "
             "the [instructor dashboard](https://api.protohaven.org/instructor) "
