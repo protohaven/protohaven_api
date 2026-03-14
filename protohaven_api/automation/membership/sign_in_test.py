@@ -114,7 +114,7 @@ def test_log_sign_in(mocker):
         "referrer": "friend",
         "person": "member",
     }
-    result = {"waiver_signed": True}
+    result = {"waiver_signed": True, "member_agreement_signed": False}
     send = mocker.Mock()
 
     mocker.patch.object(s.forms, "submit_google_form", return_value="google_response")
@@ -502,6 +502,7 @@ def test_as_member_notfound(mocker):
         "status": "Unknown",
         "violations": [],
         "waiver_signed": False,
+        "member_agreement_signed": False,
         "neon_id": "",
     }
     m.assert_not_called()
@@ -523,7 +524,9 @@ def test_as_member_activate_deferred(mocker):
         clearances=[],
         waiver_accepted=(None, None),
         announcements_acknowledged=None,
+        member_agreement_accepted=mocker.MagicMock(return_value=(None, None)),
     )
+    mem.member_agreement_accepted.return_value = (None, None)
     mocker.patch.object(
         s.neon,
         "cache",
@@ -568,6 +571,9 @@ def test_as_member_expired(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             },
         },
@@ -613,6 +619,9 @@ def test_as_member_violations(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             }
         },
@@ -661,6 +670,9 @@ def test_as_member_duplicates(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
                 12345: mocker.MagicMock(
                     neon_id=12345,
@@ -671,6 +683,9 @@ def test_as_member_duplicates(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             }
         },
@@ -712,6 +727,9 @@ def test_as_member_announcements_ok(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             }
         },
@@ -752,6 +770,7 @@ def test_as_member_announcements_ok(mocker):
                 email="a@b.com",
                 dependent_info="DEP_INFO",
                 waiver_ack=True,
+                member_agreement_ack=False,
                 referrer=None,
                 purpose="I'm a member, just signing in!",
                 am_member=True,
@@ -784,6 +803,9 @@ def test_as_member_announcements_exception(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             }
         },
@@ -824,6 +846,9 @@ def test_as_member_company_id(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
                 12345: mocker.MagicMock(
                     neon_id=12345,
@@ -835,6 +860,9 @@ def test_as_member_company_id(mocker):
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             }
         },
@@ -881,6 +909,9 @@ def test_as_member_notify_board_and_staff(mocker, status):
                     waiver_accepted=(None, None),
                     notify_board_and_staff=["On Sign In", "Other Unrelated Condition"],
                     announcements_acknowledged=None,
+                    member_agreement_accepted=mocker.MagicMock(
+                        return_value=(None, None)
+                    ),
                 ),
             }
         },
