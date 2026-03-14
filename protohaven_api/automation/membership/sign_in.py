@@ -49,7 +49,7 @@ def result_base():
         "status": "Unknown",
         "violations": [],
         "waiver_signed": False,
-        "member_agreement_signed": False,
+        "member_agreement_accepted": False,
         "announcements": [],
         "firstname": "member",
     }
@@ -133,7 +133,7 @@ def log_sign_in(data, result, meta):
         email=data["email"],
         dependent_info=data["dependent_info"],
         waiver_ack=result["waiver_signed"],
-        member_agreement_ack=result["member_agreement_signed"],
+        member_agreement_accepted=result["member_agreement_accepted"],
         referrer=data.get("referrer"),
         purpose="I'm a member, just signing in!",  # Deprecated
         am_member=(data["person"] == "member"),
@@ -414,11 +414,11 @@ def as_member(data, send):  # pylint: disable=too-many-statements
 
     send("Checking member agreement...", 92)
     last_version, last_signed = m.member_agreement_accepted
-    result["member_agreement_signed"] = handle_member_agreement(
+    result["member_agreement_accepted"] = handle_member_agreement(
         m.neon_id,
         last_version,
         last_signed,
-        data.get("member_agreement_ack", False),
+        data.get("member_agreement_accepted", False),
     )
 
     # Regardless of the state of the waiver or membership, we want to know when

@@ -15,7 +15,7 @@
   let checking=false;
   let progress=null;
   let waiver_ack=false;
-  let member_agreement_ack=false;
+  let member_agreement_accepted=false;
   let dependent_info="";
 	let feedback=null;
   let referrer = "";
@@ -44,13 +44,13 @@
   }
 
   async function member_agreement_agreed() {
-    member_agreement_ack=true;
+    member_agreement_accepted=true;
     return await submit();
   }
 
   function do_post(silent=false) {
     // We capture the data at the time of invocation to prevent data from getting cleared asynchronously
-    let capture = JSON.stringify({email, person, waiver_ack, member_agreement_ack, dependent_info, referrer, testing});
+    let capture = JSON.stringify({email, person, waiver_ack, member_agreement_accepted, dependent_info, referrer, testing});
     return new Promise((resolve, reject) => {
       const socket = open_ws("/welcome/ws")
       socket.addEventListener("open", (event) => {
@@ -77,7 +77,7 @@
     email = null;
     person = 'member';
     waiver_ack = false;
-    member_agreement_ack = false;
+    member_agreement_accepted = false;
     referrer = '';
     feedback = null;
     state = 'splash';
@@ -126,7 +126,7 @@
     }
 
     // Check member agreement for members only
-    if (person === 'member' && !result.member_agreement_signed) {
+    if (person === 'member' && !result.member_agreement_accepted) {
       state = 'member_agreement';
       return;
     }

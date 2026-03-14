@@ -322,7 +322,7 @@ forms:
       email: "entry.1009036564"
       dependent_info: "entry.2120218255"
       waiver_ack: "entry.1193877380"
-      member_agreement_ack: "entry.1141038060"
+      member_agreement_accepted: "entry.1141038060"
       referrer: "entry.366779110"
       purpose: "entry.131288088"
       am_member: "entry.1823004694"

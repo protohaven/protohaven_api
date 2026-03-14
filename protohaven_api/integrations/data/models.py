@@ -10,7 +10,7 @@ class SignInEvent:  # pylint: disable=too-many-instance-attributes
     email: str
     dependent_info: str
     waiver_ack: bool
-    member_agreement_ack: bool
+    member_agreement_accepted: bool
     referrer: str
     purpose: str
     am_member: bool
@@ -28,7 +28,7 @@ class SignInEvent:  # pylint: disable=too-many-instance-attributes
             "Email": self.email,
             "Dependent Info": self.dependent_info,
             "Waiver Ack": self.waiver_ack,
-            "Member Agreement Ack": self.member_agreement_ack,
+            "Member Agreement Accepted": self.member_agreement_accepted,
             "Referrer": self.referrer,
             "Purpose": self.purpose,
             "Am Member": self.am_member,
@@ -52,12 +52,12 @@ class SignInEvent:  # pylint: disable=too-many-instance-attributes
                 if self.waiver_ack
                 else ""
             ),
-            "member_agreement_ack": (
+            "member_agreement_accepted": (
                 (
                     "I have read and understand this agreement and "
                     "agree to be bound by its requirements.",  # Must be this, otherwise 400 error
                 )
-                if self.member_agreement_ack
+                if self.member_agreement_accepted
                 else ""
             ),
             "referrer": self.referrer,
