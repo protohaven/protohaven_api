@@ -14,13 +14,15 @@ def test_user_clearances_notifies_discord(mocker, client):
     )  # Disable to allow testing
     mocker.patch.object(a.mclearance, "update", return_value=[])
     mocker.patch.object(a.comms, "send_discord_message")
+    mocker.patch.object(a.neon, "resolve_clearance_code_full", side_effect=lambda c: c)
 
     rep = client.patch(
         "/user/clearances",
         data={"emails": "test@example.com", "codes": "C1,C2"},
     )
     a.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
-    assert rep.status_code == 200
+    if rep.status_code != 200:
+        raise RuntimeError(f"Wanted OK request, got {rep.status_code} {rep.text}")
 
 
 def test_user_clearances(mocker, client):
@@ -29,6 +31,7 @@ def test_user_clearances(mocker, client):
         rbac, "is_enabled", return_value=False
     )  # Disable to allow testing
     mocker.patch.object(a.comms, "send_discord_message")
+    mocker.patch.object(a.neon, "resolve_clearance_code_full", side_effect=lambda c: c)
     mocker.patch.object(a.mclearance, "update", return_value="Success")
     rep = client.patch(
         "/user/clearances",
@@ -39,6 +42,27 @@ def test_user_clearances(mocker, client):
     a.mclearance.update.assert_called_with(  # pylint: disable=no-member
         "test@example.com", "PATCH", ["C1", "C2"]
     )
+
+
+def test_user_clearances_resolve_failure(mocker, client):
+    """Test the user_clearances function when not all clearances resolve"""
+    mocker.patch.object(
+        rbac, "is_enabled", return_value=False
+    )  # Disable to allow testing
+    mocker.patch.object(a.comms, "send_discord_message")
+    mocker.patch.object(
+        a.neon,
+        "resolve_clearance_code_full",
+        side_effect=["C1: Clearance 1", None, None],
+    )
+    m1 = mocker.patch.object(a.mclearance, "update")
+    rep = client.patch(
+        "/user/clearances",
+        data={"emails": "test@example.com", "codes": "C1,C2"},
+    )
+    assert rep.status_code == 404
+    assert "Could not fully resolve" in rep.text
+    m1.assert_not_called()
 
 
 NEW_MEMBERSHIP_WEBHOOK_DATA = {
