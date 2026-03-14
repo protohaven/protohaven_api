@@ -14,7 +14,7 @@ let searching = false;
 let promise = new Promise((r,_)=>{r([])});
 function search_member() {
   searching = true;
-  promise = post(`/neon_lookup?search=${search}`).finally(() => searching = false);
+  promise = post(`/neon_lookup?search=${encodeURIComponent(search)}`).finally(() => searching = false);
 }
 
 let fetching = false;

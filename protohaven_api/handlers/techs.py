@@ -118,7 +118,13 @@ def techs_docs_state():
 
 
 @page.route("/techs/members")
-@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def techs_members():
     """Fetches sign-in information for members within a date range"""
     start = request.values.get("start")
@@ -226,7 +232,13 @@ def _notify_override(name, shift, techs):
 
 
 @page.route("/techs/forecast/override", methods=["POST", "DELETE"])
-@require_login_role(Role.SHOP_TECH, redirect_to_login=False)
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 def techs_forecast_override():
     """Update/remove forecast overrides on shop tech forecast"""
     # We want to know who's modifying the schedule, not just the generic shop tech user

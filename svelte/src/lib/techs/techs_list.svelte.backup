@@ -54,7 +54,7 @@ function search_neon_accounts() {
   }
 
   searching = true;
-  search_promise = post(`/neon_lookup?search=${search_term}`)
+  search_promise = post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
     .then((results) => {
       search_results = results;
     })
