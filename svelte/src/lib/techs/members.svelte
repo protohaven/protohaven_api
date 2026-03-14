@@ -21,6 +21,18 @@ let promise = new Promise((r,_)=>{r([])});
 let loaded = false;
 let toast_msg = null;
 
+// Day of week statistics
+let day_of_week_stats = {
+  Sunday: 0,
+  Monday: 0,
+  Tuesday: 0,
+  Wednesday: 0,
+  Thursday: 0,
+  Friday: 0,
+  Saturday: 0
+};
+let total_signins = 0;
+
 // Debounce function for search
 function debounce(func, wait) {
   let timeout;
@@ -83,10 +95,60 @@ function refresh() {
     // Filter by selected member if one is selected
     if (selected_member) {
       results = results.filter(r => r.email === selected_member.email);
+      // Calculate day of week statistics for selected member
+      calculateDayOfWeekStats(data.filter(d => d.email === selected_member.email));
+    } else {
+      // Reset statistics when no member is selected
+      resetDayOfWeekStats();
     }
 
     return results;
   });
+}
+
+function calculateDayOfWeekStats(memberSignins) {
+  // Reset stats
+  resetDayOfWeekStats();
+  total_signins = memberSignins.length;
+  
+  // Track unique dates for each day of week
+  const uniqueDatesByDay = {
+    0: new Set(), // Sunday
+    1: new Set(), // Monday
+    2: new Set(), // Tuesday
+    3: new Set(), // Wednesday
+    4: new Set(), // Thursday
+    5: new Set(), // Friday
+    6: new Set()  // Saturday
+  };
+  
+  // Process each sign-in
+  for (const signin of memberSignins) {
+    const date = new Date(signin.created);
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dateKey = date.toDateString(); // Unique date string
+    
+    uniqueDatesByDay[dayOfWeek].add(dateKey);
+  }
+  
+  // Convert to day names and counts
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  for (let i = 0; i < 7; i++) {
+    day_of_week_stats[dayNames[i]] = uniqueDatesByDay[i].size;
+  }
+}
+
+function resetDayOfWeekStats() {
+  day_of_week_stats = {
+    Sunday: 0,
+    Monday: 0,
+    Tuesday: 0,
+    Wednesday: 0,
+    Thursday: 0,
+    Friday: 0,
+    Saturday: 0
+  };
+  total_signins = 0;
 }
 
 function on_search_term_edit(e) {
@@ -102,6 +164,7 @@ function clear_selection() {
   selected_member = null;
   search_term = "";
   search_results = [];
+  resetDayOfWeekStats();
   refresh();
 }
 
@@ -238,6 +301,70 @@ $: {
     {:catch error}
       <FetchError {error}/>
     {/await}
+
+    {#if selected_member && total_signins > 0}
+      <div class="mt-4">
+        <h5>Sign-in Frequency for {selected_member.name}</h5>
+        <p class="text-muted">
+          Showing distinct days signed in for each day of the week
+          {#if start_date.toDateString() !== end_date.toDateString()}
+            from {new Date(start_date).toLocaleDateString()} to {new Date(end_date).toLocaleDateString()}
+          {:else}
+            on {new Date(start_date).toLocaleDateString()}
+          {/if}
+        </p>
+        
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead>
+              <tr>
+                <th>Day of Week</th>
+                <th>Distinct Days Signed In</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each Object.entries(day_of_week_stats) as [day, count]}
+                <tr>
+                  <td>{day}</td>
+                  <td>
+                    {#if count > 0}
+                      <strong>{count}</strong>
+                    {:else}
+                      <span class="text-muted">0</span>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+              <tr class="table-secondary">
+                <td><strong>Total Sign-ins</strong></td>
+                <td><strong>{total_signins}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="mt-3">
+          <div class="row">
+            {#each Object.entries(day_of_week_stats) as [day, count]}
+              <div class="col">
+                <div class="card text-center">
+                  <div class="card-body p-2">
+                    <div class="card-title mb-0">{day.slice(0, 3)}</div>
+                    <div class="card-text">
+                      {#if count > 0}
+                        <span class="badge bg-primary">{count}</span>
+                      {:else}
+                        <span class="text-muted">0</span>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/if}
 
     <Toast
       class="me-1"
