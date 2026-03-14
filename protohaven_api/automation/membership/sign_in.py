@@ -413,7 +413,7 @@ def as_member(data, send):  # pylint: disable=too-many-statements
     )
 
     send("Checking member agreement...", 92)
-    last_version, last_signed = m.member_agreement_accepted()
+    last_version, last_signed = m.member_agreement_accepted
     result["member_agreement_signed"] = handle_member_agreement(
         m.neon_id,
         last_version,
