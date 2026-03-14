@@ -456,6 +456,7 @@ class Member:  # pylint:disable=too-many-public-methods
             return (last_version, last_signed)
         return (None, None)
 
+    @property
     def member_agreement_accepted(self) -> tuple[str | None, datetime.datetime | None]:
         """Return version and date of member agreement acceptance via custom neon field"""
         v = self._get_custom_field("Member Agreement Accepted", "value") or ""
