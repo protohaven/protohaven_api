@@ -49,6 +49,7 @@ def result_base():
         "status": "Unknown",
         "violations": [],
         "waiver_signed": False,
+        "member_agreement_signed": False,
         "announcements": [],
         "firstname": "member",
     }
@@ -132,6 +133,7 @@ def log_sign_in(data, result, meta):
         email=data["email"],
         dependent_info=data["dependent_info"],
         waiver_ack=result["waiver_signed"],
+        member_agreement_ack=result["member_agreement_signed"],
         referrer=data.get("referrer"),
         purpose="I'm a member, just signing in!",  # Deprecated
         am_member=(data["person"] == "member"),
@@ -268,6 +270,46 @@ def handle_waiver(  # pylint: disable=too-many-arguments
     return now < expiry
 
 
+def handle_member_agreement(  # pylint: disable=too-many-arguments
+    user_id,
+    last_version: str,
+    last_signed: datetime.datetime,
+    ack,
+    now=None,
+    current_version=None,
+    expiration_days=None,
+):
+    """Update the member agreement status of a Neon account. Return True if
+    the account has signed the member agreement, False otherwise."""
+
+    # Lazy load config entries to prevent parsing errors on init
+    now = now or tznow()
+    current_version = current_version or get_config(
+        "neon/member_agreement_published_date"
+    )
+    expiration_days = expiration_days or get_config(
+        "neon/member_agreement_expiration_days"
+    )
+
+    if ack:
+        # Always overwrite existing signature data since re-acknowledged
+        # Done async to reduce login delay
+        new_status = WAIVER_FMT.format(
+            version=current_version, accepted=now.strftime("%Y-%m-%d")
+        )
+        _apply_async(neon.set_member_agreement_status, (user_id, new_status))
+        return True
+
+    # Precondition: ack = false
+    # Check if signature on file, version is current, and not expired
+    if last_version is None:
+        return False
+    if last_version != current_version:
+        return False
+    expiry = last_signed + datetime.timedelta(days=expiration_days)
+    return now < expiry
+
+
 def handle_announcements(last_ack, roles: list, clearances: list, is_active, testing):
     """Handle fetching and display of announcements, plus updating
     acknowledgement date"""
@@ -368,6 +410,15 @@ def as_member(data, send):
         last_version,
         last_signed,
         data.get("waiver_ack", False),
+    )
+
+    send("Checking member agreement...", 92)
+    last_version, last_signed = m.member_agreement_accepted()
+    result["member_agreement_signed"] = handle_member_agreement(
+        m.neon_id,
+        last_version,
+        last_signed,
+        data.get("member_agreement_ack", False),
     )
 
     # Regardless of the state of the waiver or membership, we want to know when

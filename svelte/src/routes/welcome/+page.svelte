@@ -7,6 +7,7 @@
   import SigninOk from '$lib/signin_ok.svelte';
   import MembershipExpired from '$lib/membership_expired.svelte';
 	import Waiver from '$lib/waiver.svelte';
+  import MemberAgreement from '$lib/member_agreement.svelte';
   let state='splash';
   let name='member';
   let email=null;
@@ -14,6 +15,7 @@
   let checking=false;
   let progress=null;
   let waiver_ack=false;
+  let member_agreement_ack=false;
   let dependent_info="";
 	let feedback=null;
   let referrer = "";
@@ -41,9 +43,14 @@
     return await submit();
   }
 
+  async function member_agreement_agreed() {
+    member_agreement_ack=true;
+    return await submit();
+  }
+
   function do_post(silent=false) {
     // We capture the data at the time of invocation to prevent data from getting cleared asynchronously
-    let capture = JSON.stringify({email, person, waiver_ack, dependent_info, referrer, testing});
+    let capture = JSON.stringify({email, person, waiver_ack, member_agreement_ack, dependent_info, referrer, testing});
     return new Promise((resolve, reject) => {
       const socket = open_ws("/welcome/ws")
       socket.addEventListener("open", (event) => {
@@ -70,6 +77,7 @@
     email = null;
     person = 'member';
     waiver_ack = false;
+    member_agreement_ack = false;
     referrer = '';
     feedback = null;
     state = 'splash';
@@ -117,6 +125,12 @@
       return;
     }
 
+    // Check member agreement for members only
+    if (person === 'member' && !result.member_agreement_signed) {
+      state = 'member_agreement';
+      return;
+    }
+
     // If everything else is good, we're good.
     state = 'signin_ok';
   }
@@ -131,6 +145,8 @@
       <Splash bind:email={email} bind:dependent_info={dependent_info} {feedback} {progress} on_member={()=>on_splash_submit('member')} on_guest={()=>on_splash_submit('guest')}/>
     {:else if state == 'waiver' }
       <Waiver name={name} on_submit={waiver_agreed} checking={checking}/>
+    {:else if state == 'member_agreement' }
+      <MemberAgreement on_submit={member_agreement_agreed} checking={checking}/>
     {:else if state == 'membership_expired' }
       <MembershipExpired name={name} on_close={restart_flow}/>
     {:else if state == 'signin_ok'}
