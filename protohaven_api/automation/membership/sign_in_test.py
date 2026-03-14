@@ -503,7 +503,6 @@ def test_as_member_notfound(mocker):
         "status": "Unknown",
         "violations": [],
         "waiver_signed": False,
-        "member_agreement_signed": False,
         "neon_id": "",
     }
     m.assert_not_called()
@@ -526,9 +525,7 @@ def test_as_member_activate_deferred(mocker):
         waiver_accepted=(None, None),
         member_agreement_accepted=(None, None),
         announcements_acknowledged=None,
-        member_agreement_accepted=mocker.MagicMock(return_value=(None, None)),
     )
-    mem.member_agreement_accepted.return_value = (None, None)
     mocker.patch.object(
         s.neon,
         "cache",
@@ -574,9 +571,6 @@ def test_as_member_expired(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             },
         },
@@ -623,9 +617,6 @@ def test_as_member_violations(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             }
         },
@@ -675,9 +666,6 @@ def test_as_member_duplicates(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
                 12345: mocker.MagicMock(
                     neon_id=12345,
@@ -689,9 +677,6 @@ def test_as_member_duplicates(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             }
         },
@@ -734,9 +719,6 @@ def test_as_member_announcements_ok(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             }
         },
@@ -811,9 +793,6 @@ def test_as_member_announcements_exception(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             }
         },
@@ -855,9 +834,6 @@ def test_as_member_company_id(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
                 12345: mocker.MagicMock(
                     neon_id=12345,
@@ -870,9 +846,6 @@ def test_as_member_company_id(mocker):
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             }
         },
@@ -920,9 +893,6 @@ def test_as_member_notify_board_and_staff(mocker, status):
                     member_agreement_accepted=(None, None),
                     notify_board_and_staff=["On Sign In", "Other Unrelated Condition"],
                     announcements_acknowledged=None,
-                    member_agreement_accepted=mocker.MagicMock(
-                        return_value=(None, None)
-                    ),
                 ),
             }
         },
