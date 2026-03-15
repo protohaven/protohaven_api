@@ -254,33 +254,36 @@ def test_get_event_reservations(mocker, client):
     mock_now = d(0, 12)  # Noon
     mocker.patch.object(index, "tznow", return_value=mock_now)
 
-    # Mock get_reservations to return some test data
-    mock_reservations = {
-        "reservations": [
-            {
-                "startDate": d(0, 14),  # 2 PM
-                "endDate": d(0, 16),  # 4 PM
-                "firstName": "John",
-                "lastName": "Doe",
-                "resourceName": "Laser Cutter",
-            },
-            {
-                "startDate": d(0, 10),  # 10 AM (before open)
-                "endDate": d(0, 12),  # Noon
-                "firstName": "Jane",
-                "lastName": "Smith",
-                "resourceName": "3D Printer",
-            },
-            {
-                "startDate": d(0, 15),  # 3 PM
-                "endDate": d(0, 22),  # 10 PM (after close)
-                "firstName": "John",
-                "lastName": "Doe",
-                "resourceName": "CNC Router",
-            },
-        ]
-    }
-    mocker.patch.object(index, "get_reservations", return_value=mock_reservations)
+    # Mock cache["reservations"] to return some test data
+    mock_reservations = [
+        {
+            "startDate": d(0, 14),  # 2 PM
+            "endDate": d(0, 16),  # 4 PM
+            "firstName": "John",
+            "lastName": "Doe",
+            "resourceName": "Laser Cutter",
+        },
+        {
+            "startDate": d(0, 10),  # 10 AM (before open)
+            "endDate": d(0, 12),  # Noon
+            "firstName": "Jane",
+            "lastName": "Smith",
+            "resourceName": "3D Printer",
+        },
+        {
+            "startDate": d(0, 15),  # 3 PM
+            "endDate": d(0, 22),  # 10 PM (after close)
+            "firstName": "John",
+            "lastName": "Doe",
+            "resourceName": "CNC Router",
+        },
+    ]
+    # Create a mock cache object
+    mock_cache = mocker.MagicMock()
+    mock_cache.__getitem__ = mocker.MagicMock(
+        side_effect=lambda key: mock_reservations if key == "reservations" else None
+    )
+    mocker.patch.object(index, "cache", mock_cache)
 
     # Mock get_tools to return tool-area mappings
     mock_tools = [
@@ -334,16 +337,16 @@ def test_get_event_reservations(mocker, client):
             assert reservation["start"] == "3:00 PM"
             assert reservation["end"] == "close"
 
-    # Test with tool not found in airtable
-    mock_reservations["reservations"].append(
-        {
-            "startDate": d(0, 13),
-            "endDate": d(0, 14),
-            "firstName": "Bob",
-            "lastName": "Jones",
-            "resourceName": "Unknown Tool",
-        }
-    )
+        # Test with tool not found in airtable
+        mock_reservations.append(
+            {
+                "startDate": d(0, 13),
+                "endDate": d(0, 14),
+                "firstName": "Bob",
+                "lastName": "Jones",
+                "resourceName": "Unknown Tool",
+            }
+        )
 
     response = client.get("/events/reservations")
     result = json.loads(response.data.decode("utf8"))
