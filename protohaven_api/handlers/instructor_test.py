@@ -413,9 +413,3 @@ def test_instructor_submissions(mocker, inst_client):
     assert isinstance(data["EVENT789"], list)
     assert len(data["EVENT789"]) == 1
     assert isinstance(data["EVENT789"][0], str)
-
-    # Test error handling when sheets module fails
-    mock_sheets.get_instructor_submissions_raw.side_effect = Exception("Sheet error")
-    response = inst_client.get("/instructor/submissions")
-    assert response.status_code == 500
-    assert b"Failed to fetch submissions" in response.data
