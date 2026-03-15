@@ -10,12 +10,31 @@ let readiness = {};
 export let email;
 export let scheduler_open; // Watched to trigger refresh
 
+let submissions = {};
 let promise;
-function refresh() {
-  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data) => {
-    console.log(data.schedule);
-    return data.schedule;
-  });
+
+async function refresh() {
+  try {
+    // Fetch both class details and instructor submissions in parallel
+    const [classData, submissionData] = await Promise.all([
+      get("/instructor/class_details?email=" + encodeURIComponent(email)),
+      get("/instructor/submissions?email=" + encodeURIComponent(email)).catch(err => {
+        console.warn("Failed to fetch instructor submissions:", err);
+        return {}; // Return empty object if submissions fetch fails
+      })
+    ]);
+    
+    console.log("Class data:", classData.schedule);
+    console.log("Submission data:", submissionData);
+    
+    // Store submissions for passing to ClassCard components
+    submissions = submissionData;
+    
+    return classData.schedule;
+  } catch (error) {
+    console.error("Error refreshing class details:", error);
+    throw error;
+  }
 }
 
 $: {
@@ -32,7 +51,7 @@ $: {
 {#if classes }
   {#each classes as c}
     {#if !c['Rejected']}
-      <ClassCard schedule_id={c.schedule_id} c_init={c}/>
+      <ClassCard schedule_id={c.schedule_id} c_init={c} {submissions}/>
     {/if}
   {/each}
 
