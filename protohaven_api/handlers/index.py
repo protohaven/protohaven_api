@@ -255,13 +255,13 @@ def get_event_reservations():
     now = tznow()
 
     # Get all tools to map resource names to areas
-    tools_by_resource_name = {}
+    areas_by_tool = {}
     for tool in airtable.get_tools():
         fields = tool.get("fields", {})
         resource_name = fields.get("Tool Name")
         area = fields.get("Name (from Shop Area)", [None])[0]
         if resource_name and area:
-            tools_by_resource_name[resource_name] = area
+            areas_by_tool[resource_name] = area
 
     for r in get_reservations(
         now.replace(hour=0, minute=0, second=0),
@@ -272,7 +272,7 @@ def get_event_reservations():
         open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
         close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
         resource_name = r["resourceName"]
-        area = tools_by_resource_name.get(resource_name, "Unknown Area")
+        area = areas_by_tool.get(resource_name, "Unknown Area")
 
         reservations.append(
             {
