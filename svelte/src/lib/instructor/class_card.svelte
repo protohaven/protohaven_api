@@ -109,14 +109,14 @@ function cancel(class_id) {
     {c.name}
     {#if hasLogSubmissions(c)}
       <span class="badge bg-success ms-2" title="Log submitted">
-        <i class="bi bi-check-circle"></i> Log submitted
+        <i class="bi bi-check-circle"></i> Logged
         {#if getSubmissionTimestamps(c).length > 1}
           ({getSubmissionTimestamps(c).length}x)
         {/if}
       </span>
     {:else if c.neon_id}
       <span class="badge bg-warning ms-2" title="No log submitted yet">
-        <i class="bi bi-exclamation-circle"></i> Log pending
+        <i class="bi bi-exclamation-circle"></i> Not Yet Logged
       </span>
     {/if}
   </CardTitle>
@@ -135,7 +135,7 @@ function cancel(class_id) {
       <Alert color='warning'>This class has been canceled.</Alert>
     {/if}
   {:catch error}
-    Error: {error.message}
+    <Alert color="warning" class="mx-3">Error fetching state from Neon: {error.message.substr(0,128)}</Alert>
   {/await}
 
   {#if c.rejected}
@@ -192,7 +192,7 @@ function cancel(class_id) {
   <li>Instruction: {#if c.volunteer}Volunteer (no pay){:else}Paid{/if} </li>
   <li>Instructor confirmed:  {#if c.confirmed}on {new Date(c.confirmed).toLocaleString()}{:else}no{/if}</li>
   </ul>
-  
+
   {#if c.neon_id}
     <div>Log submissions:</div>
     <ul>
@@ -205,7 +205,7 @@ function cancel(class_id) {
       {/if}
     </ul>
   {/if}
-  
+
   {#if c.clearances.length > 0}
   <div>Clearances earned:</div>
   <ul>
