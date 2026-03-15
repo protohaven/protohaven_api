@@ -11,11 +11,19 @@ export let email;
 export let scheduler_open; // Watched to trigger refresh
 
 let promise;
-function refresh() {
-  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data) => {
-    console.log(data.schedule);
+let submissions = {};
+
+async function refresh() {
+  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data)=>{
+    console.log(data);
     return data.schedule;
   });
+  get("/instructor/submissions?email=" + encodeURIComponent(email)).then((data) => {
+    submissions = data;
+  }).catch(err => {
+    console.warn("Failed to fetch instructor submissions:", err);
+    return {}; // Return empty object if submissions fetch fails
+  })
 }
 
 $: {
@@ -32,7 +40,7 @@ $: {
 {#if classes }
   {#each classes as c}
     {#if !c['Rejected']}
-      <ClassCard schedule_id={c.schedule_id} c_init={c}/>
+      <ClassCard schedule_id={c.schedule_id} c_init={c} {submissions}/>
     {/if}
   {/each}
 

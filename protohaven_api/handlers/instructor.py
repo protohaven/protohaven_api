@@ -20,6 +20,7 @@ from protohaven_api.integrations import (
     comms,
     neon,
     neon_base,
+    sheets,
 )
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_lead_role, am_role, require_login_role
@@ -489,6 +490,43 @@ def cancel_class():
                 log.info(str(booked.delete_reservation(res["referenceNumber"])))
 
     return {"success": True}
+
+
+@page.route("/instructor/submissions", methods=["GET"])
+@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+def instructor_submissions():
+    """Returns instructor submissions for the logged in instructor"""
+    target_email = request.args.get("email")
+    if target_email is not None:
+        ue = user_email()
+        if ue != target_email and not am_role(
+            Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF
+        ):
+            return Response("Access Denied for admin parameter `email`", status=401)
+        email = target_email.lower()
+    else:
+        email = user_email()
+        if not email:
+            return Response("You are not logged in.", status=401)
+        email = email.lower()
+
+    result = {}
+    for sub in sheets.get_instructor_submissions_raw(0):
+        if "Email Address" not in sub:
+            continue
+        sub_email = sub["Email Address"].strip().lower()
+        if sub_email != email:
+            continue
+        if (
+            "Neon Event ID (please ignore)" not in sub
+            or not sub["Neon Event ID (please ignore)"]
+        ):
+            continue
+        event_id = sub["Neon Event ID (please ignore)"].strip()
+        if event_id not in result:
+            result[event_id] = []
+        result[event_id].append(sub.get("Timestamp"))
+    return result
 
 
 @page.route("/instructor/clearance_quiz", methods=["POST"])

@@ -5,6 +5,7 @@ import {get, post} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
 export let schedule_id;
+export let submissions = {};
 
 export let c_init;
 let meta_promise = Promise.resolve(c_init);
@@ -22,6 +23,18 @@ function fetch_neon_state(data) {
     });
   }
   return null;
+}
+
+// Check if this class has instructor log submissions
+function hasLogSubmissions(classData) {
+  if (!classData.neon_id) return false;
+  return classData.neon_id in submissions && submissions[classData.neon_id].length > 0;
+}
+
+// Get submission timestamps for this class
+function getSubmissionTimestamps(classData) {
+  if (!classData.neon_id || !(classData.neon_id in submissions)) return [];
+  return submissions[classData.neon_id];
 }
 
 function fetch_attendees(data) {
@@ -94,6 +107,18 @@ function cancel(class_id) {
       <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank"><i class="bi bi-question-circle"></i></a> PROPOSED:
     {/if}
     {c.name}
+    {#if hasLogSubmissions(c)}
+      <span class="badge bg-success ms-2" title="Log submitted">
+        <i class="bi bi-check-circle"></i> Logged
+        {#if getSubmissionTimestamps(c).length > 1}
+          ({getSubmissionTimestamps(c).length}x)
+        {/if}
+      </span>
+    {:else if c.neon_id}
+      <span class="badge bg-warning ms-2" title="No log submitted yet">
+        <i class="bi bi-exclamation-circle"></i> Not Yet Logged
+      </span>
+    {/if}
   </CardTitle>
   {#if !c.neon_id}
   <Tooltip target={schedule_id} placement="right">
@@ -110,7 +135,7 @@ function cancel(class_id) {
       <Alert color='warning'>This class has been canceled.</Alert>
     {/if}
   {:catch error}
-    Error: {error.message}
+    <Alert color="warning" class="mx-3">Error fetching state from Neon: {error.message.substr(0,128)}</Alert>
   {/await}
 
   {#if c.rejected}
@@ -167,6 +192,20 @@ function cancel(class_id) {
   <li>Instruction: {#if c.volunteer}Volunteer (no pay){:else}Paid{/if} </li>
   <li>Instructor confirmed:  {#if c.confirmed}on {new Date(c.confirmed).toLocaleString()}{:else}no{/if}</li>
   </ul>
+
+  {#if c.neon_id}
+    <div>Log submissions:</div>
+    <ul>
+      {#if hasLogSubmissions(c)}
+        {#each getSubmissionTimestamps(c) as timestamp, i}
+          <li>Submitted: {new Date(timestamp).toLocaleString()}</li>
+        {/each}
+      {:else}
+        <li><em>No log submissions yet</em></li>
+      {/if}
+    </ul>
+  {/if}
+
   {#if c.clearances.length > 0}
   <div>Clearances earned:</div>
   <ul>

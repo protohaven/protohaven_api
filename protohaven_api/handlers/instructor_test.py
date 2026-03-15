@@ -319,3 +319,97 @@ def test_log_quiz_submission(mocker, inst_client):
         points_to_pass=5,
     )
     assert response.status_code == 200
+
+
+def test_instructor_submissions(mocker, inst_client):
+    """Test the instructor submissions handler"""
+    # Mock the sheets module
+    mock_sheets = mocker.patch.object(instructor, "sheets")
+
+    # Create mock submissions data
+    now = datetime.datetime.now()
+    mock_submissions = [
+        {
+            "Timestamp": now,
+            "Email Address": "foo@bar.com",
+            "Neon Event ID (please ignore)": "EVENT123",
+            "Class Name": "Woodworking 101",
+            "Students Passed": "3",
+        },
+        {
+            "Timestamp": now + datetime.timedelta(hours=1),
+            "Email Address": "foo@bar.com",
+            "Neon Event ID (please ignore)": "EVENT456",
+            "Class Name": "Metalworking 101",
+            "Students Passed": "5",
+        },
+        {
+            "Timestamp": now + datetime.timedelta(hours=2),
+            "Email Address": "foo@bar.com",
+            "Neon Event ID (please ignore)": "EVENT123",  # Same event, different submission
+            "Class Name": "Woodworking 101 - Advanced",
+            "Students Passed": "2",
+        },
+        {
+            "Timestamp": now + datetime.timedelta(hours=3),
+            "Email Address": "other@bar.com",  # Different instructor
+            "Neon Event ID (please ignore)": "EVENT789",
+            "Class Name": "Ceramics 101",
+            "Students Passed": "2",
+        },
+        {
+            "Timestamp": now + datetime.timedelta(hours=4),
+            "Email Address": "foo@bar.com",
+            # Missing Neon Event ID
+            "Class Name": "3D Printing 101",
+            "Students Passed": "4",
+        },
+    ]
+
+    # Set up the mock to return our test data
+    mock_sheets.get_instructor_submissions_raw.return_value = mock_submissions
+
+    # Test with logged-in user (foo@bar.com)
+    response = inst_client.get("/instructor/submissions")
+    assert response.status_code == 200
+
+    # Parse the response
+    data = json.loads(response.data)
+
+    # Should have 2 event IDs for foo@bar.com
+    assert len(data) == 2
+
+    # Check that EVENT123 and EVENT456 are in the results
+    assert "EVENT123" in data
+    assert "EVENT456" in data
+
+    # Verify the data structure - each event ID should have a list of timestamps
+    assert isinstance(data["EVENT123"], list)
+    assert len(data["EVENT123"]) == 2  # Two submissions for EVENT123
+    # Check that we have timestamps (they will be serialized as strings by Flask)
+    assert isinstance(data["EVENT123"][0], str)
+    assert isinstance(data["EVENT123"][1], str)
+
+    assert isinstance(data["EVENT456"], list)
+    assert len(data["EVENT456"]) == 1
+    assert isinstance(data["EVENT456"][0], str)
+
+    # Test with email parameter (same as logged-in user)
+    response = inst_client.get("/instructor/submissions?email=foo@bar.com")
+    assert response.status_code == 200
+
+    # Test with email parameter (different user - should fail without admin role)
+    response = inst_client.get("/instructor/submissions?email=other@bar.com")
+    assert response.status_code == 401
+
+    # Test with admin role accessing other user's submissions
+    mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.ADMIN["name"]])
+    response = inst_client.get("/instructor/submissions?email=other@bar.com")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    # Should have 1 event ID for other@bar.com
+    assert len(data) == 1
+    assert "EVENT789" in data
+    assert isinstance(data["EVENT789"], list)
+    assert len(data["EVENT789"]) == 1
+    assert isinstance(data["EVENT789"][0], str)
