@@ -510,27 +510,23 @@ def instructor_submissions():
             return Response("You are not logged in.", status=401)
         email = email.lower()
 
-    try:
-        result = {}
-        for sub in sheets.get_instructor_submissions_raw(0):
-            if "Email Address" not in sub:
-                continue
-            sub_email = sub["Email Address"].strip().lower()
-            if sub_email != email:
-                continue
-            if (
-                "Neon Event ID (please ignore)" not in sub
-                or not sub["Neon Event ID (please ignore)"]
-            ):
-                continue
-            event_id = sub["Neon Event ID (please ignore)"].strip()
-            if event_id not in result:
-                result[event_id] = []
-            result[event_id].append(sub.get("Timestamp"))
-        return result
-    except Exception as e:
-        log.error(f"Failed to fetch instructor submissions: {e}")
-        return Response(f"Failed to fetch submissions: {e}", status=500)
+    result = {}
+    for sub in sheets.get_instructor_submissions_raw(0):
+        if "Email Address" not in sub:
+            continue
+        sub_email = sub["Email Address"].strip().lower()
+        if sub_email != email:
+            continue
+        if (
+            "Neon Event ID (please ignore)" not in sub
+            or not sub["Neon Event ID (please ignore)"]
+        ):
+            continue
+        event_id = sub["Neon Event ID (please ignore)"].strip()
+        if event_id not in result:
+            result[event_id] = []
+        result[event_id].append(sub.get("Timestamp"))
+    return result
 
 
 @page.route("/instructor/clearance_quiz", methods=["POST"])
