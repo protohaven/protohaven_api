@@ -1,6 +1,6 @@
 <script type="typescript">
 
-  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody, CardFooter, Spinner } from '@sveltestrap/sveltestrap';
+  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody, CardFooter, Spinner, Badge, Tooltip } from '@sveltestrap/sveltestrap';
   import { post } from '$lib/api.ts';
   import FetchError from '$lib/fetch_error.svelte';
 
@@ -10,6 +10,7 @@
   export let radioGroup;
   export let announcements;
   export let violations;
+  export let reservations = [];
   export let email;
 
   let count = 15;
@@ -36,6 +37,21 @@
     });
     return a.promise;
   }
+
+  // Group reservations by owner and area
+  $: groupedReservations = (() => {
+    const grouped = {};
+    for (const r of reservations) {
+      if (!grouped[r.name]) {
+        grouped[r.name] = {};
+      }
+      if (!grouped[r.name][r.area]) {
+        grouped[r.name][r.area] = [];
+      }
+      grouped[r.name][r.area].push(r);
+    }
+    return grouped;
+  })();
 
   let interval = setInterval(updateTimer, 1000);
   $: if (count === 0) {clearInterval(interval); on_close(radioGroup);}
@@ -115,6 +131,49 @@
       {/if}
     </Card>
     {/each}
+  {/if}
+
+  {#if !guest && reservations.length > 0}
+    <Card class="m-2">
+      <CardHeader>
+        <CardTitle>Today's Reservations</CardTitle>
+      </CardHeader>
+      <CardBody>
+        {#each Object.entries(groupedReservations) as [owner, areas]}
+          <div class="mb-3">
+            <div class="mb-1">
+              {#if reservations.find(r => r.name === owner && r.is_member)}
+                <strong>{owner} (You)</strong>
+              {:else}
+                <strong>{owner}</strong>
+              {/if}
+            </div>
+            <div class="ms-3 mt-1">
+              {#each Object.entries(areas) as [area, areaReservations]}
+                <div class="mb-2">
+                  <em>{area}</em>
+                  <div class="ms-3">
+                    {#each areaReservations as r}
+                      <Badge 
+                        color={r.is_member ? "success" : "primary"}
+                        pill 
+                        class="me-2 mb-1"
+                        id={`reservation-${owner}-${r.resource}-${r.start}`}
+                      >
+                        {r.resource}
+                      </Badge>
+                      <Tooltip target={`reservation-${owner}-${r.resource}-${r.start}`}>
+                        {r.resource}: {r.start} - {r.end}
+                      </Tooltip>
+                    {/each}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      </CardBody>
+    </Card>
   {/if}
 
   <Row class="justify-content-center my-3 text-center">

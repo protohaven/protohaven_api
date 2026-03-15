@@ -504,6 +504,7 @@ def test_as_member_notfound(mocker):
         "violations": [],
         "waiver_signed": False,
         "neon_id": "",
+        "reservations": [],
     }
     m.assert_not_called()
 
@@ -819,39 +820,48 @@ def test_as_member_company_id(mocker):
     """Test that form submission triggers and a discord notification is sent if there's duplicate accounts"""
     mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
-    mocker.patch.object(
-        s.neon,
-        "cache",
-        {
-            "a@b.com": {
-                12346: mocker.MagicMock(
-                    neon_id=12346,
-                    company_id=12346,  # Matches account ID, so ignored
-                    account_current_membership_status="Active",
-                    roles=[],
-                    clearances=[],
-                    account_automation_ran="",
-                    waiver_accepted=(None, None),
-                    member_agreement_accepted=(None, None),
-                    announcements_acknowledged=None,
-                ),
-                12345: mocker.MagicMock(
-                    neon_id=12345,
-                    company_id=12346,
-                    account_current_membership_status="Active",
-                    roles=[{"name": "Shop Tech"}],
-                    fname="First",
-                    clearances=[],
-                    account_automation_ran="",
-                    waiver_accepted=(None, None),
-                    member_agreement_accepted=(None, None),
-                    announcements_acknowledged=None,
-                ),
-            }
-        },
+
+    # Create a proper mock for neon.cache
+    mock_neon_cache = mocker.MagicMock()
+    mock_neon_cache.get = mocker.MagicMock(
+        return_value={
+            12346: mocker.MagicMock(
+                neon_id=12346,
+                company_id=12346,  # Matches account ID, so ignored
+                account_current_membership_status="Active",
+                roles=[],
+                clearances=[],
+                account_automation_ran="",
+                waiver_accepted=(None, None),
+                member_agreement_accepted=(None, None),
+                announcements_acknowledged=None,
+            ),
+            12345: mocker.MagicMock(
+                neon_id=12345,
+                company_id=12346,
+                account_current_membership_status="Active",
+                roles=[{"name": "Shop Tech"}],
+                fname="First",
+                clearances=[],
+                account_automation_ran="",
+                waiver_accepted=(None, None),
+                member_agreement_accepted=(None, None),
+                announcements_acknowledged=None,
+            ),
+        }
     )
+    mock_neon_cache.booked_users = mocker.MagicMock(return_value={})
+    mocker.patch.object(s.neon, "cache", mock_neon_cache)
+
     mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
     mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
+    mocker.patch.object(s.airtable, "get_tools", return_value=[])
+    # Mock booked.cache properly
+    mock_booked_cache = mocker.MagicMock()
+    mock_booked_cache.__getitem__ = mocker.MagicMock(
+        side_effect=lambda key: [] if key == "reservations" else None
+    )
+    mocker.patch.object(s.booked, "cache", mock_booked_cache)
     rep = s.as_member(
         {
             "person": "member",

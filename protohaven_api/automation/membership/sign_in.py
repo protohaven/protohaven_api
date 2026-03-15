@@ -7,7 +7,7 @@ import traceback
 
 from protohaven_api.automation.membership.membership import PLACEHOLDER_START_DATE
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
+from protohaven_api.integrations import airtable, booked, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
 log = logging.getLogger("automation.membership.sign_in")
@@ -52,6 +52,7 @@ def result_base():
         "member_agreement_accepted": False,
         "announcements": [],
         "firstname": "member",
+        "reservations": [],
     }
 
 
@@ -377,6 +378,61 @@ def as_member(data, send):  # pylint: disable=too-many-statements
         notify_async(
             f"Error fetching announcements (member #{data['email']}) - see log"
         )
+
+    try:
+        send("Checking reservations...", 65)
+        # Get all today's reservations
+        now = tznow()
+        all_reservations = []
+
+        # Get tool to area mapping
+        areas_by_tool = {}
+        for tool in airtable.get_tools():
+            fields = tool.get("fields", {})
+            resource_name = fields.get("Tool Name")
+            area = fields.get("Name (from Shop Area)", [None])[0]
+            if resource_name and area:
+                areas_by_tool[resource_name] = area
+
+        # Get member's Booked user ID to identify their reservations
+        member_booked_user_id = None
+        for user_id, user_info in neon.cache.booked_users().items():
+            if user_info.neon_id == m.neon_id:
+                member_booked_user_id = user_id
+                break
+
+        for r in booked.cache["reservations"]:
+            start = r["startDate"]
+            end = r["endDate"]
+            open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
+            close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
+            resource_name = r["resourceName"]
+            area = areas_by_tool.get(resource_name, "Unknown Area")
+
+            # Format times
+            start_str = "open" if start < open_time else start.strftime("%-I:%M %p")
+            end_str = "close" if end > close_time else end.strftime("%-I:%M %p")
+
+            # Check if this reservation belongs to the signing-in member
+            is_member_reservation = member_booked_user_id and str(r["userId"]) == str(
+                member_booked_user_id
+            )
+
+            all_reservations.append(
+                {
+                    "resource": resource_name,
+                    "area": area,
+                    "start": start_str,
+                    "end": end_str,
+                    "name": f"{r.get('firstName', '')} {r.get('lastName', '')}".strip(),
+                    "is_member": is_member_reservation,
+                }
+            )
+
+        result["reservations"] = all_reservations
+    except Exception:  # pylint: disable=broad-exception-caught
+        traceback.print_exc()
+        notify_async(f"Error fetching reservations (member #{data['email']}) - see log")
 
     try:
         send("Checking storage...", 70)
