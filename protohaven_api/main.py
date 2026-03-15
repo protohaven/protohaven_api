@@ -7,7 +7,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.automation.membership.sign_in import initialize as init_signin
 from protohaven_api.automation.roles.roles import setup_discord_user
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, mqtt, neon
+from protohaven_api.integrations import airtable, mqtt, neon, booked
 from protohaven_api.integrations.booked import ReservationCache
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
@@ -42,6 +42,7 @@ log.info("Initializing sign-in precaching")
 if get_config("general/precache_sign_in", as_bool=True):
     neon.cache.start()
     airtable.cache.start()
+    booked.cache.start(delay=60.0)
     init_signin()
 
 if get_config("discord_bot/enabled", as_bool=True):
@@ -70,9 +71,8 @@ def _on_reservations(cache):
         )
 
 
-rc = ReservationCache(_on_reservations)
 if get_config("booked/notify_mqtt", as_bool=True):
-    rc.start(delay=60.0)
+    booked.cache.cb = _on_reservations
 else:
     log.warning("Skipping periodic post of tool reservations to MQTT")
 

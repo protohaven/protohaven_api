@@ -344,7 +344,7 @@ class ReservationCache(WarmDict):
     REFRESH_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
     RETRY_PD_SEC = datetime.timedelta(minutes=5).total_seconds()
 
-    def __init__(self, update_cb):
+    def __init__(self, update_cb=None):
         self.cb = update_cb
         super().__init__()
 
@@ -353,7 +353,8 @@ class ReservationCache(WarmDict):
         end = start.replace(hour=23, minute=59, second=59)
         self["reservations"] = get_reservations(start, end)["reservations"]
         self.log.debug("Reservation cache updated")
-        self.cb(self)
+        if self.cb:
+            self.cb(self)
         # We can be less aggressive outside of normal business hours
         self.REFRESH_PD_SEC = datetime.timedelta(  # pylint: disable=invalid-name
             minutes=15 if 10 <= start.hour <= 22 else 60
@@ -377,3 +378,6 @@ class ReservationCache(WarmDict):
                     }
                 )
         return result
+
+
+cache = ReservationCache()
