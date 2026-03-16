@@ -397,3 +397,205 @@ class Commands:
             )
         else:
             print_yaml([])
+
+    @command(
+        arg(
+            "--apply",
+            help="If false, don't perform changes",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+        ),
+        arg(
+            "--days",
+            help="Number of days in the future to check for orphaned reservations",
+            type=int,
+            default=90,
+        ),
+    )
+    def cleanup_orphaned_class_reservations(self, args, pct):
+        """Compare automation-created reservations with published classes and remove
+        reservations that no longer have a matching, published class.
+
+        This command:
+        1. Fetches automation-created reservations (made by system@protohaven.org)
+        2. Fetches published classes from Neon
+        3. Matches reservations to classes by time and area
+        4. Removes reservations without matching published classes
+        """
+        import datetime
+
+        from protohaven_api.automation.classes import events as eauto
+        from protohaven_api.config import tznow
+        from protohaven_api.integrations.comms import Msg
+
+        if not args.apply:
+            log.warning("==== --apply NOT SET, NO CHANGES WILL BE MADE ====")
+
+        pct.set_stages(4)
+
+        # Step 1: Fetch published classes from Neon with Airtable data
+        now = tznow()
+        end_date = now + datetime.timedelta(days=args.days)
+
+        log.info(f"Fetching published classes from {now} to {end_date}")
+        published_events = []
+
+        # Use fetch_upcoming_events which merges Neon and Airtable data
+        try:
+            for event in eauto.fetch_upcoming_events(
+                back_days=0,  # Only future events
+                published=True,  # Only published events
+                merge_airtable=True,  # Merge with Airtable schedule data
+                attendees=False,
+                tickets=False,
+            ):
+                # Check if event ends within our time window
+                if event.end_date and event.end_date <= end_date:
+                    published_events.append(event)
+        except Exception as e:
+            log.warning(
+                f"Error fetching events: {e}. Continuing with empty event list."
+            )
+
+        log.info(f"Found {len(published_events)} published events with Airtable data")
+        pct[0] = 1
+
+        # Step 2: Fetch automation-created reservations
+        # Use the new helper function that gets all automation reservations
+        interval = (now, end_date)
+        automation_reservations = list(booked.get_automation_reservations(interval))
+
+        log.info(
+            f"Found {len(automation_reservations)} automation-created reservations"
+        )
+        pct[1] = 1
+
+        # Step 3: Build map of class sessions by area and time
+        class_time_map = {}
+        for event in published_events:
+            # Use the areas and sessions properties
+            areas = event.areas
+            sessions = event.sessions
+
+            for area in areas:
+                for session_start, session_end in sessions:
+                    # Create time window key
+                    key = (area, session_start, session_end)
+                    class_time_map[key] = {
+                        "neon_id": event.neon_id,
+                        "name": event.name,
+                    }
+
+        log.info(f"Built time map with {len(class_time_map)} class sessions")
+        pct[2] = 1
+
+        # Step 4: Identify orphaned reservations
+        orphaned_reservations = []
+        summary = []
+
+        # Get resource to area mapping
+        res_to_area = booked.get_resource_area_map()
+
+        # Check each automation reservation
+        for reservation in automation_reservations:
+            # Get reservation area
+            reservation_area = None
+            for area, resources in res_to_area.items():
+                if reservation["resourceId"] in resources:
+                    reservation_area = area
+                    break
+
+            if not reservation_area:
+                log.warning(
+                    f"Could not find area for reservation {reservation['referenceNumber']} with resource {reservation['resourceId']}"
+                )
+                continue
+
+            # Check if there's a class at this time and area
+            # Note: reservation times might be datetime strings or datetime objects
+            reservation_start = reservation["startDate"]
+            reservation_end = reservation["endDate"]
+
+            # Convert to datetime if needed
+            if isinstance(reservation_start, str):
+                reservation_start = datetime.datetime.fromisoformat(
+                    reservation_start.replace("Z", "+00:00")
+                )
+            if isinstance(reservation_end, str):
+                reservation_end = datetime.datetime.fromisoformat(
+                    reservation_end.replace("Z", "+00:00")
+                )
+
+            # Look for matching class session
+            found_match = False
+            for (area, class_start, class_end), class_info in class_time_map.items():
+                if area == reservation_area:
+                    # Check if reservation time overlaps with class time
+                    # Using a tolerance of 5 minutes for time matching
+                    time_tolerance = datetime.timedelta(minutes=5)
+                    if (
+                        abs((reservation_start - class_start).total_seconds())
+                        <= time_tolerance.total_seconds()
+                        and abs((reservation_end - class_end).total_seconds())
+                        <= time_tolerance.total_seconds()
+                    ):
+                        found_match = True
+                        break
+
+            if not found_match:
+                # This reservation doesn't have a matching published class
+                orphaned_reservations.append(
+                    {
+                        "reference_number": reservation["referenceNumber"],
+                        "resource_id": reservation["resourceId"],
+                        "resource_name": reservation["resourceName"],
+                        "area": reservation_area,
+                        "start": reservation_start,
+                        "end": reservation_end,
+                        "title": reservation.get("title", ""),
+                    }
+                )
+
+                summary.append(
+                    f"Remove reservation #{reservation['referenceNumber']} for "
+                    f"{reservation['resourceName']} in {reservation_area} "
+                    f"({reservation_start} to {reservation_end}): "
+                    f"{reservation.get('title', 'No title')}"
+                )
+                log.info(summary[-1])
+
+        pct[3] = 1
+
+        # Step 5: Remove orphaned reservations if apply is set
+        if args.apply and orphaned_reservations:
+            log.info(f"Removing {len(orphaned_reservations)} orphaned reservations")
+            for orphan in orphaned_reservations:
+                try:
+                    result = booked.delete_reservation(orphan["reference_number"])
+                    log.info(
+                        f"Deleted reservation #{orphan['reference_number']}: {result}"
+                    )
+                except Exception as e:
+                    log.error(
+                        f"Failed to delete reservation #{orphan['reference_number']}: {e}"
+                    )
+                    summary.append(
+                        f"Failed to delete reservation #{orphan['reference_number']}: {e}"
+                    )
+
+        # Output summary
+        if len(summary) > 0:
+            print_yaml(
+                [
+                    Msg.tmpl(
+                        "orphaned_reservations_cleanup",
+                        target="#tool-automation",
+                        changes=summary,
+                        n=len(orphaned_reservations),
+                        apply=args.apply,
+                    )
+                ]
+            )
+        else:
+            log.info("No orphaned reservations found")
+            print_yaml([])

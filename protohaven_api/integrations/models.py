@@ -930,6 +930,66 @@ class Event:  # pylint: disable=too-many-public-methods
         return None
 
     @property
+    def areas(self) -> list[str]:
+        """Returns the list of areas for this event from Airtable data"""
+        if self.airtable_data:
+            return self.airtable_data.get("fields", {}).get("Areas", [])
+        return []
+
+    @property
+    def sessions(self) -> list[tuple[datetime.datetime, datetime.datetime]]:
+        """Returns the list of sessions for this event from Airtable data"""
+        import datetime
+
+        if not self.airtable_data:
+            return []
+
+        fields = self.airtable_data.get("fields", {})
+        sessions_str = fields.get("Sessions")
+        if not sessions_str:
+            return []
+
+        # Parse session start times
+        session_starts = []
+        for session_time in sessions_str.split(","):
+            try:
+                session_dt = datetime.datetime.fromisoformat(session_time.strip())
+                session_starts.append(session_dt)
+            except (ValueError, AttributeError):
+                continue
+
+        if not session_starts:
+            return []
+
+        # Get hours from Airtable data
+        hours_str = fields.get("Hours (from Class)")
+        days_str = fields.get("Days (from Class)")
+
+        # Use the same logic as Class.resolve_hours
+        hours = []
+        try:
+            if not days_str:
+                hours = [float(s) for s in str(hours_str).split(",") or []]
+            else:
+                hours = [float(hours_str)] * int(days_str)
+        except (ValueError, TypeError):
+            # If we can't parse hours, default to 3 hours per session
+            hours = [3.0] * len(session_starts)
+
+        # Ensure we have enough hours for all sessions
+        if len(hours) < len(session_starts):
+            hours += [hours[0]] * (len(session_starts) - len(hours))
+
+        # Create sessions with actual durations
+        sessions = []
+        for i, session_start in enumerate(session_starts):
+            if i < len(hours):
+                session_end = session_start + datetime.timedelta(hours=hours[i])
+                sessions.append((session_start, session_end))
+
+        return sessions
+
+    @property
     def url(self):
         """Fetches the canonical URL for this event"""
         evt_id = self.neon_id

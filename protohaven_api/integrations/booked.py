@@ -171,6 +171,21 @@ def get_reservations_for_areas(
         yield res
 
 
+def get_automation_reservations(interval: Interval, user_id=None) -> Iterable[dict]:
+    """Fetches all reservations made by the automation user within a time interval.
+
+    This is similar to get_reservations_for_areas but doesn't filter by area.
+    Useful for finding all automation-created reservations regardless of area.
+    """
+    user_id = user_id or str(get_config("booked/automation_user_id"))
+    assert user_id
+
+    for res in get_reservations(*interval):
+        if str(res["userid"]) != user_id:
+            continue
+        yield res
+
+
 def reserve_resource(
     resource_id,
     start_time,
