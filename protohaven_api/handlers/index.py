@@ -12,8 +12,7 @@ from flask_sock import Sock
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, mqtt, neon
-from protohaven_api.integrations.booked import cache
+from protohaven_api.integrations import airtable, booked, mqtt, neon
 from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
@@ -255,7 +254,7 @@ def get_event_reservations():
     reservations = []
     now = tznow()
 
-    for r in cache["reservations"]:
+    for r in booked.cache["reservations"]:
         start = r["startDate"]
         end = r["endDate"]
         open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)

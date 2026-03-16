@@ -286,7 +286,7 @@ def test_get_event_reservations(mocker, client):
     mock_cache.__getitem__ = mocker.MagicMock(
         side_effect=lambda key: mock_reservations if key == "reservations" else None
     )
-    mocker.patch.object(index, "cache", mock_cache)
+    mocker.patch.object(index.booked, "cache", mock_cache)
 
     # Mock get_tools to return tool-area mappings
     mock_tools = [
