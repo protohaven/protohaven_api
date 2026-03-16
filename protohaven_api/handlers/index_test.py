@@ -261,21 +261,24 @@ def test_get_event_reservations(mocker, client):
             "endDate": d(0, 16),  # 4 PM
             "firstName": "John",
             "lastName": "Doe",
-            "resourceName": "Laser Cutter",
+            "resourceName": "Laser Lab - Laser Cutter",
+            "referenceNumber": "REF001",
         },
         {
             "startDate": d(0, 10),  # 10 AM (before open)
             "endDate": d(0, 12),  # Noon
             "firstName": "Jane",
             "lastName": "Smith",
-            "resourceName": "3D Printer",
+            "resourceName": "3D Printing - 3D Printer",
+            "referenceNumber": "REF002",
         },
         {
             "startDate": d(0, 15),  # 3 PM
             "endDate": d(0, 22),  # 10 PM (after close)
             "firstName": "John",
             "lastName": "Doe",
-            "resourceName": "CNC Router",
+            "resourceName": "Wood Shop - CNC Router",
+            "referenceNumber": "REF003",
         },
     ]
     # Create a mock cache object
@@ -344,7 +347,8 @@ def test_get_event_reservations(mocker, client):
                 "endDate": d(0, 14),
                 "firstName": "Bob",
                 "lastName": "Jones",
-                "resourceName": "Unknown Tool",
+                "resourceName": "Unknown Area - Unknown Tool",
+                "referenceNumber": "REF004",
             }
         )
 
