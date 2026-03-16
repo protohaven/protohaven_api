@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """handlers for main landing page"""
 
 import datetime
@@ -11,8 +12,7 @@ from flask_sock import Sock
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, mqtt, neon
-from protohaven_api.integrations.booked import get_reservations
+from protohaven_api.integrations import airtable, booked, mqtt, neon
 from protohaven_api.integrations.models import Member
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
@@ -253,20 +253,23 @@ def get_event_reservations():
     """Show reservations."""
     reservations = []
     now = tznow()
-    for r in get_reservations(
-        now.replace(hour=0, minute=0, second=0),
-        now.replace(hour=23, minute=59, second=59),
-    )["reservations"]:
+
+    for r in booked.cache["reservations"]:
         start = r["startDate"]
         end = r["endDate"]
         open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
         close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
+        tool_area, tool_name = [t.strip() for t in r["resourceName"].split("-", 1)]
+
         reservations.append(
             {
+                "ts": start.isoformat(),
                 "start": start.strftime("%-I:%M %p") if start > open_time else "open",
-                "end": end.strftime("%-I:%M %p") if start < close_time else "close",
+                "end": end.strftime("%-I:%M %p") if end < close_time else "close",
                 "name": f"{r['firstName']} {r['lastName']}",
-                "resource": r["resourceName"],
+                "resource": tool_name,
+                "id": r["referenceNumber"],
+                "area": tool_area,
             }
         )
     return reservations

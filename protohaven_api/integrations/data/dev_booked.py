@@ -1,6 +1,7 @@
 """A mock version of Booked"""
 
 import logging
+from datetime import timedelta
 
 from flask import Flask, request
 
@@ -22,12 +23,20 @@ def get_reservations():
 
     start = safe_parse_datetime(request.values.get("startDateTime"))
     end = safe_parse_datetime(request.values.get("endDateTime"))
+    res = []
+
+    for row in airtable_base.get_all_records("fake_booked", "reservations"):
+        d = safe_parse_datetime(row["fields"]["start"])
+        if start <= d <= end:
+            d1 = d.isoformat()
+            d2 = (d + timedelta(hours=1)).isoformat()
+            row["fields"]["data"]["startDate"] = d1
+            row["fields"]["data"]["endDate"] = d2
+            row["fields"]["data"]["bufferedStartDate"] = d1
+            row["fields"]["data"]["bufferedEndDate"] = d2
+            res.append(row["fields"]["data"])
     return {
-        "reservations": [
-            row["fields"]["data"]
-            for row in airtable_base.get_all_records("fake_booked", "reservations")
-            if start <= safe_parse_datetime(row["fields"]["start"]) <= end
-        ],
+        "reservations": res,
         "startDateTime": start,
         "endDateTime": end,
         "links": [],

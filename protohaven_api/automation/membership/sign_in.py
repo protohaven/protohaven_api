@@ -7,7 +7,7 @@ import traceback
 
 from protohaven_api.automation.membership.membership import PLACEHOLDER_START_DATE
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, comms, forms, neon, neon_base
+from protohaven_api.integrations import airtable, booked, comms, forms, neon, neon_base
 from protohaven_api.integrations.data.models import SignInEvent
 
 log = logging.getLogger("automation.membership.sign_in")
@@ -52,6 +52,7 @@ def result_base():
         "member_agreement_accepted": False,
         "announcements": [],
         "firstname": "member",
+        "reservations": [],
     }
 
 
@@ -330,7 +331,7 @@ def handle_announcements(last_ack, roles: list, clearances: list, is_active, tes
     return result
 
 
-def as_member(data, send):  # pylint: disable=too-many-statements
+def as_member(data, send):  # pylint: disable=too-many-statements,too-many-locals
     """Sign in as a member (per Neon CRM)"""
     result = result_base()
 
@@ -377,6 +378,43 @@ def as_member(data, send):  # pylint: disable=too-many-statements
         notify_async(
             f"Error fetching announcements (member #{data['email']}) - see log"
         )
+
+    try:
+        send("Checking reservations...", 65)
+        # Get all today's reservations
+        now = tznow()
+        all_reservations = []
+        booked_id = m.booked_id
+        for r in booked.cache.get_next_24h_reservations():
+            start = r["startDate"]
+            end = r["endDate"]
+            open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
+            close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
+            tool_area, tool_name = [t.strip() for t in r["resourceName"].split("-", 1)]
+
+            # Format times
+            start_str = "open" if start < open_time else start.strftime("%-I:%M %p")
+            end_str = "close" if end > close_time else end.strftime("%-I:%M %p")
+
+            # Check if this reservation belongs to the signing-in member
+            is_member_reservation = booked_id and str(r["userId"]) == str(booked_id)
+
+            all_reservations.append(
+                {
+                    "id": r["referenceNumber"],
+                    "resource": tool_name,
+                    "area": tool_area,
+                    "start": start_str,
+                    "end": end_str,
+                    "name": f"{r.get('firstName', '')} {r.get('lastName', '')}".strip(),
+                    "is_signed_in_member": is_member_reservation,
+                }
+            )
+
+        result["reservations"] = all_reservations
+    except Exception:  # pylint: disable=broad-exception-caught
+        traceback.print_exc()
+        notify_async(f"Error fetching reservations (member #{data['email']}) - see log")
 
     try:
         send("Checking storage...", 70)

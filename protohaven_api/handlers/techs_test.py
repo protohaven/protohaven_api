@@ -425,7 +425,7 @@ def test_techs_area_leads(mocker, tech_client):
     t3.name = "Tech3"
     mocker.patch.object(
         tl,
-        "_fetch_tool_areas",
+        "_tool_areas",
         return_value=mock_areas,
     )
     mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1, t2, t3])
@@ -452,7 +452,7 @@ def test_techs_area_leads_noauth(mocker, client):
     t1 = Member.from_neon_search({"First Name": "Tech", "Area Lead": "Area1"})
     mocker.patch.object(
         tl,
-        "_fetch_tool_areas",
+        "_tool_areas",
         return_value=["Area1"],
     )
     ms = mocker.patch.object(tl.neon, "search_members_with_role", return_value=[t1])

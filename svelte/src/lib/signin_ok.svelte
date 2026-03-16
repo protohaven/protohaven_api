@@ -1,6 +1,6 @@
 <script type="typescript">
 
-  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody, CardFooter, Spinner } from '@sveltestrap/sveltestrap';
+  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardSubtitle, CardBody, CardFooter, Spinner, Badge, Tooltip } from '@sveltestrap/sveltestrap';
   import { post } from '$lib/api.ts';
   import FetchError from '$lib/fetch_error.svelte';
 
@@ -10,6 +10,7 @@
   export let radioGroup;
   export let announcements;
   export let violations;
+  export let reservations = [];
   export let email;
 
   let count = 15;
@@ -36,6 +37,19 @@
     });
     return a.promise;
   }
+
+  // Group reservations by owner and area
+  $: groupedReservations = (() => {
+    const grouped = [{}, {}];
+    for (const r of reservations) {
+      const k = (r.is_signed_in_member) ? 0 : 1;
+      if (!grouped[k][r.area]) {
+        grouped[k][r.area] = [];
+      }
+      grouped[k][r.area].push(r);
+    }
+    return grouped;
+  })();
 
   let interval = setInterval(updateTimer, 1000);
   $: if (count === 0) {clearInterval(interval); on_close(radioGroup);}
@@ -115,6 +129,58 @@
       {/if}
     </Card>
     {/each}
+  {/if}
+
+  {#if !guest && reservations.length > 0}
+    <Card class="m-2">
+      <CardHeader>
+        <CardTitle>Today's Reservations:</CardTitle>
+        <CardSubtitle>Go to <strong>reserve.protohaven.org</strong>
+          to reserve equipment before you visit.
+        </CardSubtitle>
+      </CardHeader>
+      <CardBody>
+        {#each groupedReservations as areas, idx}
+          <div class="mb-3">
+            <div class="mb-1">
+              {#if idx === 0}
+                <strong>Your Reservations</strong>
+              {:else}
+                <strong>Other Reservations</strong>
+              {/if}
+            </div>
+            <div class="ms-3 mt-1">
+              {#if Object.values(areas).length === 0}
+                <em>None</em>
+              {/if}
+              {#each Object.entries(areas) as [area, areaReservations]}
+                <div class="mb-2">
+                  <em>{area}</em>
+                  <div class="ms-3">
+                    {#each areaReservations as r}
+                      <Badge
+                        color={r.is_signed_in_member ? "success" : "warning"}
+                        pill
+                        class="me-2 mb-1"
+                        style="cursor:pointer"
+                        id={r.id}
+                      >
+                        {r.resource} ({r.start})
+                      </Badge>
+                      <Tooltip target={r.id}>
+                        <div>{r.resource}</div>
+                        <div>{r.start} - {r.end}</div>
+                        <div>{r.name}</div>
+                      </Tooltip>
+                    {/each}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      </CardBody>
+    </Card>
   {/if}
 
   <Row class="justify-content-center my-3 text-center">

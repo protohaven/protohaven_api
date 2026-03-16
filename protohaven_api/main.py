@@ -7,8 +7,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.automation.membership.sign_in import initialize as init_signin
 from protohaven_api.automation.roles.roles import setup_discord_user
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, mqtt, neon
-from protohaven_api.integrations.booked import ReservationCache
+from protohaven_api.integrations import airtable, booked, mqtt, neon
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
@@ -42,6 +41,7 @@ log.info("Initializing sign-in precaching")
 if get_config("general/precache_sign_in", as_bool=True):
     neon.cache.start()
     airtable.cache.start()
+    booked.cache.start(delay=60.0 if server_mode == "prod" else 0)
     init_signin()
 
 if get_config("discord_bot/enabled", as_bool=True):
@@ -57,7 +57,7 @@ else:
 
 def _on_reservations(cache):
     rr = cache.get_today_reservations_by_tool()
-    log.info(f"Reservation cache by tool: {rr}")
+    log.debug(f"Reservation cache by tool: {rr}")
     for tool_code, data in rr.items():
         neon_id = neon.cache.neon_id_from_booked_id(int(data["user"]))
         log.info(f"Reservation: {tool_code} {neon_id} {data}")
@@ -70,9 +70,8 @@ def _on_reservations(cache):
         )
 
 
-rc = ReservationCache(_on_reservations)
 if get_config("booked/notify_mqtt", as_bool=True):
-    rc.start(delay=60.0)
+    booked.cache.cb = _on_reservations
 else:
     log.warning("Skipping periodic post of tool reservations to MQTT")
 

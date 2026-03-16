@@ -65,15 +65,6 @@ EXCLUDED_AREAS = [
 ]
 
 
-@lru_cache(maxsize=1)
-def _fetch_tool_areas():
-    return {
-        a["fields"]["Name"].strip()
-        for a in airtable.get_areas()
-        if a["fields"]["Name"] not in EXCLUDED_AREAS
-    }
-
-
 def _fetch_tool_states(now):
     tool_states = []
     now = now.astimezone(tz)
@@ -156,10 +147,19 @@ def techs_members():
     ]
 
 
+@lru_cache(maxsize=1)
+def _tool_areas():
+    return {
+        a["fields"]["Name"].strip()
+        for a in airtable.get_areas()
+        if a["fields"]["Name"] not in EXCLUDED_AREAS
+    }
+
+
 @page.route("/techs/area_leads")
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
-    areas = _fetch_tool_areas()
+    areas = _tool_areas()
     area_map = {a: [] for a in areas}
     extras_map = defaultdict(list)
 

@@ -246,3 +246,116 @@ def test_neon_lookup(mocker, client):
             "display": "John Doe (#123)",
         }
     ]
+
+
+def test_get_event_reservations(mocker, client):
+    """Test reservations endpoint returns grouped data with areas"""
+    # Mock the current time
+    mock_now = d(0, 12)  # Noon
+    mocker.patch.object(index, "tznow", return_value=mock_now)
+
+    # Mock cache["reservations"] to return some test data
+    mock_reservations = [
+        {
+            "startDate": d(0, 14),  # 2 PM
+            "endDate": d(0, 16),  # 4 PM
+            "firstName": "John",
+            "lastName": "Doe",
+            "resourceName": "Laser Lab - Laser Cutter",
+            "referenceNumber": "REF001",
+        },
+        {
+            "startDate": d(0, 10),  # 10 AM (before open)
+            "endDate": d(0, 12),  # Noon
+            "firstName": "Jane",
+            "lastName": "Smith",
+            "resourceName": "3D Printing - 3D Printer",
+            "referenceNumber": "REF002",
+        },
+        {
+            "startDate": d(0, 15),  # 3 PM
+            "endDate": d(0, 22),  # 10 PM (after close)
+            "firstName": "John",
+            "lastName": "Doe",
+            "resourceName": "Wood Shop - CNC Router",
+            "referenceNumber": "REF003",
+        },
+    ]
+    # Create a mock cache object
+    mock_cache = mocker.MagicMock()
+    mock_cache.__getitem__ = mocker.MagicMock(
+        side_effect=lambda key: mock_reservations if key == "reservations" else None
+    )
+    mocker.patch.object(index.booked, "cache", mock_cache)
+
+    # Mock get_tools to return tool-area mappings
+    mock_tools = [
+        {
+            "fields": {
+                "Tool Name": "Laser Cutter",
+                "Name (from Shop Area)": ["Laser Lab"],
+            }
+        },
+        {
+            "fields": {
+                "Tool Name": "3D Printer",
+                "Name (from Shop Area)": ["3D Printing"],
+            }
+        },
+        {
+            "fields": {
+                "Tool Name": "CNC Router",
+                "Name (from Shop Area)": ["Wood Shop"],
+            }
+        },
+    ]
+    mocker.patch.object(index.airtable, "get_tools", return_value=mock_tools)
+
+    response = client.get("/events/reservations")
+    assert response.status_code == 200
+
+    result = json.loads(response.data.decode("utf8"))
+
+    # Check that we have 3 reservations
+    assert len(result) == 3
+
+    # Check that each reservation has the expected structure
+    expected_resources = ["Laser Cutter", "3D Printer", "CNC Router"]
+    expected_areas = ["Laser Lab", "3D Printing", "Wood Shop"]
+    expected_names = ["John Doe", "Jane Smith", "John Doe"]
+
+    for i, reservation in enumerate(result):
+        assert reservation["resource"] == expected_resources[i]
+        assert reservation["area"] == expected_areas[i]
+        assert reservation["name"] == expected_names[i]
+
+        # Check time formatting
+        if i == 0:  # Laser Cutter at 2 PM
+            assert reservation["start"] == "2:00 PM"
+            assert reservation["end"] == "4:00 PM"
+        elif i == 1:  # 3D Printer at 10 AM (before open)
+            assert reservation["start"] == "open"
+            assert reservation["end"] == "12:00 PM"
+        elif i == 2:  # CNC Router at 3 PM, ends after close
+            assert reservation["start"] == "3:00 PM"
+            assert reservation["end"] == "close"
+
+        # Test with tool not found in airtable
+        mock_reservations.append(
+            {
+                "startDate": d(0, 13),
+                "endDate": d(0, 14),
+                "firstName": "Bob",
+                "lastName": "Jones",
+                "resourceName": "Unknown Area - Unknown Tool",
+                "referenceNumber": "REF004",
+            }
+        )
+
+    response = client.get("/events/reservations")
+    result = json.loads(response.data.decode("utf8"))
+
+    # Find the unknown tool reservation
+    unknown_res = next(r for r in result if r["resource"] == "Unknown Tool")
+    assert unknown_res["area"] == "Unknown Area"
+    assert unknown_res["name"] == "Bob Jones"
