@@ -939,8 +939,6 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def sessions(self) -> list[tuple[datetime.datetime, datetime.datetime]]:
         """Returns the list of sessions for this event from Airtable data"""
-        import datetime
-
         if not self.airtable_data:
             return []
 

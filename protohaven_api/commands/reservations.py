@@ -1,10 +1,13 @@
 """Commands related to reserving equipment and the Booked reservation system"""
 
 import argparse
+import datetime
 import logging
 from functools import lru_cache
 
+from protohaven_api.automation.classes import events as eauto
 from protohaven_api.commands.decorator import arg, command, print_yaml
+from protohaven_api.config import tznow
 from protohaven_api.integrations import airtable, booked, neon
 from protohaven_api.integrations.comms import Msg
 
@@ -412,7 +415,9 @@ class Commands:
             default=90,
         ),
     )
-    def cleanup_orphaned_class_reservations(self, args, pct):
+    def cleanup_orphaned_class_reservations(
+        self, args, pct
+    ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Compare automation-created reservations with published classes and remove
         reservations that no longer have a matching, published class.
 
@@ -422,11 +427,6 @@ class Commands:
         3. Matches reservations to classes by time and area
         4. Removes reservations without matching published classes
         """
-        import datetime
-
-        from protohaven_api.automation.classes import events as eauto
-        from protohaven_api.config import tznow
-        from protohaven_api.integrations.comms import Msg
 
         if not args.apply:
             log.warning("==== --apply NOT SET, NO CHANGES WILL BE MADE ====")
@@ -452,7 +452,7 @@ class Commands:
                 # Check if event ends within our time window
                 if event.end_date and event.end_date <= end_date:
                     published_events.append(event)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, ValueError) as e:
             log.warning(
                 f"Error fetching events: {e}. Continuing with empty event list."
             )
@@ -507,7 +507,9 @@ class Commands:
 
             if not reservation_area:
                 log.warning(
-                    f"Could not find area for reservation {reservation['referenceNumber']} with resource {reservation['resourceId']}"
+                    f"Could not find area for reservation "
+                    f"{reservation['referenceNumber']} with resource "
+                    f"{reservation['resourceId']}"
                 )
                 continue
 
@@ -528,7 +530,7 @@ class Commands:
 
             # Look for matching class session
             found_match = False
-            for (area, class_start, class_end), class_info in class_time_map.items():
+            for (area, class_start, class_end), _ in class_time_map.items():
                 if area == reservation_area:
                     # Check if reservation time overlaps with class time
                     # Using a tolerance of 5 minutes for time matching
@@ -575,7 +577,7 @@ class Commands:
                     log.info(
                         f"Deleted reservation #{orphan['reference_number']}: {result}"
                     )
-                except Exception as e:
+                except (ConnectionError, TimeoutError, RuntimeError) as e:
                     log.error(
                         f"Failed to delete reservation #{orphan['reference_number']}: {e}"
                     )
