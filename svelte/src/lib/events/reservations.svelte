@@ -30,6 +30,19 @@ import FetchError from '../fetch_error.svelte';
 
     return grouped;
   }
+
+  function uniqueStarts(reservations) {
+    const uniques = {};
+    for (let r of reservations) {
+      uniques[r.start] = r.ts;
+    }
+    const sorted = Array.from(Object.entries(uniques)).sort((a,b) => {
+      return b[1] < a[1] ?  1
+          :  b[1] > a[1] ? -1
+          :  0;
+    });
+    return sorted.map((a)=>a[0]).join(', ');
+  }
 </script>
 
 <Card>
@@ -40,34 +53,36 @@ import FetchError from '../fetch_error.svelte';
   {#await promise}
       <Spinner/>
   {:then p}
-    {#const grouped = groupReservations(p)}
     <ListGroup>
-      {#each Object.entries(grouped) as [owner, areas]}
+      {#each Object.entries(groupReservations(p)) as [owner, areas]}
         <ListGroupItem>
           <strong>{owner}</strong>
           <div style="margin-top: 0.5rem;">
             {#each Object.entries(areas) as [area, areaReservations]}
-              <Tooltip 
-                target={`tooltip-${owner}-${area}`}
+              <Tooltip
+                target={areaReservations[0].id}
                 placement="top"
                 style="max-width: 300px;"
               >
                 <div>
-                  <strong>{area} reservations:</strong>
                   <ul style="margin-bottom: 0; padding-left: 1rem;">
                     {#each areaReservations as r}
-                      <li>{r.resource} ({r.start} - {r.end})</li>
+                      <li>
+                          <div>{r.resource}</div>
+                          <div>({r.start} - {r.end})</div>
+
+                      </li>
                     {/each}
                   </ul>
                 </div>
               </Tooltip>
-              <Badge 
-                id={`tooltip-${owner}-${area}`}
-                color="primary" 
-                pill 
+              <Badge
+                id={areaReservations[0].id}
+                color="primary"
+                pill
                 style="margin-right: 0.5rem; margin-bottom: 0.5rem; cursor: pointer;"
               >
-                {area} ({areaReservations.length})
+                {area} ({areaReservations.length} resources, {uniqueStarts(areaReservations)})
               </Badge>
             {/each}
           </div>

@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """handlers for main landing page"""
 
 import datetime
@@ -254,30 +255,22 @@ def get_event_reservations():
     reservations = []
     now = tznow()
 
-    # Get all tools to map resource names to areas
-    areas_by_tool = {}
-    for tool in airtable.get_tools():
-        fields = tool.get("fields", {})
-        resource_name = fields.get("Tool Name")
-        area = fields.get("Name (from Shop Area)", [None])[0]
-        if resource_name and area:
-            areas_by_tool[resource_name] = area
-
     for r in cache["reservations"]:
         start = r["startDate"]
         end = r["endDate"]
         open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
         close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
-        resource_name = r["resourceName"]
-        area = areas_by_tool.get(resource_name, "Unknown Area")
+        tool_area, tool_name = [t.strip() for t in r["resourceName"].split("-", 1)]
 
         reservations.append(
             {
+                "ts": start.isoformat(),
                 "start": start.strftime("%-I:%M %p") if start > open_time else "open",
                 "end": end.strftime("%-I:%M %p") if end < close_time else "close",
                 "name": f"{r['firstName']} {r['lastName']}",
-                "resource": resource_name,
-                "area": area,
+                "resource": tool_name,
+                "id": r["referenceNumber"],
+                "area": tool_area,
             }
         )
     return reservations

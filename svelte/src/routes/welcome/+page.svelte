@@ -23,6 +23,7 @@
 
   let announcements = [];
   let violations = [];
+  let reservations = [];
 
   onMount(() => {
     console.log("Base WS:", base_ws());
@@ -83,6 +84,7 @@
     state = 'splash';
     announcements = [];
     violations = [];
+    reservations = [];
   }
 
   function on_signin_return(survey_response) {
@@ -113,6 +115,7 @@
     name = result.firstname;
     announcements = result.announcements;
     violations = result.violations;
+    reservations = result.reservations;
 
     if (person !== 'guest' && result.status !== 'Active') {
       // Expired membership takes priority in notification
@@ -150,7 +153,7 @@
     {:else if state == 'membership_expired' }
       <MembershipExpired name={name} on_close={restart_flow}/>
     {:else if state == 'signin_ok'}
-      <SigninOk {name} {email} guest={person == 'guest'} {announcements} {violations} on_close={on_signin_return}/>
+      <SigninOk {name} {email} guest={person == 'guest'} {announcements} {violations} {reservations} on_close={on_signin_return}/>
     {/if}
 	</Row>
 </main>

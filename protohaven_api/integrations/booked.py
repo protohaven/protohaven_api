@@ -4,7 +4,7 @@ import datetime
 import logging
 import secrets
 from collections import defaultdict
-from typing import Iterable
+from typing import Any, Iterable
 
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations.airtable import AreaID, Interval, ToolCode
@@ -351,14 +351,22 @@ class ReservationCache(WarmDict):
     def refresh(self):
         start = tznow()
         end = start.replace(hour=23, minute=59, second=59)
-        self["reservations"] = get_reservations(start, end)["reservations"]
-        self.log.debug("Reservation cache updated")
+        res = get_reservations(start, end)
+        self["reservations"] = res["reservations"]
+        self.log.info(
+            f"Reservation cache updated - {len(self['reservations'])} reservation(s)"
+        )
         if self.cb:
             self.cb(self)
         # We can be less aggressive outside of normal business hours
         self.REFRESH_PD_SEC = datetime.timedelta(  # pylint: disable=invalid-name
             minutes=15 if 10 <= start.hour <= 22 else 60
         ).total_seconds()
+
+    def get_next_24h_reservations(self) -> Iterable[Any]:
+        """Fetches the raw contents of the cache"""
+        log.info(f"Returning reservations: {self['reservations']}")
+        return self["reservations"]
 
     def get_today_reservations_by_tool(self):
         """Fetches today's reservations, keyed by tool code"""

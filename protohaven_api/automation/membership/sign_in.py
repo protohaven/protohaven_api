@@ -331,7 +331,7 @@ def handle_announcements(last_ack, roles: list, clearances: list, is_active, tes
     return result
 
 
-def as_member(data, send):  # pylint: disable=too-many-statements
+def as_member(data, send):  # pylint: disable=too-many-statements,too-many-locals
     """Sign in as a member (per Neon CRM)"""
     result = result_base()
 
@@ -384,48 +384,30 @@ def as_member(data, send):  # pylint: disable=too-many-statements
         # Get all today's reservations
         now = tznow()
         all_reservations = []
-
-        # Get tool to area mapping
-        areas_by_tool = {}
-        for tool in airtable.get_tools():
-            fields = tool.get("fields", {})
-            resource_name = fields.get("Tool Name")
-            area = fields.get("Name (from Shop Area)", [None])[0]
-            if resource_name and area:
-                areas_by_tool[resource_name] = area
-
-        # Get member's Booked user ID to identify their reservations
-        member_booked_user_id = None
-        for user_id, user_info in neon.cache.booked_users().items():
-            if user_info.neon_id == m.neon_id:
-                member_booked_user_id = user_id
-                break
-
-        for r in booked.cache["reservations"]:
+        booked_id = m.booked_id
+        for r in booked.cache.get_next_24h_reservations():
             start = r["startDate"]
             end = r["endDate"]
             open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
             close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
-            resource_name = r["resourceName"]
-            area = areas_by_tool.get(resource_name, "Unknown Area")
+            tool_area, tool_name = [t.strip() for t in r["resourceName"].split("-", 1)]
 
             # Format times
             start_str = "open" if start < open_time else start.strftime("%-I:%M %p")
             end_str = "close" if end > close_time else end.strftime("%-I:%M %p")
 
             # Check if this reservation belongs to the signing-in member
-            is_member_reservation = member_booked_user_id and str(r["userId"]) == str(
-                member_booked_user_id
-            )
+            is_member_reservation = booked_id and str(r["userId"]) == str(booked_id)
 
             all_reservations.append(
                 {
-                    "resource": resource_name,
-                    "area": area,
+                    "id": r["referenceNumber"],
+                    "resource": tool_name,
+                    "area": tool_area,
                     "start": start_str,
                     "end": end_str,
                     "name": f"{r.get('firstName', '')} {r.get('lastName', '')}".strip(),
-                    "is_member": is_member_reservation,
+                    "is_signed_in_member": is_member_reservation,
                 }
             )
 

@@ -1,6 +1,6 @@
 <script type="typescript">
 
-  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardBody, CardFooter, Spinner, Badge, Tooltip } from '@sveltestrap/sveltestrap';
+  import { Alert, Input, Image, Button, Row, Col, Card, CardHeader, CardTitle, CardSubtitle, CardBody, CardFooter, Spinner, Badge, Tooltip } from '@sveltestrap/sveltestrap';
   import { post } from '$lib/api.ts';
   import FetchError from '$lib/fetch_error.svelte';
 
@@ -40,15 +40,13 @@
 
   // Group reservations by owner and area
   $: groupedReservations = (() => {
-    const grouped = {};
+    const grouped = [{}, {}];
     for (const r of reservations) {
-      if (!grouped[r.name]) {
-        grouped[r.name] = {};
+      const k = (r.is_signed_in_member) ? 0 : 1;
+      if (!grouped[k][r.area]) {
+        grouped[k][r.area] = [];
       }
-      if (!grouped[r.name][r.area]) {
-        grouped[r.name][r.area] = [];
-      }
-      grouped[r.name][r.area].push(r);
+      grouped[k][r.area].push(r);
     }
     return grouped;
   })();
@@ -136,34 +134,43 @@
   {#if !guest && reservations.length > 0}
     <Card class="m-2">
       <CardHeader>
-        <CardTitle>Today's Reservations</CardTitle>
+        <CardTitle>Today's Reservations:</CardTitle>
+        <CardSubtitle>Go to <strong>reserve.protohaven.org</strong>
+          to reserve equipment before you visit.
+        </CardSubtitle>
       </CardHeader>
       <CardBody>
-        {#each Object.entries(groupedReservations) as [owner, areas]}
+        {#each groupedReservations as areas, idx}
           <div class="mb-3">
             <div class="mb-1">
-              {#if reservations.find(r => r.name === owner && r.is_member)}
-                <strong>{owner} (You)</strong>
+              {#if idx === 0}
+                <strong>Your Reservations</strong>
               {:else}
-                <strong>{owner}</strong>
+                <strong>Other Reservations</strong>
               {/if}
             </div>
             <div class="ms-3 mt-1">
+              {#if Object.values(areas).length === 0}
+                <em>None</em>
+              {/if}
               {#each Object.entries(areas) as [area, areaReservations]}
                 <div class="mb-2">
                   <em>{area}</em>
                   <div class="ms-3">
                     {#each areaReservations as r}
-                      <Badge 
-                        color={r.is_member ? "success" : "primary"}
-                        pill 
+                      <Badge
+                        color={r.is_signed_in_member ? "success" : "warning"}
+                        pill
                         class="me-2 mb-1"
-                        id={`reservation-${owner}-${r.resource}-${r.start}`}
+                        style="cursor:pointer"
+                        id={r.id}
                       >
-                        {r.resource}
+                        {r.resource} ({r.start})
                       </Badge>
-                      <Tooltip target={`reservation-${owner}-${r.resource}-${r.start}`}>
-                        {r.resource}: {r.start} - {r.end}
+                      <Tooltip target={r.id}>
+                        <div>{r.resource}</div>
+                        <div>{r.start} - {r.end}</div>
+                        <div>{r.name}</div>
                       </Tooltip>
                     {/each}
                   </div>
