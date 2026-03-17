@@ -25,6 +25,8 @@ export type SortType = 'clearances_desc' | 'clearances_asc' | 'name';
 export interface InstructorListData {
   instructors: Instructor[];
   education_lead: boolean;
+  capabilities?: InstructorCapability[];
+  classes?: ClassTemplate[];
 }
 
 export interface InstructorCapability {
@@ -57,15 +59,4 @@ export interface ClassTemplate {
   period: string;
   "name (from area)": string;
   "image link": string;
-}
-
-export interface AdminData {
-  capabilities: InstructorCapability[];
-  classes: ClassTemplate[];
-}
-
-export interface InstructorListWithCapabilities {
-  instructors: Instructor[];
-  education_lead: boolean;
-  capabilities?: InstructorCapability[];
 }

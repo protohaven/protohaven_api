@@ -429,6 +429,8 @@ def test_instructor_list(mocker, inst_client):
     )
     mocker.patch.object(instructor.neon, "search_members_with_role", return_value=[m])
     mocker.patch.object(instructor.airtable, "get_all_instructor_bios", return_value=[])
+    # Mock airtable_base.get_all_records for class templates
+    mocker.patch.object(instructor.airtable_base, "get_all_records", return_value=[])
 
     # Mock education lead role
     mocker.patch.object(instructor, "am_role", return_value=True)
@@ -444,6 +446,8 @@ def test_instructor_list(mocker, inst_client):
         "volunteer_picture": None,
     }
     assert response.json["education_lead"] == True
+    assert "capabilities" in response.json
+    assert "classes" in response.json
 
 
 def test_instructor_enroll(inst_client, mocker):

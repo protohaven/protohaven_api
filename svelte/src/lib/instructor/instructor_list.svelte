@@ -7,7 +7,7 @@ import {
   ListGroup, ListGroupItem, Accordion, AccordionItem, AccordionHeader, AccordionBody
 } from '@sveltestrap/sveltestrap';
 import { get, post } from '$lib/api.ts';
-import type { Instructor, DisplayInstructor, SearchResult, ToastMessage, SortType, InstructorListData, InstructorCapability, InstructorListWithCapabilities } from './types';
+import type { Instructor, DisplayInstructor, SearchResult, ToastMessage, SortType, InstructorListData, InstructorCapability } from './types';
 import FetchError from '../fetch_error.svelte';
 import InstructorCard from './instructor_card.svelte';
 
@@ -43,7 +43,7 @@ export let user: { email: string };
 
 // State
 let loaded = false;
-let promise: Promise<InstructorListWithCapabilities> = Promise.resolve({ instructors: [], education_lead: false });
+let promise: Promise<InstructorListData> = Promise.resolve({ instructors: [], education_lead: false });
 
 let new_instructor: { neon_id: string | null; name: string; email: string } = { neon_id: null, name: "", email: "" };
 let toast_msg: ToastMessage | null = null;
@@ -98,14 +98,11 @@ const debouncedSearch = debounce(() => {
 
 // Functions
 function refresh() {
-  // Fetch both instructor list and admin data (capabilities)
-  promise = Promise.all([
-    get("/instructor/list"),
-    get("/instructor/admin_data")
-  ])
-    .then(([instructorData, adminData]) => {
+  // Fetch instructor list with capabilities (single API call)
+  promise = get("/instructor/list")
+    .then((data: InstructorListData) => {
       loaded = true;
-      instructors = instructorData.instructors;
+      instructors = data.instructors;
       // Find current user in the list
       for (let inst of instructors) {
         if (inst.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
@@ -113,12 +110,8 @@ function refresh() {
           break;
         }
       }
-      capabilities = adminData.capabilities || [];
-      return {
-        instructors: instructorData.instructors,
-        education_lead: instructorData.education_lead,
-        capabilities: adminData.capabilities
-      };
+      capabilities = data.capabilities || [];
+      return data;
     })
     .catch((error) => {
       toast_msg = handleApiError(error, 'load instructors');

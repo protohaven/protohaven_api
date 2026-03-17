@@ -20,7 +20,7 @@ onMount(() => {
 function loadClassTemplates() {
   loading = true;
   error = null;
-  get("/instructor/admin_data")
+  get("/instructor/list")
     .then((data) => {
       class_templates = data.classes || [];
       loading = false;

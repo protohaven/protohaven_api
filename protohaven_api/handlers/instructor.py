@@ -311,65 +311,75 @@ def instructor_class_volunteer():
     return airtable.mark_schedule_volunteer(eid, v).as_response()
 
 
-@page.route("/instructor/admin_data", methods=["GET"])
-@require_login_role(Role.EDUCATION_LEAD, Role.BOARD_MEMBER, Role.STAFF)
-def admin_data():
-    """Fetches and returns admin info for Edu Leads and other privileged roles"""
-    result = defaultdict(list)
-    for inst in airtable_base.get_all_records("class_automation", "capabilities"):
-        fields = inst["fields"]
-        capability = {
-            "id": str(inst["id"]),
-            "name": fields.get("Instructor") or "unknown",
-            "email": fields.get("Email") or "unknown",
-            "neon_id": fields.get("Neon ID") or None,
-            "active": fields.get("Active") or False,
-            "w9": fields.get("W9 Form"),
-            "direct_deposit": fields.get("Direct Deposit Info"),
-            "bio": fields.get("Bio"),
-            "profile_pic": None,
-            "classes": [],
-            "clearances": fields.get("Clearances") or [],
-            "paperwork_complete": fields.get("Paperwork Complete") or False,
-            "discord_user": fields.get("Discord User"),
-            "notes": fields.get("Notes"),
-        }
+@page.route("/instructor/list")
+def instructor_list():
+    """Fetches instructor info with role-based field restrictions
 
-        # Handle profile picture
-        img = (fields.get("Profile Pic") or [{"url": None}])[0]
-        if img:
-            capability["profile_pic"] = (
-                img.get("url")
-                or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+    Returns:
+    - For all users: basic instructor info (enrolled instructors only)
+    - For education leads/staff/admin/board: full capabilities data
+    """
+    is_privileged = am_role(Role.EDUCATION_LEAD) or am_lead_role()
+
+    # Get enrolled instructors from Neon
+    fields = ["First Name"]
+    if is_privileged:
+        fields += [
+            "Email 1",
+            "Last Name",
+            "Preferred Name",
+            neon.CustomField.PRONOUNS,
+            neon.CustomField.CLEARANCES,
+        ]
+
+    instructors_results = []
+    for m in neon.search_members_with_role(
+        Role.INSTRUCTOR, fields, merge_bios=airtable.get_all_instructor_bios()
+    ):
+        t = {
+            k: getattr(m, k)
+            for k in (
+                "neon_id",
+                "name",
+                "email",
+                "clearances",
+                "volunteer_bio",
+                "volunteer_picture",
+            )
+        }
+        instructors_results.append(t)
+
+    result = {
+        "education_lead": is_privileged,
+        "instructors": instructors_results,
+    }
+
+    # Add capabilities and class templates for privileged users
+    if is_privileged:
+        result["capabilities"] = airtable.get_all_instructor_bios()
+
+        # Get class templates
+        result["classes"] = []
+        for tmpl in airtable_base.get_all_records("class_automation", "classes"):
+            fields = tmpl.get("fields") or {}
+            result["classes"].append(
+                {
+                    "name": fields.get("Name"),
+                    "approved": fields.get("Approved"),
+                    "schedulable": fields.get("Schedulable"),
+                    "clearances earned": fields.get("Clearances Earned"),
+                    "age requirement": fields.get("Age Requirement"),
+                    "capacity": fields.get("Capacity"),
+                    "supply_cost": fields.get("Supply Cost"),
+                    "price": fields.get("Price"),
+                    "hours": fields.get("Hours"),
+                    "period": fields.get("Period"),
+                    "name (from area)": fields.get("Name (from Area)"),
+                    "image link": fields.get("Image Link"),
+                }
             )
 
-        # Handle classes
-        if "Class" in fields.keys():
-            class_ids = _idref(inst, "Class")
-            capability["classes"] = {
-                str(c[0]): c[1] for c in zip(class_ids, fields["Name (from Class)"])
-            }
-
-        result["capabilities"].append(capability)
-    for tmpl in airtable_base.get_all_records("class_automation", "classes"):
-        fields = tmpl.get("fields") or {}
-        result["classes"].append(
-            {
-                "name": fields.get("Name"),
-                "approved": fields.get("Approved"),
-                "schedulable": fields.get("Schedulable"),
-                "clearances earned": fields.get("Clearances Earned"),
-                "age requirement": fields.get("Age Requirement"),
-                "capacity": fields.get("Capacity"),
-                "supply_cost": fields.get("Supply Cost"),
-                "price": fields.get("Price"),
-                "hours": fields.get("Hours"),
-                "period": fields.get("Period"),
-                "name (from area)": fields.get("Name (from Area)"),
-                "image link": fields.get("Image Link"),
-            }
-        )
-    return dict(result)
+    return result
 
 
 def _resolve_class_proposal_params():
@@ -576,43 +586,6 @@ def log_quiz_submission():
 
 
 @page.route("/instructor/list")
-def instructor_list():
-    """Fetches instructor info and lead status of observer"""
-    fields = [
-        "First Name",
-    ]
-    if am_role(Role.EDUCATION_LEAD) or am_lead_role():
-        fields += [
-            "Email 1",
-            "Last Name",
-            "Preferred Name",
-            neon.CustomField.PRONOUNS,
-            neon.CustomField.CLEARANCES,
-        ]
-
-    instructors_results = []
-    for m in neon.search_members_with_role(
-        Role.INSTRUCTOR, fields, merge_bios=airtable.get_all_instructor_bios()
-    ):
-        t = {
-            k: getattr(m, k)
-            for k in (
-                "neon_id",
-                "name",
-                "email",
-                "clearances",
-                "volunteer_bio",
-                "volunteer_picture",
-            )
-        }
-        instructors_results.append(t)
-
-    return {
-        "education_lead": am_role(Role.EDUCATION_LEAD) or am_lead_role(),
-        "instructors": instructors_results,
-    }
-
-
 @page.route("/instructor/enroll", methods=["POST"])
 @require_login_role(Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False)
 def instructor_enroll():

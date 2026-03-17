@@ -1036,4 +1036,40 @@ cache = AirtableCache()
 
 def get_all_instructor_bios():
     """Fetches and returns all instructor bios and photos from airtable/nocodb"""
-    return list(get_all_records("class_automation", "capabilities"))
+    bios = []
+    for inst in get_all_records("class_automation", "capabilities"):
+        fields = inst["fields"]
+        bio = {
+            "id": str(inst["id"]),
+            "name": fields.get("Instructor") or "unknown",
+            "email": fields.get("Email") or "unknown",
+            "neon_id": fields.get("Neon ID") or None,
+            "active": fields.get("Active") or False,
+            "w9": fields.get("W9 Form"),
+            "direct_deposit": fields.get("Direct Deposit Info"),
+            "bio": fields.get("Bio"),
+            "profile_pic": None,
+            "classes": [],
+            "clearances": fields.get("Clearances") or [],
+            "paperwork_complete": fields.get("Paperwork Complete") or False,
+            "discord_user": fields.get("Discord User"),
+            "notes": fields.get("Notes"),
+        }
+
+        # Handle profile picture
+        img = (fields.get("Profile Pic") or [{"url": None}])[0]
+        if img:
+            bio["profile_pic"] = (
+                img.get("url")
+                or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+            )
+
+        # Handle classes
+        if "Class" in fields.keys():
+            class_ids = _idref(inst, "Class")
+            bio["classes"] = {
+                str(c[0]): c[1] for c in zip(class_ids, fields["Name (from Class)"])
+            }
+
+        bios.append(bio)
+    return bios
