@@ -40,10 +40,10 @@ function handleApiError(error: any, context: string): ToastMessage {
 // Component props
 export let visible: boolean;
 export let user: { email: string };
+export let data: InstructorListData | null = null;
 
 // State
 let loaded = false;
-let promise: Promise<InstructorListData> = Promise.resolve({ instructors: [], education_lead: false });
 
 let new_instructor: { neon_id: string | null; name: string; email: string } = { neon_id: null, name: "", email: "" };
 let toast_msg: ToastMessage | null = null;
@@ -97,37 +97,25 @@ const debouncedSearch = debounce(() => {
 }, 300);
 
 // Functions
-function refresh() {
-  // Fetch instructor list with capabilities (single API call)
-  promise = get("/instructor/list")
-    .then((data: InstructorListData) => {
-      loaded = true;
-      instructors = data.instructors;
-      // Find current user in the list
-      for (let inst of instructors) {
-        if (inst.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
-          user_data = inst;
-          break;
-        }
+// Process data when it becomes available
+$: {
+  if (data && !loaded) {
+    loaded = true;
+    instructors = data.instructors;
+    // Find current user in the list
+    for (let inst of instructors) {
+      if (inst.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
+        user_data = inst;
+        break;
       }
-      capabilities = data.capabilities || [];
-      return data;
-    })
-    .catch((error) => {
-      toast_msg = handleApiError(error, 'load instructors');
-      throw error;
-    });
+    }
+    capabilities = data.capabilities || [];
+  }
 }
 
 function search_neon_accounts() {
   debouncedSearch();
 }
-
-// Reactive visibility
-$: {
-  if (visible && !loaded) {
-    refresh();
-  }
 }
 
 // Reactive search term

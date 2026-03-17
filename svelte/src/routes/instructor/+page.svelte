@@ -53,6 +53,8 @@ function on_tab(e) {
 
 let profile = null;
 let templates = null;
+let instructorListData = null; // Store instructor list data for admin tabs
+
 function fetch_instructor_profile(email) {
   const url = "/instructor/about?email=" + encodeURIComponent(email);
   console.log(`getting profile data for email ${email} -> ${url}`);
@@ -60,6 +62,12 @@ function fetch_instructor_profile(email) {
     console.log("Instructor profile:", result);
     console.log("Seeking templates for classes:", result.classes);
     templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
+    
+    // Fetch instructor list data if user is admin
+    if (admin) {
+      instructorListData = get("/instructor/list");
+    }
+    
     return result;
   }).catch((e) => {
       console.log(e);
@@ -128,12 +136,26 @@ let airtable_id = "";
 
     <!-- Roster Tab (Admin only) -->
     {#if admin && activeTab === 'roster'}
-      <InstructorList {user} visible={activeTab === 'roster'}/>
+      {#await instructorListData}
+        <Spinner/>
+        <strong>Loading instructor roster...</strong>
+      {:then data}
+        <InstructorList {user} {data} visible={activeTab === 'roster'}/>
+      {:catch error}
+        <FetchError {error}/>
+      {/await}
     {/if}
 
     <!-- Class Templates Tab (Admin only) -->
     {#if admin && activeTab === 'templates'}
-      <ClassTemplates visible={activeTab === 'templates'}/>
+      {#await instructorListData}
+        <Spinner/>
+        <strong>Loading class templates...</strong>
+      {:then data}
+        <ClassTemplates {data} visible={activeTab === 'templates'}/>
+      {:catch error}
+        <FetchError {error}/>
+      {/await}
     {/if}
 
     {:catch error}

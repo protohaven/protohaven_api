@@ -1,38 +1,21 @@
 <script type="typescript">
 import { Spinner, Table, Card, CardHeader, CardTitle, CardBody, Accordion, AccordionItem } from '@sveltestrap/sveltestrap';
 import FetchError from '$lib/fetch_error.svelte';
-import { onMount } from 'svelte';
-import { get } from '$lib/api.ts';
 import type { ClassTemplate } from './types';
 
 export let visible: boolean;
+export let data: { classes?: ClassTemplate[] } | null = null;
 
 let class_templates: ClassTemplate[] = [];
-let loading = true;
+let loading = false;
 let error: Error | null = null;
 
-onMount(() => {
-  if (visible) {
-    loadClassTemplates();
+// Process data when it becomes available
+$: {
+  if (data) {
+    class_templates = data.classes || [];
+    loading = false;
   }
-});
-
-function loadClassTemplates() {
-  loading = true;
-  error = null;
-  get("/instructor/list")
-    .then((data) => {
-      class_templates = data.classes || [];
-      loading = false;
-    })
-    .catch((err) => {
-      error = err;
-      loading = false;
-    });
-}
-
-$: if (visible && !loading && class_templates.length === 0) {
-  loadClassTemplates();
 }
 </script>
 
@@ -45,7 +28,7 @@ $: if (visible && !loading && class_templates.length === 0) {
       <p>This is a list of class <em>templates</em>, i.e. the metadata used to schedule classes.</p>
       <p>It does not reflect what classes are actually scheduled for registration - for this, see <a href="/events" target="_blank">/events</a>.</p>
 
-      {#if loading}
+      {#if !data}
         <Spinner/>
         <strong>Loading class templates...</strong>
       {:else if error}
