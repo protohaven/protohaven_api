@@ -1032,3 +1032,8 @@ class AirtableCache(WarmDict):
 
 
 cache = AirtableCache()
+
+
+def get_all_instructor_bios():
+    """Fetches and returns all instructor bios and photos from airtable/nocodb"""
+    return list(get_all_records("class_automation", "capabilities"))

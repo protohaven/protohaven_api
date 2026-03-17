@@ -547,3 +547,68 @@ def log_quiz_submission():
         data=req.get("data") or {},
     )
     return {"status": status, "content": content}
+
+
+@page.route("/instructor/list")
+def instructor_list():
+    """Fetches instructor info and lead status of observer"""
+    fields = [
+        "First Name",
+    ]
+    if am_role(Role.EDUCATION_LEAD) or am_lead_role():
+        fields += [
+            "Email 1",
+            "Last Name",
+            "Preferred Name",
+            neon.CustomField.PRONOUNS,
+            neon.CustomField.CLEARANCES,
+        ]
+
+    instructors_results = []
+    for m in neon.search_members_with_role(
+        Role.INSTRUCTOR, fields, merge_bios=airtable.get_all_instructor_bios()
+    ):
+        t = {
+            k: getattr(m, k)
+            for k in (
+                "neon_id",
+                "name",
+                "email",
+                "clearances",
+                "volunteer_bio",
+                "volunteer_picture",
+            )
+        }
+        instructors_results.append(t)
+
+    return {
+        "education_lead": am_role(Role.EDUCATION_LEAD) or am_lead_role(),
+        "instructors": instructors_results,
+    }
+
+
+@page.route("/instructor/enroll", methods=["POST"])
+@require_login_role(Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False)
+def instructor_enroll():
+    """Enroll a Neon account as an instructor, via email"""
+    data = request.json
+
+    # Check if we need to create a new account
+    if data.get("create_account", False):
+        name = data.get("name", "")
+        email = data.get("email", "")
+
+        if not name or not email:
+            return {
+                "error": "Name and email are required when creating a new account"
+            }, 400
+
+        try:
+            nid = neon.create_member(name, email)
+            return neon.patch_member_role(nid, Role.INSTRUCTOR, data["enroll"])
+        except (RuntimeError, KeyError, ValueError) as e:
+            log.error(f"Failed to create and enroll member {name} ({email}): {e}")
+            return {"error": f"Failed to create account: {str(e)}"}, 500
+
+    # Existing account enrollment/disenrollment
+    return neon.patch_member_role(data["neon_id"], Role.INSTRUCTOR, data["enroll"])
