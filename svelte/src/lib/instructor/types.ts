@@ -28,10 +28,20 @@ export interface InstructorListData {
 }
 
 export interface InstructorCapability {
+  id: string;
   name: string;
   email: string;
   neon_id: string | null;
   active: boolean;
+  w9?: string;
+  direct_deposit?: string;
+  bio?: string;
+  profile_pic?: string;
+  classes: Record<string, string>;
+  clearances: string[];
+  paperwork_complete: boolean;
+  discord_user?: string;
+  notes?: string;
 }
 
 export interface ClassTemplate {

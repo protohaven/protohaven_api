@@ -317,14 +317,40 @@ def admin_data():
     """Fetches and returns admin info for Edu Leads and other privileged roles"""
     result = defaultdict(list)
     for inst in airtable_base.get_all_records("class_automation", "capabilities"):
-        result["capabilities"].append(
-            {
-                "name": inst["fields"].get("Instructor") or "unknown",
-                "email": inst["fields"].get("Email") or "unknown",
-                "neon_id": inst["fields"].get("Neon ID") or None,
-                "active": inst["fields"].get("Active") or False,
+        fields = inst["fields"]
+        capability = {
+            "id": str(inst["id"]),
+            "name": fields.get("Instructor") or "unknown",
+            "email": fields.get("Email") or "unknown",
+            "neon_id": fields.get("Neon ID") or None,
+            "active": fields.get("Active") or False,
+            "w9": fields.get("W9 Form"),
+            "direct_deposit": fields.get("Direct Deposit Info"),
+            "bio": fields.get("Bio"),
+            "profile_pic": None,
+            "classes": [],
+            "clearances": fields.get("Clearances") or [],
+            "paperwork_complete": fields.get("Paperwork Complete") or False,
+            "discord_user": fields.get("Discord User"),
+            "notes": fields.get("Notes"),
+        }
+
+        # Handle profile picture
+        img = (fields.get("Profile Pic") or [{"url": None}])[0]
+        if img:
+            capability["profile_pic"] = (
+                img.get("url")
+                or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+            )
+
+        # Handle classes
+        if "Class" in fields.keys():
+            class_ids = _idref(inst, "Class")
+            capability["classes"] = {
+                str(c[0]): c[1] for c in zip(class_ids, fields["Name (from Class)"])
             }
-        )
+
+        result["capabilities"].append(capability)
     for tmpl in airtable_base.get_all_records("class_automation", "classes"):
         fields = tmpl.get("fields") or {}
         result["classes"].append(

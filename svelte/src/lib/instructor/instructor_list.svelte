@@ -4,7 +4,7 @@ import {
   Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card,
   CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody,
   Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader,
-  ListGroup, ListGroupItem
+  ListGroup, ListGroupItem, Accordion, AccordionItem, AccordionHeader, AccordionBody
 } from '@sveltestrap/sveltestrap';
 import { get, post } from '$lib/api.ts';
 import type { Instructor, DisplayInstructor, SearchResult, ToastMessage, SortType, InstructorListData, InstructorCapability, InstructorListWithCapabilities } from './types';
@@ -453,16 +453,106 @@ function clearance_click(id: string) {
           <CardBody>
             <p>Instructor data is fetched from Airtable - currently read-only pending further development.</p>
             <p>Contact the Software Dev team via Discord if you need to make a change to anything listed here.</p>
-            <ListGroup>
-            {#each capabilities as inst}
-              <ListGroupItem>
-                <p>Name: {inst.name}</p>
-                <p>Active: {inst.active}</p>
-                <p>Email: {inst.email}</p>
-                <a href={"/instructor?email=" + encodeURIComponent(inst.email)} target="_blank">View their instructor page</a>
-              </ListGroupItem>
-            {/each}
-            </ListGroup>
+            
+            <Table responsive striped hover>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Active</th>
+                  <th>Paperwork</th>
+                  <th>Discord</th>
+                  <th>Clearances</th>
+                  <th>Classes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+              {#each capabilities as inst}
+                <tr>
+                  <td>
+                    {#if inst.profile_pic}
+                      <img src={inst.profile_pic} alt={inst.name} style="width: 30px; height: 30px; border-radius: 50%; margin-right: 8px;" />
+                    {/if}
+                    {inst.name}
+                  </td>
+                  <td>{inst.email}</td>
+                  <td>
+                    {#if inst.active}
+                      <Badge color="success">Active</Badge>
+                    {:else}
+                      <Badge color="secondary">Inactive</Badge>
+                    {/if}
+                  </td>
+                  <td>
+                    {#if inst.paperwork_complete}
+                      <Badge color="success">Complete</Badge>
+                    {:else}
+                      <Badge color="warning">Incomplete</Badge>
+                    {/if}
+                  </td>
+                  <td>{inst.discord_user || '—'}</td>
+                  <td>
+                    {#if inst.clearances && inst.clearances.length > 0}
+                      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        {#each inst.clearances as clearance}
+                          <Badge color="info" pill>{clearance}</Badge>
+                        {/each}
+                      </div>
+                    {:else}
+                      —
+                    {/if}
+                  </td>
+                  <td>
+                    {#if Object.keys(inst.classes).length > 0}
+                      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        {#each Object.entries(inst.classes) as [id, name]}
+                          <Badge color="primary" pill>{name}</Badge>
+                        {/each}
+                      </div>
+                    {:else}
+                      —
+                    {/if}
+                  </td>
+                  <td>
+                    <a href={"/instructor?email=" + encodeURIComponent(inst.email)} target="_blank" class="btn btn-sm btn-outline-primary">
+                      View Page
+                    </a>
+                  </td>
+                </tr>
+              {/each}
+              </tbody>
+            </Table>
+            
+            <!-- Additional details in accordion -->
+            <Accordion class="mt-4">
+              <AccordionItem>
+                <AccordionHeader targetId="details-accordion">
+                  Additional Details
+                </AccordionHeader>
+                <AccordionBody accordionId="details-accordion">
+                  <Row>
+                    {#each capabilities as inst}
+                      <Col md="6" lg="4" class="mb-3">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>{inst.name}</CardTitle>
+                            <CardSubtitle>{inst.email}</CardSubtitle>
+                          </CardHeader>
+                          <CardBody>
+                            <p><strong>W9 Form:</strong> {inst.w9 || 'Not provided'}</p>
+                            <p><strong>Direct Deposit:</strong> {inst.direct_deposit || 'Not provided'}</p>
+                            <p><strong>Bio:</strong> {inst.bio || 'No bio provided'}</p>
+                            <p><strong>Notes:</strong> {inst.notes || 'No notes'}</p>
+                            <p><strong>Neon ID:</strong> {inst.neon_id || 'Not linked'}</p>
+                          </CardBody>
+                        </Card>
+                      </Col>
+                    {/each}
+                  </Row>
+                </AccordionBody>
+              </AccordionItem>
+            </Accordion>
           </CardBody>
         {/if}
       </Card>
