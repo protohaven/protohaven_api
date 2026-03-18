@@ -7,7 +7,7 @@ import type { Instructor } from './types';
 
 export let instructor: Instructor;
 export let isCurrentUser: boolean;
-export let isEducationLead: boolean;
+export let isAdmin: boolean;
 export let onDisenroll: (inst: Instructor) => void;
 export let modalOpen: boolean;
 export let onToggleModal: () => void;
@@ -59,7 +59,7 @@ function cancelEdit() {
     {/if}
   </CardBody>
 
-  {#if isEducationLead && !isCurrentUser}
+  {#if isAdmin && !isCurrentUser}
     <CardFooter class="d-flex justify-content-end">
       <Button color="danger" size="sm" on:click={() => onDisenroll(instructor)}>
         Disenroll

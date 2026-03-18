@@ -51,6 +51,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
     hours: list[int]
     capacity: int
     price: int
+    supply_cost: int
     period: datetime.timedelta
     approved: bool
     schedulable: bool
@@ -80,6 +81,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
             hours=cls.resolve_hours(f.get("Hours"), f.get("Days")),
             capacity=int(f.get("Capacity") or 0),
             price=int(f.get("Price") or 0),
+            supply_cost=int(f.get("Supply Cost") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
             areas=f.get("Name (from Area)") or [],
             schedulable=bool(f.get("Schedulable")),
@@ -1034,7 +1036,7 @@ class AirtableCache(WarmDict):
 cache = AirtableCache()
 
 
-def get_all_instructor_bios():
+def get_all_instructor_capabilities_formatted():
     """Fetches and returns all instructor bios and photos from airtable/nocodb"""
     bios = []
     for inst in get_all_records("class_automation", "capabilities"):

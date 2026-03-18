@@ -4,7 +4,7 @@ import '../../app.scss';
 import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
-import { Card, CardHeader, CardTitle, CardBody, Icon, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
+import { Card, CardHeader, CardTitle, CardBody, Icon, Container, Row, Col, Navbar, NavbarBrand, Button, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
 import ClassDetails from '$lib/instructor/class_details.svelte';
 import Profile from '$lib/instructor/profile.svelte';
 import Scheduler from '$lib/instructor/scheduler.svelte';
@@ -24,7 +24,7 @@ let admin = false;
 let user;
 let activeTab;
 onMount(() => {
-  activeTab = (window.location.hash || "#profile").substring(1).trim();
+  activeTab = (window.location.hash || "#classes").substring(1).trim();
   const urlParams = new URLSearchParams(window.location.search);
   let e = urlParams.get("email");
   console.log(`E is ${e}`);
@@ -40,6 +40,9 @@ onMount(() => {
       } else {
         promise = Promise.resolve({email: e});
         fetch_instructor_profile(e);
+      }
+      if (admin) {
+        fetch_instructor_list();
       }
       return d;
     });
@@ -70,6 +73,9 @@ function onboarded(p) {
 let profile = null;
 let templates = null;
 let instructorListData = null; // Store instructor list data for admin tabs
+function fetch_instructor_list() {
+      instructorListData = get("/instructor/list");
+}
 
 function fetch_instructor_profile(email) {
   const url = "/instructor/about?email=" + encodeURIComponent(email);
@@ -79,11 +85,6 @@ function fetch_instructor_profile(email) {
     if (result.classes) {
       console.log("Seeking templates for classes:", result.classes);
       templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
-    }
-
-    // Fetch instructor list data if user is admin
-    if (admin) {
-      instructorListData = get("/instructor/list");
     }
 
     return result;
@@ -151,11 +152,15 @@ let airtable_id = "";
 
     <!-- Profile Tab -->
     {#if activeTab === 'profile'}
-      <Profile {profile} on_scheduler={(fname, aid)=> {scheduler_open=true; fullname=fname; airtable_id=aid;}}/>
+      <Profile {profile}/>
     {/if}
 
     <!-- Classes Tab -->
     {#if activeTab === 'classes'}
+      <Button class="mx-2"
+        enabled={p.capabilities_listed !== 'missing'}
+        on:click={()=> {scheduler_open=true; fullname=p.fullname; airtable_id=p.airtable_id;}}>Open Scheduler</Button>
+
       <ClassDetails email={p.email} {scheduler_open}/>
     {/if}
 
@@ -165,7 +170,9 @@ let airtable_id = "";
         <Spinner/>
         <strong>Loading instructor roster...</strong>
       {:then data}
-        <InstructorList {user} {data} visible={activeTab === 'roster'}/>
+        <InstructorList {user} {data} {admin} visible={activeTab === 'roster'}
+              onEnrollmentChanged={fetch_instructor_list}
+            />
       {:catch error}
         <FetchError {error}/>
       {/await}

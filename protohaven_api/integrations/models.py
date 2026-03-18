@@ -507,15 +507,12 @@ class Member:  # pylint:disable=too-many-public-methods
         """With bio data, get member bio string"""
         if not self.airtable_bio_data:
             return None
-        return self.airtable_bio_data["fields"].get("Bio") or ""
+        return self.airtable_bio_data["fields"].get("bio") or ""
 
     @property
     def volunteer_picture(self):
         """With bio data, get member's profile picture"""
-        if (
-            not self.airtable_bio_data
-            or "Picture" not in self.airtable_bio_data["fields"]
-        ):
+        if not self.airtable_bio_data:
             return None
         thumbs = self.airtable_bio_data["fields"].get("Picture")[0]["thumbnails"][
             "large"

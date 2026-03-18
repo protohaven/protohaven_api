@@ -1,10 +1,11 @@
 <script type="typescript" lang="ts">
 import { onMount } from 'svelte';
 import {
+  Alert,
   Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card,
   CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody,
   Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader,
-  ListGroup, ListGroupItem, Accordion, AccordionItem,
+  ListGroup, ListGroupItem,
 } from '@sveltestrap/sveltestrap';
 import { get, post } from '$lib/api.ts';
 import type { Instructor, DisplayInstructor, SearchResult, ToastMessage, SortType, InstructorListData, InstructorCapability } from './types';
@@ -40,7 +41,9 @@ function handleApiError(error: any, context: string): ToastMessage {
 // Component props
 export let visible: boolean;
 export let user: { email: string };
+export let admin: boolean;
 export let data: InstructorListData | null = null;
+export let onEnrollmentChanged;
 
 // State
 let loaded = false;
@@ -54,23 +57,10 @@ let search_promise: Promise<SearchResult[]> = Promise.resolve([]);
 let show_create_account = false;
 let enrolling = false;
 
-let instructors: Instructor[] = [];
-let instructors_sorted: Instructor[] = [];
-let user_data: Instructor | null = null;
-let sort_type: SortType = "clearances_desc";
 let capabilities: InstructorCapability[] = [];
+let enrollment_map = {};
+let without_capabilities = new Set();
 let show_capabilities = false;
-
-// Reactive sort
-$: {
-  if (sort_type === "clearances_desc") {
-    instructors_sorted = [...instructors].sort((a, b) => b.clearances.length - a.clearances.length);
-  } else if (sort_type === "clearances_asc") {
-    instructors_sorted = [...instructors].sort((a, b) => a.clearances.length - b.clearances.length);
-  } else if (sort_type === "name") {
-    instructors_sorted = [...instructors].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-  }
-}
 
 // Debounced search function
 const debouncedSearch = debounce(() => {
@@ -101,15 +91,13 @@ const debouncedSearch = debounce(() => {
 $: {
   if (data && !loaded) {
     loaded = true;
-    instructors = data.instructors;
-    // Find current user in the list
-    for (let inst of instructors) {
-      if (inst.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
-        user_data = inst;
-        break;
-      }
-    }
     capabilities = data.capabilities || [];
+    enrollment_map = data.enrollment_map || {};
+    console.log(enrollment_map);
+
+    const cap_neon_ids = new Set(capabilities.map((c) => c.neon_id));
+    const enrolled_neon_ids = new Set(Object.keys(enrollment_map));
+    without_capabilities = Array.from(enrolled_neon_ids.difference(cap_neon_ids));
   }
 }
 
@@ -131,13 +119,7 @@ function on_search_term_edit(e) {
 }
 
 function is_enrolled(neon_id: string | null): boolean {
-  if (!neon_id) return false;
-  for (let inst of instructors || []) {
-    if (inst.neon_id == neon_id) {
-      return true;
-    }
-  }
-  return false;
+  return (neon_id && enrollment_map[neon_id]);
 }
 
 function set_enrollment(enroll: boolean) {
@@ -183,7 +165,7 @@ function set_enrollment(enroll: boolean) {
       new_instructor.neon_id = null;
 
       // Refresh the list
-      refresh();
+      onEnrollmentChanged();
     })
     .catch((error) => {
       toast_msg = handleApiError(error, 'change enrollment');
@@ -207,7 +189,7 @@ function disenroll_instructor(inst: Instructor) {
         title: 'Disenrollment successful'
       };
       // Refresh the list
-      refresh();
+      onEnrollmentChanged();
     })
     .catch((error) => {
       toast_msg = handleApiError(error, 'disenroll instructor');
@@ -217,14 +199,6 @@ function disenroll_instructor(inst: Instructor) {
     });
 }
 
-let modal_open: string | null = null;
-function clearance_click(id: string) {
-  if (modal_open !== id) {
-    modal_open = id;
-  } else {
-    modal_open = null;
-  }
-}
 </script>
 
 {#if visible}
@@ -234,37 +208,12 @@ function clearance_click(id: string) {
       <CardSubtitle>Current info on all instructors</CardSubtitle>
     </CardHeader>
     <CardBody>
-      {#await promise}
-        <Spinner aria-label="Loading instructor roster..."/>
-      {:then p}
-        {#if user_data}
-          <InstructorCard
-            instructor={user_data}
-            isCurrentUser={true}
-            isEducationLead={p.education_lead}
-            onDisenroll={disenroll_instructor}
-            modalOpen={modal_open === user_data.email}
-            onToggleModal={() => clearance_click(user_data.email)}
-          />
-          <hr>
-        {/if}
-
         <div class="d-flex">
           {#if enrolling}
             <Spinner size="sm" class="me-2" aria-label="Processing enrollment..."/>
           {/if}
-          <Dropdown>
-            <DropdownToggle color="light" caret aria-label="Sort options">
-              Sort
-            </DropdownToggle>
-            <DropdownMenu>
-              <DropdownItem on:click={() => sort_type = "clearances_asc"}>Least Clearances</DropdownItem>
-              <DropdownItem on:click={() => sort_type = "clearances_desc"}>Most Clearances</DropdownItem>
-              <DropdownItem on:click={() => sort_type = "name"}>By Name</DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
 
-          {#if p.education_lead}
+          {#if admin}
             {#if !show_create_account}
               <div class="mx-1 position-relative">
                 <div class="d-flex align-items-center">
@@ -398,138 +347,82 @@ function clearance_click(id: string) {
           <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
           <ToastBody>{toast_msg.msg}</ToastBody>
         </Toast>
-
-        {#each instructors_sorted as inst}
-          {#if inst.email !== user_data?.email}
-            <InstructorCard
-              instructor={inst}
-              isCurrentUser={false}
-              isEducationLead={p.education_lead}
-              onDisenroll={disenroll_instructor}
-              modalOpen={modal_open === inst.email}
-              onToggleModal={() => clearance_click(inst.email)}
-            />
-          {/if}
+        {#if without_capabilities.length > 0}
+        <Alert color="warning">The following people are enrolled as instructors in Neon CRM but they have no capabilities in airtable:
+        <ul>
+        {#each without_capabilities as nid }
+          <li>
+          <a href={"https://protohaven.app.neoncrm.com/admin/accounts/" + nid} target="_blank">{enrollment_map[nid]}</a>
+          </li>
         {/each}
-      {:catch error}
-        <FetchError {error}/>
-      {/await}
-    </CardBody>
-  </Card>
-{/if}
-
-    <!-- Capabilities Section -->
-    {#if capabilities.length > 0}
-      <Card class="mt-4">
-        <CardHeader>
-          <CardTitle>Instructor Capabilities (Legacy View)</CardTitle>
-          <CardSubtitle>
-            <Button color="link" size="sm" on:click={() => show_capabilities = !show_capabilities}>
-              {show_capabilities ? 'Hide' : 'Show'} capabilities list
-            </Button>
-          </CardSubtitle>
-        </CardHeader>
-        {#if show_capabilities}
-          <CardBody>
-            <p>Instructor data is fetched from Airtable - currently read-only pending further development.</p>
-            <p>Contact the Software Dev team via Discord if you need to make a change to anything listed here.</p>
-
-            <Table responsive striped hover>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Active</th>
-                  <th>Paperwork</th>
-                  <th>Discord</th>
-                  <th>Clearances</th>
-                  <th>Classes</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-              {#each capabilities as inst}
-                <tr>
-                  <td>
-                    {#if inst.profile_pic}
-                      <img src={inst.profile_pic} alt={inst.name} style="width: 30px; height: 30px; border-radius: 50%; margin-right: 8px;" />
-                    {/if}
-                    {inst.name}
-                  </td>
-                  <td>{inst.email}</td>
-                  <td>
-                    {#if inst.active}
-                      <Badge color="success">Active</Badge>
-                    {:else}
-                      <Badge color="secondary">Inactive</Badge>
-                    {/if}
-                  </td>
-                  <td>
-                    {#if inst.paperwork_complete}
-                      <Badge color="success">Complete</Badge>
-                    {:else}
-                      <Badge color="warning">Incomplete</Badge>
-                    {/if}
-                  </td>
-                  <td>{inst.discord_user || '—'}</td>
-                  <td>
-                    {#if inst.clearances && inst.clearances.length > 0}
-                      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                        {#each inst.clearances as clearance}
-                          <Badge color="info" pill>{clearance}</Badge>
-                        {/each}
-                      </div>
-                    {:else}
-                      —
-                    {/if}
-                  </td>
-                  <td>
-                    {#if Object.keys(inst.classes).length > 0}
-                      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                        {#each Object.entries(inst.classes) as [id, name]}
-                          <Badge color="primary" pill>{name}</Badge>
-                        {/each}
-                      </div>
-                    {:else}
-                      —
-                    {/if}
-                  </td>
-                  <td>
-                    <a href={"/instructor?email=" + encodeURIComponent(inst.email)} target="_blank" class="btn btn-sm btn-outline-primary">
-                      View Page
-                    </a>
-                  </td>
-                </tr>
-              {/each}
-              </tbody>
-            </Table>
-
-            <!-- Additional details in accordion -->
-            <Accordion class="mt-4">
-              <AccordionItem>
-                  Additional Details
-                  <Row>
-                    {#each capabilities as inst}
-                      <Col md="6" lg="4" class="mb-3">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>{inst.name}</CardTitle>
-                            <CardSubtitle>{inst.email}</CardSubtitle>
-                          </CardHeader>
-                          <CardBody>
-                            <p><strong>W9 Form:</strong> {inst.w9 || 'Not provided'}</p>
-                            <p><strong>Direct Deposit:</strong> {inst.direct_deposit || 'Not provided'}</p>
-                            <p><strong>Bio:</strong> {inst.bio || 'No bio provided'}</p>
-                            <p><strong>Notes:</strong> {inst.notes || 'No notes'}</p>
-                            <p><strong>Neon ID:</strong> {inst.neon_id || 'Not linked'}</p>
-                          </CardBody>
-                        </Card>
-                      </Col>
-                    {/each}
-                  </Row>
-              </AccordionItem>
-            </Accordion>
-          </CardBody>
+        </ul>
+        <p>To enable class scheduling and reminders, they must also be added to <a href="https://airtable.com/applultHGJxHNg69H/tbltv8tpiCqUnLTp4/viwqTK2puFGyz0RhI">Instructor Capabilities</a>. If this is a mistake, disenroll them using the search box above.</p>
+        </Alert>
         {/if}
+        <h3>Capabilities</h3>
+        <div class="my-3">
+          <p>Instructor data is fetched from <a href="https://airtable.com/applultHGJxHNg69H/tbltv8tpiCqUnLTp4/viwqTK2puFGyz0RhI" target="_blank">Airtable</a>.
+          Contact the Software Dev team via Discord if you need to make a change to anything listed here.</p>
+        </div>
+
+          <Table responsive striped hover>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Enrolled</th>
+                <th>Active</th>
+                <th>Paperwork</th>
+                <th>Classes</th>
+                <th>Actions</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+            {#each capabilities as inst}
+              <tr>
+                <td>
+                  {inst.name}
+                </td>
+                <td>{inst.email}</td>
+            <td>{is_enrolled(inst.neon_id) ? "Yes" : "No"}</td>
+                <td>
+                  {#if inst.active}
+                    <Badge color="success">Active</Badge>
+                  {:else}
+                    <Badge color="secondary">Inactive</Badge>
+                  {/if}
+                </td>
+                <td>
+                  {#if inst.paperwork_complete}
+                    <Badge color="success">Complete</Badge>
+                  {:else}
+                    <Badge color="warning">Incomplete</Badge>
+                  {/if}
+                </td>
+                <td>
+                  {#if Object.keys(inst.classes).length > 0}
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                      {#each Object.entries(inst.classes) as [id, name]}
+                        <Badge color="primary" pill>{name}</Badge>
+                      {/each}
+                    </div>
+                  {:else}
+                    —
+                  {/if}
+                </td>
+                <td>
+                  <a href={"/instructor?email=" + encodeURIComponent(inst.email)} target="_blank" class="btn btn-sm btn-primary">
+                    View Page
+                  </a>
+                </td><td>
+                  <a href={"https://protohaven.app.neoncrm.com/admin/accounts/" + inst.neon_id} class="btn btn-sm btn-primary">Neon CRM</a>
+                </td>
+              </tr>
+            {/each}
+            </tbody>
+          </Table>
+
+          </CardBody>
       </Card>
-    {/if}
+{/if}

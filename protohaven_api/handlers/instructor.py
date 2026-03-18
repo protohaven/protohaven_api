@@ -2,7 +2,6 @@
 
 import datetime
 import logging
-from collections import defaultdict
 from typing import Any, Optional, Union
 
 from dateutil import parser as dateparser
@@ -15,7 +14,6 @@ from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname, user_id
 from protohaven_api.integrations import (
     airtable,
-    airtable_base,
     booked,
     comms,
     neon,
@@ -312,6 +310,9 @@ def instructor_class_volunteer():
 
 
 @page.route("/instructor/list")
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, Role.BOARD_MEMBER
+)
 def instructor_list():
     """Fetches instructor info with role-based field restrictions
 
@@ -319,66 +320,18 @@ def instructor_list():
     - For all users: basic instructor info (enrolled instructors only)
     - For education leads/staff/admin/board: full capabilities data
     """
-    is_privileged = am_role(Role.EDUCATION_LEAD) or am_lead_role()
-
-    # Get enrolled instructors from Neon
-    fields = ["First Name"]
-    if is_privileged:
-        fields += [
-            "Email 1",
-            "Last Name",
-            "Preferred Name",
-            neon.CustomField.PRONOUNS,
-            neon.CustomField.CLEARANCES,
-        ]
-
-    instructors_results = []
-    for m in neon.search_members_with_role(
-        Role.INSTRUCTOR, fields, merge_bios=airtable.get_all_instructor_bios()
-    ):
-        t = {
-            k: getattr(m, k)
-            for k in (
-                "neon_id",
-                "name",
-                "email",
-                "clearances",
-                "volunteer_bio",
-                "volunteer_picture",
-            )
-        }
-        instructors_results.append(t)
-
     result = {
-        "education_lead": is_privileged,
-        "instructors": instructors_results,
-    }
-
-    # Add capabilities and class templates for privileged users
-    if is_privileged:
-        result["capabilities"] = airtable.get_all_instructor_bios()
-
-        # Get class templates
-        result["classes"] = []
-        for tmpl in airtable_base.get_all_records("class_automation", "classes"):
-            fields = tmpl.get("fields") or {}
-            result["classes"].append(
-                {
-                    "name": fields.get("Name"),
-                    "approved": fields.get("Approved"),
-                    "schedulable": fields.get("Schedulable"),
-                    "clearances earned": fields.get("Clearances Earned"),
-                    "age requirement": fields.get("Age Requirement"),
-                    "capacity": fields.get("Capacity"),
-                    "supply_cost": fields.get("Supply Cost"),
-                    "price": fields.get("Price"),
-                    "hours": fields.get("Hours"),
-                    "period": fields.get("Period"),
-                    "name (from area)": fields.get("Name (from Area)"),
-                    "image link": fields.get("Image Link"),
-                }
+        "enrollment_map": {
+            m.neon_id: m.name
+            for m in neon.search_members_with_role(
+                Role.INSTRUCTOR, fields=["First Name", "Last Name", "Preferred Name"]
             )
-
+        },
+        "capabilities": airtable.get_all_instructor_capabilities_formatted(),
+        "classes": [
+            tmpl.as_response() for tmpl in airtable.get_all_class_templates(raw=False)
+        ],
+    }
     return result
 
 
