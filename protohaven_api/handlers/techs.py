@@ -434,10 +434,6 @@ def techs_enroll():
     if data.get("create_account", False):
         name = data.get("name", "")
         email = data.get("email", "")
-
-        if not name or not email:
-            return {"error": "Name and email required"}, 400
-
         try:
             nid = neon.create_member(name, email)
         except (RuntimeError, KeyError, ValueError) as e:

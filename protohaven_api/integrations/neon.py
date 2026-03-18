@@ -470,6 +470,9 @@ def create_coupon_codes(codes, amt, from_date=None, to_date=None):
 
 def create_member(name: str, email: str) -> NeonID:
     """Create a new member in Neon with the given name and email"""
+    if not name or not email:
+        raise RuntimeError("Name and email are required")
+
     # Check if member already exists
     existing = list(search_members_by_email(email))
     if existing:

@@ -538,23 +538,17 @@ def log_quiz_submission():
     return {"status": status, "content": content}
 
 
-@page.route("/instructor/list")
 @page.route("/instructor/enroll", methods=["POST"])
 @require_login_role(Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False)
 def instructor_enroll():
     """Enroll a Neon account as an instructor, via email"""
     data = request.json
+    create_acct = data.get("create_account", False)
 
     # Check if we need to create a new account
-    if data.get("create_account", False):
+    if create_acct:
         name = data.get("name", "")
         email = data.get("email", "")
-
-        if not name or not email:
-            return {
-                "error": "Name and email are required when creating a new account"
-            }, 400
-
         try:
             nid = neon.create_member(name, email)
             return neon.patch_member_role(nid, Role.INSTRUCTOR, data["enroll"])
