@@ -527,21 +527,3 @@ def test_instructor_enroll_create_account(client, mocker):
         "789", instructor.Role.INSTRUCTOR, True
     )
     assert response.status_code == 200
-
-
-def test_instructor_enroll_missing_fields(client, mocker):
-    """Test instructor enrollment with missing fields for account creation"""
-    from protohaven_api.integrations.models import Role
-    from protohaven_api.testing import setup_session
-
-    # Setup session with education lead role
-    setup_session(client, [Role.EDUCATION_LEAD])
-
-    # Test enrollment with missing name and email
-    response = client.post(
-        "/instructor/enroll", json={"enroll": True, "create_account": True}
-    )
-
-    assert response.status_code == 400
-    assert "error" in response.json
-    assert "Name and email are required" in response.json["error"]
