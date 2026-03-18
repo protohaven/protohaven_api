@@ -35,8 +35,8 @@ def fixture_inst_client(client):
 
 @pytest.fixture(name="lead_client")
 def fixture_lead_client(client):
-    from protohaven_api.testing import setup_session
     from protohaven_api.integrations.models import Role
+    from protohaven_api.testing import setup_session
 
     setup_session(client, [Role.SHOP_TECH_LEAD])
     return client

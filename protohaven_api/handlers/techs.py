@@ -436,19 +436,16 @@ def techs_enroll():
         email = data.get("email", "")
 
         if not name or not email:
-            return {
-                "error": "Name and email are required when creating a new account"
-            }, 400
+            return {"error": "Name and email required"}, 400
 
         try:
             nid = neon.create_member(name, email)
-            return neon.patch_member_role(nid, Role.SHOP_TECH, data["enroll"])
         except (RuntimeError, KeyError, ValueError) as e:
             log.error(f"Failed to create and enroll member {name} ({email}): {e}")
             return {"error": f"Failed to create account: {str(e)}"}, 500
-
-    # Existing account enrollment/disenrollment
-    return neon.patch_member_role(data["neon_id"], Role.SHOP_TECH, data["enroll"])
+    else:
+        nid = data["neon_id"]
+    return neon.patch_member_role(nid, Role.SHOP_TECH, data["enroll"])
 
 
 @page.route("/techs/events")
