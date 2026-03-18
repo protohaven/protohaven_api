@@ -512,7 +512,10 @@ class Member:  # pylint:disable=too-many-public-methods
     @property
     def volunteer_picture(self):
         """With bio data, get member's profile picture"""
-        if not self.airtable_bio_data:
+        if (
+            not self.airtable_bio_data
+            or "Picture" not in self.airtable_bio_data["fields"]
+        ):
             return None
         thumbs = self.airtable_bio_data["fields"].get("Picture")[0]["thumbnails"][
             "large"

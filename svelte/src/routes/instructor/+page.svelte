@@ -1,10 +1,10 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 
 import '../../app.scss';
 import { onMount } from 'svelte';
 import {get, post} from '$lib/api.ts';
 
-import { Card, CardHeader, CardTitle, CardBody, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
+import { Card, CardHeader, CardTitle, CardBody, Icon, Container, Row, Col, Navbar, NavbarBrand, Nav, NavItem, NavLink, Spinner } from '@sveltestrap/sveltestrap';
 import ClassDetails from '$lib/instructor/class_details.svelte';
 import Profile from '$lib/instructor/profile.svelte';
 import Scheduler from '$lib/instructor/scheduler.svelte';
@@ -46,9 +46,25 @@ onMount(() => {
 });
 
 function on_tab(e) {
-  activeTab = e.target.href.split("#")[1] || "profile";
+  if (!e.target.href) {
+    return;
+  }
+  activeTab = e.target.href.split("#")[1] || "classes";
   window.location.hash = activeTab;
   console.log("activeTab", activeTab);
+}
+
+
+function onboarded(p) {
+  if (!p) {
+    return false;
+  }
+  for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user']) {
+    if (p[k].indexOf("ok") === -1) {
+      return false;
+    }
+  }
+  return true;
 }
 
 let profile = null;
@@ -60,14 +76,16 @@ function fetch_instructor_profile(email) {
   console.log(`getting profile data for email ${email} -> ${url}`);
   profile = get(url).then((result) =>{
     console.log("Instructor profile:", result);
-    console.log("Seeking templates for classes:", result.classes);
-    templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
-    
+    if (result.classes) {
+      console.log("Seeking templates for classes:", result.classes);
+      templates = get("/instructor/class/templates?ids=" + encodeURIComponent(Object.keys(result.classes)));
+    }
+
     // Fetch instructor list data if user is admin
     if (admin) {
       instructorListData = get("/instructor/list");
     }
-    
+
     return result;
   }).catch((e) => {
       console.log(e);
@@ -106,8 +124,15 @@ let airtable_id = "";
      support URL anchor based routing - see
      https://github.com/sveltestrap/sveltestrap/issues/82 -->
 <Nav tabs>
-  <NavItem><NavLink href="#profile" on:click={on_tab}>Profile</NavLink></NavItem>
   <NavItem><NavLink href="#classes" on:click={on_tab}>Classes</NavLink></NavItem>
+  <NavItem><NavLink href="#profile" on:click={on_tab}>
+    Profile
+    {#await profile}
+      ...
+    {:then p}
+        <Icon name={onboarded(p) ? "check-all" : "exclamation-triangle"}/>
+    {/await}
+  </NavLink></NavItem>
   {#if admin}
     <NavItem><NavLink href="#roster" on:click={on_tab}>Roster</NavLink></NavItem>
     <NavItem><NavLink href="#templates" on:click={on_tab}>Class Templates</NavLink></NavItem>

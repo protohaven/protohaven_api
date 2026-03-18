@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 import { Spinner, Table, Card, CardHeader, CardTitle, CardBody, Accordion, AccordionItem } from '@sveltestrap/sveltestrap';
 import FetchError from '$lib/fetch_error.svelte';
 import type { ClassTemplate } from './types';

@@ -7,7 +7,7 @@ import {
   ListGroup, ListGroupItem
 } from '@sveltestrap/sveltestrap';
 import { get, post } from '$lib/api.ts';
-import type { Tech, DisplayTech, SearchResult, ToastMessage, SortType, TechListData } from './types';
+import { Tech, DisplayTech, SearchResult, ToastMessage, SortType, TechListData } from './types';
 import FetchError from '../fetch_error.svelte';
 import TechCard from './tech_card.svelte';
 

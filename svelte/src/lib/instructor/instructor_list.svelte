@@ -4,7 +4,7 @@ import {
   Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card,
   CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody,
   Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader,
-  ListGroup, ListGroupItem, Accordion, AccordionItem, AccordionHeader, AccordionBody
+  ListGroup, ListGroupItem, Accordion, AccordionItem,
 } from '@sveltestrap/sveltestrap';
 import { get, post } from '$lib/api.ts';
 import type { Instructor, DisplayInstructor, SearchResult, ToastMessage, SortType, InstructorListData, InstructorCapability } from './types';
@@ -115,7 +115,6 @@ $: {
 
 function search_neon_accounts() {
   debouncedSearch();
-}
 }
 
 // Reactive search term
@@ -434,7 +433,7 @@ function clearance_click(id: string) {
           <CardBody>
             <p>Instructor data is fetched from Airtable - currently read-only pending further development.</p>
             <p>Contact the Software Dev team via Discord if you need to make a change to anything listed here.</p>
-            
+
             <Table responsive striped hover>
               <thead>
                 <tr>
@@ -504,14 +503,11 @@ function clearance_click(id: string) {
               {/each}
               </tbody>
             </Table>
-            
+
             <!-- Additional details in accordion -->
             <Accordion class="mt-4">
               <AccordionItem>
-                <AccordionHeader targetId="details-accordion">
                   Additional Details
-                </AccordionHeader>
-                <AccordionBody accordionId="details-accordion">
                   <Row>
                     {#each capabilities as inst}
                       <Col md="6" lg="4" class="mb-3">
@@ -531,7 +527,6 @@ function clearance_click(id: string) {
                       </Col>
                     {/each}
                   </Row>
-                </AccordionBody>
               </AccordionItem>
             </Accordion>
           </CardBody>
