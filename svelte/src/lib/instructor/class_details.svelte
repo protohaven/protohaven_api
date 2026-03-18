@@ -34,6 +34,7 @@ $: {
 
 </script>
 
+
 {#await promise}
 <Spinner/>
 {:then classes}
@@ -47,12 +48,9 @@ $: {
 
   {#if classes.length == 0}
   <Alert class="my-3" color="warning">
-    <em>No classes found - please schedule more using the Scheduler button on the left.</em>
+    <em>No classes found - please schedule more using the Scheduler button above.</em>
   </Alert>
   {/if}
-
-  <Button on:click={refresh}><Icon name="arrow-clockwise"/>Refresh Class List</Button>
-
 {:else}
   Loading...
 {/if}

@@ -2,7 +2,6 @@
 
 import datetime
 import logging
-from collections import defaultdict
 from typing import Any, Optional, Union
 
 from dateutil import parser as dateparser
@@ -15,7 +14,6 @@ from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.handlers.auth import user_email, user_fullname, user_id
 from protohaven_api.integrations import (
     airtable,
-    airtable_base,
     booked,
     comms,
     neon,
@@ -311,39 +309,30 @@ def instructor_class_volunteer():
     return airtable.mark_schedule_volunteer(eid, v).as_response()
 
 
-@page.route("/instructor/admin_data", methods=["GET"])
-@require_login_role(Role.EDUCATION_LEAD, Role.BOARD_MEMBER, Role.STAFF)
-def admin_data():
-    """Fetches and returns admin info for Edu Leads and other privileged roles"""
-    result = defaultdict(list)
-    for inst in airtable_base.get_all_records("class_automation", "capabilities"):
-        result["capabilities"].append(
-            {
-                "name": inst["fields"].get("Instructor") or "unknown",
-                "email": inst["fields"].get("Email") or "unknown",
-                "neon_id": inst["fields"].get("Neon ID") or None,
-                "active": inst["fields"].get("Active") or False,
-            }
-        )
-    for tmpl in airtable_base.get_all_records("class_automation", "classes"):
-        fields = tmpl.get("fields") or {}
-        result["classes"].append(
-            {
-                "name": fields.get("Name"),
-                "approved": fields.get("Approved"),
-                "schedulable": fields.get("Schedulable"),
-                "clearances earned": fields.get("Clearances Earned"),
-                "age requirement": fields.get("Age Requirement"),
-                "capacity": fields.get("Capacity"),
-                "supply_cost": fields.get("Supply Cost"),
-                "price": fields.get("Price"),
-                "hours": fields.get("Hours"),
-                "period": fields.get("Period"),
-                "name (from area)": fields.get("Name (from Area)"),
-                "image link": fields.get("Image Link"),
-            }
-        )
-    return dict(result)
+@page.route("/instructor/list")
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, Role.BOARD_MEMBER
+)
+def instructor_list():
+    """Fetches instructor info with role-based field restrictions
+
+    Returns:
+    - For all users: basic instructor info (enrolled instructors only)
+    - For education leads/staff/admin/board: full capabilities data
+    """
+    result = {
+        "enrollment_map": {
+            m.neon_id: m.name
+            for m in neon.search_members_with_role(
+                Role.INSTRUCTOR, fields=["First Name", "Last Name", "Preferred Name"]
+            )
+        },
+        "capabilities": airtable.get_all_instructor_capabilities_formatted(),
+        "classes": [
+            tmpl.as_response() for tmpl in airtable.get_all_class_templates(raw=False)
+        ],
+    }
+    return result
 
 
 def _resolve_class_proposal_params():
@@ -547,3 +536,25 @@ def log_quiz_submission():
         data=req.get("data") or {},
     )
     return {"status": status, "content": content}
+
+
+@page.route("/instructor/enroll", methods=["POST"])
+@require_login_role(Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False)
+def instructor_enroll():
+    """Enroll a Neon account as an instructor, via email"""
+    data = request.json
+    create_acct = data.get("create_account", False)
+
+    # Check if we need to create a new account
+    if create_acct:
+        name = data.get("name", "")
+        email = data.get("email", "")
+        try:
+            nid = neon.create_member(name, email)
+            return neon.patch_member_role(nid, Role.INSTRUCTOR, data["enroll"])
+        except (RuntimeError, KeyError, ValueError) as e:
+            log.error(f"Failed to create and enroll member {name} ({email}): {e}")
+            return {"error": f"Failed to create account: {str(e)}"}, 500
+
+    # Existing account enrollment/disenrollment
+    return neon.patch_member_role(data["neon_id"], Role.INSTRUCTOR, data["enroll"])

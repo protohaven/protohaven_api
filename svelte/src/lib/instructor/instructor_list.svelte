@@ -1,15 +1,16 @@
 <script type="typescript" lang="ts">
 import { onMount } from 'svelte';
 import {
+  Alert,
   Table, Dropdown, DropdownToggle, DropdownItem, DropdownMenu, Button, Row, Container, Col, Card,
   CardHeader, Badge, CardTitle, Modal, CardSubtitle, CardText, Icon, Tooltip, CardFooter, CardBody,
   Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem, Toast, ToastBody, ToastHeader,
-  ListGroup, ListGroupItem
+  ListGroup, ListGroupItem,
 } from '@sveltestrap/sveltestrap';
 import { get, post } from '$lib/api.ts';
-import { Tech, DisplayTech, SearchResult, ToastMessage, SortType, TechListData } from './types';
+import type { Instructor, DisplayInstructor, SearchResult, ToastMessage, SortType, InstructorListData, InstructorCapability } from './types';
 import FetchError from '../fetch_error.svelte';
-import TechCard from './tech_card.svelte';
+import InstructorCard from './instructor_card.svelte';
 
 // Utility functions
 function debounce<T extends (...args: any[]) => any>(
@@ -40,12 +41,14 @@ function handleApiError(error: any, context: string): ToastMessage {
 // Component props
 export let visible: boolean;
 export let user: { email: string };
+export let admin: boolean;
+export let data: InstructorListData | null = null;
+export let onEnrollmentChanged;
 
 // State
 let loaded = false;
-let promise: Promise<TechListData> = Promise.resolve({ techs: [], tech_lead: false });
 
-let new_tech: { neon_id: string | null; name: string; email: string } = { neon_id: null, name: "", email: "" };
+let new_instructor: { neon_id: string | null; name: string; email: string } = { neon_id: null, name: "", email: "" };
 let toast_msg: ToastMessage | null = null;
 let search_term = "";
 let search_results: SearchResult[] = [];
@@ -54,25 +57,14 @@ let search_promise: Promise<SearchResult[]> = Promise.resolve([]);
 let show_create_account = false;
 let enrolling = false;
 
-let techs: DisplayTech[] = [];
-let techs_sorted: DisplayTech[] = [];
-let user_data: DisplayTech | null = null;
-let sort_type: SortType = "clearances_desc";
-
-// Reactive sort
-$: {
-  if (sort_type === "clearances_desc") {
-    techs_sorted = [...techs].sort((a, b) => b.clearances.length - a.clearances.length);
-  } else if (sort_type === "clearances_asc") {
-    techs_sorted = [...techs].sort((a, b) => a.clearances.length - b.clearances.length);
-  } else if (sort_type === "name") {
-    techs_sorted = [...techs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-  }
-}
+let capabilities: InstructorCapability[] = [];
+let enrollment_map = {};
+let without_capabilities = new Set();
+let show_capabilities = false;
 
 // Debounced search function
 const debouncedSearch = debounce(() => {
-  new_tech = {neon_id: null, name: "", email: ""};
+  new_instructor = {neon_id: null, name: "", email: ""};
   if (!search_term.trim()) {
     search_results = [];
     return;
@@ -95,86 +87,45 @@ const debouncedSearch = debounce(() => {
 }, 300);
 
 // Functions
-function refresh() {
-  promise = get("/techs/list")
-    .then((data: TechListData) => {
-      loaded = true;
-      techs = data.techs.map((t: Tech) => {
-        const displayTech: DisplayTech = {
-          ...t,
-          shop_tech_shift: Array.isArray(t.shop_tech_shift) ? t.shop_tech_shift.join(' ') : t.shop_tech_shift
-        };
-        if (t.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
-          user_data = displayTech;
-        }
-        return displayTech;
-      });
-      return data;
-    })
-    .catch((error) => {
-      toast_msg = handleApiError(error, 'load techs');
-      throw error;
-    });
+// Process data when it becomes available
+$: {
+  if (data && !loaded) {
+    loaded = true;
+    capabilities = data.capabilities || [];
+    enrollment_map = data.enrollment_map || {};
+    console.log(enrollment_map);
+
+    const cap_neon_ids = new Set(capabilities.map((c) => c.neon_id));
+    const enrolled_neon_ids = new Set(Object.keys(enrollment_map));
+    without_capabilities = Array.from(enrolled_neon_ids.difference(cap_neon_ids));
+  }
 }
 
 function search_neon_accounts() {
   debouncedSearch();
 }
 
-// Reactive visibility
-$: {
-  if (visible && !loaded) {
-    refresh();
-  }
-}
-
 // Reactive search term
 function on_search_term_edit(e) {
   console.log(e);
-  if (search_term !== `${new_tech.name} (${new_tech.email})`) {
+  if (search_term !== `${new_instructor.name} (${new_instructor.email})`) {
     search_neon_accounts();
   } else {
     search_results = [];
-    new_tech.neon_id = null;
-    new_tech.name = "";
-    new_tech.email = "";
+    new_instructor.neon_id = null;
+    new_instructor.name = "";
+    new_instructor.email = "";
   }
 }
 
 function is_enrolled(neon_id: string | null): boolean {
-  if (!neon_id) return false;
-  for (let t of techs || []) {
-    if (t.neon_id == neon_id) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function update_tech(t: DisplayTech) {
-  // Convert shop_tech_shift back to array for API
-  const apiTech = {
-    ...t,
-    shop_tech_shift: t.shop_tech_shift ? t.shop_tech_shift.split(' ').filter(Boolean) : []
-  };
-
-  post("/techs/update", apiTech)
-    .then(() => {
-      toast_msg = {
-        color: 'success',
-        msg: `${t.name} updated`,
-        title: 'Edit Success'
-      };
-    })
-    .catch((error) => {
-      toast_msg = handleApiError(error, 'update tech');
-    });
+  return (neon_id && enrollment_map[neon_id]);
 }
 
 function set_enrollment(enroll: boolean) {
   // If we're trying to enroll but haven't selected a Neon account from search,
   // and we're not in create account mode, we can't proceed
-  if (enroll && !new_tech.neon_id && !show_create_account) {
+  if (enroll && !new_instructor.neon_id && !show_create_account) {
     toast_msg = {
       color: 'warning',
       msg: 'Please select a Neon account from search results or create a new account',
@@ -186,7 +137,7 @@ function set_enrollment(enroll: boolean) {
   enrolling = true;
 
   let payload = {
-    ...new_tech,
+    ...new_instructor,
     enroll
   };
 
@@ -195,11 +146,11 @@ function set_enrollment(enroll: boolean) {
     payload['create_account'] = true;
   }
 
-  post("/techs/enroll", payload)
+  post("/instructor/enroll", payload)
     .then(() => {
       toast_msg = {
         color: 'success',
-        msg: `${payload.name} successfully ${enroll ? 'enrolled' : 'disenrolled'}.`,
+        msg: `${payload.name} successfully ${enroll ? 'enrolled' : 'disenrolled'} as instructor.`,
         title: 'Enrollment changed'
       };
 
@@ -208,13 +159,13 @@ function set_enrollment(enroll: boolean) {
       search_results = [];
       if (show_create_account) {
         show_create_account = false;
-        new_tech.name = "";
-        new_tech.email = "";
+        new_instructor.name = "";
+        new_instructor.email = "";
       }
-      new_tech.neon_id = null;
+      new_instructor.neon_id = null;
 
       // Refresh the list
-      refresh();
+      onEnrollmentChanged();
     })
     .catch((error) => {
       toast_msg = handleApiError(error, 'change enrollment');
@@ -224,79 +175,45 @@ function set_enrollment(enroll: boolean) {
     });
 }
 
-function disenroll_tech(t: DisplayTech) {
-  if (!confirm(`Are you sure you want to disenroll ${t.name} as a shop tech?`)) {
+function disenroll_instructor(inst: Instructor) {
+  if (!confirm(`Are you sure you want to disenroll ${inst.name} as an instructor?`)) {
     return;
   }
 
   enrolling = true;
-  post("/techs/enroll", { neon_id: t.neon_id, enroll: false })
+  post("/instructor/enroll", { neon_id: inst.neon_id, enroll: false })
     .then(() => {
       toast_msg = {
         color: 'success',
-        msg: `${t.name} successfully disenrolled.`,
+        msg: `${inst.name} successfully disenrolled as instructor.`,
         title: 'Disenrollment successful'
       };
       // Refresh the list
-      refresh();
+      onEnrollmentChanged();
     })
     .catch((error) => {
-      toast_msg = handleApiError(error, 'disenroll tech');
+      toast_msg = handleApiError(error, 'disenroll instructor');
     })
     .finally(() => {
       enrolling = false;
     });
 }
 
-let modal_open: string | null = null;
-function clearance_click(id: string) {
-  if (modal_open !== id) {
-    modal_open = id;
-  } else {
-    modal_open = null;
-  }
-}
 </script>
 
 {#if visible}
   <Card>
     <CardHeader>
-      <CardTitle>Tech Roster</CardTitle>
-      <CardSubtitle>Current info on all techs</CardSubtitle>
+      <CardTitle>Instructor Roster</CardTitle>
+      <CardSubtitle>Current info on all instructors</CardSubtitle>
     </CardHeader>
     <CardBody>
-      {#await promise}
-        <Spinner aria-label="Loading tech roster..."/>
-      {:then p}
-        {#if user_data}
-          <TechCard
-            tech={user_data}
-            isCurrentUser={true}
-            isTechLead={p.tech_lead}
-            onUpdate={update_tech}
-            onDisenroll={disenroll_tech}
-            modalOpen={modal_open === user_data.email}
-            onToggleModal={() => clearance_click(user_data.email)}
-          />
-          <hr>
-        {/if}
-
         <div class="d-flex">
           {#if enrolling}
             <Spinner size="sm" class="me-2" aria-label="Processing enrollment..."/>
           {/if}
-          <Dropdown>
-            <DropdownToggle color="light" caret aria-label="Sort options">
-              Sort
-            </DropdownToggle>
-            <DropdownMenu>
-              <DropdownItem on:click={() => sort_type = "clearances_asc"}>Least Clearances</DropdownItem>
-              <DropdownItem on:click={() => sort_type = "clearances_desc"}>Most Clearances</DropdownItem>
-              <DropdownItem on:click={() => sort_type = "name"}>By Name</DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
 
-          {#if p.tech_lead}
+          {#if admin}
             {#if !show_create_account}
               <div class="mx-1 position-relative">
                 <div class="d-flex align-items-center">
@@ -340,15 +257,15 @@ function clearance_click(id: string) {
                               search_results = [];
                               return;
                             }
-                            new_tech.neon_id = result.neon_id;
-                            new_tech.name = result.name;
-                            new_tech.email = result.email;
-                            search_term = `${new_tech.name} (${new_tech.email})`; // For visibility
+                            new_instructor.neon_id = result.neon_id;
+                            new_instructor.name = result.name;
+                            new_instructor.email = result.email;
+                            search_term = `${new_instructor.name} (${new_instructor.email})`; // For visibility
                             search_results = [];
                           }}
                           class="text-start"
                           role="option"
-                          aria-selected={new_tech.neon_id === result.neon_id}
+                          aria-selected={new_instructor.neon_id === result.neon_id}
                         >
                           {result.name} ({result.email})
                         </ListGroupItem>
@@ -362,7 +279,7 @@ function clearance_click(id: string) {
                 <Input
                   class="me-1"
                   type="text"
-                  bind:value={new_tech.name}
+                  bind:value={new_instructor.name}
                   placeholder="Full name"
                   disabled={enrolling}
                   aria-label="Full name for new account"
@@ -370,7 +287,7 @@ function clearance_click(id: string) {
                 <Input
                   class="me-1"
                   type="email"
-                  bind:value={new_tech.email}
+                  bind:value={new_instructor.email}
                   placeholder="Email address"
                   disabled={enrolling}
                   aria-label="Email address for new account"
@@ -380,8 +297,8 @@ function clearance_click(id: string) {
                   size="sm"
                   on:click={() => {
                     show_create_account = false;
-                    new_tech.name = "";
-                    new_tech.email = "";
+                    new_instructor.name = "";
+                    new_instructor.email = "";
                     search_term = "";
                     search_results = [];
                   }}
@@ -397,7 +314,7 @@ function clearance_click(id: string) {
               class="mx-1"
               size="sm"
               on:click={() => set_enrollment(true)}
-              disabled={enrolling || is_enrolled(new_tech.neon_id) || !new_tech.name || !new_tech.email}
+              disabled={enrolling || is_enrolled(new_instructor.neon_id) || !new_instructor.name || !new_instructor.email}
               aria-label={show_create_account ? "Create and enroll new account" : "Enroll selected account"}
             >
               {#if show_create_account}
@@ -410,7 +327,7 @@ function clearance_click(id: string) {
               class="mx-1"
               size="sm"
               on:click={() => set_enrollment(false)}
-              disabled={enrolling || (new_tech.neon_id && !is_enrolled(new_tech.neon_id)) || !new_tech.neon_id}
+              disabled={enrolling || (new_instructor.neon_id && !is_enrolled(new_instructor.neon_id)) || !new_instructor.neon_id}
               aria-label="Disenroll selected account"
             >
               Disenroll
@@ -430,23 +347,82 @@ function clearance_click(id: string) {
           <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
           <ToastBody>{toast_msg.msg}</ToastBody>
         </Toast>
-
-        {#each techs_sorted as t}
-          {#if t.email !== user_data?.email}
-            <TechCard
-              tech={t}
-              isCurrentUser={false}
-              isTechLead={p.tech_lead}
-              onUpdate={update_tech}
-              onDisenroll={disenroll_tech}
-              modalOpen={modal_open === t.email}
-              onToggleModal={() => clearance_click(t.email)}
-            />
-          {/if}
+        {#if without_capabilities.length > 0}
+        <Alert color="warning">The following people are enrolled as instructors in Neon CRM but they have no capabilities in airtable:
+        <ul>
+        {#each without_capabilities as nid }
+          <li>
+          <a href={"https://protohaven.app.neoncrm.com/admin/accounts/" + nid} target="_blank">{enrollment_map[nid]}</a>
+          </li>
         {/each}
-      {:catch error}
-        <FetchError {error}/>
-      {/await}
-    </CardBody>
-  </Card>
+        </ul>
+        <p>To enable class scheduling and reminders, they must also be added to <a href="https://airtable.com/applultHGJxHNg69H/tbltv8tpiCqUnLTp4/viwqTK2puFGyz0RhI">Instructor Capabilities</a>. If this is a mistake, disenroll them using the search box above.</p>
+        </Alert>
+        {/if}
+        <h3>Capabilities</h3>
+        <div class="my-3">
+          <p>Instructor data is fetched from <a href="https://airtable.com/applultHGJxHNg69H/tbltv8tpiCqUnLTp4/viwqTK2puFGyz0RhI" target="_blank">Airtable</a>.
+          Contact the Software Dev team via Discord if you need to make a change to anything listed here.</p>
+        </div>
+
+          <Table responsive striped hover>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Enrolled</th>
+                <th>Active</th>
+                <th>Paperwork</th>
+                <th>Classes</th>
+                <th>Actions</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+            {#each capabilities as inst}
+              <tr>
+                <td>
+                  {inst.name}
+                </td>
+                <td>{inst.email}</td>
+            <td>{is_enrolled(inst.neon_id) ? "Yes" : "No"}</td>
+                <td>
+                  {#if inst.active}
+                    <Badge color="success">Active</Badge>
+                  {:else}
+                    <Badge color="secondary">Inactive</Badge>
+                  {/if}
+                </td>
+                <td>
+                  {#if inst.paperwork_complete}
+                    <Badge color="success">Complete</Badge>
+                  {:else}
+                    <Badge color="warning">Incomplete</Badge>
+                  {/if}
+                </td>
+                <td>
+                  {#if Object.keys(inst.classes).length > 0}
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                      {#each Object.entries(inst.classes) as [id, name]}
+                        <Badge color="primary" pill>{name}</Badge>
+                      {/each}
+                    </div>
+                  {:else}
+                    —
+                  {/if}
+                </td>
+                <td>
+                  <a href={"/instructor?email=" + encodeURIComponent(inst.email)} target="_blank" class="btn btn-sm btn-primary">
+                    View Page
+                  </a>
+                </td><td>
+                  <a href={"https://protohaven.app.neoncrm.com/admin/accounts/" + inst.neon_id} class="btn btn-sm btn-primary">Neon CRM</a>
+                </td>
+              </tr>
+            {/each}
+            </tbody>
+          </Table>
+
+          </CardBody>
+      </Card>
 {/if}

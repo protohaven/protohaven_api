@@ -51,6 +51,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
     hours: list[int]
     capacity: int
     price: int
+    supply_cost: int
     period: datetime.timedelta
     approved: bool
     schedulable: bool
@@ -80,6 +81,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
             hours=cls.resolve_hours(f.get("Hours"), f.get("Days")),
             capacity=int(f.get("Capacity") or 0),
             price=int(f.get("Price") or 0),
+            supply_cost=int(f.get("Supply Cost") or 0),
             period=datetime.timedelta(days=int(f.get("Period") or 0)),
             areas=f.get("Name (from Area)") or [],
             schedulable=bool(f.get("Schedulable")),
@@ -1032,3 +1034,44 @@ class AirtableCache(WarmDict):
 
 
 cache = AirtableCache()
+
+
+def get_all_instructor_capabilities_formatted():
+    """Fetches and returns all instructor bios and photos from airtable/nocodb"""
+    bios = []
+    for inst in get_all_records("class_automation", "capabilities"):
+        fields = inst["fields"]
+        bio = {
+            "id": str(inst["id"]),
+            "name": fields.get("Instructor") or "unknown",
+            "email": fields.get("Email") or "unknown",
+            "neon_id": fields.get("Neon ID") or None,
+            "active": fields.get("Active") or False,
+            "w9": fields.get("W9 Form"),
+            "direct_deposit": fields.get("Direct Deposit Info"),
+            "bio": fields.get("Bio"),
+            "profile_pic": None,
+            "classes": [],
+            "clearances": fields.get("Clearances") or [],
+            "paperwork_complete": fields.get("Paperwork Complete") or False,
+            "discord_user": fields.get("Discord User"),
+            "notes": fields.get("Notes"),
+        }
+
+        # Handle profile picture
+        img = (fields.get("Profile Pic") or [{"url": None}])[0]
+        if img:
+            bio["profile_pic"] = (
+                img.get("url")
+                or f"{get_config('nocodb/requests/url')}/{img.get('path')}"
+            )
+
+        # Handle classes
+        if "Class" in fields.keys():
+            class_ids = _idref(inst, "Class")
+            bio["classes"] = {
+                str(c[0]): c[1] for c in zip(class_ids, fields["Name (from Class)"])
+            }
+
+        bios.append(bio)
+    return bios

@@ -33,6 +33,15 @@ def fixture_inst_client(client):
     return client
 
 
+@pytest.fixture(name="lead_client")
+def fixture_lead_client(client):
+    from protohaven_api.integrations.models import Role
+    from protohaven_api.testing import setup_session
+
+    setup_session(client, [Role.SHOP_TECH_LEAD])
+    return client
+
+
 def test_class_no_clearances():
     """Ensure that a class without clearances still loads the page."""
     pytest.skip("todo")
@@ -413,3 +422,108 @@ def test_instructor_submissions(mocker, inst_client):
     assert isinstance(data["EVENT789"], list)
     assert len(data["EVENT789"]) == 1
     assert isinstance(data["EVENT789"][0], str)
+
+
+def test_instructor_list(mocker, lead_client):
+    """Test instructor list endpoint"""
+    from protohaven_api.integrations.models import Member
+
+    m = Member.from_neon_search(
+        {
+            "Email 1": "instructor@test.com",
+            "First Name": "Test",
+            "Last Name": "Instructor",
+            "Account ID": 456,
+        }
+    )
+    mocker.patch.object(instructor.neon, "search_members_with_role", return_value=[m])
+    mocker.patch.object(
+        instructor.airtable,
+        "get_all_instructor_capabilities_formatted",
+        return_value=[],
+    )
+    # Mock get_all_class_templates for class templates
+    mocker.patch.object(instructor.airtable, "get_all_class_templates", return_value=[])
+
+    response = lead_client.get("/instructor/list")
+    assert response.status_code == 200
+    assert response.json == {
+        "capabilities": [],
+        "classes": [],
+        "enrollment_map": {"456": "Test Instructor"},
+    }
+
+
+def test_instructor_enroll(inst_client, mocker):
+    """Test instructor enrollment endpoint"""
+    # Mock the patch_member_role function
+    mock_response = (mocker.MagicMock(), None)
+    mocker.patch.object(
+        instructor.neon, "patch_member_role", return_value=mock_response
+    )
+
+    # Test enrollment - should fail because inst_client doesn't have education lead role
+    response = inst_client.post(
+        "/instructor/enroll", json={"neon_id": "123", "enroll": True}
+    )
+
+    # Should return 401 or redirect since user doesn't have education lead role
+    assert response.status_code in [401, 302]
+
+
+def test_instructor_enroll_with_education_lead(client, mocker):
+    """Test instructor enrollment endpoint with education lead role"""
+    from protohaven_api.integrations.models import Role
+    from protohaven_api.testing import setup_session
+
+    # Setup session with education lead role
+    setup_session(client, [Role.EDUCATION_LEAD])
+
+    # Mock the patch_member_role function
+    mock_response = (mocker.MagicMock(), None)
+    mocker.patch.object(
+        instructor.neon, "patch_member_role", return_value=mock_response
+    )
+
+    # Test enrollment
+    response = client.post(
+        "/instructor/enroll", json={"neon_id": "123", "enroll": True}
+    )
+
+    instructor.neon.patch_member_role.assert_called_with(
+        "123", instructor.Role.INSTRUCTOR, True
+    )
+    assert response.status_code == 200
+
+
+def test_instructor_enroll_create_account(client, mocker):
+    """Test instructor enrollment with account creation"""
+    from protohaven_api.integrations.models import Role
+    from protohaven_api.testing import setup_session
+
+    # Setup session with education lead role
+    setup_session(client, [Role.EDUCATION_LEAD])
+
+    # Mock functions
+    mocker.patch.object(instructor.neon, "create_member", return_value="789")
+    mock_response = (mocker.MagicMock(), None)
+    mocker.patch.object(
+        instructor.neon, "patch_member_role", return_value=mock_response
+    )
+
+    # Test enrollment with account creation
+    response = client.post(
+        "/instructor/enroll",
+        json={
+            "name": "New Instructor",
+            "email": "new@test.com",
+            "enroll": True,
+            "create_account": True,
+        },
+    )
+
+    instructor.neon.create_member.assert_called_with("New Instructor", "new@test.com")
+    instructor.neon.patch_member_role.assert_called_with(
+        "789", instructor.Role.INSTRUCTOR, True
+    )
+    assert response.status_code == 200
