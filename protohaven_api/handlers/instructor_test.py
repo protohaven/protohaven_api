@@ -33,6 +33,15 @@ def fixture_inst_client(client):
     return client
 
 
+@pytest.fixture(name="lead_client")
+def fixture_lead_client(client):
+    from protohaven_api.testing import setup_session
+    from protohaven_api.integrations.models import Role
+
+    setup_session(client, [Role.SHOP_TECH_LEAD])
+    return client
+
+
 def test_class_no_clearances():
     """Ensure that a class without clearances still loads the page."""
     pytest.skip("todo")
@@ -415,7 +424,7 @@ def test_instructor_submissions(mocker, inst_client):
     assert isinstance(data["EVENT789"][0], str)
 
 
-def test_instructor_list(mocker, inst_client):
+def test_instructor_list(mocker, lead_client):
     """Test instructor list endpoint"""
     from protohaven_api.integrations.models import Member
 
@@ -428,26 +437,21 @@ def test_instructor_list(mocker, inst_client):
         }
     )
     mocker.patch.object(instructor.neon, "search_members_with_role", return_value=[m])
-    mocker.patch.object(instructor.airtable, "get_all_instructor_bios", return_value=[])
-    # Mock airtable_base.get_all_records for class templates
-    mocker.patch.object(instructor.airtable_base, "get_all_records", return_value=[])
+    mocker.patch.object(
+        instructor.airtable,
+        "get_all_instructor_capabilities_formatted",
+        return_value=[],
+    )
+    # Mock get_all_class_templates for class templates
+    mocker.patch.object(instructor.airtable, "get_all_class_templates", return_value=[])
 
-    # Mock education lead role
-    mocker.patch.object(instructor, "am_role", return_value=True)
-    mocker.patch.object(instructor, "am_lead_role", return_value=True)
-
-    response = inst_client.get("/instructor/list")
-    assert response.json["instructors"][0] == {
-        "clearances": [],
-        "email": "instructor@test.com",
-        "neon_id": 456,
-        "name": "Test Instructor",
-        "volunteer_bio": None,
-        "volunteer_picture": None,
+    response = lead_client.get("/instructor/list")
+    assert response.status_code == 200
+    assert response.json == {
+        "capabilities": [],
+        "classes": [],
+        "enrollment_map": {"456": "Test Instructor"},
     }
-    assert response.json["education_lead"] == True
-    assert "capabilities" in response.json
-    assert "classes" in response.json
 
 
 def test_instructor_enroll(inst_client, mocker):
