@@ -10,6 +10,7 @@
   import AreaLeads from '$lib/techs/area_leads.svelte';
   import Storage from '$lib/techs/storage.svelte';
   import Events from '$lib/techs/events.svelte';
+  import DoorLocks from '$lib/techs/door_locks.svelte';
   import { onMount } from 'svelte';
 
   let promise;
@@ -41,6 +42,9 @@
 <Navbar color="secondary-subtle" sticky="">
   <NavbarBrand>Techs Dashboard</NavbarBrand>
   <Nav>
+    <NavItem>
+      <DoorLocks />
+    </NavItem>
     <NavItem>
       <NavLink href="/events" target="_blank">Events Dashboard</NavLink>
     </NavItem>
