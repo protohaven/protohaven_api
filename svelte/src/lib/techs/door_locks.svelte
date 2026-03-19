@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { get } from '$lib/api.ts';
   import { Icon, Tooltip, Badge, Spinner } from '@sveltestrap/sveltestrap';
@@ -49,20 +49,7 @@
     }
   }
 
-  // Get door icon based on state
-  function getDoorIcon(door: any): string {
-    if (!door.is_online) return 'question-circle';
-    return door.open_close_state ? 'door-open' : 'door-closed';
-  }
-
-  // Get door color based on state
-  function getDoorColor(door: any): string {
-    if (!door.is_online) return 'secondary';
-    return door.open_close_state ? 'danger' : 'success';
-  }
-
-  // Get door tooltip text
-  function getDoorTooltip(door: any): string {
+  function doorSummary(door: any): string {
     if (!door.is_online) return `${door.name}: Offline`;
     return `${door.name}: ${door.open_close_state ? 'OPEN' : 'CLOSED'}`;
   }
@@ -113,17 +100,6 @@
           />
         {:else}
           <!-- Door icons -->
-          {#each doorStates as door}
-            <Tooltip target={`door-${door.mac}`} placement="bottom">
-              {getDoorTooltip(door)}
-            </Tooltip>
-            <Icon
-              name={getDoorIcon(door)}
-              color={getDoorColor(door)}
-              id={`door-${door.mac}`}
-              class="door-icon"
-            />
-          {/each}
 
           <!-- Status badge -->
           {#if openDoors > 0 || offlineDoors > 0}
@@ -133,17 +109,25 @@
                 <br />
                 {offlineDoors} door{#if offlineDoors !== 1}s{/if} offline
               {/if}
+              {#each doorStates as door}
+                <div>{doorSummary(door)}</div>
+              {/each}
+
               {#if lastUpdated}
                 <br />
                 Last updated: {formatTime(lastUpdated)}
               {/if}
             </Tooltip>
             <Badge
-              color={openDoors > 0 ? 'danger' : (offlineDoors > 0 ? 'warning' : 'success')}
+              color={(openDoors + offlineDoors) > 0 ? 'warning' : 'success'}
               id="door-status-badge"
               class="door-badge"
             >
-              {openDoors > 0 ? `${openDoors} open` : 'All closed'}
+              <Icon
+                name={(openDoors > 0) ? "door-open" : "door-closed"}
+              />
+              {openDoors > 0 ? `${openDoors} open` : ''}
+              {offlineDoors > 0 ? `${offlineDoors} offline` : ''}
             </Badge>
           {:else}
             <Tooltip target="door-status-badge" placement="bottom">
@@ -175,11 +159,6 @@
 <style>
   .door-locks-status {
     display: inline-block;
-  }
-
-  .door-icon {
-    font-size: 1.2rem;
-    cursor: help;
   }
 
   .door-badge {
