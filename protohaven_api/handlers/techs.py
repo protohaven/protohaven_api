@@ -14,7 +14,15 @@ from flask_sock import Sock
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.techs import techs as tauto
 from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
-from protohaven_api.integrations import airtable, comms, neon, neon_base, sales, wiki
+from protohaven_api.integrations import (
+    airtable,
+    comms,
+    neon,
+    neon_base,
+    sales,
+    wiki,
+    wyze,
+)
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import am_lead_role, am_neon_id, am_role, require_login_role
 
@@ -715,3 +723,22 @@ def set_sub_note(sub_id):
         return Response("note and subscription ID reqiured", 400)
     log.info(f"Setting storage subscription {sub_id} note to {note}")
     return sales.set_subscription_note(sub_id, note)
+
+
+@page.route("/techs/door_locks")
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+    Role.BOARD_MEMBER,
+    redirect_to_login=False,
+)
+def techs_door_locks():
+    """Fetches the current state of all door locks"""
+    door_states = list(wyze.get_door_states())
+    # Add timestamp for when the data was fetched
+    return {
+        "doors": door_states,
+        "timestamp": tznow().isoformat(),
+    }

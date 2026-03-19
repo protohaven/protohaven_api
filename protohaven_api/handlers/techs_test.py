@@ -777,3 +777,56 @@ def test_techs_storage_subscriptions(mocker):
             "unpaid": [],
         },
     ]
+
+
+def test_techs_door_locks(tech_client, mocker):
+    """Test door locks endpoint"""
+    mock_door_states = [
+        {
+            "name": "Front Door",
+            "mac": "00:11:22:33:44:55",
+            "is_online": True,
+            "open_close_state": False,  # Closed
+        },
+        {
+            "name": "Back Door",
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "is_online": True,
+            "open_close_state": True,  # Open
+        },
+        {
+            "name": "Side Door",
+            "mac": "11:22:33:44:55:66",
+            "is_online": False,
+            "open_close_state": False,
+        },
+    ]
+
+    from datetime import datetime
+
+    from dateutil.tz import tzoffset
+
+    mock_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=tzoffset(None, -5 * 3600))
+
+    mocker.patch.object(tl.wyze, "get_door_states", return_value=mock_door_states)
+    mocker.patch.object(tl, "tznow", return_value=mock_time)
+
+    response = tech_client.get("/techs/door_locks")
+    assert response.status_code == 200
+    data = response.json
+
+    assert "doors" in data
+    assert "timestamp" in data
+    assert data["timestamp"] == "2025-01-01T12:00:00-05:00"
+    assert len(data["doors"]) == 3
+    assert data["doors"] == mock_door_states
+
+
+def test_techs_door_locks_unauthorized(client, mocker):
+    """Test door locks endpoint rejects unauthorized users"""
+    # No session setup - user is not logged in
+    response = client.get("/techs/door_locks")
+    assert response.status_code == 401  # Unauthorized
+
+    # Check that the response indicates login is required
+    assert b"login" in response.data.lower() or b"unauthorized" in response.data.lower()
