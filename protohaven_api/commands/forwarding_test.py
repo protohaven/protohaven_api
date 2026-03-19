@@ -78,6 +78,8 @@ def test_tech_sign_ins(mocker, tc, cli):
             ]
         },
     )
+    # Mock wyze.get_door_states to return empty list for tests
+    mocker.patch.object(F.wyze, "get_door_states", return_value=[])
     got = cli("tech_sign_ins", ["--now", tc.now.isoformat()])
     assert len(got) == (1 if len(tc.want) > 0 else 0)
     for w in tc.want:
@@ -157,6 +159,8 @@ def test_tech_sign_ins_holiday(mocker, tc, cli):
             ]
         },
     )
+    # Mock wyze.get_door_states to return empty list for tests
+    mocker.patch.object(F.wyze, "get_door_states", return_value=[])
     got = cli("tech_sign_ins", ["--now", tc.now.isoformat()])
     assert len(got) == (1 if len(tc.want) > 0 else 0)
     for w in tc.want:
