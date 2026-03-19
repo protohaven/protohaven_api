@@ -5,11 +5,18 @@
 
 {% for t in onduty  %}
 - {% if t.discord_user %}@{{t.discord_user}}{% else %}{{t.name}}
-  ({{",".join(t.emails)}}){% endif %}
+  ({{','.join(t.emails)}}){% endif %}
 
 {% endfor %}
 
 Please check immediately for techs on duty.
+{% if door_states is defined and door_states|length > 0 %}
+
+Current door states:
+{% for door in door_states %}
+- {{door.name}}: {% if door.open_close_state %}OPEN{% else %}CLOSED{% endif %} ({% if door.is_online %}online{% else %}offline{% endif %})
+{% endfor %}
+{% endif %}
 {% if footer is defined %}
 
 {{footer}}
