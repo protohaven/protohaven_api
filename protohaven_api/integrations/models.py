@@ -348,12 +348,31 @@ class Member:  # pylint:disable=too-many-public-methods
             self._raw_account().get("primaryContact", {}).get("email2"),
             self._raw_account().get("primaryContact", {}).get("email3"),
         ]
-        return [e.strip().lower() for e in raw if e is not None]
+        return [e.strip().lower() for e in raw if e is not None and e.strip()]
 
     @property
     def email(self) -> str:
         """Fetches the first valid email address for the member"""
         return self.emails[0] if self.emails else None
+
+    @property
+    def phones(self) -> list[str]:
+        """Get all the phone numbers for this user in preferential order, omitting empty
+        results."""
+        raw = [
+            self.neon_search_data.get("Phone 1"),
+            self.neon_search_data.get("Phone 2"),
+            self.neon_search_data.get("Phone 3"),
+            self._raw_account().get("primaryContact", {}).get("phone1"),
+            self._raw_account().get("primaryContact", {}).get("phone2"),
+            self._raw_account().get("primaryContact", {}).get("phone3"),
+        ]
+        return [p.strip() for p in raw if p is not None and p.strip()]
+
+    @property
+    def phone(self) -> str:
+        """Fetches the first valid phone number for the member"""
+        return self.phones[0] if self.phones else None
 
     def _get_custom_field(self, key_field, value_field):
         search_result = self.neon_search_data.get(key_field)

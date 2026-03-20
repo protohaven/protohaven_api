@@ -177,6 +177,66 @@ def test_emails():
     assert not m.emails
 
 
+def test_phones():
+    """Test Member.phones property"""
+    # Test with fetch data (neon_raw_data)
+    data = {
+        "individualAccount": {
+            "primaryContact": {"phone1": "(555) 123-4567", "phone2": "(555) 987-6543"}
+        }
+    }
+    m = Member(neon_raw_data=data)
+    assert m.phones == ["(555) 123-4567", "(555) 987-6543"]
+    assert m.phone == "(555) 123-4567"
+
+    # Test with search data (neon_search_data)
+    m = Member(
+        neon_search_data={"Phone 1": "(555) 111-2222", "Phone 2": "(555) 333-4444"}
+    )
+    assert m.phones == ["(555) 111-2222", "(555) 333-4444"]
+    assert m.phone == "(555) 111-2222"
+
+    # Test with mixed data - search data should take precedence
+    m = Member(
+        neon_raw_data={
+            "individualAccount": {
+                "primaryContact": {
+                    "phone1": "(555) 123-4567",
+                    "phone2": "(555) 987-6543",
+                }
+            }
+        },
+        neon_search_data={"Phone 1": "(555) 999-0000", "Phone 3": "(555) 888-7777"},
+    )
+    assert m.phones == [
+        "(555) 999-0000",
+        "(555) 888-7777",
+        "(555) 123-4567",
+        "(555) 987-6543",
+    ]
+    assert m.phone == "(555) 999-0000"
+
+    # Test with no phone data
+    m = Member(neon_raw_data={"individualAccount": {"primaryContact": {}}})
+    assert m.phones == []
+    assert m.phone is None
+
+    # Test with empty phone strings
+    m = Member(
+        neon_raw_data={
+            "individualAccount": {
+                "primaryContact": {
+                    "phone1": "",
+                    "phone2": "  ",
+                    "phone3": "(555) 123-4567",
+                }
+            }
+        }
+    )
+    assert m.phones == ["(555) 123-4567"]
+    assert m.phone == "(555) 123-4567"
+
+
 def test_zero_cost_ok_until():
     """Test zero_cost_ok_until property with valid and invalid dates"""
     m = Member(

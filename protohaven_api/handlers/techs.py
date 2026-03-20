@@ -459,6 +459,7 @@ def techs_backfill_events():
     """
     for_techs = []
     now = tznow()
+    is_admin = am_lead_role()
 
     def _keep(evt):
         if evt.in_blocklist():
@@ -486,12 +487,33 @@ def techs_backfill_events():
         # attendee_count requires attendee data to have been fetched,
         # so we have to additionally check here
         if evt.name.startswith(TECH_ONLY_PREFIX) or evt.attendee_count > 0:
+            # Get attendee details for admins
+            attendee_details = []
+            if is_admin and evt.neon_attendee_data is not None:
+                for attendee in evt.attendees:
+                    if attendee.valid:
+                        attendee_info = {
+                            "neon_id": attendee.neon_id,
+                            "name": attendee.name,
+                            "email": attendee.email,
+                        }
+                        # Try to get phone number from member account
+                        if attendee.neon_id:
+                            try:
+                                member = neon_base.fetch_account(attendee.neon_id)
+                                if member and hasattr(member, "phone") and member.phone:
+                                    attendee_info["phone"] = member.phone
+                            except RuntimeError:
+                                pass  # Silently fail if we can't fetch member data
+                        attendee_details.append(attendee_info)
+
             for_techs.append(
                 {
                     "id": evt.neon_id,
                     "ticket_id": evt.single_registration_ticket_id,
                     "name": evt.name,
                     "attendees": list(evt.signups),
+                    "attendee_details": attendee_details if is_admin else [],
                     "capacity": evt.capacity,
                     "start": evt.start_date.isoformat(),
                     "supply_cost": evt.supply_cost or 0,
@@ -504,6 +526,7 @@ def techs_backfill_events():
         "can_edit": am_lead_role()
         or am_role(Role.EDUCATION_LEAD)
         or am_role(Role.STAFF),
+        "is_admin": is_admin,
     }
 
 
@@ -535,7 +558,7 @@ def _notify_registration(account_id, event_id, action):
     redirect_to_login=False,
 )
 def techs_event_registration():
-    """Register a shop tech for an event, via Neon ID"""
+    """Register/unregister a shop tech for an event, or admin de-register any attendee"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
         return Response(
@@ -549,23 +572,65 @@ def techs_event_registration():
     event_id = data.get("event_id")
     ticket_id = data.get("ticket_id")
     action = data.get("action")
+    attendee_neon_id = data.get("attendee_neon_id")
+
     log.info(f"Attempt to (un)register for event: {account_id} {data}")
     if not account_id:
         return Response("Not logged in", status=401)
     if not event_id:
         return Response("event_id required", status=400)
-    if not action in ("register", "unregister"):
-        return Response("action must be one of 'register', 'unregister'", status=400)
 
-    if action == "register":
-        ret = neon.register_for_event(account_id, event_id, ticket_id)
-    else:
-        ret = neon.delete_single_ticket_registration(account_id, event_id) or {
+    # Handle admin de-register action
+    if action == "admin_deregister":
+        if not am_lead_role():
+            return Response(
+                "Admin privileges required for admin_deregister action", status=403
+            )
+        if not attendee_neon_id:
+            return Response(
+                "attendee_neon_id required for admin_deregister", status=400
+            )
+
+        log.info(
+            f"Admin de-registering attendee {attendee_neon_id} from event {event_id}"
+        )
+        ret = neon.delete_single_ticket_registration(attendee_neon_id, event_id) or {
             "status": "ok"
         }
-    if ret:
-        _notify_registration(account_id, event_id, action)
-        return ret
+        if ret:
+            # Notify about the admin de-registration
+            admin_acc = neon_base.fetch_account(account_id, required=True)
+            evt = eauto.fetch_event(event_id, attendees=True)
+            msg = (
+                f"{admin_acc.name} admin-de-registered attendee {attendee_neon_id} via [/techs](https://api.protohaven.org/techs#events): "
+                f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
+                f"; {evt.capacity - evt.attendee_count + 1} seat(s) remain"
+            )
+            # Tech-only classes shouldn't bother instructors
+            if not evt.name.startswith(TECH_ONLY_PREFIX):
+                comms.send_discord_message(msg, "#instructors", blocking=False)
+            comms.send_discord_message(msg, "#techs", blocking=False)
+            return ret
+    # Handle regular register/unregister actions
+    elif action in ("register", "unregister"):
+        if not ticket_id and action == "register":
+            return Response("ticket_id required for register action", status=400)
+
+        if action == "register":
+            ret = neon.register_for_event(account_id, event_id, ticket_id)
+        else:
+            ret = neon.delete_single_ticket_registration(account_id, event_id) or {
+                "status": "ok"
+            }
+        if ret:
+            _notify_registration(account_id, event_id, action)
+            return ret
+    else:
+        return Response(
+            "action must be one of 'register', 'unregister', 'admin_deregister'",
+            status=400,
+        )
+
     raise RuntimeError("Unknown error handling event registration state")
 
 
