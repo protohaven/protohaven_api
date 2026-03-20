@@ -134,7 +134,7 @@ function delete_event(eid) {
                           size="sm"
                           on:click={()=>{
                             if (confirm(`Are you sure you want to de-register ${attendee.name} from this event?`)) {
-                              action(r.id, null, 'admin_deregister', attendee.neon_id);
+                              action(r.id, null, 'deregister', attendee.neon_id);
                             }
                           }}
                           disabled={submitting}

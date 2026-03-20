@@ -75,6 +75,8 @@ After deployment, verify that:
   - [ ] Techs roster can enroll and create a new member
   - [x] Events tab can create, register, unregister, and delete a techs-only
         class
+  - [ ] Events tab shows registrant name, email, and phone if admin
+  - [ ] Events tab can deregister any registrant if admin
   - [x] Generic shop tech account is not permitted to register for a tech-only
         class
   - [x] Full tech name is visible on calendar only when logged in as a tech /

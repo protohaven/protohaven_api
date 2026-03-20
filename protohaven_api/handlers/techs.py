@@ -534,12 +534,17 @@ def _notify_registration(account_id, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
     acc = neon_base.fetch_account(account_id, required=True)
+    target = (
+        acc
+        if account_id == target_id
+        else neon_base.fetch_account(target_id, required=True)
+    )
     evt = eauto.fetch_event(event_id, attendees=True)
     verb = "registered"
     if action != "register":
         verb = "unregistered"
     msg = (
-        f"{acc.name} {verb} via [/techs](https://api.protohaven.org/techs#events): "
+        f"{acc.name} {verb} {target.name} via [/techs](https://api.protohaven.org/techs#events): "
         f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
         f"; {evt.capacity - evt.attendee_count} seat(s) remain"
     )
@@ -572,7 +577,7 @@ def techs_event_registration():
     event_id = data.get("event_id")
     ticket_id = data.get("ticket_id")
     action = data.get("action")
-    attendee_neon_id = data.get("attendee_neon_id")
+    attendee_neon_id = str(data.get("attendee_neon_id")).strip() or account_id
 
     log.info(f"Attempt to (un)register for event: {account_id} {data}")
     if not account_id:
@@ -580,50 +585,24 @@ def techs_event_registration():
     if not event_id:
         return Response("event_id required", status=400)
 
-    # Handle admin de-register action
-    if action == "admin_deregister":
-        if not am_lead_role():
-            return Response(
-                "Admin privileges required for admin_deregister action", status=403
-            )
-        if not attendee_neon_id:
-            return Response(
-                "attendee_neon_id required for admin_deregister", status=400
-            )
-
-        log.info(
-            f"Admin de-registering attendee {attendee_neon_id} from event {event_id}"
-        )
-        ret = neon.delete_single_ticket_registration(attendee_neon_id, event_id) or {
-            "status": "ok"
-        }
-        if ret:
-            # Notify about the admin de-registration
-            admin_acc = neon_base.fetch_account(account_id, required=True)
-            evt = eauto.fetch_event(event_id, attendees=True)
-            msg = (
-                f"{admin_acc.name} admin-de-registered attendee {attendee_neon_id} via [/techs](https://api.protohaven.org/techs#events): "
-                f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
-                f"; {evt.capacity - evt.attendee_count + 1} seat(s) remain"
-            )
-            # Tech-only classes shouldn't bother instructors
-            if not evt.name.startswith(TECH_ONLY_PREFIX):
-                comms.send_discord_message(msg, "#instructors", blocking=False)
-            comms.send_discord_message(msg, "#techs", blocking=False)
-            return ret
     # Handle regular register/unregister actions
     elif action in ("register", "unregister"):
         if not ticket_id and action == "register":
             return Response("ticket_id required for register action", status=400)
 
+        if attendee_neon_id != account_id and not am_lead_role():
+            return Response(
+                "Admin privileges required for admin_deregister action", status=403
+            )
+
         if action == "register":
-            ret = neon.register_for_event(account_id, event_id, ticket_id)
+            ret = neon.register_for_event(attendee_neon_id, event_id, ticket_id)
         else:
-            ret = neon.delete_single_ticket_registration(account_id, event_id) or {
-                "status": "ok"
-            }
+            ret = neon.delete_single_ticket_registration(
+                attendee_neon_id, event_id
+            ) or {"status": "ok"}
         if ret:
-            _notify_registration(account_id, event_id, action)
+            _notify_registration(account_id, attendee_neon_id, event_id, action)
             return ret
     else:
         return Response(
