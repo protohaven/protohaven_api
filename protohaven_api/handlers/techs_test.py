@@ -393,7 +393,7 @@ def test_techs_event_registration_register(mocker, tech_client):
     )
     assert rep.json == {"status": "ok"}
     tl.neon.register_for_event.assert_called_once_with(1234, 123, 456)
-    tl._notify_registration.assert_called_once_with(1234, 123, "register")
+    tl._notify_registration.assert_called_once_with(1234, 1234, 123, "register")
     tl.neon.delete_single_ticket_registration.assert_not_called()
 
 
@@ -412,7 +412,7 @@ def test_techs_event_registration_unregister(mocker, tech_client):
     assert rep.json == {"status": "ok"}
     tl.neon.register_for_event.assert_not_called()
     tl.neon.delete_single_ticket_registration.assert_called_once_with(1234, 123)
-    tl._notify_registration.assert_called_once_with(1234, 123, "unregister")
+    tl._notify_registration.assert_called_once_with(1234, 1234, 123, "unregister")
 
 
 def test_techs_area_leads(mocker, tech_client):

@@ -530,14 +530,14 @@ def techs_backfill_events():
     }
 
 
-def _notify_registration(account_id, event_id, action):
+def _notify_registration(account_id, attendee_neon_id, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
     acc = neon_base.fetch_account(account_id, required=True)
     target = (
         acc
-        if account_id == target_id
-        else neon_base.fetch_account(target_id, required=True)
+        if account_id == attendee_neon_id
+        else neon_base.fetch_account(attendee_neon_id, required=True)
     )
     evt = eauto.fetch_event(event_id, attendees=True)
     verb = "registered"
@@ -577,7 +577,12 @@ def techs_event_registration():
     event_id = data.get("event_id")
     ticket_id = data.get("ticket_id")
     action = data.get("action")
-    attendee_neon_id = str(data.get("attendee_neon_id")).strip() or account_id
+    attendee_neon_id_raw = data.get("attendee_neon_id")
+    attendee_neon_id = (
+        str(attendee_neon_id_raw).strip()
+        if attendee_neon_id_raw is not None
+        else account_id
+    )
 
     log.info(f"Attempt to (un)register for event: {account_id} {data}")
     if not account_id:
@@ -586,7 +591,7 @@ def techs_event_registration():
         return Response("event_id required", status=400)
 
     # Handle regular register/unregister actions
-    elif action in ("register", "unregister"):
+    if action in ("register", "unregister"):
         if not ticket_id and action == "register":
             return Response("ticket_id required for register action", status=400)
 
