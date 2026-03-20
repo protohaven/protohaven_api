@@ -478,7 +478,7 @@ def techs_backfill_events():
 
     # Should dedupe logic with builder.py eventually.
     # We look for unpublished events too since those may be tech events
-    for evt in eauto.fetch_upcoming_events(
+    for evt in eauto.fetch_upcoming_events(  # pylint: disable=too-many-nested-blocks
         published=False, merge_airtable=True, attendees=_keep, tickets=_keep
     ):
         if not _keep(evt):
@@ -562,7 +562,7 @@ def _notify_registration(account_id, attendee_neon_id, event_id, action):
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-def techs_event_registration():
+def techs_event_registration():  # pylint: disable=too-many-return-statements
     """Register/unregister a shop tech for an event, or admin de-register any attendee"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
