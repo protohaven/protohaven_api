@@ -339,7 +339,9 @@ def test_techs_backfill_events(mocker, tech_client):
             capacity=10,
             start_date=d(0),
             supply_cost=0,
+            neon_attendee_data=None,
         )
+        m.attendees = []
         m.name = name
         for k, v in ovr.items():
             setattr(m, k, v)
@@ -351,12 +353,14 @@ def test_techs_backfill_events(mocker, tech_client):
         return_value=events,
     )
     mocker.patch.object(tl, "tznow", return_value=d(-1, 10))
+    mocker.patch.object(tl, "am_lead_role", return_value=False)
 
     response = tech_client.get("/techs/events")
     assert response.status_code == 200
     assert response.json["events"] == [
         {
             "attendees": [1],
+            "attendee_details": [],
             "capacity": 10,
             "id": "123",
             "name": "Event A",
@@ -366,6 +370,7 @@ def test_techs_backfill_events(mocker, tech_client):
         },
         {
             "attendees": [],
+            "attendee_details": [],
             "capacity": 10,
             "id": "999",
             "name": "(SHOP TECH ONLY) no registants",
@@ -388,7 +393,7 @@ def test_techs_event_registration_register(mocker, tech_client):
     )
     assert rep.json == {"status": "ok"}
     tl.neon.register_for_event.assert_called_once_with(1234, 123, 456)
-    tl._notify_registration.assert_called_once_with(1234, 123, "register")
+    tl._notify_registration.assert_called_once_with(1234, 1234, 123, "register")
     tl.neon.delete_single_ticket_registration.assert_not_called()
 
 
@@ -407,7 +412,7 @@ def test_techs_event_registration_unregister(mocker, tech_client):
     assert rep.json == {"status": "ok"}
     tl.neon.register_for_event.assert_not_called()
     tl.neon.delete_single_ticket_registration.assert_called_once_with(1234, 123)
-    tl._notify_registration.assert_called_once_with(1234, 123, "unregister")
+    tl._notify_registration.assert_called_once_with(1234, 1234, 123, "unregister")
 
 
 def test_techs_area_leads(mocker, tech_client):

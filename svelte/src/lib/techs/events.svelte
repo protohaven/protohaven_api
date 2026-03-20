@@ -23,13 +23,19 @@ $: {
 
 let submitting = false;
 let submission = new Promise((r, _) => r(null));
-function action(event_id, ticket_id, action) {
+function action(event_id, ticket_id, action, attendee_neon_id = null) {
   submitting = true;
-  submission = post('/techs/event', {event_id, ticket_id, action}).then(result => console.log(result)).finally(() => {
+  const data = {event_id, ticket_id, action};
+  if (attendee_neon_id !== null) {
+    data.attendee_neon_id = attendee_neon_id;
+  }
+  submission = post('/techs/event', data).then(result => console.log(result)).finally(() => {
     reload();
     submitting = false;
   });
 }
+
+
 
 let new_event_form = {
   "name": null,
@@ -110,6 +116,38 @@ function delete_event(eid) {
             <div>On {new Date(r.start).toLocaleString()}</div>
             <div><a href={`https://protohaven.org/e/${r.id}`} target="_blank">Event Details</a></div>
             <div>{r.capacity - r.attendees.length} seat(s) left</div>
+
+            {#if r.attendee_details && r.attendee_details.length > 0}
+              <div class="mt-3">
+                <strong>Registrants ({r.attendee_details.length}):</strong>
+                <ul class="list-unstyled mt-2">
+                  {#each r.attendee_details as attendee}
+                    <li class="mb-2 p-2 border rounded">
+                      <div><strong>{attendee.name}</strong></div>
+                      <div>Email: {attendee.email}</div>
+                      {#if attendee.phone}
+                        <div>Phone: {attendee.phone}</div>
+                      {/if}
+                      <div class="mt-1">
+                        <Button
+                          color="danger"
+                          size="sm"
+                          on:click={()=>{
+                            if (confirm(`Are you sure you want to de-register ${attendee.name} from this event?`)) {
+                              action(r.id, null, 'deregister', attendee.neon_id);
+                            }
+                          }}
+                          disabled={submitting}
+                        >
+                          De-register
+                        </Button>
+                      </div>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+
             {#if user && p.can_register}
             <div>
             {#if r.attendees.indexOf(user.neon_id) !== -1}
