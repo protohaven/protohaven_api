@@ -302,7 +302,7 @@ class Commands:
             booked_id = member.booked_id
             if not booked_id:
                 log.info(
-                    f"Active member {member.full_name} ({member.email}) with no Booked User ID"
+                    f"Active member {member.name} ({member.email}) with no Booked User ID"
                 )
                 existing_booked_user = email_to_booked_user.get(member_email_lower)
                 if existing_booked_user:
@@ -318,7 +318,7 @@ class Commands:
                         for e in u["errors"]:
                             log.error(e)
                         summary.append(
-                            f"Error(s) setting up Booked user for {member.full_name}: "
+                            f"Error(s) setting up Booked user for {member.name}: "
                             f"{u.get('errors')}"
                         )
                         continue
@@ -329,14 +329,14 @@ class Commands:
                     neon.set_booked_user_id(member.neon_id, booked_id)
                     summary.append(
                         f"Booked #{booked_id} associated with neon #{member.neon_id} "
-                        f"{member.full_name}"
+                        f"{member.name}"
                     )
                     log.info(summary[-1])
             else:
                 existing_booked_user = booked_user_data.get(booked_id)
                 if not existing_booked_user:
                     raise RuntimeError(
-                        f"Neon user {member.full_name} has invalid booked user ID {booked_id}"
+                        f"Neon user {member.name} has invalid booked user ID {booked_id}"
                     )
                 booked_member_ids.add(booked_id)
                 # Check if the booked user data matches the neon member data
