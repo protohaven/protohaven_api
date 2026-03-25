@@ -952,7 +952,10 @@ class Event:  # pylint: disable=too-many-public-methods
     def areas(self) -> list[str]:
         """Returns the list of areas for this event from Airtable data"""
         if self.airtable_data:
-            return self.airtable_data.get("fields", {}).get("Areas", [])
+            s = self.airtable_data.get("fields", {}).get(
+                "Name (from Area) (from Class)"
+            )
+            return s
         return []
 
     @property

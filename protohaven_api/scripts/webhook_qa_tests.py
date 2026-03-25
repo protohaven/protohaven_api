@@ -35,37 +35,34 @@ def run_user_clearances_webhook_test(params):
 
     print("\nChecking clearances for", params.user)
     rep = _do_req("GET", {"emails": params.user})
-    codes = set(rep.json()[params.user])
-    if "HRB" in codes or "IRN" in codes:
-        print("IMW clearance codes already present; removing to setup for test")
-        _do_req("DELETE", {"emails": params.user, "codes": "IMW"})
+    codes = set(rep.json()[params.user]["result"])
+    if "FRG2: Forge 2" in codes:
+        print("Clearance code already present; removing to setup for test")
+        _do_req("DELETE", {"emails": params.user, "codes": "FRG2: Forge 2"})
         print("Fetching current clearances for", params.user)
         _do_req("GET", {"emails": params.user})
 
-    print("\nIssuing PATCH for IMW clearance code (resolves to HRB, IRN)")
-    _do_req("PATCH", {"emails": params.user, "codes": "IMW"})
+    print("\nIssuing PATCH for FRG2 clearance code")
+    _do_req("PATCH", {"emails": params.user, "codes": "FRG2: Forge 2"})
 
     print("\nPatched; getting new info")
-    rep = _do_req("GET", {"emails": params.user})
-    codes = set(rep.json()[params.user])
-    if "HRB" not in codes or "IRN" not in codes:
-        raise RuntimeError(
-            "HRB, IRN must both be present in the list above; test failed"
-        )
+    rep = _do_req("GET", {"emails": params.user}).json()
+    print(rep)
+    codes = set(rep[params.user]["result"])
+    if "FRG2: Forge 2" not in codes:
+        raise RuntimeError("FRG2 must both be present in the list above; test failed")
 
     print(
-        "\nGood, HRB and IRN are present. Issuing DELETE on the IMW code to remove them again"
+        "\nGood, FRG2 are present. Issuing DELETE on the IMW code to remove them again"
     )
     _do_req("DELETE", {"emails": params.user, "codes": "IMW"})
 
     print("\nDeleted; getting new info")
     rep = _do_req("GET", {"emails": params.user})
     codes = set(rep.json()[params.user])
-    if "HRB" in codes or "IRN" in codes:
-        raise RuntimeError(
-            "HRB, IRN must both be absent in the list above; test failed"
-        )
-    print("\n**Test passed - HRB and IRN removed successfully.**")
+    if "FRG2: Forge 2" in codes:
+        raise RuntimeError("FRG2 must both be absent in the list above; test failed")
+    print("\n**Test passed - FRG2 removed successfully.**")
 
 
 def run_neon_membership_created_callback_test(params, is_amp):
@@ -82,7 +79,7 @@ def run_neon_membership_created_callback_test(params, is_amp):
         raise RuntimeError(f"No Neon account for {params.user}")
     m = m[0]
     print(f"\nFound account #{m.neon_id}")
-    for mem in m.memberships:
+    for mem in m.memberships():
         print("Deleting membership", mem.neon_id)
         # Note: this is a `neon_base` call and not a function in `neon` as it feels
         # pretty risky to have a "delete this normally archival data" function just
@@ -271,7 +268,7 @@ if __name__ == "__main__":
     if args.test in ("clearance", "all"):
         print("\nRunning test: clearance")
         print("\n====== THIS AFFECTS PROD DATA =====\n")
-        print("- member's HRB, IRN clearances will be revoked")
+        print("- member's FRG2 clearance will be revoked")
         print("\n====== THIS AFFECTS PROD DATA =====\n")
         input("Press enter to continue, or Ctrl+C to quit.")
         run_user_clearances_webhook_test(args)

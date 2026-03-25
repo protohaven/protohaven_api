@@ -180,8 +180,8 @@ def get_automation_reservations(interval: Interval, user_id=None) -> Iterable[di
     user_id = user_id or str(get_config("booked/automation_user_id"))
     assert user_id
 
-    for res in get_reservations(*interval):
-        if str(res["userid"]) != user_id:
+    for res in get_reservations(*interval)["reservations"]:
+        if str(res["userId"]) != user_id:
             continue
         yield res
 

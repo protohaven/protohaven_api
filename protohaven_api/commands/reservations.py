@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import logging
+from collections import defaultdict
 from functools import lru_cache
 
 from protohaven_api.automation.classes import events as eauto
@@ -302,7 +303,7 @@ class Commands:
             booked_id = member.booked_id
             if not booked_id:
                 log.info(
-                    f"Active member {member.full_name} ({member.email}) with no Booked User ID"
+                    f"Active member {member.name} ({member.email}) with no Booked User ID"
                 )
                 existing_booked_user = email_to_booked_user.get(member_email_lower)
                 if existing_booked_user:
@@ -318,7 +319,7 @@ class Commands:
                         for e in u["errors"]:
                             log.error(e)
                         summary.append(
-                            f"Error(s) setting up Booked user for {member.full_name}: "
+                            f"Error(s) setting up Booked user for {member.name}: "
                             f"{u.get('errors')}"
                         )
                         continue
@@ -329,14 +330,14 @@ class Commands:
                     neon.set_booked_user_id(member.neon_id, booked_id)
                     summary.append(
                         f"Booked #{booked_id} associated with neon #{member.neon_id} "
-                        f"{member.full_name}"
+                        f"{member.name}"
                     )
                     log.info(summary[-1])
             else:
                 existing_booked_user = booked_user_data.get(booked_id)
                 if not existing_booked_user:
                     raise RuntimeError(
-                        f"Neon user {member.full_name} has invalid booked user ID {booked_id}"
+                        f"Neon user {member.name} has invalid booked user ID {booked_id}"
                     )
                 booked_member_ids.add(booked_id)
                 # Check if the booked user data matches the neon member data
@@ -414,6 +415,11 @@ class Commands:
             type=int,
             default=90,
         ),
+        arg(
+            "--max",
+            help="Max number of reservations to clean up",
+            default=10,
+        ),
     )
     def cleanup_orphaned_class_reservations(
         self, args, pct
@@ -443,12 +449,19 @@ class Commands:
         # Use fetch_upcoming_events which merges Neon and Airtable data
         try:
             for event in eauto.fetch_upcoming_events(
-                back_days=0,  # Only future events
+                back_days=3,
                 published=True,  # Only published events
-                merge_airtable=True,  # Merge with Airtable schedule data
+                merge_airtable=True,  # Merge with Airtable schedule data (for areas)
                 attendees=False,
                 tickets=False,
             ):
+                if not event.airtable_data:
+                    log.warning(
+                        f"Airtable data not matched for event {event.neon_id}: "
+                        f"{event.name} on {event.start_date}"
+                    )
+                    continue
+
                 # Check if event ends within our time window
                 if event.end_date and event.end_date <= end_date:
                     published_events.append(event)
@@ -458,6 +471,7 @@ class Commands:
             )
 
         log.info(f"Found {len(published_events)} published events with Airtable data")
+        published_events.sort(key=lambda e: e.start_date)
         pct[0] = 1
 
         # Step 2: Fetch automation-created reservations
@@ -471,40 +485,32 @@ class Commands:
         pct[1] = 1
 
         # Step 3: Build map of class sessions by area and time
-        class_time_map = {}
+        class_time_map = defaultdict(set)
         for event in published_events:
-            # Use the areas and sessions properties
-            areas = event.areas
-            sessions = event.sessions
+            log.info(f"{event.name} - {event.areas}")
+            for session_start, _ in event.sessions:
+                log.info(f"\t{session_start.isoformat()}")
+                for area in event.areas:
+                    class_time_map[area].add(session_start)
 
-            for area in areas:
-                for session_start, session_end in sessions:
-                    # Create time window key
-                    key = (area, session_start, session_end)
-                    class_time_map[key] = {
-                        "neon_id": event.neon_id,
-                        "name": event.name,
-                    }
-
-        log.info(f"Built time map with {len(class_time_map)} class sessions")
+        log.info(f"Built time map with {len(class_time_map)} areas")
+        if len(class_time_map) == 0:
+            raise RuntimeError("No classes found; no reservations will be cancelled")
         pct[2] = 1
 
         # Step 4: Identify orphaned reservations
         orphaned_reservations = []
         summary = []
 
-        # Get resource to area mapping
-        res_to_area = booked.get_resource_area_map()
+        # Get resource to area mapping (reverse of usual)
+        res_to_area = {
+            r: a for a, rr in booked.get_resource_area_map().items() for r in rr
+        }
+        log.info(f"Resource to area: {res_to_area}")
 
         # Check each automation reservation
         for reservation in automation_reservations:
-            # Get reservation area
-            reservation_area = None
-            for area, resources in res_to_area.items():
-                if reservation["resourceId"] in resources:
-                    reservation_area = area
-                    break
-
+            reservation_area = res_to_area.get(reservation["resourceId"])
             if not reservation_area:
                 log.warning(
                     f"Could not find area for reservation "
@@ -513,39 +519,22 @@ class Commands:
                 )
                 continue
 
-            # Check if there's a class at this time and area
-            # Note: reservation times might be datetime strings or datetime objects
+            # Look for matching class session by area and start time
             reservation_start = reservation["startDate"]
-            reservation_end = reservation["endDate"]
-
-            # Convert to datetime if needed
-            if isinstance(reservation_start, str):
-                reservation_start = datetime.datetime.fromisoformat(
-                    reservation_start.replace("Z", "+00:00")
-                )
-            if isinstance(reservation_end, str):
-                reservation_end = datetime.datetime.fromisoformat(
-                    reservation_end.replace("Z", "+00:00")
-                )
-
-            # Look for matching class session
             found_match = False
-            for (area, class_start, class_end), _ in class_time_map.items():
-                if area == reservation_area:
-                    # Check if reservation time overlaps with class time
-                    # Using a tolerance of 5 minutes for time matching
-                    time_tolerance = datetime.timedelta(minutes=5)
-                    if (
-                        abs((reservation_start - class_start).total_seconds())
-                        <= time_tolerance.total_seconds()
-                        and abs((reservation_end - class_end).total_seconds())
-                        <= time_tolerance.total_seconds()
-                    ):
-                        found_match = True
-                        break
+            time_tolerance = datetime.timedelta(minutes=5)
+            for class_start in class_time_map[reservation_area]:
+                if (
+                    abs((reservation_start - class_start).total_seconds())
+                    <= time_tolerance.total_seconds()
+                ):
+                    found_match = True
+                    log.info("Match found")
+                    break
 
             if not found_match:
                 # This reservation doesn't have a matching published class
+                log.info("Match not found")
                 orphaned_reservations.append(
                     {
                         "reference_number": reservation["referenceNumber"],
@@ -553,7 +542,6 @@ class Commands:
                         "resource_name": reservation["resourceName"],
                         "area": reservation_area,
                         "start": reservation_start,
-                        "end": reservation_end,
                         "title": reservation.get("title", ""),
                     }
                 )
@@ -561,10 +549,13 @@ class Commands:
                 summary.append(
                     f"Remove reservation #{reservation['referenceNumber']} for "
                     f"{reservation['resourceName']} in {reservation_area} "
-                    f"({reservation_start} to {reservation_end}): "
+                    f"({reservation_start}: "
                     f"{reservation.get('title', 'No title')}"
                 )
                 log.info(summary[-1])
+                if len(orphaned_reservations) == args.max:
+                    log.info("Max number of reservations reached")
+                    break
 
         pct[3] = 1
 
