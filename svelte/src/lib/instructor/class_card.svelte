@@ -5,7 +5,7 @@ import {get, post} from '$lib/api.ts';
 import FetchError from '../fetch_error.svelte';
 
 export let schedule_id;
-export let submissions = {};
+export let submissions;
 
 export let c_init;
 let meta_promise = Promise.resolve(c_init);
@@ -25,14 +25,9 @@ function fetch_neon_state(data) {
   return null;
 }
 
-// Check if this class has instructor log submissions
-function hasLogSubmissions(classData) {
-  if (!classData.neon_id) return false;
-  return classData.neon_id in submissions && submissions[classData.neon_id].length > 0;
-}
-
 // Get submission timestamps for this class
 function getSubmissionTimestamps(classData) {
+  if (!submissions || submissions instanceof Error) return [];
   if (!classData.neon_id || !(classData.neon_id in submissions)) return [];
   return submissions[classData.neon_id];
 }
@@ -107,7 +102,7 @@ function cancel(class_id) {
       <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank"><i class="bi bi-question-circle"></i></a> PROPOSED:
     {/if}
     {c.name}
-    {#if hasLogSubmissions(c)}
+    {#if getSubmissionTimestamps(c)}
       <span class="badge bg-success ms-2" title="Log submitted">
         <i class="bi bi-check-circle"></i> Logged
         {#if getSubmissionTimestamps(c).length > 1}
@@ -196,10 +191,12 @@ function cancel(class_id) {
   {#if c.neon_id}
     <div>Log submissions:</div>
     <ul>
-      {#if hasLogSubmissions(c)}
+      {#if getSubmissionTimestamps(c)}
         {#each getSubmissionTimestamps(c) as timestamp, i}
           <li>Submitted: {new Date(timestamp).toLocaleString()}</li>
         {/each}
+      {:else if submissions instanceof Error}
+        <Alert color='warning'>{submissions}</Alert>
       {:else}
         <li><em>No log submissions yet</em></li>
       {/if}

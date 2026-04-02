@@ -11,7 +11,7 @@ export let email;
 export let scheduler_open; // Watched to trigger refresh
 
 let promise;
-let submissions = {};
+let submissions = null;
 
 async function refresh() {
   promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data)=>{
@@ -22,7 +22,7 @@ async function refresh() {
     submissions = data;
   }).catch(err => {
     console.warn("Failed to fetch instructor submissions:", err);
-    return {}; // Return empty object if submissions fetch fails
+    submissions = err; // Explicitly set submission to error state
   })
 }
 

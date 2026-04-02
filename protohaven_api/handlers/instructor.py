@@ -483,8 +483,10 @@ def cancel_class():
 
 @page.route("/instructor/submissions", methods=["GET"])
 @require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
-def instructor_submissions():
-    """Returns instructor submissions for the logged in instructor"""
+def recent_instructor_submissions():
+    """Returns instructor submissions for the logged in instructor.
+    Note that not all submission through time are guaranteed to be returned
+    """
     target_email = request.args.get("email")
     if target_email is not None:
         ue = user_email()
@@ -500,7 +502,7 @@ def instructor_submissions():
         email = email.lower()
 
     result = {}
-    for sub in sheets.get_instructor_submissions_raw(0):
+    for sub in sheets.get_instructor_submissions_raw():
         if "Email Address" not in sub:
             continue
         sub_email = sub["Email Address"].strip().lower()

@@ -138,9 +138,11 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             _unwrap(f, "Days (from Class)"),
         )
         if not hours:
-            raise RuntimeError("Class template data for session has no hours listed")
+            raise RuntimeError(
+                f"Class template data for session has no hours listed: {f}"
+            )
         if not f.get("Sessions"):
-            raise RuntimeError("Scheduled class has no Sessions field data")
+            raise RuntimeError(f"Scheduled class has no Sessions field data: {f}")
         starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
         if len(hours) < len(
             starts
