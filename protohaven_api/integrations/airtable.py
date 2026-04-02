@@ -130,16 +130,6 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     description: dict[str, str]
 
     @classmethod
-    def resolve_starts(cls, sessions, start_time, days, days_between):
-        """Compatibility for old table data"""
-        if sessions:
-            return [safe_parse_datetime(d) for d in sessions.split(",")]
-        d = safe_parse_datetime(start_time)
-        return [
-            d + datetime.timedelta(days=i * int(days_between)) for i in range(int(days))
-        ]
-
-    @classmethod
     def from_schedule(cls, row):
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
@@ -149,13 +139,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         )
         if not hours:
             raise RuntimeError("Class template data for session has no hours listed")
-
-        starts = cls.resolve_starts(
-            f.get("Sessions") or None,
-            f.get("Start Time") or None,
-            _unwrap(f, "Days (from Class)"),
-            _unwrap(f, "Days Between Sessions (from Class)"),
-        )
+        if not f.get("Sessions"):
+            raise RuntimeError("Scheduled class has no Sessions field data")
+        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
         if len(hours) < len(
             starts
         ):  # We need consistent lengths for pairing up data elsewhere
@@ -407,7 +393,7 @@ def get_class_template(cls_id: RecordID) -> Class:
 
 
 def append_classes_to_schedule(payload):
-    """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
+    """Takes {Instructor, Email, Sessions, [Class]} and adds to schedule"""
     assert isinstance(payload, list)
     for c in payload:  # Ensure correct format for linking
         c["Class"] = [_refid(i) for i in c["Class"]]
