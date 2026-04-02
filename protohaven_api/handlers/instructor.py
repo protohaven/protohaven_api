@@ -494,24 +494,28 @@ def recent_instructor_submissions():
             Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF
         ):
             return Response("Access Denied for admin parameter `email`", status=401)
-        email = target_email.lower()
+        email = target_email
     else:
         email = user_email()
         if not email:
             return Response("You are not logged in.", status=401)
-        email = email.lower()
 
+    email = email.strip().lower()
+    log.info(f"Lookup submissions with instructor email {email}")
     result = {}
     for sub in sheets.get_instructor_submissions_raw():
         if "Email Address" not in sub:
+            log.debug("Skip - no email address")
             continue
         sub_email = sub["Email Address"].strip().lower()
         if sub_email != email:
+            log.debug(f"Skip - sub email mismatch {sub_email} vs {email}")
             continue
         if (
             "Neon Event ID (please ignore)" not in sub
             or not sub["Neon Event ID (please ignore)"]
         ):
+            log.debug(f"Skip - no neon ID {sub}")
             continue
         event_id = sub["Neon Event ID (please ignore)"].strip()
         if event_id not in result:

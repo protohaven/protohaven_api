@@ -102,7 +102,7 @@ function cancel(class_id) {
       <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank"><i class="bi bi-question-circle"></i></a> PROPOSED:
     {/if}
     {c.name}
-    {#if getSubmissionTimestamps(c)}
+    {#if getSubmissionTimestamps(c).length > 0}
       <span class="badge bg-success ms-2" title="Log submitted">
         <i class="bi bi-check-circle"></i> Logged
         {#if getSubmissionTimestamps(c).length > 1}

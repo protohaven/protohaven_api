@@ -90,14 +90,17 @@ After deployment, verify that:
   - [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
         data, cal overrides
 - https://api.protohaven.org/instructor
-  - [ ] Loads profile data for instructor
-  - [ ] Loads classes for instructor, including attendance data
-  - [ ] Indicates log submission status for class
+  - [x] Loads profile data for instructor
+  - [~] Correctly shows warning icon on profile tab if incomplete data
+  - [x] Loads classes for instructor, including attendance data
+  - [ ] Correctly indicates log submission status for class (some yes, some no)
   - [ ] Adding a new class on a holiday triggers validation error
   - [ ] Adding a new class on a day with similar area reservations triggers
         validation error
   - [ ] Adding a new class too close to a recent run of that class triggers
         validation error
+  - [ ] Instructor can override schedule validation error
+  - [ ] Schedule overrides send alerts to #edu-leads discord
   - [ ] Can confirm/unconfirm a class
   - [ ] Can set supplies needed / supplies OK
   - [ ] Can switch between volunteer and paid state for class
