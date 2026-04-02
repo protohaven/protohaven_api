@@ -60,6 +60,8 @@ def gen_fees(violations=None, latest_fee=None, now=None):
     if latest_fee is None:
         latest_fee = {}
         for f in airtable.get_policy_fees():
+            if not f["fields"].get("Violation"):
+                continue
             d = safe_parse_datetime(f["fields"]["Created"])
             vid = f["fields"]["Violation"][0]
             if vid not in latest_fee or latest_fee[vid] < d:
@@ -96,6 +98,8 @@ def update_accruals(fees=None):
     if fees is None:
         fees = airtable.get_policy_fees()
     for f in fees:
+        if not f["fields"].get("Violation"):
+            continue
         if len(f["fields"]["Violation"]) > 0 and not f["fields"].get("Paid"):
             totals[f["fields"]["Violation"][0]] += f["fields"]["Amount"]
 

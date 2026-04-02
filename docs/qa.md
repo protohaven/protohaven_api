@@ -19,94 +19,95 @@ After deployment, verify that:
 
 - https://api.protohaven.org/
   - [x] After login, page redirects to /member, loads and displays clearances
-  - [x] Shop Status and Instructor Dashboard links are clickable
-  - [x] Recert card is not visible unless opted in
+  - [x] Can logout via top right link
+  - [x] Shop Status and Instructor Dashboard links are clickable if shown
+  - [ ] Recert card is not visible unless opted in
         (hello+testmember@protohaven.org should not see the link)
   - [x] Recert card shows link to wiki as well as some tools with recerts
         configured.
 - https://api.protohaven.org/welcome
-  - [x] Cannot trigger login with empty or all-whitespace entries
-  - [x] Member sign in fails with hello+testnonmember@protohaven.org
-  - [x] Member sign in with hello+testalert@protohaven.org sends the notice
-  - [x] Member sign in with hello+testmember@protohaven.org succeeds but sends
+  - [ ] Cannot trigger login with empty or all-whitespace entries
+  - [ ] Member sign in fails with hello+testnonmember@protohaven.org
+  - [ ] Member sign in with hello+testalert@protohaven.org sends the notice
+  - [ ] Member sign in with hello+testmember@protohaven.org succeeds but sends
         "multiple accounts" validation alert to `#membership-automation` on
         Discord
-  - [x] Member sign in with hello+testampmake@protohaven.org succeeds, no
+  - [ ] Member sign in with hello+testampmake@protohaven.org succeeds, no
         validation alerts
-  - [x] Guest sign in presents waiver and completes - check the `Sign Ins`
+  - [ ] Guest sign in presents waiver and completes - check the `Sign Ins`
         airtable.
 - https://api.protohaven.org/events
-  - [x] Displays upcoming calendar events
-  - [x] Shows reservations
-  - [x] Shows classes including instructor and attendee data, both Neon and
+  - [ ] Displays upcoming calendar events
+  - [ ] Shows reservations
+  - [ ] Shows classes including instructor and attendee data, both Neon and
         Eventbrite
 - https://api.protohaven.org/techs
-  - [x] Cal loads, individual shifts can be clicked and overridden
-  - [x] Cal can change date range, highlights current day
-  - [x] Cal swap overrides send an alert to the #techs channel
-  - [x] Generic shop tech account is not permitted to modify the calendar
-  - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
+  - [ ] Cal loads, individual shifts can be clicked and overridden
+  - [ ] Cal can change date range, highlights current day
+  - [ ] Cal swap overrides send an alert to the #techs channel
+  - [ ] Generic shop tech account is not permitted to modify the calendar
+  - [ ] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
-  - [x] Members tab shows today's sign-ins, different dates can be shown
-  - [x] Tool states load
-  - [x] Can view history for a tool by clicking the link
-  - [x] Tool guide and clearance documentation status are shown
-  - [x] Docs pages missing approvals can click to the wiki page
-  - [x] Can sort tools by name, urgency, time in state etc.
-  - [x] Can filter tools by area
-  - [x] Storage tab allows for looking up Neon ID by name/email
-  - [x] Storage subscriptions card shows active subscription state - but no
+  - [ ] Members tab shows today's sign-ins, different dates can be shown
+  - [ ] Tool states load
+  - [ ] Can view history for a tool by clicking the link
+  - [ ] Tool guide and clearance documentation status are shown
+  - [ ] Docs pages missing approvals can click to the wiki page
+  - [ ] Can sort tools by name, urgency, time in state etc.
+  - [ ] Can filter tools by area
+  - [ ] Storage tab allows for looking up Neon ID by name/email
+  - [ ] Storage subscriptions card shows active subscription state - but no
         unpaid invoices if not lead
-  - [x] Storage subscription data is not shown if not logged in
-  - [x] Storage subs have badges where unpaid invoices and can be clicked to
+  - [ ] Storage subscription data is not shown if not logged in
+  - [ ] Storage subs have badges where unpaid invoices and can be clicked to
         show links
-  - [x] Storage sub type, ID, and note can all be edited and saved successfully
-  - [x] Areas have some leads assigned to them
-  - [x] Areas has populated "additional contacts" section at the bottom of the
+  - [ ] Storage sub type, ID, and note can all be edited and saved successfully
+  - [ ] Areas have some leads assigned to them
+  - [ ] Areas has populated "additional contacts" section at the bottom of the
         pane
-  - [x] If a lead: techs roster can set interest, expertise, shift info
-  - [x] If logged in as Shop Tech: techs roster can set interest and expertise
+  - [ ] If a lead: techs roster can set interest, expertise, shift info
+  - [ ] If logged in as Shop Tech: techs roster can set interest and expertise
         (but not other fields) for that user
-  - [x] Techs roster can view clearances and sort by name/clearances
-  - [x] Techs roster has some tech photos & bios shown
-  - [x] Techs roster not visible if not a tech (e.g. not logged in)
-  - [x] Techs roster can enroll by search and submit
-  - [x] Techs roster can disenroll via button click and confirmation modal
+  - [ ] Techs roster can view clearances and sort by name/clearances
+  - [ ] Techs roster has some tech photos & bios shown
+  - [ ] Techs roster not visible if not a tech (e.g. not logged in)
+  - [ ] Techs roster can enroll by search and submit
+  - [ ] Techs roster can disenroll via button click and confirmation modal
   - [ ] Techs roster can enroll and create a new member
-  - [x] Events tab can create, register, unregister, and delete a techs-only
+  - [ ] Events tab can create, register, unregister, and delete a techs-only
         class
   - [ ] Events tab shows registrant name, email, and phone if admin
   - [ ] Events tab can deregister any registrant if admin
-  - [x] Generic shop tech account is not permitted to register for a tech-only
+  - [ ] Generic shop tech account is not permitted to register for a tech-only
         class
-  - [x] Full tech name is visible on calendar only when logged in as a tech /
+  - [ ] Full tech name is visible on calendar only when logged in as a tech /
         tech lead
-  - [x] Members tab shows "access denied" when not logged in
-  - [x] Area leads only show first name when not signed in
-  - [x] Unauthenticated user cannot see tech roster
-  - [x] In incognito window (not logged in) cannot make edits to tech data, cal
+  - [ ] Members tab shows "access denied" when not logged in
+  - [ ] Area leads only show first name when not signed in
+  - [ ] Unauthenticated user cannot see tech roster
+  - [ ] In incognito window (not logged in) cannot make edits to tech data, cal
         overrides
   - [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
         data, cal overrides
 - https://api.protohaven.org/instructor
-  - [x] Loads profile data for instructor
-  - [x] Loads classes for instructor, including attendance data
+  - [ ] Loads profile data for instructor
+  - [ ] Loads classes for instructor, including attendance data
   - [ ] Indicates log submission status for class
-  - [x] Adding a new class on a holiday triggers validation error
-  - [x] Adding a new class on a day with similar area reservations triggers
+  - [ ] Adding a new class on a holiday triggers validation error
+  - [ ] Adding a new class on a day with similar area reservations triggers
         validation error
-  - [x] Adding a new class too close to a recent run of that class triggers
+  - [ ] Adding a new class too close to a recent run of that class triggers
         validation error
-  - [x] Can confirm/unconfirm a class
-  - [x] Can set supplies needed / supplies OK
-  - [x] Can switch between volunteer and paid state for class
-  - [x] Log submission button works
+  - [ ] Can confirm/unconfirm a class
+  - [ ] Can set supplies needed / supplies OK
+  - [ ] Can switch between volunteer and paid state for class
+  - [ ] Log submission button works
 - https://api.protohaven.org/event_ticker
-  - [x] Returns JSON of sample classes
+  - [ ] Returns JSON of sample classes
 - https://api.protohaven.org/staff
-  - [x] Can summarize one or more discord channels, and view photos
-  - [x] Access denied if logged in as hello+testmember@protohaven.org
-  - [x] Ops dashboard shows content with no errors
+  - [ ] Can summarize one or more discord channels, and view photos
+  - [ ] Access denied if logged in as hello+testmember@protohaven.org
+  - [ ] Ops dashboard shows content with no errors
 
 ## Discord events
 
@@ -119,18 +120,18 @@ Send `TEST_MEMBER_JOIN` in a DM to the Protohaven discord bot; this will run the
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove
 association.
 
-- [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+- [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
 
 Override and register the user in Neon via the link.
 
-- [x] Discord association
+- [ ] Discord association
       [form](https://staging.api.protohaven.org/member?discord_id=asdf)
       correctly sets discord ID on Neon account
 
 Remove all roles from Discord user, and change its display name to something
 other than `Test Member`.
 
-- [x] When missing roles & nickname format, adds them & notifies (both of role
+- [ ] When missing roles & nickname format, adds them & notifies (both of role
       and nick change)
 
 Add an extra role to the user via Discord. (Does this actually work via
@@ -150,7 +151,7 @@ Membership creation webhook
 PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests new_member
 ```
 
-- [x] runs successfully
+- [ ] runs successfully
 
 Clearance webhook
 
@@ -158,7 +159,7 @@ Clearance webhook
 PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests clearance
 ```
 
-- [x] runs successfully
+- [ ] runs successfully
 
 Maintenance data webhook
 
@@ -166,4 +167,4 @@ Maintenance data webhook
 PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
 ```
 
-- [x] runs successfully
+- [ ] runs successfully

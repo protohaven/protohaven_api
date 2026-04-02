@@ -409,7 +409,7 @@ def push_class():
         # warning to education leads.
         errors_text = "\n* ".join(errors)
         comms.send_discord_message(
-            f"@EduLeads: {user_fullname()} is **bypassing validation errors** "
+            f"@EduLeads - {user_fullname()} is **bypassing validation errors** "
             "to schedule class:\n\n"
             f"* Instructor: {m.name} ({m.email})\n"
             f"* Class: {c.name} ($" + f"{c.price}, {c.capacity} students)\n"
@@ -449,7 +449,7 @@ def class_neon_state():
 def cancel_class():
     """Cancel a class - fails if anyone is registered for it"""
     data = request.json
-    c = airtable.get_scheduled_class(data["class_id"])
+    c = airtable.get_scheduled_class(data["class_id"], raw=False)
     if not c:
         return Response("Not found", status=404)
 

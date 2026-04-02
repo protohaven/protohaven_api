@@ -521,6 +521,23 @@ class Member:  # pylint:disable=too-many-public-methods
 
         return None
 
+    def is_volunteer(self) -> bool:
+        """Returns true if the member is a volunteer role, false otherwise"""
+        for r in self.roles:
+            if r in (
+                Role.INSTRUCTOR,
+                Role.BOARD_MEMBER,
+                Role.SHOP_TECH,
+                Role.SHOP_TECH_LEAD,
+                Role.EDUCATION_LEAD,
+                Role.SOFTWARE_DEV,
+                Role.IT_MAINTENANCE,
+                Role.DEVOPS,
+                Role.MAINTENANCE_CREW,
+            ):
+                return True
+        return False
+
     @property
     def volunteer_bio(self):
         """With bio data, get member bio string"""

@@ -252,7 +252,7 @@ def techs_forecast_override():
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
         return Response(
-            "Generic shop tech user is not allowed to modify the shift schedule."
+            "Generic shop tech user is not allowed to modify the shift schedule. "
             "Please log in as a specific tech to change the schedule.",
             status=400,
         )
@@ -496,6 +496,7 @@ def techs_backfill_events():
                             "neon_id": attendee.neon_id,
                             "name": attendee.name,
                             "email": attendee.email,
+                            "is_volunteer": False,
                         }
                         # Try to get phone number from member account
                         if attendee.neon_id:
@@ -503,6 +504,7 @@ def techs_backfill_events():
                                 member = neon_base.fetch_account(attendee.neon_id)
                                 if member and hasattr(member, "phone") and member.phone:
                                     attendee_info["phone"] = member.phone
+                                attendee_info["is_volunteer"] = member.is_volunteer()
                             except RuntimeError:
                                 pass  # Silently fail if we can't fetch member data
                         attendee_details.append(attendee_info)

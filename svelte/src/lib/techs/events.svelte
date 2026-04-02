@@ -124,10 +124,13 @@ function delete_event(eid) {
                   {#each r.attendee_details as attendee}
                     <li class="mb-2 p-2 border rounded">
                       <div><strong>{attendee.name}</strong></div>
+                      {#if attendee.email}
                       <div>Email: {attendee.email}</div>
+                      {/if}
                       {#if attendee.phone}
                         <div>Phone: {attendee.phone}</div>
                       {/if}
+                      {#if attendee.is_volunteer}
                       <div class="mt-1">
                         <Button
                           color="danger"
@@ -142,6 +145,7 @@ function delete_event(eid) {
                           De-register
                         </Button>
                       </div>
+                      {/if}
                     </li>
                   {/each}
                 </ul>
@@ -150,6 +154,7 @@ function delete_event(eid) {
 
             {#if user && p.can_register}
             <div>
+            <div>{JSON.stringify(r)}</div>
             {#if r.attendees.indexOf(user.neon_id) !== -1}
               <strong>You are registered!</strong>
               <Button color="secondary" on:click={()=>action(r.id, r.ticket_id, 'unregister')} disabled={submitting}>Unregister</Button>
