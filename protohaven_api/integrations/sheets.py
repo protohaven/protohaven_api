@@ -37,10 +37,13 @@ def get_sheet_range(sheet_id, range_name):
 
 
 def get_instructor_submissions_raw(from_row=1300):
-    """Get log submissions from instructors"""
+    """Get log submissions from instructors
+
+    Note: columns up to Neon ID are included
+    """
     sheet_id = get_config("sheets/ids/instructor_hours")
-    headers = get_sheet_range(sheet_id, "Form Responses 1!A1:M")[0]
-    for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:M"):
+    headers = get_sheet_range(sheet_id, "Form Responses 1!A1:N")[0]
+    for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:N"):
         data = dict(zip(headers, row))
         if not data.get("Timestamp"):
             continue

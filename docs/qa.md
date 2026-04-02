@@ -91,14 +91,16 @@ After deployment, verify that:
         data, cal overrides
 - https://api.protohaven.org/instructor
   - [x] Loads profile data for instructor
-  - [~] Correctly shows warning icon on profile tab if incomplete data
+  - [x] Correctly shows warning icon on profile tab if incomplete data
   - [x] Loads classes for instructor, including attendance data
   - [ ] Correctly indicates log submission status for class (some yes, some no)
-  - [ ] Adding a new class on a holiday triggers validation error
+  - [x] Adding a new class on a holiday triggers validation error
   - [ ] Adding a new class on a day with similar area reservations triggers
         validation error
   - [ ] Adding a new class too close to a recent run of that class triggers
         validation error
+  - [ ] Scheduling sessions more than 10 days apart triggers validation error
+        (check dates to ensure same days/times on validation step)
   - [ ] Instructor can override schedule validation error
   - [ ] Schedule overrides send alerts to #edu-leads discord
   - [ ] Can confirm/unconfirm a class
