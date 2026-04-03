@@ -523,7 +523,7 @@ class Member:  # pylint:disable=too-many-public-methods
 
     def is_volunteer(self) -> bool:
         """Returns true if the member is a volunteer role, false otherwise"""
-        for r in self.roles:
+        for r in self.roles or []:
             if r in (
                 Role.INSTRUCTOR,
                 Role.BOARD_MEMBER,

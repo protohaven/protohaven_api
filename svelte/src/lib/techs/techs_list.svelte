@@ -57,7 +57,7 @@ let enrolling = false;
 let techs: DisplayTech[] = [];
 let techs_sorted: DisplayTech[] = [];
 let user_data: DisplayTech | null = null;
-let sort_type: SortType = "clearances_desc";
+let sort_type: SortType = "name";
 
 // Reactive sort
 $: {

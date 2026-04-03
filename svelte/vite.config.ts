@@ -22,6 +22,11 @@ const PROXY_PATHS = [
   '/member/goto_class',
   '/welcome/announcement_ack',
 ];
+
+// IMPORTANT: websocket paths are handled via nginx in production.
+// If you add a path here for development, you WILL need to modify
+// nginx.conf and reload the nginx container for your route to
+// work in staging and prod.
 const WS_PROXY_PATHS = [
   '/welcome/ws',
   '/staff/summarize_discord',

@@ -38,55 +38,58 @@ After deployment, verify that:
         airtable.
 - https://api.protohaven.org/events
   - [x] Displays upcoming calendar events
-  - [!] Shows reservations; can hover to see more details
+  - [x] Shows reservations; can hover to see more details
   - [x] Shows classes including instructor and attendee data, both Neon and
         Eventbrite
 - https://api.protohaven.org/techs
   - [x] Door lock state shown at top nav; matches Wyze state
-  - [!] Cal loads, individual shifts can be clicked and overridden
-  - [ ] Cal can change date range, highlights current day
-  - [ ] Cal swap overrides send an alert to the #techs channel
-  - [ ] Generic shop tech account is not permitted to modify the calendar
-  - [ ] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
+  - [x] Cal loads, individual shifts can be clicked and overridden
+  - [x] Cal can change date range, highlights current day
+  - [x] Cal swap overrides send an alert to the #techs channel
+  - [x] Generic shop tech account is not permitted to modify the calendar
+  - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
-  - [ ] Members tab shows today's sign-ins, different dates can be shown
-  - [ ] Tool states load
-  - [ ] Can view history for a tool by clicking the link
-  - [ ] Tool guide and clearance documentation status are shown
-  - [ ] Docs pages missing approvals can click to the wiki page
-  - [ ] Can sort tools by name, urgency, time in state etc.
-  - [ ] Can filter tools by area
-  - [ ] Storage tab allows for looking up Neon ID by name/email
-  - [ ] Storage subscriptions card shows active subscription state - but no
+  - [!] Members tab shows today's sign-ins, different dates can be shown
+  - [x] Searching by member is possible; shows sign in day stats
+  - [x] Tool states load
+  - [x] Can view history for a tool by clicking the link
+  - [x] Tool guide and clearance documentation status are shown
+  - [x] Docs pages missing approvals can click to the wiki page
+  - [x] Can sort tools by name, urgency, time in state etc.
+  - [x] Can filter tools by area
+  - [x] Storage tab allows for looking up Neon ID by name/email
+  - [x] Storage subscriptions card shows active subscription state - but no
         unpaid invoices if not lead
-  - [ ] Storage subscription data is not shown if not logged in
-  - [ ] Storage subs have badges where unpaid invoices and can be clicked to
+  - [x] Storage subscription data is not shown if not logged in
+  - [x] Storage subs have badges where unpaid invoices and can be clicked to
         show links
-  - [ ] Storage sub type, ID, and note can all be edited and saved successfully
-  - [ ] Areas have some leads assigned to them
-  - [ ] Areas has populated "additional contacts" section at the bottom of the
+  - [x] Storage sub type, ID, and note can all be edited and saved successfully
+  - [x] Areas have some leads assigned to them
+  - [x] Areas has populated "additional contacts" section at the bottom of the
         pane
-  - [ ] If a lead: techs roster can set interest, expertise, shift info
+  - [x] If a lead: techs roster can set interest, expertise, shift info
   - [ ] If logged in as Shop Tech: techs roster can set interest and expertise
         (but not other fields) for that user
-  - [ ] Techs roster can view clearances and sort by name/clearances
-  - [ ] Techs roster has some tech photos & bios shown
-  - [ ] Techs roster not visible if not a tech (e.g. not logged in)
-  - [ ] Techs roster can enroll by search and submit
-  - [ ] Techs roster can disenroll via button click and confirmation modal
-  - [ ] Techs roster can enroll and create a new member
-  - [ ] Events tab can create, register, unregister, and delete a techs-only
-        class
+  - [x] Techs roster can view clearances and sort by name/clearances
+  - [!] Techs roster has some tech photos & bios shown
+  - [x] Techs roster not visible if not a tech (e.g. not logged in)
+  - [x] Techs roster can disenroll via button click and confirmation modal (use
+        Shop Tech user)
+  - [x] Techs roster can enroll by search and submit (use Shop Tech user)
+  - [x] Techs roster can enroll and create a new member (delete in Neon CRM
+        after)
+  - [!] Events tab can create, register, unregister, and delete a techs-only
+    class
   - [ ] Events tab shows registrant name, email, and phone if admin
   - [ ] Events tab can deregister any registrant if admin
   - [ ] Generic shop tech account is not permitted to register for a tech-only
         class
-  - [ ] Full tech name is visible on calendar only when logged in as a tech /
+  - [x] Full tech name is visible on calendar only when logged in as a tech /
         tech lead
-  - [ ] Members tab shows "access denied" when not logged in
-  - [ ] Area leads only show first name when not signed in
-  - [ ] Unauthenticated user cannot see tech roster
-  - [ ] In incognito window (not logged in) cannot make edits to tech data, cal
+  - [x] Members tab shows "access denied" when not logged in
+  - [x] Area leads only show first name when not signed in
+  - [x] Unauthenticated user cannot see tech roster
+  - [x] In incognito window (not logged in) cannot make edits to tech data, cal
         overrides
   - [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
         data, cal overrides
@@ -114,7 +117,7 @@ After deployment, verify that:
 - https://api.protohaven.org/staff
   - [x] Can summarize one or more discord channels, and view photos
   - [x] Access denied if logged in as hello+testmember@protohaven.org
-  - [~] Ops dashboard shows content with no errors
+  - [x] Ops dashboard shows content
 
 ## Discord events
 

@@ -77,8 +77,8 @@ function search_neon_accounts() {
 }
 
 function refresh() {
-  const start = isodate(new Date(start_date));
-  const end = isodate(new Date(end_date));
+  const start = isodate(start_date);
+  const end = isodate(end_date);
   promise = get(`/techs/members?start=${start}&end=${end}`).then((data) => {
     loaded = true;
     let by_email_and_day = {};

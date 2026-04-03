@@ -165,94 +165,91 @@ $: {
     {#if sub_note_editing}
       <Spinner/> {sub_fetch_status}
     {/if}
-    {#await subs_promise}
+    {#if fetching}
       <Spinner/> Loading storage subscriptions... this may take up to a minute
-    {:then p}
-        <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
-          <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-          <ToastBody>{toast_msg.msg}</ToastBody>
-        </Toast>
-        <Dropdown>
-            <DropdownToggle color="secondary" caret>
-                Sort
-            </DropdownToggle>
-            <DropdownMenu>
-                <DropdownItem on:click={() => sort_type="name" }>By Name</DropdownItem>
-                <DropdownItem on:click={() => sort_type="plan" }>By Plan (subscription name in Square)</DropdownItem>
-                <DropdownItem on:click={() => sort_type="memstatus" }>By Membership Status</DropdownItem>
-                <DropdownItem on:click={() => sort_type="startdate" }>By Start Date</DropdownItem>
-                <DropdownItem on:click={() => sort_type="type" }>By Storage Type</DropdownItem>
-                <DropdownItem on:click={() => sort_type="idnum" }>By Storage ID</DropdownItem>
-                <DropdownItem on:click={() => sort_type="detail" }>By Details</DropdownItem>
-            </DropdownMenu>
-        </Dropdown>
-        <Table>
-          <thead>
-            <th>Name</th>
-            {#if includes_email}<th>Email</th>{/if}
-            <th>Plan</th>
-            <th>Membership</th>
-            <th>Start Date</th>
-            <th>Type</th>
-            <th>ID</th>
-            <th>Detail</th>
-          </thead>
-          <tbody>
-          {#each subs_sorted as sub, i}
-            <tr>
-                <td>{sub.customer}
-                {#if sub.unpaid.length > 0}
-                <Badge style="cursor: pointer;" id={"sub" + i} color="danger">{sub.unpaid.length}</Badge>
-                <Popover
-                    target={"sub" + i}
-                    placement="right"
-                    title="Unpaid invoices"
-                  >
-                      {#each sub.unpaid as inv_id}
-                      <div>
-                        <a href={"https://app.squareup.com/dashboard/invoices/" + inv_id}>{inv_id}</a>
-                      </div>
-                      {/each}
-                  </Popover>
+    {/if}
+    <Toast class="me-1" style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;" autohide isOpen={toast_msg} on:close={() => (toast_msg = null)}>
+      <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
+      <ToastBody>{toast_msg.msg}</ToastBody>
+    </Toast>
+    <Dropdown>
+        <DropdownToggle color="secondary" caret>
+            Sort
+        </DropdownToggle>
+        <DropdownMenu>
+            <DropdownItem on:click={() => sort_type="name" }>By Name</DropdownItem>
+            <DropdownItem on:click={() => sort_type="plan" }>By Plan (subscription name in Square)</DropdownItem>
+            <DropdownItem on:click={() => sort_type="memstatus" }>By Membership Status</DropdownItem>
+            <DropdownItem on:click={() => sort_type="startdate" }>By Start Date</DropdownItem>
+            <DropdownItem on:click={() => sort_type="type" }>By Storage Type</DropdownItem>
+            <DropdownItem on:click={() => sort_type="idnum" }>By Storage ID</DropdownItem>
+            <DropdownItem on:click={() => sort_type="detail" }>By Details</DropdownItem>
+        </DropdownMenu>
+    </Dropdown>
+    <Table>
+      <thead>
+        <th>Name</th>
+        {#if includes_email}<th>Email</th>{/if}
+        <th>Plan</th>
+        <th>Membership</th>
+        <th>Start Date</th>
+        <th>Type</th>
+        <th>ID</th>
+        <th>Detail</th>
+      </thead>
+      <tbody>
+      {#each subs_sorted as sub, i}
+        <tr>
+            <td>{sub.customer}
+            {#if sub.unpaid.length > 0}
+            <Badge style="cursor: pointer;" id={"sub" + i} color="danger">{sub.unpaid.length}</Badge>
+            <Popover
+                target={"sub" + i}
+                placement="right"
+                title="Unpaid invoices"
+              >
+                  {#each sub.unpaid as inv_id}
+                  <div>
+                    <a href={"https://app.squareup.com/dashboard/invoices/" + inv_id}>{inv_id}</a>
+                  </div>
+                  {/each}
+              </Popover>
 
-                {/if}
-                </td>
-                {#if includes_email}<td>{sub.email}</td>{/if}
-                <td>
-                {#if sub.plan == "Non-Square Agreement" }
-                  {sub.plan}
-                {:else}
-                  <a href={"https://app.squareup.com/dashboard/subscriptions-list/" + sub.id}>{sub.plan}</a>
-                {/if}
-                {#if sub.status !== "ACTIVE"}
-                  ({sub.status})
-                {/if}
-                </td>
-                <td>{sub.membership_status}</td>
-                <td>{sub.start_date}</td>
-                <td>
-                <Dropdown autoClose={true}>
-                    <DropdownToggle color="light" caret>{sub.storage_type}</DropdownToggle>
-                    <DropdownMenu>
-                      {#each ["Cart", "Table", "Parking space", "Board/bar", "Sheet", "Locker", "Cage", "Rack", "Other", "Unknown"] as typ}
-                        <DropdownItem disabled={!sub.editable || sub_note_editing} on:click={(e) => handle_storage_type_select(e, sub, typ)}>{typ}</DropdownItem>
-                      {/each}
-                    </DropdownMenu>
-                </Dropdown>
-                </td>
-                <td>
-                <EditCell enabled={sub.editable && !sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_id}/>
-                </td>
-                <td>
-                <EditCell  enabled={sub.editable && !sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_detail}/>
-                </td>
-            </tr>
-          {/each}
-        </tbody>
-      </Table>
-    {:catch error}
-      <FetchError {error}/>
-    {/await}
+            {/if}
+            </td>
+            {#if includes_email}<td>{sub.email}</td>{/if}
+            <td>
+            {#if sub.plan == "Non-Square Agreement" }
+              {sub.plan}
+            {:else}
+              <a href={"https://app.squareup.com/dashboard/subscriptions-list/" + sub.id}>{sub.plan}</a>
+            {/if}
+            {#if sub.status !== "ACTIVE"}
+              ({sub.status})
+            {/if}
+            </td>
+            <td>{sub.membership_status}</td>
+            <td>{sub.start_date}</td>
+            <td>
+            <Dropdown autoClose={true}>
+                <DropdownToggle color="light" caret>{sub.storage_type}</DropdownToggle>
+                <DropdownMenu>
+                  {#each ["Cart", "Table", "Parking space", "Board/bar", "Sheet", "Locker", "Cage", "Rack", "Other", "Unknown"] as typ}
+                    <DropdownItem disabled={!sub.editable || sub_note_editing} on:click={(e) => handle_storage_type_select(e, sub, typ)}>{typ}</DropdownItem>
+                  {/each}
+                </DropdownMenu>
+            </Dropdown>
+            </td>
+            <td>
+            <EditCell enabled={sub.editable && !sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_id}/>
+            </td>
+            <td>
+            <EditCell  enabled={sub.editable && !sub_note_editing} on_change={() => update_sub_note(sub)} bind:value={sub.storage_detail}/>
+            </td>
+        </tr>
+      {/each}
+    </tbody>
+  </Table>
 </CardBody>
 </Card>
 <div style="height: 120px"></div>

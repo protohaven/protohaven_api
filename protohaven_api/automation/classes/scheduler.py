@@ -28,7 +28,12 @@ def get_reserved_area_occupancy(
         area: AreaID = row["fields"].get("Name (from Shop Area)")
         if rid and area:
             id_to_area[str(rid)] = area
-    for res in booked.get_reservations(from_date, to_date)["reservations"]:
+    reservations = list(booked.get_reservations(from_date, to_date)["reservations"])
+    log.info(
+        f"Iterating over {len(reservations)} reservations looking for"
+        f" resourceIds: {list(id_to_area.keys())}"
+    )
+    for res in reservations:
         for area in id_to_area.get(res["resourceId"], []):
             # We use "buffered" start and end date, even though
             # currently it's the same value as start/end date.
@@ -101,7 +106,7 @@ def gen_class_and_area_stats(  # pylint: disable=too-many-locals
 
     # Also pull in data from Booked scheduler to prevent overlap with manual reservations
     reserved_occ = get_reserved_area_occupancy(start_date, end_date)
-    log.debug(f"Reserved occupancy: {reserved_occ}")
+    log.debug(f"Reserved occupancy {start_date}-{end_date}: {reserved_occ}")
     for area, aocs in reserved_occ.items():
         env.area_occupancy[area] += aocs
     for v in env.area_occupancy.values():

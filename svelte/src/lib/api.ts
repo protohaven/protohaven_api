@@ -76,6 +76,8 @@ export function isodate(d) {
   // but that approach converts to UTC before
   // formatting, so e.g. 2026-03-26 8pm => 2026-03-27.
   if (typeof d === "string") {
+    // Conversion from string to date - must have timestamp to
+    // properly parse into local timezone
     d = (d.indexOf("T") === -1) ? new Date(d + "T12:00:00") : new Date(d);
   }
   const mm = (d.getMonth()+1).toString().padStart(2, '0');
