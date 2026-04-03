@@ -21,7 +21,7 @@ After deployment, verify that:
   - [x] After login, page redirects to /member, loads and displays clearances
   - [x] Can logout via top right link
   - [x] Shop Status and Instructor Dashboard links are clickable if shown
-  - [ ] Recert card is not visible unless opted in
+  - [x] Recert card is not visible unless opted in
         (hello+testmember@protohaven.org should not see the link)
   - [x] Recert card shows link to wiki as well as some tools with recerts
         configured.
@@ -37,12 +37,13 @@ After deployment, verify that:
   - [ ] Guest sign in presents waiver and completes - check the `Sign Ins`
         airtable.
 - https://api.protohaven.org/events
-  - [ ] Displays upcoming calendar events
-  - [ ] Shows reservations
-  - [ ] Shows classes including instructor and attendee data, both Neon and
+  - [x] Displays upcoming calendar events
+  - [!] Shows reservations; can hover to see more details
+  - [x] Shows classes including instructor and attendee data, both Neon and
         Eventbrite
 - https://api.protohaven.org/techs
-  - [ ] Cal loads, individual shifts can be clicked and overridden
+  - [x] Door lock state shown at top nav; matches Wyze state
+  - [!] Cal loads, individual shifts can be clicked and overridden
   - [ ] Cal can change date range, highlights current day
   - [ ] Cal swap overrides send an alert to the #techs channel
   - [ ] Generic shop tech account is not permitted to modify the calendar
@@ -93,26 +94,27 @@ After deployment, verify that:
   - [x] Loads profile data for instructor
   - [x] Correctly shows warning icon on profile tab if incomplete data
   - [x] Loads classes for instructor, including attendance data
-  - [ ] Correctly indicates log submission status for class (some yes, some no)
+  - [x] Correctly indicates log submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
-  - [ ] Adding a new class on a day with similar area reservations triggers
+  - [!] BUGGED Adding a new class on a day with similar area reservations
+    triggers validation error - BUG only validates against classes, not
+    reservations
+  - [x] Adding a new class too close to a recent run of that class triggers
         validation error
-  - [ ] Adding a new class too close to a recent run of that class triggers
-        validation error
-  - [ ] Scheduling sessions more than 10 days apart triggers validation error
+  - [x] Scheduling sessions more than 10 days apart triggers validation error
         (check dates to ensure same days/times on validation step)
-  - [ ] Instructor can override schedule validation error
-  - [ ] Schedule overrides send alerts to #edu-leads discord
-  - [ ] Can confirm/unconfirm a class
-  - [ ] Can set supplies needed / supplies OK
-  - [ ] Can switch between volunteer and paid state for class
-  - [ ] Log submission button works
+  - [x] Instructor can override schedule validation error
+  - [x] Schedule overrides send alerts to #edu-leads discord
+  - [x] Can confirm/unconfirm a class
+  - [x] Can set supplies needed / supplies OK
+  - [x] Can switch between volunteer and paid state for class
+  - [x] Log submission button works
 - https://api.protohaven.org/event_ticker
-  - [ ] Returns JSON of sample classes
+  - [x] Returns JSON of sample classes
 - https://api.protohaven.org/staff
-  - [ ] Can summarize one or more discord channels, and view photos
-  - [ ] Access denied if logged in as hello+testmember@protohaven.org
-  - [ ] Ops dashboard shows content with no errors
+  - [x] Can summarize one or more discord channels, and view photos
+  - [x] Access denied if logged in as hello+testmember@protohaven.org
+  - [~] Ops dashboard shows content with no errors
 
 ## Discord events
 

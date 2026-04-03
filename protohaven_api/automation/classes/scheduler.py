@@ -100,7 +100,9 @@ def gen_class_and_area_stats(  # pylint: disable=too-many-locals
                 env.instructor_occupancy[c.instructor_email].append(aoc)
 
     # Also pull in data from Booked scheduler to prevent overlap with manual reservations
-    for area, aocs in get_reserved_area_occupancy(start_date, end_date).items():
+    reserved_occ = get_reserved_area_occupancy(start_date, end_date)
+    log.debug(f"Reserved occupancy: {reserved_occ}")
+    for area, aocs in reserved_occ.items():
         env.area_occupancy[area] += aocs
     for v in env.area_occupancy.values():
         v.sort(key=lambda o: o[1])

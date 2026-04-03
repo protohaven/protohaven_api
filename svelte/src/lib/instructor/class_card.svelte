@@ -63,7 +63,7 @@ function confirm(pub) {
 function submit_log(url) {
   let attendees_for_log = [];
   for (let d of attendees) {
-    attendees_for_log.push(`${d.firstName} ${d.lastName} (${d.email})`);
+    attendees_for_log.push(`${d.name} (${d.email})`);
   }
   console.log("Attendees:", attendees_for_log);
   url = url.replace("ATTENDEE_NAMES", encodeURIComponent(attendees_for_log.join(", ")));

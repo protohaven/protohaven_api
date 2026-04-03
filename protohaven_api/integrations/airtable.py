@@ -193,6 +193,17 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             },
         )
 
+    def form_fmt_hours(self, h: float) -> str:
+        """Selects the closest hour input for form data"""
+        val = round(h * 2) / 2
+        if val < 0:
+            return "0"
+        if val > 8:
+            return "8"
+        if val.is_integer():
+            return str(int(val))
+        return f"{val:.1f}"
+
     def prefill_form(self, pass_emails: list[str], session_idx: int = 0):
         """Return prefilled instructor log submission form"""
         individual = get_instructor_log_tool_codes()
@@ -215,7 +226,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_name)}"
         )
         result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
-        result += f"&{form_keys['hours']}={self.hours[session_idx]}"
+        result += (
+            f"&{form_keys['hours']}={self.form_fmt_hours(self.hours[session_idx])}"
+        )
         result += f"&{form_keys['class_name']}={urllib.parse.quote(self.name)}"
         if self.volunteer:
             result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"

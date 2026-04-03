@@ -499,6 +499,13 @@ def test_from_schedule(mocker):
         "Age Requirement": "18+",
     }
 
+    assert result.form_fmt_hours(-1) == "0"
+    assert result.form_fmt_hours(0.5) == "0.5"
+    assert result.form_fmt_hours(3.0) == "3"
+    assert result.form_fmt_hours(3.2) == "3"
+    assert result.form_fmt_hours(3.8) == "4"
+    assert result.form_fmt_hours(999) == "8"
+
 
 def test_from_template(mocker):
     """Test converting an airtable template row into Class"""

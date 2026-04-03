@@ -60,7 +60,7 @@ import FetchError from '../fetch_error.svelte';
           <div style="margin-top: 0.5rem;">
             {#each Object.entries(areas) as [area, areaReservations]}
               <Tooltip
-                target={areaReservations[0].id}
+                target={"res-" + areaReservations[0].id}
                 placement="top"
                 style="max-width: 300px;"
               >
@@ -77,7 +77,7 @@ import FetchError from '../fetch_error.svelte';
                 </div>
               </Tooltip>
               <Badge
-                id={areaReservations[0].id}
+                id={"res-" + areaReservations[0].id}
                 color="primary"
                 pill
                 style="margin-right: 0.5rem; margin-bottom: 0.5rem; cursor: pointer;"
