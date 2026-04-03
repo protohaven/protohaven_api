@@ -19,7 +19,8 @@ After deployment, verify that:
 
 - https://api.protohaven.org/
   - [x] After login, page redirects to /member, loads and displays clearances
-  - [x] Shop Status and Instructor Dashboard links are clickable
+  - [x] Can logout via top right link
+  - [x] Shop Status and Instructor Dashboard links are clickable if shown
   - [x] Recert card is not visible unless opted in
         (hello+testmember@protohaven.org should not see the link)
   - [x] Recert card shows link to wiki as well as some tools with recerts
@@ -31,16 +32,18 @@ After deployment, verify that:
   - [x] Member sign in with hello+testmember@protohaven.org succeeds but sends
         "multiple accounts" validation alert to `#membership-automation` on
         Discord
+  - [x] Displays the day's reservations when valid member logs in
   - [x] Member sign in with hello+testampmake@protohaven.org succeeds, no
         validation alerts
-  - [x] Guest sign in presents waiver and completes - check the `Sign Ins`
-        airtable.
+  - [x] Guest sign in presents waiver (but not member agreement) and completes -
+        check the `Sign Ins` airtable.
 - https://api.protohaven.org/events
   - [x] Displays upcoming calendar events
-  - [x] Shows reservations
+  - [x] Shows reservations; can hover to see more details
   - [x] Shows classes including instructor and attendee data, both Neon and
         Eventbrite
 - https://api.protohaven.org/techs
+  - [x] Door lock state shown at top nav; matches Wyze state
   - [x] Cal loads, individual shifts can be clicked and overridden
   - [x] Cal can change date range, highlights current day
   - [x] Cal swap overrides send an alert to the #techs channel
@@ -48,6 +51,7 @@ After deployment, verify that:
   - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
   - [x] Members tab shows today's sign-ins, different dates can be shown
+  - [x] Searching by member is possible; shows sign in day stats
   - [x] Tool states load
   - [x] Can view history for a tool by clicking the link
   - [x] Tool guide and clearance documentation status are shown
@@ -65,18 +69,20 @@ After deployment, verify that:
   - [x] Areas has populated "additional contacts" section at the bottom of the
         pane
   - [x] If a lead: techs roster can set interest, expertise, shift info
-  - [x] If logged in as Shop Tech: techs roster can set interest and expertise
+  - [ ] If logged in as Shop Tech: techs roster can set interest and expertise
         (but not other fields) for that user
   - [x] Techs roster can view clearances and sort by name/clearances
   - [x] Techs roster has some tech photos & bios shown
   - [x] Techs roster not visible if not a tech (e.g. not logged in)
-  - [x] Techs roster can enroll by search and submit
-  - [x] Techs roster can disenroll via button click and confirmation modal
-  - [ ] Techs roster can enroll and create a new member
+  - [x] Techs roster can disenroll via button click and confirmation modal (use
+        Shop Tech user)
+  - [x] Techs roster can enroll by search and submit (use Shop Tech user)
+  - [x] Techs roster can enroll and create a new member (delete in Neon CRM
+        after)
   - [x] Events tab can create, register, unregister, and delete a techs-only
         class
-  - [ ] Events tab shows registrant name, email, and phone if admin
-  - [ ] Events tab can deregister any registrant if admin
+  - [x] Events tab shows registrant name, email, and phone if admin
+  - [x] Events tab can deregister any tech if admin
   - [x] Generic shop tech account is not permitted to register for a tech-only
         class
   - [x] Full tech name is visible on calendar only when logged in as a tech /
@@ -86,27 +92,35 @@ After deployment, verify that:
   - [x] Unauthenticated user cannot see tech roster
   - [x] In incognito window (not logged in) cannot make edits to tech data, cal
         overrides
-  - [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
+  - [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
         data, cal overrides
 - https://api.protohaven.org/instructor
   - [x] Loads profile data for instructor
+  - [x] Correctly shows warning icon on profile tab if incomplete data
   - [x] Loads classes for instructor, including attendance data
-  - [ ] Indicates log submission status for class
+  - [x] Correctly indicates log submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
-  - [x] Adding a new class on a day with similar area reservations triggers
-        validation error
+  - [x] BUGGED Adding a new class on a day with similar area reservations
+        triggers validation error
   - [x] Adding a new class too close to a recent run of that class triggers
         validation error
+  - [x] Scheduling sessions more than 10 days apart triggers validation error
+        (check dates to ensure same days/times on validation step)
+  - [x] Instructor can override schedule validation error
+  - [x] Schedule overrides send alerts to #edu-leads discord
   - [x] Can confirm/unconfirm a class
   - [x] Can set supplies needed / supplies OK
   - [x] Can switch between volunteer and paid state for class
-  - [x] Log submission button works
+  - [x] Log submission button works; log form is correctly populated
+  - [x] Roster page shown for leads/admins; view page and Neon CRM links work.
+  - [x] Instructor creation / enrollment / disenrollment via roster.
+  - [x] Roster highlights missing paperwork on file (DD/Bio/W9)
 - https://api.protohaven.org/event_ticker
   - [x] Returns JSON of sample classes
 - https://api.protohaven.org/staff
   - [x] Can summarize one or more discord channels, and view photos
   - [x] Access denied if logged in as hello+testmember@protohaven.org
-  - [x] Ops dashboard shows content with no errors
+  - [x] Ops dashboard shows content
 
 ## Discord events
 
@@ -119,18 +133,18 @@ Send `TEST_MEMBER_JOIN` in a DM to the Protohaven discord bot; this will run the
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove
 association.
 
-- [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+- [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
 
 Override and register the user in Neon via the link.
 
-- [x] Discord association
+- [ ] Discord association
       [form](https://staging.api.protohaven.org/member?discord_id=asdf)
       correctly sets discord ID on Neon account
 
 Remove all roles from Discord user, and change its display name to something
 other than `Test Member`.
 
-- [x] When missing roles & nickname format, adds them & notifies (both of role
+- [ ] When missing roles & nickname format, adds them & notifies (both of role
       and nick change)
 
 Add an extra role to the user via Discord. (Does this actually work via
@@ -150,7 +164,7 @@ Membership creation webhook
 PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests new_member
 ```
 
-- [x] runs successfully
+- [ ] runs successfully
 
 Clearance webhook
 
@@ -158,7 +172,7 @@ Clearance webhook
 PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests clearance
 ```
 
-- [x] runs successfully
+- [ ] runs successfully
 
 Maintenance data webhook
 
@@ -166,4 +180,9 @@ Maintenance data webhook
 PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
 ```
 
-- [x] runs successfully
+- [ ] runs successfully
+
+## Cleanup
+
+- [x] Staging server turned off
+- [x] All changes to server code committed and pushed

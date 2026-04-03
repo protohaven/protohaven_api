@@ -16,7 +16,7 @@
   <CardHeader>
     <div class="d-flex justify-content-between align-items-center">
       <CardTitle>{tech.name} ({tech.email})</CardTitle>
-      {#if isTechLead && !isCurrentUser}
+      {#if isTechLead}
         <Button
           color="danger"
           size="sm"

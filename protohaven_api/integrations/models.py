@@ -521,6 +521,23 @@ class Member:  # pylint:disable=too-many-public-methods
 
         return None
 
+    def is_volunteer(self) -> bool:
+        """Returns true if the member is a volunteer role, false otherwise"""
+        for r in self.roles or []:
+            if r in (
+                Role.INSTRUCTOR,
+                Role.BOARD_MEMBER,
+                Role.SHOP_TECH,
+                Role.SHOP_TECH_LEAD,
+                Role.EDUCATION_LEAD,
+                Role.SOFTWARE_DEV,
+                Role.IT_MAINTENANCE,
+                Role.DEVOPS,
+                Role.MAINTENANCE_CREW,
+            ):
+                return True
+        return False
+
     @property
     def volunteer_bio(self):
         """With bio data, get member bio string"""
@@ -533,9 +550,10 @@ class Member:  # pylint:disable=too-many-public-methods
         """With bio data, get member's profile picture"""
         if not self.airtable_bio_data:
             return None
-        thumbs = self.airtable_bio_data["fields"].get("Picture")[0]["thumbnails"][
-            "large"
-        ]
+        pic = self.airtable_bio_data["fields"].get("Picture")
+        if not pic:
+            return None
+        thumbs = pic[0]["thumbnails"]["large"]
         return thumbs.get("url") or urljoin(
             "http://localhost:8080",
             thumbs.get("signedPath"),
@@ -952,7 +970,10 @@ class Event:  # pylint: disable=too-many-public-methods
     def areas(self) -> list[str]:
         """Returns the list of areas for this event from Airtable data"""
         if self.airtable_data:
-            return self.airtable_data.get("fields", {}).get("Areas", [])
+            s = self.airtable_data.get("fields", {}).get(
+                "Name (from Area) (from Class)"
+            )
+            return s
         return []
 
     @property

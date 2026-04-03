@@ -53,7 +53,7 @@
     <p>11. Governing Law and Amendments</p>
     <p>This Agreement shall be construed and governed in accordance with the laws of the Commonwealth of Pennsylvania, without regard to its conflict of law principles. Protohaven reserves the right to update its policies and the terms of this Agreement. The Member will be notified of any significant changes, and the Member's continued use of the Protohaven facility following notification constitutes binding acceptance of the updated terms.</p>
     <p>12. Acknowledgment and Signature</p>
-    <p>By affixing their signature below, the Member attests that they have thoroughly read, fully understand, and unconditionally agree to abide by all provisions of this Protohaven Member Agreement, including the Liability Waiver and Assumption of Risk outlined in Section 9.</p>
+    <p>By clicking the button below, the Member attests that they have thoroughly read, fully understand, and unconditionally agree to abide by all provisions of this Protohaven Member Agreement, including the Liability Waiver and Assumption of Risk outlined in Section 9.</p>
 	</Card>
 
 	<Row>

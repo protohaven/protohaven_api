@@ -130,16 +130,6 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     description: dict[str, str]
 
     @classmethod
-    def resolve_starts(cls, sessions, start_time, days, days_between):
-        """Compatibility for old table data"""
-        if sessions:
-            return [safe_parse_datetime(d) for d in sessions.split(",")]
-        d = safe_parse_datetime(start_time)
-        return [
-            d + datetime.timedelta(days=i * int(days_between)) for i in range(int(days))
-        ]
-
-    @classmethod
     def from_schedule(cls, row):
         """Converts airtable schedule row into ScheduledClass"""
         f = row["fields"]
@@ -148,14 +138,12 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             _unwrap(f, "Days (from Class)"),
         )
         if not hours:
-            raise RuntimeError("Class template data for session has no hours listed")
-
-        starts = cls.resolve_starts(
-            f.get("Sessions") or None,
-            f.get("Start Time") or None,
-            _unwrap(f, "Days (from Class)"),
-            _unwrap(f, "Days Between Sessions (from Class)"),
-        )
+            raise RuntimeError(
+                f"Class template data for session has no hours listed: {f}"
+            )
+        if not f.get("Sessions"):
+            raise RuntimeError(f"Scheduled class has no Sessions field data: {f}")
+        starts = [safe_parse_datetime(d) for d in f.get("Sessions").split(",")]
         if len(hours) < len(
             starts
         ):  # We need consistent lengths for pairing up data elsewhere
@@ -205,6 +193,17 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             },
         )
 
+    def form_fmt_hours(self, h: float) -> str:
+        """Selects the closest hour input for form data"""
+        val = round(h * 2) / 2
+        if val < 0:
+            return "0"
+        if val > 8:
+            return "8"
+        if val.is_integer():
+            return str(int(val))
+        return f"{val:.1f}"
+
     def prefill_form(self, pass_emails: list[str], session_idx: int = 0):
         """Return prefilled instructor log submission form"""
         individual = get_instructor_log_tool_codes()
@@ -227,7 +226,9 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             f"&{form_keys['instructor']}={urllib.parse.quote(self.instructor_name)}"
         )
         result += f"&{form_keys['date']}={start_yyyy_mm_dd}"
-        result += f"&{form_keys['hours']}={self.hours[session_idx]}"
+        result += (
+            f"&{form_keys['hours']}={self.form_fmt_hours(self.hours[session_idx])}"
+        )
         result += f"&{form_keys['class_name']}={urllib.parse.quote(self.name)}"
         if self.volunteer:
             result += f"&{form_keys['volunteer']}={form_values['volunteer_yes']}"
@@ -407,7 +408,7 @@ def get_class_template(cls_id: RecordID) -> Class:
 
 
 def append_classes_to_schedule(payload):
-    """Takes {Instructor, Email, Start Time, [Class]} and adds to schedule"""
+    """Takes {Instructor, Email, Sessions, [Class]} and adds to schedule"""
     assert isinstance(payload, list)
     for c in payload:  # Ensure correct format for linking
         c["Class"] = [_refid(i) for i in c["Class"]]
@@ -1053,7 +1054,6 @@ def get_all_instructor_capabilities_formatted():
             "profile_pic": None,
             "classes": [],
             "clearances": fields.get("Clearances") or [],
-            "paperwork_complete": fields.get("Paperwork Complete") or False,
             "discord_user": fields.get("Discord User"),
             "notes": fields.get("Notes"),
         }

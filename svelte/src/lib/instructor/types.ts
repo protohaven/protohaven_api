@@ -41,7 +41,6 @@ export interface InstructorCapability {
   profile_pic?: string;
   classes: Record<string, string>;
   clearances: string[];
-  paperwork_complete: boolean;
   discord_user?: string;
   notes?: string;
 }

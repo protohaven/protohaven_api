@@ -163,11 +163,11 @@
                         pill
                         class="me-2 mb-1"
                         style="cursor:pointer"
-                        id={r.id}
+                        id={"res-" + r.id}
                       >
                         {r.resource} ({r.start})
                       </Badge>
-                      <Tooltip target={r.id}>
+                      <Tooltip target={"res-" + r.id}>
                         <div>{r.resource}</div>
                         <div>{r.start} - {r.end}</div>
                         <div>{r.name}</div>

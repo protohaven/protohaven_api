@@ -27,7 +27,7 @@ onMount(() => {
   activeTab = (window.location.hash || "#classes").substring(1).trim();
   const urlParams = new URLSearchParams(window.location.search);
   let e = urlParams.get("email");
-  console.log(`E is ${e}`);
+  console.log(`E is ${e}; fetching /whoami`);
 	promise = get("/whoami").then((d) => {
       admin = (d.roles || []).some(role =>
         ["Education Lead", "Admin", "Board Member", "Staff"].includes(role)
@@ -63,7 +63,7 @@ function onboarded(p) {
     return false;
   }
   for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user']) {
-    if (p[k].indexOf("ok") === -1) {
+    if (p[k].indexOf("OK") === -1) {
       return false;
     }
   }

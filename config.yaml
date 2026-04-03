@@ -53,7 +53,7 @@ neon:
   waiver_expiration_days: 60
   waiver_published_date: "2023-03-14"
   member_agreement_expiration_days: 60
-  member_agreement_published_date: "2024-03-14"
+  member_agreement_published_date: "2026-12-16"
   webhooks:
     new_membership:
       enabled: ${NEW_MEMBERSHIP_ENABLED}

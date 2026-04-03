@@ -124,17 +124,20 @@ function delete_event(eid) {
                   {#each r.attendee_details as attendee}
                     <li class="mb-2 p-2 border rounded">
                       <div><strong>{attendee.name}</strong></div>
+                      {#if attendee.email}
                       <div>Email: {attendee.email}</div>
+                      {/if}
                       {#if attendee.phone}
                         <div>Phone: {attendee.phone}</div>
                       {/if}
+                      {#if attendee.is_volunteer}
                       <div class="mt-1">
                         <Button
                           color="danger"
                           size="sm"
                           on:click={()=>{
                             if (confirm(`Are you sure you want to de-register ${attendee.name} from this event?`)) {
-                              action(r.id, null, 'deregister', attendee.neon_id);
+                              action(r.id, null, 'unregister', attendee.neon_id);
                             }
                           }}
                           disabled={submitting}
@@ -142,6 +145,7 @@ function delete_event(eid) {
                           De-register
                         </Button>
                       </div>
+                      {/if}
                     </li>
                   {/each}
                 </ul>

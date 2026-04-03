@@ -72,11 +72,22 @@ export function open_ws(url) {
 }
 
 export function isodate(d) {
-	return new Date(d).toJSON().slice(0,10);
+  // Note: this was d.toJSON().slice(0,10)
+  // but that approach converts to UTC before
+  // formatting, so e.g. 2026-03-26 8pm => 2026-03-27.
+  if (typeof d === "string") {
+    // Conversion from string to date - must have timestamp to
+    // properly parse into local timezone
+    d = (d.indexOf("T") === -1) ? new Date(d + "T12:00:00") : new Date(d);
+  }
+  const mm = (d.getMonth()+1).toString().padStart(2, '0');
+  const dd = d.getDate().toString().padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 export function isodatetime(d) {
 	// ISO 8601 datetime string without milliseconds
+  // This is explicitly in UTC.
 	return new Date(d).toISOString().slice(0,-5)+"Z";
 }
 

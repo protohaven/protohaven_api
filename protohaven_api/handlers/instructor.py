@@ -409,7 +409,7 @@ def push_class():
         # warning to education leads.
         errors_text = "\n* ".join(errors)
         comms.send_discord_message(
-            f"@EduLeads: {user_fullname()} is **bypassing validation errors** "
+            f"@EduLeads - {user_fullname()} is **bypassing validation errors** "
             "to schedule class:\n\n"
             f"* Instructor: {m.name} ({m.email})\n"
             f"* Class: {c.name} ($" + f"{c.price}, {c.capacity} students)\n"
@@ -449,7 +449,7 @@ def class_neon_state():
 def cancel_class():
     """Cancel a class - fails if anyone is registered for it"""
     data = request.json
-    c = airtable.get_scheduled_class(data["class_id"])
+    c = airtable.get_scheduled_class(data["class_id"], raw=False)
     if not c:
         return Response("Not found", status=404)
 
@@ -483,8 +483,10 @@ def cancel_class():
 
 @page.route("/instructor/submissions", methods=["GET"])
 @require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
-def instructor_submissions():
-    """Returns instructor submissions for the logged in instructor"""
+def recent_instructor_submissions():
+    """Returns instructor submissions for the logged in instructor.
+    Note that not all submission through time are guaranteed to be returned
+    """
     target_email = request.args.get("email")
     if target_email is not None:
         ue = user_email()
@@ -492,15 +494,16 @@ def instructor_submissions():
             Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF
         ):
             return Response("Access Denied for admin parameter `email`", status=401)
-        email = target_email.lower()
+        email = target_email
     else:
         email = user_email()
         if not email:
             return Response("You are not logged in.", status=401)
-        email = email.lower()
 
+    email = email.strip().lower()
+    log.info(f"Lookup submissions with instructor email {email}")
     result = {}
-    for sub in sheets.get_instructor_submissions_raw(0):
+    for sub in sheets.get_instructor_submissions_raw():
         if "Email Address" not in sub:
             continue
         sub_email = sub["Email Address"].strip().lower()

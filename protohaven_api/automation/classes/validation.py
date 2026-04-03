@@ -191,7 +191,7 @@ def validate_candidate_class_session(  # pylint: disable=too-many-return-stateme
             )
 
     # Prevent this particular time if it's in an exclusion region
-    log.info(f"Exclusions for {c.class_id}: {env.exclusions}")
+    # log.info(f"Exclusions for {c.class_id}: {env.exclusions}")
     excluding_class_dates = date_within_exclusions(t0, env.exclusions[c.class_id])
     if excluding_class_dates:
         return (
