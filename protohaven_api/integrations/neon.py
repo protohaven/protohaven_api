@@ -306,7 +306,9 @@ def _search_members_internal(
 
     if merge_bios:
         merge_bios = {
-            row["Email"].strip().lower(): row for row in merge_bios if "email" in row
+            row["fields"]["Email"].strip().lower(): row
+            for row in merge_bios
+            if "Email" in row["fields"]
         }
 
     for acct in neon_base.paginated_search(

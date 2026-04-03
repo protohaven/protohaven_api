@@ -550,9 +550,10 @@ class Member:  # pylint:disable=too-many-public-methods
         """With bio data, get member's profile picture"""
         if not self.airtable_bio_data:
             return None
-        thumbs = self.airtable_bio_data["fields"].get("Picture")[0]["thumbnails"][
-            "large"
-        ]
+        pic = self.airtable_bio_data["fields"].get("Picture")
+        if not pic:
+            return None
+        thumbs = pic[0]["thumbnails"]["large"]
         return thumbs.get("url") or urljoin(
             "http://localhost:8080",
             thumbs.get("signedPath"),

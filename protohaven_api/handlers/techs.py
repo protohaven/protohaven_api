@@ -569,7 +569,7 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
         return Response(
-            "Generic shop tech user is not allowed to register for events."
+            "Generic shop tech user is not allowed to register for events. "
             "Please log in as a specific tech, then retry.",
             status=400,
         )
@@ -593,13 +593,14 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
         return Response("event_id required", status=400)
 
     # Handle regular register/unregister actions
-    if action in ("register", "unregister"):
-        if not ticket_id and action == "register":
-            return Response("ticket_id required for register action", status=400)
+    if action in ("register", "deregister"):
+        # Note: free classes have no ticket ID
+        # if not ticket_id and action == "register":
+        #    return Response("ticket_id required for register action", status=400)
 
         if attendee_neon_id != account_id and not am_lead_role():
             return Response(
-                "Admin privileges required for admin_deregister action", status=403
+                "Admin privileges required for admin unregister action", status=403
             )
 
         if action == "register":
@@ -613,7 +614,7 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
             return ret
     else:
         return Response(
-            "action must be one of 'register', 'unregister', 'admin_deregister'",
+            "action must be one of 'register', 'unregister'",
             status=400,
         )
 

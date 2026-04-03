@@ -49,7 +49,7 @@ After deployment, verify that:
   - [x] Generic shop tech account is not permitted to modify the calendar
   - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
-  - [!] Members tab shows today's sign-ins, different dates can be shown
+  - [x] Members tab shows today's sign-ins, different dates can be shown
   - [x] Searching by member is possible; shows sign in day stats
   - [x] Tool states load
   - [x] Can view history for a tool by clicking the link
@@ -79,10 +79,10 @@ After deployment, verify that:
   - [x] Techs roster can enroll and create a new member (delete in Neon CRM
         after)
   - [!] Events tab can create, register, unregister, and delete a techs-only
-    class
-  - [ ] Events tab shows registrant name, email, and phone if admin
-  - [ ] Events tab can deregister any registrant if admin
-  - [ ] Generic shop tech account is not permitted to register for a tech-only
+    class - BUG ticket_id required for register action
+  - [x] Events tab shows registrant name, email, and phone if admin
+  - [ ] Events tab can deregister any tech if admin
+  - [x] Generic shop tech account is not permitted to register for a tech-only
         class
   - [x] Full tech name is visible on calendar only when logged in as a tech /
         tech lead
@@ -91,7 +91,7 @@ After deployment, verify that:
   - [x] Unauthenticated user cannot see tech roster
   - [x] In incognito window (not logged in) cannot make edits to tech data, cal
         overrides
-  - [ ] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
+  - [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
         data, cal overrides
 - https://api.protohaven.org/instructor
   - [x] Loads profile data for instructor
@@ -111,7 +111,7 @@ After deployment, verify that:
   - [x] Can confirm/unconfirm a class
   - [x] Can set supplies needed / supplies OK
   - [x] Can switch between volunteer and paid state for class
-  - [x] Log submission button works
+  - [!] Log submission button works; log form is correctly populated
 - https://api.protohaven.org/event_ticker
   - [x] Returns JSON of sample classes
 - https://api.protohaven.org/staff
@@ -178,3 +178,8 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
 ```
 
 - [ ] runs successfully
+
+## Cleanup
+
+- [ ] Staging server turned off
+- [ ] All changes to server code committed and pushed
