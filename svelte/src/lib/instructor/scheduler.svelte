@@ -12,7 +12,7 @@
 
   let ovr = false;
   let validation_override = "";
-  $: ovr = (validation_override.replaceAll("\"", "").toLowerCase().trim() === "i own the consequences of my actions");
+  $: ovr = (validation_override.length > 32);
 
   function day_of_week(date) {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
