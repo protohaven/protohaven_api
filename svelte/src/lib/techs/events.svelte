@@ -154,7 +154,6 @@ function delete_event(eid) {
 
             {#if user && p.can_register}
             <div>
-            <div>{JSON.stringify(r)}</div>
             {#if r.attendees.indexOf(user.neon_id) !== -1}
               <strong>You are registered!</strong>
               <Button color="secondary" on:click={()=>action(r.id, r.ticket_id, 'unregister')} disabled={submitting}>Unregister</Button>

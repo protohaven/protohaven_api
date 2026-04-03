@@ -26,16 +26,17 @@ After deployment, verify that:
   - [x] Recert card shows link to wiki as well as some tools with recerts
         configured.
 - https://api.protohaven.org/welcome
-  - [ ] Cannot trigger login with empty or all-whitespace entries
-  - [ ] Member sign in fails with hello+testnonmember@protohaven.org
-  - [ ] Member sign in with hello+testalert@protohaven.org sends the notice
-  - [ ] Member sign in with hello+testmember@protohaven.org succeeds but sends
+  - [x] Cannot trigger login with empty or all-whitespace entries
+  - [x] Member sign in fails with hello+testnonmember@protohaven.org
+  - [x] Member sign in with hello+testalert@protohaven.org sends the notice
+  - [x] Member sign in with hello+testmember@protohaven.org succeeds but sends
         "multiple accounts" validation alert to `#membership-automation` on
         Discord
-  - [ ] Member sign in with hello+testampmake@protohaven.org succeeds, no
+  - [x] Displays the day's reservations when valid member logs in
+  - [x] Member sign in with hello+testampmake@protohaven.org succeeds, no
         validation alerts
-  - [ ] Guest sign in presents waiver and completes - check the `Sign Ins`
-        airtable.
+  - [x] Guest sign in presents waiver (but not member agreement) and completes -
+        check the `Sign Ins` airtable.
 - https://api.protohaven.org/events
   - [x] Displays upcoming calendar events
   - [x] Shows reservations; can hover to see more details
@@ -78,10 +79,10 @@ After deployment, verify that:
   - [x] Techs roster can enroll by search and submit (use Shop Tech user)
   - [x] Techs roster can enroll and create a new member (delete in Neon CRM
         after)
-  - [!] Events tab can create, register, unregister, and delete a techs-only
-    class
+  - [x] Events tab can create, register, unregister, and delete a techs-only
+        class
   - [x] Events tab shows registrant name, email, and phone if admin
-  - [!] Events tab can deregister any tech if admin
+  - [x] Events tab can deregister any tech if admin
   - [x] Generic shop tech account is not permitted to register for a tech-only
         class
   - [x] Full tech name is visible on calendar only when logged in as a tech /
@@ -99,9 +100,8 @@ After deployment, verify that:
   - [x] Loads classes for instructor, including attendance data
   - [x] Correctly indicates log submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
-  - [!] BUGGED Adding a new class on a day with similar area reservations
-    triggers validation error - BUG only validates against classes, not
-    reservations
+  - [x] BUGGED Adding a new class on a day with similar area reservations
+        triggers validation error
   - [x] Adding a new class too close to a recent run of that class triggers
         validation error
   - [x] Scheduling sessions more than 10 days apart triggers validation error
@@ -111,9 +111,10 @@ After deployment, verify that:
   - [x] Can confirm/unconfirm a class
   - [x] Can set supplies needed / supplies OK
   - [x] Can switch between volunteer and paid state for class
-  - [!] Log submission button works; log form is correctly populated
+  - [x] Log submission button works; log form is correctly populated
   - [x] Roster page shown for leads/admins; view page and Neon CRM links work.
   - [x] Instructor creation / enrollment / disenrollment via roster.
+  - [x] Roster highlights missing paperwork on file (DD/Bio/W9)
 - https://api.protohaven.org/event_ticker
   - [x] Returns JSON of sample classes
 - https://api.protohaven.org/staff
@@ -183,5 +184,5 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
 
 ## Cleanup
 
-- [ ] Staging server turned off
-- [ ] All changes to server code committed and pushed
+- [x] Staging server turned off
+- [x] All changes to server code committed and pushed
