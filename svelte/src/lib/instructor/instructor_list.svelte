@@ -394,10 +394,14 @@ function disenroll_instructor(inst: Instructor) {
                   {/if}
                 </td>
                 <td>
-                  {#if inst.paperwork_complete}
-                    <Badge color="success">Complete</Badge>
-                  {:else}
-                    <Badge color="warning">Incomplete</Badge>
+                  {#if !inst.w9 }
+                    <Badge color="warning">No W9</Badge>
+                  {/if}
+                  {#if !inst.direct_deposit }
+                    <Badge color="warning">No DD</Badge>
+                  {/if}
+                  {#if !inst.bio || !inst.profile_pic}
+                    <Badge color="warning">No pic/bio</Badge>
                   {/if}
                 </td>
                 <td>

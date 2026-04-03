@@ -34,7 +34,7 @@ def get_reserved_area_occupancy(
         f" resourceIds: {list(id_to_area.keys())}"
     )
     for res in reservations:
-        for area in id_to_area.get(res["resourceId"], []):
+        for area in id_to_area.get(str(res["resourceId"]), []):
             # We use "buffered" start and end date, even though
             # currently it's the same value as start/end date.
             # There may be setup/teardown time incorporated in

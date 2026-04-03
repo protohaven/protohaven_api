@@ -593,7 +593,7 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
         return Response("event_id required", status=400)
 
     # Handle regular register/unregister actions
-    if action in ("register", "deregister"):
+    if action in ("register", "unregister"):
         # Note: free classes have no ticket ID
         # if not ticket_id and action == "register":
         #    return Response("ticket_id required for register action", status=400)

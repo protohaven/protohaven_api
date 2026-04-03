@@ -71,7 +71,7 @@ After deployment, verify that:
   - [ ] If logged in as Shop Tech: techs roster can set interest and expertise
         (but not other fields) for that user
   - [x] Techs roster can view clearances and sort by name/clearances
-  - [!] Techs roster has some tech photos & bios shown
+  - [x] Techs roster has some tech photos & bios shown
   - [x] Techs roster not visible if not a tech (e.g. not logged in)
   - [x] Techs roster can disenroll via button click and confirmation modal (use
         Shop Tech user)
@@ -79,9 +79,9 @@ After deployment, verify that:
   - [x] Techs roster can enroll and create a new member (delete in Neon CRM
         after)
   - [!] Events tab can create, register, unregister, and delete a techs-only
-    class - BUG ticket_id required for register action
+    class
   - [x] Events tab shows registrant name, email, and phone if admin
-  - [ ] Events tab can deregister any tech if admin
+  - [!] Events tab can deregister any tech if admin
   - [x] Generic shop tech account is not permitted to register for a tech-only
         class
   - [x] Full tech name is visible on calendar only when logged in as a tech /
@@ -112,6 +112,8 @@ After deployment, verify that:
   - [x] Can set supplies needed / supplies OK
   - [x] Can switch between volunteer and paid state for class
   - [!] Log submission button works; log form is correctly populated
+  - [x] Roster page shown for leads/admins; view page and Neon CRM links work.
+  - [x] Instructor creation / enrollment / disenrollment via roster.
 - https://api.protohaven.org/event_ticker
   - [x] Returns JSON of sample classes
 - https://api.protohaven.org/staff

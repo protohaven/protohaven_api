@@ -1054,7 +1054,6 @@ def get_all_instructor_capabilities_formatted():
             "profile_pic": None,
             "classes": [],
             "clearances": fields.get("Clearances") or [],
-            "paperwork_complete": fields.get("Paperwork Complete") or False,
             "discord_user": fields.get("Discord User"),
             "notes": fields.get("Notes"),
         }
