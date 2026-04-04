@@ -64,6 +64,8 @@ def _neon_dev_outputify(rec, field):
         "Household ID": lambda a: a.get("householdId"),
         "Company ID": lambda a: a.get("companyId"),
         "Email 1": lambda a: a["primaryContact"].get("email1"),
+        "Email 2": lambda a: a["primaryContact"].get("email2"),
+        "Email 3": lambda a: a["primaryContact"].get("email3"),
         "Membership Level": lambda a: "General Membership",
         "Membership Term": lambda a: "General - $115/mo",
     }[field]

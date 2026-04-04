@@ -4,6 +4,7 @@
   import { Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
   import {get} from '$lib/api.ts';
   import TechsList from '$lib/techs/techs_list.svelte';
+  import Attendance from '$lib/techs/attendance.svelte';
   import ToolState from '$lib/techs/tool_state.svelte';
   import Shifts from '$lib/techs/shifts.svelte';
   import Members from '$lib/techs/members.svelte';
@@ -14,6 +15,7 @@
   import { onMount } from 'svelte';
 
   let promise;
+  let admin = false;
   let user;
   let activeTab;
   onMount(() => {
@@ -22,6 +24,9 @@
     let e= urlParams.get("email");
     if (!e) {
       promise = get("/whoami").then((d) => {
+        admin = (d.roles || []).some(role =>
+          ["Tech Lead", "Education Lead", "Admin", "Board Member", "Staff"].includes(role)
+        );
         user = d;
       }).catch((e) => {
         if (e.message.indexOf("You are not logged in") !== -1) {
@@ -78,6 +83,9 @@
   <NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
   <NavItem><NavLink href="#techs" on:click={on_tab}>Roster</NavLink></NavItem>
   <NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
+  {#if admin}
+  <NavItem><NavLink href="#attendance" on:click={on_tab}>Attendance</NavLink></NavItem>
+  {/if}
 </Nav>
 <Shifts {user} visible={activeTab == 'cal'}/>
 <Members {user} visible={activeTab == 'members'}/>
@@ -85,6 +93,7 @@
 <Storage visible={activeTab == 'storage'}/>
 <AreaLeads visible={activeTab == 'areas'}/>
 <TechsList {user} visible={activeTab === 'techs'}/>
+<Attendance visible={activeTab === 'attendance'}/>
 <Events {user} visible={activeTab === 'events'}/>
 {#await promise}
   <span></span>

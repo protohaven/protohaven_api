@@ -30,7 +30,7 @@ onMount(() => {
   console.log(`E is ${e}; fetching /whoami`);
 	promise = get("/whoami").then((d) => {
       admin = (d.roles || []).some(role =>
-        ["Education Lead", "Admin", "Board Member", "Staff"].includes(role)
+        ["Tech Lead", "Education Lead", "Admin", "Board Member", "Staff"].includes(role)
       );
       console.log(d)
       user=d;
