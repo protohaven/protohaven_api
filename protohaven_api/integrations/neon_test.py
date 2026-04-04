@@ -286,9 +286,17 @@ def test_account_cache_miss_keyerror(mocker):
 
 def test_resolve_clearance_code_full(mocker):
     mocker.patch.object(
-        n, "_clearance_code_map", return_value={"TOOL": "TOOL: Tool Name"}
+        n,
+        "_clearance_code_map",
+        return_value={
+            "TOOL": "TOOL: Tool Name",
+            "TOOL3": "TOOL3: Legacy Tool Code Not Used",
+            "OTHR1": "OTHR1: Legacy Tool Code",
+        },
     )
 
     assert not n.resolve_clearance_code_full("nonsense")
     assert n.resolve_clearance_code_full("TOOL") == "TOOL: Tool Name"
-    assert n.resolve_clearance_code_full("TOOL123") == "TOOL: Tool Name"
+    assert n.resolve_clearance_code_full("TOOL3") == "TOOL: Tool Name"
+    assert n.resolve_clearance_code_full("tool") == "TOOL: Tool Name"
+    assert n.resolve_clearance_code_full("OTHR1") == "OTHR1: Legacy Tool Code"
