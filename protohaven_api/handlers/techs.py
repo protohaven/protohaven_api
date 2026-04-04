@@ -794,3 +794,146 @@ def techs_door_locks():
         "doors": door_states,
         "timestamp": tznow().isoformat(),
     }
+
+
+@page.route("/techs/attendance_report", methods=["POST"])
+@require_login_role(
+    Role.SHOP_TECH_LEAD, Role.STAFF, Role.EDUCATION_LEAD, redirect_to_login=False
+)
+def run_attendance_report():  # pylint: disable=too-many-locals, too-many-statements
+    """Runs a simple attendance report. Counts on-time shifts, callouts, and no-shows"""
+    data = request.json
+    start = safe_parse_datetime(data["start_date"])
+    end = safe_parse_datetime(data["end_date"])
+    log.info(f"Fetching attendance report from {start} to {end}")
+
+    numdays = (end - start).days + 1  # fencepost error fix
+    print(f"Running from {start} to {end} ({numdays} days)")
+
+    def analyze(date, shift, callout, sign_ins):
+        day_end = date + datetime.timedelta(hours=24)
+        shift_start = date.replace(hour=10 if shift == "AM" else 16, minute=0, second=0)
+        shift_late = shift_start + datetime.timedelta(minutes=10)
+        outcome = {
+            "On Time": False,
+            "Late": False,
+            "Absent": False,
+            "Callout": callout,
+            "Earliest": None,
+        }
+
+        if callout:
+            return outcome
+
+        # On time if the sign in for the day is earlier than the start of shift
+        # Late if the sign in time for the day is 10min after the start of the shift
+        # Absent if zero sign ins for the day
+        # Callout if original shift includes them, but override does not
+
+        # Precondition: sign in data is in ascending date order
+        for evt in sign_ins:
+            if evt < date:
+                continue
+            if evt > day_end:
+                break
+            if not outcome["Earliest"]:
+                outcome["Earliest"] = evt
+            if evt < shift_late:
+                outcome["On Time"] = True
+                return outcome
+            if evt >= shift_late:
+                outcome["Late"] = True
+                return outcome
+
+        outcome["Absent"] = True
+        return outcome
+
+    def fetch_tech_email_map():
+        tech_email_map = defaultdict(list)
+        for t in neon.search_members_with_role(
+            Role.SHOP_TECH,
+            fields=["Email 1", "Email 2", "Email 3", "First Name", "Last Name"],
+        ):
+            name = f"{t.legal_fname} {t.lname}".lower()
+            for e in ["Email 1", "Email 2", "Email 3"]:
+                if t.neon_search_data.get(e):
+                    tech_email_map[name].append(t.neon_search_data[e])
+        return tech_email_map
+
+    def get_signins_by_email():
+        sign_ins_by_email = defaultdict(list)
+        for rec in airtable.get_signins_between(start, end):
+            sign_ins_by_email[rec.email.lower().strip()].append(rec.created)
+        sign_ins_by_email = {k: sorted(v) for k, v in sign_ins_by_email.items()}
+        return sign_ins_by_email
+
+    log.info("Generating shift schedule")
+    shifts = tauto.generate(start, numdays, True)["calendar_view"]
+    log.info("Shift schedule generated")
+
+    sign_ins_by_email = get_signins_by_email()
+    log.info("Sign ins collected")
+
+    tech_email_map = fetch_tech_email_map()
+    log.info("Tech emails fetched")
+    log.info(str(list(tech_email_map.keys())))
+
+    result = []
+    for day_data in shifts:
+        log.info(f"Processing {day_data['date']}")
+        date = safe_parse_datetime(day_data["date"])
+        for ap in ("AM", "PM"):
+            orig = {
+                f"{p.legal_fname} {p.lname}".lower()
+                for p in day_data[ap].get("ovr", {}).get("orig", [])
+            }
+            people = {
+                f"{p.legal_fname} {p.lname}".lower() for p in day_data[ap]["people"]
+            }
+            for person in people.union(orig):
+                emails = tech_email_map.get(person) or []
+                if not emails or len(emails) == 0:
+                    log.error(f"No email for {person}; continuing with error")
+                    emails.append("ERR_NO_EMAIL")
+                signins = []
+                for e in emails:
+                    signins += sign_ins_by_email.get(e.strip().lower(), [])
+
+                outcome = analyze(
+                    date, ap, person in orig and person not in people, signins
+                )
+
+                earliest = (
+                    (outcome["Earliest"].astimezone(tz).strftime("%Y-%m-%d %-I:%M %p"))
+                    if outcome.get("Earliest")
+                    else ""
+                )
+
+                result.append(
+                    (
+                        date.strftime("%Y-%m-%d"),
+                        ap,
+                        person,
+                        ";".join(emails),
+                        earliest,
+                        outcome["On Time"],
+                        outcome["Late"],
+                        outcome["Absent"],
+                        outcome["Callout"],
+                    )
+                )
+    log.info("Done!")
+    return {
+        "header": [
+            "Date",
+            "Shift",
+            "Name",
+            "Email",
+            "Earliest Sign In",
+            "On Time",
+            "Late",
+            "Absent",
+            "Callout",
+        ],
+        "rows": result,
+    }
