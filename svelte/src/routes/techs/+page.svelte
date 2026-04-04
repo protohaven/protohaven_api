@@ -15,6 +15,7 @@
   import { onMount } from 'svelte';
 
   let promise;
+  let admin = false;
   let user;
   let activeTab;
   onMount(() => {
@@ -23,6 +24,9 @@
     let e= urlParams.get("email");
     if (!e) {
       promise = get("/whoami").then((d) => {
+        admin = (d.roles || []).some(role =>
+          ["Tech Lead", "Education Lead", "Admin", "Board Member", "Staff"].includes(role)
+        );
         user = d;
       }).catch((e) => {
         if (e.message.indexOf("You are not logged in") !== -1) {
@@ -79,7 +83,9 @@
   <NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
   <NavItem><NavLink href="#techs" on:click={on_tab}>Roster</NavLink></NavItem>
   <NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
+  {#if admin}
   <NavItem><NavLink href="#attendance" on:click={on_tab}>Attendance</NavLink></NavItem>
+  {/if}
 </Nav>
 <Shifts {user} visible={activeTab == 'cal'}/>
 <Members {user} visible={activeTab == 'members'}/>
