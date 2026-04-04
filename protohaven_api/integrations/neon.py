@@ -137,9 +137,17 @@ def resolve_clearance_code_full(
 
         "FRG2" -> "FRG: Forge"
         "WGR" -> "WGR: Tungsten Grinder"
+
+    Note that there is a "legacy" fallback if e.g. a clearance
+    exists such as "FRG2: Forge 2".
     """
     canonical = t.rstrip("1234567890").upper()
-    return _clearance_code_map().get(canonical) or None
+    legacy = t.upper()
+    return (
+        _clearance_code_map().get(canonical)
+        or _clearance_code_map().get(legacy)
+        or None
+    )
 
 
 @lru_cache(maxsize=1)

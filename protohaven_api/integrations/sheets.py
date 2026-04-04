@@ -53,7 +53,7 @@ def get_instructor_submissions_raw(from_row=1300):
 
 PASS_HDR = "Protohaven emails of each student who PASSED (This should be the email address they used to sign up for the class or for their Protohaven account). If none of them passed, enter N/A."  # pylint: disable=line-too-long
 CLEARANCE_HDR = "Which clearance(s) was covered?"
-TOOLS_HDR = "Which tools?"
+TOOLS_HDR = "Which tools were cleared (if any?)"
 
 
 def get_passing_student_clearances(
