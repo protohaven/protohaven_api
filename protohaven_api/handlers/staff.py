@@ -76,12 +76,19 @@ def summarizer_ws(ws):
                     }
                 )
             )
-        summary = gpt.summarize_message_history(
-            [f"{m['created_at']} {m['author']}: {m['content']}" for m in msgs]
-        )
+        if len(msgs) < 5:
+            summary = "Too few messages to summarize this channel (want 5+)"
+        else:
+            summary = gpt.summarize_message_history(
+                [f"{m['created_at']} {m['author']}: {m['content']}" for m in msgs]
+            )
         ws.send(
             json.dumps(
-                {"type": "channel_summary", "channel": channel_name, "content": summary}
+                {
+                    "type": "channel_summary",
+                    "channel": channel_name,
+                    "content": summary,
+                }
             )
         )
         summaries.append((channel_name, summary))

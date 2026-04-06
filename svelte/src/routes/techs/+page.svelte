@@ -57,6 +57,9 @@
       <NavLink href="https://protohaven.org/maintenance" target="_blank">Tool Report</NavLink>
     </NavItem>
     <NavItem>
+      <NavLink href="https://protohaven.org/injury" target="_blank">Injury Report</NavLink>
+    </NavItem>
+    <NavItem>
       <NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
     </NavItem>
     <NavItem>

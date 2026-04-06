@@ -161,7 +161,7 @@ $: {
 <CardSubtitle>View active subscriptions and add details*</CardSubtitle>
 </CardHeader>
 <CardBody>
-    <div class="my-2"><em>*Non-Square storage agreements are only editable via Airtable - see People > Storage Agreements</em></div>
+    <div class="my-2"><em>*Non-Square storage agreements are editable <a href="https://airtable.com/appZIwlIgaq1Ps28Y/tblFoG5HKnRfuZsD7/viw3tzhfEh5trfBuH?blocks=hide" target="_blank">on Airtable</a></em></div>
     {#if sub_note_editing}
       <Spinner/> {sub_fetch_status}
     {/if}

@@ -72,9 +72,12 @@ def gen_class_and_area_stats(  # pylint: disable=too-many-locals
         # Repeats of the class are excluded based on the start and end run date
         first = c.sessions[0][0]
         last = c.sessions[-1][0]
+        # We add some wiggle room to the window to account for scheduling at e.g.
+        # 5pm on Jan 1st and 3pm on Jan 7th, even if period is 7 days
+        wiggle = max(datetime.timedelta(hours=12), c.period)
         exclusion_window = val.Exclusion(
-            start=first - c.period,
-            end=last + c.period,
+            start=first - (c.period - wiggle),
+            end=last + (c.period - wiggle),
             main_date=first,
             origin=c.name,
         )

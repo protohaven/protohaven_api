@@ -294,19 +294,17 @@ def _unwrap(row, field):
     return v
 
 
-def get_class_automation_schedule(include_rejected=True, raw=True):
+def get_class_automation_schedule(include_rejected=True, raw=False):
     """Grab the current automated class schedule"""
     for row in get_all_records("class_automation", "schedule"):
         if not row["fields"].get("Rejected") or include_rejected:
             yield (row if raw else ScheduledClass.from_schedule(row))
 
 
-def get_scheduled_class(rec, raw=True):
+def get_scheduled_class(rec):
     """Get the specific scheduled class row by reference"""
     result = get_record("class_automation", "schedule", rec)
-    if result and not raw:
-        return ScheduledClass.from_schedule(result)
-    return result
+    return ScheduledClass.from_schedule(result)
 
 
 def get_notifications_after(tag, after_date):
@@ -462,7 +460,7 @@ def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClas
     status, result = update_record(data, "class_automation", "schedule", eid)
     if status != 200:
         raise RuntimeError(f"Error updating class schedule state for {eid}: {result}")
-    return get_scheduled_class(eid, raw=False)
+    return get_scheduled_class(eid)
 
 
 def apply_violation_accrual(vid, accrued):
@@ -490,7 +488,7 @@ def mark_schedule_supply_request(eid: RecordID, state) -> ScheduledClass:
     )
     if status != 200:
         raise RuntimeError(f"Error setting supply state for {eid}: {result}")
-    return get_scheduled_class(eid, raw=False)
+    return get_scheduled_class(eid)
 
 
 def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
@@ -500,7 +498,7 @@ def mark_schedule_volunteer(eid: RecordID, volunteer: bool) -> ScheduledClass:
     )
     if status != 200:
         raise RuntimeError(f"Error setting volunteer status for {eid}: {result}")
-    return get_scheduled_class(eid, raw=False)
+    return get_scheduled_class(eid)
 
 
 def get_tools():
