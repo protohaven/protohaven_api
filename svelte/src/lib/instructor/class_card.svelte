@@ -185,7 +185,9 @@ function cancel(class_id) {
     {/if}
   </li>
   <li>Instruction: {#if c.volunteer}Volunteer (no pay){:else}Paid{/if} </li>
-  <li>Instructor confirmed:  {#if c.confirmed}on {new Date(c.confirmed).toLocaleString()}{:else}no{/if}</li>
+  {#if c.confirmed}
+    <li>Proposed {new Date(c.confirmed).toLocaleString()}</li>
+  {/if}
   </ul>
 
   {#if c.neon_id}
@@ -245,11 +247,6 @@ function cancel(class_id) {
 
 
       {#if !c.neon_id}
-	{#if c.confirmed}
-	<DropdownItem on:click={() => confirm(null)}>Unconfirm</DropdownItem>
-	{:else}
-        <DropdownItem on:click={() => confirm(true)}>Confirm available</DropdownItem>
-	{/if}
 	<DropdownItem divider />
         <DropdownItem on:click={() => confirm(false)}>Mark unavailable (hides permanently)</DropdownItem>
       {:else}

@@ -81,11 +81,12 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
 
         # We need airtable data first so we can annotate
         airtable_raw = airtable_future.result() if airtable_future is not None else []
-        airtable_map = {
-            int(s["fields"].get("Neon ID")): s
-            for s in airtable_raw
-            if s["fields"].get("Neon ID")
-        }
+        airtable_map = {}
+        for s in airtable_raw:
+            # Post-rename in Airtable, we can remove "Neon ID" from here.
+            evt_id = s["fields"].get("Neon ID") or s["fields"].get("Event ID")
+            if evt_id:
+                airtable_map[int(evt_id)] = s
 
         # Since our event fetches are both paginated generators,
         # we have to submit them to the thread pool multiple times to

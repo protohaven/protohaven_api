@@ -282,7 +282,7 @@ def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
     data = request.json
     eid = data["eid"]
-    c = airtable.get_scheduled_class(eid, raw=False)
+    c = airtable.get_scheduled_class(eid)
     if not c:
         raise RuntimeError(f"Not found: class {eid}")
 
@@ -449,7 +449,7 @@ def class_neon_state():
 def cancel_class():
     """Cancel a class - fails if anyone is registered for it"""
     data = request.json
-    c = airtable.get_scheduled_class(data["class_id"], raw=False)
+    c = airtable.get_scheduled_class(data["class_id"])
     if not c:
         return Response("Not found", status=404)
 
