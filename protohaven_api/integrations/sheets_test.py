@@ -205,13 +205,18 @@ def test_get_passing_student_clearances(mocker):
     now = str(datetime.datetime.now(tz=tz))
     data[sheet_id]["Form Responses 1"] = [
         ["Timestamp", s.PASS_HDR, s.CLEARANCE_HDR, s.TOOLS_HDR],
-        [now, "foo@gmail.com", "123:code,456:code", "band_saw:tool,welder:tool"],
+        [
+            now,
+            "foo@gmail.com",
+            "123:code,456:code",
+            "band_saw:tool,welder:tool,area TC: tool",
+        ],
     ]
     install_fake_sheets_service(s, mocker, data)
 
     expected = (
         "foo@gmail.com",
-        ["band_saw", "welder"],
+        ["band_saw", "welder", "TC"],
         safe_parse_datetime(now),
     )
 
