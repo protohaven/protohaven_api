@@ -137,6 +137,7 @@ def _setup_test_event():
             [
                 {
                     "Instructor": "Cronicle",
+                    "Instructor ID": "0",
                     "Email": "hello@protohaven.org",
                     "Sessions": start.isoformat(),
                     "Class": ["recyvKjNGHHCuHeFw"],  # wood 101
