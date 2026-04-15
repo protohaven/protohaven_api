@@ -174,6 +174,7 @@ def _tcls(mocker):
         neon_id=None,
         confirmed=d(-1),
         instructor_name="inst1",
+        instructor_id="1234",
         sessions=[
             (d(20, 8), d(20, 11)),
         ],
