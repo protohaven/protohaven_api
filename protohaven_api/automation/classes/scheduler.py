@@ -74,7 +74,7 @@ def gen_class_and_area_stats(  # pylint: disable=too-many-locals
         last = c.sessions[-1][0]
         # We add some wiggle room to the window to account for scheduling at e.g.
         # 5pm on Jan 1st and 3pm on Jan 7th, even if period is 7 days
-        wiggle = max(datetime.timedelta(hours=12), c.period)
+        wiggle = min(datetime.timedelta(hours=12), c.period)
         exclusion_window = val.Exclusion(
             start=first - (c.period - wiggle),
             end=last + (c.period - wiggle),
@@ -87,9 +87,10 @@ def gen_class_and_area_stats(  # pylint: disable=too-many-locals
 
         # Clearances are excluded only based on start date, i.e. when a member
         # would have been able to register for the clearance
+        wiggle = min(datetime.timedelta(hours=12), clearance_exclusion_range)
         clearance_exclusion_window = val.Exclusion(
-            start=first - clearance_exclusion_range,
-            end=first + clearance_exclusion_range,
+            start=first - (clearance_exclusion_range - wiggle),
+            end=first + (clearance_exclusion_range - wiggle),
             main_date=first,  # Main date is included for reference
             origin=c.name,
         )
