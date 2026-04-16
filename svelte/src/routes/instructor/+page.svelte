@@ -36,6 +36,8 @@ onMount(() => {
       user = cached.user;
       admin = cached.admin;
     }
+  } catch (e) {
+    console.warn("Cache lookup failed: ", e);
   }
 	promise = get("/whoami").then((d) => {
       console.log(d);
@@ -44,7 +46,9 @@ onMount(() => {
       );
       user=d;
       try {
-        localStorage.setItem("whoami_cache", JSON.stringify({admin, user});
+        localStorage.setItem("whoami_cache", JSON.stringify({admin, user}));
+      } catch (e) {
+        console.warn("Cache store failed: ", e);
       }
       if (!e) {
         promise = Promise.resolve(d);
