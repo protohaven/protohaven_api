@@ -36,6 +36,8 @@ onMount(() => {
       user = cached.user;
       admin = cached.admin;
     }
+  } catch (e) {
+    console.warn("Cache lookup failed: ", e);
   }
 	promise = get("/whoami").then((d) => {
       console.log(d);
