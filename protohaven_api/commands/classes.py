@@ -361,10 +361,11 @@ class Commands:
             default=True,
         ),
         arg(
-            "--use-eventbrite",
-            help="Post class to eventbrite instead of to Neon CRM",
-            action=argparse.BooleanOptionalAction,
-            default=False,
+            "--use-eventbrite-for",
+            help="Post to eventbrite instead of to Neon CRM; opt in by CSV: "
+            "inst_id1+class_id1,inst_id2+class_id2 etc. "
+            "Use * to send all events through eventbrite",
+            type=str,
         ),
     )
     def post_classes_to_neon(
@@ -383,9 +384,26 @@ class Commands:
         log.info(
             f"Equipment will {'NOT ' if not args.reserve else ''}be reserved for new classes"
         )
-        log.info(
-            f"{'Eventbrite' if args.use_eventbrite else 'Neon'} will host the event"
-        )
+
+        eb_filter_items = {}
+        if args.use_eventbrite_for == "*":
+            log.info("All events will schedule through eventbrite")
+        elif args.use_eventbrite_for:
+            log.info(
+                "Eventbrite will be used if matching these instructor+class combos: "
+                f"{args.use_eventbrite_for}"
+            )
+            eb_filter_items = {
+                (str(inst_id), str(class_id))
+                for m in args.use_eventbrite_for
+                for inst_id, class_id in m.split("+")
+            }
+
+        def eb_filter(inst_id, class_id):
+            if args.use_eventbrite_for == "*":
+                return True
+            return (str(inst_id), str(class_id)) in eb_filter_items
+
         if args.ovr:
             log.info(
                 "Overriding to specifically schedule ONLY classes in Airtable "
@@ -400,7 +418,7 @@ class Commands:
         to_schedule.sort(key=lambda e: e.start_time)
 
         log.info("Attempting auth as user to allow for pricing changes")
-        session = None if args.use_eventbrite else neon_base.NeonOne()
+        session = None if args.use_eventbrite_for == "*" else neon_base.NeonOne()
 
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
@@ -415,7 +433,8 @@ class Commands:
             num += 1
             result_id = None
             try:
-                if args.apply and not args.use_eventbrite:
+                use_eventbrite = eb_filter(event.class_id, event.instructor_id)
+                if args.apply and not use_eventbrite:
                     result_id = neon_base.create_event(
                         event.name,
                         desc=self._format_class_description(event),
@@ -427,7 +446,7 @@ class Commands:
                         published=args.publish,
                         registration=args.registration,
                     )
-                elif args.apply and args.use_eventbrite:
+                elif args.apply and use_eventbrite:
                     image_id = None
                     if event.image_link:
                         log.info(
@@ -449,7 +468,7 @@ class Commands:
                 assert result_id
                 event.neon_id = str(result_id)
 
-                if args.apply and args.use_eventbrite:
+                if args.apply and use_eventbrite:
                     desc = self._format_class_description(event)
                     content_version = eventbrite.set_structured_content(
                         event.neon_id, desc
@@ -459,7 +478,7 @@ class Commands:
                     )
 
                 log.info("- Assigning pricing")
-                if args.apply and not args.use_eventbrite:
+                if args.apply and not use_eventbrite:
                     log.info("  (uses Firefox process via playwright)")
                     session.assign_pricing(
                         event.neon_id,
@@ -469,7 +488,7 @@ class Commands:
                         clear_existing=True,
                     )
                     log.info("  Pricing assigned")
-                elif args.apply and args.use_eventbrite:
+                elif args.apply and use_eventbrite:
                     log.info(
                         str(
                             eventbrite.assign_pricing(
@@ -514,7 +533,7 @@ class Commands:
                 log.error(traceback.format_exc())
                 if result_id:
                     log.error("Failed; reverting event creation")
-                    if args.use_eventbrite:
+                    if use_eventbrite:
                         log.info(eventbrite.delete_event_unsafe(result_id))
                     else:
                         log.info(neon_base.delete_event_unsafe(result_id))

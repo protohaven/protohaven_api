@@ -28,6 +28,7 @@ def test_push_class_to_schedule(mocker):
         [
             {
                 "Instructor": "Test Instructor",
+                "Instructor ID": "1234",
                 "Email": "a@b.com",
                 "Sessions": f"{d(0,15).isoformat()},{d(1,15).isoformat()}",
                 "Class": ["20"],

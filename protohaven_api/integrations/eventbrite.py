@@ -212,6 +212,8 @@ def assign_pricing(
     Note that discounts are instantly generated on redirect via /member/goto_class.
 
     If clear_existing is True, existing ticket classes will be deleted first.
+
+    The ticket fee is absorbed into the total cost of the ticket.
     """
     # Delete existing ticket classes if requested
     if clear_existing:
@@ -240,12 +242,14 @@ def assign_pricing(
     params = {
         "ticket_class": {
             "quantity_total": seats,
+            "include_fee": True,  # Eventbrite fee absorbed into ticket cost
             "cost": f"USD,{round(price*100)}" if price != 0 else None,
             "free": (price == 0),
             "name": "General Admission",
             "sales_end_relative": {
                 "relative_to_event": "start_time",
-                "offset": -3600 * 24,
+                "offset": -3600
+                * 24,  # Note offset is negative, so sales end *before* start
             },
             "hide_sale_dates": True,
         }

@@ -207,6 +207,7 @@ def push_class_to_schedule(inst_id: NeonID, cls_id: RecordID, sessions: list[Int
         raise RuntimeError(f"Failed to fetch details of Neon account #{inst_id}")
     payload = {
         "Instructor": m.name,
+        "Instructor ID": inst_id,
         "Email": m.email,
         "Sessions": ",".join([ss[0].isoformat() for ss in sessions]),
         "Class": [cls_id],

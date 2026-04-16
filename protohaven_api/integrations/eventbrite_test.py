@@ -103,6 +103,7 @@ def test_assign_pricing(mocker):
             "quantity_total": 6,
             "cost": "USD,5000",
             "free": False,
+            "include_fee": True,
             "name": "General Admission",
             "sales_end_relative": {
                 "relative_to_event": "start_time",
