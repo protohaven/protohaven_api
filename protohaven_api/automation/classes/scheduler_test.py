@@ -77,18 +77,18 @@ def test_gen_class_and_area_stats_exclusions(mocker):
     )
     env = s.gen_class_and_area_stats(d(20), d(70))
     assert [
-        tuple([d.strftime("%Y-%m-%d") for d in (dd.start, dd.end, dd.main_date)])
+        tuple([d.strftime("%Y-%m-%dT%H") for d in (dd.start, dd.end, dd.main_date)])
         for dd in env.exclusions["r1"]
     ] == [
-        ("2025-01-31", "2025-04-01", "2025-03-02"),
-        ("2025-01-01", "2025-03-02", "2025-01-31"),
+        ("2025-02-01T06", "2025-04-01T06", "2025-03-02T18"),
+        ("2025-01-02T06", "2025-03-02T06", "2025-01-31T18"),
     ]
     assert [
-        tuple([d.strftime("%Y-%m-%d") for d in (dd.start, dd.end, dd.main_date)])
+        tuple([d.strftime("%Y-%m-%dT%H") for d in (dd.start, dd.end, dd.main_date)])
         for dd in env.clearance_exclusions["C1"]
     ] == [
-        ("2025-02-23", "2025-03-09", "2025-03-02"),
-        ("2025-01-24", "2025-02-07", "2025-01-31"),
+        ("2025-02-24T06", "2025-03-09T06", "2025-03-02T18"),
+        ("2025-01-25T06", "2025-02-07T06", "2025-01-31T18"),
     ]
 
 

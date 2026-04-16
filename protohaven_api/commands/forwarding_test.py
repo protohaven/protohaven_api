@@ -5,6 +5,7 @@ from collections import namedtuple
 import pytest
 
 from protohaven_api.commands import forwarding as F
+from protohaven_api.integrations.airtable import ScheduledClass
 from protohaven_api.testing import MatchStr, d, idfn, mkcli, t
 
 
@@ -338,25 +339,30 @@ def test_supply_requests(mocker, cli):
         F.airtable,
         "get_class_automation_schedule",
         return_value=[
-            {"fields": f}
-            for f in [
-                {
-                    # Confirmed, so not listed
-                    "Supply State": "Supplies Confirmed",
-                    "Start Time": d(1).isoformat(),
-                },
-                {
-                    # Already happened, so not listed
-                    "Supply State": "Supplies Requested",
-                    "Start Time": d(-1).isoformat(),
-                },
-                {
-                    "Supply State": "Supplies Requested",
-                    "Start Time": d(1).isoformat(),
-                    "Instructor": "Inst",
-                    "Name (from Class)": ["Classname"],
-                },
-            ]
+            ScheduledClass.from_schedule({"id": str(i), "fields": f})
+            for i, f in enumerate(
+                [
+                    {
+                        # Confirmed, so not listed
+                        "Supply State": "Supplies Confirmed",
+                        "Sessions": d(1).isoformat(),
+                        "Hours (from Class)": 3,
+                    },
+                    {
+                        # Already happened, so not listed
+                        "Supply State": "Supplies Requested",
+                        "Sessions": d(-1).isoformat(),
+                        "Hours (from Class)": 3,
+                    },
+                    {
+                        "Supply State": "Supplies Requested",
+                        "Sessions": d(1).isoformat(),
+                        "Hours (from Class)": 3,
+                        "Instructor": "Inst",
+                        "Name (from Class)": ["Classname"],
+                    },
+                ]
+            )
         ],
     )
     assert cli("supply_requests", []) == [

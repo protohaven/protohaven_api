@@ -28,12 +28,24 @@ onMount(() => {
   const urlParams = new URLSearchParams(window.location.search);
   let e = urlParams.get("email");
   console.log(`E is ${e}; fetching /whoami`);
+  try {
+    // Initial /whoami takes time to fetch and delays page interaction,
+    // so we serve a cached version before the request completes.
+    const cached = JSON.parse(localStorage.getItem("whoami_cache"));
+    if (cached) {
+      user = cached.user;
+      admin = cached.admin;
+    }
+  }
 	promise = get("/whoami").then((d) => {
+      console.log(d);
       admin = (d.roles || []).some(role =>
         ["Tech Lead", "Education Lead", "Admin", "Board Member", "Staff"].includes(role)
       );
-      console.log(d)
       user=d;
+      try {
+        localStorage.setItem("whoami_cache", JSON.stringify({admin, user});
+      }
       if (!e) {
         promise = Promise.resolve(d);
         fetch_instructor_profile(d.email);

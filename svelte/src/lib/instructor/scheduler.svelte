@@ -32,8 +32,8 @@
 
   function candidate_times(session_duration) {
     let times = [];
-    const MAX_HR = (admin) ? 24 : 22 - session_duration; // 10pm is close
-    const MIN_HR = (admin) ? 0 : 10; // 10am is open
+    const MAX_HR = 24;
+    const MIN_HR = 0;
     for (let hour = MIN_HR; hour <= MAX_HR; hour++) { // 10am is open
       for (let minute of (hour < MAX_HR) ? [0, 30] : [0]) {
         const h = hour.toString().padStart(2, '0');

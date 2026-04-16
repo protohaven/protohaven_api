@@ -294,9 +294,7 @@ def test_instructor_class_supply_req(mocker, inst_client):
     )
 
     assert response.status_code == 200
-    instructor.airtable.get_scheduled_class.assert_called_once_with(
-        "class123", raw=False
-    )
+    instructor.airtable.get_scheduled_class.assert_called_once_with("class123")
     instructor.airtable.mark_schedule_supply_request.assert_called_once_with(
         "class123", "Supplies Requested"
     )

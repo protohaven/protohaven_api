@@ -142,17 +142,16 @@ class Commands:
         num = 0
         reqs = []
         now = tznow()
-        for c in airtable.get_class_automation_schedule():
-            d = safe_parse_datetime(c["fields"]["Start Time"])
-            if d < now or c["fields"]["Supply State"] != "Supplies Requested":
+        for c in airtable.get_class_automation_schedule(raw=False):
+            if c.start_time < now or c.supply_state != "Supplies Requested":
                 continue
 
             reqs.append(
                 {
-                    "days": (d - now).days,
-                    "name": ", ".join(c["fields"]["Name (from Class)"]),
-                    "date": d.strftime("%Y-%m-%d"),
-                    "inst": c["fields"]["Instructor"],
+                    "days": (c.start_time - now).days,
+                    "name": c.name,
+                    "date": c.start_time.strftime("%Y-%m-%d"),
+                    "inst": c.instructor_name,
                 }
             )
             log.info(str(reqs[-1]))

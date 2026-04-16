@@ -75,7 +75,8 @@ def get_passing_student_clearances(
 
         tool_codes = sub.get(TOOLS_HDR)
         tool_codes = (
-            [s.split(":")[0].strip() for s in tool_codes.split(",")]
+            # Handle e.g. "Welding - WGR: Tungsten Grinder" -> "WGR"
+            [s.split(":")[0].split(" ")[-1].strip() for s in tool_codes.split(",")]
             if tool_codes
             else None
         )
