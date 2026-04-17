@@ -303,20 +303,17 @@ def asana_webhook():
                 # Fetch task details
                 try:
                     task = tasks.get_task(task_gid)
-                    task_name = task.get("name", "Unnamed Task")
                     task_url = (
                         f"https://app.asana.com/0/{purchase_requests_gid}/{task_gid}"
                     )
 
                     # Get notes/description if any
                     notes = task.get("notes", "")
-                    notes_preview = notes[:100] + "..." if len(notes) > 100 else notes
+                    notes_preview = notes[:256] + "..." if len(notes) > 256 else notes
                     # Format Discord message
                     message = (
-                        f"🛒 **New Purchase Request**\n\n"
-                        f"- **Task:** {task_name}\n"
-                        f"- **Description:** {notes_preview}\n"
-                        f"- **Link:** {task_url}"
+                        f"🛒 **New Purchase Request** - [link]({task_url})\n\n"
+                        f"{notes_preview}"
                     )
 
                     # Send to Discord
