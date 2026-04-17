@@ -37,27 +37,7 @@ log.info(f"Initializing connector ({server_mode})")
 init_connector(Connector if server_mode == "prod" else DevConnector)
 
 # Create Asana webhook for purchase requests if enabled
-if get_config("asana/webhooks/purchase_requests/enabled", default=False, as_bool=True):
-    try:
-        # Determine the webhook URL based on server mode
-        if server_mode == "prod":
-            webhook_url = "https://api.protohaven.org/admin/asana_webhook"
-        else:
-            # For dev/staging, use localhost or configurable URL
-            webhook_url = get_config(
-                "asana/webhooks/purchase_requests/target_url",
-                default="http://localhost:5000/admin/asana_webhook",
-            )
-
-        webhook_gid = tasks.ensure_purchase_requests_webhook(webhook_url)
-        if webhook_gid:
-            log.info(f"Purchase requests webhook ensured: {webhook_gid}")
-        else:
-            log.warning("Failed to ensure purchase requests webhook")
-    except Exception as e:
-        log.error(f"Error setting up purchase requests webhook: {e}")
-else:
-    log.info("Purchase requests webhook disabled in config")
+# Webhook creation will be handled in a delayed thread after server starts
 
 log.info("Initializing sign-in precaching")
 # Must run after connector is initialized; prefetches from Neon/Airtable
@@ -98,6 +78,50 @@ if get_config("booked/notify_mqtt", as_bool=True):
 else:
     log.warning("Skipping periodic post of tool reservations to MQTT")
 
+def create_asana_webhook_if_enabled():
+    """Create Asana webhook for purchase requests if enabled in config."""
+    try:
+        # Check if webhook is enabled
+        is_enabled = get_config(
+            "asana/webhooks/purchase_requests/enabled", default=False, as_bool=True
+        )
+        if not is_enabled:
+            log.info("Purchase requests webhook disabled in config")
+            return
+        
+        # Determine target URL based on server mode
+        if server_mode == "prod":
+            target_url = "https://api.protohaven.org/admin/asana_webhook"
+        else:
+            target_url = get_config(
+                "asana/webhooks/purchase_requests/target_url",
+                default="http://localhost:5000/admin/asana_webhook",
+            )
+        
+        log.info(f"Ensuring Asana webhook exists for purchase requests at {target_url}")
+        webhook_gid = tasks.ensure_purchase_requests_webhook(target_url)
+        if webhook_gid:
+            log.info(f"Purchase requests webhook ensured: {webhook_gid}")
+        else:
+            log.warning("Failed to ensure purchase requests webhook")
+    except Exception as e:
+        log.error(f"Error creating Asana webhook: {e}")
+
+
 if __name__ == "__main__":
     log.info("Entering run loop")
+    
+    # Start webhook creation in a background thread after a short delay
+    # This gives the server time to start before Asana sends verification request
+    import threading
+    import time
+    
+    def delayed_webhook_creation():
+        # Wait for server to be ready
+        time.sleep(5)
+        create_asana_webhook_if_enabled()
+    
+    webhook_thread = threading.Thread(target=delayed_webhook_creation, daemon=True)
+    webhook_thread.start()
+    
     app.run()

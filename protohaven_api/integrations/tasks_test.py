@@ -164,8 +164,8 @@ def test_ensure_purchase_requests_webhook(mocker):
         t,
         "get_config",
         side_effect=lambda key, default=None: {
-            "asana/purchase_requests": "project_gid_123",
-            "asana/gid": "workspace_gid_456",
+            "asana/purchase_requests/gid": "project_gid_123",
+            "asana/gid": "456",  # Must be convertible to int
         }.get(key, default),
     )
 
@@ -185,9 +185,7 @@ def test_ensure_purchase_requests_webhook(mocker):
 
     result = t.ensure_purchase_requests_webhook("https://example.com/webhook")
     assert result == "existing_webhook_gid"
-    mock_webhooks_api.get_webhooks.assert_called_once_with(
-        {"workspace": "workspace_gid_456"}
-    )
+    mock_webhooks_api.get_webhooks.assert_called_once_with(456, opts={})
     mock_webhooks_api.create_webhook.assert_not_called()
 
     # Reset mocks
