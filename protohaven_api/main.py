@@ -63,14 +63,10 @@ def create_asana_webhook_if_enabled():
     """Create Asana webhook for purchase requests if enabled in config."""
     log.info("Delaying Asana webhook registration until server is ready")
     time.sleep(10)
-    # Determine target URL based on server mode
-    if server_mode == "prod":
-        target_url = "https://api.protohaven.org/admin/asana_webhook"
-    else:
-        target_url = get_config(
-            "asana/webhooks/purchase_requests/target_url",
-            default="http://localhost:5000/admin/asana_webhook",
-        )
+    target_url = get_config(
+        "asana/webhooks/purchase_requests/target_url",
+        default="http://localhost:5000/admin/asana_webhook",
+    )
 
     log.info(f"Ensuring Asana webhook exists for purchase requests at {target_url}")
     webhook_gid = tasks.ensure_purchase_requests_webhook(target_url)
