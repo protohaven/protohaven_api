@@ -14,7 +14,9 @@ def test_user_clearances_notifies_discord(mocker, client):
     )  # Disable to allow testing
     mocker.patch.object(a.mclearance, "update", return_value=[])
     mocker.patch.object(a.comms, "send_discord_message")
-    mocker.patch.object(a.neon, "resolve_clearance_code_full", side_effect=lambda c: c)
+    mocker.patch.object(
+        a.neon, "resolve_clearance_code_full", side_effect=lambda c: f"{c}: Resolved"
+    )
 
     rep = client.patch(
         "/user/clearances",
@@ -31,7 +33,9 @@ def test_user_clearances(mocker, client):
         rbac, "is_enabled", return_value=False
     )  # Disable to allow testing
     mocker.patch.object(a.comms, "send_discord_message")
-    mocker.patch.object(a.neon, "resolve_clearance_code_full", side_effect=lambda c: c)
+    mocker.patch.object(
+        a.neon, "resolve_clearance_code_full", side_effect=lambda c: f"{c}: Resolved"
+    )
     mocker.patch.object(a.mclearance, "update", return_value="Success")
     rep = client.patch(
         "/user/clearances",
@@ -40,7 +44,7 @@ def test_user_clearances(mocker, client):
 
     assert rep.status_code == 200
     a.mclearance.update.assert_called_with(  # pylint: disable=no-member
-        "test@example.com", "PATCH", ["C1", "C2"]
+        "test@example.com", "PATCH", ["C1: Resolved", "C2: Resolved"]
     )
 
 

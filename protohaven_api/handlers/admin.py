@@ -69,13 +69,13 @@ def user_clearances():
             results[e] = {
                 "method": request.method,
                 "delta": delta,
-                "result": mclearance.update(e, request.method, delta),
+                "result": mclearance.update(e, request.method, resolved),
                 "status": 200,
             }
         except RuntimeError as exc:
             results[e] = {
                 "method": request.method,
-                "delta": delta,
+                "delta": resolved,
                 "result": [],
                 "status": 500,
                 "message": str(exc),
@@ -83,7 +83,7 @@ def user_clearances():
         except KeyError as exc:
             results[e] = {
                 "method": request.method,
-                "delta": delta,
+                "delta": resolved,
                 "result": [],
                 "status": 404,
                 "message": str(exc),
@@ -91,7 +91,7 @@ def user_clearances():
         except TypeError as exc:
             results[e] = {
                 "method": request.method,
-                "delta": delta,
+                "delta": resolved,
                 "result": [],
                 "status": 400,
                 "message": str(exc),
