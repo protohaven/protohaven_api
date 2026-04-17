@@ -290,55 +290,33 @@ def asana_webhook():
     events = payload.get("events", [])
     for event in events:
         log.info(f"{event}")
-        if event.get("type") == "task" and event.get("action") == "added":
+        if (
+            event.get("resource", {}).get("resource_type") == "task"
+            and event.get("action") == "added"
+        ):
             task_gid = event.get("resource", {}).get("gid")
             project_gid = event.get("parent", {}).get("gid")
 
             # Check if this is from the purchase_requests project
             purchase_requests_gid = get_config("asana/purchase_requests/gid")
-            if project_gid == purchase_requests_gid:
+            if str(project_gid) == str(purchase_requests_gid):
                 # Fetch task details
                 try:
-                    connector = get_connector()
-                    if connector is None:
-                        log.error(
-                            "Cannot fetch task details: connector not initialized"
-                        )
-                        continue
                     task = connector.asana_tasks().get_task(task_gid, {})
                     task_name = task.get("name", "Unnamed Task")
                     task_url = (
                         f"https://app.asana.com/0/{purchase_requests_gid}/{task_gid}"
                     )
 
-                    # Get assignee if any
-                    assignee = task.get("assignee")
-                    assignee_name = "Unassigned"
-                    if assignee:
-                        assignee_name = assignee.get("name", "Unknown")
-
-                    # Get due date if any
-                    due_date = task.get("due_on")
-                    due_text = "No due date"
-                    if due_date:
-                        due_text = f"Due: {due_date}"
-
                     # Get notes/description if any
                     notes = task.get("notes", "")
                     notes_preview = notes[:100] + "..." if len(notes) > 100 else notes
-
-                    # Get who created the task
-                    created_by = event.get("user", {}).get("name", "Unknown")
-
                     # Format Discord message
                     message = (
-                        f"🛒 **New Purchase Request**\n"
-                        f"**Task:** {task_name}\n"
-                        f"**Created by:** {created_by}\n"
-                        f"**Assignee:** {assignee_name}\n"
-                        f"**{due_text}**\n"
-                        f"**Description:** {notes_preview}\n"
-                        f"**Link:** {task_url}"
+                        f"🛒 **New Purchase Request**\n\n"
+                        f"- **Task:** {task_name}\n"
+                        f"- **Description:** {notes_preview}\n"
+                        f"- **Link:** {task_url}"
                     )
 
                     # Send to Discord
