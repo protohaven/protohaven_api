@@ -2,12 +2,13 @@
 
 import logging
 import threading
+import time
 
 from protohaven_api.app import configure_app
 from protohaven_api.automation.membership.sign_in import initialize as init_signin
 from protohaven_api.automation.roles.roles import setup_discord_user
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, booked, mqtt, neon
+from protohaven_api.integrations import airtable, booked, mqtt, neon, tasks
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
@@ -36,6 +37,9 @@ if get_config("general/unsafe/no_rbac", as_bool=True):
 log.info(f"Initializing connector ({server_mode})")
 init_connector(Connector if server_mode == "prod" else DevConnector)
 
+# Create Asana webhook for purchase requests if enabled
+# Webhook creation will be handled in a delayed thread after server starts
+
 log.info("Initializing sign-in precaching")
 # Must run after connector is initialized; prefetches from Neon/Airtable
 if get_config("general/precache_sign_in", as_bool=True):
@@ -53,6 +57,33 @@ if get_config("mqtt/enabled", as_bool=True):
     threading.Thread(target=mqtt.run, daemon=True).start()
 else:
     log.warning("Skipping startup of mqtt client")
+
+
+def create_asana_webhook_if_enabled():
+    """Create Asana webhook for purchase requests if enabled in config."""
+    log.info("Delaying Asana webhook registration until server is ready")
+    time.sleep(10)
+    target_url = get_config(
+        "asana/webhooks/purchase_requests/target_url",
+        default="http://localhost:5000/admin/asana_webhook",
+    )
+
+    log.info(f"Ensuring Asana webhook exists for purchase requests at {target_url}")
+    webhook_gid = tasks.ensure_purchase_requests_webhook(target_url)
+    if webhook_gid:
+        log.info(f"Purchase requests webhook ensured: {webhook_gid}")
+    else:
+        log.warning("Failed to ensure purchase requests webhook")
+
+
+# Start webhook creation in a background thread after a short delay
+# This gives the server time to start before Asana sends verification request
+# Check if webhook is enabled
+if get_config("asana/webhooks/purchase_requests/enabled", default=False, as_bool=True):
+    log.info("Starting async asana webhook thread")
+    threading.Thread(target=create_asana_webhook_if_enabled, daemon=True).start()
+else:
+    log.info("Purchase requests webhook disabled in config")
 
 
 def _on_reservations(cache):
@@ -74,6 +105,7 @@ if get_config("booked/notify_mqtt", as_bool=True):
     booked.cache.cb = _on_reservations
 else:
     log.warning("Skipping periodic post of tool reservations to MQTT")
+
 
 if __name__ == "__main__":
     log.info("Entering run loop")

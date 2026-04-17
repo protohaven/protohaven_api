@@ -192,3 +192,188 @@ def test_tool_maintenance_submission(mocker, client):
         a.mqtt.notify_maintenance.assert_any_call(  # pylint: disable=no-member
             tool, data["status"], data["summary"]
         )
+
+
+def test_asana_webhook_verification(mocker, client):
+    """Test Asana webhook verification handshake"""
+
+    # Mock config to enable webhook
+    def mock_get_config(
+        key, default=None, as_bool=False  # pylint: disable=unused-argument
+    ):
+        config_map = {
+            "asana/webhooks/purchase_requests/enabled": True,
+            "asana/purchase_requests/gid": "1203839223519118",
+        }
+        if key in config_map:
+            return config_map[key]
+        return default
+
+    mocker.patch.object(a, "get_config", side_effect=mock_get_config)
+
+    # Test webhook verification (initial handshake)
+    response = client.post(
+        "/admin/asana_webhook",
+        headers={
+            "X-Hook-Secret": "test-verification-token-123"  # pragma: allowlist secret
+        },
+        json={},
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.headers["X-Hook-Secret"]
+        == "test-verification-token-123"  # pragma: allowlist secret
+    )
+
+
+def test_asana_webhook_purchase_request(mocker, client):
+    """Test Asana webhook for new purchase request"""
+
+    # Mock config
+    def mock_get_config(
+        key, default=None, as_bool=False  # pylint: disable=unused-argument
+    ):
+        config_map = {
+            "asana/webhooks/purchase_requests/enabled": True,
+            "asana/purchase_requests/gid": "1203839223519118",
+        }
+        if key in config_map:
+            return config_map[key]
+        return default
+
+    mocker.patch.object(a, "get_config", side_effect=mock_get_config)
+
+    # Mock Asana client and comms
+    mock_task = {
+        "gid": "123456",
+        "notes": "We need more paper for the office printer.",
+    }
+    mocker.patch.object(a.tasks, "get_task", return_value=mock_task)
+    m = mocker.patch.object(a.comms, "send_discord_message")
+
+    # Simulate Asana webhook payload for new task in purchase_requests project
+    webhook_payload = {
+        "events": [
+            {
+                "user": {"gid": "12345", "name": "Greg Sanchez"},
+                "resource": {
+                    "gid": "123456",
+                    "name": "Buy printer paper",
+                    "resource_type": "task",
+                },
+                "action": "added",
+                "parent": {
+                    "gid": "1203839223519118",
+                    "name": "Purchase Requests",
+                    "resource_type": "project",
+                },
+                "created_at": "2023-01-01T12:00:00.000Z",
+                "type": "task",
+            }
+        ]
+    }
+
+    response = client.post("/admin/asana_webhook", json=webhook_payload)
+
+    assert response.status_code == 200
+    m.assert_called_once()
+
+    # Check that the message was sent to the correct channel
+    call_args = m.call_args
+    assert call_args[0][1] == "#supply-automation"  # channel
+    assert "New Purchase Request" in call_args[0][0]  # message content
+
+
+def test_asana_webhook_wrong_project(mocker, client):
+    """Test Asana webhook for task in different project (should be ignored)"""
+
+    # Mock config
+    def mock_get_config(
+        key, default=None, as_bool=False  # pylint: disable=unused-argument
+    ):
+        config_map = {
+            "asana/webhooks/purchase_requests/enabled": True,
+            "asana/purchase_requests/gid": "1203839223519118",
+        }
+        if key in config_map:
+            return config_map[key]
+        return default
+
+    mocker.patch.object(a, "get_config", side_effect=mock_get_config)
+
+    # Mock comms to ensure it's NOT called
+    m = mocker.patch.object(a.comms, "send_discord_message")
+
+    # Simulate Asana webhook payload for new task in DIFFERENT project
+    webhook_payload = {
+        "events": [
+            {
+                "user": {"gid": "12345", "name": "Greg Sanchez"},
+                "resource": {
+                    "gid": "123456",
+                    "name": "Some other task",
+                    "resource_type": "task",
+                },
+                "action": "added",
+                "parent": {
+                    "gid": "999999999999",
+                    "name": "Different Project",
+                    "resource_type": "project",
+                },
+                "created_at": "2023-01-01T12:00:00.000Z",
+                "type": "task",
+            }
+        ]
+    }
+
+    response = client.post("/admin/asana_webhook", json=webhook_payload)
+
+    assert response.status_code == 200
+    m.assert_not_called()
+
+
+def test_asana_webhook_disabled(mocker, client):
+    """Test Asana webhook when disabled in config"""
+
+    # Mock config to disable webhook
+    def mock_get_config(
+        key, default=None, as_bool=False  # pylint: disable=unused-argument
+    ):
+        config_map = {
+            "asana/webhooks/purchase_requests/enabled": False,
+            "asana/purchase_requests/gid": "1203839223519118",
+        }
+        if key in config_map:
+            return config_map[key]
+        return default
+
+    mocker.patch.object(a, "get_config", side_effect=mock_get_config)
+
+    response = client.post("/admin/asana_webhook", json={"events": []})
+
+    assert response.status_code == 200
+    assert "disabled" in response.text
+
+
+def test_asana_webhook_not_json(mocker, client):
+    """Test Asana webhook with non-JSON payload"""
+
+    # Mock config
+    def mock_get_config(
+        key, default=None, as_bool=False  # pylint: disable=unused-argument
+    ):
+        config_map = {
+            "asana/webhooks/purchase_requests/enabled": True,
+            "asana/purchase_requests/gid": "1203839223519118",
+        }
+        if key in config_map:
+            return config_map[key]
+        return default
+
+    mocker.patch.object(a, "get_config", side_effect=mock_get_config)
+
+    response = client.post("/admin/asana_webhook", data="not json")
+
+    assert response.status_code == 400
+    assert "Expected JSON" in response.text

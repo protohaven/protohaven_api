@@ -243,6 +243,10 @@ square:
 asana:
   token: ${ASANA_TOKEN}
   gid: "1199692158232291"
+  webhooks:
+    purchase_requests:
+      enabled: ${ASANA_WEBHOOK_PURCHASE_REQUESTS_ENABLED}
+      target_url: ${ASANA_WEBHOOK_PURCHASE_REQUESTS_TARGET_URL}
   asset_disposal:
     gid: "1212438685613709"
     section_gids:

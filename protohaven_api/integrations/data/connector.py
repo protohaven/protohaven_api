@@ -287,6 +287,10 @@ class Connector:  # pylint: disable=too-many-public-methods
         """Create and return asana SectionsApi"""
         return asana.SectionsApi(self.asana_client())
 
+    def asana_webhooks(self):
+        """Create and return asana WebhooksApi"""
+        return asana.WebhooksApi(self.asana_client())
+
     @lru_cache(maxsize=1)
     def wyze_client(self):
         """Create and return the Wyze client"""
