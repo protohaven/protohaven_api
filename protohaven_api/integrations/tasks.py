@@ -478,7 +478,8 @@ def ensure_purchase_requests_webhook(webhook_url):
                 and webhook["target"] == webhook_url
             ):
                 logging.getLogger("asana_webhook").info(
-                    f"Webhook already exists for purchase_requests project: {webhook['gid']}"
+                    "Webhook already exists for purchase_requests project "
+                    f"and target {webhook_url}: {webhook['gid']}"
                 )
                 return webhook["gid"]
 
@@ -497,7 +498,7 @@ def ensure_purchase_requests_webhook(webhook_url):
         )
         return result["gid"]
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logging.getLogger("asana_webhook").error(
             f"Failed to ensure purchase_requests webhook: {e}"
         )
