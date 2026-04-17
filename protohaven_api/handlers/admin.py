@@ -289,6 +289,7 @@ def asana_webhook():
     # Check if this is a task added event
     events = payload.get("events", [])
     for event in events:
+        log.info(f"{event}")
         if event.get("type") == "task" and event.get("action") == "added":
             task_gid = event.get("resource", {}).get("gid")
             project_gid = event.get("parent", {}).get("gid")
