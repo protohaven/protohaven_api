@@ -463,11 +463,12 @@ def ensure_purchase_requests_webhook(webhook_url):
         webhooks_api = get_connector().asana_webhooks()
 
         # Get the purchase requests project GID from config
-        project_gid = get_config("asana/purchase_requests")
+        project_gid = get_config("asana/purchase_requests/gid")
 
         # First, get all existing webhooks
         existing_webhooks = webhooks_api.get_webhooks(
-            {"workspace": get_config("asana/gid")}
+            int(get_config("asana/gid")),
+            opts={},
         )
 
         # Check if a webhook already exists for this project and URL
@@ -490,7 +491,7 @@ def ensure_purchase_requests_webhook(webhook_url):
             }
         }
 
-        result = webhooks_api.create_webhook(webhook_body)
+        result = webhooks_api.create_webhook(webhook_body, opts={})
         logging.getLogger("asana_webhook").info(
             f"Created new webhook for purchase_requests project: {result['gid']}"
         )
