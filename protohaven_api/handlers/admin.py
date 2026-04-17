@@ -347,9 +347,14 @@ def asana_webhook():
                     log.info(f"Sent purchase request notification for task {task_gid}")
 
                 except Exception as e:
-                    log.error(
-                        f"Error processing Asana webhook for task {task_gid}: {e}"
-                    )
+                    message = f"Error processing Asana webhook for task {task_gid}: {e}"
+                    log.error(message)
+                    try:
+                        comms.send_discord_message(
+                            message, "#supply-automation", blocking=False
+                        )
+                    except Exception as e:
+                        pass
                     # Don't fail the webhook - Asana will retry
                     # Return 200 so Asana doesn't retry
 
