@@ -209,14 +209,18 @@ def test_get_passing_student_clearances(mocker):
             now,
             "foo@gmail.com",
             "123:code,456:code",
-            "band_saw:tool,welder:tool,area TC: tool",
+            (
+                "Tech Clearance - MAB: Maintenance (Basics), "
+                "Tech Clearance - MGT: Maintenance (Gas Tanks), "
+                "Tech Clearance - MLO: Maintenance (Laser Optics)"
+            ),
         ],
     ]
     install_fake_sheets_service(s, mocker, data)
 
     expected = (
         "foo@gmail.com",
-        ["band_saw", "welder", "TC"],
+        ["MAB", "MGT", "MLO"],
         safe_parse_datetime(now),
     )
 
