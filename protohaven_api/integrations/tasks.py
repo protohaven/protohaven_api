@@ -2,6 +2,7 @@
 
 import datetime
 import json
+import logging
 from functools import lru_cache
 
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
@@ -448,3 +449,55 @@ def add_maintenance_task_if_not_exists(name, notes, maint_ref, level, section=No
             str(section), {"body": {"data": {"task": task_gid}}}
         )
     return task_gid
+
+
+def ensure_purchase_requests_webhook(webhook_url):
+    """Ensure an Asana webhook exists for the purchase_requests project.
+
+    Checks if a webhook already exists for the project and target URL.
+    If not, creates a new webhook.
+    Returns the webhook GID if successful, None otherwise.
+    """
+    try:
+        # Get the webhooks API client
+        webhooks_api = get_connector().asana_webhooks()
+
+        # Get the purchase requests project GID from config
+        project_gid = get_config("asana/purchase_requests")
+
+        # First, get all existing webhooks
+        existing_webhooks = webhooks_api.get_webhooks(
+            {"workspace": get_config("asana/gid")}
+        )
+
+        # Check if a webhook already exists for this project and URL
+        for webhook in existing_webhooks:
+            if (
+                webhook["resource"]["gid"] == project_gid
+                and webhook["target"] == webhook_url
+            ):
+                logging.getLogger("asana_webhook").info(
+                    f"Webhook already exists for purchase_requests project: {webhook['gid']}"
+                )
+                return webhook["gid"]
+
+        # Create a new webhook
+        webhook_body = {
+            "data": {
+                "resource": project_gid,
+                "target": webhook_url,
+                "filters": [{"resource_type": "task", "action": "added"}],
+            }
+        }
+
+        result = webhooks_api.create_webhook(webhook_body)
+        logging.getLogger("asana_webhook").info(
+            f"Created new webhook for purchase_requests project: {result['gid']}"
+        )
+        return result["gid"]
+
+    except Exception as e:
+        logging.getLogger("asana_webhook").error(
+            f"Failed to ensure purchase_requests webhook: {e}"
+        )
+        return None

@@ -7,7 +7,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.automation.membership.sign_in import initialize as init_signin
 from protohaven_api.automation.roles.roles import setup_discord_user
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, booked, mqtt, neon
+from protohaven_api.integrations import airtable, booked, mqtt, neon, tasks
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
@@ -35,6 +35,29 @@ if get_config("general/unsafe/no_rbac", as_bool=True):
 
 log.info(f"Initializing connector ({server_mode})")
 init_connector(Connector if server_mode == "prod" else DevConnector)
+
+# Create Asana webhook for purchase requests if enabled
+if get_config("asana/webhooks/purchase_requests/enabled", default=False, as_bool=True):
+    try:
+        # Determine the webhook URL based on server mode
+        if server_mode == "prod":
+            webhook_url = "https://api.protohaven.org/admin/asana_webhook"
+        else:
+            # For dev/staging, use localhost or configurable URL
+            webhook_url = get_config(
+                "asana/webhooks/purchase_requests/target_url",
+                default="http://localhost:5000/admin/asana_webhook",
+            )
+
+        webhook_gid = tasks.ensure_purchase_requests_webhook(webhook_url)
+        if webhook_gid:
+            log.info(f"Purchase requests webhook ensured: {webhook_gid}")
+        else:
+            log.warning("Failed to ensure purchase requests webhook")
+    except Exception as e:
+        log.error(f"Error setting up purchase requests webhook: {e}")
+else:
+    log.info("Purchase requests webhook disabled in config")
 
 log.info("Initializing sign-in precaching")
 # Must run after connector is initialized; prefetches from Neon/Airtable

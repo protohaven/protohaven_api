@@ -149,3 +149,73 @@ def test_add_maintenance_task_if_not_exists(mocker):
     mock_sections().add_task_for_section.assert_called_once_with(
         "section_gid", {"body": {"data": {"task": "new_gid"}}}
     )
+
+
+def test_ensure_purchase_requests_webhook(mocker):
+    """Test ensure_purchase_requests_webhook function"""
+    # Mock dependencies
+    mock_connector = mocker.Mock()
+    mock_webhooks_api = mocker.Mock()
+    mock_connector.asana_webhooks.return_value = mock_webhooks_api
+    mocker.patch.object(t, "get_connector", return_value=mock_connector)
+
+    # Mock config
+    mocker.patch.object(
+        t,
+        "get_config",
+        side_effect=lambda key, default=None: {
+            "asana/purchase_requests": "project_gid_123",
+            "asana/gid": "workspace_gid_456",
+        }.get(key, default),
+    )
+
+    # Test 1: Webhook already exists
+    mock_webhooks_api.get_webhooks.return_value = [
+        {
+            "gid": "existing_webhook_gid",
+            "resource": {"gid": "project_gid_123"},
+            "target": "https://example.com/webhook",
+        },
+        {
+            "gid": "other_webhook_gid",
+            "resource": {"gid": "other_project_gid"},
+            "target": "https://example.com/webhook",
+        },
+    ]
+
+    result = t.ensure_purchase_requests_webhook("https://example.com/webhook")
+    assert result == "existing_webhook_gid"
+    mock_webhooks_api.get_webhooks.assert_called_once_with(
+        {"workspace": "workspace_gid_456"}
+    )
+    mock_webhooks_api.create_webhook.assert_not_called()
+
+    # Reset mocks
+    mock_webhooks_api.reset_mock()
+
+    # Test 2: Webhook doesn't exist, needs to be created
+    mock_webhooks_api.get_webhooks.return_value = [
+        {
+            "gid": "other_webhook_gid",
+            "resource": {"gid": "other_project_gid"},
+            "target": "https://example.com/webhook",
+        }
+    ]
+    mock_webhooks_api.create_webhook.return_value = {"gid": "new_webhook_gid"}
+
+    result = t.ensure_purchase_requests_webhook("https://example.com/webhook")
+    assert result == "new_webhook_gid"
+    mock_webhooks_api.create_webhook.assert_called_once()
+    call_args = mock_webhooks_api.create_webhook.call_args[0][0]
+    assert call_args["data"]["resource"] == "project_gid_123"
+    assert call_args["data"]["target"] == "https://example.com/webhook"
+    assert call_args["data"]["filters"] == [
+        {"resource_type": "task", "action": "added"}
+    ]
+
+    # Test 3: Exception during webhook creation
+    mock_webhooks_api.reset_mock()
+    mock_webhooks_api.get_webhooks.side_effect = Exception("API error")
+
+    result = t.ensure_purchase_requests_webhook("https://example.com/webhook")
+    assert result is None
