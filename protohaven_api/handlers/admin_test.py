@@ -198,7 +198,7 @@ def test_asana_webhook_verification(mocker, client):
     """Test Asana webhook verification handshake"""
 
     # Mock config to enable webhook
-    def mock_get_config(key, default=None, as_bool=False):
+    def mock_get_config(key, default=None):
         config_map = {
             "asana/webhooks/purchase_requests/enabled": True,
             "asana/purchase_requests/gid": "1203839223519118",
@@ -213,20 +213,23 @@ def test_asana_webhook_verification(mocker, client):
     response = client.post(
         "/admin/asana_webhook",
         headers={
-            "X-Hook-Secret": "test-verification-token-123"
-        },  # pragma: allowlist secret
+            "X-Hook-Secret": "test-verification-token-123"  # pragma: allowlist secret
+        },
         json={},
     )
 
     assert response.status_code == 200
-    assert response.headers["X-Hook-Secret"] == "test-verification-token-123"
+    assert (
+        response.headers["X-Hook-Secret"]
+        == "test-verification-token-123"  # pragma: allowlist secret
+    )
 
 
 def test_asana_webhook_purchase_request(mocker, client):
     """Test Asana webhook for new purchase request"""
 
     # Mock config
-    def mock_get_config(key, default=None, as_bool=False):
+    def mock_get_config(key, default=None):
         config_map = {
             "asana/webhooks/purchase_requests/enabled": True,
             "asana/purchase_requests/gid": "1203839223519118",
@@ -250,7 +253,7 @@ def test_asana_webhook_purchase_request(mocker, client):
     mock_connector = mocker.Mock()
     mock_connector.asana_tasks.return_value = mock_asana_tasks
     mocker.patch.object(a, "get_connector", return_value=mock_connector)
-    mocker.patch.object(a.comms, "send_discord_message")
+    m = mocker.patch.object(a.comms, "send_discord_message")
 
     # Simulate Asana webhook payload for new task in purchase_requests project
     webhook_payload = {
@@ -278,10 +281,10 @@ def test_asana_webhook_purchase_request(mocker, client):
 
     assert response.status_code == 200
     mock_asana_tasks.get_task.assert_called_once_with("123456", {})
-    a.comms.send_discord_message.assert_called_once()
+    m.assert_called_once()
 
     # Check that the message was sent to the correct channel
-    call_args = a.comms.send_discord_message.call_args
+    call_args = m.call_args
     assert call_args[0][1] == "#supply-automation"  # channel
     assert "New Purchase Request" in call_args[0][0]  # message content
     assert "Buy printer paper" in call_args[0][0]
@@ -293,7 +296,7 @@ def test_asana_webhook_wrong_project(mocker, client):
     """Test Asana webhook for task in different project (should be ignored)"""
 
     # Mock config
-    def mock_get_config(key, default=None, as_bool=False):
+    def mock_get_config(key, default=None):
         config_map = {
             "asana/webhooks/purchase_requests/enabled": True,
             "asana/purchase_requests/gid": "1203839223519118",
@@ -305,7 +308,7 @@ def test_asana_webhook_wrong_project(mocker, client):
     mocker.patch.object(a, "get_config", side_effect=mock_get_config)
 
     # Mock comms to ensure it's NOT called
-    mocker.patch.object(a.comms, "send_discord_message")
+    m = mocker.patch.object(a.comms, "send_discord_message")
 
     # Simulate Asana webhook payload for new task in DIFFERENT project
     webhook_payload = {
@@ -332,14 +335,14 @@ def test_asana_webhook_wrong_project(mocker, client):
     response = client.post("/admin/asana_webhook", json=webhook_payload)
 
     assert response.status_code == 200
-    a.comms.send_discord_message.assert_not_called()
+    m.assert_not_called()
 
 
 def test_asana_webhook_disabled(mocker, client):
     """Test Asana webhook when disabled in config"""
 
     # Mock config to disable webhook
-    def mock_get_config(key, default=None, as_bool=False):
+    def mock_get_config(key, default=None):
         config_map = {
             "asana/webhooks/purchase_requests/enabled": False,
             "asana/purchase_requests/gid": "1203839223519118",
@@ -360,7 +363,7 @@ def test_asana_webhook_not_json(mocker, client):
     """Test Asana webhook with non-JSON payload"""
 
     # Mock config
-    def mock_get_config(key, default=None, as_bool=False):
+    def mock_get_config(key, default=None):
         config_map = {
             "asana/webhooks/purchase_requests/enabled": True,
             "asana/purchase_requests/gid": "1203839223519118",

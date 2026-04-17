@@ -10,7 +10,6 @@ from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
 from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
-from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.rbac import (
     Role,
     require_dev_environment,
@@ -249,7 +248,7 @@ def tool_maintenance_submission():
 
 
 @page.route("/admin/asana_webhook", methods=["POST"])
-def asana_webhook():
+def asana_webhook():  # pylint: disable=too-many-locals
     """Handle Asana webhooks for purchase request notifications.
 
     When a new task is created in the purchase_requests project, send a notification
@@ -322,15 +321,15 @@ def asana_webhook():
                     )
                     log.info(f"Sent purchase request notification for task {task_gid}")
 
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     message = f"Error processing Asana webhook for task {task_gid}: {e}"
                     log.error(message)
                     try:
                         comms.send_discord_message(
                             message, "#supply-automation", blocking=False
                         )
-                    except Exception as e:
-                        pass
+                    except Exception as e2:  # pylint: disable=broad-exception-caught
+                        log.error(str(e2))
                     # Don't fail the webhook - Asana will retry
                     # Return 200 so Asana doesn't retry
 

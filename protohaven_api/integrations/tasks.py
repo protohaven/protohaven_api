@@ -217,6 +217,7 @@ def get_purchase_requests(exclude_complete=False):
 
 
 def get_task(task_gid):
+    """Gets a single task"""
     return _tasks().get_task(task_gid, {})
 
 
