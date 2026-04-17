@@ -10,6 +10,7 @@ from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
 from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
+from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.rbac import (
     Role,
     require_dev_environment,
@@ -245,3 +246,111 @@ def tool_maintenance_submission():
         mqtt.notify_maintenance(tool, status, summary)
 
     return "OK"
+
+
+@page.route("/admin/asana_webhook", methods=["POST"])
+def asana_webhook():
+    """Handle Asana webhooks for purchase request notifications.
+
+    When a new task is created in the purchase_requests project, send a notification
+    to the #supply-automation Discord channel.
+
+    Security: This endpoint relies on the webhook URL being kept secret.
+    Asana webhooks don't include signature verification by default.
+    In production, consider adding IP whitelisting or a shared secret.
+    """
+    # Check if webhook is enabled
+    is_enabled = get_config(
+        "asana/webhooks/purchase_requests/enabled", default=False, as_bool=True
+    )
+    if not is_enabled:
+        log.info(
+            f"Skipping Asana webhook - not enabled in config (value: {is_enabled})"
+        )
+        return Response("Asana webhook disabled via config", status=200)
+
+    # Handle webhook verification (Asana sends X-Hook-Secret for initial handshake)
+    webhook_secret = request.headers.get("X-Hook-Secret")
+    if webhook_secret:
+        # This is a webhook verification request - echo back the secret
+        response = Response("", status=200)
+        response.headers["X-Hook-Secret"] = webhook_secret
+        log.info(f"Asana webhook verification received with secret: {webhook_secret}")
+        return response
+
+    # Get the webhook payload
+    if not request.is_json:
+        log.warning("Asana webhook received without JSON content")
+        return Response("Expected JSON payload", status=400)
+
+    payload = request.json
+    log.info(f"Received Asana webhook with {len(payload.get('events', []))} events")
+
+    # Check if this is a task added event
+    events = payload.get("events", [])
+    for event in events:
+        if event.get("type") == "task" and event.get("action") == "added":
+            task_gid = event.get("resource", {}).get("gid")
+            project_gid = event.get("parent", {}).get("gid")
+
+            # Check if this is from the purchase_requests project
+            purchase_requests_gid = get_config("asana/purchase_requests/gid")
+            if project_gid == purchase_requests_gid:
+                # Fetch task details
+                try:
+                    connector = get_connector()
+                    if connector is None:
+                        log.error(
+                            "Cannot fetch task details: connector not initialized"
+                        )
+                        continue
+                    task = connector.asana_tasks().get_task(task_gid, {})
+                    task_name = task.get("name", "Unnamed Task")
+                    task_url = (
+                        f"https://app.asana.com/0/{purchase_requests_gid}/{task_gid}"
+                    )
+
+                    # Get assignee if any
+                    assignee = task.get("assignee")
+                    assignee_name = "Unassigned"
+                    if assignee:
+                        assignee_name = assignee.get("name", "Unknown")
+
+                    # Get due date if any
+                    due_date = task.get("due_on")
+                    due_text = "No due date"
+                    if due_date:
+                        due_text = f"Due: {due_date}"
+
+                    # Get notes/description if any
+                    notes = task.get("notes", "")
+                    notes_preview = notes[:100] + "..." if len(notes) > 100 else notes
+
+                    # Get who created the task
+                    created_by = event.get("user", {}).get("name", "Unknown")
+
+                    # Format Discord message
+                    message = (
+                        f"🛒 **New Purchase Request**\n"
+                        f"**Task:** {task_name}\n"
+                        f"**Created by:** {created_by}\n"
+                        f"**Assignee:** {assignee_name}\n"
+                        f"**{due_text}**\n"
+                        f"**Description:** {notes_preview}\n"
+                        f"**Link:** {task_url}"
+                    )
+
+                    # Send to Discord
+                    comms.send_discord_message(
+                        message, "#supply-automation", blocking=False
+                    )
+                    log.info(f"Sent purchase request notification for task {task_gid}")
+
+                except Exception as e:
+                    log.error(
+                        f"Error processing Asana webhook for task {task_gid}: {e}"
+                    )
+                    # Don't fail the webhook - Asana will retry
+                    # Return 200 so Asana doesn't retry
+
+    return Response("OK", status=200)
