@@ -212,7 +212,9 @@ def test_asana_webhook_verification(mocker, client):
     # Test webhook verification (initial handshake)
     response = client.post(
         "/admin/asana_webhook",
-        headers={"X-Hook-Secret": "test-verification-token-123"},
+        headers={
+            "X-Hook-Secret": "test-verification-token-123"
+        },  # pragma: allowlist secret
         json={},
     )
 
