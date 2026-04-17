@@ -216,6 +216,10 @@ def get_purchase_requests(exclude_complete=False):
     )
 
 
+def get_task(task_gid):
+    return _tasks().get_task(task_gid, {})
+
+
 def get_asset_disposal(exclude_complete=False):
     """Get requests for donations"""
     return get_with_onhold_section(

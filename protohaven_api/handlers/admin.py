@@ -302,7 +302,7 @@ def asana_webhook():
             if str(project_gid) == str(purchase_requests_gid):
                 # Fetch task details
                 try:
-                    task = connector.asana_tasks().get_task(task_gid, {})
+                    task = tasks.get_task(task_gid)
                     task_name = task.get("name", "Unnamed Task")
                     task_url = (
                         f"https://app.asana.com/0/{purchase_requests_gid}/{task_gid}"
