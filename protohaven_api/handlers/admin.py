@@ -43,6 +43,7 @@ def admin_discord_webhook():
     channel = data["channel"]
     log.info(f"/admin/discord_webhook: channel {channel}, content: {content}")
     comms.send_discord_message(content=content, channel=channel, blocking=False)
+    return "Sent (non-blocking)"
 
 
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
