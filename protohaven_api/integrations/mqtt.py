@@ -5,35 +5,12 @@ import logging
 import socket
 import threading
 import time
-from collections import defaultdict
 
 import paho.mqtt.client as mqtt
 
 from protohaven_api.config import get_config
 
 log = logging.getLogger("integrations.mqtt")
-
-TOPICS = [
-    "ERROR",
-    "POWER",
-    "AUTH",
-    "LOCK",
-    "MAINT",
-    "CONFIG",
-    "USERS",
-    "RESRV",
-    "LOG",
-    "ALIVE",
-]
-SUB_PREFIXES = ("stat", "tele", "err")
-
-
-class ClearanceLevel:  # pylint: disable=too-few-public-methods
-    """Levels of auth/clearance for a tool, for shopminder"""
-
-    MEMBER = "MEMBER"
-    TECH = "TECH"
-    ADMIN = "ADMIN"
 
 
 class TopicResource:  # pylint: disable=too-few-public-methods
@@ -42,6 +19,7 @@ class TopicResource:  # pylint: disable=too-few-public-methods
     TOOL = "tool"
     USER = "user"
     SELF = "self"
+    ACTION = "action"
 
 
 class TopicAttribute:  # pylint: disable=too-few-public-methods
@@ -55,13 +33,13 @@ class TopicAttribute:  # pylint: disable=too-few-public-methods
 
 
 class Client:
-    """An MQTT client for managing the ShopMinder devices"""
+    """An MQTT client for managing shop signals"""
 
     HEARTBEAT_PD_SEC = 5.0
 
-    def __init__(self):
+    def __init__(self, notify_discord_cb):
         self.c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        self.shopminders = defaultdict(dict)
+        self.notify_discord_cb = notify_discord_cb
 
     def _start(self):
         self.c.on_connect = self.on_connect
@@ -81,20 +59,29 @@ class Client:
     ):  # pylint:disable=unused-argument
         """Connection update events"""
         log.info(f"Connected with result code {reason_code}")
-        log.info(f"Subscribing to {SUB_PREFIXES} on all ShopMinder topics")
-        for topic in TOPICS:
-            for prefix in SUB_PREFIXES:
-                self.c.subscribe(f"{prefix}/+/{topic}")
+        for sub in ("/protohaven_api/v1/notify_discord",):
+            self.c.subscribe(sub)
+            log.info(f"Subscribed to {sub}")
 
     def on_message(self, _, userdata, msg):  # pylint:disable=unused-argument
         """Receive messages from MQTT"""
-        prefix, minder, topic = [m.strip() for m in msg.topic.split("/")]
-        log.info(f"RECV {prefix} {minder} {topic}: {msg.payload}")
-        if topic == "ALIVE":
-            self._on_shopminder_alive(minder, msg.payload == "1")
+        # Wrap in a big ol' try as any uncaught exception kills the thread
+        try:
+            log.info(f"RECV {msg.topic}: {msg.payload[:128]}...")
+            data = json.loads(msg.payload)
 
-    def _on_shopminder_alive(self, name: str, alive: bool):
-        self.shopminders[name]["alive"] = alive
+            if msg.topic == "/protohaven_api/v1/notify_discord":
+                if not data.get("channel") or not data.get("message"):
+                    log.error(
+                        "`channel` and `message` required for discord notiication"
+                    )
+                else:
+                    self.notify_discord_cb(
+                        data["message"], data["channel"], blocking=False
+                    )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.warning(f"on_message error: {e}")
+            return
 
     def _fmt_topic(self, resource, resource_id, attribute):
         """Constructs topic name based on the type of message being sent"""
@@ -126,11 +113,11 @@ class Client:
 client = None  # pylint: disable=invalid-name
 
 
-def run():
+def run(notify_discord_cb):
     """Run the MQTT client"""
     global client  # pylint: disable=global-statement
     log.info("Initializing MQTT client")
-    client = Client()
+    client = Client(notify_discord_cb)
     client.run_forever()
 
 
@@ -175,9 +162,7 @@ def notify_member_signed_in(user_id):
     return client.pub(TopicResource.USER, user_id, TopicAttribute.SIGNIN, "1")
 
 
-def notify_clearance(
-    user_id: str, tool_code: str, added: bool = True, level=ClearanceLevel.MEMBER
-):
+def notify_clearance(user_id: str, tool_code: str, added: bool = True):
     """Notify that a user's clearance has been added or removed"""
     if not client:
         return None
@@ -185,5 +170,5 @@ def notify_clearance(
         TopicResource.TOOL,
         tool_code,
         TopicAttribute.CLEARANCE,
-        {"uid": user_id, "added": added, "level": level},
+        {"uid": user_id, "added": added, "level": "MEMBER"},
     )
