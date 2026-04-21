@@ -32,6 +32,19 @@ def login_as_user():
     return session["neon_account"]
 
 
+@page.route("/admin/discord_webhook", methods=["POST"])
+@require_login_role(Role.AUTOMATION)
+def admin_discord_webhook():
+    """Send discord webhook message - use this if you get rate
+    limited sending directly from third party services e.g.
+    Appscript, Airtable..."""
+    data = request.json
+    content = data["content"]
+    channel = data["channel"]
+    log.info(f"/admin/discord_webhook: channel {channel}, content: {content}")
+    comms.send_discord_message(content=content, channel=channel, blocking=False)
+
+
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.AUTOMATION)
 def user_clearances():
