@@ -59,7 +59,9 @@ class Client:
     ):  # pylint:disable=unused-argument
         """Connection update events"""
         log.info(f"Connected with result code {reason_code}")
-        self.c.subscribe("/protohaven_api/v1/notify_discord")
+        for sub in ("/protohaven_api/v1/notify_discord",):
+            self.c.subscribe(sub)
+            log.info(f"Subscribed to {sub}")
 
     def on_message(self, _, userdata, msg):  # pylint:disable=unused-argument
         """Receive messages from MQTT"""
