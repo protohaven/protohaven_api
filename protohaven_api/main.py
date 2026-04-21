@@ -8,7 +8,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.automation.membership.sign_in import initialize as init_signin
 from protohaven_api.automation.roles.roles import setup_discord_user
 from protohaven_api.config import get_config
-from protohaven_api.integrations import airtable, booked, mqtt, neon, tasks
+from protohaven_api.integrations import airtable, booked, comms, mqtt, neon, tasks
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
@@ -54,7 +54,9 @@ else:
     log.warning("Skipping startup of discord bot")
 
 if get_config("mqtt/enabled", as_bool=True):
-    threading.Thread(target=mqtt.run, daemon=True).start()
+    threading.Thread(
+        target=mqtt.run, daemon=True, args=(comms.send_discord_message,)
+    ).start()
 else:
     log.warning("Skipping startup of mqtt client")
 
