@@ -65,18 +65,23 @@ class Client:
 
     def on_message(self, _, userdata, msg):  # pylint:disable=unused-argument
         """Receive messages from MQTT"""
-        log.info(f"RECV {msg.topic}: {msg.payload[:128]}...")
+        # Wrap in a big ol' try as any uncaught exception kills the thread
         try:
+            log.info(f"RECV {msg.topic}: {msg.payload[:128]}...")
             data = json.loads(msg.payload)
-        except json.JSONDecodeError:
-            log.warning("Failed to decode message; ignoring")
-            return
 
-        if msg.topic == "/protohaven_api/v1/notify_discord":
-            if not data.get("channel") or not data.get("message"):
-                log.error("`channel` and `message` required for discord notiication")
-            else:
-                self.notify_discord_cb(data["message"], data["channel"], blocking=False)
+            if msg.topic == "/protohaven_api/v1/notify_discord":
+                if not data.get("channel") or not data.get("message"):
+                    log.error(
+                        "`channel` and `message` required for discord notiication"
+                    )
+                else:
+                    self.notify_discord_cb(
+                        data["message"], data["channel"], blocking=False
+                    )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.warning(f"on_message error: {e}")
+            return
 
     def _fmt_topic(self, resource, resource_id, attribute):
         """Constructs topic name based on the type of message being sent"""
