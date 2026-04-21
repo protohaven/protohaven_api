@@ -76,7 +76,7 @@ class Client:
             if not data.get("channel") or not data.get("message"):
                 log.error("`channel` and `message` required for discord notiication")
             else:
-                self.notify_discord_cb(data["channel"], data["message"], blocking=False)
+                self.notify_discord_cb(data["message"], data["channel"], blocking=False)
 
     def _fmt_topic(self, resource, resource_id, attribute):
         """Constructs topic name based on the type of message being sent"""
