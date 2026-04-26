@@ -34,6 +34,7 @@
   });
 
 
+
   async function on_splash_submit(p) {
     person = p;
     return await submit();
@@ -116,7 +117,6 @@
     announcements = result.announcements;
     violations = result.violations;
     reservations = result.reservations;
-
     if (person !== 'guest' && result.status !== 'Active') {
       // Expired membership takes priority in notification
       state = 'membership_expired';
@@ -135,7 +135,9 @@
     }
 
     // If everything else is good, we're good.
-    state = 'signin_ok';
+    // Put this in a setTimeout so that we escape the event
+    // and don't accidentally trigger an enter-based return event
+    setTimeout(() => state = 'signin_ok', 50);
   }
 </script>
 
@@ -157,6 +159,16 @@
     {/if}
 	</Row>
 </main>
+
+<svelte:window
+    on:keyup={(e) => {
+      if (e.key == 'Enter' && state==="signin_ok") {
+        console.log("triggering on_signin_return from keypress");
+        on_signin_return();
+      }
+    }}
+/>
+
 
 
 <style>
