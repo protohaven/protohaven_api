@@ -466,22 +466,19 @@ class Commands:
                     result_id = "DRYRUN"
                 log.info(f"- Event #{result_id} created")
                 assert result_id
-                event.neon_id = str(result_id)
 
                 if args.apply and use_eventbrite:
                     desc = self._format_class_description(event)
-                    content_version = eventbrite.set_structured_content(
-                        event.neon_id, desc
-                    )
+                    content_version = eventbrite.set_structured_content(result_id, desc)
                     log.info(
-                        f"  Structured content added for {event.neon_id}: {content_version}"
+                        f"  Structured content added for {result_id}: {content_version}"
                     )
 
                 log.info("- Assigning pricing")
                 if args.apply and not use_eventbrite:
                     log.info("  (uses Firefox process via playwright)")
                     session.assign_pricing(
-                        event.neon_id,
+                        result_id,
                         event.price,
                         event.capacity,
                         include_discounts=args.discounts,
@@ -492,7 +489,7 @@ class Commands:
                     log.info(
                         str(
                             eventbrite.assign_pricing(
-                                event.neon_id,
+                                result_id,
                                 event.price,
                                 event.capacity,
                                 clear_existing=True,
@@ -501,17 +498,17 @@ class Commands:
                     )
                     log.info("  Pricing assigned; publishing event")
                     pub_rep = eventbrite.set_event_scheduled_state(
-                        event.neon_id, scheduled=args.registration
+                        result_id, scheduled=args.registration
                     )
                     log.info(f"  {pub_rep}")
-                    log.info(f"  Eventbrite event published: {event.neon_id}")
+                    log.info(f"  Eventbrite event published: {result_id}")
 
                 else:
                     log.info("  Skip (--no-apply)")
 
                 if args.apply:
                     airtable.update_record(
-                        {"Neon ID": event.neon_id},
+                        {"Neon ID": result_id},
                         "class_automation",
                         "schedule",
                         event.schedule_id,

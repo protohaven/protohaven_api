@@ -559,7 +559,7 @@ def create_event(  # pylint: disable=too-many-arguments
     published=True,
     registration=True,
     free=False,
-):
+) -> str:
     """Creates a new event in Neon CRM"""
     event = {
         "name": name,
