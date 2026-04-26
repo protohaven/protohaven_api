@@ -10,7 +10,7 @@ import time
 from email.mime.text import MIMEText
 from functools import lru_cache
 from threading import Lock
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlencode, urljoin
 
 import asana
@@ -79,23 +79,33 @@ class Connector:  # pylint: disable=too-many-public-methods
     def _construct_db_request_url_and_headers(
         self, base: str, tbl: str, rec: str | None, params: dict[str, Any] | None
     ):
-        cfg = get_config("airtable")
-        path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
-        path += f"/{rec}" if rec else ""
-        path += ("?" + urlencode(params)) if params else ""
-        headers = {
-            "Authorization": f"Bearer {cfg['data'][base]['token']}",
-            "Content-Type": "application/json",
-        }
-        return urljoin(cfg["requests"]["url"], path), headers
+        fmt = self.db_format()
+        if fmt == "airtable":
+            cfg = get_config("airtable")
+            path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
+            path += f"/{rec}" if rec else ""
+            path += ("?" + urlencode(params)) if params else ""
+            headers = {
+                "Authorization": f"Bearer {cfg['data'][base]['token']}",
+                "Content-Type": "application/json",
+            }
+            return urljoin(cfg["requests"]["url"], path), headers
+        if fmt == "nocodb":
+            cfg = get_config("nocodb")
+            path = f"/api/v3/data/{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}/records"
+            path += f"/{rec}" if rec else ""
+            path += ("?" + urlencode(params)) if params else ""
+            headers = {
+                "xc-token": cfg["requests"]["token"],
+                "Content-Type": "application/json",
+            }
+            return urljoin(cfg["requests"]["url"], path), headers
+        raise RuntimeError(f"unhandled DB format: {fmt}")
 
-    def db_format(self):
+    @lru_cache(maxsize=1)
+    def db_format(self) -> Literal["nocodb"] | Literal["airtable"]:
         """Returns the format of DB calls; the response is different between Airtable and Nocodb"""
-        return "airtable"
-
-    def _format_db_request_data(self, _1, _2, data):
-        """This is a shim layer to allow DevConnector to reformat data to match NocoDB's API"""
-        return data
+        return get_config("general/db_mode") or "nocodb"
 
     def db_request(  # pylint: disable=too-many-arguments
         self, mode, base, tbl, rec=None, params=None, data=None
@@ -105,7 +115,7 @@ class Connector:  # pylint: disable=too-many-public-methods
             base, tbl, rec, params
         )
         if data is not None:
-            data = json.dumps(self._format_db_request_data(mode, rec, data))
+            data = json.dumps(data)
         for i in range(self.max_attempts):
             try:
                 rep = requests.request(

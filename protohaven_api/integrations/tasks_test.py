@@ -10,7 +10,10 @@ def test_get_with_onhold_section(mocker):
     mocker.patch.object(
         t,
         "get_config",
-        return_value={"test_project": {"gid": "123", "on_hold_section": "456"}},
+        side_effect=lambda k: {
+            "general/server_mode": "prod",
+            "asana": {"test_project": {"gid": "123", "on_hold_section": "456"}},
+        }[k],
     )
     mt = mocker.patch.object(t, "_tasks")
     mt().get_tasks_for_project.return_value = [
@@ -105,6 +108,7 @@ def test_add_maintenance_task_if_not_exists(mocker):
             "asana/shop_and_maintenance_tasks/tags": {
                 "training_needed": "training_needed_gid",
             },
+            "general/server_mode": "prod",
         }.get(k),
     )
 
