@@ -2,10 +2,7 @@
 
 import logging
 from json import loads
-from typing import Any
-from urllib.parse import urlencode, urljoin
 
-from protohaven_api.config import get_config
 from protohaven_api.integrations.data import (
     dev_booked,
     dev_discord,
@@ -44,22 +41,6 @@ class DevConnector(Connector):
     def neon_session(self):
         """Create a new session using the requests lib, or dev alternative"""
         return dev_neon.Session()
-
-    def db_format(self):
-        return "nocodb"
-
-    def _construct_db_request_url_and_headers(  # pylint: disable=too-many-arguments
-        self, base: str, tbl: str, rec: str | None, params: dict[str, Any] | None
-    ):
-        cfg = get_config("nocodb")
-        path = f"/api/v3/data/{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}/records"
-        path += f"/{rec}" if rec else ""
-        path += ("?" + urlencode(params)) if params else ""
-        headers = {
-            "xc-token": cfg["requests"]["token"],
-            "Content-Type": "application/json",
-        }
-        return urljoin(cfg["requests"]["url"], path), headers
 
     def google_form_submit(self, url, params):
         """Submit a google form with data"""

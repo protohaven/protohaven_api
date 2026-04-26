@@ -11,10 +11,7 @@ from protohaven_api.integrations.data.connector import get as get_connector
 
 
 def _use_db():
-    con = get_connector()
-    if con is None:
-        return False
-    return get_connector().db_format() == "nocodb"
+    return get_config("general/server_mode").lower() == "dev"
 
 
 def _sections():

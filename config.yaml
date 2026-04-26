@@ -2,6 +2,7 @@ general:
   log_level: ${LOGLEVEL}
   yaml_out: ${YAML_OUT}
   server_mode: ${PH_SERVER_MODE}
+  db_mode: ${PH_DB_MODE}
   behind_proxy: false
   cors: ${CORS}
   session_secret: ${SESSION_SECRET}
