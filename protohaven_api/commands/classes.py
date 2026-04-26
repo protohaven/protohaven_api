@@ -394,8 +394,8 @@ class Commands:
                 f"{args.use_eventbrite_for}"
             )
             eb_filter_items = {
-                (str(inst_id), str(class_id))
-                for m in args.use_eventbrite_for
+                (str(inst_id).strip(), str(class_id).strip())
+                for m in args.use_eventbrite_for.split(",")
                 for inst_id, class_id in m.split("+")
             }
 
