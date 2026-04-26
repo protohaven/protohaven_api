@@ -282,7 +282,6 @@ def handle_member_agreement(  # pylint: disable=too-many-arguments
 ):
     """Update the member agreement status of a Neon account. Return True if
     the account has signed the member agreement, False otherwise."""
-
     # Lazy load config entries to prevent parsing errors on init
     now = now or tznow()
     current_version = current_version or get_config(
