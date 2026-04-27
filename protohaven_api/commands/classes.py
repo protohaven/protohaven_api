@@ -490,6 +490,7 @@ class Commands:
                                 result_id,
                                 event.price,
                                 event.capacity,
+                                event.start_time - datetime.timedelta(hours=24),
                                 clear_existing=True,
                             )
                         )

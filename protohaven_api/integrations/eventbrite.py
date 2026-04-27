@@ -206,7 +206,11 @@ def set_structured_content(event_id: EventbriteID, desc: str, content_version=2)
 
 
 def assign_pricing(
-    event_id: EventbriteID, price: int, seats: int, clear_existing: bool = False
+    event_id: EventbriteID,
+    price: int,
+    seats: int,
+    sales_end: datetime.datetime,
+    clear_existing: bool = False,
 ):
     """Creates a ticket class attached to `event_id`.
     Note that discounts are instantly generated on redirect via /member/goto_class.
@@ -246,11 +250,7 @@ def assign_pricing(
             "cost": f"USD,{round(price*100)}" if price != 0 else None,
             "free": (price == 0),
             "name": "General Admission",
-            "sales_end_relative": {
-                "relative_to_event": "start_time",
-                "offset": -3600
-                * 24,  # Note offset is negative, so sales end *before* start
-            },
+            "sales_end": sales_end.isoformat(),
             "hide_sale_dates": True,
         }
     }
