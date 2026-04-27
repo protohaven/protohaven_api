@@ -79,8 +79,10 @@ def test_patch_member_role_rm(mocker):
 
 def test_set_tech_custom_fields(mocker):
     m = mocker.patch.object(n.neon_base, "set_custom_fields")
-    n.set_tech_custom_fields("13245", interest="doing things")
-    m.assert_called_with("13245", (148, "doing things"))
+    n.set_tech_custom_fields(
+        "13245", interest="doing things", shop_tech_shift=["Sunday", "PM"]
+    )
+    m.assert_called_with("13245", (152, "Sunday PM"), (148, "doing things"))
 
 
 def test_get_sample_classes_neon(mocker):

@@ -539,15 +539,18 @@ def patch_member_role(neon_id: NeonID, role, enabled: bool):
 
 
 def set_tech_custom_fields(  # pylint: disable=too-many-arguments
-    account_id,
-    shop_tech_shift=None,
-    shop_tech_first_day=None,
-    shop_tech_last_day=None,
-    area_lead=None,
-    interest=None,
-    expertise=None,
+    account_id: NeonID,
+    shop_tech_shift: list | str = None,
+    shop_tech_first_day: str = None,
+    shop_tech_last_day: str = None,
+    area_lead: str = None,
+    interest: str = None,
+    expertise: str = None,
 ):
     """Sets custom fields on a shop tech Neon account"""
+    if isinstance(shop_tech_shift, list):
+        shop_tech_shift = " ".join(shop_tech_shift)
+
     cf = [
         (CustomField.SHOP_TECH_SHIFT, shop_tech_shift),
         (CustomField.SHOP_TECH_FIRST_DAY, shop_tech_first_day),

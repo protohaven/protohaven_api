@@ -406,15 +406,6 @@ function clearance_click(id: string) {
                 Enroll
               {/if}
             </Button>
-            <Button
-              class="mx-1"
-              size="sm"
-              on:click={() => set_enrollment(false)}
-              disabled={enrolling || (new_tech.neon_id && !is_enrolled(new_tech.neon_id)) || !new_tech.neon_id}
-              aria-label="Disenroll selected account"
-            >
-              Disenroll
-            </Button>
           {/if}
         </div>
 
