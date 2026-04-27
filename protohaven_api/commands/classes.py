@@ -431,7 +431,7 @@ class Commands:
             num += 1
             result_id = None
             try:
-                use_eventbrite = eb_filter(event.class_id, event.instructor_id)
+                use_eventbrite = eb_filter(event.instructor_id, event.class_id)
                 if args.apply and not use_eventbrite:
                     result_id = neon_base.create_event(
                         event.name,
