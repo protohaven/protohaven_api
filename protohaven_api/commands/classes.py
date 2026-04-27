@@ -385,7 +385,7 @@ class Commands:
             f"Equipment will {'NOT ' if not args.reserve else ''}be reserved for new classes"
         )
 
-        eb_filter_items = {}
+        eb_filter_items = set()
         if args.use_eventbrite_for == "*":
             log.info("All events will schedule through eventbrite")
         elif args.use_eventbrite_for:
@@ -393,11 +393,9 @@ class Commands:
                 "Eventbrite will be used if matching these instructor+class combos: "
                 f"{args.use_eventbrite_for}"
             )
-            eb_filter_items = {
-                (str(inst_id).strip(), str(class_id).strip())
-                for m in args.use_eventbrite_for.split(",")
-                for inst_id, class_id in m.split("+")
-            }
+            for m in args.use_eventbrite_for.split(","):
+                inst_id, class_id = m.split("+")
+                eb_filter_items.add(str(inst_id).strip(), str(class_id).strip())
 
         def eb_filter(inst_id, class_id):
             if args.use_eventbrite_for == "*":
