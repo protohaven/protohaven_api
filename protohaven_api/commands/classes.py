@@ -395,7 +395,7 @@ class Commands:
             )
             for m in args.use_eventbrite_for.split(","):
                 inst_id, class_id = m.split("+")
-                eb_filter_items.add(str(inst_id).strip(), str(class_id).strip())
+                eb_filter_items.add((str(inst_id).strip(), str(class_id).strip()))
 
         def eb_filter(inst_id, class_id):
             if args.use_eventbrite_for == "*":
