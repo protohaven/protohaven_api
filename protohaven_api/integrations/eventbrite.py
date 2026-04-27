@@ -250,7 +250,7 @@ def assign_pricing(
             "cost": f"USD,{round(price*100)}" if price != 0 else None,
             "free": (price == 0),
             "name": "General Admission",
-            "sales_end": sales_end.isoformat(),
+            "sales_end": _utcfmt(sales_end),
             "hide_sale_dates": True,
         }
     }
