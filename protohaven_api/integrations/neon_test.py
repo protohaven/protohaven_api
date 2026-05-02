@@ -325,7 +325,7 @@ def test_accounts_backup(mocker):
             got = tar.extractfile("f1.txt").read().decode("utf8")
             assert (
                 got
-                == '{"a": "foo", "memberships": null}\n{"a": "bar", "memberships": "baz"}\n'
+                == '[{"a": "foo", "memberships": null}, {"a": "bar", "memberships": "baz"}]'
             )
 
 
@@ -361,5 +361,5 @@ def test_events_backup(mocker):
             got = tar.extractfile("f1.txt").read().decode("utf8")
             assert (
                 got
-                == '{"a": "foo", "attendees": null, "tickets": null}\n{"a": "bar", "attendees": 1, "tickets": 2}\n'
+                == '[{"a": "foo", "attendees": null, "tickets": null}, {"a": "bar", "attendees": 1, "tickets": 2}]'
             )

@@ -299,25 +299,23 @@ def make_tarfile(output_filename: str, source_dir: str):
 
 def accounts_backup(
     output_filename: str,
-    fname: str = "accounts.multijson",
+    fname: str = "accounts.json",
 ) -> int:
     """Iterate through all account information on Neon CRM and write it
     into a gzipped tar file. Returns number of bytes of the archive"""
     with tempfile.TemporaryDirectory() as d:
+        results = []
+        for m in search_all_members(fields=[], also_fetch=True, fetch_memberships=True):
+            results.append({**m.neon_raw_data, "memberships": m.neon_membership_data})
         with open(Path(d) / fname, "w", encoding="utf8") as f:
-            for m in search_all_members(
-                fields=[], also_fetch=True, fetch_memberships=True
-            ):
-                data = dict(m.neon_raw_data)
-                data["memberships"] = m.neon_membership_data
-                f.write(json.dumps(data) + "\n")
+            f.write(json.dumps(results))
         make_tarfile(output_filename, str(d))
     return getsize(output_filename)
 
 
 def events_backup(
     output_filename: str,
-    fname: str = "events.multijson",
+    fname: str = "events.json",
     max_age_days: int = 10 * 365,
 ) -> int:
     """Iterate through all events on Neon CRM and write to a gzipped tar file.
@@ -325,25 +323,31 @@ def events_backup(
     Events older than 10 years are not returned.
     """
     with tempfile.TemporaryDirectory() as d:
-        with open(Path(d) / fname, "w", encoding="utf8") as f:
-            for e in neon_base.paginated_search(
-                [
-                    (
-                        "Event Start Date",
-                        "GREATER_AND_EQUAL",
-                        (tznow() - datetime.timedelta(days=max_age_days)).strftime(
-                            "%Y-%m-%d"
-                        ),
+        results = []
+        for e in neon_base.paginated_search(
+            [
+                (
+                    "Event Start Date",
+                    "GREATER_AND_EQUAL",
+                    (tznow() - datetime.timedelta(days=max_age_days)).strftime(
+                        "%Y-%m-%d"
                     ),
-                ],
-                ["Event ID"],
-                typ="events",
-            ):
-                evt = fetch_event(e["Event ID"], attendees=True, tickets=True)
-                data = evt.neon_raw_data
-                data["attendees"] = evt.neon_attendee_data
-                data["tickets"] = evt.neon_ticket_data
-                f.write(json.dumps(data) + "\n")
+                ),
+            ],
+            ["Event ID"],
+            typ="events",
+        ):
+            evt = fetch_event(e["Event ID"], attendees=True, tickets=True)
+            results.append(
+                {
+                    **evt.neon_raw_data,
+                    "attendees": evt.neon_attendee_data,
+                    "tickets": evt.neon_ticket_data,
+                }
+            )
+
+        with open(Path(d) / fname, "w", encoding="utf8") as f:
+            f.write(json.dumps(results))
         make_tarfile(output_filename, str(d))
     return getsize(output_filename)
 
