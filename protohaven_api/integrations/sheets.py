@@ -24,9 +24,8 @@ def _get_service_client(name: str, version: str):
     managed by the `workshop` account.
     This account must have read access for the call to succeed.
     """
-    log.error(get_config("sheets/ids/credentials_path"))
     creds = service_account.Credentials.from_service_account_file(
-        get_config("sheets/ids/credentials_path"), scopes=get_config("sheets/scopes")
+        get_config("sheets/credentials_path"), scopes=get_config("sheets/scopes")
     )
     service = build(name, version, credentials=creds)
     return service

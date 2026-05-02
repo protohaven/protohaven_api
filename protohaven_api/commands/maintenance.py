@@ -11,7 +11,7 @@ from protohaven_api.automation.maintenance import manager
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
-from protohaven_api.integrations import comms, drive, neon, tasks, wiki, wyze
+from protohaven_api.integrations import comms, drive, neon, sheets, tasks, wiki, wyze
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")

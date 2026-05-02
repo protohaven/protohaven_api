@@ -1,7 +1,7 @@
 {% if subject %}
 Sheets data backup summary
 {% else %}
-Successfully snapshotted {{category}} and pushed to Google Drive:
+Successfully snapshotted Sheets and pushed to Google Drive:
 
 {% for s in stats  %}
 - [{{s.name}}](<https://drive.google.com/file/d/{{s.drive_id}}/view>) ({{s.size_kb}}KB)
