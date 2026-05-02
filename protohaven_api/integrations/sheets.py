@@ -181,8 +181,6 @@ def fetch_sheets_backup(dest: str):
     """
     with tarfile.open(dest, "w:gz") as tar:
         for [name, sheets_id] in get_config("sheets/ids").items():
-            log.error(name)
-            log.error(sheets_id)
             data_stream = _download_sheet(sheets_id)
             content = data_stream.getvalue()
             data_len = len(content)
