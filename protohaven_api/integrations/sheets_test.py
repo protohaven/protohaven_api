@@ -339,6 +339,7 @@ def test_get_ops_inventory(mocker):
 
 def test_fetch_sheets_backup(mocker):
     """Tests generating sheets backups."""
+
     def side_effect(arg: str):
         return io.BytesIO(arg.encode("utf-8"))
 
