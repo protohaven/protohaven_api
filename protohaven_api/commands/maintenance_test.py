@@ -265,7 +265,7 @@ def test_backup_sheets(mocker, cli):
     )
     mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
 
-    got = cli("backup_sheets", ["--parent_id=test_parent_id" "--apply"])
+    got = cli("backup_sheets", ["--parent_id=test_parent_id", "--apply"])
     sheets_backup.assert_called_once()
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]

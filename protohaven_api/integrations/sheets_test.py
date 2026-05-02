@@ -338,13 +338,13 @@ def test_get_ops_inventory(mocker):
 
 
 def test_fetch_sheets_backup(mocker):
+    """Tests generating sheets backups."""
     def side_effect(arg: str):
         return io.BytesIO(arg.encode("utf-8"))
 
     mocked_method = mocker.patch.object(s, "_download_sheet")
     mocked_method.side_effect = side_effect
     sheets = get_config("sheets/ids")
-    expected_names = set(get_config("sheets/ids"))
     # Prepare some sheets data
     with tempfile.NamedTemporaryFile() as t:
         s.fetch_sheets_backup(t.name)
