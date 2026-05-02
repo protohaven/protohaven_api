@@ -234,11 +234,24 @@ def test_backup_wiki(mocker, cli):
 def test_backup_neon(mocker, cli):
     """Test backing up neon stuff"""
     mocker.patch.object(m, "tznow", return_value=d(0))
-    mocker.patch.object(m.neon, "accounts_backup", return_value=1024)
+    acc_backup = mocker.patch.object(m.neon, "accounts_backup", return_value=1024)
+    evt_backup = mocker.patch.object(m.neon, "events_backup", return_value=1024)
     mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
 
     got = cli(
         "backup_neon", ["--parent_id=test_parent_id", "--category=accounts", "--apply"]
     )
+    acc_backup.assert_called_once()
+    evt_backup.assert_not_called()
+    assert mock_do_backup.call_count == 1
+    assert "test_parent_id" in got[0]["body"]
+
+    acc_backup.reset_mock()
+    mock_do_backup.reset_mock()
+    got = cli(
+        "backup_neon", ["--parent_id=test_parent_id", "--category=events", "--apply"]
+    )
+    acc_backup.assert_not_called()
+    evt_backup.assert_called_once()
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]

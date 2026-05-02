@@ -24,6 +24,7 @@ from protohaven_api.integrations.models import (
     ClearanceCodeFull,
     ClearanceCodeShort,
     Event,
+    EventID,
     Member,
     NeonID,
     ToolCode,
@@ -32,7 +33,9 @@ from protohaven_api.integrations.models import (
 log = logging.getLogger("integrations.neon")
 
 
-def _search_upcoming_events(from_date, to_date):
+def _search_upcoming_events(
+    from_date: datetime.datetime, to_date: datetime.datetime
+) -> Iterable[Event]:
     """Lookup upcoming events"""
     for evt in neon_base.paginated_search(
         [
@@ -55,7 +58,7 @@ def _search_upcoming_events(from_date, to_date):
         yield Event.from_neon_search(evt)
 
 
-def fetch_event(event_id, tickets=False, attendees=False):
+def fetch_event(event_id: EventID, tickets=False, attendees=False):
     """Fetch data on an individual (legacy) event in Neon"""
     evt = Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
     if tickets:
@@ -294,14 +297,52 @@ def make_tarfile(output_filename, source_dir):
         tar.add(source_dir, arcname="")
 
 
-def accounts_backup(output_filename: str, fname: str = "accounts.multijson") -> int:
+def accounts_backup(
+    output_filename: str,
+    fname: str = "accounts.multijson",
+) -> int:
     """Iterate through all account information on Neon CRM and write it
     into a gzipped tar file. Returns number of bytes of the archive"""
     with tempfile.TemporaryDirectory() as d:
-        path = Path(d) / fname
-        with open(path, "w", encoding="utf8") as f:
-            for m in search_all_members(fields=[], also_fetch=True):
-                f.write(json.dumps(m.neon_raw_data) + "\n")
+        with open(Path(d) / fname, "w", encoding="utf8") as f:
+            for m in search_all_members(
+                fields=[], also_fetch=True, fetch_memberships=True
+            ):
+                data = dict(m.neon_raw_data)
+                data["memberships"] = m.neon_membership_data
+                f.write(json.dumps(data) + "\n")
+        make_tarfile(output_filename, str(d))
+    return getsize(output_filename)
+
+
+def events_backup(
+    output_filename: str,
+    fname: str = "events.multijson",
+) -> int:
+    """Iterate through all events on Neon CRM and write to a gzipped tar file.
+    Return number of bytes of the archive.
+    Events older than 10 years are not returned.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        with open(Path(d) / fname, "w", encoding="utf8") as f:
+            for e in neon_base.paginated_search(
+                [
+                    (
+                        "Event Start Date",
+                        "GREATER_AND_EQUAL",
+                        (tznow() - datetime.timedelta(days=10 * 365)).strftime(
+                            "%Y-%m-%d"
+                        ),
+                    ),
+                ],
+                ["Event ID"],
+                typ="events",
+            ):
+                evt = fetch_event(e["Event ID"], attendees=True, tickets=True)
+                data = evt.neon_raw_data
+                data["attendees"] = evt.neon_attendee_data
+                data["tickets"] = evt.neon_ticket_data
+                f.write(json.dumps(data) + "\n")
         make_tarfile(output_filename, str(d))
     return getsize(output_filename)
 

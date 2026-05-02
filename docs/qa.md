@@ -23,8 +23,6 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 _Note: on failure, can run --after=test_name to skip all tests up to and
 including `test_name`, or run --command=test_name to just run `test_name`._
 
-- [ ]
-
 ## Web services
 
 After deployment, verify that:

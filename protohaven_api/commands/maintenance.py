@@ -310,7 +310,7 @@ class Commands:
         arg(
             "--category",
             help="Which category of data to back up",
-            choices=["accounts", "memberships", "events", "attendees"],
+            choices=["accounts", "events"],
             type=str,
             required=True,
         ),
@@ -322,11 +322,9 @@ class Commands:
         # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
         stats = []
         with tempfile.TemporaryDirectory() as d:
-            # TODO membership data
-            # TODO event data
-            # TODO attendee data
             fn = {
                 "accounts": neon.accounts_backup,
+                "events": neon.events_backup,
             }[args.category]
             stats.append(
                 self._do_backup(
@@ -343,7 +341,7 @@ class Commands:
                 category=args.category,
                 parent_id=args.parent_id,
                 stats=stats,
-                target="#docs-automation",
+                target="#membership-automation",
             )
         )
         log.info("Done")

@@ -312,15 +312,54 @@ def test_accounts_backup(mocker):
         n,
         "search_all_members",
         return_value=[
-            mocker.MagicMock(neon_raw_data="foo"),
-            mocker.MagicMock(neon_raw_data="bar"),
+            mocker.MagicMock(neon_raw_data={"a": "foo"}, neon_membership_data=None),
+            mocker.MagicMock(neon_raw_data={"a": "bar"}, neon_membership_data="baz"),
         ],
     )
     with tempfile.TemporaryDirectory() as d:
         dest = Path(d) / "out.tar.gz"
-        sz = n.accounts_backup(dest, "archivefile.txt")
+        sz = n.accounts_backup(dest, "f1.txt")
         assert sz > 0
 
         with tarfile.open(dest, "r:gz") as tar:
-            got = tar.extractfile("archivefile.txt").read().decode("utf8")
-            assert got == '"foo"\n"bar"\n'
+            got = tar.extractfile("f1.txt").read().decode("utf8")
+            assert (
+                got
+                == '{"a": "foo", "memberships": null}\n{"a": "bar", "memberships": "baz"}\n'
+            )
+
+
+def test_events_backup(mocker):
+    mocker.patch.object(
+        n.neon_base,
+        "paginated_search",
+        return_value=[
+            {"Event ID": "123"},
+            {"Event ID": "456"},
+        ],
+    )
+    mocker.patch.object(
+        n,
+        "fetch_event",
+        side_effect=[
+            mocker.MagicMock(
+                neon_raw_data={"a": "foo"},
+                neon_attendee_data=None,
+                neon_ticket_data=None,
+            ),
+            mocker.MagicMock(
+                neon_raw_data={"a": "bar"}, neon_attendee_data=1, neon_ticket_data=2
+            ),
+        ],
+    )
+    with tempfile.TemporaryDirectory() as d:
+        dest = Path(d) / "out.tar.gz"
+        sz = n.events_backup(dest, "f1.txt")
+        assert sz > 0
+
+        with tarfile.open(dest, "r:gz") as tar:
+            got = tar.extractfile("f1.txt").read().decode("utf8")
+            assert (
+                got
+                == '{"a": "foo", "attendees": null, "tickets": null}\n{"a": "bar", "attendees": 1, "tickets": 2}\n'
+            )
