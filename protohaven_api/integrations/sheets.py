@@ -1,12 +1,15 @@
 """Read from google spreadsheets"""
 
 import datetime
+import io
 import logging
 import re
+import tarfile
 from typing import Iterator
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
 from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations.models import ClearanceCodeShort, Email
@@ -14,9 +17,8 @@ from protohaven_api.integrations.models import ClearanceCodeShort, Email
 log = logging.getLogger("integrations.sheets")
 
 
-def get_sheet_range(sheet_id, range_name):
-    """Shows basic usage of the Sheets API.
-    Prints values from a sample spreadsheet.
+def _get_service_client(name: str, version: str):
+    """
     The usual credentials.json uses protohaven-cli@
     protohaven-api.iam.gserviceaccount.com service account,
     managed by the `workshop` account.
@@ -25,7 +27,15 @@ def get_sheet_range(sheet_id, range_name):
     creds = service_account.Credentials.from_service_account_file(
         get_config("sheets/credentials_path"), scopes=get_config("sheets/scopes")
     )
-    service = build("sheets", "v4", credentials=creds)
+    service = build(name, version, credentials=creds)
+    return service
+
+
+def get_sheet_range(sheet_id, range_name):
+    """Shows basic usage of the Sheets API.
+    Prints values from a sample spreadsheet.
+    """
+    service = _get_service_client("sheets", "v4")
     # Call the Sheets API
     sheet = service.spreadsheets()  # pylint: disable=no-member
     result = sheet.values().get(spreadsheetId=sheet_id, range=range_name).execute()
@@ -144,3 +154,38 @@ def get_ops_inventory():
         d["Recorded Qty"] = int(d["Recorded Qty"])
         d["Target Qty"] = int(d["Target Qty"])
         yield d
+
+
+def _download_sheet(sheets_id: str):
+    # create drive api client
+    drive = _get_service_client("drive", "v3")
+    # pylint: disable=maybe-no-member
+    request = drive.files().export_media(
+        fileId=sheets_id,
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    file = io.BytesIO()
+    downloader = MediaIoBaseDownload(file, request)
+    done = False
+    while done is False:
+        _, done = downloader.next_chunk()
+    return file
+
+
+def fetch_sheets_backup(dest: str):
+    """Writes a tarball of the sheets found in sheets/ids
+    Args:
+        dest: the output location for the tarball
+    Returns:
+        None
+    """
+    with tarfile.open(dest, "w:gz") as tar:
+        for [name, sheets_id] in get_config("sheets/ids").items():
+            data_stream = _download_sheet(sheets_id)
+            content = data_stream.getvalue()
+            data_len = len(content)
+            info = tarfile.TarInfo(name=f"{name}.xls")
+            info.size = data_len
+            # We pass the stream back to the beginning before adding
+            data_stream.seek(0)
+            tar.addfile(tarinfo=info, fileobj=data_stream)
