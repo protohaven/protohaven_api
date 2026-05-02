@@ -176,4 +176,4 @@ wordpress/wordpress
 svelte/package-lock.json
 
 # Mac crap
-.DS_STORE
+.DS_Store

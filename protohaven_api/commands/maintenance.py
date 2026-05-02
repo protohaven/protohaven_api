@@ -432,10 +432,9 @@ class Commands:
             )
             pct[0] = 1.0
 
-        #TODO make template for sheets
         print_yaml(
             Msg.tmpl(
-                "wiki_backup_summary",
+                "sheets_backup_summary",
                 parent_id=args.parent_id,
                 stats=stats,
                 target="#docs-automation",

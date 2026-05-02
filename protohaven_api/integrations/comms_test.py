@@ -338,6 +338,17 @@ TESTED_TEMPLATES = [
         {"title": "TestTitle", "formatted": ["a", "b", "c"]},
     ),
     (
+        "sheets_backup_summary",
+        {
+            "stats": [
+                {"name": "db.ext", "drive_id": "CDE", "size_kb": 123},
+                {"name": "files.ext", "drive_id": "ABC", "size_kb": 456},
+            ],
+            "category": "sheets",
+            "parent_id": "PAR",
+        },
+    ),
+    (
         "shift_no_techs",
         {
             "shift": "Monwednesaturday TM",
@@ -468,6 +479,7 @@ HASHES = {
     "registrant_class_confirmed": "d6c0ac936f4c44dd",  # pragma: allowlist secret
     "registrant_post_class_survey": "7f89d4a2a4211f67",  # pragma: allowlist secret
     "schedule_push_notification": "fdb8409ccac4ba4b",  # pragma: allowlist secret
+    "sheets_backup_summary": "56d467672a5dceb0",  # pragma: allowlist secret
     "shift_no_techs": "579a5d5dc0fd9f16",  # pragma: allowlist secret
     "shop_tech_applications": "a011ed984ed4a302",  # pragma: allowlist secret
     "square_validation_action_needed": "cacb88b37ad99e83",  # pragma: allowlist secret
