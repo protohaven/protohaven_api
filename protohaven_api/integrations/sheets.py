@@ -164,8 +164,7 @@ def _download_sheet(sheets_id: str):
     downloader = MediaIoBaseDownload(file, request)
     done = False
     while done is False:
-        status, done = downloader.next_chunk()
-        print(f"Download {int(status.progress() * 100)}.")
+        _, done = downloader.next_chunk()
     return file
 
 
