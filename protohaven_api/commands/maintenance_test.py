@@ -256,15 +256,16 @@ def test_backup_neon(mocker, cli):
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]
 
+
 def test_backup_sheets(mocker, cli):
     """Test backing up sheets"""
     mocker.patch.object(m, "tznow", return_value=d(0))
-    sheets_backup = mocker.patch.object(m.sheets, "fetch_sheets_backup", return_value=1024)
+    sheets_backup = mocker.patch.object(
+        m.sheets, "fetch_sheets_backup", return_value=1024
+    )
     mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
 
-    got = cli(
-        "backup_sheets", ["--parent_id=test_parent_id" "--apply"]
-    )
+    got = cli("backup_sheets", ["--parent_id=test_parent_id" "--apply"])
     sheets_backup.assert_called_once()
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]

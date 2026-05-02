@@ -2,20 +2,20 @@
 
 import datetime
 import io
-import tarfile
 import logging
 import re
+import tarfile
 from typing import Iterator
-from googleapiclient.http import MediaIoBaseDownload
-
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
 from protohaven_api.config import get_config, safe_parse_datetime
 from protohaven_api.integrations.models import ClearanceCodeShort, Email
 
 log = logging.getLogger("integrations.sheets")
+
 
 def _get_service_client(name: str, version: str):
     """
@@ -35,7 +35,7 @@ def get_sheet_range(sheet_id, range_name):
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
     """
-    service = _get_service_client("sheets", "v4") 
+    service = _get_service_client("sheets", "v4")
     # Call the Sheets API
     sheet = service.spreadsheets()  # pylint: disable=no-member
     result = sheet.values().get(spreadsheetId=sheet_id, range=range_name).execute()
@@ -155,11 +155,15 @@ def get_ops_inventory():
         d["Target Qty"] = int(d["Target Qty"])
         yield d
 
+
 def _download_sheet(sheets_id: str):
     # create drive api client
-    drive = _get_service_client('drive', 'v3')
+    drive = _get_service_client("drive", "v3")
     # pylint: disable=maybe-no-member
-    request = drive.files().export_media(fileId=sheets_id, mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    request = drive.files().export_media(
+        fileId=sheets_id,
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
     file = io.BytesIO()
     downloader = MediaIoBaseDownload(file, request)
     done = False
@@ -176,7 +180,7 @@ def fetch_sheets_backup(dest: str):
         None
     """
     with tarfile.open(dest, "w:gz") as tar:
-        for [name, sheets_id] in get_config('sheets/ids').items():
+        for [name, sheets_id] in get_config("sheets/ids").items():
             log.error(name)
             log.error(sheets_id)
             data_stream = _download_sheet(sheets_id)
