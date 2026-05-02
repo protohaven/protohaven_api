@@ -291,7 +291,7 @@ def search_all_members(
     )
 
 
-def make_tarfile(output_filename, source_dir):
+def make_tarfile(output_filename: str, source_dir: str):
     """https://stackoverflow.com/a/17081026"""
     with tarfile.open(output_filename, "w:gz") as tar:
         tar.add(source_dir, arcname="")
@@ -318,6 +318,7 @@ def accounts_backup(
 def events_backup(
     output_filename: str,
     fname: str = "events.multijson",
+    max_age_days: int = 10 * 365,
 ) -> int:
     """Iterate through all events on Neon CRM and write to a gzipped tar file.
     Return number of bytes of the archive.
@@ -330,7 +331,7 @@ def events_backup(
                     (
                         "Event Start Date",
                         "GREATER_AND_EQUAL",
-                        (tznow() - datetime.timedelta(days=10 * 365)).strftime(
+                        (tznow() - datetime.timedelta(days=max_age_days)).strftime(
                             "%Y-%m-%d"
                         ),
                     ),

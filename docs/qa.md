@@ -18,7 +18,7 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
 
 - [ ] backup script run and result copied to Drive
-- [x] runs successfully
+- [x] QA tests run successfully
 
 _Note: on failure, can run --after=test_name to skip all tests up to and
 including `test_name`, or run --command=test_name to just run `test_name`._
