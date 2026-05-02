@@ -3,6 +3,9 @@
 # pylint: skip-file
 import datetime
 import json
+import tarfile
+import tempfile
+from pathlib import Path
 
 import pytest
 from flask import Response
@@ -302,3 +305,22 @@ def test_resolve_clearance_code_full(mocker):
     assert n.resolve_clearance_code_full("TOOL3") == "TOOL: Tool Name"
     assert n.resolve_clearance_code_full("tool") == "TOOL: Tool Name"
     assert n.resolve_clearance_code_full("OTHR1") == "OTHR1: Legacy Tool Code"
+
+
+def test_accounts_backup(mocker):
+    mocker.patch.object(
+        n,
+        "search_all_members",
+        return_value=[
+            mocker.MagicMock(neon_raw_data="foo"),
+            mocker.MagicMock(neon_raw_data="bar"),
+        ],
+    )
+    with tempfile.TemporaryDirectory() as d:
+        dest = Path(d) / "out.tar.gz"
+        sz = n.accounts_backup(dest, "archivefile.txt")
+        assert sz > 0
+
+        with tarfile.open(dest, "r:gz") as tar:
+            got = tar.extractfile("archivefile.txt").read().decode("utf8")
+            assert got == '"foo"\n"bar"\n'

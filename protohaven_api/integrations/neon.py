@@ -1,10 +1,15 @@
 """Neon CRM integration methods"""  # pylint: disable=too-many-lines
 
 import datetime
+import json
 import logging
 import re
+import tarfile
+import tempfile
 from dataclasses import dataclass
 from functools import lru_cache
+from os.path import getsize
+from pathlib import Path
 from typing import Iterable
 
 import rapidfuzz
@@ -281,6 +286,24 @@ def search_all_members(
         fetch_memberships=fetch_memberships,
         also_fetch=also_fetch,
     )
+
+
+def make_tarfile(output_filename, source_dir):
+    """https://stackoverflow.com/a/17081026"""
+    with tarfile.open(output_filename, "w:gz") as tar:
+        tar.add(source_dir, arcname="")
+
+
+def accounts_backup(output_filename: str, fname: str = "accounts.multijson") -> int:
+    """Iterate through all account information on Neon CRM and write it
+    into a gzipped tar file. Returns number of bytes of the archive"""
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / fname
+        with open(path, "w", encoding="utf8") as f:
+            for m in search_all_members(fields=[], also_fetch=True):
+                f.write(json.dumps(m.neon_raw_data) + "\n")
+        make_tarfile(output_filename, str(d))
+    return getsize(output_filename)
 
 
 MEMBER_SEARCH_OUTPUT_FIELDS = [

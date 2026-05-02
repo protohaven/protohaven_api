@@ -4,14 +4,26 @@
 
 The API key can be found at https://cron.protohaven.org/#Admin?sub=api_keys
 
+Make sure to run a backup of the existing cronicle configs before running
+tests/changing image tags
+
+```
+python3 backup_cronicle_jobs.py --api_key=$API_KEY > cronicle_jobs_backup_2026_05_02.multijson
+```
+
+Then run the QA tests:
+
 ```shell
 python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
 
+- [ ] backup script run and result copied to Drive
 - [x] runs successfully
 
 _Note: on failure, can run --after=test_name to skip all tests up to and
 including `test_name`, or run --command=test_name to just run `test_name`._
+
+- [ ]
 
 ## Web services
 
