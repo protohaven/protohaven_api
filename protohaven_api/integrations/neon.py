@@ -1,10 +1,15 @@
 """Neon CRM integration methods"""  # pylint: disable=too-many-lines
 
 import datetime
+import json
 import logging
 import re
+import tarfile
+import tempfile
 from dataclasses import dataclass
 from functools import lru_cache
+from os.path import getsize
+from pathlib import Path
 from typing import Iterable
 
 import rapidfuzz
@@ -19,6 +24,7 @@ from protohaven_api.integrations.models import (
     ClearanceCodeFull,
     ClearanceCodeShort,
     Event,
+    EventID,
     Member,
     NeonID,
     ToolCode,
@@ -27,7 +33,9 @@ from protohaven_api.integrations.models import (
 log = logging.getLogger("integrations.neon")
 
 
-def _search_upcoming_events(from_date, to_date):
+def _search_upcoming_events(
+    from_date: datetime.datetime, to_date: datetime.datetime
+) -> Iterable[Event]:
     """Lookup upcoming events"""
     for evt in neon_base.paginated_search(
         [
@@ -50,7 +58,7 @@ def _search_upcoming_events(from_date, to_date):
         yield Event.from_neon_search(evt)
 
 
-def fetch_event(event_id, tickets=False, attendees=False):
+def fetch_event(event_id: EventID, tickets=False, attendees=False):
     """Fetch data on an individual (legacy) event in Neon"""
     evt = Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
     if tickets:
@@ -281,6 +289,67 @@ def search_all_members(
         fetch_memberships=fetch_memberships,
         also_fetch=also_fetch,
     )
+
+
+def make_tarfile(output_filename: str, source_dir: str):
+    """https://stackoverflow.com/a/17081026"""
+    with tarfile.open(output_filename, "w:gz") as tar:
+        tar.add(source_dir, arcname="")
+
+
+def accounts_backup(
+    output_filename: str,
+    fname: str = "accounts.json",
+) -> int:
+    """Iterate through all account information on Neon CRM and write it
+    into a gzipped tar file. Returns number of bytes of the archive"""
+    with tempfile.TemporaryDirectory() as d:
+        results = []
+        for m in search_all_members(fields=[], also_fetch=True, fetch_memberships=True):
+            results.append({**m.neon_raw_data, "memberships": m.neon_membership_data})
+        with open(Path(d) / fname, "w", encoding="utf8") as f:
+            f.write(json.dumps(results))
+        make_tarfile(output_filename, str(d))
+    return getsize(output_filename)
+
+
+def events_backup(
+    output_filename: str,
+    fname: str = "events.json",
+    max_age_days: int = 10 * 365,
+) -> int:
+    """Iterate through all events on Neon CRM and write to a gzipped tar file.
+    Return number of bytes of the archive.
+    Events older than 10 years are not returned.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        results = []
+        for e in neon_base.paginated_search(
+            [
+                (
+                    "Event Start Date",
+                    "GREATER_AND_EQUAL",
+                    (tznow() - datetime.timedelta(days=max_age_days)).strftime(
+                        "%Y-%m-%d"
+                    ),
+                ),
+            ],
+            ["Event ID"],
+            typ="events",
+        ):
+            evt = fetch_event(e["Event ID"], attendees=True, tickets=True)
+            results.append(
+                {
+                    **evt.neon_raw_data,
+                    "attendees": evt.neon_attendee_data,
+                    "tickets": evt.neon_ticket_data,
+                }
+            )
+
+        with open(Path(d) / fname, "w", encoding="utf8") as f:
+            f.write(json.dumps(results))
+        make_tarfile(output_filename, str(d))
+    return getsize(output_filename)
 
 
 MEMBER_SEARCH_OUTPUT_FIELDS = [

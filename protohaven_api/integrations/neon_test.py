@@ -3,6 +3,9 @@
 # pylint: skip-file
 import datetime
 import json
+import tarfile
+import tempfile
+from pathlib import Path
 
 import pytest
 from flask import Response
@@ -302,3 +305,61 @@ def test_resolve_clearance_code_full(mocker):
     assert n.resolve_clearance_code_full("TOOL3") == "TOOL: Tool Name"
     assert n.resolve_clearance_code_full("tool") == "TOOL: Tool Name"
     assert n.resolve_clearance_code_full("OTHR1") == "OTHR1: Legacy Tool Code"
+
+
+def test_accounts_backup(mocker):
+    mocker.patch.object(
+        n,
+        "search_all_members",
+        return_value=[
+            mocker.MagicMock(neon_raw_data={"a": "foo"}, neon_membership_data=None),
+            mocker.MagicMock(neon_raw_data={"a": "bar"}, neon_membership_data="baz"),
+        ],
+    )
+    with tempfile.TemporaryDirectory() as d:
+        dest = Path(d) / "out.tar.gz"
+        sz = n.accounts_backup(dest, "f1.txt")
+        assert sz > 0
+
+        with tarfile.open(dest, "r:gz") as tar:
+            got = tar.extractfile("f1.txt").read().decode("utf8")
+            assert (
+                got
+                == '[{"a": "foo", "memberships": null}, {"a": "bar", "memberships": "baz"}]'
+            )
+
+
+def test_events_backup(mocker):
+    mocker.patch.object(
+        n.neon_base,
+        "paginated_search",
+        return_value=[
+            {"Event ID": "123"},
+            {"Event ID": "456"},
+        ],
+    )
+    mocker.patch.object(
+        n,
+        "fetch_event",
+        side_effect=[
+            mocker.MagicMock(
+                neon_raw_data={"a": "foo"},
+                neon_attendee_data=None,
+                neon_ticket_data=None,
+            ),
+            mocker.MagicMock(
+                neon_raw_data={"a": "bar"}, neon_attendee_data=1, neon_ticket_data=2
+            ),
+        ],
+    )
+    with tempfile.TemporaryDirectory() as d:
+        dest = Path(d) / "out.tar.gz"
+        sz = n.events_backup(dest, "f1.txt")
+        assert sz > 0
+
+        with tarfile.open(dest, "r:gz") as tar:
+            got = tar.extractfile("f1.txt").read().decode("utf8")
+            assert (
+                got
+                == '[{"a": "foo", "attendees": null, "tickets": null}, {"a": "bar", "attendees": 1, "tickets": 2}]'
+            )
