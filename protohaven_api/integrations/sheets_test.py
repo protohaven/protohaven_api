@@ -1,10 +1,13 @@
 """Test of sheets integration module"""
 
 import datetime
+import tarfile
 import logging
+import io
 import re
 from collections import defaultdict
 from collections.abc import Mapping
+import tempfile
 from typing import Any, List
 
 import pytest
@@ -332,3 +335,20 @@ def test_get_ops_inventory(mocker):
 
     for row in s.get_ops_inventory():
         assert row == expected
+
+
+def test_fetch_sheets_backup(mocker):
+    def side_effect(arg: str):
+        return io.BytesIO(arg.encode('utf-8'))
+    mocked_method = mocker.patch.object(s, "_download_sheet")
+    mocked_method.side_effect = side_effect
+    sheets = get_config("sheets/ids")
+    expected_names = set(get_config("sheets/ids"))
+    # Prepare some sheets data
+    with tempfile.NamedTemporaryFile() as t:
+        s.fetch_sheets_backup(t.name)
+        with tarfile.open(t.name, 'r:*') as tar:
+            for name, sheets_id in sheets.items():
+                with tar.extractfile(f"{name}.xls") as f:
+                    assert f
+                    assert f.read().decode('utf-8') == sheets_id

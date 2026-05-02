@@ -398,3 +398,47 @@ class Commands:
             )
         )
         log.info("Done")
+
+    @command(
+        arg(
+            "--parent_id",
+            help="destination folder ID",
+            type=str,
+            required=True,
+        ),
+        arg(
+            "--apply",
+            help="actually create the backup",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+    )
+    def backup_sheets(self, args, pct):
+        """Fetch and back up Sheets data to google drive"""
+        pct.set_stages(1)
+        now = tznow()
+
+        # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
+        stats = []
+        with tempfile.TemporaryDirectory() as d:
+            stats.append(
+                self._do_backup(
+                    sheets.fetch_sheets_backup,
+                    Path(d) / "sheets_backup.gz",
+                    f"sheets_backup_{now.isoformat()}.gz",
+                    args.parent_id,
+                    apply=args.apply,
+                )
+            )
+            pct[0] = 1.0
+
+        #TODO make template for sheets
+        print_yaml(
+            Msg.tmpl(
+                "wiki_backup_summary",
+                parent_id=args.parent_id,
+                stats=stats,
+                target="#docs-automation",
+            )
+        )
+        log.info("Done")
