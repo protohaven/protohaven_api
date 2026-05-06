@@ -355,9 +355,11 @@ def _resolve_class_proposal_params():
             False,
         )
     sessions: list[val.Interval] = []
-    for s in data["sessions"]:
-        log.info(f"Parsing session {s}")
-        sessions.append(tuple(safe_parse_datetime(t) for t in s))
+    for d, t, h in data["sessions"]:
+        log.info(f"Parsing session {d} {t} {h}")
+        t1 = safe_parse_datetime(f"{d}T{t}")
+        t2 = t1 + datetime.timedelta(hours=int(h))
+        sessions.append((t1, t2))
     _, inst_id, rep = _resolve_id_and_email()
 
     skip_val = data.get("skip_validation") or False

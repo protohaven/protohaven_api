@@ -525,3 +525,56 @@ def test_instructor_enroll_create_account(client, mocker):
         "789", instructor.Role.INSTRUCTOR, True
     )
     assert response.status_code == 200
+
+
+def test_validate_class_ok(inst_client, mocker):
+    m1 = mocker.patch.object(instructor.scheduler, "validate", return_value=[])
+    mocker.patch.object(
+        instructor, "_resolve_id_and_email", return_value=(None, "abc", None)
+    )
+    rep = inst_client.post(
+        "/instructor/validate",
+        json={
+            "cls_id": "123",
+            "sessions": [
+                ("2026-01-01", "8:00", 3),
+                ("2026-01-02", "14:00", "1"),
+            ],
+        },
+    )
+    assert rep.status_code == 200
+    assert rep.json == {"valid": True, "errors": []}
+    m1.assert_called_with(
+        "abc",
+        "123",
+        [
+            (
+                safe_parse_datetime("2026-01-01T8:00"),
+                safe_parse_datetime("2026-01-01T11:00"),
+            ),
+            (
+                safe_parse_datetime("2026-01-02T14:00"),
+                safe_parse_datetime("2026-01-02T15:00"),
+            ),
+        ],
+    )
+
+
+def test_validate_class_err(inst_client, mocker):
+    m1 = mocker.patch.object(
+        instructor.scheduler, "validate", return_value=["err1", "err2"]
+    )
+    mocker.patch.object(
+        instructor, "_resolve_id_and_email", return_value=(None, "abc", None)
+    )
+    rep = inst_client.post(
+        "/instructor/validate",
+        json={
+            "cls_id": "123",
+            "sessions": [
+                ("2026-01-01", "8:00", 3),
+            ],
+        },
+    )
+    assert rep.status_code == 200
+    assert rep.json == {"valid": False, "errors": ["err1", "err2"]}
