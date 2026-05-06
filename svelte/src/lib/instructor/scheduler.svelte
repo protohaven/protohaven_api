@@ -68,18 +68,12 @@
 
   function post_data() {
     const sessions = selected.starts.map(([date, time], i) => {
-      console.log(date, time);
       // https://www.javaspring.net/blog/date-parsing-in-javascript-is-different-between-safari-and-chrome/#3-why-these-differences-exist-root-causes
-      // Kind of a hacky way to create a date, but at least it's compatible and works EST/EDT
-      // Note that Date.parse applies local system timezone when it has
-      // both date and time
-      // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/parse
-      const t1 = new Date(Date.parse(date + `T${time}:00`));
-      console.log(t1);
-
-      const t2 = new Date(t1.getTime() + selected.tmpl.hours[i] * 60 * 60 * 1000);
-      console.log(t1, t2);
-      return [isodatetime(t1), isodatetime(t2)];
+      // Javascript is horrendous with date math and I've given up
+      // after 5 attempts at passing an ISO formatted date.
+      // The most recent failure was Mozilla's "resist fingerprinting" config
+      // reporting local time as UTC and causing a 4hr shift vs EST
+      return [date, time, selected.tmpl.hours[i]];
     });
     console.log("cls_id " + selected.id + "; sessions ", sessions);
     return {
