@@ -457,7 +457,7 @@ class Commands:
             ):
                 if not event.airtable_data:
                     log.warning(
-                        f"Airtable data not matched for event {event.neon_id}: "
+                        f"Airtable data not matched for event {event.event_id}: "
                         f"{event.name} on {event.start_date}"
                     )
                     continue

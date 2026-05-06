@@ -181,20 +181,20 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             published=self.published, merge_airtable=True, attendees=True
         ):
             if evt.in_blocklist():
-                self.log.debug(f"Ignore annotating blocklist event {evt.neon_id}")
+                self.log.debug(f"Ignore annotating blocklist event {evt.event_id}")
                 continue
             self.events.append(evt)
-            self.notifications_by_class[evt.neon_id] = {
+            self.notifications_by_class[evt.event_id] = {
                 k.lower(): v
                 for k, v in airtable.get_notifications_after(
-                    re.compile(f".*{evt.neon_id}.*"),
+                    re.compile(f".*{evt.event_id}.*"),
                     evt.start_date - datetime.timedelta(days=14),
                 ).items()
             }
             for a in evt.attendees:
                 if a.valid:
                     self.attendee_emails[a.neon_id] = get_account_email(a.neon_id)
-            self.log.debug(f"Annotated {evt.neon_id}")
+            self.log.debug(f"Annotated {evt.event_id}")
         self.log.info(f"Fetched and annotated {len(self.events)} event(s) fron Neon")
 
     def push_class(self, evt, action, reason=""):
@@ -205,7 +205,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
     def notified(self, target, evt, day_offset):
         """Return true if the target was notified about the event within `day_offset` of event"""
         thresh = evt.start_date - datetime.timedelta(days=day_offset)
-        for t in self.notifications_by_class.get(evt.neon_id, {}).get(target, []):
+        for t in self.notifications_by_class.get(evt.event_id, {}).get(target, []):
             if t >= thresh:
                 return True
         return False
@@ -218,20 +218,20 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if evt.in_blocklist():
             return
         if not evt.airtable_data:
-            self.log.info(f"IGNORE #{evt.neon_id} {evt.name} (not in Airtable)")
+            self.log.info(f"IGNORE #{evt.event_id} {evt.name} (not in Airtable)")
             return
 
-        if evt.neon_id in self.ignore_ovr or (
-            len(self.filter_ovr) > 0 and evt.neon_id not in self.filter_ovr
+        if evt.event_id in self.ignore_ovr or (
+            len(self.filter_ovr) > 0 and evt.event_id not in self.filter_ovr
         ):
             self.log.info(f"IGNORE {evt.name} (override)")
             return
 
-        if evt.neon_id in self.confirm_ovr:
+        if evt.event_id in self.confirm_ovr:
             self.push_class(evt, Action.CONFIRM, "override")
         else:
             log.info(
-                f"Checking actions needed for #{evt.neon_id} {evt.name} "
+                f"Checking actions needed for #{evt.event_id} {evt.name} "
                 f"({evt.attendee_count} attendees)"
             )
             for action in Action:
@@ -261,9 +261,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             return
 
         # We don't append directly to self.output, instead aggregate so we can send a summary
-        self.summary[evt.neon_id]["name"] = evt.name
-        self.summary[evt.neon_id]["targets"].add("#techs")
-        self.summary[evt.neon_id]["action"].add(str(action))
+        self.summary[evt.event_id]["name"] = evt.name
+        self.summary[evt.event_id]["targets"].add("#techs")
+        self.summary[evt.event_id]["action"].add(str(action))
         self.for_techs.append(evt)
 
     def _build_instructor_notification(self, evt, action):
@@ -275,7 +275,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             return
         if evt.instructor_email is None:
             self.log.error(
-                f"Could not build instructor notification for #{evt.neon_id} "
+                f"Could not build instructor notification for #{evt.event_id} "
                 f"{evt.name} - no email given"
             )
             return
@@ -292,7 +292,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self._append(
                 action,
                 Msg.tmpl(tmpl, target=f"Instructor ({evt.instructor_email})", evt=evt),
-                evt.neon_id,
+                evt.event_id,
                 evt.name,
             )
 
@@ -325,7 +325,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                     a=a,
                     now=tznow(),
                 ),
-                evt.neon_id,
+                evt.event_id,
                 evt.name,
             )
 
@@ -349,7 +349,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             self._append(
                 str(Action.FOR_TECHS),
                 Msg.tmpl("tech_openings", events=self.for_techs, target="#techs"),
-                evt_id=",".join([str(e.neon_id) for e in self.for_techs]),
+                evt_id=",".join([str(e.event_id) for e in self.for_techs]),
                 name="multiple",
             )
 
@@ -378,21 +378,21 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 self._sort_event_for_notification(evt, now)
             except Exception as e:
                 raise RuntimeError(
-                    f"Failed to sort event {evt.neon_id} - {evt.name}"
+                    f"Failed to sort event {evt.event_id} - {evt.name}"
                 ) from e
 
         self.log.info(f"{len(self.for_techs)} classes available for techs")
         for evt in self.for_techs:
             self.log.info(
-                f" - {evt.neon_id} {evt.name} ({evt.attendee_count} / {evt.capacity} seats filled)"
+                f" - {evt.event_id} {evt.name} ({evt.attendee_count} / {evt.capacity} seats filled)"
             )
 
         self.log.info(f"{len(self.actionable_classes)} actionable classes")
         for evt, action in self.actionable_classes:
-            self.log.info(f" - {action} - {evt.neon_id} {evt.name}")
+            self.log.info(f" - {action} - {evt.event_id} {evt.name}")
 
         events_missing_email = [
-            f"\t- {evt.start_date} #{evt.neon_id} {evt.name}"
+            f"\t- {evt.start_date} #{evt.event_id} {evt.name}"
             for evt, action in self.actionable_classes
             if evt.instructor_email is None
         ]

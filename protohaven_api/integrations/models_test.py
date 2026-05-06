@@ -509,7 +509,7 @@ def test_event_properties():
         evt.set_airtable_data(airtable)
 
         # Test properties
-        assert evt.neon_id == (123 if source != "eventbrite" else "456")
+        assert evt.event_id == ("123" if source != "eventbrite" else "456")
         assert evt.name == "Test Event"
         assert evt.description
         assert evt.capacity == 10

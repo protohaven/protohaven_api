@@ -130,7 +130,7 @@ def class_listing():
     for evt in eauto.fetch_upcoming_events(back_days=0, merge_airtable=True):
         result.append(
             {
-                "id": evt.neon_id,
+                "id": evt.event_id,
                 "name": evt.name,
                 "timestamp": evt.start_date.isoformat(),
                 "description": evt.description,
@@ -218,7 +218,7 @@ def upcoming_events():
             continue
         events.append(
             {
-                "id": evt.neon_id,
+                "id": evt.event_id,
                 "name": evt.name,
                 "description": evt.description,
                 "instructor": evt.instructor_name,

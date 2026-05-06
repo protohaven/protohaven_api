@@ -27,7 +27,7 @@ def _upcoming_event(mocker):
     )
     a2.name = "Noemail Alwayshidden"
     m = mocker.MagicMock(
-        neon_id=1234,
+        event_id="1234",
         start_date=d(EVT_DAY, 18),
         end_date=d(EVT_DAY, 21),
         capacity=6,
@@ -150,12 +150,12 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
             {},
             [
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Instructor (inst@ructor.com)",
                     "subject": "Test Event: Please submit instructor log",
                 },
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
                     "subject": "Test Event: Please share feedback",
                 },
@@ -172,7 +172,7 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
             {"supply_state": "Supply Check Needed"},
             [
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Instructor (inst@ructor.com)",
                     "subject": "Test Event on January 31 - please confirm class supplies",
                 },
@@ -189,7 +189,7 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
             {},
             [
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Instructor (inst@ructor.com)",
                     "subject": "Test Event on January 31 - help us find 4 more student(s)!",
                 },
@@ -206,12 +206,12 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
             {"attendee_count": 6, "occupancy": 1.0},
             [
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Instructor (inst@ructor.com)",
                     "subject": "Test Event is on for January 31!",
                 },
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
@@ -228,12 +228,12 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
             {},
             [
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Instructor (inst@ructor.com)",
                     "subject": "Test Event is on for January 31!",
                 },
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
@@ -255,12 +255,12 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
             {"attendee_count": 0, "occupancy": 0},
             [
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Instructor (inst@ructor.com)",
                     "subject": "Your class 'Test Event' was canceled",
                 },
                 {
-                    "id": 1234,
+                    "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
                     "subject": "Your class 'Test Event' was canceled",
                 },
@@ -305,7 +305,7 @@ def test_builder_notified(mocker):
 
     # Noticication is true if within threshold days
     eb.notifications_by_class = {}
-    eb.notifications_by_class[evt.neon_id] = {"test_target": [d(-2)]}
+    eb.notifications_by_class[evt.event_id] = {"test_target": [d(-2)]}
     assert eb.notified("test_target", evt, 3) is True
     assert eb.notified("test_target", evt, 1) is False
 

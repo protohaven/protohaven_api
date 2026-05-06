@@ -78,7 +78,7 @@ def test_templates_html_detection():
 
 
 TEST_EVENT = {
-    "neon_id": "34567",
+    "event_id": "34567",
     "start_date": d(0),
     "name": "Test Event",
     "instructor_name": "TestInstName",

@@ -427,7 +427,7 @@ def rm_tech_event():
             status=400,
         )
 
-    return eauto.set_event_scheduled_state(evt.neon_id, scheduled=False)
+    return eauto.set_event_scheduled_state(evt.event_id, scheduled=False)
 
 
 @page.route("/techs/enroll", methods=["POST"])
@@ -511,7 +511,7 @@ def techs_backfill_events():
 
             for_techs.append(
                 {
-                    "id": evt.neon_id,
+                    "id": evt.event_id,
                     "ticket_id": evt.single_registration_ticket_id,
                     "name": evt.name,
                     "attendees": list(evt.signups),

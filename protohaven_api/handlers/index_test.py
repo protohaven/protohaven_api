@@ -49,18 +49,18 @@ def test_whoami_no_roles(client):
 def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
     m1 = mocker.MagicMock(
-        neon_id=1, start_date=d(0, 10), description="foo", airtable_data="bar"
+        event_id="1", start_date=d(0, 10), description="foo", airtable_data="bar"
     )
     m1.name = "m1"
     m2 = mocker.MagicMock(
-        neon_id=2, start_date=d(0, 9), description="foo", airtable_data="baz"
+        event_id="2", start_date=d(0, 9), description="foo", airtable_data="baz"
     )
     m2.name = "m2"
     mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=[m1, m2])
     rep = client.get("/class_listing")
     assert json.loads(rep.data.decode("utf8")) == [
         {
-            "id": 2,
+            "id": "2",
             "name": "m2",
             "description": "foo",
             "timestamp": d(0, 9).isoformat(),
@@ -69,7 +69,7 @@ def test_class_listing(mocker, client):
             "airtable_data": "baz",
         },
         {
-            "id": 1,
+            "id": "1",
             "name": "m1",
             "description": "foo",
             "timestamp": d(0, 10).isoformat(),
@@ -116,7 +116,7 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
     """
     mocker.patch.object(index, "tznow", return_value=d(0))
     mock_event = mocker.Mock(
-        neon_id="123",
+        event_id="123",
         description="Test Description",
         instructor_name="Instructor",
         start_date=d(1, 16),
@@ -153,7 +153,7 @@ def test_upcoming_events(mocker, client):
     """Test upcoming_events returns valid events sorted by date."""
     mocker.patch.object(index, "tznow", return_value=d(0))
     mock_event = mocker.Mock(
-        neon_id="123",
+        event_id="123",
         description="Test Description",
         instructor_name="Instructor",
         start_date=d(1, 16),

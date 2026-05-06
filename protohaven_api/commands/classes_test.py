@@ -88,7 +88,7 @@ Tc = namedtuple("Tc", "desc,overrides")
         Tc("Scheduled before today", {"start_time": d(-2)}),
         Tc("Too soon in future", {"start_time": d(13)}),
         Tc("Unconfirmed", {"confirmed": None}),
-        Tc("Already scheduled", {"neon_id": "1234"}),
+        Tc("Already scheduled", {"event_id": "1234"}),
     ],
     ids=idfn,
 )
@@ -99,7 +99,7 @@ def test_resolve_schedule_ignored_events(cli, mocker, tc):
             "class_id": "abcd",
             "start_time": d(20),
             "name": "test class",
-            "neon_id": None,
+            "event_id": None,
             "confirmed": d(-1),
             "instructor_name": "inst1",
             "description": {
@@ -171,7 +171,7 @@ def _tcls(mocker):
         class_id="abcd",
         schedule_id="efgh",
         start_time=d(20),
-        neon_id=None,
+        event_id=None,
         confirmed=d(-1),
         instructor_name="inst1",
         instructor_id="1234",

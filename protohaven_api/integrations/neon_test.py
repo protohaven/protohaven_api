@@ -92,7 +92,7 @@ def test_get_sample_classes_neon(mocker):
     m = mocker.MagicMock(
         published=True,
         registration=True,
-        neon_id=123,
+        event_id=123,
         capacity=10,
         attendee_count=5,
         start_date=d(4, 15),

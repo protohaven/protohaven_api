@@ -41,12 +41,12 @@ def _fetch_upcoming_events_neon(
         for e in ee:
             evt = Event.from_neon_fetch(e)
             if _should(attendees, evt):
-                evt.set_attendee_data(neon.fetch_attendees(evt.neon_id, raw=True))
+                evt.set_attendee_data(neon.fetch_attendees(evt.event_id, raw=True))
             if _should(tickets, evt):
                 evt.set_ticket_data(
                     # Specifically allowed to do so here; others should
                     # Use `fetch_upcoming_events` to get ticket data
-                    neon.fetch_tickets_internal_do_not_use_directly(evt.neon_id)
+                    neon.fetch_tickets_internal_do_not_use_directly(evt.event_id)
                 )
             batch.append(evt)
         yield batch
@@ -86,7 +86,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
             # Post-rename in Airtable, we can remove "Neon ID" from here.
             evt_id = s["fields"].get("Neon ID") or s["fields"].get("Event ID")
             if evt_id:
-                airtable_map[int(evt_id)] = s
+                airtable_map[str(evt_id)] = s
 
         # Since our event fetches are both paginated generators,
         # we have to submit them to the thread pool multiple times to
@@ -108,7 +108,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
                 for evt in result:
                     if not evt or not evt.end_date or evt.end_date < after:
                         continue
-                    evt.set_airtable_data(airtable_map.get(evt.neon_id))
+                    evt.set_airtable_data(airtable_map.get(evt.event_id))
                     yield evt
 
             if len(not_done) <= 0:
