@@ -338,4 +338,12 @@ def upload_logo_image(image_url: str):
 
 def fetch_attendees(event_id: EventbriteID) -> Iterable[Attendee]:
     """Fetch attendee data for a specific Eventbrite event"""
-    yield from fetch_event(event_id, include_ticketing=True).attendees
+    url = f"/events/{event_id}/attendees/"
+    params = {}
+    for _ in range(100):
+        rep = get_connector().eventbrite_request("GET", url, params=params)
+        for data in rep["attendees"]:
+            yield Attendee(eventbrite_data=data)
+        if not rep["pagination"]["has_more_items"]:
+            break
+        params["continuation"] = rep["pagination"]["continuation"]

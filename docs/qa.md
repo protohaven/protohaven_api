@@ -53,7 +53,7 @@ After deployment, verify that:
   - [x] Shows classes including instructor and attendee data, both Neon and
         Eventbrite
 - https://api.protohaven.org/techs
-  - [BUGGED] Door lock state shown at top nav; matches Wyze state
+  - [x] Door lock state shown at top nav; matches Wyze state
   - [x] Cal loads, individual shifts can be clicked and overridden
   - [x] Cal can change date range, highlights current day
   - [x] Cal swap overrides send an alert to the #techs channel
