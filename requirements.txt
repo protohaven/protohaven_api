@@ -31,3 +31,4 @@ squareup==43.1.2.20250924
 squareup-legacy==41.0.0.20250319
 wyze_sdk @ git+https://github.com/smartin015/wyze-sdk@2ff7f51bdd1b078630c29f778d0598fd1d777078
 paho-mqtt==2.1.0
+certifi==2026.4.22

@@ -18,7 +18,7 @@ python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
 
 - [ ] backup script run and result copied to Drive
-- [x] QA tests run successfully
+- [ ] QA tests run successfully
 
 _Note: on failure, can run --after=test_name to skip all tests up to and
 including `test_name`, or run --command=test_name to just run `test_name`._
@@ -63,9 +63,9 @@ After deployment, verify that:
   - [x] Members tab shows today's sign-ins, different dates can be shown
   - [x] Searching by member is possible; shows sign in day stats
   - [x] Tool states load
-  - [x] Can view history for a tool by clicking the link
+  - [~] Can view history for a tool by clicking the link
   - [x] Tool guide and clearance documentation status are shown
-  - [x] Docs pages missing approvals can click to the wiki page
+  - [~] Docs pages missing approvals can click to the wiki page
   - [x] Can sort tools by name, urgency, time in state etc.
   - [x] Can filter tools by area
   - [x] Storage tab allows for looking up Neon ID by name/email
@@ -79,8 +79,8 @@ After deployment, verify that:
   - [x] Areas has populated "additional contacts" section at the bottom of the
         pane
   - [x] If a lead: techs roster can set interest, expertise, shift info
-  - [ ] If logged in as Shop Tech: techs roster can set interest and expertise
-        (but not other fields) for that user
+  - [~] If logged in as Shop Tech: techs roster can set interest and expertise
+    (but not other fields) for that user
   - [x] Techs roster can view clearances and sort by name/clearances
   - [x] Techs roster has some tech photos & bios shown
   - [x] Techs roster not visible if not a tech (e.g. not logged in)
@@ -92,36 +92,40 @@ After deployment, verify that:
   - [x] Events tab can create, register, unregister, and delete a techs-only
         class
   - [x] Events tab shows registrant name, email, and phone if admin
-  - [x] Events tab can deregister any tech if admin
-  - [x] Generic shop tech account is not permitted to register for a tech-only
-        class
+  - [~] Events tab can deregister any tech if admin
+  - [x] Attendance tab can run an attendance report over a time period
+  - [~] Generic shop tech account is not permitted to register for a tech-only
+    class
   - [x] Full tech name is visible on calendar only when logged in as a tech /
         tech lead
   - [x] Members tab shows "access denied" when not logged in
   - [x] Area leads only show first name when not signed in
   - [x] Unauthenticated user cannot see tech roster
-  - [x] In incognito window (not logged in) cannot make edits to tech data, cal
-        overrides
-  - [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
-        data, cal overrides
+  - [~] In incognito window (not logged in) cannot make edits to tech data, cal
+    overrides
+  - [~] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
+    data, cal overrides
 - https://api.protohaven.org/instructor
   - [x] Loads profile data for instructor
-  - [x] Correctly shows warning icon on profile tab if incomplete data
-  - [x] Loads classes for instructor, including attendance data
+  - [~] Correctly shows warning icon on profile tab if incomplete data
+  - [BUGGED_NO_EVENTBRITE] Loads classes for instructor, including attendance
+    data
   - [x] Correctly indicates log submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
-  - [x] BUGGED Adding a new class on a day with similar area reservations
-        triggers validation error
+  - [BUGGED] Adding a new class on a day with similar area reservations triggers
+    validation error
   - [x] Adding a new class too close to a recent run of that class triggers
         validation error
   - [x] Scheduling sessions more than 10 days apart triggers validation error
         (check dates to ensure same days/times on validation step)
   - [x] Instructor can override schedule validation error
   - [x] Schedule overrides send alerts to #edu-leads discord
-  - [x] Can confirm/unconfirm a class
+  - [x] Can mark unavailable for a class that hasn't posted
+  - [ ] Class timing is correct (i.e. 6pm on scheduler -> 6pm when scheduled)
   - [x] Can set supplies needed / supplies OK
   - [x] Can switch between volunteer and paid state for class
-  - [x] Log submission button works; log form is correctly populated
+  - [x] Log submission button works; log form is correctly populated (especially
+        clearances)
   - [x] Roster page shown for leads/admins; view page and Neon CRM links work.
   - [x] Instructor creation / enrollment / disenrollment via roster.
   - [x] Roster highlights missing paperwork on file (DD/Bio/W9)
@@ -194,5 +198,5 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
 
 ## Cleanup
 
-- [x] Staging server turned off
-- [x] All changes to server code committed and pushed
+- [ ] Staging server turned off
+- [ ] All changes to server code committed and pushed

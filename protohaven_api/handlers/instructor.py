@@ -16,6 +16,7 @@ from protohaven_api.integrations import (
     airtable,
     booked,
     comms,
+    eventbrite,
     neon,
     neon_base,
     sheets,
@@ -98,10 +99,11 @@ def get_instructor_readiness(inst: list, caps: Optional[Any] = None) -> dict:
     return result
 
 
-def _resolve_id_and_email() -> tuple[str, str, Response]:
-    email = request.args.get("email")
-    if email is not None:
-        ue = user_email()
+def resolve_id_and_email(request_email: str | None) -> tuple[str, str, Response]:
+    """Returns resolved ID and email, handling overrides if proper admin role"""
+    if request_email is not None:
+        email = request_email.strip().lower()
+        ue = user_email().strip().lower()
         if ue != email and not am_role(Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF):
             return (
                 None,
@@ -109,9 +111,13 @@ def _resolve_id_and_email() -> tuple[str, str, Response]:
                 Response("Access Denied for admin parameter `email`", status=401),
             )
         # Account ID included by default
-        mm = list(neon.search_members_by_email(ue.lower(), fields=[]))
+        mm = list(neon.search_members_by_email(email, fields=[]))
         if len(mm) == 0:
-            return Response(f"No Neon accounts with email {email.lower()}", status=404)
+            return (
+                None,
+                None,
+                Response(f"No Neon accounts with email {email.lower()}", status=404),
+            )
         nid = mm[0].neon_id
     else:
         email = user_email()
@@ -152,8 +158,8 @@ def instructor_class_attendees() -> Union[Response, str]:
     result = []
     for a in attendees:
         attendee_dict = {
-            "neon_raw_data": a.neon_raw_data,
-            "eventbrite_data": a.eventbrite_data,
+            "registration_date": a.registration_date,
+            "registration_status": a.registration_status,
             "neon_id": a.neon_id,
             "email": a.email,
             "fname": a.fname,
@@ -161,7 +167,8 @@ def instructor_class_attendees() -> Union[Response, str]:
             "valid": a.valid,
         }
         # Try to get member email from Neon if we have a neon_id
-        if a.neon_id:
+        # and it's not from eventbrite
+        if a.neon_id and not eventbrite.is_valid_id(event_id):
             try:
                 m = neon_base.fetch_account(a.neon_id)
                 if m is not None:
@@ -251,7 +258,7 @@ def instructor_class_svelte_files(typ, path):
 @require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
 def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
-    email, neon_id, rep = _resolve_id_and_email()
+    email, neon_id, rep = resolve_id_and_email(request.args.get("email"))
     if rep:
         return rep
 
@@ -360,7 +367,7 @@ def _resolve_class_proposal_params():
         t1 = safe_parse_datetime(f"{d}T{t}")
         t2 = t1 + datetime.timedelta(hours=int(h))
         sessions.append((t1, t2))
-    _, inst_id, rep = _resolve_id_and_email()
+    _, inst_id, rep = resolve_id_and_email(request.args.get("email"))
 
     skip_val = data.get("skip_validation") or False
     if not isinstance(skip_val, bool):  # Strict checks on validation override

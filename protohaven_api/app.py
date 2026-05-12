@@ -43,12 +43,15 @@ def configure_app(
         protohaven_main = get_config(
             "general/external_urls/protohaven_main", "https://www.protohaven.org"
         )
+        protohaven_alt = get_config(
+            "general/external_urls/protohaven_alt", "https://protohaven.org"
+        )
         assert protohaven_main and protohaven_main != "*"
         CORS(
             app,
             resources={
-                r"/event_ticker": {"origins": protohaven_main},
-                r"/whoami": {"origins": protohaven_main},
+                r"/event_ticker": {"origins": [protohaven_main, protohaven_alt]},
+                r"/whoami": {"origins": [protohaven_main, protohaven_alt]},
             },
             supports_credentials=True,
         )

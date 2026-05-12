@@ -15,7 +15,7 @@ from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon
 from protohaven_api.integrations.models import Event, Member
 from protohaven_api.integrations.schedule import fetch_shop_events
-from protohaven_api.rbac import require_login
+from protohaven_api.rbac import Role, require_login, require_login_role
 
 page = Blueprint("index", __name__, template_folder="templates")
 
@@ -143,6 +143,13 @@ def class_listing():
     return result
 
 
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.STAFF,
+    Role.EDUCATION_LEAD,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
 @page.route("/neon_lookup", methods=["POST"])
 def neon_id_lookup():
     """Look up basic info of a user in Neon based on a search by name or email"""
@@ -246,6 +253,10 @@ def upcoming_events():
                 "instructor": evt.instructor_name,
                 "start": evt.start_date.isoformat(),
                 "end": evt.end_date.isoformat(),
+                # Javascript is atrocious at correctly formatting
+                # dates and times; we do this in python for EST/EDT consistency
+                # across browsers and locale settings
+                "humanized_start": evt.start_date.strftime("%a, %b %d, %I:%M%p"),
                 "humanized_session_info": humanize_sessions(evt),
                 "capacity": evt.capacity,
                 "url": evt.url,

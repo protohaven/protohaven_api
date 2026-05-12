@@ -119,13 +119,13 @@ def test_dashboard_schedule(mocker):
 def test_instructor_class_attendees(inst_client, mocker):
     # Create a mock Attendee object
     mock_attendee = mocker.MagicMock()
-    mock_attendee.neon_raw_data = {"accountId": 123}
-    mock_attendee.eventbrite_data = {}
     mock_attendee.neon_id = 123
     mock_attendee.email = "attendee@example.com"
     mock_attendee.fname = "John"
     mock_attendee.name = "John Doe"
     mock_attendee.valid = True
+    mock_attendee.registration_status = "SUCCEEDED"
+    mock_attendee.registration_date = "YYYY-MM-DD"
 
     mocker.patch.object(
         instructor.eauto, "fetch_attendees", return_value=[mock_attendee]
@@ -143,7 +143,8 @@ def test_instructor_class_attendees(inst_client, mocker):
     assert rep[0]["neon_id"] == 123
     assert rep[0]["email"] == "attendee@example.com"
     assert rep[0]["member_email"] == "member@example.com"
-    assert rep[0]["neon_raw_data"] == {"accountId": 123}
+    assert rep[0]["registration_status"] == "SUCCEEDED"
+    assert rep[0]["registration_date"] == "YYYY-MM-DD"
 
 
 def test_instructor_about_from_session(inst_client, mocker):
@@ -530,7 +531,7 @@ def test_instructor_enroll_create_account(client, mocker):
 def test_validate_class_ok(inst_client, mocker):
     m1 = mocker.patch.object(instructor.scheduler, "validate", return_value=[])
     mocker.patch.object(
-        instructor, "_resolve_id_and_email", return_value=(None, "abc", None)
+        instructor, "resolve_id_and_email", return_value=(None, "abc", None)
     )
     rep = inst_client.post(
         "/instructor/validate",
@@ -565,7 +566,7 @@ def test_validate_class_err(inst_client, mocker):
         instructor.scheduler, "validate", return_value=["err1", "err2"]
     )
     mocker.patch.object(
-        instructor, "_resolve_id_and_email", return_value=(None, "abc", None)
+        instructor, "resolve_id_and_email", return_value=(None, "abc", None)
     )
     rep = inst_client.post(
         "/instructor/validate",
@@ -578,3 +579,38 @@ def test_validate_class_err(inst_client, mocker):
     )
     assert rep.status_code == 200
     assert rep.json == {"valid": False, "errors": ["err1", "err2"]}
+
+
+def test_resolve_id_and_email_nologin(mocker):
+    mocker.patch.object(instructor, "user_email", return_value=None)
+    mocker.patch.object(instructor, "user_id", return_value=None)
+    email, nid, rep = instructor.resolve_id_and_email(None)
+    assert not email
+    assert not nid
+    assert rep.status_code == 401
+
+
+def test_resolve_id_and_email_normal(mocker):
+    mocker.patch.object(instructor, "user_email", return_value="a@b.com")
+    mocker.patch.object(instructor, "user_id", return_value="123")
+    assert instructor.resolve_id_and_email(None) == ("a@b.com", "123", None)
+
+
+def test_resolve_id_and_email_ovr_noadmin(mocker):
+    mocker.patch.object(instructor, "user_email", return_value="a@b.com")
+    mocker.patch.object(instructor, "user_id", return_value="123")
+    mocker.patch.object(instructor, "am_role", return_value=False)
+    assert instructor.resolve_id_and_email("c@d.com") == (None, None, mocker.ANY)
+
+
+def test_resolve_id_and_email_ovr_ok(mocker):
+    mocker.patch.object(instructor, "user_email", return_value="a@b.com")
+    mocker.patch.object(instructor, "user_id", return_value="123")
+    mocker.patch.object(instructor, "am_role", return_value=True)
+    m1 = mocker.patch.object(
+        instructor.neon,
+        "search_members_by_email",
+        return_value=[mocker.MagicMock(neon_id="456")],
+    )
+    assert instructor.resolve_id_and_email("c@d.com") == ("c@d.com", "456", None)
+    m1.assert_called_with("c@d.com", fields=[])
