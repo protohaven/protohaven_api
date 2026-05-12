@@ -204,7 +204,7 @@ def test_upcoming_events(mocker, client):
     assert len(result["events"]) == 1
     assert result["events"][0]["name"] == "Test Event"
     assert result["events"][0]["start"] == d(1, 16).isoformat()
-    assert result["events"][0]["humanized_start"] == "asdf"
+    assert result["events"][0]["humanized_start"] == "Thu, Jan 02, 04:00PM"
     assert result["events"][0]["humanized_session_info"] == "2 Sessions, 3h Each"
     assert result["now"] == d(0).isoformat()
 

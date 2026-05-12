@@ -5,7 +5,7 @@ import logging
 import random
 import string
 from io import BytesIO
-from typing import Iterable
+from typing import Any, Iterable
 
 import requests
 
@@ -339,7 +339,7 @@ def upload_logo_image(image_url: str):
 def fetch_attendees(event_id: EventbriteID) -> Iterable[Attendee]:
     """Fetch attendee data for a specific Eventbrite event"""
     url = f"/events/{event_id}/attendees/"
-    params = {}
+    params: dict[str, Any] = {}
     for _ in range(100):
         rep = get_connector().eventbrite_request("GET", url, params=params)
         for data in rep["attendees"]:

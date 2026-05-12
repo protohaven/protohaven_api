@@ -689,6 +689,24 @@ class Attendee:
             and not self.eventbrite_data.get("refunded")
         )
 
+    @property
+    def registration_status(self):
+        """Returns the registration status of the attendee"""
+        if self.neon_raw_data:
+            return self.neon_raw_data.get("registrationStatus")
+        if self.eventbrite_data:
+            return self.eventbrite_data.get("status")
+        return None
+
+    @property
+    def registration_date(self):
+        """Returns when the attendee registered for the event"""
+        if self.neon_raw_data:
+            return self.neon_raw_data.get("registrationDate")
+        if self.eventbrite_data:
+            return self.eventbrite_data.get("created")
+        return None
+
 
 @dataclass
 class Event:  # pylint: disable=too-many-public-methods

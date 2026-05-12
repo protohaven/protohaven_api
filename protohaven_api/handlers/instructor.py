@@ -16,6 +16,7 @@ from protohaven_api.integrations import (
     airtable,
     booked,
     comms,
+    eventbrite,
     neon,
     neon_base,
     sheets,
@@ -157,8 +158,8 @@ def instructor_class_attendees() -> Union[Response, str]:
     result = []
     for a in attendees:
         attendee_dict = {
-            "neon_raw_data": a.neon_raw_data,
-            "eventbrite_data": a.eventbrite_data,
+            "registration_date": a.registration_date,
+            "registration_status": a.registration_status,
             "neon_id": a.neon_id,
             "email": a.email,
             "fname": a.fname,
@@ -166,7 +167,8 @@ def instructor_class_attendees() -> Union[Response, str]:
             "valid": a.valid,
         }
         # Try to get member email from Neon if we have a neon_id
-        if a.neon_id:
+        # and it's not from eventbrite
+        if a.neon_id and not eventbrite.is_valid_id(event_id):
             try:
                 m = neon_base.fetch_account(a.neon_id)
                 if m is not None:
