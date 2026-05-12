@@ -69,11 +69,11 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 		if (h >= 12) {
 			console.warn(`Bad hour calculation for event ${title}:`, times, h);
 		} else if (h === 1) {
-			hours = `${h} hour`;
+			hours = `Single ${h}h Class`;
 		} else if (h && h % 1 === 0) {
-			hours = `${h} hours`;
+			hours = `Single ${h}h Class`;
 		} else if (h) {
-			hours = `${h.toFixed(1)} hours`;
+			hours = `Single${h.toFixed(1)}h Class`;
 		}
 	}
 

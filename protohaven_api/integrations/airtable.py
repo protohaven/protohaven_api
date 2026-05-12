@@ -297,6 +297,8 @@ def _unwrap(row, field):
 def get_class_automation_schedule(include_rejected=True, raw=False):
     """Grab the current automated class schedule"""
     for row in get_all_records("class_automation", "schedule"):
+        if not row["fields"].get("Class"):
+            continue  # Empty/unlinked row; probably garbage
         if not row["fields"].get("Rejected") or include_rejected:
             yield (row if raw else ScheduledClass.from_schedule(row))
 

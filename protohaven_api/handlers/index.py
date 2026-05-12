@@ -242,7 +242,6 @@ def upcoming_events():
     for evt in eauto.fetch_upcoming_events(merge_airtable=True):
         # Don't list private instruction, expired classes,
         # or classes without dates
-        log.info(str(evt.end_date))
         if not evt.start_date or evt.in_blocklist() or evt.end_date < now:
             continue
         events.append(
