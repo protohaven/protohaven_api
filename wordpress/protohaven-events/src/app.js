@@ -18,6 +18,7 @@ export function App( { imgSize, initialData } ) {
 	const [user, setUser] = useState({});
 	useEffect(() => {
 		// See if we should go through the API server when clicking through on classes
+		// Note: this requires serving from `protohaven.org` or risk CORS rejection
 		fetch(API_BASE_URL + "/whoami", {credentials:"include"}).then((rep) => rep.json()).then((data) => {
 			setUser(data);
 			console.log(data);
@@ -57,6 +58,12 @@ export function App( { imgSize, initialData } ) {
 						}
 						t.sold = (t.sold || 0) + p.sold;
 					});
+					if (t.price && !t.discount) {
+						// Eventbrite doesn't list actual ticket discounts;
+						// we assume 20% off by default for members.
+						// See `def event_discount_pct()` in `models.py` for details.
+						t.discount = Math.floor(t.price * 0.8);
+					}
 					console.log("t.sold", t.sold);
 					setClasses(Object.values(c2)); // Trigger rerender
 				});
@@ -75,11 +82,15 @@ export function App( { imgSize, initialData } ) {
 			(!filters.level || filters.level === c.levelDesc) &&
 			((!filters.from_date && !filters.to_date) || timesWithinRange.length > 0)
 		)
-		return [visible, <Item key={c.name} {...c} times={timesWithinRange} pricing={p} filters={filters} visible={visible} user={user} base_url={API_BASE_URL} />];
+		return [visible, <Item key={c.name} {...c} times={timesWithinRange} pricing={p} filters={filters} visible={visible} humanized_info={c.humanized_info} user={user} base_url={API_BASE_URL} />];
 	});
 	const any_visible = items.map((i) => i[0]).reduce((a,b) => a || b, false);
 
 	return (<div>
+		{user && user.fullname &&
+				<div><em>Logged in as <a href={API_BASE_URL + "/member"} target="_blank">{user.fullname}</a></em></div>}
+		{(!user || !user.fullname) &&
+				<div><em><a href={API_BASE_URL + "/member"} target="_blank">Log in</a> to receive member discounts!</em></div>}
 		<div className="ph-filters">
 			<select onChange={(e) => {
 				setFilters({...filters, area: e.target.value});
@@ -126,8 +137,6 @@ export function App( { imgSize, initialData } ) {
 					setFilters({...filters, to_date});
 				}}/>
 			</div>
-			{user && user.fullname &&
-				<div><em>Logged in as <a href={API_BASE_URL + "/member"} target="_blank">{user.fullname}</a></em></div>}
 		</div>
 		<div className="ph-grid">
 		{items.map((i) => i[1])}

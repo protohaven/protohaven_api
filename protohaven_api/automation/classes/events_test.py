@@ -38,10 +38,10 @@ def test_fetch_upcoming_events_neon(mocker):
 
 
 def test_fetch_upcoming_events(mocker):
-    """Test fetch_upcoming_events integration"""
+    """Test fetch_upcoming_events integration, airtable merging"""
     mocker.patch.object(eauto, "tznow", return_value=d(0))
-    mock_neon_event = mocker.Mock(end_date=d(1), neon_id=1)
-    mock_eb_event = mocker.Mock(end_date=d(2), neon_id=1)
+    mock_neon_event = mocker.Mock(end_date=d(1), event_id="1")
+    mock_eb_event = mocker.Mock(end_date=d(2), event_id="1")
     m1 = mocker.patch.object(
         eauto,
         "_fetch_upcoming_events_neon",
@@ -52,7 +52,7 @@ def test_fetch_upcoming_events(mocker):
         "fetch_events",
         return_value=(lambda: (yield [mock_eb_event]))(),
     )
-    ad = {"fields": {"Neon ID": 1, "Name": "Test"}}
+    ad = {"fields": {"Neon ID": "1", "Name": "Test"}}
     mocker.patch.object(
         eauto.airtable,
         "get_class_automation_schedule",
@@ -67,7 +67,7 @@ def test_fetch_upcoming_events(mocker):
 def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
     """Test _fetch_upcoming_events_neon with a callable for `fetch_attendees`"""
     mocker.patch.object(
-        eauto.neon_base, "paginated_fetch", return_value=[[{"id": 1}, {"id": 2}]]
+        eauto.neon_base, "paginated_fetch", return_value=[[{"id": "1"}, {"id": "2"}]]
     )
     mocker.patch.object(
         eauto.neon,
@@ -76,10 +76,12 @@ def test_fetch_upcoming_events_neon_conditional_attendees(mocker):
     )
 
     got = list(
-        eauto._fetch_upcoming_events_neon(d(0), attendees=lambda evt: evt.neon_id == 1)
+        eauto._fetch_upcoming_events_neon(
+            d(0), attendees=lambda evt: evt.event_id == "1"
+        )
     )
-    assert got[0][0].neon_id == 1
+    assert got[0][0].event_id == "1"
     assert got[0][0].attendee_count == 1
-    assert got[0][1].neon_id == 2
+    assert got[0][1].event_id == "2"
     with pytest.raises(RuntimeError):  # No attendee data
         print(got[0][1].attendee_count)

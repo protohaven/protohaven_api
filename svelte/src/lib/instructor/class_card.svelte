@@ -15,9 +15,9 @@ let attendees = [];
 let neon_state = null;
 
 function fetch_neon_state(data) {
-  if (data.neon_id) {
-    console.log("Fetching state for", data.neon_id);
-    return get("/instructor/class/neon_state?id=" + encodeURIComponent(data.neon_id)).then((data) => {
+  if (data.event_id) {
+    console.log("Fetching state for", data.event_id);
+    return get("/instructor/class/neon_state?id=" + encodeURIComponent(data.event_id)).then((data) => {
       neon_state = data;
       return data;
     });
@@ -28,14 +28,14 @@ function fetch_neon_state(data) {
 // Get submission timestamps for this class
 function getSubmissionTimestamps(classData) {
   if (!submissions || submissions instanceof Error) return [];
-  if (!classData.neon_id || !(classData.neon_id in submissions)) return [];
-  return submissions[classData.neon_id];
+  if (!classData.event_id || !(classData.event_id in submissions)) return [];
+  return submissions[classData.event_id];
 }
 
 function fetch_attendees(data) {
-  if (data.neon_id) {
-    console.log("Fetching attendees for", data.neon_id);
-    return get("/instructor/class/attendees?id=" + encodeURIComponent(data.neon_id)).then((data) => {
+  if (data.event_id) {
+    console.log("Fetching attendees for", data.event_id);
+    return get("/instructor/class/attendees?id=" + encodeURIComponent(data.event_id)).then((data) => {
       attendees = data;
       return data;
     });
@@ -46,9 +46,9 @@ let promise = meta_promise.then(fetch_attendees);
 let state_promise = meta_promise.then(fetch_neon_state);
 
 
-function refresh(neon_id) {
-  if (neon_id) {
-    promise = get("/instructor/class/attendees?id=" + encodeURIComponent(neon_id));
+function refresh(event_id) {
+  if (event_id) {
+    promise = get("/instructor/class/attendees?id=" + encodeURIComponent(event_id));
   }
   return promise;
 }
@@ -94,9 +94,9 @@ function cancel(class_id) {
   <Spinner/>
 {:then c}
 <Card class="my-3" size={'lg'}>
-<CardHeader style={(c.neon_id) ? "background-color: rgb(230, 225, 249)" : ""}>
+<CardHeader style={(c.event_id) ? "background-color: rgb(230, 225, 249)" : ""}>
   <CardTitle id={schedule_id}>
-    {#if c.neon_id}
+    {#if c.event_id}
       <i class="bi bi-calendar-check"></i>
     {:else}
       <a href="https://protohaven.org/wiki/instructors#scheduling" target="_blank"><i class="bi bi-question-circle"></i></a> PROPOSED:
@@ -109,13 +109,13 @@ function cancel(class_id) {
           ({getSubmissionTimestamps(c).length}x)
         {/if}
       </span>
-    {:else if c.neon_id}
+    {:else if c.event_id}
       <span class="badge bg-warning ms-2" title="No log submitted yet">
         <i class="bi bi-exclamation-circle"></i> Not Yet Logged
       </span>
     {/if}
   </CardTitle>
-  {#if !c.neon_id}
+  {#if !c.event_id}
   <Tooltip target={schedule_id} placement="right">
   	Proposed classes are not guaranteed to run; they aren't yet available for people to register in Neon. Click the ? icon for more details.
   </Tooltip>
@@ -190,7 +190,7 @@ function cancel(class_id) {
   {/if}
   </ul>
 
-  {#if c.neon_id}
+  {#if c.event_id}
     <div>Log submissions:</div>
     <ul>
       {#if getSubmissionTimestamps(c)}
@@ -221,7 +221,7 @@ function cancel(class_id) {
   <Dropdown autoClose={true} >
   <DropdownToggle caret>Actions</DropdownToggle>
     <DropdownMenu>
-      <DropdownItem on:click={refresh(c.neon_id)}>Refresh Attendees</DropdownItem>
+      <DropdownItem on:click={refresh(c.event_id)}>Refresh Attendees</DropdownItem>
 
       {#if c.supply_state != 'Supplies Requested'}
       <DropdownItem on:click={() => supply(false)}>Supplies needed</DropdownItem>
@@ -241,12 +241,12 @@ function cancel(class_id) {
 
       <DropdownItem divider/>
 
-      {#if c.neon_id}
+      {#if c.event_id}
 	<DropdownItem on:click={() => submit_log(c.prefill)}>Submit Log</DropdownItem>
       {/if}
 
 
-      {#if !c.neon_id}
+      {#if !c.event_id}
 	<DropdownItem divider />
         <DropdownItem on:click={() => confirm(false)}>Mark unavailable (hides permanently)</DropdownItem>
       {:else}

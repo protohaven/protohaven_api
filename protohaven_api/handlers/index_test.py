@@ -49,18 +49,18 @@ def test_whoami_no_roles(client):
 def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
     m1 = mocker.MagicMock(
-        neon_id=1, start_date=d(0, 10), description="foo", airtable_data="bar"
+        event_id="1", start_date=d(0, 10), description="foo", airtable_data="bar"
     )
     m1.name = "m1"
     m2 = mocker.MagicMock(
-        neon_id=2, start_date=d(0, 9), description="foo", airtable_data="baz"
+        event_id="2", start_date=d(0, 9), description="foo", airtable_data="baz"
     )
     m2.name = "m2"
     mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=[m1, m2])
     rep = client.get("/class_listing")
     assert json.loads(rep.data.decode("utf8")) == [
         {
-            "id": 2,
+            "id": "2",
             "name": "m2",
             "description": "foo",
             "timestamp": d(0, 9).isoformat(),
@@ -69,7 +69,7 @@ def test_class_listing(mocker, client):
             "airtable_data": "baz",
         },
         {
-            "id": 1,
+            "id": "1",
             "name": "m1",
             "description": "foo",
             "timestamp": d(0, 10).isoformat(),
@@ -116,11 +116,12 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
     """
     mocker.patch.object(index, "tznow", return_value=d(0))
     mock_event = mocker.Mock(
-        neon_id="123",
+        event_id="123",
         description="Test Description",
         instructor_name="Instructor",
         start_date=d(1, 16),
-        end_date=d(1, 19),
+        end_date=d(2, 19),
+        sessions=[(d(1, 16), d(1, 19)), (d(2, 16), d(2, 19))],
         capacity=10,
         url="http://example.com",
         registration=True,
@@ -142,6 +143,7 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
         "instructor",
         "start",
         "end",
+        "humanized_session_info",
         "capacity",
         "url",
         "registration",
@@ -153,12 +155,13 @@ def test_upcoming_events(mocker, client):
     """Test upcoming_events returns valid events sorted by date."""
     mocker.patch.object(index, "tznow", return_value=d(0))
     mock_event = mocker.Mock(
-        neon_id="123",
+        event_id="123",
         description="Test Description",
         instructor_name="Instructor",
         start_date=d(1, 16),
-        end_date=d(1, 19),
+        end_date=d(2, 19),
         capacity=10,
+        sessions=[(d(1, 16), d(1, 19)), (d(2, 16), d(2, 19))],
         url="http://example.com",
         image_url="http://test.net",
         registration=True,
@@ -168,17 +171,20 @@ def test_upcoming_events(mocker, client):
 
     mock_nostart_event = mocker.Mock(
         start_date=None,
+        sessions=None,
     )
 
     mock_past_event = mocker.Mock(
         start_date=d(-2),
         end_date=d(-1),
+        sessions=None,
         in_blocklist=lambda: False,
     )
 
     mock_blocked_event = mocker.Mock(
         start_date=d(1, 16),
         end_date=d(1, 19),
+        sessions=None,
         in_blocklist=lambda: True,
     )
 
@@ -197,6 +203,7 @@ def test_upcoming_events(mocker, client):
     assert len(result["events"]) == 1
     assert result["events"][0]["name"] == "Test Event"
     assert result["events"][0]["start"] == d(1, 16).isoformat()
+    assert result["events"][0]["humanized_session_info"] == "2 Sessions, 3h Each"
     assert result["now"] == d(0).isoformat()
 
 
@@ -359,3 +366,37 @@ def test_get_event_reservations(mocker, client):
     unknown_res = next(r for r in result if r["resource"] == "Unknown Tool")
     assert unknown_res["area"] == "Unknown Area"
     assert unknown_res["name"] == "Bob Jones"
+
+
+def test_humanize_sessions(mocker):
+    """Test formatting of session info"""
+    assert index.humanize_sessions(mocker.MagicMock(airtable_data=None)) == None
+    assert index.humanize_sessions(mocker.MagicMock(sessions=[])) == None
+    assert (
+        index.humanize_sessions(mocker.MagicMock(sessions=[(d(1, 16), d(1, 19))]))
+        == "Single 3h Class"
+    )
+    assert (
+        index.humanize_sessions(mocker.MagicMock(sessions=[(d(1, 16), d(1, 19.52))]))
+        == "Single 3.5h Class"
+    )
+    assert (
+        index.humanize_sessions(
+            mocker.MagicMock(sessions=[(d(1, 16), d(1, 19)), (d(2, 16), d(2, 19))])
+        )
+        == "2 Sessions, 3h Each"
+    )
+    assert (
+        index.humanize_sessions(
+            mocker.MagicMock(sessions=[(d(1, 16), d(1, 19)), (d(2, 16), d(2, 21))])
+        )
+        == "2 Sessions, Various Times"
+    )
+    assert (
+        index.humanize_sessions(
+            mocker.MagicMock(
+                sessions=[(d(1, 16), d(1, 19.52)), (d(2, 16), d(2, 19.52))]
+            )
+        )
+        == "2 Sessions, 3.5h Each"
+    )

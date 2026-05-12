@@ -312,7 +312,7 @@ def test_techs_backfill_events(mocker, tech_client):
         (
             f"{tl.TECH_ONLY_PREFIX} no registants",
             {
-                "neon_id": "999",
+                "event_id": "999",
                 "published": False,
                 "signups": [],
                 "single_registration_ticket_id": None,
@@ -320,16 +320,16 @@ def test_techs_backfill_events(mocker, tech_client):
         ),
         (
             "Upcoming event with no registants",
-            {"neon_id": "875", "signups": [], "attendee_count": 0},
+            {"event_id": "875", "signups": [], "attendee_count": 0},
         ),
         (
             "Private Instruction - ignored",
-            {"neon_id": "17631", "in_blocklist": lambda: True},
+            {"event_id": "17631", "in_blocklist": lambda: True},
         ),
-        ("Event B, too early", {"neon_id": "124", "start_date": d(-5)}),
+        ("Event B, too early", {"event_id": "124", "start_date": d(-5)}),
     ]:
         m = mocker.MagicMock(
-            neon_id="123",
+            event_id="123",
             in_blocklist=lambda: False,
             single_registration_ticket_id="t1",
             published=True,
@@ -554,7 +554,7 @@ def test_new_tech_event(mocker, lead_client):
 def test_rm_tech_event(mocker, lead_client):
     """Test deleting a techs-only event in Neon"""
     eid = "12345"
-    mock_event = mocker.MagicMock(neon_id=eid)
+    mock_event = mocker.MagicMock(event_id=eid)
     mock_event.name = tl.TECH_ONLY_PREFIX + "Test Event"
 
     mocker.patch.object(tl.eauto, "fetch_event", return_value=mock_event)

@@ -29,6 +29,9 @@ import FetchError from '../fetch_error.svelte';
       As of {p.now}.
     </div>
     <p><strong>NOTE: Multi-day classes are only shown by their start date</strong></p>
+    <p>
+      Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+    </p>
 
     <Table id="schedule">
       <thead>

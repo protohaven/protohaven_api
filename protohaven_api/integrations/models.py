@@ -419,7 +419,17 @@ class Member:  # pylint:disable=too-many-public-methods
         return ""
 
     def event_discount_pct(self) -> int:  # pylint: disable=too-many-return-statements
-        """Compute the correct percentage discount for events"""
+        """Compute the correct percentage discount for events.
+
+        NOTE: Because we do our discounts outside of the eventbrite ticketing
+        system, there is a hardcoded "20% off" discount applied to EB events
+        on the class browser.
+
+        You MUST update and deploy the protohaven-events wordpress plugin if
+        you make updates to the default member discount here.
+
+        Discount logic is at: protohaven-events/src/app.js
+        """
         if self.account_current_membership_status != "Active":
             return 0
         ibr = self.income_based_rate
@@ -431,9 +441,9 @@ class Member:  # pylint:disable=too-many-public-methods
         if level == "Instructor":
             return 50
         if ibr == "Low Income - 20%":
-            return 20
+            return 20  # WARNING: read this method's header
         if level in self.MEMBERSHIP_DISCOUNT_LEVELS:
-            return 20
+            return 20  # WARNING: read this method's header
         return 0
 
     @property
@@ -895,9 +905,9 @@ class Event:  # pylint: disable=too-many-public-methods
 
     def in_blocklist(self):
         """Return True if this event is in a blocklist of not-useful events"""
-        return self.neon_id in (
-            3775,  # Equipment clearance
-            17631,  # Private instruction
+        return self.event_id in (
+            "3775",  # Equipment clearance
+            "17631",  # Private instruction
         )
 
     def has_open_seats_below_price(self, max_price):
@@ -1030,7 +1040,7 @@ class Event:  # pylint: disable=too-many-public-methods
     @property
     def url(self):
         """Fetches the canonical URL for this event"""
-        evt_id = self.neon_id
+        evt_id = self.event_id
         if self.eventbrite_data and evt_id:
             # Note: while eventbrite does have a "canonical URL" in its data,
             # we use this shortened form of the event so that other places can
@@ -1045,14 +1055,19 @@ class Event:  # pylint: disable=too-many-public-methods
             )
         return None
 
+    @property
+    def event_id(self) -> EventID:
+        """Resolve the event's ID, handling both Neon and Eventbrite"""
+        r = self._resolve("id", "Event ID", ["id"])
+        if not r:
+            raise RuntimeError("Event ID not set")
+        return str(r)
+
     def __getattr__(self, attr):
         """Resolves simple calls to _get_custom_field and _resolve for account data.
         Only called when self.attr doesn't exist - instance attribute access only.
         """
         resolvable_fields = {
-            # We should eventually rename neon_id to event_id
-            # since we support Eventbrite as well
-            "neon_id": ("id", "Event ID", ["id"]),
             "name": ("name", "Event Name", ["name", "text"]),
             "description": (
                 "description",

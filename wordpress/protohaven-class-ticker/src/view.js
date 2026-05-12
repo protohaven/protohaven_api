@@ -15,6 +15,8 @@ function App( { initialData, attributes } ) {
 window.addEventListener("load", (event) => {
 	const elem = document.getElementById("protohaven-class-ticker");
 	const root = createRoot(elem);
+	console.log(elem);
 	const data = JSON.parse(elem.children[0].innerHTML) || [];
+	console.log(data);
 	root.render(<App initialData={data} attributes={elem.dataset}/>);
 });

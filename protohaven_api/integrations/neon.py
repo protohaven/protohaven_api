@@ -532,7 +532,7 @@ def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
             continue
         sample_classes.append(
             {
-                "url": f"https://protohaven.org/e/{evt.neon_id}",
+                "url": f"https://protohaven.org/e/{evt.event_id}",
                 "name": evt.name,
                 "date": evt.start_date.strftime("%b %-d, %-I%p"),
                 "seats_left": evt.capacity - evt.attendee_count,

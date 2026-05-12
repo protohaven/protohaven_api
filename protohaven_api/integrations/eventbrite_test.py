@@ -38,8 +38,8 @@ def test_fetch_events(mocker):
     events = list(e.fetch_events(include_ticketing=True, status="live"))
 
     assert len(events) == 2
-    assert events[0].neon_id == "1"
-    assert events[1].neon_id == "2"
+    assert events[0].event_id == "1"
+    assert events[1].event_id == "2"
     assert mock_request.call_count == 2
 
 

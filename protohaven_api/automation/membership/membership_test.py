@@ -245,15 +245,15 @@ def test_get_sample_classes(mocker):
     """Test fetching of sample classes"""
 
     m0 = mocker.MagicMock(
-        neon_id=1, start_date=d(0, 10), has_open_seats_below_price=lambda p: 5
+        event_id="1", start_date=d(0, 10), has_open_seats_below_price=lambda p: 5
     )
     m0.name = "Class 1"
     m1 = mocker.MagicMock(
-        neon_id=2, start_date=d(1, 11), has_open_seats_below_price=lambda p: 1
+        event_id="2", start_date=d(1, 11), has_open_seats_below_price=lambda p: 1
     )
     m1.name = "Class 2"
     m2 = mocker.MagicMock(
-        neon_id=3, start_date=d(2, 12), has_open_seats_below_price=lambda p: 0
+        event_id="3", start_date=d(2, 12), has_open_seats_below_price=lambda p: 0
     )
     m2.name = "Class 3"
     mocker.patch.object(
@@ -266,13 +266,13 @@ def test_get_sample_classes(mocker):
         {
             "date": d(0, 10),
             "name": "Class 1",
-            "id": 1,
+            "id": "1",
             "remaining": 5,
         },
         {
             "date": d(1, 11),
             "name": "Class 2",
-            "id": 2,
+            "id": "2",
             "remaining": 1,
         },
     ]
