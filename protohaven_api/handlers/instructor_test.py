@@ -578,3 +578,38 @@ def test_validate_class_err(inst_client, mocker):
     )
     assert rep.status_code == 200
     assert rep.json == {"valid": False, "errors": ["err1", "err2"]}
+
+
+def test_resolve_id_and_email_nologin(mocker):
+    mocker.patch.object(instructor, "user_email", return_value=None)
+    mocker.patch.object(instructor, "user_id", return_value=None)
+    email, nid, rep = instructor.resolve_id_and_email(None)
+    assert not email
+    assert not nid
+    assert rep.status_code == 401
+
+
+def test_resolve_id_and_email_normal(mocker):
+    mocker.patch.object(instructor, "user_email", return_value="a@b.com")
+    mocker.patch.object(instructor, "user_id", return_value="123")
+    assert instructor.resolve_id_and_email(None) == ("a@b.com", "123", None)
+
+
+def test_resolve_id_and_email_ovr_noadmin(mocker):
+    mocker.patch.object(instructor, "user_email", return_value="a@b.com")
+    mocker.patch.object(instructor, "user_id", return_value="123")
+    mocker.patch.object(instructor, "am_role", return_value=False)
+    assert instructor.resolve_id_and_email("c@d.com") == (None, None, mocker.ANY)
+
+
+def test_resolve_id_and_email_ovr_ok(mocker):
+    mocker.patch.object(instructor, "user_email", return_value="a@b.com")
+    mocker.patch.object(instructor, "user_id", return_value="123")
+    mocker.patch.object(instructor, "am_role", return_value=True)
+    m1 = mocker.patch.object(
+        instructor.neon,
+        "search_members_by_email",
+        return_value=[mocker.MagicMock(neon_id="456")],
+    )
+    assert instructor.resolve_id_and_email("c@d.com") == ("c@d.com", "456", None)
+    m1.assert_called_with("c@d.com", fields=[])

@@ -246,6 +246,10 @@ def upcoming_events():
                 "instructor": evt.instructor_name,
                 "start": evt.start_date.isoformat(),
                 "end": evt.end_date.isoformat(),
+                # Javascript is atrocious at correctly formatting
+                # dates and times; we do this in python for EST/EDT consistency
+                # across browsers and locale settings
+                "humanized_start": evt.start_date.strftime("%a, %b %d, %I:%M%p"),
                 "humanized_session_info": humanize_sessions(evt),
                 "capacity": evt.capacity,
                 "url": evt.url,

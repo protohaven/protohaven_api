@@ -111,6 +111,7 @@ export function process(events, classes, areas, levels) {
 			levelDesc: null,
 			duration: null,
 			humanized_info: null,
+			humanized_start: null,
 			description: e.description,
 			features: null,
 			desc: null,
@@ -143,6 +144,9 @@ export function process(events, classes, areas, levels) {
 		}
 		if (!c.humanized_info && e.humanized_session_info) {
 			c.humanized_info = e.humanized_session_info;
+		}
+		if (!c.humanized_start && e.humanized_start) {
+			c.humanized_start = e.humanized_start;
 		}
 
 		c.times[e.id] = {

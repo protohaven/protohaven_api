@@ -144,6 +144,7 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
         "start",
         "end",
         "humanized_session_info",
+        "humanized_start",
         "capacity",
         "url",
         "registration",
@@ -203,6 +204,7 @@ def test_upcoming_events(mocker, client):
     assert len(result["events"]) == 1
     assert result["events"][0]["name"] == "Test Event"
     assert result["events"][0]["start"] == d(1, 16).isoformat()
+    assert result["events"][0]["humanized_start"] == "asdf"
     assert result["events"][0]["humanized_session_info"] == "2 Sessions, 3h Each"
     assert result["now"] == d(0).isoformat()
 

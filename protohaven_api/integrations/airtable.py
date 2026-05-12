@@ -444,10 +444,7 @@ def log_comms(tag, to, subject, status):
 def get_instructor_log_tool_codes():
     """Fetch tool codes used in the instructor log form"""
     codes = get_all_records("class_automation", "clearance_codes")
-    individual = tuple(
-        c["fields"]["Form Name"] for c in codes if c["fields"].get("Individual")
-    )
-    return individual
+    return tuple(c["fields"]["Form Name"] for c in codes)
 
 
 def respond_class_automation_schedule(eid: RecordID, pub: bool) -> ScheduledClass:
