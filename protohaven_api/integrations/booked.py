@@ -163,8 +163,8 @@ def get_reservations_for_areas(
         a for area, aa in res_to_area.items() for a in aa if area in areas
     }
 
-    for res in get_reservations(*interval):
-        if str(res["userid"]) != user_id:
+    for res in get_reservations(*interval)["reservations"]:
+        if "userid" not in res or str(res["userid"]) != user_id:
             continue
         if res["resourceId"] not in resource_filter:
             continue
