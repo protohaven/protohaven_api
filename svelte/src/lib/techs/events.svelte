@@ -113,7 +113,7 @@ function delete_event(eid) {
     {#each p.events as r}
       <ListGroupItem>
             <div><strong>{r.name}</strong></div>
-            <div>On {new Date(r.start).toLocaleString()}</div>
+            <div>On {new Date(r.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}</div>
             <div><a href={`https://protohaven.org/e/${r.id}`} target="_blank">Event Details</a></div>
             <div>{r.capacity - r.attendees.length} seat(s) left</div>
 

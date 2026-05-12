@@ -12,7 +12,8 @@ function ap(hours) {
 	return ((hours > 12) ? hours-12 : hours).toString() + ((hours > 11) ? 'pm' : 'am');
 }
 function dateStr(d1) {
-	return `${d1.toLocaleString('default', { weekday: 'short' })}, ${d1.toLocaleString('default', { month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
+	// Fix locale to EST so timing isn't shifted for non-local browsers
+	return `${d1.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short' })}, ${d1.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
 }
 
 function FmtTimes( { times, expanded, onExpand } ) {

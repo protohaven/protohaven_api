@@ -3,6 +3,9 @@
 FROM python:3.13.7-slim-bookworm
 WORKDIR /code
 
+# Reinstall certs in attempt to fix Wyze API SSLErrors on fetch
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --reinstall ca-certificates && rm -rf /var/lib/apt/lists/*
+
 # Debian doesn't come with en_us.UTF-8 locale by default, but we set locale
 # in python code.
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y locales

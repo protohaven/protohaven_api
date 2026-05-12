@@ -20,7 +20,7 @@ import FetchError from '../fetch_error.svelte';
   {:then p}
     <ListGroup>
     {#each p as evt }
-    <ListGroupItem>{new Date(evt.start).toLocaleString()}: {evt.name}</ListGroupItem>
+    <ListGroupItem>{new Date(evt.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}: {evt.name}</ListGroupItem>
     {/each}
     </ListGroup>
   {:catch error}

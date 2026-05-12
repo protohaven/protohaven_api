@@ -28,7 +28,10 @@ function fetch_neon_state(data) {
 // Get submission timestamps for this class
 function getSubmissionTimestamps(classData) {
   if (!submissions || submissions instanceof Error) return [];
-  if (!classData.event_id || !(classData.event_id in submissions)) return [];
+  if (!classData.event_id || !(classData.event_id in submissions)) {
+    console.log("No submission for", classData.event_id);
+    return [];
+  }
   return submissions[classData.event_id];
 }
 
@@ -142,8 +145,8 @@ function cancel(class_id) {
     <ul>
       {#each c.sessions as ss}
       <li>
-          {new Date(ss[0]).toLocaleString()} -
-          {new Date(ss[1]).toLocaleString()}</li>
+          {new Date(ss[0]).toLocaleString('en-US', { timeZone: 'America/New_York' })} -
+          {new Date(ss[1]).toLocaleString('en-US', { timeZone: 'America/New_York' })}</li>
       {/each}
     </ul>
   </CardText>
@@ -186,7 +189,7 @@ function cancel(class_id) {
   </li>
   <li>Instruction: {#if c.volunteer}Volunteer (no pay){:else}Paid{/if} </li>
   {#if c.confirmed}
-    <li>Proposed {new Date(c.confirmed).toLocaleString()}</li>
+    <li>Proposed {new Date(c.confirmed).toLocaleString('en-US', { timeZone: 'America/New_York' })}</li>
   {/if}
   </ul>
 
@@ -195,7 +198,7 @@ function cancel(class_id) {
     <ul>
       {#if getSubmissionTimestamps(c)}
         {#each getSubmissionTimestamps(c) as timestamp, i}
-          <li>Submitted: {new Date(timestamp).toLocaleString()}</li>
+          <li>Submitted: {new Date(timestamp).toLocaleString('en-US', { timeZone: 'America/New_York' })}</li>
         {/each}
       {:else if submissions instanceof Error}
         <Alert color='warning'>{submissions}</Alert>
