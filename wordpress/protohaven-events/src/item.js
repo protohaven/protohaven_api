@@ -43,7 +43,7 @@ function FmtTimes( { times, expanded, onExpand } ) {
 	</>);
 }
 
-export function Item( {title, area, desc, levelDesc, age, features, img, times, visible, user, base_url} ) {
+export function Item( {title, area, desc, levelDesc, age, features, img, times, humanized_info, visible, user, base_url} ) {
 	const [expanded, setExpanded] = useState(false);
 	let containerClass = "ph-item";
 	if (!visible) {
@@ -60,7 +60,22 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 		containerClass += " fullbleed";
 	}
 	const link = (times.length > 0) ? times[0][1].url : null;
-	const hours = (times.length > 0) ? `${times[0][1].d1.getHours() - times[0][1].d0.getHours()} hours` : null;
+	let hours = null;
+	if (humanized_info) {
+		hours = humanized_info;
+	} else if (times.length > 0) {
+		const h = Math.abs(times[0][1].d1 - times[0][1].d0)/(60*60*1000);
+		if (h >= 12) {
+			console.warn(`Bad hour calculation for event ${title}:`, times, h);
+		} else if (h === 1) {
+			hours = `${h} hour`;
+		} else if (h && h % 1 === 0) {
+			hours = `${h} hours`;
+		} else if (h) {
+			hours = `${h.toFixed(1)} hours`;
+		}
+	}
+
 	const price = ((times.length > 0) ? times[0][1].price : null) || null;
 	const discount = ((times.length > 0) ? times[0][1].discount : null) || null;
 	const total_remaining = times.map((t) => (t[1].capacity - t[1].sold) || 0).reduce((acc, curr) => acc+curr, 0);

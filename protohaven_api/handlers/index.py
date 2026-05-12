@@ -13,7 +13,7 @@ from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon
-from protohaven_api.integrations.models import Member
+from protohaven_api.integrations.models import Event, Member
 from protohaven_api.integrations.schedule import fetch_shop_events
 from protohaven_api.rbac import require_login
 
@@ -205,6 +205,28 @@ def event_ticket_info():
     return tickets
 
 
+def humanize_sessions(evt: Event) -> str | None:
+    """Humanized version of timing info based on
+    the session data from Airtable"""
+    if not evt.airtable_data:
+        return None
+    ss = evt.sessions
+    if len(ss) == 0:
+        return None
+
+    durations = {round((s[1] - s[0]).total_seconds() / 60 / 60, 1) for s in ss}
+    d = list(durations)[0]
+    dstr = str(int(d) if d % 1 == 0 else round(d, 1))
+
+    if len(durations) == 1 and len(ss) == 1:
+        return f"Single {dstr}h Class"
+    if len(durations) != 1:
+        return f"{len(ss)} Sessions, Various Times"
+
+    # Else single duration for all sessions
+    return f"{len(ss)} Sessions, {dstr}h Each"
+
+
 @page.route("/events/upcoming")
 def upcoming_events():
     """Show relevant upcoming events."""
@@ -224,6 +246,7 @@ def upcoming_events():
                 "instructor": evt.instructor_name,
                 "start": evt.start_date.isoformat(),
                 "end": evt.end_date.isoformat(),
+                "humanized_session_info": humanize_sessions(evt),
                 "capacity": evt.capacity,
                 "url": evt.url,
                 "image_url": evt.image_url,

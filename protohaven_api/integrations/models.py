@@ -419,7 +419,17 @@ class Member:  # pylint:disable=too-many-public-methods
         return ""
 
     def event_discount_pct(self) -> int:  # pylint: disable=too-many-return-statements
-        """Compute the correct percentage discount for events"""
+        """Compute the correct percentage discount for events.
+
+        NOTE: Because we do our discounts outside of the eventbrite ticketing
+        system, there is a hardcoded "20% off" discount applied to EB events
+        on the class browser.
+
+        You MUST update and deploy the protohaven-events wordpress plugin if
+        you make updates to the default member discount here.
+
+        Discount logic is at: protohaven-events/src/app.js
+        """
         if self.account_current_membership_status != "Active":
             return 0
         ibr = self.income_based_rate
@@ -431,9 +441,9 @@ class Member:  # pylint:disable=too-many-public-methods
         if level == "Instructor":
             return 50
         if ibr == "Low Income - 20%":
-            return 20
+            return 20  # WARNING: read this method's header
         if level in self.MEMBERSHIP_DISCOUNT_LEVELS:
-            return 20
+            return 20  # WARNING: read this method's header
         return 0
 
     @property

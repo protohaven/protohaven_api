@@ -52,7 +52,7 @@ function ph_events_render_custom_settings_page() {
 }
 
 function ph_events_render_settings_section(){
-	echo '<p>Settings for Neon CRM events integration. See <a href="https://github.com/protohaven/protohaven_api" target="_blank">github.com/protohaven/protohaven_api</a> for details.</p>';
+	echo '<p>Settings for Neon CRM events and class ticker integrations. See <a href="https://github.com/protohaven/protohaven_api" target="_blank">github.com/protohaven/protohaven_api</a> for details.</p>';
 }
 
 function ph_events_render_url_settings_field() {

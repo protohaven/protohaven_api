@@ -110,6 +110,7 @@ export function process(events, classes, areas, levels) {
 			level: null,
 			levelDesc: null,
 			duration: null,
+			humanized_info: null,
 			description: e.description,
 			features: null,
 			desc: null,
@@ -139,6 +140,9 @@ export function process(events, classes, areas, levels) {
 				m = m[0] && parseInt(m[0]) || null;
 				c.age = (m !== null) ? Math.min(m, c.age) : c.age;
 			}
+		}
+		if (!c.humanized_info && e.humanized_session_info) {
+			c.humanized_info = e.humanized_session_info;
 		}
 
 		c.times[e.id] = {
