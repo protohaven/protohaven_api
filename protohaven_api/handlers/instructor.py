@@ -477,7 +477,7 @@ def cancel_class():
     log.warning(f"Cancelling class {c.neon_id}")
     log.info(str(eauto.set_event_scheduled_state(c.neon_id, scheduled=False)))
 
-    if data["areas"] and data["sessions"]:
+    if c.areas and c.sessions:
         log.warning("Attempting to delete auto-reservations")
         for interval in c.sessions:
             for res in booked.get_reservations_for_areas(interval, c.areas):
