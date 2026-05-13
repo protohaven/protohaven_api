@@ -116,6 +116,7 @@ After deployment, verify that:
     validation error
   - [x] Adding a new class too close to a recent run of that class triggers
         validation error
+  - [ ] Cancelling a class also deletes its reservations if there are any
   - [x] Scheduling sessions more than 10 days apart triggers validation error
         (check dates to ensure same days/times on validation step)
   - [x] Instructor can override schedule validation error

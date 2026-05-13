@@ -42,6 +42,7 @@ def whoami():
         "neon_id": acct.neon_id,
         "clearances": acct.clearances,
         "roles": [v["name"] for v in (acct.roles or [])],
+        "event_discount_pct": acct.event_discount_pct(),
     }
 
 
