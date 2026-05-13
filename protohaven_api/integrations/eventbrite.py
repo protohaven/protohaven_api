@@ -94,9 +94,9 @@ def generate_discount_code(
     org_id = get_config("eventbrite/organization_id")
     url = f"/organizations/{org_id}/discounts/"
     response = get_connector().eventbrite_request("POST", url, json=params)
-    if not response["id"]:
+    if not response["code"]:
         raise RuntimeError(f"Failed to create eventbrite discount code: {response}")
-    return response["id"]
+    return response["code"]
 
 
 def _utcfmt(d: datetime.datetime) -> str:
