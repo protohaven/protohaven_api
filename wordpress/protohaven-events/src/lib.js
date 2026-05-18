@@ -77,7 +77,7 @@ function extraFromName(name) {
 		}
 	}
 
-	return {area: (m[1] || "").trim(), level, levelDesc, title: (m[3] || "").trim()};
+	return {area: (m[1] || "").replace("Protohaven", "").trim(), level, levelDesc, title: (m[3] || "").replace("at Protohaven", "").trim()};
 }
 
 function getFeatures(doc) {
