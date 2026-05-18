@@ -322,6 +322,14 @@ def asana_webhook():  # pylint: disable=too-many-locals
 
                     # Get notes/description if any
                     notes = task.get("notes", "")
+                    if len(notes) < 16:
+                        # Likely a premature webhook event; ignore it
+                        log.warning(
+                            "Ignoring too-early asana webhook for task "
+                            f'{task_url} with notes "{notes}"'
+                        )
+                        continue
+
                     notes_preview = notes[:256] + "..." if len(notes) > 256 else notes
                     # Format Discord message
                     message = (

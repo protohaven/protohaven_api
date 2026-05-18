@@ -44,6 +44,7 @@ export function get_event_tickets(event_id) {
 	});
 }
 
+// Map class level to a humanized string
 export const LEVELS = [
 	[200, "Intermediate"],
 	[110, "Beginner Project"],
@@ -52,14 +53,20 @@ export const LEVELS = [
 function extraFromName(name) {
 	// Regex captures area, level, name, and optional paren suffix e.g.
 	// Graphics 111: Printed Mugs (Dye Sublimation Clearance)
+	// -> ["Graphics ", "111", "Printed Mugs ", "Dye Sublimation Clearance"]
 	// Graphics 111: Printed Mugs
-	const regex = /^(\w+)\s+(\d+):\s+(.+?)(?:\s+\((.+)\))?$/;
+	// -> ["Graphics ", "111", "Printed Mugs"]
+	// Graphics: Printed Mugs
+	// -> ["Graphics", null, "Printed Mugs"]
+	// Printed Mugs
+	// -> No capture - list as special event
+	const regex = /^([\w+\s]+?)(\d+)?:\s+(.+?)(?:\s+\((.+)\))?$/;
 	const m = name.match(regex);
 	if (!m) {
 		return {area: "Special Event", level: null, title: name};
 	}
 
-	const level = parseInt(m[2]);
+	const level = m[2] && parseInt(m[2]);
 	let levelDesc = "";
 	if (level) {
 		for (let l of LEVELS) {
@@ -70,7 +77,7 @@ function extraFromName(name) {
 		}
 	}
 
-	return {area: m[1], level, levelDesc, title: m[3]};
+	return {area: (m[1] || "").trim(), level, levelDesc, title: (m[3] || "").trim()};
 }
 
 function getFeatures(doc) {
@@ -119,6 +126,9 @@ export function process(events, classes, areas, levels) {
 			age: 16,
 			times: {},
 		};
+		if (!c.area && e.area) {
+			c.area = e.area;
+		}
 		if (!c.title || !c.area || !c.level) {
 			let x = extraFromName(c.name);
 			if (x) {

@@ -1012,6 +1012,14 @@ class Event:  # pylint: disable=too-many-public-methods
         return []
 
     @property
+    def display_category(self) -> str | None:
+        """Returns text for display in a black label over the class,
+        when exploring the class browser"""
+        if self.airtable_data:
+            return self.airtable_data.get("fields", {}).get("Category (from Class)")
+        return None
+
+    @property
     def sessions(self) -> list[tuple[datetime.datetime, datetime.datetime]]:
         """Returns the list of sessions for this event from Airtable data"""
         if not self.airtable_data:
