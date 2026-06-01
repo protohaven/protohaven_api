@@ -364,8 +364,9 @@ class ReservationCache(WarmDict):
         super().__init__()
 
     def refresh(self):
-        start = tznow()
-        end = start.replace(hour=23, minute=59, second=59)
+        # We want reservations for the whole day, not just future ones
+        start = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start.replace(hour=23, minute=59, second=59, microsecond=0)
         res = get_reservations(start, end)
         self["reservations"] = res["reservations"]
         self.log.info(

@@ -259,6 +259,7 @@ def upcoming_events():
                 "humanized_start": evt.start_date.strftime("%a, %b %d, %I:%M%p"),
                 "humanized_session_info": humanize_sessions(evt),
                 "category": evt.display_category,
+                "level": evt.display_level,
                 "capacity": evt.capacity,
                 "url": evt.url,
                 "image_url": evt.image_url,

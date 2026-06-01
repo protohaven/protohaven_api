@@ -64,7 +64,7 @@ def gen_class_and_area_stats(  # pylint: disable=too-many-locals
         days=get_config("general/class_scheduling/clearance_exclusion_range_days")
     )
 
-    for c in airtable.get_class_automation_schedule(include_rejected=False, raw=False):
+    for c in airtable.get_class_automation_schedule(include_rejected=False):
         if not c.period:
             log.warning(f"Class missing template info: {c}")
             continue

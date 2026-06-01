@@ -1020,6 +1020,14 @@ class Event:  # pylint: disable=too-many-public-methods
         return None
 
     @property
+    def display_level(self) -> str | None:
+        """Returns info on what level of class is being taught, e.g. "Beginner Skills"
+        when exploring the class browser"""
+        if self.airtable_data:
+            return self.airtable_data.get("fields", {}).get("Level (from Class)")
+        return None
+
+    @property
     def sessions(self) -> list[tuple[datetime.datetime, datetime.datetime]]:
         """Returns the list of sessions for this event from Airtable data"""
         if not self.airtable_data:

@@ -17,6 +17,12 @@ import FetchError from '../fetch_error.svelte';
   });
 </script>
 
+<style>
+tr:nth-child(even) {
+    background-color: #ccc;
+}
+</style>
+
 <Card>
   <CardHeader>
     <CardTitle>Classes</CardTitle>
@@ -51,7 +57,7 @@ import FetchError from '../fetch_error.svelte';
         {#each p.events as event}
         <tr id="{event['id']}">
           <td>{event['name']}</td>
-	  <td>{event['instructor']}</td>
+	        <td>{event['instructor']}</td>
           <td style="text-align: right">{event.start.toLocaleDateString()}</td>
           <td style="text-align: right">{event.start.toLocaleTimeString()}</td>
           <td style="text-align: right">{event.end.toLocaleDateString()}</td>

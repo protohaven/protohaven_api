@@ -66,7 +66,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
 
     with futures.ThreadPoolExecutor() as executor:
         airtable_future = (
-            executor.submit(airtable.get_class_automation_schedule, raw=True)
+            executor.submit(airtable.get_class_automation_schedule_raw)
             if merge_airtable
             else None
         )

@@ -142,7 +142,7 @@ class Commands:
         num = 0
         reqs = []
         now = tznow()
-        for c in airtable.get_class_automation_schedule(raw=False):
+        for c in airtable.get_class_automation_schedule():
             if c.start_time < now or c.supply_state != "Supplies Requested":
                 continue
 

@@ -7,6 +7,7 @@ import re
 import traceback
 from collections import defaultdict
 from functools import lru_cache
+from typing import Iterable
 
 import markdown
 
@@ -29,10 +30,10 @@ from protohaven_api.integrations.data.neon import Category
 log = logging.getLogger("cli.classes")
 
 
-def resolve_schedule(min_future_days, overrides):
+def resolve_schedule(min_future_days, overrides) -> Iterable[airtable.ScheduledClass]:
     """Resolves class schedule, excluding ones not relevant"""
     now = tznow()
-    for event in airtable.get_class_automation_schedule(raw=False):
+    for event in airtable.get_class_automation_schedule():
         if overrides:
             if str(event.schedule_id) in overrides:
                 log.warning(
@@ -243,7 +244,7 @@ class Commands:
         result += "\n".join([f"* {l}" for l in lines])
         return result
 
-    def _format_class_description(self, cls):
+    def _format_class_description(self, cls: airtable.ScheduledClass):
         """Construct description of class from airtable columns; strip 'from Class' suffix"""
         (
             rules_and_expectations,
