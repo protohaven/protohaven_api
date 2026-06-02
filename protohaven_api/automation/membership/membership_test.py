@@ -28,7 +28,7 @@ def test_init_membership(mocker, include_filter, initializes):
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
 
-    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    mocker.patch.object(m, "fetch_new_member_coupon", return_value="test_code")
     m2 = mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -84,7 +84,7 @@ def test_init_membership_addl_targets(mocker):
     m1 = mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
-    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    mocker.patch.object(m, "fetch_new_member_coupon", return_value="test_code")
     m2 = mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -137,7 +137,7 @@ def test_init_membership_email_filter(mocker):
     mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
-    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    mocker.patch.object(m, "fetch_new_member_coupon", return_value="test_code")
     mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -173,7 +173,7 @@ def test_init_membership_type_filter(mocker):
     mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
-    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    mocker.patch.object(m, "fetch_new_member_coupon", return_value="test_code")
     mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -189,7 +189,7 @@ def test_init_membership_no_classes(mocker):
     mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
-    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    mocker.patch.object(m, "fetch_new_member_coupon", return_value="test_code")
     mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -211,7 +211,7 @@ def test_init_membership_amp(mocker):
     mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
     )
-    mocker.patch.object(m, "try_cached_coupon", return_value="test_code")
+    mocker.patch.object(m, "fetch_new_member_coupon", return_value="test_code")
     mocker.patch.object(
         neon,
         "update_account_automation_run_status",
@@ -278,8 +278,8 @@ def test_get_sample_classes(mocker):
     ]
 
 
-def test_try_cached_coupon_no_coupon(mocker):
-    """Test try_cached_coupon when no coupon is available"""
+def test_fetch_new_member_coupon_no_coupon(mocker):
+    """Test fetch_new_member_coupon when no coupon is available"""
     mocker.patch.object(m.airtable, "get_next_available_coupon", return_value=None)
     mock_send_discord = mocker.patch.object(m.comms, "send_discord_message")
     mock_generate_coupon_id = mocker.patch.object(
@@ -287,7 +287,7 @@ def test_try_cached_coupon_no_coupon(mocker):
     )
     mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
 
-    result = m.try_cached_coupon(10, "assignee", True)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Neon)
 
     mock_send_discord.assert_called_once()
     mock_generate_coupon_id.assert_called_once()
@@ -295,8 +295,26 @@ def test_try_cached_coupon_no_coupon(mocker):
     assert result == "new_cid"
 
 
-def test_try_cached_coupon_with_coupon_matching(mocker):
-    """Test try_cached_coupon with matching coupon available"""
+def test_fetch_new_member_coupon_eventbrite(mocker):
+    """Test fetch_new_member_coupon when no coupon is available"""
+    m1 = mocker.patch.object(
+        m.eventbrite, "generate_discount_code", return_value="new_cid"
+    )
+    m2 = mocker.patch.object(m.neon, "create_coupon_codes")
+    m3 = mocker.patch.object(m.airtable, "get_next_available_coupon")
+    m4 = mocker.patch.object(m.comms, "send_discord_message")
+
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Eventbrite)
+
+    m1.assert_called_once()
+    m2.assert_not_called()
+    m3.assert_not_called()
+    m4.assert_not_called()
+    assert result == "new_cid"
+
+
+def test_fetch_new_member_coupon_with_coupon_matching(mocker):
+    """Test fetch_new_member_coupon with matching coupon available"""
     mocker.patch.object(
         m.airtable,
         "get_next_available_coupon",
@@ -307,14 +325,14 @@ def test_try_cached_coupon_with_coupon_matching(mocker):
     )
     mock_mark_coupon_assigned = mocker.patch.object(m.airtable, "mark_coupon_assigned")
 
-    result = m.try_cached_coupon(10, "assignee", True)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Neon)
 
     mock_mark_coupon_assigned.assert_called_once_with("coupon_id", "assignee")
     assert result == "valid_code"
 
 
-def test_try_cached_coupon_with_coupon_mismatch(mocker):
-    """Test try_cached_coupon with coupon amount mismatch"""
+def test_fetch_new_member_coupon_with_coupon_mismatch(mocker):
+    """Test fetch_new_member_coupon with coupon amount mismatch"""
     mocker.patch.object(
         m.airtable,
         "get_next_available_coupon",
@@ -329,7 +347,7 @@ def test_try_cached_coupon_with_coupon_mismatch(mocker):
     )
     mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
 
-    result = m.try_cached_coupon(10, "assignee", True)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Neon)
 
     mock_send_discord.assert_called_once()
     mock_generate_coupon_id.assert_called_once()

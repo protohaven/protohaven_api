@@ -4,11 +4,12 @@ import datetime
 import logging
 import random
 import string
+from enum import Enum
 from functools import lru_cache
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import get_config, safe_parse_datetime
-from protohaven_api.integrations import airtable, comms, neon
+from protohaven_api.integrations import airtable, comms, eventbrite, neon
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("membership_automation")
@@ -48,39 +49,66 @@ def get_sample_classes(coupon_amount):
     return sample_classes
 
 
-def try_cached_coupon(coupon_amount, assignee, apply):
-    """Tries to fetch a cached coupon from Airtable, creating one in-situ
-    if there is not a valid one of the correct amount present."""
-    coupon = airtable.get_next_available_coupon()
-    if not coupon:
-        comms.send_discord_message(
-            "WARNING: no valid coupon available in Airtable requiring"
-            "unstable, in-place creation of new one. See Discounts table "
-            "in airtable, also `restock_discounts` cronicle job",
-            "#finance-automation",
-            blocking=False,
-        )
-        cid = generate_coupon_id()
-        if apply:
-            neon.create_coupon_codes([cid], coupon_amount)
-        return cid
+class CouponType(Enum):
+    """Coupons are only applicable for the service from
+    which they were created. This allows specifying the
+    service of a coupon, e.g. Eventbrite"""
 
-    if coupon["fields"]["Amount"] != coupon_amount:
-        comms.send_discord_message(
-            "WARNING: pricing mismatch on cached discounts requiring "
-            "unstable, in-place creation of new one. See Discounts table "
-            "in airtable, also `restock_discounts` cronicle job",
-            "#finance-automation",
-            blocking=False,
-        )
-        cid = generate_coupon_id()
-        if apply:
-            neon.create_coupon_codes([cid], coupon_amount)
-        return cid
+    NEON = 1
+    EVENTBRITE = 2
 
-    cid = coupon["fields"]["Code"]
-    airtable.mark_coupon_assigned(coupon["id"], assignee)
-    return cid
+
+def fetch_new_member_coupon(
+    coupon_amount, assignee, apply, coupon_type: CouponType
+) -> neon.neon_base.NeonCoupon | eventbrite.DiscountCode:
+    """Fetches a coupon for a new member to try our classes.
+
+    For Neon coupons, this tries to fetch a cached coupon from Airtable,
+    creating one in-situ if there is not a valid one of the correct
+    amount present.
+
+    For Eventbrite coupons, the coupon is created directly via their API,
+    because their API isn't hot garbage.
+    """
+    if coupon_type == CouponType.EVENTBRITE:
+        return eventbrite.generate_discount_code(
+            evt_id=None,
+            amount_off=coupon_amount,
+            percent_off=None,
+            expiration_hours=24 * 90,  # 90 days
+        )
+    if coupon_type == CouponType.NEON:
+        coupon = airtable.get_next_available_coupon()
+        if not coupon:
+            comms.send_discord_message(
+                "WARNING: no valid coupon available in Airtable requiring"
+                "unstable, in-place creation of new one. See Discounts table "
+                "in airtable, also `restock_discounts` cronicle job",
+                "#finance-automation",
+                blocking=False,
+            )
+            cid = generate_coupon_id()
+            if apply:
+                neon.create_coupon_codes([cid], coupon_amount)
+            return cid
+
+        if coupon["fields"]["Amount"] != coupon_amount:
+            comms.send_discord_message(
+                "WARNING: pricing mismatch on cached discounts requiring "
+                "unstable, in-place creation of new one. See Discounts table "
+                "in airtable, also `restock_discounts` cronicle job",
+                "#finance-automation",
+                blocking=False,
+            )
+            cid = generate_coupon_id()
+            if apply:
+                neon.create_coupon_codes([cid], coupon_amount)
+            return cid
+
+        cid = coupon["fields"]["Code"]
+        airtable.mark_coupon_assigned(coupon["id"], assignee)
+        return cid
+    raise RuntimeError(f"Unsupported coupon code type {coupon_type}")
 
 
 def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements
@@ -136,7 +164,20 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
 
     cid = None
     if coupon_amount > 0:
-        cid = try_cached_coupon(coupon_amount, email, apply)
+        coupon_type_cfg = (
+            get_config("general/new_membership/discount_type").strip().lower()
+        )
+        assert coupon_type_cfg in ("eventbrite", "neon")
+        cid = fetch_new_member_coupon(
+            coupon_amount,
+            email,
+            apply,
+            coupon_type=(
+                CouponType.EVENTBRITE
+                if coupon_type_cfg == "eventbrite"
+                else CouponType.NEON
+            ),
+        )
         log.info(f"Using coupon ID {cid}")
 
     if apply:

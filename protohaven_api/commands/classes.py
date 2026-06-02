@@ -390,14 +390,13 @@ class Commands:
         if args.use_eventbrite_for == "*":
             log.info("All events will schedule through eventbrite")
         elif args.use_eventbrite_for:
+            uses = [mm.split("+") for mm in args.use_eventbrite_for.split(",")]
             log.info(
                 "Eventbrite will be used if matching these instructor+class combos: "
-                f"{args.use_eventbrite_for}"
+                f"{uses}"
             )
             eb_filter_items = {
-                (str(inst_id), str(class_id))
-                for m in args.use_eventbrite_for
-                for inst_id, class_id in m.split("+")
+                (str(inst_id), str(class_id)) for inst_id, class_id in uses
             }
 
         def eb_filter(inst_id, class_id):

@@ -69,9 +69,25 @@ def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:
 
 
 def generate_discount_code(
-    evt_id: EventbriteID, percent_off: int, expiration_hours=1
+    evt_id: EventbriteID | None,
+    percent_off: int | None,
+    amount_off: int | None,
+    expiration_hours: int = 1,
 ) -> DiscountCode:
-    """Create a discount code for a specific Eventbrite event that expires quickly."""
+    """Create a discount code for a specific Eventbrite event
+    with an expiration time.
+
+    Either percent_off OR amount_off must be defined, but not both.
+
+    Leave evt_id empty for a discount applicable for all events.
+    """
+    if (percent_off is None and amount_off is None) or (
+        percent_off is not None and amount_off is not None
+    ):
+        raise RuntimeError(
+            "Failed to create Eventbrite discount code; only one of percent_off "
+            f"({percent_off}) and amount_off {amount_off} must be given"
+        )
     now = tznow()
     code = str(uuid.uuid4()).replace("-", "")
     log.info(f"Generating eventbrite discount code for event {evt_id}: {code}")
@@ -79,7 +95,6 @@ def generate_discount_code(
         "discount": {
             "type": "coded",
             "code": code,
-            "event_id": int(evt_id),
             "percent_off": str(percent_off),
             "quantity_available": 1,
             # Note: these must be in Naive Local ISO8601 format
@@ -91,6 +106,9 @@ def generate_discount_code(
             ),
         }
     }
+    if evt_id is not None:
+        params["discount"]["event_id"] = int(evt_id)
+
     org_id = get_config("eventbrite/organization_id")
     url = f"/organizations/{org_id}/discounts/"
     response = get_connector().eventbrite_request("POST", url, json=params)

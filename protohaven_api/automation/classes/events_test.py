@@ -55,7 +55,7 @@ def test_fetch_upcoming_events(mocker):
     ad = {"fields": {"Neon ID": "1", "Name": "Test"}}
     mocker.patch.object(
         eauto.airtable,
-        "get_class_automation_schedule",
+        "get_class_automation_schedule_raw",
         return_value=[ad],
     )
 

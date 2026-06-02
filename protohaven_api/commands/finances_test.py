@@ -466,7 +466,9 @@ def test_init_new_memberships_e2e(mocker, cli):
             )
         ],
     )
-    m1 = mocker.patch.object(f.memauto, "try_cached_coupon", return_value="test_coupon")
+    m1 = mocker.patch.object(
+        f.memauto, "fetch_new_member_coupon", return_value="test_coupon"
+    )
     m2 = mocker.patch.object(
         neon,
         "set_membership_date_range",
