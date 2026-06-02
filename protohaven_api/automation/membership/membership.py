@@ -165,7 +165,9 @@ def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-s
     cid = None
     if coupon_amount > 0:
         coupon_type_cfg = (
-            get_config("general/new_membership/discount_type").strip().lower()
+            (get_config("general/new_membership/discount_type") or "neon")
+            .strip()
+            .lower()
         )
         assert coupon_type_cfg in ("eventbrite", "neon")
         cid = fetch_new_member_coupon(

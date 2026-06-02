@@ -65,7 +65,7 @@ def test_generate_discount_code(mocker):
     mock_connector.eventbrite_request.return_value = {"code": mock_code}
     mocker.patch.object(e, "get_connector", return_value=mock_connector)
 
-    got = e.generate_discount_code("456", 25, 4)
+    got = e.generate_discount_code(evt_id="456", percent_off=25, expiration_hours=4)
 
     assert got == mock_code
     expected_params = {

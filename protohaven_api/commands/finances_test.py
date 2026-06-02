@@ -482,7 +482,7 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(f.memauto, "get_config", return_value=None)
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
-    m1.assert_called_with(75, "a@b.com", True)
+    m1.assert_called_with(75, "a@b.com", True, coupon_type=f.memauto.CouponType.NEON)
     m2.assert_called_with(456, mocker.ANY, mocker.ANY)
     m3.assert_called_with(123, "deferred")
 

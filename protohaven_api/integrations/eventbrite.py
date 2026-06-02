@@ -70,8 +70,8 @@ def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:
 
 def generate_discount_code(
     evt_id: EventbriteID | None,
-    percent_off: int | None,
-    amount_off: int | None,
+    percent_off: int | None = None,
+    amount_off: int | None = None,
     expiration_hours: int = 1,
 ) -> DiscountCode:
     """Create a discount code for a specific Eventbrite event

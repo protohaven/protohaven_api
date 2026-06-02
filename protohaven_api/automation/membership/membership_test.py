@@ -287,7 +287,7 @@ def test_fetch_new_member_coupon_no_coupon(mocker):
     )
     mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
 
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Neon)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.NEON)
 
     mock_send_discord.assert_called_once()
     mock_generate_coupon_id.assert_called_once()
@@ -304,7 +304,7 @@ def test_fetch_new_member_coupon_eventbrite(mocker):
     m3 = mocker.patch.object(m.airtable, "get_next_available_coupon")
     m4 = mocker.patch.object(m.comms, "send_discord_message")
 
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Eventbrite)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.EVENTBRITE)
 
     m1.assert_called_once()
     m2.assert_not_called()
@@ -325,7 +325,7 @@ def test_fetch_new_member_coupon_with_coupon_matching(mocker):
     )
     mock_mark_coupon_assigned = mocker.patch.object(m.airtable, "mark_coupon_assigned")
 
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Neon)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.NEON)
 
     mock_mark_coupon_assigned.assert_called_once_with("coupon_id", "assignee")
     assert result == "valid_code"
@@ -347,7 +347,7 @@ def test_fetch_new_member_coupon_with_coupon_mismatch(mocker):
     )
     mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
 
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.Neon)
+    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.NEON)
 
     mock_send_discord.assert_called_once()
     mock_generate_coupon_id.assert_called_once()
