@@ -611,7 +611,7 @@ def create_event(  # pylint: disable=too-many-arguments
         return None
 
     evt_request = get_connector().neon_request(
-        get_config("neon/api_key3"),
+        get_config("neon/api_key1"),
         "POST",
         urllib.parse.urljoin(BASE_URL, "events"),
         data=json.dumps(event),
