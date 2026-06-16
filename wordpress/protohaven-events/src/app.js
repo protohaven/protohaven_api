@@ -88,7 +88,11 @@ export function App( { imgSize, initialData } ) {
 
 	return (<div>
 		{user && user.fullname &&
-				<div><em>Logged in as <a href={API_BASE_URL + "/member"} target="_blank">{user.fullname}</a></em></div>}
+				<div><em>Logged in as <a href={API_BASE_URL + "/member"} target="_blank">{user.fullname}</a>.
+				{user.event_discount_pct &&
+				"A " + user.event_discount_pct +"% discount applies to qualifying events."}
+				(<a href={API_BASE_URL + "/logout"}>Logout</a>)</em></div>
+		}
 		{(!user || !user.fullname) &&
 				<div><em><a href={API_BASE_URL + "/member"} target="_blank">Log in</a> to receive member discounts!</em></div>}
 		<div className="ph-filters">

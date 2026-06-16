@@ -393,7 +393,7 @@ def test_volunteer_bio_and_picture():
     assert member.volunteer_picture == "http://localhost:8080/abc"
 
 
-def test_event_properties():
+def test_event_properties():  # pylint: disable=too-many-statements
     """Test all public @property methods of Event class"""
     # Setup test data
     start = d(0, 18)
@@ -455,6 +455,8 @@ def test_event_properties():
             "Supply Cost (from Class)": "10.00",
             "Volunteer": ["Yes"],
             "Supply State": "Ordered",
+            "Category (from Class)": "Test Category",
+            "Level (from Class)": "Test Level",
         }
     }
     attendees = [
@@ -544,6 +546,8 @@ def test_event_properties():
         assert evt.supply_cost == "10.00"
         assert evt.volunteer == "Yes"
         assert evt.supply_state == "Ordered"
+        assert evt.display_category == "Test Category"
+        assert evt.display_level == "Test Level"
 
 
 def test_event_url():

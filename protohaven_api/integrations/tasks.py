@@ -283,16 +283,6 @@ def last_maintenance_completion_map():
 
     now = tznow()
 
-    if _use_db():
-        for t in airtable_base.get_all_records("tasks", "shop_and_maintenance_tasks"):
-            _build_map(
-                t["fields"]["Maint Ref"],
-                t["fields"]["Completed"],
-                t["fields"]["UpdatedAt"],
-                now,
-            )
-        return result
-
     for t in _tasks().get_tasks_for_project(
         get_config("asana/shop_and_maintenance_tasks/gid"),
         {

@@ -203,7 +203,7 @@ def get_dashboard_schedule_sorted(
         now = tznow()
     age_out_thresh = now - datetime.timedelta(days=HIDE_CONFIRMED_DAYS_AFTER)
     confirmation_thresh = now + datetime.timedelta(days=HIDE_UNCONFIRMED_DAYS_AHEAD)
-    for s in airtable.get_class_automation_schedule(raw=False):
+    for s in airtable.get_class_automation_schedule():
         if (s.instructor_id != neon_id and s.instructor_email != email) or s.rejected:
             continue
         if s.confirmed and s.end_time <= age_out_thresh:
@@ -477,7 +477,7 @@ def cancel_class():
     log.warning(f"Cancelling class {c.neon_id}")
     log.info(str(eauto.set_event_scheduled_state(c.neon_id, scheduled=False)))
 
-    if data["areas"] and data["sessions"]:
+    if c.areas and c.sessions:
         log.warning("Attempting to delete auto-reservations")
         for interval in c.sessions:
             for res in booked.get_reservations_for_areas(interval, c.areas):

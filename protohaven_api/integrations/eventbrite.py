@@ -2,8 +2,7 @@
 
 import datetime
 import logging
-import random
-import string
+import uuid
 from io import BytesIO
 from typing import Any, Iterable
 
@@ -20,8 +19,8 @@ DiscountCode = str
 log = logging.getLogger("protohaven_api.integrations.eventbrite")
 
 
-def _eb_timestr(d: datetime.datetime) -> str:
-    return d.strftime("%Y-%m-%dT%H:%M:%SZ")
+def _eb_naive_local_utc_timestr(d: datetime.datetime) -> str:
+    return d.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def is_valid_id(evt_id: EventbriteID) -> bool:
@@ -70,30 +69,52 @@ def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:
 
 
 def generate_discount_code(
-    evt_id: EventbriteID, percent_off: int, expiration_hours: int = 1
+    evt_id: EventbriteID | None,
+    percent_off: int | None = None,
+    amount_off: int | None = None,
+    expiration_hours: int = 1,
 ) -> DiscountCode:
-    """Create a discount code for a specific Eventbrite event that expires in 4 hours."""
+    """Create a discount code for a specific Eventbrite event
+    with an expiration time.
+
+    Either percent_off OR amount_off must be defined, but not both.
+
+    Leave evt_id empty for a discount applicable for all events.
+    """
+    if (percent_off is None and amount_off is None) or (
+        percent_off is not None and amount_off is not None
+    ):
+        raise RuntimeError(
+            "Failed to create Eventbrite discount code; only one of percent_off "
+            f"({percent_off}) and amount_off {amount_off} must be given"
+        )
     now = tznow()
+    code = str(uuid.uuid4()).replace("-", "")
+    log.info(f"Generating eventbrite discount code for event {evt_id}: {code}")
     params = {
         "discount": {
             "type": "coded",
-            "event_id": evt_id,
-            "code": "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=8)
-            ),
+            "code": code,
             "percent_off": str(percent_off),
-            "currency": "USD",
             "quantity_available": 1,
-            "start_date": _eb_timestr(now),
-            "end_date": _eb_timestr(now + datetime.timedelta(hours=expiration_hours)),
-            "ticket_classes": [],
+            # Note: these must be in Naive Local ISO8601 format
+            # That's YYYY-MM-DDTHH:MM:SS in the time zone of the event.
+            # Note that we schedule our events in UTC, so this is UTC time
+            # without the "Z"
+            "end_date": _eb_naive_local_utc_timestr(
+                now + datetime.timedelta(hours=expiration_hours)
+            ),
         }
     }
-    url = f"/organizations/{get_config('eventbrite/organization_id')}/discounts/"
+    if evt_id is not None:
+        params["discount"]["event_id"] = int(evt_id)
+
+    org_id = get_config("eventbrite/organization_id")
+    url = f"/organizations/{org_id}/discounts/"
     response = get_connector().eventbrite_request("POST", url, json=params)
-    if not response["id"]:
+    if not response["code"]:
         raise RuntimeError(f"Failed to create eventbrite discount code: {response}")
-    return response["id"]
+    return response["code"]
 
 
 def _utcfmt(d: datetime.datetime) -> str:

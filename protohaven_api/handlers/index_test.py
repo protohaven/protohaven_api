@@ -28,6 +28,7 @@ def test_whoami(client):
         "fullname": "First Last",
         "email": "foo@bar.com",
         "neon_id": 1234,
+        "event_discount_pct": 0,
         "clearances": ["C1", "C2"],
         "roles": ["Board Member"],
     }
@@ -42,6 +43,7 @@ def test_whoami_no_roles(client):
         "email": "foo@bar.com",
         "neon_id": 1234,
         "clearances": ["C1", "C2"],
+        "event_discount_pct": 0,
         "roles": [],
     }
 
@@ -119,6 +121,8 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
         event_id="123",
         description="Test Description",
         instructor_name="Instructor",
+        display_category="Test",
+        display_level="Level",
         start_date=d(1, 16),
         end_date=d(2, 19),
         sessions=[(d(1, 16), d(1, 19)), (d(2, 16), d(2, 19))],
@@ -145,6 +149,8 @@ def test_upcoming_events_formatting_expected_by_wordpress(mocker, client):
         "end",
         "humanized_session_info",
         "humanized_start",
+        "category",
+        "level",
         "capacity",
         "url",
         "registration",
@@ -159,6 +165,8 @@ def test_upcoming_events(mocker, client):
         event_id="123",
         description="Test Description",
         instructor_name="Instructor",
+        display_category="Test Category",
+        display_level="Test Level",
         start_date=d(1, 16),
         end_date=d(2, 19),
         capacity=10,
@@ -206,6 +214,8 @@ def test_upcoming_events(mocker, client):
     assert result["events"][0]["start"] == d(1, 16).isoformat()
     assert result["events"][0]["humanized_start"] == "Thu, Jan 02, 04:00PM"
     assert result["events"][0]["humanized_session_info"] == "2 Sessions, 3h Each"
+    assert result["events"][0]["category"] == "Test Category"
+    assert result["events"][0]["level"] == "Test Level"
     assert result["now"] == d(0).isoformat()
 
 

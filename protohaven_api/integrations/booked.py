@@ -163,8 +163,8 @@ def get_reservations_for_areas(
         a for area, aa in res_to_area.items() for a in aa if area in areas
     }
 
-    for res in get_reservations(*interval):
-        if str(res["userid"]) != user_id:
+    for res in get_reservations(*interval)["reservations"]:
+        if "userid" not in res or str(res["userid"]) != user_id:
             continue
         if res["resourceId"] not in resource_filter:
             continue
@@ -364,8 +364,9 @@ class ReservationCache(WarmDict):
         super().__init__()
 
     def refresh(self):
-        start = tznow()
-        end = start.replace(hour=23, minute=59, second=59)
+        # We want reservations for the whole day, not just future ones
+        start = tznow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start.replace(hour=23, minute=59, second=59, microsecond=0)
         res = get_reservations(start, end)
         self["reservations"] = res["reservations"]
         self.log.info(

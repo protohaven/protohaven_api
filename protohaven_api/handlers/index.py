@@ -42,6 +42,7 @@ def whoami():
         "neon_id": acct.neon_id,
         "clearances": acct.clearances,
         "roles": [v["name"] for v in (acct.roles or [])],
+        "event_discount_pct": acct.event_discount_pct(),
     }
 
 
@@ -242,7 +243,6 @@ def upcoming_events():
     for evt in eauto.fetch_upcoming_events(merge_airtable=True):
         # Don't list private instruction, expired classes,
         # or classes without dates
-        log.info(str(evt.end_date))
         if not evt.start_date or evt.in_blocklist() or evt.end_date < now:
             continue
         events.append(
@@ -258,6 +258,8 @@ def upcoming_events():
                 # across browsers and locale settings
                 "humanized_start": evt.start_date.strftime("%a, %b %d, %I:%M%p"),
                 "humanized_session_info": humanize_sessions(evt),
+                "category": evt.display_category,
+                "level": evt.display_level,
                 "capacity": evt.capacity,
                 "url": evt.url,
                 "image_url": evt.image_url,

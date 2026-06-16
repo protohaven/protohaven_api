@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import urllib
+from typing import Iterable
 
 import pyotp
 from bs4 import BeautifulSoup
@@ -24,6 +25,7 @@ ADMIN_URL = get_config("neon/admin_url")
 SSO_URL = get_config("neon/sso_url")
 
 NeonID = str
+NeonCoupon = str
 
 
 def paginated_fetch(api_key, path, params=None, batching=False):
@@ -253,8 +255,8 @@ class NeonOne:  # pylint: disable=too-few-public-methods
         log.info("Login successful!")
 
     def create_single_use_abs_event_discounts(
-        self, codes, amt, from_date=None, to_date=None
-    ):
+        self, codes: list[str], amt, from_date=None, to_date=None
+    ) -> Iterable[NeonCoupon]:
         """Creates an absolute discount, usable once"""
         with sync_playwright() as p:
             # Launch a headless Firefox browser
@@ -609,7 +611,7 @@ def create_event(  # pylint: disable=too-many-arguments
         return None
 
     evt_request = get_connector().neon_request(
-        get_config("neon/api_key3"),
+        get_config("neon/api_key1"),
         "POST",
         urllib.parse.urljoin(BASE_URL, "events"),
         data=json.dumps(event),

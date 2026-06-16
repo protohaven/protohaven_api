@@ -87,6 +87,7 @@ function volunteer(v) {
 }
 
 function cancel(class_id) {
+  // Note: class_id here is the scheduled class ID
   meta_promise = post("/instructor/class/cancel", {class_id});
   promise = meta_promise.then(fetch_attendees);
   state_promise = meta_promise.then(fetch_neon_state);
@@ -254,7 +255,7 @@ function cancel(class_id) {
         <DropdownItem on:click={() => confirm(false)}>Mark unavailable (hides permanently)</DropdownItem>
       {:else}
 	<DropdownItem divider />
-	<DropdownItem on:click={() => cancel(c.class_id)}>Cancel class (requires no attendees)</DropdownItem>
+	<DropdownItem on:click={() => cancel(c.schedule_id)}>Cancel class (requires no attendees)</DropdownItem>
       {/if}
     </DropdownMenu>
   </Dropdown>

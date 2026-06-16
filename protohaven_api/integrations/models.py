@@ -430,20 +430,27 @@ class Member:  # pylint:disable=too-many-public-methods
 
         Discount logic is at: protohaven-events/src/app.js
         """
-        if self.account_current_membership_status != "Active":
-            return 0
-        ibr = self.income_based_rate
-        level = self.membership_level
-        if ibr == "Extremely Low Income - 70%":
-            return 70
-        if ibr == "Very Low Income - 50%":
-            return 50
-        if level == "Instructor":
-            return 50
-        if ibr == "Low Income - 20%":
-            return 20  # WARNING: read this method's header
-        if level in self.MEMBERSHIP_DISCOUNT_LEVELS:
-            return 20  # WARNING: read this method's header
+        try:
+            if self.account_current_membership_status != "Active":
+                return 0
+            ibr = self.income_based_rate
+            level = self.membership_level
+            if ibr == "Extremely Low Income - 70%":
+                return 70
+            if ibr == "Very Low Income - 50%":
+                return 50
+            if level == "Instructor":
+                return 50
+            if ibr == "Low Income - 20%":
+                return 20  # WARNING: read this method's header
+            if level in self.MEMBERSHIP_DISCOUNT_LEVELS:
+                return 20  # WARNING: read this method's header
+        except Exception:  # pylint: disable=broad-exception-caught
+            # This is used in /whoami lookups and would be very bad
+            # to fail (most sites unusable).
+            # It's better to assume we have no discount than for this
+            # to happen.
+            pass
         return 0
 
     @property
@@ -1003,6 +1010,22 @@ class Event:  # pylint: disable=too-many-public-methods
             )
             return s
         return []
+
+    @property
+    def display_category(self) -> str | None:
+        """Returns text for display in a black label over the class,
+        when exploring the class browser"""
+        if self.airtable_data:
+            return self.airtable_data.get("fields", {}).get("Category (from Class)")
+        return None
+
+    @property
+    def display_level(self) -> str | None:
+        """Returns info on what level of class is being taught, e.g. "Beginner Skills"
+        when exploring the class browser"""
+        if self.airtable_data:
+            return self.airtable_data.get("fields", {}).get("Level (from Class)")
+        return None
 
     @property
     def sessions(self) -> list[tuple[datetime.datetime, datetime.datetime]]:

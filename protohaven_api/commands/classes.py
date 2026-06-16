@@ -7,6 +7,7 @@ import re
 import traceback
 from collections import defaultdict
 from functools import lru_cache
+from typing import Iterable
 
 import markdown
 
@@ -29,10 +30,10 @@ from protohaven_api.integrations.data.neon import Category
 log = logging.getLogger("cli.classes")
 
 
-def resolve_schedule(min_future_days, overrides):
+def resolve_schedule(min_future_days, overrides) -> Iterable[airtable.ScheduledClass]:
     """Resolves class schedule, excluding ones not relevant"""
     now = tznow()
-    for event in airtable.get_class_automation_schedule(raw=False):
+    for event in airtable.get_class_automation_schedule():
         if overrides:
             if str(event.schedule_id) in overrides:
                 log.warning(
@@ -243,7 +244,7 @@ class Commands:
         result += "\n".join([f"* {l}" for l in lines])
         return result
 
-    def _format_class_description(self, cls):
+    def _format_class_description(self, cls: airtable.ScheduledClass):
         """Construct description of class from airtable columns; strip 'from Class' suffix"""
         (
             rules_and_expectations,
@@ -389,14 +390,13 @@ class Commands:
         if args.use_eventbrite_for == "*":
             log.info("All events will schedule through eventbrite")
         elif args.use_eventbrite_for:
+            uses = [mm.split("+") for mm in args.use_eventbrite_for.split(",")]
             log.info(
                 "Eventbrite will be used if matching these instructor+class combos: "
-                f"{args.use_eventbrite_for}"
+                f"{uses}"
             )
             eb_filter_items = {
-                (str(inst_id), str(class_id))
-                for m in args.use_eventbrite_for
-                for inst_id, class_id in m.split("+")
+                (str(inst_id), str(class_id)) for inst_id, class_id in uses
             }
 
         def eb_filter(inst_id, class_id):

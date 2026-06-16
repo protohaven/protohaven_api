@@ -59,26 +59,23 @@ def test_generate_discount_code(mocker):
     mocker.patch.object(e, "tznow", return_value=d(0))
     mock_code = "ABC123XY"
 
-    mocker.patch.object(e.random, "choices", return_value=list(mock_code))
+    mocker.patch.object(e.uuid, "uuid4", return_value=mock_code)
     mocker.patch.object(e, "get_config", return_value="test_org_id")
     mock_connector = mocker.MagicMock()
-    mock_connector.eventbrite_request.return_value = {"id": mock_code}
+    mock_connector.eventbrite_request.return_value = {"code": mock_code}
     mocker.patch.object(e, "get_connector", return_value=mock_connector)
 
-    got = e.generate_discount_code("456", 25, 4)
+    got = e.generate_discount_code(evt_id="456", percent_off=25, expiration_hours=4)
 
     assert got == mock_code
     expected_params = {
         "discount": {
             "type": "coded",
-            "event_id": "456",
+            "event_id": 456,
             "code": mock_code,
             "percent_off": "25",
-            "currency": "USD",
             "quantity_available": 1,
-            "end_date": "2025-01-01T04:00:00Z",
-            "start_date": "2025-01-01T00:00:00Z",
-            "ticket_classes": [],
+            "end_date": "2025-01-01T09:00:00",
         }
     }
     mock_connector.eventbrite_request.assert_called_once_with(

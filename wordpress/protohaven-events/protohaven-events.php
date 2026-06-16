@@ -98,7 +98,7 @@ function ph_events_register_settings() {
 
 	add_settings_field(
 		$PH_PROTOHAVEN_API_URL_OPTION_ID, // settings field id
-		'protohaven_api server base url (e.g. http://protohaven_api:5000/', // title
+		'protohaven_api server base url (e.g. http://flask:5000/', // title
 		'ph_events_render_url_settings_field', // callback
 		$PH_SETTINGS_SLUG, // settings page
 		$PH_OPTIONS_GROUP_ID// section

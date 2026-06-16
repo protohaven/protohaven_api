@@ -32,6 +32,9 @@ general:
   recertification:
     bypass_hours_window_days: 90
     enabled_users: ${RECERT_ENABLED_USERS}
+  new_membership:
+    # Either "eventbrite" or "neon"
+    discount_type: ${NEW_MEMBERSHIP_DISCOUNT_TYPE}
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle
