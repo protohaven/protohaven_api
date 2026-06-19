@@ -159,7 +159,7 @@ def neon_id_lookup():
     if search is None:
         log.info("No search data provided")
         return result
-    for i in neon.cache.find_best_match(
+    for i in neon.cached_find_best_match(
         search, score_cutoff=int(request.values.get("min_score") or 65)
     ):
         result.append(

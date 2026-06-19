@@ -11,6 +11,10 @@ general:
   precache_sign_in: ${PRECACHE_SIGN_IN}
   external_access_codes:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
+cache_server:
+  enabled: false
+  port: 5001
+  base_url: "http://localhost:5001"
   class_scheduling:
     clearance_exclusion_range_days: 7
   unsafe:

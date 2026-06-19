@@ -14,59 +14,57 @@ Usage:
 """
 
 import logging
+from typing import Any, Dict, Optional
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 from protohaven_api.config import get_config
 from protohaven_api.integrations import neon
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
+from protohaven_api.integrations.models import Member
 
 log = logging.getLogger("cache_server")
 
-server_mode = get_config("general/server_mode").lower()
+server_mode: str = get_config("general/server_mode").lower()
 
 # Module-level app for gunicorn (created lazily so tests can mock first)
-app = None  # pylint: disable=invalid-name
+app: Optional[Flask] = None  # pylint: disable=invalid-name
 
 
-def _serialize_member(member):
-    """Serialize a Member object to a JSON-compatible dict.
+def _serialize_member(member: Member) -> Dict[str, Any]:
+    """Serialize a Member object to its raw dataclass fields.
 
-    Uses neon_search_data as the primary source since that is what
-    AccountCache stores after refresh. Falls back to computed properties
-    where needed.
+    Returns the underlying dataclass fields (neon_raw_data, neon_search_data,
+    neon_membership_data, airtable_bio_data) so the Member can be fully
+    reconstructed on the client side via Member(**data).
     """
     return {
-        "neon_id": member.neon_id,
-        "fname": member.fname,
-        "lname": member.lname,
-        "email": member.email,
-        "name": member.name,
-        "account_current_membership_status": (member.account_current_membership_status),
-        "membership_level": member.membership_level,
+        "neon_raw_data": member.neon_raw_data,
         "neon_search_data": member.neon_search_data,
+        "neon_membership_data": member.neon_membership_data,
+        "airtable_bio_data": member.airtable_bio_data,
     }
 
 
-def create_app():
+def create_app() -> Flask:
     """Create and configure the cache server Flask app.
 
     Also sets the module-level `app` for gunicorn compatibility.
     """
     global app  # pylint: disable=global-statement
 
-    fapp = Flask(__name__)
+    fapp: Flask = Flask(__name__)
 
     # Initialize connector so AccountCache can make Neon API calls on cache miss
-    log.info(f"Initializing connector ({server_mode})")
+    log.info("Initializing connector (%s)", server_mode)
     init_connector(Connector if server_mode == "prod" else DevConnector)
     neon.cache.start()
     log.info("AccountCache started for cache_server")
 
     @fapp.route("/find_best_match")
-    def find_best_match():
+    def find_best_match() -> tuple[Response, int] | Response:
         """Fuzzy-search for members by name/email.
 
         Query params:
@@ -74,14 +72,14 @@ def create_app():
             top_n: Max results to return (default 10)
             score_cutoff: Minimum fuzzy match score 0-100 (default 65)
         """
-        search = request.args.get("search", "")
+        search: str = request.args.get("search", "")
         if not search:
             return jsonify({"error": "search parameter is required"}), 400
 
-        top_n = int(request.args.get("top_n", 10))
-        score_cutoff = int(request.args.get("score_cutoff", 65))
+        top_n: int = int(request.args.get("top_n", 10))
+        score_cutoff: int = int(request.args.get("score_cutoff", 65))
 
-        results = []
+        results: list[Dict[str, Any]] = []
         for member in neon.cache.find_best_match(
             search, top_n=top_n, score_cutoff=score_cutoff
         ):
@@ -90,18 +88,23 @@ def create_app():
         return jsonify(results)
 
     @fapp.route("/get")
-    def get_member():
+    def get_member() -> tuple[Response, int] | Response:
         """Look up members by email.
 
         Query params:
             key: The email address to look up (required)
+            fetch_if_missing: Whether to fall back to Neon API on cache miss
+                              (default "1", set to "0" to disable)
         """
-        key = request.args.get("key", "")
+        key: str = request.args.get("key", "")
         if not key:
             return jsonify({"error": "key parameter is required"}), 400
 
-        data = neon.cache.get(key, {})
-        result = {}
+        fetch_if_missing: bool = request.args.get("fetch_if_missing", "1") != "0"
+        data: Dict[str, Member] = neon.cache.get(
+            key, {}, fetch_if_missing=fetch_if_missing
+        )
+        result: Dict[str, Dict[str, Any]] = {}
         for neon_id, member in data.items():
             result[neon_id] = _serialize_member(member)
 
@@ -113,7 +116,7 @@ def create_app():
 
 if __name__ == "__main__":
     logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
-    application = create_app()
-    port = int(get_config("cache_server/port", 5001))  # pylint: disable=invalid-name
+    application: Flask = create_app()
+    port: int = int(get_config("cache_server/port", 5001))  # pylint: disable=invalid-name
     log.info("Starting cache server on port %s", port)
     application.run(host="0.0.0.0", port=port)

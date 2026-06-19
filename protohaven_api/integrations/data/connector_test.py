@@ -230,3 +230,49 @@ def test_eventbrite_request(
     else:
         result = connector.eventbrite_request("GET", "/test")
         assert result == expected_result
+
+def test_cache_server_request(mocker):
+    """cache_server_request makes GET to cache server and returns JSON."""
+    mock_response = mocker.MagicMock(status_code=200)
+    mock_response.json.return_value = [{"a": 1}]
+    mocker.patch.object(con.requests, "request", return_value=mock_response)
+    mocker.patch.object(
+        con,
+        "get_config",
+        side_effect={
+            "cache_server/base_url": "http://localhost:5001",
+            "connector/timeout": 5.0,
+            "connector/num_attempts": 3,
+            "connector/max_retry_delay_sec": 1,
+        }.get,
+    )
+
+    connector = con.Connector()
+    result = connector.cache_server_request("/find_best_match", {"search": "Alice"})
+    assert result == [{"a": 1}]
+    con.requests.request.assert_called_with(
+        "GET",
+        "http://localhost:5001/find_best_match",
+        params={"search": "Alice"},
+        timeout=5.0,
+    )
+
+
+def test_cache_server_request_http_error(mocker):
+    """cache_server_request raises RuntimeError on non-200 response."""
+    mock_response = mocker.MagicMock(status_code=500, content="Server Error")
+    mocker.patch.object(con.requests, "request", return_value=mock_response)
+    mocker.patch.object(
+        con,
+        "get_config",
+        side_effect={
+            "cache_server/base_url": "http://localhost:5001",
+            "connector/timeout": 5.0,
+            "connector/num_attempts": 3,
+            "connector/max_retry_delay_sec": 1,
+        }.get,
+    )
+
+    connector = con.Connector()
+    with pytest.raises(RuntimeError, match="returned 500"):
+        connector.cache_server_request("/get", {"key": "foo"})

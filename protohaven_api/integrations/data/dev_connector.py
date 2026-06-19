@@ -108,3 +108,42 @@ class DevConnector(Connector):
     def gcal_request(self, calendar_id, time_min, time_max):
         """Sends a calendar read request to Google Calendar"""
         return dev_google.get_calendar(calendar_id, time_min, time_max)
+
+    def cache_server_request(self, endpoint: str, params: dict) -> dict:
+        """Dev mode: query the local AccountCache directly instead of making HTTP calls."""
+        # Lazy import to avoid circular dependency at module load time
+        from protohaven_api.integrations import neon  # pylint: disable=import-outside-toplevel
+
+        if endpoint == "/find_best_match":
+            search: str = params.get("search", "")
+            top_n: int = int(params.get("top_n", 10))
+            score_cutoff: int = int(params.get("score_cutoff", 65))
+            results: list[dict] = []
+            for member in neon.cache.find_best_match(
+                search, top_n=top_n, score_cutoff=score_cutoff
+            ):
+                results.append({
+                    "neon_raw_data": member.neon_raw_data,
+                    "neon_search_data": member.neon_search_data,
+                    "neon_membership_data": member.neon_membership_data,
+                    "airtable_bio_data": member.airtable_bio_data,
+                })
+            return results
+
+        if endpoint == "/get":
+            key: str = params.get("key", "")
+            if not key:
+                return {"error": "key parameter is required"}
+            fetch_if_missing: bool = str(params.get("fetch_if_missing", "1")) != "0"
+            data = neon.cache.get(key, {}, fetch_if_missing=fetch_if_missing)
+            result: dict = {}
+            for neon_id, member in data.items():
+                result[neon_id] = {
+                    "neon_raw_data": member.neon_raw_data,
+                    "neon_search_data": member.neon_search_data,
+                    "neon_membership_data": member.neon_membership_data,
+                    "airtable_bio_data": member.airtable_bio_data,
+                }
+            return result
+
+        raise ValueError(f"Unknown cache server endpoint: {endpoint}")

@@ -98,7 +98,7 @@ def resolve_overrides(
     for p in ovr_people_in:
         p = re.sub(r"\(.*\)", "", p)  # remove pronouns for matching purposes
         p = re.sub(r" +", " ", p)  # prevent double-space issues
-        mm = list(neon.cache.find_best_match(p))
+        mm = list(neon.cached_find_best_match(p))
         found = False
         log.info(f"Seeking match for tech override {p}")
         for m in mm:

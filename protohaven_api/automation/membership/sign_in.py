@@ -154,7 +154,7 @@ def get_member_and_activation_state(email):
     https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies
-    mm = (neon.cache.get(email) or {}).values()
+    mm = (neon.cached_get(email) or {}).values()
     mm = [m for m in mm if m.neon_id != m.company_id]
     if len(mm) == 0:
         return None, False
