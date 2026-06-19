@@ -21,8 +21,11 @@ from protohaven_api.config import get_config
 from protohaven_api.integrations import neon
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
+from protohaven_api.integrations.data.dev_connector import DevConnector
 
 log = logging.getLogger("cache_server")
+
+server_mode = get_config("general/server_mode").lower()
 
 # Module-level app for gunicorn (created lazily so tests can mock first)
 app = None  # pylint: disable=invalid-name
@@ -41,9 +44,7 @@ def _serialize_member(member):
         "lname": member.lname,
         "email": member.email,
         "name": member.name,
-        "account_current_membership_status": (
-            member.account_current_membership_status
-        ),
+        "account_current_membership_status": (member.account_current_membership_status),
         "membership_level": member.membership_level,
         "neon_search_data": member.neon_search_data,
     }
@@ -59,7 +60,8 @@ def create_app():
     fapp = Flask(__name__)
 
     # Initialize connector so AccountCache can make Neon API calls on cache miss
-    init_connector(Connector)
+    log.info(f"Initializing connector ({server_mode})")
+    init_connector(Connector if server_mode == "prod" else DevConnector)
     neon.cache.start()
     log.info("AccountCache started for cache_server")
 
@@ -110,9 +112,7 @@ def create_app():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=get_config("general/log_level", "INFO").upper()
-    )
+    logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
     application = create_app()
     port = int(get_config("cache_server/port", 5001))  # pylint: disable=invalid-name
     log.info("Starting cache server on port %s", port)
