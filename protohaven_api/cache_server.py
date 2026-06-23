@@ -26,7 +26,9 @@ from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
 from protohaven_api.integrations.models import Member
 
+logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
 log = logging.getLogger("cache_server")
+log.info("Creating cache server")
 
 server_mode: str = get_config("general/server_mode").lower()
 
@@ -132,7 +134,6 @@ def create_app() -> Flask:
 app: Flask = create_app()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
     port: int = int(
         get_config("cache_server/port", 5001)
     )  # pylint: disable=invalid-name
