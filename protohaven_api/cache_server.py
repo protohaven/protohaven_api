@@ -30,8 +30,8 @@ log = logging.getLogger("cache_server")
 
 server_mode: str = get_config("general/server_mode").lower()
 
-# Module-level app for gunicorn (created lazily so tests can mock first)
-app: Optional[Flask] = None  # pylint: disable=invalid-name
+# Module-level app for gunicorn
+app: Flask = create_app()
 
 
 def _serialize_member(member: Member) -> Dict[str, Any]:
@@ -54,8 +54,6 @@ def create_app() -> Flask:
 
     Also sets the module-level `app` for gunicorn compatibility.
     """
-    global app  # pylint: disable=global-statement
-
     fapp: Flask = Flask(__name__)
 
     # Initialize connector so AccountCache can make Neon API calls on cache miss
@@ -130,15 +128,13 @@ def create_app() -> Flask:
 
         return jsonify(result)
 
-    app = fapp
     return fapp
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
-    application: Flask = create_app()
     port: int = int(
         get_config("cache_server/port", 5001)
     )  # pylint: disable=invalid-name
     log.info("Starting cache server on port %s", port)
-    application.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
