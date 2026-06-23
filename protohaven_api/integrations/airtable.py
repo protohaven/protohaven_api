@@ -193,7 +193,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
                     "Age Requirement",
                 )
             },
-            use_eventbrite=f.get("Eventbrite (from Class)") or False,
+            use_eventbrite=_unwrap(f, "Eventbrite (from Class)") or False,
         )
 
     def form_fmt_hours(self, h: float) -> str:
