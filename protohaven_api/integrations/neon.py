@@ -847,6 +847,27 @@ def cached_find_best_match(
     return [Member(**m) for m in data]
 
 
+def cached_neon_id_from_booked_id(booked_id: int) -> str:
+    """Query the cache server for the Neon ID associated with a Booked user ID.
+
+    Falls back to local neon.cache if cache_server is not enabled in config.
+
+    Args:
+        booked_id: The Booked scheduler user ID
+
+    Returns:
+        The corresponding Neon account ID string
+    """
+    if not get_config("cache_server/enabled", False, as_bool=True):
+        return cache.neon_id_from_booked_id(booked_id)
+
+    data: dict = get_connector().cache_server_request(
+        "/neon_id_from_booked_id",
+        {"booked_id": booked_id},
+    )
+    return str(data["neon_id"])
+
+
 def cached_get(email: str, fetch_if_missing: bool = True) -> dict[str, Member]:
     """Query the cache server for members by email.
 

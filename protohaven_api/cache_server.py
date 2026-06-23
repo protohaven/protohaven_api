@@ -6,6 +6,7 @@ independently from the main Flask application.
 
 Endpoints:
   GET /find_best_match?search=...&top_n=10&score_cutoff=65
+  GET /neon_id_from_booked_id?booked_id=<int>
   GET /get?key=<email>
 
 Usage:
@@ -86,6 +87,25 @@ def create_app() -> Flask:
             results.append(_serialize_member(member))
 
         return jsonify(results)
+
+    @fapp.route("/neon_id_from_booked_id")
+    def neon_id_from_booked_id() -> tuple[Response, int] | Response:
+        """Look up the Neon ID associated with a Booked scheduler user ID.
+
+        Query params:
+            booked_id: The Booked scheduler user ID (required, integer)
+        """
+        booked_id_str: str = request.args.get("booked_id", "")
+        if not booked_id_str:
+            return jsonify({"error": "booked_id parameter is required"}), 400
+
+        try:
+            booked_id: int = int(booked_id_str)
+        except ValueError:
+            return jsonify({"error": "booked_id must be an integer"}), 400
+
+        neon_id: str = neon.cache.neon_id_from_booked_id(booked_id)
+        return jsonify({"neon_id": neon_id})
 
     @fapp.route("/get")
     def get_member() -> tuple[Response, int] | Response:

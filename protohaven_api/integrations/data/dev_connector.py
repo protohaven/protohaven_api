@@ -130,6 +130,14 @@ class DevConnector(Connector):
                 })
             return results
 
+        if endpoint == "/neon_id_from_booked_id":
+            booked_id_str: str = params.get("booked_id", "")
+            if not booked_id_str:
+                return {"error": "booked_id parameter is required"}
+            booked_id: int = int(booked_id_str)
+            neon_id: str = neon.cache.neon_id_from_booked_id(booked_id)
+            return {"neon_id": neon_id}
+
         if endpoint == "/get":
             key: str = params.get("key", "")
             if not key:

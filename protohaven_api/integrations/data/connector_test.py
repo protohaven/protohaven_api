@@ -260,7 +260,7 @@ def test_cache_server_request(mocker):
 
 def test_cache_server_request_http_error(mocker):
     """cache_server_request raises RuntimeError on non-200 response."""
-    mock_response = mocker.MagicMock(status_code=500, content="Server Error")
+    mock_response = mocker.MagicMock(status_code=500, content=b"Server Error")
     mocker.patch.object(con.requests, "request", return_value=mock_response)
     mocker.patch.object(
         con,

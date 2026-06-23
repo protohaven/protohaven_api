@@ -118,6 +118,34 @@ def test_get_returns_serialized_members(mocker, client):
     assert data["123"] == _expected_serialized(member)
 
 
+def test_neon_id_from_booked_id_no_param(client):
+    """neon_id_from_booked_id returns 400 when booked_id is missing."""
+    resp = client.get("/neon_id_from_booked_id")
+    assert resp.status_code == 400
+    assert json.loads(resp.data) == {"error": "booked_id parameter is required"}
+
+
+def test_neon_id_from_booked_id_invalid_param(client):
+    """neon_id_from_booked_id returns 400 when booked_id is not an integer."""
+    resp = client.get("/neon_id_from_booked_id?booked_id=abc")
+    assert resp.status_code == 400
+    assert json.loads(resp.data) == {"error": "booked_id must be an integer"}
+
+
+def test_neon_id_from_booked_id_returns_neon_id(mocker, client):
+    """neon_id_from_booked_id calls cache and returns the neon_id."""
+    mocker.patch.object(
+        cache_server.neon.cache,
+        "neon_id_from_booked_id",
+        return_value="456",
+    )
+
+    resp = client.get("/neon_id_from_booked_id?booked_id=42")
+    assert resp.status_code == 200
+    assert json.loads(resp.data) == {"neon_id": "456"}
+    cache_server.neon.cache.neon_id_from_booked_id.assert_called_with(42)
+
+
 def test_get_empty_result(mocker, client):
     """get returns empty dict when cache returns nothing."""
     mocker.patch.object(
