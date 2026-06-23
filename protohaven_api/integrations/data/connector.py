@@ -44,13 +44,16 @@ class Connector:  # pylint: disable=too-many-public-methods
         # Attendee endpoint is often called repeatedly; runs into
         # neon request ratelimit. Here we globally synchronize and
         # include a sleep timer to prevent us from overrunning
+        # Note that 4 QPS is reasonable, but as of
+        # 2026-06-23 we're running two workers which use the same
+        # API quota.
         for i in range(self.max_attempts):
             if "/attendees" in args[0]:
                 with self.neon_ratelimit:
                     r = requests.request(
                         *args, **kwargs, auth=auth, timeout=self.timeout
                     )
-                    time.sleep(0.25)
+                    time.sleep(0.5)
             else:
                 r = requests.request(*args, **kwargs, auth=auth, timeout=self.timeout)
 

@@ -286,7 +286,7 @@ def get_shop_events():
 
 @page.route("/events/reservations")
 def get_event_reservations():
-    """Show reservations."""
+    """Show reservations for the rest of the day."""
     reservations = []
     now = tznow()
 
@@ -297,15 +297,21 @@ def get_event_reservations():
         close_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
         tool_area, tool_name = [t.strip() for t in r["resourceName"].split("-", 1)]
 
-        reservations.append(
-            {
-                "ts": start.isoformat(),
-                "start": start.strftime("%-I:%M %p") if start > open_time else "open",
-                "end": end.strftime("%-I:%M %p") if end < close_time else "close",
-                "name": f"{r['firstName']} {r['lastName']}",
-                "resource": tool_name,
-                "id": r["referenceNumber"],
-                "area": tool_area,
-            }
-        )
+        # We specifically want to include reservations
+        # that have started but are still active.
+        # We do NOT want reservations which are already over.
+        if end > now:
+            reservations.append(
+                {
+                    "ts": start.isoformat(),
+                    "start": (
+                        start.strftime("%-I:%M %p") if start > open_time else "open"
+                    ),
+                    "end": end.strftime("%-I:%M %p") if end < close_time else "close",
+                    "name": f"{r['firstName']} {r['lastName']}",
+                    "resource": tool_name,
+                    "id": r["referenceNumber"],
+                    "area": tool_area,
+                }
+            )
     return reservations

@@ -14,16 +14,17 @@ let promise;
 let submissions = null;
 
 async function refresh() {
-  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data)=>{
-    console.log(data);
-    return data.schedule;
-  });
   get("/instructor/submissions?email=" + encodeURIComponent(email)).then((data) => {
     submissions = data;
+    console.log("Log submissions:", submissions);
   }).catch(err => {
     console.warn("Failed to fetch instructor submissions:", err);
     submissions = err; // Explicitly set submission to error state
   })
+  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data)=>{
+    console.log("Class schedule:", data);
+    return data.schedule;
+  });
 }
 
 $: {

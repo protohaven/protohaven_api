@@ -15,7 +15,7 @@ Usage:
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from flask import Flask, Response, jsonify, request
 
@@ -26,12 +26,11 @@ from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.integrations.data.dev_connector import DevConnector
 from protohaven_api.integrations.models import Member
 
+logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
 log = logging.getLogger("cache_server")
+log.info("Creating cache server")
 
 server_mode: str = get_config("general/server_mode").lower()
-
-# Module-level app for gunicorn (created lazily so tests can mock first)
-app: Optional[Flask] = None  # pylint: disable=invalid-name
 
 
 def _serialize_member(member: Member) -> Dict[str, Any]:
@@ -54,8 +53,6 @@ def create_app() -> Flask:
 
     Also sets the module-level `app` for gunicorn compatibility.
     """
-    global app  # pylint: disable=global-statement
-
     fapp: Flask = Flask(__name__)
 
     # Initialize connector so AccountCache can make Neon API calls on cache miss
@@ -130,15 +127,15 @@ def create_app() -> Flask:
 
         return jsonify(result)
 
-    app = fapp
     return fapp
 
 
+# Module-level app for gunicorn
+app: Flask = create_app()
+
 if __name__ == "__main__":
-    logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
-    application: Flask = create_app()
     port: int = int(
         get_config("cache_server/port", 5001)
     )  # pylint: disable=invalid-name
     log.info("Starting cache server on port %s", port)
-    application.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)

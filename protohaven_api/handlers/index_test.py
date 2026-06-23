@@ -284,8 +284,8 @@ def test_get_event_reservations(mocker, client):
             "referenceNumber": "REF001",
         },
         {
-            "startDate": d(0, 10),  # 10 AM (before open)
-            "endDate": d(0, 12),  # Noon
+            "startDate": d(0, 10),  # 10 AM (open)
+            "endDate": d(0, 13),  # 1pm
             "firstName": "Jane",
             "lastName": "Smith",
             "resourceName": "3D Printing - 3D Printer",
@@ -293,7 +293,7 @@ def test_get_event_reservations(mocker, client):
         },
         {
             "startDate": d(0, 15),  # 3 PM
-            "endDate": d(0, 22),  # 10 PM (after close)
+            "endDate": d(0, 22),  # 10 PM (close)
             "firstName": "John",
             "lastName": "Doe",
             "resourceName": "Wood Shop - CNC Router",
@@ -352,10 +352,10 @@ def test_get_event_reservations(mocker, client):
         if i == 0:  # Laser Cutter at 2 PM
             assert reservation["start"] == "2:00 PM"
             assert reservation["end"] == "4:00 PM"
-        elif i == 1:  # 3D Printer at 10 AM (before open)
+        elif i == 1:  # 3D Printer at 10 AM (open)
             assert reservation["start"] == "open"
-            assert reservation["end"] == "12:00 PM"
-        elif i == 2:  # CNC Router at 3 PM, ends after close
+            assert reservation["end"] == "1:00 PM"
+        elif i == 2:  # CNC Router at 3 PM, close
             assert reservation["start"] == "3:00 PM"
             assert reservation["end"] == "close"
 
