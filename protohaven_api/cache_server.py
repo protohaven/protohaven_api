@@ -30,9 +30,6 @@ log = logging.getLogger("cache_server")
 
 server_mode: str = get_config("general/server_mode").lower()
 
-# Module-level app for gunicorn
-app: Flask = create_app()
-
 
 def _serialize_member(member: Member) -> Dict[str, Any]:
     """Serialize a Member object to its raw dataclass fields.
@@ -130,6 +127,9 @@ def create_app() -> Flask:
 
     return fapp
 
+
+# Module-level app for gunicorn
+app: Flask = create_app()
 
 if __name__ == "__main__":
     logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
