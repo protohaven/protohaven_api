@@ -271,7 +271,7 @@ def assign_pricing(
             "name": "General Admission",
             "sales_end_relative": {
                 "relative_to_event": "start_time",
-                "offset": -3600
+                "offset": 3600
                 * 24,  # Note offset is negative, so sales end *before* start
             },
             "hide_sale_dates": True,
