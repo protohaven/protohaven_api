@@ -35,6 +35,10 @@ general:
   new_membership:
     # Either "eventbrite" or "neon"
     discount_type: ${NEW_MEMBERSHIP_DISCOUNT_TYPE}
+cache_server:
+  enabled: ${CACHE_SERVER_ENABLED}
+  port: 5001
+  base_url: ${CACHE_SERVER_BASE_URL}
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle

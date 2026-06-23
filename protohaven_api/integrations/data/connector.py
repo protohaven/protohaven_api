@@ -337,6 +337,26 @@ class Connector:  # pylint: disable=too-many-public-methods
             .execute()
         )
 
+    def cache_server_request(self, endpoint: str, params: dict) -> dict:
+        """Make a request to the cache server.
+
+        Args:
+            endpoint: The cache server endpoint path (e.g. "/find_best_match")
+            params: Query parameters to send with the request
+
+        Returns:
+            Parsed JSON response from the cache server
+        """
+        base_url: str = get_config("cache_server/base_url", "http://localhost:5001")
+        url: str = urljoin(base_url, endpoint.lstrip("/"))
+        r = requests.request("GET", url, params=params, timeout=self.timeout)
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"cache_server_request(endpoint={endpoint}, params={params}) "
+                f"returned {r.status_code}: {r.content.decode('utf8')}"
+            )
+        return r.json()
+
 
 C = None
 

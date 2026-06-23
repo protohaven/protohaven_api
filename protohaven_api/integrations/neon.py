@@ -15,8 +15,11 @@ from typing import Iterable
 import rapidfuzz
 from flask import Response
 
-from protohaven_api.config import tznow, utcnow
+from protohaven_api.config import get_config, tznow, utcnow
 from protohaven_api.integrations import neon_base
+from protohaven_api.integrations.data.connector import (
+    get as get_connector,  # pylint: disable=import-outside-toplevel
+)
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.integrations.models import (
@@ -813,3 +816,77 @@ class AccountCache(WarmDict):
 
 
 cache = AccountCache()
+
+
+def cached_find_best_match(
+    search_string: str, top_n: int = 10, score_cutoff: int = 65
+) -> list[Member]:
+    """Query the cache server for best member matches by name/email.
+
+    Falls back to local neon.cache if cache_server is not enabled in config.
+
+    Args:
+        search_string: The search string to fuzzy-match against member names/emails
+        top_n: Maximum number of results to return
+        score_cutoff: Minimum fuzzy match score (0-100)
+
+    Returns:
+        List of Member objects matching the search
+    """
+    if not get_config("cache_server/enabled", False, as_bool=True):
+        return list(cache.find_best_match(search_string, top_n, score_cutoff))
+
+    data = get_connector().cache_server_request(
+        "/find_best_match",
+        {
+            "search": search_string,
+            "top_n": top_n,
+            "score_cutoff": score_cutoff,
+        },
+    )
+    return [Member(**m) for m in data]
+
+
+def cached_neon_id_from_booked_id(booked_id: int) -> str:
+    """Query the cache server for the Neon ID associated with a Booked user ID.
+
+    Falls back to local neon.cache if cache_server is not enabled in config.
+
+    Args:
+        booked_id: The Booked scheduler user ID
+
+    Returns:
+        The corresponding Neon account ID string
+    """
+    if not get_config("cache_server/enabled", False, as_bool=True):
+        return cache.neon_id_from_booked_id(booked_id)
+
+    data: dict = get_connector().cache_server_request(
+        "/neon_id_from_booked_id",
+        {"booked_id": booked_id},
+    )
+    return str(data["neon_id"])
+
+
+def cached_get(email: str, fetch_if_missing: bool = True) -> dict[str, Member]:
+    """Query the cache server for members by email.
+
+    Falls back to local neon.cache if cache_server is not enabled in config.
+
+    Args:
+        email: The email address to look up
+        fetch_if_missing: Whether to fall back to Neon API on cache miss
+
+    Returns:
+        Dict mapping Neon IDs to Member objects, or empty dict if not found
+    """
+    if not get_config("cache_server/enabled", False, as_bool=True):
+        # Use positional args compatible with both dict.get and AccountCache.get
+        return cache.get(email, {}) if fetch_if_missing else (cache.get(email) or {})
+
+    params: dict = {"key": email}
+    if not fetch_if_missing:
+        params["fetch_if_missing"] = "0"
+
+    data = get_connector().cache_server_request("/get", params)
+    return {neon_id: Member(**m) for neon_id, m in data.items()}

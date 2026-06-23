@@ -43,7 +43,9 @@ init_connector(Connector if server_mode == "prod" else DevConnector)
 log.info("Initializing sign-in precaching")
 # Must run after connector is initialized; prefetches from Neon/Airtable
 if get_config("general/precache_sign_in", as_bool=True):
-    neon.cache.start()
+    if not get_config("cache_server/enabled", False, as_bool=True):
+        # Only create a local cache if we aren't calling out to the cache server
+        neon.cache.start()
     airtable.cache.start()
     booked.cache.start(delay=60.0 if server_mode == "prod" else 0)
     init_signin()
@@ -92,7 +94,7 @@ def _on_reservations(cache):
     rr = cache.get_today_reservations_by_tool()
     log.debug(f"Reservation cache by tool: {rr}")
     for tool_code, data in rr.items():
-        neon_id = neon.cache.neon_id_from_booked_id(int(data["user"]))
+        neon_id = neon.cached_neon_id_from_booked_id(int(data["user"]))
         log.info(f"Reservation: {tool_code} {neon_id} {data}")
         mqtt.notify_reservation(
             tool_code,

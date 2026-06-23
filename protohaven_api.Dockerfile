@@ -24,6 +24,6 @@ RUN pip install  -r requirements.txt
 RUN pip install flask-sock playwright
 RUN playwright install --with-deps --only-shell firefox
 
-EXPOSE 5000
+# EXPOSE 5000
 COPY . .
 CMD ["flask", "run", "--debug"]

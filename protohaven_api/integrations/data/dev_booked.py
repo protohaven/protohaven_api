@@ -49,8 +49,8 @@ client = app.test_client()
 
 def handle(mode, url, json=None):
     """Local execution of mock flask endpoints for Booked"""
-    if mode == "GET":
-        return client.get(url)
     if mode == "POST":
         return client.post(url, json=json)
+    if mode == "GET":
+        return client.get(url)
     raise RuntimeError(f"mode not supported: {mode}")
