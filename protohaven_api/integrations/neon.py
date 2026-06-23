@@ -17,6 +17,9 @@ from flask import Response
 
 from protohaven_api.config import get_config, tznow, utcnow
 from protohaven_api.integrations import neon_base
+from protohaven_api.integrations.data.connector import (
+    get as get_connector,  # pylint: disable=import-outside-toplevel
+)
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.integrations.models import (
@@ -831,13 +834,7 @@ def cached_find_best_match(
         List of Member objects matching the search
     """
     if not get_config("cache_server/enabled", False, as_bool=True):
-        return list(
-            cache.find_best_match(search_string, top_n, score_cutoff)
-        )
-
-    from protohaven_api.integrations.data.connector import (  # pylint: disable=import-outside-toplevel
-        get as get_connector,
-    )
+        return list(cache.find_best_match(search_string, top_n, score_cutoff))
 
     data = get_connector().cache_server_request(
         "/find_best_match",
@@ -850,9 +847,7 @@ def cached_find_best_match(
     return [Member(**m) for m in data]
 
 
-def cached_get(
-    email: str, fetch_if_missing: bool = True
-) -> dict[str, Member]:
+def cached_get(email: str, fetch_if_missing: bool = True) -> dict[str, Member]:
     """Query the cache server for members by email.
 
     Falls back to local neon.cache if cache_server is not enabled in config.
@@ -866,15 +861,7 @@ def cached_get(
     """
     if not get_config("cache_server/enabled", False, as_bool=True):
         # Use positional args compatible with both dict.get and AccountCache.get
-        return (
-            cache.get(email, {})
-            if fetch_if_missing
-            else (cache.get(email) or {})
-        )
-
-    from protohaven_api.integrations.data.connector import (  # pylint: disable=import-outside-toplevel
-        get as get_connector,
-    )
+        return cache.get(email, {}) if fetch_if_missing else (cache.get(email) or {})
 
     params: dict = {"key": email}
     if not fetch_if_missing:

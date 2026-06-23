@@ -353,7 +353,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         if r.status_code != 200:
             raise RuntimeError(
                 f"cache_server_request(endpoint={endpoint}, params={params}) "
-                f"returned {r.status_code}: {r.content}"
+                f"returned {r.status_code}: {r.content.decode('utf8')}"
             )
         return r.json()
 
