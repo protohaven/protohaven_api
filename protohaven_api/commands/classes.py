@@ -244,7 +244,9 @@ class Commands:
         result += "\n".join([f"* {l}" for l in lines])
         return result
 
-    def _format_class_description(self, cls: airtable.ScheduledClass):
+    def _format_class_description(
+        self, cls: airtable.ScheduledClass, include_summary=True
+    ):
         """Construct description of class from airtable columns; strip 'from Class' suffix"""
         (
             rules_and_expectations,
@@ -254,6 +256,8 @@ class Commands:
         result = ""
         if cls.image_link:
             result += f'<p><img height="200" src="{cls.image_link}"/></p>\n'
+        if include_summary:
+            result += "<p>" + cls.description["Summary (max 140 chars)"] + "</p>\n"
         result += markdown.markdown(cls.description["Short Description"]) + "\n"
         sections = []
         for col in (
@@ -458,6 +462,7 @@ class Commands:
                     result_id = eventbrite.create_event(
                         event.name,
                         event.sessions,
+                        summary=event.description["Summary (max 140 chars)"],
                         max_attendees=event.capacity,
                         published=args.publish,
                         logo_id=image_id,
@@ -469,7 +474,7 @@ class Commands:
                 event.event_id = result_id
 
                 if args.apply and use_eventbrite:
-                    desc = self._format_class_description(event)
+                    desc = self._format_class_description(event, include_summary=False)
                     content_version = eventbrite.set_structured_content(
                         event.event_id, desc
                     )

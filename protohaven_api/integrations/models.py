@@ -1113,7 +1113,7 @@ class Event:  # pylint: disable=too-many-public-methods
             "description": (
                 "description",
                 "Event Description",
-                ["description", "html"],
+                ["summary"],
             ),
         }
         if attr in resolvable_fields:

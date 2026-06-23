@@ -127,6 +127,7 @@ def _utcfmt(d: datetime.datetime) -> str:
 def create_event(  # pylint: disable=too-many-arguments
     name: str,
     sessions: list[Interval],
+    summary: str | None = None,
     max_attendees: int = 6,
     published: bool = True,
     logo_id: int | None = None,
@@ -155,6 +156,7 @@ def create_event(  # pylint: disable=too-many-arguments
             "listed": published,
             "show_remaining": True,
             "capacity": max_attendees,
+            "summary": summary,
             "logo_id": logo_id,
             # "is_series": len(sessions) > 1,
         }

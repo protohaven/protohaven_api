@@ -184,6 +184,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
             description={
                 k: _unwrap(f, k + " (from Class)") or ""
                 for k in (
+                    "Summary (max 140 chars)",
                     "Short Description",
                     "What you Will Create",
                     "What to Bring/Wear",

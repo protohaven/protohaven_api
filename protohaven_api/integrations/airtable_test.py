@@ -462,6 +462,7 @@ def test_from_schedule(mocker):
             "Email": "instructor@example.com",
             "Instructor": "John Doe",
             "Volunteer": False,
+            "Summary (max 140 chars) (from Class)": ["Summary"],
             "Short Description (from Class)": ["A short description"],
             "What you Will Create (from Class)": ["A wooden box"],
             "What to Bring/Wear (from Class)": ["Safety glasses"],
@@ -492,6 +493,7 @@ def test_from_schedule(mocker):
     expected_sessions = [(d(6, 10), d(6, 13)), (d(7, 10), d(7, 13))]
     assert result.sessions == expected_sessions
     assert result.description == {
+        "Summary (max 140 chars)": "Summary",
         "Short Description": "A short description",
         "What you Will Create": "A wooden box",
         "What to Bring/Wear": "Safety glasses",

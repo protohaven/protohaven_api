@@ -145,6 +145,7 @@ def test_format_class_description(mocker):
         mocker.MagicMock(
             image_link="link",
             description={
+                "Summary (max 140 chars)": "summary",
                 "Short Description": "short_desc",
                 "What you Will Create": "what_create",
                 "What to Bring/Wear": "what_bring",
@@ -160,7 +161,7 @@ def test_format_class_description(mocker):
     )
     assert (
         result
-        == '<p><img height="200" src="link"/></p>\n<p>short_desc</p>\n<p><strong>What you Will Create</strong></p>\n<p>what_create</p>\n\n<p><strong>What to Bring/Wear</strong></p>\n<p>what_bring</p>\n\n<p><strong>Clearances Earned</strong></p>\n<p>clearances</p>\n\n<p><strong>Age Requirement</strong></p>\n<p>age_section_fmt</p><p><strong>Class Dates</strong></p>\n<ul>\n<li>Wednesday Jan 1, 8AM - 11AM</li>\n<li>Wednesday Jan 8, 8AM - 11AM</li>\n<li>Wednesday Jan 15, 8AM - 11AM</li>\n</ul><p>rules_and_expectations</p><p>cancellation_policy</p>'
+        == '<p><img height="200" src="link"/></p>\n<p>summary</p>\n<p>short_desc</p>\n<p><strong>What you Will Create</strong></p>\n<p>what_create</p>\n\n<p><strong>What to Bring/Wear</strong></p>\n<p>what_bring</p>\n\n<p><strong>Clearances Earned</strong></p>\n<p>clearances</p>\n\n<p><strong>Age Requirement</strong></p>\n<p>age_section_fmt</p><p><strong>Class Dates</strong></p>\n<ul>\n<li>Wednesday Jan 1, 8AM - 11AM</li>\n<li>Wednesday Jan 8, 8AM - 11AM</li>\n<li>Wednesday Jan 15, 8AM - 11AM</li>\n</ul><p>rules_and_expectations</p><p>cancellation_policy</p>'
     )
 
 
@@ -179,6 +180,7 @@ def _tcls(mocker):
             (d(20, 8), d(20, 11)),
         ],
         description={
+            "Summary (max 140 chars)": "summary",
             "Short Description": "testdesc",
             "What you Will Create": "a thing",
             "What to Bring/Wear": "stuff",
