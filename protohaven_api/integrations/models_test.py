@@ -431,7 +431,7 @@ def test_event_properties():  # pylint: disable=too-many-statements
     eventbrite = {
         "id": "456",
         "name": {"text": "Test Event"},
-        "description": {"html": "Test Description"},
+        "summary": "summary",
         "capacity": 10,
         "start": {"utc": start.isoformat()},
         "end": {"utc": end.isoformat()},

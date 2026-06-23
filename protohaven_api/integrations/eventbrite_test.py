@@ -104,7 +104,7 @@ def test_assign_pricing(mocker):
             "name": "General Admission",
             "sales_end_relative": {
                 "relative_to_event": "start_time",
-                "offset": -3600 * 24,  # 24 hours BEFORE event
+                "offset": 3600 * 24,  # 24 hours BEFORE event
             },
             "hide_sale_dates": True,
         }
