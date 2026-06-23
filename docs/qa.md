@@ -42,7 +42,8 @@ After deployment, verify that:
   - [x] Member sign in with hello+testmember@protohaven.org succeeds but sends
         "multiple accounts" validation alert to `#membership-automation` on
         Discord
-  - [x] Displays the day's reservations when valid member logs in
+  - [~] Displays the day's reservations when valid member logs in, including
+    ones from earlier in the day
   - [x] Member sign in with hello+testampmake@protohaven.org succeeds, no
         validation alerts
   - [x] Guest sign in presents waiver (but not member agreement) and completes -
@@ -53,34 +54,37 @@ After deployment, verify that:
   - [x] Shows classes including instructor and attendee data, both Neon and
         Eventbrite
 - https://api.protohaven.org/techs
-  - [x] Door lock state shown at top nav; matches Wyze state
-  - [x] Cal loads, individual shifts can be clicked and overridden
+  - [x] Door lock state shown at top nav if logged in; matches Wyze state
+  - [x] Cal loads, individual shifts can be clicked, overridden, reverted
   - [x] Cal can change date range, highlights current day
   - [x] Cal swap overrides send an alert to the #techs channel
-  - [x] Generic shop tech account is not permitted to modify the calendar
+  - [ ] Generic shop tech account is not permitted to modify the calendar
   - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
+  - [x] Nov 27 IS overridden to have zero techs (Thanksgiving is a protohaven
+        holiday)
   - [x] Members tab shows today's sign-ins, different dates can be shown
   - [x] Searching by member is possible; shows sign in day stats
   - [x] Tool states load
-  - [~] Can view history for a tool by clicking the link
+  - [x] Can view history for a tool by clicking the link
   - [x] Tool guide and clearance documentation status are shown
-  - [~] Docs pages missing approvals can click to the wiki page
+  - [x] Docs pages missing approvals can click to the wiki page
   - [x] Can sort tools by name, urgency, time in state etc.
   - [x] Can filter tools by area
   - [x] Storage tab allows for looking up Neon ID by name/email
-  - [x] Storage subscriptions card shows active subscription state - but no
+  - [ ] Storage subscriptions card shows active subscription state - but no
         unpaid invoices if not lead
-  - [x] Storage subscription data is not shown if not logged in
+  - [ ] Storage subscription data is not shown if not logged in
   - [x] Storage subs have badges where unpaid invoices and can be clicked to
         show links
-  - [x] Storage sub type, ID, and note can all be edited and saved successfully
+  - [~] Storage sub type, ID, and note can all be edited and saved successfully
+  - [x] Airtable-based storage subs shown; help text link to Airtable works
   - [x] Areas have some leads assigned to them
   - [x] Areas has populated "additional contacts" section at the bottom of the
         pane
   - [x] If a lead: techs roster can set interest, expertise, shift info
-  - [~] If logged in as Shop Tech: techs roster can set interest and expertise
-    (but not other fields) for that user
+  - [x] If logged in as Shop Tech: techs roster can set interest and expertise
+        (but not other fields) for that user
   - [x] Techs roster can view clearances and sort by name/clearances
   - [x] Techs roster has some tech photos & bios shown
   - [x] Techs roster not visible if not a tech (e.g. not logged in)
@@ -90,27 +94,29 @@ After deployment, verify that:
   - [x] Techs roster can enroll and create a new member (delete in Neon CRM
         after)
   - [x] Events tab can create, register, unregister, and delete a techs-only
-        class
-  - [x] Events tab shows registrant name, email, and phone if admin
+        class TODO: Build with api_key1 for set_event_scheduled_state
+  - [~] Events tab shows registrant name, email, and phone if admin
   - [~] Events tab can deregister any tech if admin
   - [x] Attendance tab can run an attendance report over a time period
-  - [~] Generic shop tech account is not permitted to register for a tech-only
-    class
+  - [x] Attendance tab errors when not logged in as a lead
+  - [x] Generic shop tech account is not permitted to register for a tech-only
+        class
   - [x] Full tech name is visible on calendar only when logged in as a tech /
         tech lead
   - [x] Members tab shows "access denied" when not logged in
   - [x] Area leads only show first name when not signed in
   - [x] Unauthenticated user cannot see tech roster
-  - [~] In incognito window (not logged in) cannot make edits to tech data, cal
-    overrides
-  - [~] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
-    data, cal overrides
+  - [x] In incognito window (not logged in) cannot make edits to tech data, cal
+        overrides
+  - [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
+        data, cal overrides
 - https://api.protohaven.org/instructor
   - [x] Loads profile data for instructor
-  - [~] Correctly shows warning icon on profile tab if incomplete data
+  - [x] Correctly shows warning icon on profile tab if incomplete data
   - [BUGGED_NO_EVENTBRITE] Loads classes for instructor, including attendance
     data
-  - [x] Correctly indicates log submission status for class (some yes, some no)
+  - [FAILED NEED TO FIX, GETS LOGS BUT DOESNT MATCH] Correctly indicates log
+    submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
   - [BUGGED] Adding a new class on a day with similar area reservations triggers
     validation error
@@ -122,8 +128,9 @@ After deployment, verify that:
   - [x] Instructor can override schedule validation error
   - [x] Schedule overrides send alerts to #edu-leads discord
   - [x] Can mark unavailable for a class that hasn't posted
-  - [ ] Class timing is correct (i.e. 6pm on scheduler -> 6pm when scheduled)
-  - [x] Can set supplies needed / supplies OK
+  - [x] Class timing is correct (i.e. 6pm on scheduler -> 6pm when scheduled)
+  - [x] Can set supplies needed / supplies OK; sends notice to
+        #supply-automatoin
   - [x] Can switch between volunteer and paid state for class
   - [x] Log submission button works; log form is correctly populated (especially
         clearances)
@@ -134,7 +141,7 @@ After deployment, verify that:
   - [x] Returns JSON of sample classes
 - https://api.protohaven.org/staff
   - [x] Can summarize one or more discord channels, and view photos
-  - [x] Access denied if logged in as hello+testmember@protohaven.org
+  - [ ] Access denied if logged in as hello+testmember@protohaven.org
   - [x] Ops dashboard shows content
 
 ## Discord events

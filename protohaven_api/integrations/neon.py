@@ -674,7 +674,7 @@ def set_event_scheduled_state(neon_id, scheduled=True):
     """Publishes or unpublishes an event in Neon, including registration
     and public visibility in protohaven.org/classes/"""
     return neon_base.patch(
-        "api_key3",
+        "api_key1",
         f"/events/{neon_id}",
         {
             "publishEvent": scheduled,

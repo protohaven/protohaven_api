@@ -45,7 +45,16 @@ log.info("Initializing sign-in precaching")
 if get_config("general/precache_sign_in", as_bool=True):
     if not get_config("cache_server/enabled", False, as_bool=True):
         # Only create a local cache if we aren't calling out to the cache server
+        log.warning(
+            "Starting in-memory Neon cache server; this may"
+            "cause transient issues if multiple flask processes "
+            "are running"
+        )
         neon.cache.start()
+    else:
+        log.info(
+            "Using external Neon cache server: " + get_config("cache_server/base_url")
+        )
     airtable.cache.start()
     booked.cache.start(delay=60.0 if server_mode == "prod" else 0)
     init_signin()
