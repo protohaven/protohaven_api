@@ -231,6 +231,7 @@ def test_eventbrite_request(
         result = connector.eventbrite_request("GET", "/test")
         assert result == expected_result
 
+
 def test_cache_server_request(mocker):
     """cache_server_request makes GET to cache server and returns JSON."""
     mock_response = mocker.MagicMock(status_code=200)
@@ -250,7 +251,7 @@ def test_cache_server_request(mocker):
     connector = con.Connector()
     result = connector.cache_server_request("/find_best_match", {"search": "Alice"})
     assert result == [{"a": 1}]
-    con.requests.request.assert_called_with(
+    con.requests.request.assert_called_with(  # pylint: disable=no-member
         "GET",
         "http://localhost:5001/find_best_match",
         params={"search": "Alice"},

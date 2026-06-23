@@ -18,9 +18,16 @@ def fixture_client(mocker):
     return fapp.test_client()
 
 
-def _mock_member(mocker, neon_id="123", fname="Alice", lname="Anderson",
-                 email="alice@example.com", name="Alice Anderson",
-                 status="Active", level="General Membership"):
+def _mock_member(
+    mocker,
+    neon_id="123",
+    fname="Alice",
+    lname="Anderson",
+    email="alice@example.com",
+    name="Alice Anderson",
+    status="Active",
+    level="General Membership",
+):
     """Create a mock Member with the given properties."""
     m = mocker.MagicMock()
     m.neon_id = neon_id

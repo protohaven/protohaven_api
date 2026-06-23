@@ -137,6 +137,8 @@ def create_app() -> Flask:
 if __name__ == "__main__":
     logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
     application: Flask = create_app()
-    port: int = int(get_config("cache_server/port", 5001))  # pylint: disable=invalid-name
+    port: int = int(
+        get_config("cache_server/port", 5001)
+    )  # pylint: disable=invalid-name
     log.info("Starting cache server on port %s", port)
     application.run(host="0.0.0.0", port=port)
