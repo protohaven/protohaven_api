@@ -53,7 +53,7 @@ if get_config("general/precache_sign_in", as_bool=True):
         neon.cache.start()
     else:
         log.info(
-            "Using external Neon cache server: " + get_config("cache_server/base_url")
+            f"Using external Neon cache server: {get_config('cache_server/base_url')}"
         )
     airtable.cache.start()
     booked.cache.start(delay=60.0 if server_mode == "prod" else 0)
