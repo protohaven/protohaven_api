@@ -109,10 +109,14 @@ class DevConnector(Connector):
         """Sends a calendar read request to Google Calendar"""
         return dev_google.get_calendar(calendar_id, time_min, time_max)
 
-    def cache_server_request(self, endpoint: str, params: dict) -> dict:
+    def cache_server_request(  # pylint: disable=too-many-locals
+        self, endpoint: str, params: dict
+    ):
         """Dev mode: query the local AccountCache directly instead of making HTTP calls."""
         # Lazy import to avoid circular dependency at module load time
-        from protohaven_api.integrations import neon  # pylint: disable=import-outside-toplevel
+        from protohaven_api.integrations import (  # pylint: disable=import-outside-toplevel
+            neon,
+        )
 
         if endpoint == "/find_best_match":
             search: str = params.get("search", "")
@@ -122,12 +126,14 @@ class DevConnector(Connector):
             for member in neon.cache.find_best_match(
                 search, top_n=top_n, score_cutoff=score_cutoff
             ):
-                results.append({
-                    "neon_raw_data": member.neon_raw_data,
-                    "neon_search_data": member.neon_search_data,
-                    "neon_membership_data": member.neon_membership_data,
-                    "airtable_bio_data": member.airtable_bio_data,
-                })
+                results.append(
+                    {
+                        "neon_raw_data": member.neon_raw_data,
+                        "neon_search_data": member.neon_search_data,
+                        "neon_membership_data": member.neon_membership_data,
+                        "airtable_bio_data": member.airtable_bio_data,
+                    }
+                )
             return results
 
         if endpoint == "/neon_id_from_booked_id":

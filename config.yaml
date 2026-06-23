@@ -11,10 +11,6 @@ general:
   precache_sign_in: ${PRECACHE_SIGN_IN}
   external_access_codes:
     ${EXTERNAL_ACCESS_CODES_AUTOMATION}: ["Automation"]
-cache_server:
-  enabled: false
-  port: 5001
-  base_url: "http://localhost:5001"
   class_scheduling:
     clearance_exclusion_range_days: 7
   unsafe:
@@ -39,6 +35,10 @@ cache_server:
   new_membership:
     # Either "eventbrite" or "neon"
     discount_type: ${NEW_MEMBERSHIP_DISCOUNT_TYPE}
+cache_server:
+  enabled: ${CACHE_SERVER_ENABLED}
+  port: 5001
+  base_url: ${CACHE_SERVER_BASE_URL}
 cronicle:
   # Used as a base for links to execution log when
   # CLI commands are issued via Cronicle
