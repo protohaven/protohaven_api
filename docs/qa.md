@@ -94,7 +94,7 @@ After deployment, verify that:
   - [x] Techs roster can enroll and create a new member (delete in Neon CRM
         after)
   - [x] Events tab can create, register, unregister, and delete a techs-only
-        class TODO: Build with api_key1 for set_event_scheduled_state
+        class
   - [~] Events tab shows registrant name, email, and phone if admin
   - [~] Events tab can deregister any tech if admin
   - [x] Attendance tab can run an attendance report over a time period
@@ -115,8 +115,7 @@ After deployment, verify that:
   - [x] Correctly shows warning icon on profile tab if incomplete data
   - [BUGGED_NO_EVENTBRITE] Loads classes for instructor, including attendance
     data
-  - [FAILED NEED TO FIX, GETS LOGS BUT DOESNT MATCH] Correctly indicates log
-    submission status for class (some yes, some no)
+  - [x] Correctly indicates log submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
   - [BUGGED] Adding a new class on a day with similar area reservations triggers
     validation error
