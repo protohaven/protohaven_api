@@ -108,6 +108,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
 class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     """Represents a class template with scheduling information applied"""
 
+    use_eventbrite: bool
     schedule_id: RecordID  # Record ID for the Schedule table
     class_id: RecordID  # Record ID for the Class Templates table
     event_id: EventID  # Neon or Eventbrite published ID
@@ -192,6 +193,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
                     "Age Requirement",
                 )
             },
+            use_eventbrite=f.get("Eventbrite (from Class)") or False,
         )
 
     def form_fmt_hours(self, h: float) -> str:
