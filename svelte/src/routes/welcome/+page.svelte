@@ -25,13 +25,59 @@
   let violations = [];
   let reservations = [];
 
+  let neon_ws = null;
+  let neon_ws_connected = false;
+
   onMount(() => {
     console.log("Base WS:", base_ws());
     if (new URLSearchParams(window.location.search).get('testing')) {
       testing = true;
       console.log("testing mode enabled; test announcements will be fetched");
     }
+    // Establish persistent WebSocket for MQTT-based Neon ID badge scans
+    connect_neon_ws();
   });
+
+  function connect_neon_ws() {
+    if (neon_ws) {
+      neon_ws.close();
+    }
+    neon_ws = open_ws("/welcome/neon_ws");
+    neon_ws.onopen = () => {
+      neon_ws_connected = true;
+      console.log("Neon sign-in WS connected");
+    };
+    neon_ws.onclose = () => {
+      neon_ws_connected = false;
+      console.log("Neon sign-in WS disconnected; reconnecting in 5s...");
+      // Reconnect after a delay
+      setTimeout(connect_neon_ws, 5000);
+    };
+    neon_ws.onerror = (err) => {
+      console.error("Neon sign-in WS error:", err);
+    };
+    neon_ws.onmessage = (event) => {
+      let data = JSON.parse(event.data);
+      if (data.type === "neon_id") {
+        console.log("Received Neon ID via MQTT:", data.neon_id, "email:", data.email);
+        if (data.email) {
+          // If we're already showing sign-in result, restart the flow first
+          if (state === 'signin_ok') {
+            restart_flow();
+          }
+          // Auto-trigger sign-in with the email
+          email = data.email;
+          person = 'member';
+          feedback = null;
+          submit();
+        } else {
+          feedback = "Badge not recognized; please sign in manually.";
+        }
+      } else if (data.type === "pong") {
+        // Heartbeat response, connection is alive
+      }
+    };
+  }
 
 
 

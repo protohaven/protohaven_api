@@ -11,7 +11,7 @@ from flask_sock import Sock
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
-from protohaven_api.config import safe_parse_datetime, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon
 from protohaven_api.integrations.models import Event, Member
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -82,10 +82,86 @@ def welcome_sock(ws):
     return result
 
 
+def welcome_neon_ws(ws):
+    """Persistent websocket that listens for Neon ID badge scans via MQTT.
+    When a Neon ID is published on the configured MQTT topic, it is forwarded
+    to the Svelte frontend to trigger the sign-in flow."""
+    neon_signin_topic = get_config("mqtt/neon_signin_topic")
+    log.info(f"Neon sign-in WS connected; subscribing to MQTT topic: {neon_signin_topic}")
+
+    # Queue for inter-thread communication
+    import queue
+
+    msg_queue = queue.Queue()
+
+    def on_neon_signin(topic, data):
+        """Callback when MQTT message arrives on neon signin topic"""
+        # Extract Neon ID from topic or payload
+        # Topic format: protohaven_api/v1/user/{neon_id}/signin
+        neon_id = data.get("neon_id") if isinstance(data, dict) else None
+        if not neon_id:
+            # Try extracting from topic (last segment before /signin is the neon_id)
+            parts = topic.split("/")
+            try:
+                signin_idx = parts.index("signin")
+                neon_id = parts[signin_idx - 1]
+            except (ValueError, IndexError):
+                log.warning(f"Could not extract neon_id from topic: {topic}")
+                return
+        neon_id = str(neon_id)
+
+        # Look up the member's email from Neon
+        email = None
+        try:
+            m = neon.search_member_by_neon_id(neon_id)
+            if m:
+                email = m.email
+                log.info(f"Neon sign-in via MQTT: neon_id={neon_id}, email={email}")
+            else:
+                log.warning(f"Neon sign-in via MQTT: member not found for neon_id={neon_id}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.warning(f"Error looking up neon_id={neon_id}: {e}")
+
+        msg_queue.put({"neon_id": neon_id, "email": email})
+
+    mqtt_client = mqtt.get()
+    if mqtt_client and neon_signin_topic:
+        mqtt_client.register_topic_callback(neon_signin_topic, on_neon_signin)
+
+    try:
+        while True:
+            # Check if the client has closed the connection
+            try:
+                data = ws.receive(timeout=0.1)
+                if data is None:
+                    break
+                # Client can send ping/pong or other messages; echo for now
+                msg = json.loads(data)
+                if msg.get("type") == "ping":
+                    ws.send(json.dumps({"type": "pong"}))
+            except Exception:
+                pass
+
+            # Check for MQTT messages
+            try:
+                msg = msg_queue.get_nowait()
+                ws.send(json.dumps({"type": "neon_id", **msg}))
+            except queue.Empty:
+                pass
+    finally:
+        # Clean up: unregister the callback
+        if mqtt_client and neon_signin_topic:
+            mqtt_client.unregister_topic_callback(neon_signin_topic, on_neon_signin)
+        log.info("Neon sign-in WS disconnected")
+
+    return None
+
+
 def setup_sock_routes(app):
     """Set up all websocket routes; called by main.py"""
     sock = Sock(app)
     sock.route("/welcome/ws")(welcome_sock)
+    sock.route("/welcome/neon_ws")(welcome_neon_ws)
 
 
 @page.route("/welcome", methods=["GET"])
