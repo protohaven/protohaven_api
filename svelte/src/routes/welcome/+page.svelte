@@ -2,7 +2,7 @@
   import '../../app.scss';
   import { onMount } from 'svelte';
   import {base_ws, get, post, open_ws} from '$lib/api.ts';
-  import { Row, Card, Container } from '@sveltestrap/sveltestrap';
+  import { Row, Card, Container, Toast, ToastHeader, ToastBody } from '@sveltestrap/sveltestrap';
   import Splash from '$lib/splash.svelte';
   import SigninOk from '$lib/signin_ok.svelte';
   import MembershipExpired from '$lib/membership_expired.svelte';
@@ -25,15 +25,77 @@
   let violations = [];
   let reservations = [];
 
+  let neon_ws = null;
+  let neon_ws_connected = false;
+  let toast_msg = null;
+  let toast_timer = null;
+
   onMount(() => {
     console.log("Base WS:", base_ws());
     if (new URLSearchParams(window.location.search).get('testing')) {
       testing = true;
       console.log("testing mode enabled; test announcements will be fetched");
     }
+    // Establish persistent WebSocket for MQTT-based Neon ID badge scans
+    connect_neon_ws();
   });
 
+  function connect_neon_ws() {
+    if (neon_ws) {
+      neon_ws.close();
+    }
+    neon_ws = open_ws("/welcome/neon_ws");
+    neon_ws.onopen = () => {
+      neon_ws_connected = true;
+      console.log("Neon sign-in WS connected");
+    };
+    neon_ws.onclose = () => {
+      neon_ws_connected = false;
+      console.log("Neon sign-in WS disconnected; reconnecting in 5s...");
+      // Reconnect after a delay
+      setTimeout(connect_neon_ws, 5000);
+    };
+    neon_ws.onerror = (err) => {
+      console.error("Neon sign-in WS error:", err);
+    };
+    neon_ws.onmessage = (event) => {
+      let data = JSON.parse(event.data);
+      if (data.type === "neon_id") {
+        console.log("Received Neon ID via MQTT:", data.neon_id, "email:", data.email);
+        if (data.email) {
+          // If we're already showing sign-in result, restart the flow first
+          if (state === 'signin_ok') {
+            restart_flow();
+          }
+          // Auto-trigger sign-in with the email
+          email = data.email;
+          person = 'member';
+          feedback = null;
+          submit();
+        } else {
+          feedback = "Badge not recognized; please sign in manually.";
+        }
+      } else if (data.type === "toast") {
+        console.log("Toast via MQTT:", data.color, data.title, data.body);
+        show_toast(data.color, data.title, data.body);
+      } else if (data.type === "pong") {
+        // Heartbeat response, connection is alive
+      }
+    };
+  }
 
+  function show_toast(color, title, body) {
+    // Clear any existing toast timer
+    if (toast_timer) {
+      clearTimeout(toast_timer);
+    }
+    toast_msg = { color, title, msg: body };
+    // Auto-dismiss after 5 seconds
+    toast_timer = setTimeout(() => {
+      toast_msg = null;
+      toast_timer = null;
+    }, 5000);
+  }
 
   async function on_splash_submit(p) {
     person = p;
@@ -142,6 +204,17 @@
 </script>
 
 <main>
+  {#if toast_msg}
+    <div style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+      <Toast
+        isOpen={toast_msg !== null}
+        on:close={() => { toast_msg = null; if (toast_timer) { clearTimeout(toast_timer); toast_timer = null; } }}
+      >
+        <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
+        <ToastBody>{toast_msg.msg}</ToastBody>
+      </Toast>
+    </div>
+  {/if}
 	<Row class="mb-5">
 		<img src="logo_color.svg" alt="logo"/>
 	</Row>
