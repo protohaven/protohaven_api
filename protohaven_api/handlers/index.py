@@ -83,11 +83,14 @@ def welcome_sock(ws):
 
 
 def welcome_neon_ws(ws):
-    """Persistent websocket that listens for Neon ID badge scans via MQTT.
-    When a Neon ID is published on the configured MQTT topic, it is forwarded
-    to the Svelte frontend to trigger the sign-in flow."""
+    """Persistent websocket that listens for Neon ID badge scans and toast
+    notifications via MQTT. Messages are forwarded to the Svelte frontend."""
     neon_signin_topic = get_config("mqtt/neon_signin_topic")
-    log.info(f"Neon sign-in WS connected; subscribing to MQTT topic: {neon_signin_topic}")
+    neon_toast_topic = get_config("mqtt/neon_toast_topic")
+    log.info(
+        f"Neon sign-in WS connected; subscribing to MQTT topics: "
+        f"{neon_signin_topic}, {neon_toast_topic}"
+    )
 
     # Queue for inter-thread communication
     import queue
@@ -122,11 +125,25 @@ def welcome_neon_ws(ws):
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.warning(f"Error looking up neon_id={neon_id}: {e}")
 
-        msg_queue.put({"neon_id": neon_id, "email": email})
+        msg_queue.put({"type": "neon_id", "neon_id": neon_id, "email": email})
+
+    def on_neon_toast(topic, data):
+        """Callback when MQTT message arrives on neon toast topic"""
+        if not isinstance(data, dict):
+            log.warning(f"Toast payload must be a JSON object, got: {type(data)}")
+            return
+        color = data.get("color", "info")
+        title = data.get("title", "")
+        body = data.get("body", "")
+        log.info(f"Neon toast via MQTT: color={color}, title={title}")
+        msg_queue.put({"type": "toast", "color": color, "title": title, "body": body})
 
     mqtt_client = mqtt.get()
-    if mqtt_client and neon_signin_topic:
-        mqtt_client.register_topic_callback(neon_signin_topic, on_neon_signin)
+    if mqtt_client:
+        if neon_signin_topic:
+            mqtt_client.register_topic_callback(neon_signin_topic, on_neon_signin)
+        if neon_toast_topic:
+            mqtt_client.register_topic_callback(neon_toast_topic, on_neon_toast)
 
     try:
         while True:
@@ -145,13 +162,16 @@ def welcome_neon_ws(ws):
             # Check for MQTT messages
             try:
                 msg = msg_queue.get_nowait()
-                ws.send(json.dumps({"type": "neon_id", **msg}))
+                ws.send(json.dumps(msg))
             except queue.Empty:
                 pass
     finally:
-        # Clean up: unregister the callback
-        if mqtt_client and neon_signin_topic:
-            mqtt_client.unregister_topic_callback(neon_signin_topic, on_neon_signin)
+        # Clean up: unregister the callbacks
+        if mqtt_client:
+            if neon_signin_topic:
+                mqtt_client.unregister_topic_callback(neon_signin_topic, on_neon_signin)
+            if neon_toast_topic:
+                mqtt_client.unregister_topic_callback(neon_toast_topic, on_neon_toast)
         log.info("Neon sign-in WS disconnected")
 
     return None
