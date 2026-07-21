@@ -386,3 +386,5 @@ mqtt:
   username: ${MQTT_USERNAME}
   password: ${MQTT_PASSWORD}
   ca_cert_path: ""
+  neon_signin_topic: "protohaven_api/v1/user/signin"
+  neon_toast_topic: "protohaven_api/v1/kiosk/toast"

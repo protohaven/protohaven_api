@@ -11,7 +11,7 @@ from flask_sock import Sock
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.automation.membership import sign_in
-from protohaven_api.config import safe_parse_datetime, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon
 from protohaven_api.integrations.models import Event, Member
 from protohaven_api.integrations.schedule import fetch_shop_events
@@ -82,10 +82,43 @@ def welcome_sock(ws):
     return result
 
 
+def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
+    """Persistent websocket that listens for Neon ID badge scans and toast
+    notifications via MQTT. Messages are forwarded to the Svelte frontend."""
+    log.info("welcome_neon_ws init")
+    neon_signin_topic = get_config("mqtt/neon_signin_topic")
+    neon_toast_topic = get_config("mqtt/neon_toast_topic")
+
+    def handle_message(topic: str, data: dict):
+        """We handle message parsing on the client side"""
+        ws.send(json.dumps({"origin": topic, "data": data}))
+
+    mqtt_client = mqtt.get()
+    if mqtt_client:
+        mqtt_client.register_topic_callback(neon_signin_topic, handle_message)
+        mqtt_client.register_topic_callback(neon_toast_topic, handle_message)
+        log.info("Registered welcome_neon_ws listeners")
+    else:
+        log.info("MQTT client not set up; aborting")
+        return Response("MQTT client not set up", status=500)
+    try:
+        while True:
+            data = ws.receive()
+            msg = json.loads(data)
+            if msg.get("type") == "ping":
+                ws.send(json.dumps({"type": "pong"}))
+    finally:
+        if mqtt_client:
+            mqtt_client.unregister_topic_callback(neon_signin_topic, handle_message)
+            mqtt_client.unregister_topic_callback(neon_toast_topic, handle_message)
+    log.info("Neon sign-in WS listener ended")
+
+
 def setup_sock_routes(app):
     """Set up all websocket routes; called by main.py"""
     sock = Sock(app)
     sock.route("/welcome/ws")(welcome_sock)
+    sock.route("/welcome/neon_ws")(welcome_neon_ws)
 
 
 @page.route("/welcome", methods=["GET"])

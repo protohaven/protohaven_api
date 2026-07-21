@@ -29,6 +29,7 @@ const PROXY_PATHS = [
 // work in staging and prod.
 const WS_PROXY_PATHS = [
   '/welcome/ws',
+  '/welcome/neon_ws',
   '/staff/summarize_discord',
   '/staff/ops_summary',
   '/techs/storage_subscriptions',

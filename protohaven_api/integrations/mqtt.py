@@ -40,6 +40,8 @@ class Client:
     def __init__(self, notify_discord_cb):
         self.c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.notify_discord_cb = notify_discord_cb
+        self._topic_callbacks = {}  # topic -> list of callbacks
+        self._topic_callbacks_lock = threading.Lock()
 
     def _start(self):
         self.c.on_connect = self.on_connect
@@ -54,6 +56,31 @@ class Client:
             get_config("mqtt/keepalive_sec"),
         )
 
+    def register_topic_callback(self, topic, callback):
+        """Register a callback for messages on a specific MQTT topic.
+        The callback will be called with (topic, payload) for each message.
+        If already subscribed, just adds the callback to the list."""
+        with self._topic_callbacks_lock:
+            if topic not in self._topic_callbacks:
+                self._topic_callbacks[topic] = []
+                if self.c.is_connected():
+                    self.c.subscribe(topic)
+                    log.info(f"Subscribed to {topic}")
+            self._topic_callbacks[topic].append(callback)
+
+    def unregister_topic_callback(self, topic, callback):
+        """Unregister a previously registered callback for a topic."""
+        with self._topic_callbacks_lock:
+            if topic in self._topic_callbacks:
+                self._topic_callbacks[topic] = [
+                    cb for cb in self._topic_callbacks[topic] if cb is not callback
+                ]
+                if not self._topic_callbacks[topic]:
+                    del self._topic_callbacks[topic]
+                    if self.c.is_connected():
+                        self.c.unsubscribe(topic)
+                        log.info(f"Unsubscribed from {topic}")
+
     def on_connect(
         self, _, userdata, flags, reason_code, properties
     ):  # pylint:disable=unused-argument
@@ -62,6 +89,11 @@ class Client:
         for sub in ("/protohaven_api/v1/notify_discord",):
             self.c.subscribe(sub)
             log.info(f"Subscribed to {sub}")
+        # Re-subscribe to any registered topic callbacks
+        with self._topic_callbacks_lock:
+            for topic in self._topic_callbacks:
+                self.c.subscribe(topic)
+                log.info(f"Subscribed to {topic}")
 
     def on_message(self, _, userdata, msg):  # pylint:disable=unused-argument
         """Receive messages from MQTT"""
@@ -79,6 +111,20 @@ class Client:
                     self.notify_discord_cb(
                         data["message"], data["channel"], blocking=False
                     )
+
+            # Dispatch to registered topic callbacks
+            with self._topic_callbacks_lock:
+                for topic, callbacks in list(self._topic_callbacks.items()):
+                    if mqtt.topic_matches_sub(topic, msg.topic):
+                        for cb in callbacks:
+                            try:
+                                cb(msg.topic, data)
+                            except (
+                                Exception  # pylint: disable=broad-exception-caught
+                            ) as e:
+                                log.warning(
+                                    f"Topic callback error for {msg.topic}: {e}"
+                                )
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.warning(f"on_message error: {e}")
             return
