@@ -144,6 +144,11 @@ class DevConnector(Connector):
             neon_id: str = neon.cache.neon_id_from_booked_id(booked_id)
             return {"neon_id": neon_id}
 
+        if endpoint == "/neon_ratelimit_ok":
+            # Dev mode: use the parent's local lock-based ratelimiting.
+            # No-op in dev since neon_request is fully mocked anyway.
+            return {"ok": True}
+
         if endpoint == "/get":
             key: str = params.get("key", "")
             if not key:
