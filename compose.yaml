@@ -152,6 +152,17 @@ services:
       test: "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
       timeout: 2s
 
+  mosquitto:
+    image: eclipse-mosquitto
+    hostname: mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto_dev:/etc/mosquitto
+      - ./mosquitto_dev/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
   wordpress:
     image: wordpress:latest
     container_name: wordpress

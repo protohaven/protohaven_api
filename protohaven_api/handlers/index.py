@@ -4,7 +4,6 @@
 import datetime
 import json
 import logging
-import queue
 import time
 
 from flask import Blueprint, Response, current_app, redirect, request, session
@@ -86,92 +85,33 @@ def welcome_sock(ws):
 def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
     """Persistent websocket that listens for Neon ID badge scans and toast
     notifications via MQTT. Messages are forwarded to the Svelte frontend."""
+    log.info("welcome_neon_ws init")
     neon_signin_topic = get_config("mqtt/neon_signin_topic")
     neon_toast_topic = get_config("mqtt/neon_toast_topic")
-    log.info(
-        f"Neon sign-in WS connected; subscribing to MQTT topics: "
-        f"{neon_signin_topic}, {neon_toast_topic}"
-    )
-    msg_queue = queue.Queue()
 
-    def on_neon_signin(topic, data):
-        """Callback when MQTT message arrives on neon signin topic"""
-        # Extract Neon ID from topic or payload
-        # Topic format: protohaven_api/v1/user/{neon_id}/signin
-        neon_id = data.get("neon_id") if isinstance(data, dict) else None
-        if not neon_id:
-            # Try extracting from topic (last segment before /signin is the neon_id)
-            parts = topic.split("/")
-            try:
-                signin_idx = parts.index("signin")
-                neon_id = parts[signin_idx - 1]
-            except (ValueError, IndexError):
-                log.warning(f"Could not extract neon_id from topic: {topic}")
-                return
-        neon_id = str(neon_id)
-
-        # Look up the member's email from Neon
-        email = None
-        try:
-            m = neon.search_member_by_neon_id(neon_id)
-            if m:
-                email = m.email
-                log.info(f"Neon sign-in via MQTT: neon_id={neon_id}, email={email}")
-            else:
-                log.warning(
-                    f"Neon sign-in via MQTT: member not found for neon_id={neon_id}"
-                )
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            log.warning(f"Error looking up neon_id={neon_id}: {e}")
-
-        msg_queue.put({"type": "neon_id", "neon_id": neon_id, "email": email})
-
-    def on_neon_toast(_topic, data):
-        """Callback when MQTT message arrives on neon toast topic"""
-        if not isinstance(data, dict):
-            log.warning(f"Toast payload must be a JSON object, got: {type(data)}")
-            return
-        color = data.get("color", "info")
-        title = data.get("title", "")
-        body = data.get("body", "")
-        log.info(f"Neon toast via MQTT: color={color}, title={title}")
-        msg_queue.put({"type": "toast", "color": color, "title": title, "body": body})
+    def handle_message(topic: str, data: dict):
+        """We handle message parsing on the client side"""
+        ws.send(json.dumps({"origin": topic, "data": data}))
 
     mqtt_client = mqtt.get()
     if mqtt_client:
-        if neon_signin_topic:
-            mqtt_client.register_topic_callback(neon_signin_topic, on_neon_signin)
-        if neon_toast_topic:
-            mqtt_client.register_topic_callback(neon_toast_topic, on_neon_toast)
-
+        mqtt_client.register_topic_callback(neon_signin_topic, handle_message)
+        mqtt_client.register_topic_callback(neon_toast_topic, handle_message)
+        log.info("Registered welcome_neon_ws listeners")
+    else:
+        log.info("MQTT client not set up; aborting")
+        return Response("MQTT client not set up", status=500)
     try:
         while True:
-            # Check if the client has closed the connection
-            try:
-                data = ws.receive(timeout=0.1)
-                if data is None:
-                    break
-                # Client can send ping/pong or other messages; echo for now
-                msg = json.loads(data)
-                if msg.get("type") == "ping":
-                    ws.send(json.dumps({"type": "pong"}))
-            except Exception:  # pylint: disable=broad-exception-caught
-                pass
-
-            # Check for MQTT messages
-            try:
-                msg = msg_queue.get_nowait()
-                ws.send(json.dumps(msg))
-            except queue.Empty:
-                pass
+            data = ws.receive()
+            msg = json.loads(data)
+            if msg.get("type") == "ping":
+                ws.send(json.dumps({"type": "pong"}))
     finally:
-        # Clean up: unregister the callbacks
         if mqtt_client:
-            if neon_signin_topic:
-                mqtt_client.unregister_topic_callback(neon_signin_topic, on_neon_signin)
-            if neon_toast_topic:
-                mqtt_client.unregister_topic_callback(neon_toast_topic, on_neon_toast)
-        log.info("Neon sign-in WS disconnected")
+            mqtt_client.unregister_topic_callback(neon_signin_topic, handle_message)
+            mqtt_client.unregister_topic_callback(neon_toast_topic, handle_message)
+    log.info("Neon sign-in WS listener ended")
 
 
 def setup_sock_routes(app):

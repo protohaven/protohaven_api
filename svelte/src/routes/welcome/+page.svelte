@@ -59,25 +59,25 @@
       console.error("Neon sign-in WS error:", err);
     };
     neon_ws.onmessage = (event) => {
+      console.log(event);
       let data = JSON.parse(event.data);
-      if (data.type === "neon_id") {
-        console.log("Received Neon ID via MQTT:", data.neon_id, "email:", data.email);
-        if (data.email) {
-          // If we're already showing sign-in result, restart the flow first
-          if (state === 'signin_ok') {
-            restart_flow();
-          }
-          // Auto-trigger sign-in with the email
-          email = data.email;
-          person = 'member';
-          feedback = null;
-          submit();
-        } else {
-          feedback = "Badge not recognized; please sign in manually.";
+
+      if (data.origin.endsWith("signin")) {
+        console.log("Received sign in attempt via MQTT:", data.data);
+        // If we're already showing sign-in result, restart the flow first
+        if (state === 'signin_ok') {
+          restart_flow();
         }
-      } else if (data.type === "toast") {
-        console.log("Toast via MQTT:", data.color, data.title, data.body);
-        show_toast(data.color, data.title, data.body);
+        // Auto-trigger sign-in with the email
+        console.log("Setting email to", data.data.email);
+        email = data.data.email;
+        person = 'member';
+        feedback = null;
+        setTimeout(submit, 0); // Delay submission to allow for repaint
+        show_toast("primary", "Badge detected", "Signing in as member...");
+      } else if (data.origin.endsWith("toast")) {
+        console.log("Toast via MQTT:", data.data);
+        show_toast(data.data.color, data.data.title, data.data.body);
       } else if (data.type === "pong") {
         // Heartbeat response, connection is alive
       }

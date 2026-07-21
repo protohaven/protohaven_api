@@ -18,7 +18,7 @@
   reset();
 
 
-  $: submit_enabled = (email.trim() != "" && !progress && !(has_dependents && dependent_info == ""));
+  $: submit_enabled = (email && email.trim() != "" && !progress && !(has_dependents && dependent_info == ""));
 
   // Shortcut for members; only if valid form state
   function check_enter_key_submit(e) {
