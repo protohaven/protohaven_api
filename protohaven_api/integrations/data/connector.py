@@ -9,7 +9,6 @@ import random
 import time
 from email.mime.text import MIMEText
 from functools import lru_cache
-from threading import Lock
 from typing import Any, Literal
 from urllib.parse import urlencode, urljoin
 
@@ -31,7 +30,6 @@ class Connector:  # pylint: disable=too-many-public-methods
     """Provides production access to dependencies."""
 
     def __init__(self):
-        self.neon_ratelimit = Lock()
         self.timeout = get_config("connector/timeout")
         self.max_attempts = get_config("connector/num_attempts")
         self.max_retry_delay_sec = get_config("connector/max_retry_delay_sec")
@@ -49,13 +47,10 @@ class Connector:  # pylint: disable=too-many-public-methods
         # API quota.
         for i in range(self.max_attempts):
             if "/attendees" in args[0]:
-                with self.neon_ratelimit:
-                    r = requests.request(
-                        *args, **kwargs, auth=auth, timeout=self.timeout
-                    )
-                    time.sleep(0.5)
-            else:
-                r = requests.request(*args, **kwargs, auth=auth, timeout=self.timeout)
+                # Centralized rate limiting via cache server to prevent
+                # multiple gunicorn workers from overwhelming Neon CRM.
+                self.cache_server_request("/neon_ratelimit_ok", {})
+            r = requests.request(*args, **kwargs, auth=auth, timeout=self.timeout)
 
             if r.status_code == 200:
                 try:

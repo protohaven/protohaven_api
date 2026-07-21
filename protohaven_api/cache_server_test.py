@@ -164,3 +164,19 @@ def test_get_empty_result(mocker, client):
     resp = client.get("/get?key=nonexistent@example.com")
     assert resp.status_code == 200
     assert json.loads(resp.data) == {}
+
+
+def test_neon_ratelimit_ok(mocker, client):
+    """neon_ratelimit_ok acquires the lock, sleeps, and returns 200 OK."""
+    # Mock the lock and sleep to verify behavior without actually blocking
+    mock_lock = mocker.MagicMock()
+    mocker.patch.object(cache_server, "neon_ratelimit", mock_lock)
+    mocker.patch.object(cache_server.time, "sleep")
+
+    resp = client.get("/neon_ratelimit_ok")
+    assert resp.status_code == 200
+    assert json.loads(resp.data) == {"ok": True}
+    # Verify lock was used as a context manager
+    mock_lock.__enter__.assert_called_once()
+    mock_lock.__exit__.assert_called_once()
+    cache_server.time.sleep.assert_called_once()

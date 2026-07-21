@@ -15,6 +15,8 @@ Usage:
 """
 
 import logging
+import threading
+import time
 from typing import Any, Dict
 
 from flask import Flask, Response, jsonify, request
@@ -29,6 +31,11 @@ from protohaven_api.integrations.models import Member
 logging.basicConfig(level=get_config("general/log_level", "INFO").upper())
 log = logging.getLogger("cache_server")
 log.info("Creating cache server")
+
+# Centralized rate limiter for Neon CRM requests, shared across all gunicorn workers
+# that call into this cache server. Only one caller may proceed at a time;
+# the lock is held with a call to time.sleep() to ensure we don't overwhelm Neon
+neon_ratelimit = threading.Lock()
 
 server_mode: str = get_config("general/server_mode").lower()
 
@@ -126,6 +133,20 @@ def create_app() -> Flask:
             result[neon_id] = _serialize_member(member)
 
         return jsonify(result)
+
+    @fapp.route("/neon_ratelimit_ok")
+    def neon_ratelimit_ok() -> Response:
+        """Centralized rate limiter for Neon CRM requests.
+
+        Blocks the caller until it is safe to issue another Neon API request.
+        Holds a global lock for 0.2s so that at most ~5 requests per second
+        are allowed globally across all gunicorn workers.
+
+        Returns 200 OK when the caller may proceed.
+        """
+        with neon_ratelimit:
+            time.sleep(0.2)
+        return jsonify({"ok": True})
 
     return fapp
 
