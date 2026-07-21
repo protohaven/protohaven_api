@@ -119,8 +119,12 @@ class Client:
                         for cb in callbacks:
                             try:
                                 cb(msg.topic, data)
-                            except Exception as e:  # pylint: disable=broad-exception-caught
-                                log.warning(f"Topic callback error for {msg.topic}: {e}")
+                            except (
+                                Exception  # pylint: disable=broad-exception-caught
+                            ) as e:
+                                log.warning(
+                                    f"Topic callback error for {msg.topic}: {e}"
+                                )
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.warning(f"on_message error: {e}")
             return

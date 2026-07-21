@@ -1,3 +1,4 @@
+# pylint: skip-file
 """Tests for MQTT integration"""
 
 import json
