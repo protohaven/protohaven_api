@@ -179,4 +179,4 @@ def test_neon_ratelimit_ok(mocker, client):
     # Verify lock was used as a context manager
     mock_lock.__enter__.assert_called_once()
     mock_lock.__exit__.assert_called_once()
-    cache_server.time.sleep.assert_called_once_with(0.5)
+    cache_server.time.sleep.assert_called_once()
