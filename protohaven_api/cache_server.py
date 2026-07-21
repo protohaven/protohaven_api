@@ -34,7 +34,7 @@ log.info("Creating cache server")
 
 # Centralized rate limiter for Neon CRM requests, shared across all gunicorn workers
 # that call into this cache server. Only one caller may proceed at a time;
-# the lock is held for 0.5s after granting permission to enforce ~2 QPS globally.
+# the lock is held with a call to time.sleep() to ensure we don't overwhelm Neon
 neon_ratelimit = threading.Lock()
 
 server_mode: str = get_config("general/server_mode").lower()
@@ -139,13 +139,13 @@ def create_app() -> Flask:
         """Centralized rate limiter for Neon CRM requests.
 
         Blocks the caller until it is safe to issue another Neon API request.
-        Holds a global lock for 0.5s so that at most ~2 requests per second
+        Holds a global lock for 0.2s so that at most ~5 requests per second
         are allowed globally across all gunicorn workers.
 
         Returns 200 OK when the caller may proceed.
         """
         with neon_ratelimit:
-            time.sleep(0.5)
+            time.sleep(0.2)
         return jsonify({"ok": True})
 
     return fapp
