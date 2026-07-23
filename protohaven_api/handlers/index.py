@@ -84,26 +84,61 @@ def welcome_sock(ws):
 
 def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
     """Persistent websocket that listens for Neon ID badge scans and toast
-    notifications via MQTT. Messages are forwarded to the Svelte frontend."""
+    notifications via MQTT. Messages are forwarded to the Svelte frontend.
+    Also tracks NFC device heartbeat and MQTT broker status, sending periodic
+    status updates to the client."""
     log.info("welcome_neon_ws init")
     neon_signin_topic = get_config("mqtt/neon_signin_topic")
     neon_toast_topic = get_config("mqtt/neon_toast_topic")
+    nfc_heartbeat_topic = "protohaven_api/v1/kiosk/nfc_device/heartbeat"
+
+    # Track NFC device heartbeat
+    nfc_last_heartbeat = None
 
     def handle_message(topic: str, data: dict):
         """We handle message parsing on the client side"""
         ws.send(json.dumps({"origin": topic, "data": data}))
 
+    def handle_nfc_heartbeat(_topic: str, data: dict):
+        """Track NFC device heartbeats"""
+        nonlocal nfc_last_heartbeat
+        nfc_last_heartbeat = time.time()
+        log.debug(f"NFC heartbeat received: {data}")
+
+    def send_status():
+        """Send NFC/MQTT connection status to the client"""
+        mqtt_connected = mqtt_client and mqtt_client.c.is_connected()
+        nfc_age = (
+            None if nfc_last_heartbeat is None else time.time() - nfc_last_heartbeat
+        )
+        ws.send(
+            json.dumps(
+                {
+                    "type": "status",
+                    "server_mqtt_connected": bool(mqtt_connected),
+                    "nfc_heartbeat_age_sec": nfc_age,
+                }
+            )
+        )
+
     mqtt_client = mqtt.get()
     if mqtt_client:
         mqtt_client.register_topic_callback(neon_signin_topic, handle_message)
         mqtt_client.register_topic_callback(neon_toast_topic, handle_message)
+        mqtt_client.register_topic_callback(nfc_heartbeat_topic, handle_nfc_heartbeat)
         log.info("Registered welcome_neon_ws listeners")
     else:
         log.info("MQTT client not set up; aborting")
         return Response("MQTT client not set up", status=500)
     try:
+        # Send initial status
+        send_status()
         while True:
-            data = ws.receive()
+            data = ws.receive(timeout=5)
+            if data is None:
+                # Timeout — send periodic status update
+                send_status()
+                continue
             msg = json.loads(data)
             if msg.get("type") == "ping":
                 ws.send(json.dumps({"type": "pong"}))
@@ -111,6 +146,9 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
         if mqtt_client:
             mqtt_client.unregister_topic_callback(neon_signin_topic, handle_message)
             mqtt_client.unregister_topic_callback(neon_toast_topic, handle_message)
+            mqtt_client.unregister_topic_callback(
+                nfc_heartbeat_topic, handle_nfc_heartbeat
+            )
     log.info("Neon sign-in WS listener ended")
 
 
