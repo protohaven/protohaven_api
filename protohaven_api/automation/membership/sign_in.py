@@ -2,7 +2,7 @@
 
 import datetime
 import logging
-import multiprocessing as mp
+import multiprocessing.pool as mp_pool
 import traceback
 
 from protohaven_api.automation.membership.membership import PLACEHOLDER_START_DATE
@@ -14,17 +14,20 @@ log = logging.getLogger("automation.membership.sign_in")
 
 WAIVER_FMT = "version {version} on {accepted}"
 
-# This is the process pool for async execution of long-running
+# This is the thread pool for async execution of long-running
 # commands produced during the sign-in process, e.g. membership
 # activation, sign in form submission, waiver ack updates.
+# Using ThreadPool instead of Pool (subprocesses) because all tasks
+# are I/O-bound HTTP calls — threads avoid the ~10 MiB per-worker
+# memory overhead of forked subprocesses.
 pool = None  # pylint: disable=invalid-name
 
 
 def initialize(num_procs=2):
-    """Initialize caching & process pools for faster results"""
+    """Initialize caching & thread pools for faster results"""
     log.info("Initializing")
     global pool  # pylint: disable=global-statement
-    pool = mp.Pool(num_procs)  # pylint: disable=consider-using-with
+    pool = mp_pool.ThreadPool(num_procs)
 
 
 def _pool_err_cb(exc):
