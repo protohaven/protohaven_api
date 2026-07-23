@@ -17,27 +17,27 @@
 
   $: all_ok = client_ws_connected && server_mqtt_connected && nfc_alive;
 
-  $: tooltip_lines = getTooltipLines();
-
-  function getTooltipLines(): string[] {
-    if (all_ok) return ["NFC tap system online"];
-    const lines: string[] = [];
-    if (!client_ws_connected) {
-      lines.push("• Browser WebSocket disconnected from server");
-    }
-    if (!server_mqtt_connected) {
-      lines.push("• Server cannot connect to MQTT broker");
-    }
-    if (!nfc_alive) {
-      if (nfc_heartbeat_age_sec === null) {
-        lines.push("• NFC device heartbeat never received");
-      } else {
-        const age = Math.round(nfc_heartbeat_age_sec);
-        lines.push(`• NFC device heartbeat stale (${age}s ago, limit ${NFC_HEARTBEAT_TIMEOUT_SEC}s)`);
-      }
-    }
-    return lines;
-  }
+  // Inlined tooltip derivation — avoid function call so Svelte 4
+  // properly tracks all reactive dependencies in $$.update.
+  $: tooltip_lines = all_ok
+    ? ["NFC tap system online"]
+    : [
+        ...(!client_ws_connected
+          ? ["\u2022 Browser WebSocket disconnected from server"]
+          : []),
+        ...(!server_mqtt_connected
+          ? ["\u2022 Server cannot connect to MQTT broker"]
+          : []),
+        ...(!nfc_alive
+          ? nfc_heartbeat_age_sec === null
+            ? ["\u2022 NFC device heartbeat never received"]
+            : [
+                `\u2022 NFC device heartbeat stale (${Math.round(
+                  nfc_heartbeat_age_sec
+                )}s ago, limit ${NFC_HEARTBEAT_TIMEOUT_SEC}s)`
+              ]
+          : [])
+      ];
 </script>
 
 <div
