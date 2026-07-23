@@ -21,8 +21,6 @@ def fetch_calendar(calendar_id, time_min=None, time_max=None):
         time_max = datetime.utcnow() + timedelta(days=30)
     events_result = get_connector().gcal_request(calendar_id, time_min, time_max)
     events = events_result.get("items", [])
-    if not events:
-        raise RuntimeError("No upcoming events found.")
     # Bin by event (aka instructor) name
     output = defaultdict(list)
     for event in events:

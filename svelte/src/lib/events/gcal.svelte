@@ -18,11 +18,15 @@ import FetchError from '../fetch_error.svelte';
   {#await promise}
       <Spinner/>
   {:then p}
-    <ListGroup>
-    {#each p as evt }
-    <ListGroupItem>{new Date(evt.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}: {evt.name}</ListGroupItem>
-    {/each}
-    </ListGroup>
+    {#if p.length === 0}
+      <p>No upcoming events in the schedule!</p>
+    {:else}
+      <ListGroup>
+      {#each p as evt }
+      <ListGroupItem>{new Date(evt.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}: {evt.name}</ListGroupItem>
+      {/each}
+      </ListGroup>
+    {/if}
   {:catch error}
     <FetchError {error}/>
   {/await}
