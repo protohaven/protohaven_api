@@ -63,7 +63,6 @@
       console.error("Neon sign-in WS error:", err);
     };
     neon_ws.onmessage = (event) => {
-      console.log(event);
       let data = JSON.parse(event.data);
 
       if (data.type === "status") {

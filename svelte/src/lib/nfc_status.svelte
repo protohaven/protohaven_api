@@ -1,4 +1,5 @@
-<script lang="ts">
+<script type="typescript" lang="ts">
+  import { Tooltip, Icon } from '@sveltestrap/sveltestrap';
   // nfc_status.svelte — indicator showing NFC tap system health
   // Tracks three independent failure modes:
   //   1. Client WebSocket to Flask server
@@ -9,7 +10,7 @@
   export let server_mqtt_connected: boolean = false;
   export let nfc_heartbeat_age_sec: number | null = null;
 
-  const NFC_HEARTBEAT_TIMEOUT_SEC = 30;
+  const NFC_HEARTBEAT_TIMEOUT_SEC = 60;
 
   $: nfc_alive =
     nfc_heartbeat_age_sec !== null &&
@@ -20,19 +21,19 @@
   // Inlined tooltip derivation — avoid function call so Svelte 4
   // properly tracks all reactive dependencies in $$.update.
   $: tooltip_lines = all_ok
-    ? ["NFC tap system online"]
+    ? [`NFC tap system online; last contact ${Math.round(nfc_heartbeat_age_sec)}s`]
     : [
         ...(!client_ws_connected
-          ? ["\u2022 Browser WebSocket disconnected from server"]
+          ? ["Browser WebSocket disconnected from server"]
           : []),
         ...(!server_mqtt_connected
-          ? ["\u2022 Server cannot connect to MQTT broker"]
+          ? ["Server cannot connect to MQTT broker"]
           : []),
         ...(!nfc_alive
           ? nfc_heartbeat_age_sec === null
-            ? ["\u2022 NFC device heartbeat never received"]
+            ? ["NFC device heartbeat never received"]
             : [
-                `\u2022 NFC device heartbeat stale (${Math.round(
+                `NFC device heartbeat stale (${Math.round(
                   nfc_heartbeat_age_sec
                 )}s ago, limit ${NFC_HEARTBEAT_TIMEOUT_SEC}s)`
               ]
@@ -40,30 +41,18 @@
       ];
 </script>
 
+<Tooltip target="nfc-indicator">
+  {#each tooltip_lines as tl}
+  <p>{tl}</p>
+  {/each}
+</Tooltip>
 <div
   class="nfc-indicator"
+  id="nfc-indicator"
   class:online={all_ok}
   class:offline={!all_ok}
-  title={tooltip_lines.join("&#10;")}
 >
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    class="nfc-icon"
-  >
-    <!-- NFC symbol: antenna + wave -->
-    <path d="M6 8.32a7.43 7.43 0 0 1 0 7.36" />
-    <path d="M9.46 5.11a9.53 9.53 0 0 1 0 13.78" />
-    <path d="M12.91 1.89a12.64 12.64 0 0 1 0 20.22" />
-    <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
-    <line x1="8" y1="2" x2="8" y2="22" />
-  </svg>
-  <span class="status-dot" class:online={all_ok} class:offline={!all_ok} />
+  <Icon name="wifi" />Tap Sign In {all_ok ? "Online" : "Offline"}
 </div>
 
 <style>
