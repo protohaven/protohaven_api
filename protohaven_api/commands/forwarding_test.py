@@ -185,15 +185,42 @@ def test_project_requests(mocker, cli):
         ],
     )
     mocker.patch.object(F, "tznow", return_value=d(0))
-    mocker.patch.object(F.tasks, "complete")
-    assert cli("project_requests", ["--apply"]) == [
+    got = cli("project_requests", ["--apply"])
+    assert got == [
+        {
+            "body": MatchStr("Test Desc"),
+            "subject": MatchStr("Project Request"),
+            "target": "#help-wanted",
+            "side_effect": {"complete_asana_task": "123"},
+        }
+    ]
+
+
+def test_project_requests_no_apply(mocker, cli):
+    """Test that --no-apply omits side_effect"""
+    mocker.patch.object(
+        F.tasks,
+        "get_project_requests",
+        return_value=[
+            {
+                "gid": "123",
+                "name": "Foo",
+                "notes": (
+                    f"Project Description:\\nTest Desc\\nMaterials Budget: $5\\n"
+                    f"Deadline for Project Completion:\\n{d(1).isoformat()}\\n"
+                ),
+            }
+        ],
+    )
+    mocker.patch.object(F, "tznow", return_value=d(0))
+    got = cli("project_requests", ["--no-apply"])
+    assert got == [
         {
             "body": MatchStr("Test Desc"),
             "subject": MatchStr("Project Request"),
             "target": "#help-wanted",
         }
     ]
-    F.tasks.complete.assert_called_with("123")  # pylint: disable=no-member
 
 
 def test_shop_tech_applications(mocker, cli):
@@ -300,15 +327,39 @@ def test_phone_messages(mocker, cli):
             }
         ],
     )
-    mocker.patch.object(F.tasks, "complete", return_value=None)
-    assert cli("phone_messages", ["--apply"]) == [
+    got = cli("phone_messages", ["--apply"])
+    assert got == [
+        {
+            "body": MatchStr("test notes"),
+            "subject": MatchStr("phone message"),
+            "target": "hello@protohaven.org",
+            "side_effect": {"complete_asana_task": "123"},
+        }
+    ]
+
+
+def test_phone_messages_no_apply(mocker, cli):
+    """Test `phone_messages` cli command without apply"""
+    mocker.patch.object(
+        F.tasks,
+        "get_phone_messages",
+        return_value=[
+            {
+                "gid": "123",
+                "name": "Foo",
+                "created_at": d(0).isoformat(),
+                "notes": "test notes",
+            }
+        ],
+    )
+    got = cli("phone_messages", ["--no-apply"])
+    assert got == [
         {
             "body": MatchStr("test notes"),
             "subject": MatchStr("phone message"),
             "target": "hello@protohaven.org",
         }
     ]
-    F.tasks.complete.assert_called_with("123")  # pylint: disable=no-member
 
 
 def test_donation_requests(mocker, cli):

@@ -24,7 +24,8 @@ class Commands:
     @command(
         arg(
             "--apply",
-            help="when true, Asana tasks are completed when comms are generated",
+            help="when true, side effects (e.g. completing Asana tasks) "
+            "are included in the generated comms YAML",
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
@@ -54,14 +55,15 @@ class Commands:
                 )
                 continue
 
+            side_effect = {"complete_asana_task": req["gid"]} if args.apply else {}
             results.append(
                 Msg.tmpl(
-                    "new_project_request", notes=req["notes"], target="#help-wanted"
+                    "new_project_request",
+                    notes=req["notes"],
+                    target="#help-wanted",
+                    side_effect=side_effect,
                 )
             )
-            if args.apply:
-                tasks.complete(req["gid"])
-                log.info(f"marked complete: {req['gid']}")
             num += 1
         log.info(f"Done - {num} project request(s) generated")
 
@@ -284,7 +286,8 @@ class Commands:
     @command(
         arg(
             "--apply",
-            help="when true, Asana tasks are completed when comms are generated",
+            help="when true, side effects (e.g. completing Asana tasks) "
+            "are included in the generated comms YAML",
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
@@ -301,6 +304,7 @@ class Commands:
         for req in tasks.get_phone_messages():
             if req.get("completed"):
                 continue
+            side_effect = {"complete_asana_task": req["gid"]} if args.apply else {}
             results.append(
                 Msg.tmpl(
                     "phone_message",
@@ -308,11 +312,9 @@ class Commands:
                     msg_header=req["name"].split(",")[0],
                     date=safe_parse_datetime(req["created_at"]),
                     notes=req["notes"],
+                    side_effect=side_effect,
                 )
             )
-            if args.apply:
-                tasks.complete(req["gid"])
-                log.info(f"marked complete: {req['gid']}")
             num += 1
         log.info(f"Found {num} open phone messages")
 
