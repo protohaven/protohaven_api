@@ -273,11 +273,21 @@ def test_techs_forecast_override_post(mocker, tech_client):
             "date": "2023-10-01",
             "ap": "AM",
             "techs": ["Tech1", "Tech2"],
+            "orig": ["Tech1"],
             "email": "john.doe@example.com",
         },
     )
     assert response.status_code == 200
     assert response.data.decode() == "Success"
+    tl.airtable.set_forecast_override.assert_called_once_with(
+        "123",
+        "2023-10-01",
+        "AM",
+        ["Tech1", "Tech2"],
+        ["Tech1"],
+        "john.doe@example.com",
+        "John Doe",
+    )
     tl.comms.send_discord_message.assert_called_once_with(
         MatchStr("Tech1, Tech2"), "#techs", blocking=False
     )
