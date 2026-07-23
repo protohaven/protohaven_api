@@ -8,6 +8,7 @@
   import MembershipExpired from '$lib/membership_expired.svelte';
 	import Waiver from '$lib/waiver.svelte';
   import MemberAgreement from '$lib/member_agreement.svelte';
+  import NfcStatus from '$lib/nfc_status.svelte';
   let state='splash';
   let name='member';
   let email=null;
@@ -27,6 +28,9 @@
 
   let neon_ws = null;
   let neon_ws_connected = false;
+  let server_mqtt_connected = false;
+  /** @type {number | null} */
+  let nfc_heartbeat_age_sec = null;
   let toast_msg = null;
   let toast_timer = null;
 
@@ -62,7 +66,10 @@
       console.log(event);
       let data = JSON.parse(event.data);
 
-      if (data.origin.endsWith("signin")) {
+      if (data.type === "status") {
+        server_mqtt_connected = data.server_mqtt_connected;
+        nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
+      } else if (data.origin.endsWith("signin")) {
         console.log("Received sign in attempt via MQTT:", data.data);
         // If we're already showing sign-in result, restart the flow first
         if (state === 'signin_ok') {
@@ -233,6 +240,12 @@
 	</Row>
 </main>
 
+<NfcStatus
+    client_ws_connected={neon_ws_connected}
+    server_mqtt_connected={server_mqtt_connected}
+    nfc_heartbeat_age_sec={nfc_heartbeat_age_sec}
+  />
+
 <svelte:window
     on:keyup={(e) => {
       if (e.key == 'Enter' && state==="signin_ok") {
@@ -241,7 +254,6 @@
       }
     }}
 />
-
 
 
 <style>
