@@ -11,8 +11,8 @@ from protohaven_api.testing import idfn, mkcli
 
 Tc = namedtuple(
     "Tc",
-    "desc,data,args,email,log,discord,intents_notified,scheduled_state",
-    defaults=[None for _ in range(7)],
+    "desc,data,args,email,log,discord,intents_notified,scheduled_state,asana_complete",
+    defaults=[None for _ in range(8)],
 )
 
 
@@ -121,6 +121,19 @@ def fixture_cli(capsys):
             ],
             ["--no-apply"],
         ),
+        Tc(
+            "Side effect complete_asana_task",
+            {
+                "target": "@testuser",
+                "subject": "Test Subject",
+                "body": "Test Body",
+                "side_effect": {"complete_asana_task": "999"},
+            },
+            [],
+            log=call("", "@testuser", "Test Subject", "Sent"),
+            discord=call("Test Subject\n\nTest Body", "@testuser"),
+            asana_complete=call("999"),
+        ),
     ],
     ids=idfn,
 )
@@ -131,6 +144,7 @@ def test_send_comms(mocker, tc, cli):
     mocker.patch.object(c.airtable, "log_intents_notified")
     mocker.patch.object(c.airtable, "log_comms")
     mocker.patch.object(c.eauto, "set_event_scheduled_state")
+    mocker.patch.object(c.tasks, "complete")
     mocker.patch.object(
         c.Commands,
         "_load_comms_data",
@@ -145,6 +159,7 @@ def test_send_comms(mocker, tc, cli):
         (c.comms.send_discord_message, tc.discord),
         (c.airtable.log_intents_notified, tc.intents_notified),
         (c.eauto.set_event_scheduled_state, tc.scheduled_state),
+        (c.tasks.complete, tc.asana_complete),
     ]:
         if tcall:
             fn.assert_has_calls([tcall])

@@ -15,6 +15,7 @@ from protohaven_api.commands.decorator import arg, command
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
     comms,
+    tasks,
 )
 
 log = logging.getLogger("cli.comms")
@@ -75,14 +76,6 @@ class Commands:  # pylint: disable=too-few-public-methods
 
     def _handle_comms_event(self, e, apply):
         """Handle a single entry in a comms YAML file"""
-        for k, v in e.get("side_effect", {}).items():
-            if k.lower().strip() == "cancel":
-                log.info(f"Cancelling #{v}")
-                if apply:
-                    log.info(
-                        str(eauto.set_event_scheduled_state(str(v), scheduled=False))
-                    )
-
         if e["target"][0] in ("#", "@"):  # channels or users
             target = self._handle_discord(
                 e, apply, getenv("CHAN_OVERRIDE"), getenv("DM_OVERRIDE")
@@ -94,6 +87,22 @@ class Commands:  # pylint: disable=too-few-public-methods
             not target
         ):  # Only set when the action made a change; ignore apply=False and failure
             return
+
+        # Side effects happen AFTER successful message delivery.
+        # This ensures tasks aren't marked complete if the message fails to send.
+        for k, v in e.get("side_effect", {}).items():
+            k = k.lower().strip()
+            if k == "cancel":
+                log.info(f"Cancelling #{v}")
+                if apply:
+                    log.info(
+                        str(eauto.set_event_scheduled_state(str(v), scheduled=False))
+                    )
+            elif k == "complete_asana_task":
+                log.info(f"Completing Asana task #{v}")
+                if apply:
+                    tasks.complete(str(v))
+                    log.info(f"marked complete: {v}")
 
         airtable.log_comms(e.get("id", ""), ", ".join(target), e["subject"], "Sent")
         log.info("Logged to airtable")
