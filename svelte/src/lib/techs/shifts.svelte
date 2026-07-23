@@ -102,6 +102,8 @@ function start_edit(s, ap) {
  let e = {ap: ap, date: s.date, techs: s[ap].people, ...user};
  if (s[ap].ovr) {
    e = {...e, id: s[ap].ovr.id, orig: s[ap].ovr.orig, editor: s[ap].ovr.editor};
+ } else {
+   e = {...e, orig: [...s[ap].people]};
  }
  edit = e;
 }

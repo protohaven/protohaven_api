@@ -906,16 +906,36 @@ def delete_forecast_override(rec):
 
 
 def set_forecast_override(  # pylint: disable=too-many-arguments
-    rec, date, ap, techs, editor_email, editor_name
+    rec, date, ap, techs, orig, editor_email, editor_name
 ):
-    """Upserts a shop tech shift override"""
+    """Upserts a shop tech shift override.
+
+    Stores a delta of the override relative to the default shift people (orig).
+    Lines starting with '+' indicate additions, '-' indicate removals.
+    This ensures newly enrolled techs with matching default shifts
+    automatically appear in previously-overridden shifts.
+    """
     ap = ap.lower()
     date = safe_parse_datetime(date).replace(
         hour=10 if ap.lower() == "am" else 16, minute=0, second=0, tzinfo=tz
     )
+    # Compute delta: +Name for additions, -Name for removals
+    orig_set = set(orig or [])
+    techs_set = set(techs or [])
+    additions = sorted(techs_set - orig_set)
+    removals = sorted(orig_set - techs_set)
+    delta_lines = [f"+{t}" for t in additions] + [f"-{t}" for t in removals]
+
+    # If delta is empty and an override record exists, delete it.
+    # If delta is empty and no record exists, no-op.
+    if not delta_lines:
+        if rec is not None:
+            return delete_record("people", "shop_tech_forecast_overrides", rec)
+        return 200, None
+
     data = {
         "Shift Start": date.isoformat(),
-        "Override": "\n".join(techs),
+        "Override": "\n".join(delta_lines),
         "Last Modified By": f"{editor_name} ({editor_email})",
     }
     if rec is not None:
