@@ -268,3 +268,41 @@ def test_is_delta_format_detection(mocker):
     # Empty entries: no override
     got = t.resolve_overrides({"s": ("id", [], "ed")}, "s", [default_tech])
     assert got == (None, [], None)
+
+
+def test_resolve_overrides_delta_format_remove_all_techs():
+    """Test delta format: removing ALL default techs results in empty list,
+    NOT a reversion to the original shift_people (regression test).
+
+    This verifies the fix for a bug where the calendar would revert to the
+    original scheduled techs when all techs were removed from a shift."""
+    default_tech = _mock_tech("Only Tech")
+
+    test_overrides = {
+        "shift1": ("id1", ["-Only Tech"], "editor1"),
+    }
+    shift_people = [default_tech]
+
+    got = t.resolve_overrides(test_overrides, "shift1", shift_people)
+    # ovr_id must be preserved so final_people uses the (empty) override,
+    # not the original shift_people
+    assert got[0] == "id1"
+    assert got[1] == []  # nobody on shift
+    assert got[2] == "editor1"
+
+
+def test_resolve_overrides_delta_format_remove_all_multiple_techs():
+    """Test delta format: removing ALL of multiple default techs results in
+    an empty list."""
+    tech_a = _mock_tech("Tech A")
+    tech_b = _mock_tech("Tech B")
+
+    test_overrides = {
+        "shift1": ("id1", ["-Tech A", "-Tech B"], "editor1"),
+    }
+    shift_people = [tech_a, tech_b]
+
+    got = t.resolve_overrides(test_overrides, "shift1", shift_people)
+    assert got[0] == "id1"
+    assert got[1] == []  # nobody on shift
+    assert got[2] == "editor1"
