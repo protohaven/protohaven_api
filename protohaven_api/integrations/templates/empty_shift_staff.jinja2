@@ -1,0 +1,10 @@
+{% if subject %}
+Holiday shift {{shift.date}} {{shift.shift}} (in {{shift.days_away}} day(s)) has no techs assigned.
+{% else %}
+@Staff: ensure an announcement email has been sent to membership if we expect to be closed, otherwise work with tech leads to find volunteers for the shift. Automation will also send messages to #tech-leads and #techs as the day draws closer.
+[View full schedule](https://api.protohaven.org/techs#cal)
+{% if footer is defined %}
+
+{{footer}}
+{% endif %}
+{% endif %}
