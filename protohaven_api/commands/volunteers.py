@@ -10,7 +10,7 @@ from protohaven_api.integrations.comms import Msg
 log = logging.getLogger("cli.volunteers")
 
 
-class Commands:
+class Commands:  # pylint: disable=too-few-public-methods
     """Commands for managing volunteer shift alerts and scheduling"""
 
     @command(
