@@ -27,14 +27,14 @@ def staff_static():
 
 
 @page.route("/staff/_app/immutable/<typ>/<path>")
-@require_login_role(Role.STAFF, Role.BOARD_MEMBER)
+@require_login_role(Role.STAFF, Role.BOARD_MEMBER, redirect_to_login=False)
 def staff_static_files(typ, path):
     """Return svelte compiled static pages for staff page"""
     return current_app.send_static_file(f"svelte/_app/immutable/{typ}/{path}")
 
 
 @page.route("/staff/discord_member_channels", methods=["GET"])
-@require_login_role(Role.STAFF, Role.BOARD_MEMBER)
+@require_login_role(Role.STAFF, Role.BOARD_MEMBER, redirect_to_login=False)
 def discord_channels():
     """Returns all member channels by name"""
     return [c[1] for c in comms.get_member_channels()]

@@ -14,7 +14,7 @@ page = Blueprint("reservations", __name__)
 
 
 @page.route("/reservations/set_tool", methods=["POST"])
-@require_login_role(Role.ADMIN)
+@require_login_role(Role.ADMIN, redirect_to_login=False)
 def reservations_set_tool():
     """Set the tool availability in Booked scheduler"""
     data = request.json
