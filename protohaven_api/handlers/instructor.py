@@ -128,7 +128,9 @@ def resolve_id_and_email(request_email: str | None) -> tuple[str, str, Response]
 
 
 @page.route("/instructor/class/templates")
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_class_templates():
     """Used in scheduling V2 to fetch instructor-relevant details about specific class templates"""
     ids = set(request.args.get("ids").split(","))
@@ -142,7 +144,9 @@ def instructor_class_templates():
 
 
 @page.route("/instructor/class/attendees")
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_class_attendees() -> Union[Response, str]:
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
@@ -217,7 +221,9 @@ def get_dashboard_schedule_sorted(
 
 
 @page.route("/instructor/about")
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_about():
     """Get readiness state of instructor"""
     email = request.args.get("email")
@@ -255,7 +261,9 @@ def instructor_class_svelte_files(typ, path):
 
 
 @page.route("/instructor/class_details")
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_class_details():
     """Display all class information about a particular instructor (via email)"""
     email, neon_id, rep = resolve_id_and_email(request.args.get("email"))
@@ -273,7 +281,9 @@ def instructor_class_details():
 
 
 @page.route("/instructor/class/update", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_class_update():
     """Confirm or unconfirm a class to run, by the instructor"""
     data = request.json
@@ -284,7 +294,9 @@ def instructor_class_update():
 
 
 @page.route("/instructor/class/supply_req", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_class_supply_req():
     """Mark supplies as missing or confirmed for a class"""
     data = request.json
@@ -307,7 +319,9 @@ def instructor_class_supply_req():
 
 
 @page.route("/instructor/class/volunteer", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def instructor_class_volunteer():
     """Change the volunteer state of a class"""
     data = request.json
@@ -318,7 +332,11 @@ def instructor_class_volunteer():
 
 @page.route("/instructor/list")
 @require_login_role(
-    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, Role.BOARD_MEMBER
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.BOARD_MEMBER,
+    redirect_to_login=False,
 )
 def instructor_list():
     """Fetches instructor info with role-based field restrictions
@@ -376,7 +394,9 @@ def _resolve_class_proposal_params():
 
 
 @page.route("/instructor/validate", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def validate_class():
     """Validates the instructor's selected class and session times, returning
     a list of error messages if anything fails validation"""
@@ -390,7 +410,9 @@ def validate_class():
 
 
 @page.route("/instructor/push_class", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def push_class():
     """Push specific classes to airtable, after running validation checks one last time."""
     cls_id, sessions, inst_id, rep, skip_validation = _resolve_class_proposal_params()
@@ -440,7 +462,9 @@ def push_class():
 
 
 @page.route("/instructor/class/neon_state", methods=["GET"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def class_neon_state():
     """Fetch the current state of the class in Neon"""
     event_id = request.args.get("id")
@@ -454,7 +478,9 @@ def class_neon_state():
 
 
 @page.route("/instructor/class/cancel", methods=["POST"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def cancel_class():
     """Cancel a class - fails if anyone is registered for it"""
     data = request.json
@@ -491,7 +517,9 @@ def cancel_class():
 
 
 @page.route("/instructor/submissions", methods=["GET"])
-@require_login_role(Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF)
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
 def recent_instructor_submissions():
     """Returns instructor submissions for the logged in instructor.
     Note that not all submission through time are guaranteed to be returned
@@ -531,7 +559,7 @@ def recent_instructor_submissions():
 
 
 @page.route("/instructor/clearance_quiz", methods=["POST"])
-@require_login_role(Role.AUTOMATION, Role.INSTRUCTOR)
+@require_login_role(Role.AUTOMATION, Role.INSTRUCTOR, redirect_to_login=False)
 def log_quiz_submission():
     """Saves the results of a clearance quiz in the Quiz Results airtable
 

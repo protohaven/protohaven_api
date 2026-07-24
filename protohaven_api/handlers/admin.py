@@ -33,7 +33,7 @@ def login_as_user():
 
 
 @page.route("/admin/discord_webhook", methods=["POST"])
-@require_login_role(Role.AUTOMATION)
+@require_login_role(Role.AUTOMATION, redirect_to_login=False)
 def admin_discord_webhook():
     """Send discord webhook message - use this if you get rate
     limited sending directly from third party services e.g.
@@ -47,7 +47,7 @@ def admin_discord_webhook():
 
 
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
-@require_login_role(Role.AUTOMATION)
+@require_login_role(Role.AUTOMATION, redirect_to_login=False)
 def user_clearances():
     """CRUD operations for member clearances.
     used to update clearances when instructor submits logs"""
@@ -203,7 +203,7 @@ def neon_membership_created_callback():
 
 
 @page.route("/admin/get_maintenance_data", methods=["GET"])
-@require_login_role(Role.AUTOMATION)
+@require_login_role(Role.AUTOMATION, redirect_to_login=False)
 def get_maintenance_data():
     """Used by Bookstack wiki to populate a widget on tool wiki pages"""
     tc = request.values.get("tool_code")
@@ -230,7 +230,7 @@ def get_maintenance_data():
 
 
 @page.route("/admin/maintenance", methods=["POST"])
-@require_login_role(Role.AUTOMATION)
+@require_login_role(Role.AUTOMATION, redirect_to_login=False)
 def tool_maintenance_submission():
     """Handle maintenance changes due to user submission"""
     data = request.json
