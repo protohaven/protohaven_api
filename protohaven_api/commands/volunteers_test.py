@@ -98,8 +98,8 @@ Tc = namedtuple(
             [],
         ),
         Tc(
-            "empty shift 4-6 days away generates no alert",
-            14,
+            "empty shift 4-6 days away -> #tech-leads",
+            8,
             3,
             7,
             [
@@ -108,9 +108,29 @@ Tc = namedtuple(
                 _make_day("2025-01-03", False, ["tech1"], ["tech2"]),
                 _make_day("2025-01-04", False, ["tech1"], ["tech2"]),
                 _make_day("2025-01-05", False, [], ["tech2"]),
+                _make_day("2025-01-06", False, ["tech1"], []),
             ],
-            [],
-            [],
+            ["#tech-leads", "#tech-leads"],
+            ["have no techs", "have no techs"],
+        ),
+        Tc(
+            "empty shift beyond planning_days is ignored",
+            10,
+            3,
+            7,
+            [
+                _make_day("2025-01-01", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-03", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-04", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-05", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-06", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-07", False, ["tech1"], ["tech2"]),
+                _make_day("2025-01-08", False, [], ["tech2"]),  # day 7 -> #tech-leads
+                _make_day("2025-01-09", False, [], ["tech2"]),  # day 8 -> ignored
+            ],
+            ["#tech-leads"],
+            ["have no techs"],
         ),
         Tc(
             "mixed: leads and techs alerts",
@@ -145,19 +165,20 @@ Tc = namedtuple(
         ),
         Tc(
             "custom urgent/planning thresholds change routing",
-            5,
+            6,
             0,
             3,
             [
                 _make_day("2025-01-01", False, [], ["tech1"]),  # day 0 -> #techs
-                _make_day("2025-01-02", False, [], ["tech1"]),  # day 1 -> gap
-                _make_day("2025-01-03", False, [], ["tech1"]),  # day 2 -> gap
+                _make_day("2025-01-02", False, [], ["tech1"]),  # day 1 -> #tech-leads
+                _make_day("2025-01-03", False, [], ["tech1"]),  # day 2 -> #tech-leads
                 _make_day("2025-01-04", False, [], ["tech1"]),  # day 3 -> #tech-leads
-                _make_day("2025-01-05", False, [], ["tech1"]),  # day 4 -> #tech-leads
+                _make_day("2025-01-05", False, [], ["tech1"]),  # day 4 -> ignored
             ],
-            ["#techs", "#tech-leads", "#tech-leads"],
+            ["#techs", "#tech-leads", "#tech-leads", "#tech-leads"],
             [
                 "with nobody on duty",
+                "have no techs",
                 "have no techs",
                 "have no techs",
             ],

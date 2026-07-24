@@ -28,7 +28,7 @@ class Commands:
         ),
         arg(
             "--planning-days",
-            help="Shifts at least this many days away are planning (alert #tech-leads)",
+            help="Shifts between --urgent-days and this many days out (alert #tech-leads)",
             type=int,
             default=7,
         ),
@@ -36,8 +36,10 @@ class Commands:
     def check_empty_shifts(self, args, _):
         """Check for shifts with zero techs on duty and prepare alerts.
 
-        Empty shifts >= --planning-days away generate a message to #tech-leads.
         Empty shifts <= --urgent-days away generate a message to #techs.
+        Empty shifts > --urgent-days and <= --planning-days away
+        generate a message to #tech-leads.
+        Shifts beyond --planning-days are ignored.
         """
         now = tznow()
         data = forecast.generate(now, args.days_ahead, include_pii=False)
@@ -60,16 +62,7 @@ class Commands:
                         "shift": ap,
                         "days_away": days_away,
                     }
-                    if days_away >= args.planning_days:
-                        leads_msgs.append(
-                            Msg.tmpl(
-                                "empty_shift_leads",
-                                id=f"empty_shift_leads_{day['date']}_{ap}",
-                                shifts=[shift_info],
-                                target="#tech-leads",
-                            )
-                        )
-                    elif days_away <= args.urgent_days:
+                    if days_away <= args.urgent_days:
                         techs_msgs.append(
                             Msg.tmpl(
                                 "empty_shift_techs",
@@ -78,11 +71,20 @@ class Commands:
                                 target="#techs",
                             )
                         )
+                    elif days_away <= args.planning_days:
+                        leads_msgs.append(
+                            Msg.tmpl(
+                                "empty_shift_leads",
+                                id=f"empty_shift_leads_{day['date']}_{ap}",
+                                shifts=[shift_info],
+                                target="#tech-leads",
+                            )
+                        )
                     else:
                         log.info(
                             f"Empty shift {day['date']} {ap} is {days_away} days "
-                            f"away ({args.urgent_days + 1}-{args.planning_days - 1} "
-                            "day gap); no alert generated"
+                            f"away (beyond --planning-days={args.planning_days}); "
+                            "no alert generated"
                         )
 
         if techs_msgs:
@@ -92,8 +94,8 @@ class Commands:
             )
         if leads_msgs:
             log.info(
-                f"Found {len(leads_msgs)} empty shift(s) >= {args.planning_days} "
-                "days out for #tech-leads"
+                f"Found {len(leads_msgs)} empty shift(s) > {args.urgent_days} "
+                f"and <= {args.planning_days} days out for #tech-leads"
             )
         if not techs_msgs and not leads_msgs:
             log.info("No empty shifts found requiring alerts")
