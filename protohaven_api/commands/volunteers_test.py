@@ -73,8 +73,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
                 _make_day("2025-01-01", False, [], ["tech2"]),
                 _make_day("2025-01-02", False, ["tech1"], []),
             ],
-            ["#techs"],
-            ["urgently need techs"],
+            ["#techs", "#techs"],
+            ["with nobody on duty", "with nobody on duty"],
         ),
         Tc(
             "holiday with no techs is skipped",
@@ -113,7 +113,7 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
                 _make_day("2025-01-08", False, [], ["tech2"]),  # day 7 -> #tech-leads
             ],
             ["#techs", "#tech-leads"],
-            ["urgently need techs", "have no techs"],
+            ["with nobody on duty", "have no techs"],
         ),
         Tc(
             "custom days_ahead limits range",
@@ -141,6 +141,10 @@ def test_check_empty_shifts(mocker, tc, cli):
 
     targets = [g["target"] for g in got]
     assert targets == list(tc.want_targets)
+
+    # Each message must have a unique id for deduplication
+    msg_ids = [g["id"] for g in got]
+    assert len(msg_ids) == len(set(msg_ids)), f"Duplicate message ids: {msg_ids}"
 
     for i, want_subject in enumerate(tc.want_subjects):
         assert want_subject in got[i]["subject"]

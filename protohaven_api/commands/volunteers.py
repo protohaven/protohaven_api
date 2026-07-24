@@ -30,9 +30,10 @@ class Commands:
         now = tznow()
         data = forecast.generate(now, args.days_ahead, include_pii=False)
 
-        # Group empty shifts by target channel
-        leads_shifts = []  # >= 7 days away -> #tech-leads
-        techs_shifts = []  # <= 3 days away -> #techs
+        # Build individual messages per empty shift for deduplication;
+        # urgent #techs messages are yielded first, then #tech-leads.
+        leads_msgs = []  # >= 7 days away -> #tech-leads
+        techs_msgs = []  # <= 3 days away -> #techs
 
         for i, day in enumerate(data["calendar_view"]):
             if day["is_holiday"]:
@@ -48,44 +49,37 @@ class Commands:
                         "days_away": days_away,
                     }
                     if days_away >= 7:
-                        leads_shifts.append(shift_info)
+                        leads_msgs.append(
+                            Msg.tmpl(
+                                "empty_shift_leads",
+                                id=f"empty_shift_leads_{day['date']}_{ap}",
+                                shifts=[shift_info],
+                                target="#tech-leads",
+                            )
+                        )
                     elif days_away <= 3:
-                        techs_shifts.append(shift_info)
+                        techs_msgs.append(
+                            Msg.tmpl(
+                                "empty_shift_techs",
+                                id=f"empty_shift_techs_{day['date']}_{ap}",
+                                shifts=[shift_info],
+                                target="#techs",
+                            )
+                        )
                     else:
                         log.info(
                             f"Empty shift {day['date']} {ap} is {days_away} days "
                             "away (4-6 day gap); no alert generated"
                         )
 
-        results = []
-        if techs_shifts:
+        if techs_msgs:
+            log.info(f"Found {len(techs_msgs)} empty shift(s) <= 3 days out for #techs")
+        if leads_msgs:
             log.info(
-                f"Found {len(techs_shifts)} empty shift(s) <= 3 days out " "for #techs"
+                f"Found {len(leads_msgs)} empty shift(s) >= 7 days out for #tech-leads"
             )
-            results.append(
-                Msg.tmpl(
-                    "empty_shift_techs",
-                    id=f"empty_shift_techs_{'_'.join([t['date'] for t in techs_shifts])}",
-                    shifts=techs_shifts,
-                    target="#techs",
-                )
-            )
-
-        if leads_shifts:
-            log.info(
-                f"Found {len(leads_shifts)} empty shift(s) >= 7 days out "
-                "for #tech-leads"
-            )
-            results.append(
-                Msg.tmpl(
-                    "empty_shift_leads",
-                    id=f"empty_shift_leads_{'_'.join([t['date'] for t in leads_shifts])}",
-                    shifts=leads_shifts,
-                    target="#tech-leads",
-                )
-            )
-
-        if not results:
+        if not techs_msgs and not leads_msgs:
             log.info("No empty shifts found requiring alerts")
 
-        print_yaml(results)
+        # Urgent messages (#techs) before planning messages (#tech-leads)
+        print_yaml(techs_msgs + leads_msgs)
