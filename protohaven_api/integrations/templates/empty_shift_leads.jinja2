@@ -1,0 +1,16 @@
+{% if subject %}
+{{shifts|length}} upcoming shift(s) have no techs assigned
+{% else %}
+@TechLeads: the following upcoming shift(s) have **no techs assigned** :
+
+{% for s in shifts %}
+- **{{s.date}} {{s.shift}}** (in {{s.days_away}} day(s))
+{% endfor %}
+
+Please help recruit techs for these shifts. A followup message will be sent to #techs shortly before the shift(s).
+[View full schedule](https://api.protohaven.org/techs#cal)
+{% if footer is defined %}
+
+{{footer}}
+{% endif %}
+{% endif %}

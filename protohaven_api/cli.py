@@ -14,6 +14,7 @@ from protohaven_api.commands import (
     reservations,
     roles,
     violations,
+    volunteers,
 )
 from protohaven_api.config import get_config
 from protohaven_api.integrations.cronicle import Progress
@@ -45,6 +46,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
     comms.Commands,
     reservations.Commands,
     classes.Commands,
+    volunteers.Commands,
     forwarding.Commands,
     finances.Commands,
     violations.Commands,

@@ -179,6 +179,24 @@ TESTED_TEMPLATES = [
         },
     ),
     (
+        "empty_shift_leads",
+        {
+            "shifts": [
+                {"date": "2025-01-08", "shift": "AM", "days_away": 7},
+                {"date": "2025-01-09", "shift": "PM", "days_away": 8},
+            ],
+        },
+    ),
+    (
+        "empty_shift_techs",
+        {
+            "shifts": [
+                {"date": "2025-01-01", "shift": "AM", "days_away": 0},
+                {"date": "2025-01-02", "shift": "PM", "days_away": 1},
+            ],
+        },
+    ),
+    (
         "door_sensor_warnings",
         {"warnings": ["warning1", "warning2"]},
     ),
@@ -451,6 +469,8 @@ HASHES = {
     "discord_role_change_summary": "8a34d924f30d0625",  # pragma: allowlist secret
     "discount_creation_summary": "e3c5a08c4933b6b3",  # pragma: allowlist secret
     "donation_requests": "a7c0cc5126341eb4",  # pragma: allowlist secret
+    "empty_shift_leads": "08a6a3fa0ef3fa55",  # pragma: allowlist secret
+    "empty_shift_techs": "e495166fadf65823",  # pragma: allowlist secret
     "door_sensor_warnings": "4203149c4b940078",  # pragma: allowlist secret
     "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
     "class_supply_requests": "3e12f3737ad31808",  # pragma: allowlist secret
