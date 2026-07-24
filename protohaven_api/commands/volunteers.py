@@ -5,7 +5,7 @@ import logging
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
-from protohaven_api.config import tznow
+from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.volunteers")
@@ -39,6 +39,12 @@ class Commands:  # pylint: disable=too-few-public-methods
             action=argparse.BooleanOptionalAction,
             default=True,
         ),
+        arg(
+            "--start",
+            help="Start date for checking shifts (default now)",
+            type=str,
+            default=None,
+        ),
     )
     def check_empty_shifts(self, args, _):
         """Check for shifts with zero techs on duty and prepare alerts.
@@ -48,7 +54,7 @@ class Commands:  # pylint: disable=too-few-public-methods
         generate a message to #tech-leads.
         Shifts beyond --planning-days are ignored.
         """
-        now = tznow()
+        now = tznow() if not args.start else safe_parse_datetime(args.start)
         data = forecast.generate(now, args.days_ahead, include_pii=False)
 
         # Build individual messages per empty shift for deduplication;
