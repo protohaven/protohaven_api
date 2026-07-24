@@ -60,12 +60,12 @@ class Commands:
         results = []
         if techs_shifts:
             log.info(
-                f"Found {len(techs_shifts)} empty shift(s) <= 3 days out "
-                "for #techs"
+                f"Found {len(techs_shifts)} empty shift(s) <= 3 days out " "for #techs"
             )
             results.append(
                 Msg.tmpl(
                     "empty_shift_techs",
+                    id=f"empty_shift_techs_{'_'.join([t['date'] for t in techs_shifts])}",
                     shifts=techs_shifts,
                     target="#techs",
                 )
@@ -79,6 +79,7 @@ class Commands:
             results.append(
                 Msg.tmpl(
                     "empty_shift_leads",
+                    id=f"empty_shift_leads_{'_'.join([t['date'] for t in leads_shifts])}",
                     shifts=leads_shifts,
                     target="#tech-leads",
                 )

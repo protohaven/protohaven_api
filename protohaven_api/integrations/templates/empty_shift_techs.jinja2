@@ -1,13 +1,13 @@
 {% if subject %}
-{{shifts|length}} upcoming shift(s) urgently need techs
+{{shifts|length}} upcoming shift(s) with nobody on duty
 {% else %}
-@Techs: the following shift(s) have **no techs assigned** and are 3 or fewer days away:
+@Techs and @TechLeads: the following upcoming shift(s) have **no techs assigned**:
 
 {% for s in shifts %}
 - **{{s.date}} {{s.shift}}** ({% if s.days_away == 0 %}today{% else %}in {{s.days_away}} day(s){% endif %})
 {% endfor %}
 
-Please sign up urgently if you can cover any of these shifts.
+If this is not an expected holiday (per https://protohaven.org/contact/) please sign up urgently if you can cover any of these shifts.
 [View full schedule](https://api.protohaven.org/techs#cal)
 {% if footer is defined %}
 
