@@ -1,5 +1,6 @@
 """Commands for alerting about empty (unstaffed) tech shifts"""
 
+import argparse
 import logging
 
 from protohaven_api.automation.techs import techs as forecast
@@ -31,6 +32,12 @@ class Commands:  # pylint: disable=too-few-public-methods
             help="Shifts between --urgent-days and this many days out (alert #tech-leads)",
             type=int,
             default=7,
+        ),
+        arg(
+            "--dedupe",
+            help="Assign IDs to messages so that repeat runs do not cause duplicates/spam",
+            action=argparse.BooleanOptionalAction,
+            default=True,
         ),
     )
     def check_empty_shifts(self, args, _):
