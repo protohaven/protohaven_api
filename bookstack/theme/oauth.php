@@ -202,8 +202,21 @@ Theme::listen(ThemeEvents::WEB_MIDDLEWARE_BEFORE, function(Request $request) {
     if (strpos($redirect, $requestUrl) !== 0) {
         $redirect = $requestUrl;
     }
-    Session::put('post_login_redirect', $redirect);
-    Log::info("Stored post login redirect: ". $redirect);
+
+    // Don't store API/json endpoints as redirect targets — these are
+    // hit by background AJAX/fetch calls (e.g. approvals, maintenance)
+    // and would dump the user on a bare JSON page after OAuth login.
+    $path = request()->path();
+    $isApiPath = preg_match(
+        '#^(approvals/[^/]+/[^/]+/\d+|maintenance_history|maintenance_data|class_docs_report|tool_docs_report|backups/dump_)#',
+        $path
+    );
+    if (!$isApiPath) {
+      Session::put('post_login_redirect', $redirect);
+      Log::info("Stored post login redirect: ". $redirect);
+    } else {
+      Log::info("Skipping post login redirect for API path: $path");
+    }
   }
 
   // We only want to do OAuth when not authenticated and on the login page
