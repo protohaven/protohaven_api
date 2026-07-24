@@ -34,7 +34,10 @@ def _make_day(date_str, is_holiday, am_people, pm_people):
     }
 
 
-Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects")
+Tc = namedtuple(
+    "TC",
+    "desc,days_ahead,urgent_days,planning_days,calendar_view,want_targets,want_subjects",
+)
 
 
 @pytest.mark.parametrize(
@@ -43,6 +46,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "no empty shifts",
             14,
+            3,
+            7,
             [
                 _make_day("2025-01-01", False, ["tech1"], ["tech2"]),
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
@@ -53,6 +58,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "empty shift 7+ days away -> #tech-leads",
             14,
+            3,
+            7,
             [
                 _make_day("2025-01-01", False, ["tech1"], ["tech2"]),
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
@@ -69,6 +76,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "empty shift <= 3 days away -> #techs",
             14,
+            3,
+            7,
             [
                 _make_day("2025-01-01", False, [], ["tech2"]),
                 _make_day("2025-01-02", False, ["tech1"], []),
@@ -79,6 +88,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "holiday with no techs is skipped",
             14,
+            3,
+            7,
             [
                 _make_day("2025-01-01", True, [], []),
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
@@ -89,6 +100,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "empty shift 4-6 days away generates no alert",
             14,
+            3,
+            7,
             [
                 _make_day("2025-01-01", False, ["tech1"], ["tech2"]),
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
@@ -102,6 +115,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "mixed: leads and techs alerts",
             14,
+            3,
+            7,
             [
                 _make_day("2025-01-01", False, [], ["tech2"]),  # day 0 -> #techs
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
@@ -118,6 +133,8 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
         Tc(
             "custom days_ahead limits range",
             3,
+            3,
+            7,
             [
                 _make_day("2025-01-01", False, ["tech1"], ["tech2"]),
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
@@ -125,6 +142,25 @@ Tc = namedtuple("TC", "desc,days_ahead,calendar_view,want_targets,want_subjects"
             ],
             [],
             [],
+        ),
+        Tc(
+            "custom urgent/planning thresholds change routing",
+            5,
+            0,
+            3,
+            [
+                _make_day("2025-01-01", False, [], ["tech1"]),  # day 0 -> #techs
+                _make_day("2025-01-02", False, [], ["tech1"]),  # day 1 -> gap
+                _make_day("2025-01-03", False, [], ["tech1"]),  # day 2 -> gap
+                _make_day("2025-01-04", False, [], ["tech1"]),  # day 3 -> #tech-leads
+                _make_day("2025-01-05", False, [], ["tech1"]),  # day 4 -> #tech-leads
+            ],
+            ["#techs", "#tech-leads", "#tech-leads"],
+            [
+                "with nobody on duty",
+                "have no techs",
+                "have no techs",
+            ],
         ),
     ],
     ids=idfn,
@@ -137,7 +173,17 @@ def test_check_empty_shifts(mocker, tc, cli):
         "generate",
         return_value={"calendar_view": tc.calendar_view},
     )
-    got = cli("check_empty_shifts", ["--days-ahead", str(tc.days_ahead)])
+    got = cli(
+        "check_empty_shifts",
+        [
+            "--days-ahead",
+            str(tc.days_ahead),
+            "--urgent-days",
+            str(tc.urgent_days),
+            "--planning-days",
+            str(tc.planning_days),
+        ],
+    )
 
     targets = [g["target"] for g in got]
     assert targets == list(tc.want_targets)
@@ -150,13 +196,14 @@ def test_check_empty_shifts(mocker, tc, cli):
         assert want_subject in got[i]["subject"]
 
 
-def test_check_empty_shifts_default_days_ahead(mocker, cli):
-    """Test that default --days-ahead is 14"""
+def test_check_empty_shifts_defaults(mocker, cli):
+    """Test that CLI defaults are --days-ahead=14, --urgent-days=3, --planning-days=7"""
     mocker.patch.object(E, "tznow", return_value=d(0))
     mock_gen = mocker.patch.object(
         E.forecast,
         "generate",
         return_value={"calendar_view": []},
     )
-    cli("check_empty_shifts", [])
+    got = cli("check_empty_shifts", [])
+    assert got == []
     mock_gen.assert_called_once_with(d(0), 14, include_pii=False)
