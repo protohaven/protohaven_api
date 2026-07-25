@@ -490,7 +490,7 @@ class Commands:
             log.info(f"{event.name} - {event.areas}")
             for session_start, _ in event.sessions:
                 log.info(f"\t{session_start.isoformat()}")
-                for area in event.areas:
+                for area in event.areas or []:
                     class_time_map[area].add(session_start)
 
         log.info(f"Built time map with {len(class_time_map)} areas")
