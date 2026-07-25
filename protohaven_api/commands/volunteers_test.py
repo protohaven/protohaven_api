@@ -71,7 +71,7 @@ Tc = namedtuple(
                 _make_day("2025-01-08", False, [], ["tech2"]),
             ],
             ["#tech-leads"],
-            ["have no techs"],
+            ["has no techs assigned"],
         ),
         Tc(
             "empty shift <= 3 days away -> #techs",
@@ -83,10 +83,10 @@ Tc = namedtuple(
                 _make_day("2025-01-02", False, ["tech1"], []),
             ],
             ["#techs", "#techs"],
-            ["with nobody on duty", "with nobody on duty"],
+            ["has nobody on duty", "has nobody on duty"],
         ),
         Tc(
-            "holiday with no techs is skipped",
+            "holiday with no techs alerts #staff",
             14,
             3,
             7,
@@ -94,8 +94,8 @@ Tc = namedtuple(
                 _make_day("2025-01-01", True, [], []),
                 _make_day("2025-01-02", False, ["tech1"], ["tech2"]),
             ],
-            [],
-            [],
+            ["#staff", "#staff"],
+            ["has no techs assigned", "has no techs assigned"],
         ),
         Tc(
             "empty shift 4-6 days away -> #tech-leads",
@@ -111,7 +111,7 @@ Tc = namedtuple(
                 _make_day("2025-01-06", False, ["tech1"], []),
             ],
             ["#tech-leads", "#tech-leads"],
-            ["have no techs", "have no techs"],
+            ["has no techs assigned", "has no techs assigned"],
         ),
         Tc(
             "empty shift beyond planning_days is ignored",
@@ -130,7 +130,7 @@ Tc = namedtuple(
                 _make_day("2025-01-09", False, [], ["tech2"]),  # day 8 -> ignored
             ],
             ["#tech-leads"],
-            ["have no techs"],
+            ["has no techs assigned"],
         ),
         Tc(
             "mixed: leads and techs alerts",
@@ -148,7 +148,7 @@ Tc = namedtuple(
                 _make_day("2025-01-08", False, [], ["tech2"]),  # day 7 -> #tech-leads
             ],
             ["#techs", "#tech-leads"],
-            ["with nobody on duty", "have no techs"],
+            ["has nobody on duty", "has no techs assigned"],
         ),
         Tc(
             "custom days_ahead limits range",
@@ -177,10 +177,10 @@ Tc = namedtuple(
             ],
             ["#techs", "#tech-leads", "#tech-leads", "#tech-leads"],
             [
-                "with nobody on duty",
-                "have no techs",
-                "have no techs",
-                "have no techs",
+                "has nobody on duty",
+                "has no techs assigned",
+                "has no techs assigned",
+                "has no techs assigned",
             ],
         ),
     ],
@@ -227,4 +227,4 @@ def test_check_empty_shifts_defaults(mocker, cli):
     )
     got = cli("check_empty_shifts", [])
     assert got == []
-    mock_gen.assert_called_once_with(d(0), 14, include_pii=False)
+    mock_gen.assert_called_once_with(d(0), 14, include_pii=True)
