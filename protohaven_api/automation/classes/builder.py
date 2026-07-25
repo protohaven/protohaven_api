@@ -19,7 +19,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
 )
 from protohaven_api.integrations.airtable import ScheduledClass
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.integrations.models import Email, NeonID
+from protohaven_api.integrations.models import Email, EventID, NeonID
 
 log = logging.getLogger("class_automation.builder")
 
@@ -169,9 +169,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.notifications_by_class = {}
         self.attendee_emails = {}
         self.published = True
-        self.ignore_ovr = []
-        self.filter_ovr = []
-        self.confirm_ovr = []
+        self.ignore_ovr: list[EventID] = []
+        self.filter_ovr: list[EventID] = []
+        self.confirm_ovr: list[EventID] = []
 
     def fetch_and_aggregate_data(self):
         """Fetches and aggregates data from Neon and Airtable to use in notifying
@@ -224,7 +224,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if evt.event_id in self.ignore_ovr or (
             len(self.filter_ovr) > 0 and evt.event_id not in self.filter_ovr
         ):
-            self.log.info(f"IGNORE {evt.name} (override)")
+            self.log.info(f"IGNORE #{evt.evetn_id} {evt.name} (override)")
             return
 
         if evt.event_id in self.confirm_ovr:

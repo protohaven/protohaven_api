@@ -26,6 +26,7 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
 )
 from protohaven_api.integrations.comms import Msg
 from protohaven_api.integrations.data.neon import Category
+from protohaven_api.integrations.models import EventID
 
 log = logging.getLogger("cli.classes")
 
@@ -157,25 +158,25 @@ class Commands:
         arg(
             "--confirm",
             help="class IDs to auto-confirm when generating emails",
-            type=int,
+            type=EventID,
             nargs="+",
         ),
         arg(
             "--cancel",
             help="class IDs to auto-cancel when generating emails",
-            type=int,
+            type=EventID,
             nargs="+",
         ),
         arg(
             "--ignore",
             help="class IDs to ignore when generating emails",
-            type=int,
+            type=EventID,
             nargs="+",
         ),
         arg(
             "--filter",
             help="class IDs to restrict processing to when generating emails",
-            type=int,
+            type=EventID,
             nargs="+",
         ),
         arg(
@@ -197,12 +198,11 @@ class Commands:
         This does not actually send the emails; for that, see send_comms."""
         b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"))
         b.ignore_ovr = args.ignore or []
-        b.cancel_ovr = args.cancel or []
         b.confirm_ovr = args.confirm or []
         b.filter_ovr = args.filter or []
         b.published = args.published_only
         log.info(
-            f"Configured email builder: ignore_ovr {b.ignore_ovr} cancel_ovr {b.cancel_ovr} "
+            f"Configured email builder: ignore_ovr {b.ignore_ovr}"
             f"confirm_ovr {b.confirm_ovr} filter_ovr {b.filter_ovr} published_only {b.published}"
         )
         result = b.build()
