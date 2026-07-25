@@ -52,7 +52,9 @@ class Connector:  # pylint: disable=too-many-public-methods
                 self.cache_server_request("/neon_ratelimit_ok", {})
             r = requests.request(*args, **kwargs, auth=auth, timeout=self.timeout)
 
-            if r.status_code == 200:
+            # It's real weird that Neon returns 222 which is not an official RFC 9110 code
+            # See https://httpwg.org/specs/rfc9110.html#rfc.index.2
+            if r.status_code in (200, 222):
                 try:
                     return r.json()
                 except requests.exceptions.JSONDecodeError:

@@ -265,9 +265,9 @@ def test_is_delta_format_detection(mocker):
     assert len(got[1]) == 1  # Only New, Default Tech replaced
     assert got[1][0].name == "New"
 
-    # Empty entries: no override
+    # Empty entries: no override (id is truthy, entries is empty list)
     got = t.resolve_overrides({"s": ("id", [], "ed")}, "s", [default_tech])
-    assert got == (None, [], None)
+    assert got == ("id", [], "ed")
 
 
 def test_resolve_overrides_delta_format_remove_all_techs():

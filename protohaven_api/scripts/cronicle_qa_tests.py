@@ -217,6 +217,12 @@ if __name__ == "__main__":
             {"ARGS_CHAN_OVERRIDE": COVR},
         ),
         (
+            "check_empty_shifts",
+            test_simple,
+            "emryv0nravu",
+            {"ARGS_CHAN_OVERRIDE": COVR, "ARGS": "--dry-run"},
+        ),
+        (
             "donations_summary",
             test_simple,
             "em78dbzj04f",
