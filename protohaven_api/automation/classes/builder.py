@@ -224,7 +224,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         if evt.event_id in self.ignore_ovr or (
             len(self.filter_ovr) > 0 and evt.event_id not in self.filter_ovr
         ):
-            self.log.info(f"IGNORE #{evt.evetn_id} {evt.name} (override)")
+            self.log.info(f"IGNORE #{evt.event_id} {evt.name} (override)")
             return
 
         if evt.event_id in self.confirm_ovr:
