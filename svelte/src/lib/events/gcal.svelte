@@ -1,34 +1,44 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Card, CardBody, CardHeader, CardTitle, Spinner, ListGroup, ListGroupItem } from '@sveltestrap/sveltestrap';
-  import { get } from '$lib/api';
-import FetchError from '../fetch_error.svelte';
+	import { onMount } from 'svelte';
+	import {
+		Card,
+		CardBody,
+		CardHeader,
+		CardTitle,
+		Spinner,
+		ListGroup,
+		ListGroupItem
+	} from '@sveltestrap/sveltestrap';
+	import { get } from '$lib/api';
+	import FetchError from '../fetch_error.svelte';
 
-  let promise = new Promise(()=>{});
-  onMount(() => {
-    promise = get("/events/shop");
-  });
+	let promise = new Promise(() => {});
+	onMount(() => {
+		promise = get('/events/shop');
+	});
 </script>
 
 <Card>
-  <CardHeader>
-    <CardTitle>Upcoming Shop Events</CardTitle>
-  </CardHeader>
-  <CardBody>
-  {#await promise}
-      <Spinner/>
-  {:then p}
-    {#if p.length === 0}
-      <p>No upcoming events in the schedule!</p>
-    {:else}
-      <ListGroup>
-      {#each p as evt }
-      <ListGroupItem>{new Date(evt.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}: {evt.name}</ListGroupItem>
-      {/each}
-      </ListGroup>
-    {/if}
-  {:catch error}
-    <FetchError {error}/>
-  {/await}
-  </CardBody>
+	<CardHeader>
+		<CardTitle>Upcoming Shop Events</CardTitle>
+	</CardHeader>
+	<CardBody>
+		{#await promise}
+			<Spinner />
+		{:then p}
+			{#if p.length === 0}
+				<p>No upcoming events in the schedule!</p>
+			{:else}
+				<ListGroup>
+					{#each p as evt}
+						<ListGroupItem
+							>{new Date(evt.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}: {evt.name}</ListGroupItem
+						>
+					{/each}
+				</ListGroup>
+			{/if}
+		{:catch error}
+			<FetchError {error} />
+		{/await}
+	</CardBody>
 </Card>

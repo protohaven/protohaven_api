@@ -1,105 +1,116 @@
 <script type="typescript">
-  import '../../app.scss';
-  import FetchError from '$lib/fetch_error.svelte';
-  import { Spinner, Row, Card, Container, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
-  import {get} from '$lib/api.ts';
-  import TechsList from '$lib/techs/techs_list.svelte';
-  import Attendance from '$lib/techs/attendance.svelte';
-  import ToolState from '$lib/techs/tool_state.svelte';
-  import Shifts from '$lib/techs/shifts.svelte';
-  import Members from '$lib/techs/members.svelte';
-  import AreaLeads from '$lib/techs/area_leads.svelte';
-  import Storage from '$lib/techs/storage.svelte';
-  import Events from '$lib/techs/events.svelte';
-  import DoorLocks from '$lib/techs/door_locks.svelte';
-  import { onMount } from 'svelte';
+	import '../../app.scss';
+	import FetchError from '$lib/fetch_error.svelte';
+	import {
+		Spinner,
+		Row,
+		Card,
+		Container,
+		Navbar,
+		NavItem,
+		NavbarBrand,
+		NavLink,
+		Nav
+	} from '@sveltestrap/sveltestrap';
+	import { get } from '$lib/api.ts';
+	import TechsList from '$lib/techs/techs_list.svelte';
+	import Attendance from '$lib/techs/attendance.svelte';
+	import ToolState from '$lib/techs/tool_state.svelte';
+	import Shifts from '$lib/techs/shifts.svelte';
+	import Members from '$lib/techs/members.svelte';
+	import AreaLeads from '$lib/techs/area_leads.svelte';
+	import Storage from '$lib/techs/storage.svelte';
+	import Events from '$lib/techs/events.svelte';
+	import DoorLocks from '$lib/techs/door_locks.svelte';
+	import { onMount } from 'svelte';
 
-  let promise;
-  let admin = false;
-  let user;
-  let activeTab;
-  onMount(() => {
-    activeTab = (window.location.hash || "#cal").substring(1).trim();
-    const urlParams = new URLSearchParams(window.location.search);
-    let e= urlParams.get("email");
-    if (!e) {
-      promise = get("/whoami").then((d) => {
-        admin = (d.roles || []).some(role =>
-          ["Tech Lead", "Education Lead", "Admin", "Board Member", "Staff"].includes(role)
-        );
-        user = d;
-      }).catch((e) => {
-        if (e.message.indexOf("You are not logged in") !== -1) {
-	        return "";
-        }
-	      throw e;
-      });
-    }
-  });
-  function on_tab(e) {
-    activeTab = e.target.href.split("#")[1] || "cal";
-    window.location.hash = activeTab;
-    console.log("activeTab", activeTab);
-  }
-
+	let promise;
+	let admin = false;
+	let user;
+	let activeTab;
+	onMount(() => {
+		activeTab = (window.location.hash || '#cal').substring(1).trim();
+		const urlParams = new URLSearchParams(window.location.search);
+		let e = urlParams.get('email');
+		if (!e) {
+			promise = get('/whoami')
+				.then((d) => {
+					admin = (d.roles || []).some((role) =>
+						['Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'].includes(role)
+					);
+					user = d;
+				})
+				.catch((e) => {
+					if (e.message.indexOf('You are not logged in') !== -1) {
+						return '';
+					}
+					throw e;
+				});
+		}
+	});
+	function on_tab(e) {
+		activeTab = e.target.href.split('#')[1] || 'cal';
+		window.location.hash = activeTab;
+		console.log('activeTab', activeTab);
+	}
 </script>
 
 <Navbar color="secondary-subtle" sticky="">
-  <NavbarBrand>Techs Dashboard</NavbarBrand>
-  <Nav>
-    <NavItem>
-      <DoorLocks />
-    </NavItem>
-    <NavItem>
-      <NavLink href="/events" target="_blank">Events Dashboard</NavLink>
-    </NavItem>
-    <NavItem>
-      <NavLink href="https://protohaven.org/maintenance" target="_blank">Tool Report</NavLink>
-    </NavItem>
-    <NavItem>
-      <NavLink href="https://protohaven.org/injury" target="_blank">Injury Report</NavLink>
-    </NavItem>
-    <NavItem>
-      <NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
-    </NavItem>
-    <NavItem>
-    {#await promise}
-      <Spinner/>
-    {:then}
-      {#if !user || !user.fullname}
-        <NavLink href="http://api.protohaven.org/login?referrer=/techs">Login</NavLink>
-      {:else}
-        <NavLink href="/logout">{user.fullname} (Logout)</NavLink>
-      {/if}
-    {/await}
-    </NavItem>
-  </Nav>
+	<NavbarBrand>Techs Dashboard</NavbarBrand>
+	<Nav>
+		<NavItem>
+			<DoorLocks />
+		</NavItem>
+		<NavItem>
+			<NavLink href="/events" target="_blank">Events Dashboard</NavLink>
+		</NavItem>
+		<NavItem>
+			<NavLink href="https://protohaven.org/maintenance" target="_blank">Tool Report</NavLink>
+		</NavItem>
+		<NavItem>
+			<NavLink href="https://protohaven.org/injury" target="_blank">Injury Report</NavLink>
+		</NavItem>
+		<NavItem>
+			<NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
+		</NavItem>
+		<NavItem>
+			{#await promise}
+				<Spinner />
+			{:then}
+				{#if !user || !user.fullname}
+					<NavLink href="http://api.protohaven.org/login?referrer=/techs">Login</NavLink>
+				{:else}
+					<NavLink href="/logout">{user.fullname} (Logout)</NavLink>
+				{/if}
+			{/await}
+		</NavItem>
+	</Nav>
 </Navbar>
 <!-- Note: Nav is used here instead of Tabs directly because Tabs does not
      support URL anchor based routing - see
      https://github.com/sveltestrap/sveltestrap/issues/82 -->
 <Nav tabs>
-  <NavItem><NavLink href="#cal" on:click={on_tab}>Cal</NavLink></NavItem>
-  <NavItem><NavLink href="#members" on:click={on_tab}>Members</NavLink></NavItem>
-  <NavItem><NavLink href="#tools" on:click={on_tab}>Tools</NavLink></NavItem>
-  <NavItem><NavLink href="#storage" on:click={on_tab}>Storage</NavLink></NavItem>
-  <NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
-  <NavItem><NavLink href="#techs" on:click={on_tab}>Roster</NavLink></NavItem>
-  <NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
-  {#if admin}
-  <NavItem><NavLink href="#attendance" on:click={on_tab}>Attendance</NavLink></NavItem>
-  {/if}
+	<NavItem><NavLink href="#cal" on:click={on_tab}>Cal</NavLink></NavItem>
+	<NavItem><NavLink href="#members" on:click={on_tab}>Members</NavLink></NavItem>
+	<NavItem><NavLink href="#tools" on:click={on_tab}>Tools</NavLink></NavItem>
+	<NavItem><NavLink href="#storage" on:click={on_tab}>Storage</NavLink></NavItem>
+	<NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
+	<NavItem><NavLink href="#techs" on:click={on_tab}>Roster</NavLink></NavItem>
+	<NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
+	{#if admin}
+		<NavItem><NavLink href="#attendance" on:click={on_tab}>Attendance</NavLink></NavItem>
+	{/if}
 </Nav>
-<Shifts {user} visible={activeTab == 'cal'}/>
-<Members {user} visible={activeTab == 'members'}/>
-<ToolState visible={activeTab == 'tools'}/>
-<Storage visible={activeTab == 'storage'}/>
-<AreaLeads visible={activeTab == 'areas'}/>
-<TechsList {user} visible={activeTab === 'techs'}/>
-<Attendance visible={activeTab === 'attendance'}/>
-<Events {user} visible={activeTab === 'events'}/>
+<Shifts {user} visible={activeTab == 'cal'} />
+<Members {user} visible={activeTab == 'members'} />
+<ToolState visible={activeTab == 'tools'} />
+<Storage visible={activeTab == 'storage'} />
+<AreaLeads visible={activeTab == 'areas'} />
+<TechsList {user} visible={activeTab === 'techs'} />
+<Attendance visible={activeTab === 'attendance'} />
+<Events {user} visible={activeTab === 'events'} />
 {#await promise}
-  <span></span>
+	<span></span>
 {:catch error}
-  <FetchError {error}/>
+	<FetchError {error} />
 {/await}

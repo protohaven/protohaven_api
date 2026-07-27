@@ -1,60 +1,79 @@
 <script type="typescript" lang="ts">
+	import { onMount } from 'svelte';
+	import {
+		Table,
+		Button,
+		Row,
+		Col,
+		Card,
+		CardHeader,
+		Alert,
+		CardTitle,
+		CardSubtitle,
+		CardText,
+		Icon,
+		CardFooter,
+		CardBody,
+		Input,
+		Spinner,
+		FormGroup,
+		Navbar,
+		NavbarBrand,
+		Nav,
+		NavItem
+	} from '@sveltestrap/sveltestrap';
+	import ClassCard from './class_card.svelte';
+	import { get, post } from '$lib/api.ts';
+	import FetchError from '../fetch_error.svelte';
 
-import {onMount} from 'svelte';
-import { Table, Button, Row, Col, Card, CardHeader, Alert, CardTitle, CardSubtitle, CardText, Icon, CardFooter, CardBody, Input, Spinner, FormGroup, Navbar, NavbarBrand, Nav, NavItem } from '@sveltestrap/sveltestrap';
-import ClassCard from './class_card.svelte';
-import {get, post} from '$lib/api.ts';
-import FetchError from '../fetch_error.svelte';
+	let readiness = {};
+	export let email;
+	export let scheduler_open; // Watched to trigger refresh
 
-let readiness = {};
-export let email;
-export let scheduler_open; // Watched to trigger refresh
+	let promise;
+	let submissions = null;
 
-let promise;
-let submissions = null;
+	async function refresh() {
+		get('/instructor/submissions?email=' + encodeURIComponent(email))
+			.then((data) => {
+				submissions = data;
+				console.log('Log submissions:', submissions);
+			})
+			.catch((err) => {
+				console.warn('Failed to fetch instructor submissions:', err);
+				submissions = err; // Explicitly set submission to error state
+			});
+		promise = get('/instructor/class_details?email=' + encodeURIComponent(email)).then((data) => {
+			console.log('Class schedule:', data);
+			return data.schedule;
+		});
+	}
 
-async function refresh() {
-  get("/instructor/submissions?email=" + encodeURIComponent(email)).then((data) => {
-    submissions = data;
-    console.log("Log submissions:", submissions);
-  }).catch(err => {
-    console.warn("Failed to fetch instructor submissions:", err);
-    submissions = err; // Explicitly set submission to error state
-  })
-  promise = get("/instructor/class_details?email=" + encodeURIComponent(email)).then((data)=>{
-    console.log("Class schedule:", data);
-    return data.schedule;
-  });
-}
-
-$: {
-  if (!scheduler_open) {
-    refresh();
-  }
-}
-
+	$: {
+		if (!scheduler_open) {
+			refresh();
+		}
+	}
 </script>
 
-
 {#await promise}
-<Spinner/>
+	<Spinner />
 {:then classes}
-{#if classes }
-  {#each classes as c}
-    {#if !c['Rejected']}
-      <ClassCard schedule_id={c.schedule_id} c_init={c} {submissions}/>
-    {/if}
-  {/each}
+	{#if classes}
+		{#each classes as c}
+			{#if !c['Rejected']}
+				<ClassCard schedule_id={c.schedule_id} c_init={c} {submissions} />
+			{/if}
+		{/each}
 
-
-  {#if classes.length == 0}
-  <Alert class="my-3" color="warning">
-    <em>No classes found - please schedule more using the Scheduler button above.</em>
-  </Alert>
-  {/if}
-{:else}
-  Loading...
-{/if}
+		{#if classes.length == 0}
+			<Alert class="my-3" color="warning">
+				<em>No classes found - please schedule more using the Scheduler button above.</em>
+			</Alert>
+		{/if}
+	{:else}
+		Loading...
+	{/if}
 {:catch error}
-  <FetchError {error}/>
+	<FetchError {error} />
 {/await}
