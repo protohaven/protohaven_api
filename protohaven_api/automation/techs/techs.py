@@ -17,7 +17,7 @@ DEFAULT_FORECAST_LEN = 16
 log = logging.getLogger("protohaven_api.automation.techs.techs")
 
 
-class ProtohavenHolidays(UnitedStates):
+class ProtohavenHolidays(UnitedStates):  # pylint: disable=too-many-ancestors
     """Observed holidays for Protohaven, per our website
     https://www.protohaven.org/contact/
     """

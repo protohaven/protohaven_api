@@ -1,15 +1,8 @@
-// Variable overrides for bootstrap
-$primary: #fa2152;
-// $secondary: ;
-// $success:
-// $info:
-// $warning:
-// $danger:
-$light: #d8d8d8;
-// $dark:
+@use 'bootstrap/scss/bootstrap' with (
+	$primary: #fa2152,
+	$light: #d8d8d8
+);
 
 .btn-primary {
-    color: #fff;
+	color: #fff;
 }
-
-@import "../node_modules/bootstrap/scss/bootstrap";

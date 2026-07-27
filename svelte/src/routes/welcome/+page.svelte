@@ -1,283 +1,320 @@
 <script type="typescript">
-  import '../../app.scss';
-  import { onMount } from 'svelte';
-  import {base_ws, get, post, open_ws} from '$lib/api.ts';
-  import { Row, Card, Container, Toast, ToastHeader, ToastBody } from '@sveltestrap/sveltestrap';
-  import Splash from '$lib/splash.svelte';
-  import SigninOk from '$lib/signin_ok.svelte';
-  import MembershipExpired from '$lib/membership_expired.svelte';
+	import '../../app.scss';
+	import { onMount } from 'svelte';
+	import { base_ws, get, post, open_ws } from '$lib/api.ts';
+	import { Row, Card, Container, Toast, ToastHeader, ToastBody } from '@sveltestrap/sveltestrap';
+	import Splash from '$lib/splash.svelte';
+	import SigninOk from '$lib/signin_ok.svelte';
+	import MembershipExpired from '$lib/membership_expired.svelte';
 	import Waiver from '$lib/waiver.svelte';
-  import MemberAgreement from '$lib/member_agreement.svelte';
-  import NfcStatus from '$lib/nfc_status.svelte';
-  let state='splash';
-  let name='member';
-  let email=null;
-  let person='member';
-  let checking=false;
-  let progress=null;
-  let waiver_ack=false;
-  let member_agreement_accepted=false;
-  let dependent_info="";
-	let feedback=null;
-  let referrer = "";
-  let testing = false;
+	import MemberAgreement from '$lib/member_agreement.svelte';
+	import NfcStatus from '$lib/nfc_status.svelte';
+	let state = 'splash';
+	let name = 'member';
+	let email = null;
+	let person = 'member';
+	let checking = false;
+	let progress = null;
+	let waiver_ack = false;
+	let member_agreement_accepted = false;
+	let dependent_info = '';
+	let feedback = null;
+	let referrer = '';
+	let testing = false;
 
-  let announcements = [];
-  let violations = [];
-  let reservations = [];
+	let announcements = [];
+	let violations = [];
+	let reservations = [];
 
-  let neon_ws = null;
-  let neon_ws_connected = false;
-  let server_mqtt_connected = false;
-  /** @type {number | null} */
-  let nfc_heartbeat_age_sec = null;
-  let toast_msg = null;
-  let toast_timer = null;
+	let neon_ws = null;
+	let neon_ws_connected = false;
+	let server_mqtt_connected = false;
+	/** @type {number | null} */
+	let nfc_heartbeat_age_sec = null;
+	let toast_msg = null;
+	let toast_timer = null;
+	let enable_nfc = false;
 
-  onMount(() => {
-    console.log("Base WS:", base_ws());
-    if (new URLSearchParams(window.location.search).get('testing')) {
-      testing = true;
-      console.log("testing mode enabled; test announcements will be fetched");
-    }
-    // Establish persistent WebSocket for MQTT-based Neon ID badge scans
-    connect_neon_ws();
-  });
+	onMount(() => {
+		console.log('Base WS:', base_ws());
+		const params = new URLSearchParams(window.location.search);
+		if (params.get('testing')) {
+			testing = true;
+			console.log('testing mode enabled; test announcements will be fetched');
+		}
+		enable_nfc = params.get('nfc') === '1';
+		if (enable_nfc) {
+			// Establish persistent WebSocket for MQTT-based Neon ID badge scans
+			console.log("'nfc' GET param seen; establishing persistent websocket for NFC tap");
+			connect_neon_ws();
+		}
+	});
 
-  function connect_neon_ws() {
-    if (neon_ws) {
-      neon_ws.close();
-    }
-    neon_ws = open_ws("/welcome/neon_ws");
-    neon_ws.onopen = () => {
-      neon_ws_connected = true;
-      console.log("Neon sign-in WS connected");
-    };
-    neon_ws.onclose = () => {
-      neon_ws_connected = false;
-      console.log("Neon sign-in WS disconnected; reconnecting in 5s...");
-      // Reconnect after a delay
-      setTimeout(connect_neon_ws, 5000);
-    };
-    neon_ws.onerror = (err) => {
-      console.error("Neon sign-in WS error:", err);
-    };
-    neon_ws.onmessage = (event) => {
-      let data = JSON.parse(event.data);
+	function connect_neon_ws() {
+		if (neon_ws) {
+			neon_ws.close();
+		}
+		neon_ws = open_ws('/welcome/neon_ws');
+		neon_ws.onopen = () => {
+			neon_ws_connected = true;
+			console.log('Neon sign-in WS connected');
+		};
+		neon_ws.onclose = () => {
+			neon_ws_connected = false;
+			console.log('Neon sign-in WS disconnected; reconnecting in 5s...');
+			// Reconnect after a delay
+			setTimeout(connect_neon_ws, 5000);
+		};
+		neon_ws.onerror = (err) => {
+			console.error('Neon sign-in WS error:', err);
+		};
+		neon_ws.onmessage = (event) => {
+			let data = JSON.parse(event.data);
 
-      if (data.type === "status") {
-        server_mqtt_connected = data.server_mqtt_connected;
-        nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
-      } else if (data.origin.endsWith("signin")) {
-        console.log("Received sign in attempt via MQTT:", data.data);
-        // If we're already showing sign-in result, restart the flow first
-        if (state === 'signin_ok') {
-          restart_flow();
-        }
-        // Auto-trigger sign-in with the email
-        console.log("Setting email to", data.data.email);
-        email = data.data.email;
-        person = 'member';
-        feedback = null;
-        setTimeout(submit, 0); // Delay submission to allow for repaint
-        show_toast("primary", "Badge detected", "Signing in as member...");
-      } else if (data.origin.endsWith("toast")) {
-        console.log("Toast via MQTT:", data.data);
-        show_toast(data.data.color, data.data.title, data.data.body);
-      } else if (data.type === "pong") {
-        // Heartbeat response, connection is alive
-      }
-    };
-  }
+			if (data.type === 'status') {
+				server_mqtt_connected = data.server_mqtt_connected;
+				nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
+			} else if (data.origin.endsWith('signin')) {
+				console.log('Received sign in attempt via MQTT:', data.data);
+				// If we're already showing sign-in result, restart the flow first
+				if (state === 'signin_ok') {
+					restart_flow();
+				}
+				// Auto-trigger sign-in with the email
+				console.log('Setting email to', data.data.email);
+				email = data.data.email;
+				person = 'member';
+				feedback = null;
+				setTimeout(submit, 0); // Delay submission to allow for repaint
+				show_toast('primary', 'Badge detected', 'Signing in as member...');
+			} else if (data.origin.endsWith('toast')) {
+				console.log('Toast via MQTT:', data.data);
+				show_toast(data.data.color, data.data.title, data.data.body);
+			} else if (data.type === 'pong') {
+				// Heartbeat response, connection is alive
+			}
+		};
+	}
 
-  function show_toast(color, title, body) {
-    // Clear any existing toast timer
-    if (toast_timer) {
-      clearTimeout(toast_timer);
-    }
-    toast_msg = { color, title, msg: body };
-    // Auto-dismiss after 5 seconds
-    toast_timer = setTimeout(() => {
-      toast_msg = null;
-      toast_timer = null;
-    }, 5000);
-  }
+	function show_toast(color, title, body) {
+		// Clear any existing toast timer
+		if (toast_timer) {
+			clearTimeout(toast_timer);
+		}
+		toast_msg = { color, title, msg: body };
+		// Auto-dismiss after 5 seconds
+		toast_timer = setTimeout(() => {
+			toast_msg = null;
+			toast_timer = null;
+		}, 5000);
+	}
 
-  async function on_splash_submit(p) {
-    person = p;
-    return await submit();
-  }
+	async function on_splash_submit(p) {
+		person = p;
+		return await submit();
+	}
 
-  async function waiver_agreed() {
-    waiver_ack=true;
-    return await submit();
-  }
+	async function waiver_agreed() {
+		waiver_ack = true;
+		return await submit();
+	}
 
-  async function member_agreement_agreed() {
-    member_agreement_accepted=true;
-    return await submit();
-  }
+	async function member_agreement_agreed() {
+		member_agreement_accepted = true;
+		return await submit();
+	}
 
-  function do_post(silent=false) {
-    // We capture the data at the time of invocation to prevent data from getting cleared asynchronously
-    let capture = JSON.stringify({email, person, waiver_ack, member_agreement_accepted, dependent_info, referrer, testing});
-    return new Promise((resolve, reject) => {
-      const socket = open_ws("/welcome/ws")
-      socket.addEventListener("open", (event) => {
-        socket.send(capture);
-      });
-      if (silent) {
-      	resolve(null);
-      } else {
-	      socket.addEventListener("message", (event) => {
-          let data = JSON.parse(event.data);
-          if (data.pct !== undefined) {
-            progress = data;
-          } else {
-            progress = null;
-            resolve(data);
-          }
-        });
-      }
-    });
-  }
+	function do_post(silent = false) {
+		// We capture the data at the time of invocation to prevent data from getting cleared asynchronously
+		let capture = JSON.stringify({
+			email,
+			person,
+			waiver_ack,
+			member_agreement_accepted,
+			dependent_info,
+			referrer,
+			testing
+		});
+		return new Promise((resolve, reject) => {
+			const socket = open_ws('/welcome/ws');
+			socket.addEventListener('open', (event) => {
+				socket.send(capture);
+			});
+			if (silent) {
+				resolve(null);
+			} else {
+				socket.addEventListener('message', (event) => {
+					let data = JSON.parse(event.data);
+					if (data.pct !== undefined) {
+						progress = data;
+					} else {
+						progress = null;
+						resolve(data);
+					}
+				});
+			}
+		});
+	}
 
+	function restart_flow() {
+		email = null;
+		person = 'member';
+		waiver_ack = false;
+		member_agreement_accepted = false;
+		referrer = '';
+		feedback = null;
+		state = 'splash';
+		announcements = [];
+		violations = [];
+		reservations = [];
+	}
 
-  function restart_flow() {
-    email = null;
-    person = 'member';
-    waiver_ack = false;
-    member_agreement_accepted = false;
-    referrer = '';
-    feedback = null;
-    state = 'splash';
-    announcements = [];
-    violations = [];
-    reservations = [];
-  }
+	function on_signin_return(survey_response) {
+		if (survey_response) {
+			referrer = survey_response;
+		} else {
+			referrer = 'Not provided';
+		}
+		// We fire the guest registration off into the void and move on
+		if (person == 'guest') {
+			do_post(false); // Silently
+		}
+		if (person !== 'guest' && announcements) {
+			// Acknowledge announcements
+			post('/welcome/announcement_ack', { email });
+		}
 
-  function on_signin_return(survey_response) {
-    if (survey_response) {
-      referrer = survey_response;
-    } else {
-      referrer = "Not provided";
-    }
-    // We fire the guest registration off into the void and move on
-    if (person == 'guest') {
-      do_post(false); // Silently
-    }
-    if (person !== 'guest' && announcements) { // Acknowledge announcements
-      post('/welcome/announcement_ack', {email});
-    }
+		restart_flow();
+	}
 
-    restart_flow();
-  }
+	async function submit() {
+		checking = true;
+		let result = await do_post();
+		checking = false;
+		if (result.notfound) {
+			feedback =
+				'Member not found; please try again. New memberships take up to 24 hours to process.';
+			return;
+		}
+		name = result.firstname;
+		announcements = result.announcements;
+		violations = result.violations;
+		reservations = result.reservations;
+		if (person !== 'guest' && result.status !== 'Active') {
+			// Expired membership takes priority in notification
+			state = 'membership_expired';
+			return;
+		}
 
-  async function submit() {
-    checking = true;
-    let result = await do_post();
-    checking = false;
-    if (result.notfound) {
-      feedback = "Member not found; please try again. New memberships take up to 24 hours to process.";
-      return;
-    }
-    name = result.firstname;
-    announcements = result.announcements;
-    violations = result.violations;
-    reservations = result.reservations;
-    if (person !== 'guest' && result.status !== 'Active') {
-      // Expired membership takes priority in notification
-      state = 'membership_expired';
-      return;
-    }
+		if (!result.waiver_signed) {
+			state = 'waiver';
+			return;
+		}
 
-    if (!result.waiver_signed) {
-      state = 'waiver';
-      return;
-    }
+		// Check member agreement for members only
+		if (person === 'member' && !result.member_agreement_accepted) {
+			state = 'member_agreement';
+			return;
+		}
 
-    // Check member agreement for members only
-    if (person === 'member' && !result.member_agreement_accepted) {
-      state = 'member_agreement';
-      return;
-    }
-
-    // If everything else is good, we're good.
-    // Put this in a setTimeout so that we escape the event
-    // and don't accidentally trigger an enter-based return event
-    setTimeout(() => state = 'signin_ok', 50);
-  }
+		// If everything else is good, we're good.
+		// Put this in a setTimeout so that we escape the event
+		// and don't accidentally trigger an enter-based return event
+		setTimeout(() => (state = 'signin_ok'), 50);
+	}
 </script>
 
 <main>
-  {#if toast_msg}
-    <div style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
-      <Toast
-        isOpen={toast_msg !== null}
-        on:close={() => { toast_msg = null; if (toast_timer) { clearTimeout(toast_timer); toast_timer = null; } }}
-      >
-        <ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-        <ToastBody>{toast_msg.msg}</ToastBody>
-      </Toast>
-    </div>
-  {/if}
+	{#if toast_msg}
+		<div style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+			<Toast
+				isOpen={toast_msg !== null}
+				on:close={() => {
+					toast_msg = null;
+					if (toast_timer) {
+						clearTimeout(toast_timer);
+						toast_timer = null;
+					}
+				}}
+			>
+				<ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
+				<ToastBody>{toast_msg.msg}</ToastBody>
+			</Toast>
+		</div>
+	{/if}
 	<Row class="mb-5">
-		<img src="logo_color.svg" alt="logo"/>
+		<img src="logo_color.svg" alt="logo" />
 	</Row>
 	<Row class="d-flex justify-content-center" style="max-width: 920px">
-    {#if state == 'splash'}
-      <Splash bind:email={email} bind:dependent_info={dependent_info} {feedback} {progress} on_member={()=>on_splash_submit('member')} on_guest={()=>on_splash_submit('guest')}/>
-    {:else if state == 'waiver' }
-      <Waiver name={name} on_submit={waiver_agreed} checking={checking}/>
-    {:else if state == 'member_agreement' }
-      <MemberAgreement on_submit={member_agreement_agreed} checking={checking}/>
-    {:else if state == 'membership_expired' }
-      <MembershipExpired name={name} on_close={restart_flow}/>
-    {:else if state == 'signin_ok'}
-      <SigninOk {name} {email} guest={person == 'guest'} {announcements} {violations} {reservations} on_close={on_signin_return}/>
-    {/if}
+		{#if state == 'splash'}
+			<Splash
+				bind:email
+				bind:dependent_info
+				{feedback}
+				{progress}
+				on_member={() => on_splash_submit('member')}
+				on_guest={() => on_splash_submit('guest')}
+			/>
+		{:else if state == 'waiver'}
+			<Waiver {name} on_submit={waiver_agreed} {checking} />
+		{:else if state == 'member_agreement'}
+			<MemberAgreement on_submit={member_agreement_agreed} {checking} />
+		{:else if state == 'membership_expired'}
+			<MembershipExpired {name} on_close={restart_flow} />
+		{:else if state == 'signin_ok'}
+			<SigninOk
+				{name}
+				{email}
+				guest={person == 'guest'}
+				{announcements}
+				{violations}
+				{reservations}
+				on_close={on_signin_return}
+			/>
+		{/if}
 	</Row>
 </main>
 
-<NfcStatus
-    client_ws_connected={neon_ws_connected}
-    server_mqtt_connected={server_mqtt_connected}
-    nfc_heartbeat_age_sec={nfc_heartbeat_age_sec}
-  />
+{#if enable_nfc}
+	<NfcStatus
+		client_ws_connected={neon_ws_connected}
+		{server_mqtt_connected}
+		{nfc_heartbeat_age_sec}
+	/>
+{/if}
 
 <svelte:window
-    on:keyup={(e) => {
-      if (e.key == 'Enter' && state==="signin_ok") {
-        console.log("triggering on_signin_return from keypress");
-        on_signin_return();
-      }
-    }}
+	on:keyup={(e) => {
+		if (e.key == 'Enter' && state === 'signin_ok') {
+			console.log('triggering on_signin_return from keypress');
+			on_signin_return();
+		}
+	}}
 />
 
-
 <style>
-		img {
-			max-width: 600px;
-			margin-left: auto;
-			margin-right: auto;
-		}
-		main {
-			width: 100%;
-			padding: 15px;
-			margin: 0 auto;
+	img {
+		max-width: 600px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+	main {
+		width: 100%;
+		padding: 15px;
+		margin: 0 auto;
 
-			display: -ms-flexbox;
-			display: -webkit-box;
-			display: flex;
-			flex-direction: column;
-			-ms-flex-align: center;
-			-ms-flex-pack: center;
-			-webkit-box-align: center;
-			align-items: center;
-			-webkit-box-pack: center;
-			justify-content: center;
-			padding-top: 40px;
-			padding-bottom: 40px;
-  			background-color: #f8f8f8;
-		}
+		display: -ms-flexbox;
+		display: -webkit-box;
+		display: flex;
+		flex-direction: column;
+		-ms-flex-align: center;
+		-ms-flex-pack: center;
+		-webkit-box-align: center;
+		align-items: center;
+		-webkit-box-pack: center;
+		justify-content: center;
+		padding-top: 40px;
+		padding-bottom: 40px;
+		background-color: #f8f8f8;
+	}
 </style>

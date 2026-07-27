@@ -278,7 +278,7 @@ def gen_role_intents(  # pylint: disable=too-many-statements
 
 def handle_delayed_revocation(
     vi, va, now, user_log, apply_records, apply_discord
-):  # pylint: disable=too-many-arguments
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Update airtable and apply role revocations based on elapsed time after comms"""
     # Removals are given 14 days' notice, then again within at least 24 hours.
     # If we haven't sent a notification, make sure one gets sent out

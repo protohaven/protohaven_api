@@ -1,5 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
 
 // Base URL of the flask backend server
@@ -9,18 +9,18 @@ const WS_SERVER_BASE = 'ws://flask:5000';
 // Paths to proxy to the backend.
 // See https://vitejs.dev/config/server-options#server-proxy
 const PROXY_PATHS = [
-  '^/instructor/.',
-  '^/techs/.',
-  '^/member/.',
-  '^/staff/.',
-  '^/events/.',
-  '^/instructor/.',
-  '^/admin/.',
-  '/whoami',
-  '/neon_lookup',
-  '/class_listing',
-  '/member/goto_class',
-  '/welcome/announcement_ack',
+	'^/instructor/.',
+	'^/techs/.',
+	'^/member/.',
+	'^/staff/.',
+	'^/events/.',
+	'^/instructor/.',
+	'^/admin/.',
+	'/whoami',
+	'/neon_lookup',
+	'/class_listing',
+	'/member/goto_class',
+	'/welcome/announcement_ack'
 ];
 
 // IMPORTANT: websocket paths are handled via nginx in production.
@@ -28,29 +28,42 @@ const PROXY_PATHS = [
 // nginx.conf and reload the nginx container for your route to
 // work in staging and prod.
 const WS_PROXY_PATHS = [
-  '/welcome/ws',
-  '/welcome/neon_ws',
-  '/staff/summarize_discord',
-  '/staff/ops_summary',
-  '/techs/storage_subscriptions',
+	'/welcome/ws',
+	'/welcome/neon_ws',
+	'/staff/summarize_discord',
+	'/staff/ops_summary',
+	'/techs/storage_subscriptions'
 ];
 let proxy = {};
 for (let p of PROXY_PATHS) {
-  proxy[p] = SERVER_BASE;
+	proxy[p] = SERVER_BASE;
 }
 for (let p of WS_PROXY_PATHS) {
-  proxy[p] = {
-    target: WS_SERVER_BASE,
-    changeOrigin: true,
-    ws: true,
-  };
+	proxy[p] = {
+		target: WS_SERVER_BASE,
+		changeOrigin: true,
+		ws: true
+	};
 }
-console.log("Proxying endpoints to flask backend server:", proxy);
+console.log('Proxying endpoints to flask backend server:', proxy);
 
 export default defineConfig({
-	plugins: [sveltekit()],//[svelte()], // [sveltekit()] previously, but didn't work with Cypress
+	plugins: [sveltekit()], //[svelte()], // [sveltekit()] previously, but didn't work with Cypress
 	test: {
-	 	include: ['src/**/*.{test,spec}.{js,ts}']
+		include: ['src/**/*.{test,spec}.{js,ts}']
 	},
-  server: { proxy },
+	server: { proxy },
+	css: {
+		preprocessorOptions: {
+			scss: {
+				silenceDeprecations: [
+					'legacy-js-api',
+					'import',
+					'global-builtin',
+					'color-functions',
+					'if-function'
+				]
+			}
+		}
+	}
 });

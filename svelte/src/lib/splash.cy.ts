@@ -1,7 +1,7 @@
-import Splash from './splash.svelte'
+import Splash from './splash.svelte';
 
 describe('Splash', () => {
-  it('mounts', () => {
-    cy.mount(Splash)
-  })
-})
+	it('mounts', () => {
+		cy.mount(Splash);
+	});
+});

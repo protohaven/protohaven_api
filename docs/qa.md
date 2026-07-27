@@ -17,8 +17,8 @@ Then run the QA tests:
 python3 -m protohaven_api.scripts.cronicle_qa_tests --key=<cronicle API key>
 ```
 
-- [ ] backup script run and result copied to Drive
-- [ ] QA tests run successfully
+- [x] backup script run and result copied to Drive
+- [x] QA tests run successfully
 
 _Note: on failure, can run --after=test_name to skip all tests up to and
 including `test_name`, or run --command=test_name to just run `test_name`._
@@ -42,8 +42,8 @@ After deployment, verify that:
   - [x] Member sign in with hello+testmember@protohaven.org succeeds but sends
         "multiple accounts" validation alert to `#membership-automation` on
         Discord
-  - [~] Displays the day's reservations when valid member logs in, including
-    ones from earlier in the day
+  - [x] Displays the day's reservations when valid member logs in, including
+        ones from earlier in the day
   - [x] Member sign in with hello+testampmake@protohaven.org succeeds, no
         validation alerts
   - [x] Guest sign in presents waiver (but not member agreement) and completes -
@@ -55,10 +55,11 @@ After deployment, verify that:
         Eventbrite
 - https://api.protohaven.org/techs
   - [x] Door lock state shown at top nav if logged in; matches Wyze state
-  - [x] Cal loads, individual shifts can be clicked, overridden, reverted
-  - [x] Cal can change date range, highlights current day
+  - [FAILED TO OVERRIDE SHIFT] Cal loads, individual shifts can be clicked,
+    overridden, reverted
+  - [ ] Cal can change date range, highlights current day
   - [x] Cal swap overrides send an alert to the #techs channel
-  - [ ] Generic shop tech account is not permitted to modify the calendar
+  - [x] Generic shop tech account is not permitted to modify the calendar
   - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
   - [x] Nov 27 IS overridden to have zero techs (Thanksgiving is a protohaven
@@ -72,18 +73,18 @@ After deployment, verify that:
   - [x] Can sort tools by name, urgency, time in state etc.
   - [x] Can filter tools by area
   - [x] Storage tab allows for looking up Neon ID by name/email
-  - [ ] Storage subscriptions card shows active subscription state - but no
+  - [x] Storage subscriptions card shows active subscription state - but no
         unpaid invoices if not lead
-  - [ ] Storage subscription data is not shown if not logged in
+  - [x] Storage subscription data is not shown if not logged in
   - [x] Storage subs have badges where unpaid invoices and can be clicked to
         show links
-  - [~] Storage sub type, ID, and note can all be edited and saved successfully
+  - [x] Storage sub type, ID, and note can all be edited and saved successfully
   - [x] Airtable-based storage subs shown; help text link to Airtable works
   - [x] Areas have some leads assigned to them
   - [x] Areas has populated "additional contacts" section at the bottom of the
         pane
   - [x] If a lead: techs roster can set interest, expertise, shift info
-  - [x] If logged in as Shop Tech: techs roster can set interest and expertise
+  - [ ] If logged in as Shop Tech: techs roster can set interest and expertise
         (but not other fields) for that user
   - [x] Techs roster can view clearances and sort by name/clearances
   - [x] Techs roster has some tech photos & bios shown
@@ -95,7 +96,7 @@ After deployment, verify that:
         after)
   - [x] Events tab can create, register, unregister, and delete a techs-only
         class
-  - [~] Events tab shows registrant name, email, and phone if admin
+  - [x] Events tab shows registrant name, email, and phone if admin
   - [~] Events tab can deregister any tech if admin
   - [x] Attendance tab can run an attendance report over a time period
   - [x] Attendance tab errors when not logged in as a lead
@@ -108,13 +109,12 @@ After deployment, verify that:
   - [x] Unauthenticated user cannot see tech roster
   - [x] In incognito window (not logged in) cannot make edits to tech data, cal
         overrides
-  - [x] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
-        data, cal overrides
+  - [~] Non-tech (hello+testmember@protohavenorg) cannot make edits to tech
+    data, cal overrides
 - https://api.protohaven.org/instructor
   - [x] Loads profile data for instructor
   - [x] Correctly shows warning icon on profile tab if incomplete data
-  - [BUGGED_NO_EVENTBRITE] Loads classes for instructor, including attendance
-    data
+  - [x] Loads classes for instructor, including attendance data
   - [x] Correctly indicates log submission status for class (some yes, some no)
   - [x] Adding a new class on a holiday triggers validation error
   - [BUGGED] Adding a new class on a day with similar area reservations triggers
@@ -124,12 +124,12 @@ After deployment, verify that:
   - [ ] Cancelling a class also deletes its reservations if there are any
   - [x] Scheduling sessions more than 10 days apart triggers validation error
         (check dates to ensure same days/times on validation step)
-  - [x] Instructor can override schedule validation error
-  - [x] Schedule overrides send alerts to #edu-leads discord
+  - [ ] Instructor can override schedule validation error
+  - [ ] Schedule overrides send alerts to #edu-leads discord
   - [x] Can mark unavailable for a class that hasn't posted
   - [x] Class timing is correct (i.e. 6pm on scheduler -> 6pm when scheduled)
   - [x] Can set supplies needed / supplies OK; sends notice to
-        #supply-automatoin
+        #supply-automation
   - [x] Can switch between volunteer and paid state for class
   - [x] Log submission button works; log form is correctly populated (especially
         clearances)
@@ -141,7 +141,7 @@ After deployment, verify that:
 - https://api.protohaven.org/staff
   - [x] Can summarize one or more discord channels, and view photos
   - [ ] Access denied if logged in as hello+testmember@protohaven.org
-  - [x] Ops dashboard shows content
+  - [ ] Ops dashboard shows content
 
 ## Discord events
 

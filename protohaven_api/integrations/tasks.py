@@ -308,7 +308,7 @@ def last_maintenance_completion_map():
     return result
 
 
-def add_tool_report_task(  # pylint: disable=too-many-arguments
+def add_tool_report_task(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     tools, summary, status, images, reporter, urgent=False
 ):
     """Adds a tool report to the asana maintenance project"""
