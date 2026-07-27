@@ -53,4 +53,17 @@ export default defineConfig({
 	 	include: ['src/**/*.{test,spec}.{js,ts}']
 	},
   server: { proxy },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        silenceDeprecations: [
+          'legacy-js-api',
+          'import',
+          'global-builtin',
+          'color-functions',
+          'if-function',
+        ],
+      },
+    },
+  },
 });
