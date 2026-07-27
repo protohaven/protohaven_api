@@ -33,15 +33,21 @@
   let nfc_heartbeat_age_sec = null;
   let toast_msg = null;
   let toast_timer = null;
+  let enable_nfc = false;
 
   onMount(() => {
     console.log("Base WS:", base_ws());
-    if (new URLSearchParams(window.location.search).get('testing')) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('testing')) {
       testing = true;
       console.log("testing mode enabled; test announcements will be fetched");
     }
-    // Establish persistent WebSocket for MQTT-based Neon ID badge scans
-    connect_neon_ws();
+    enable_nfc = params.get('nfc') === '1';
+    if (enable_nfc) {
+      // Establish persistent WebSocket for MQTT-based Neon ID badge scans
+      console.log("'nfc' GET param seen; establishing persistent websocket for NFC tap");
+      connect_neon_ws();
+    }
   });
 
   function connect_neon_ws() {
@@ -239,11 +245,13 @@
 	</Row>
 </main>
 
+{#if enable_nfc}
 <NfcStatus
     client_ws_connected={neon_ws_connected}
     server_mqtt_connected={server_mqtt_connected}
     nfc_heartbeat_age_sec={nfc_heartbeat_age_sec}
   />
+{/if}
 
 <svelte:window
     on:keyup={(e) => {
