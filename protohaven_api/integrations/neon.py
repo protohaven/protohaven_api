@@ -445,7 +445,7 @@ def search_member_by_neon_id(neon_id, fields=None) -> Member:
     return None if not result else result[0]
 
 
-def search_members_by_name(  # pylint: disable=too-many-arguments
+def search_members_by_name(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     fname,
     lname,
     operator="EQUAL",
@@ -612,7 +612,7 @@ def patch_member_role(neon_id: NeonID, role, enabled: bool):
     )
 
 
-def set_tech_custom_fields(  # pylint: disable=too-many-arguments
+def set_tech_custom_fields(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     account_id: NeonID,
     shop_tech_shift: list | str = None,
     shop_tech_first_day: str = None,

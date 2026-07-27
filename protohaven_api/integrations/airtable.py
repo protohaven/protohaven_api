@@ -755,7 +755,7 @@ def get_policy_violations():
     return [v for v in rows if v["fields"].get("Onset")]
 
 
-def open_violation(  # pylint: disable=too-many-arguments
+def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     reporter, suspect, sections, evidence, onset, fee, notes
 ):
     """Opens a new violation with a fee schedule"""
@@ -905,7 +905,7 @@ def delete_forecast_override(rec):
     return content
 
 
-def set_forecast_override(  # pylint: disable=too-many-arguments
+def set_forecast_override(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     rec, date, ap, techs, orig, editor_email, editor_name
 ):
     """Upserts a shop tech shift override.
@@ -950,7 +950,7 @@ def insert_quiz_result(
     data: dict,
     points_scored: int,
     points_to_pass: int,
-):  # pylint: disable=too-many-arguments
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Insert sign-in event into Airtable"""
     return insert_records(
         [

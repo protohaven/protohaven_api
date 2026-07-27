@@ -127,7 +127,6 @@ class Client:
                                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.warning(f"on_message error: {e}")
-            return
 
     def _fmt_topic(self, resource, resource_id, attribute):
         """Constructs topic name based on the type of message being sent"""

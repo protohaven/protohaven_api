@@ -111,7 +111,7 @@ def fetch_new_member_coupon(
     raise RuntimeError(f"Unsupported coupon code type {coupon_type}")
 
 
-def init_membership(  # pylint: disable=too-many-arguments,inconsistent-return-statements
+def init_membership(  # pylint: disable=too-many-arguments,too-many-positional-arguments,inconsistent-return-statements
     account_id,
     membership_name,
     membership_id,

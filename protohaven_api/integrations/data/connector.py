@@ -107,7 +107,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         """Returns the format of DB calls; the response is different between Airtable and Nocodb"""
         return get_config("general/db_mode") or "nocodb"
 
-    def db_request(  # pylint: disable=too-many-arguments
+    def db_request(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, mode, base, tbl, rec=None, params=None, data=None
     ):
         """Make an airtable request using the requests module"""

@@ -286,7 +286,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
 
             browser.close()
 
-    def _post_discount(  # pylint: disable=too-many-arguments
+    def _post_discount(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         page,
         _,  # Previously discount type
@@ -394,7 +394,7 @@ class NeonOne:  # pylint: disable=too-few-public-methods
             raise RuntimeError(f"Report filter edit failed; response: {data}")
         return True
 
-    def assign_price_to_group(  # pylint: disable=too-many-arguments
+    def assign_price_to_group(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, ctx, event_id, group_id, price_name, amt, capacity
     ):
         """Assigns a specific price to a Neon ticket group"""
@@ -550,7 +550,7 @@ def delete_event_unsafe(event_id):
     return delete("api_key3", f"/events/{event_id}")
 
 
-def create_event(  # pylint: disable=too-many-arguments
+def create_event(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     name,
     desc,
     start,

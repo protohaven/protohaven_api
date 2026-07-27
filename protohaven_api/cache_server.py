@@ -155,8 +155,7 @@ def create_app() -> Flask:
 app: Flask = create_app()
 
 if __name__ == "__main__":
-    port: int = int(
-        get_config("cache_server/port", 5001)
-    )  # pylint: disable=invalid-name
+    # pylint: disable=invalid-name
+    port: int = int(get_config("cache_server/port", 5001))
     log.info("Starting cache server on port %s", port)
     app.run(host="0.0.0.0", port=port)

@@ -118,7 +118,7 @@ class PHClient(discord.Client):
     def _member_details(self, m):
         return (m.name, m.display_name, m.joined_at, [(r.name, r.id) for r in m.roles])
 
-    async def get_all_members(self):
+    async def get_all_members(self):  # pylint: disable=invalid-overridden-method
         """Retrieves all data on members and roles for the server"""
         return [self._member_details(m) for m in self.guild.members]
 

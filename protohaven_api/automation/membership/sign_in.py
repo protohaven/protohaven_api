@@ -238,7 +238,7 @@ def handle_notify_violations(violations, fname, email, url):
         log.info("Notified of sign-in with violations")
 
 
-def handle_waiver(  # pylint: disable=too-many-arguments
+def handle_waiver(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     user_id,
     last_version: str,
     last_signed: datetime.datetime,
@@ -274,7 +274,7 @@ def handle_waiver(  # pylint: disable=too-many-arguments
     return now < expiry
 
 
-def handle_member_agreement(  # pylint: disable=too-many-arguments
+def handle_member_agreement(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     user_id,
     last_version: str,
     last_signed: datetime.datetime,
