@@ -412,3 +412,137 @@ def test_humanize_sessions(mocker):
         )
         == "2 Sessions, 3.5h Each"
     )
+
+
+def test_user_enroll_nfc_no_data(client):
+    """Test enroll_nfc returns 400 when no JSON body"""
+    rep = client.post(
+        "/user/enroll_nfc", data="not json", content_type="application/json"
+    )
+    assert rep.status_code == 400
+
+
+def test_user_enroll_nfc_missing_fields(mocker, client):
+    """Test enroll_nfc returns 400 when missing required fields"""
+    rep = client.post("/user/enroll_nfc", json={"neon_id": "123"})
+    assert rep.status_code == 400
+    rep = client.post("/user/enroll_nfc", json={"email": "a@b.com"})
+    assert rep.status_code == 400
+
+
+def test_user_enroll_nfc_success(mocker, client):
+    """Test enroll_nfc publishes MQTT message and returns ok"""
+    mock_mqtt = mocker.MagicMock()
+    mocker.patch.object(index.mqtt, "get", return_value=mock_mqtt)
+
+    rep = client.post("/user/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
+    assert rep.status_code == 200
+    assert rep.json["status"] == "ok"
+    mock_mqtt.c.publish.assert_called_once()
+    call_args = mock_mqtt.c.publish.call_args[0]
+    assert call_args[0] == index.NFC_ENROLL_TOPIC
+
+
+def test_user_enroll_nfc_no_mqtt(mocker, client):
+    """Test enroll_nfc returns 503 when no MQTT client"""
+    mocker.patch.object(index.mqtt, "get", return_value=None)
+
+    rep = client.post("/user/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
+    assert rep.status_code == 503
+
+
+def test_handle_nfc_last_enrollment_invalid_data(mocker):
+    """Test _handle_nfc_last_enrollment logs error on missing fields"""
+    mock_log = mocker.patch.object(index, "log")
+
+    index._handle_nfc_last_enrollment("topic", {})
+    mock_log.error.assert_called()
+
+    index._handle_nfc_last_enrollment(
+        "topic", {"neon_id": "123", "timestamp": "2024-01-01"}
+    )
+    mock_log.error.assert_called()
+
+
+def test_handle_nfc_last_enrollment_success(mocker):
+    """Test _handle_nfc_last_enrollment appends token and updates Neon"""
+    mock_member = mocker.MagicMock()
+    mock_member.nfc_token_ids = [{"timestamp": "old_ts", "nfc_id": "old_id"}]
+    mocker.patch.object(
+        index.neon, "search_member_by_neon_id", return_value=mock_member
+    )
+    mock_set = mocker.patch.object(index, "set_custom_fields")
+
+    index._handle_nfc_last_enrollment(
+        "topic",
+        {"neon_id": "123", "timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"},
+    )
+
+    mock_set.assert_called_once()
+    call_args = mock_set.call_args[0]
+    assert call_args[0] == "123"
+    assert call_args[1][0] == index.CustomField.NFC_TOKEN_IDS
+    import json
+
+    tokens = json.loads(call_args[1][1])
+    assert len(tokens) == 2
+    assert tokens[1] == {"timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"}
+
+
+def test_handle_nfc_last_enrollment_no_existing_tokens(mocker):
+    """Test _handle_nfc_last_enrollment with no existing tokens"""
+    mock_member = mocker.MagicMock()
+    mock_member.nfc_token_ids = []
+    mocker.patch.object(
+        index.neon, "search_member_by_neon_id", return_value=mock_member
+    )
+    mock_set = mocker.patch.object(index, "set_custom_fields")
+
+    index._handle_nfc_last_enrollment(
+        "topic",
+        {"neon_id": "123", "timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"},
+    )
+
+    mock_set.assert_called_once()
+    call_args = mock_set.call_args[0]
+    import json
+
+    tokens = json.loads(call_args[1][1])
+    assert tokens == [{"timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"}]
+
+
+def test_handle_nfc_last_enrollment_member_not_found(mocker):
+    """Test _handle_nfc_last_enrollment when member lookup returns None"""
+    mocker.patch.object(index.neon, "search_member_by_neon_id", return_value=None)
+    mock_set = mocker.patch.object(index, "set_custom_fields")
+    mock_log = mocker.patch.object(index, "log")
+
+    index._handle_nfc_last_enrollment(
+        "topic",
+        {"neon_id": "999", "timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"},
+    )
+
+    mock_set.assert_called_once()
+    call_args = mock_set.call_args[0]
+    import json
+
+    tokens = json.loads(call_args[1][1])
+    assert tokens == [{"timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"}]
+
+
+def test_init_nfc_enrollment_listener_no_mqtt(mocker):
+    """Test init_nfc_enrollment_listener warns when no MQTT client"""
+    mocker.patch.object(index.mqtt, "get", return_value=None)
+    mock_log = mocker.patch.object(index, "log")
+    index.init_nfc_enrollment_listener()
+    mock_log.warning.assert_called()
+
+
+def test_init_nfc_enrollment_listener_success(mocker):
+    """Test init_nfc_enrollment_listener registers callback"""
+    mock_mqtt = mocker.MagicMock()
+    mocker.patch.object(index.mqtt, "get", return_value=mock_mqtt)
+    index.init_nfc_enrollment_listener()
+    mock_mqtt.register_topic_callback.assert_called_once_with(
+        index.NFC_LAST_ENROLLMENT_TOPIC, index._handle_nfc_last_enrollment
+    )

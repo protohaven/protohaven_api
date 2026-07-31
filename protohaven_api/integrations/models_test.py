@@ -1,5 +1,6 @@
 """Various objects representing physical and digital entities."""
 
+import json
 from collections import namedtuple
 
 import pytest
@@ -800,3 +801,27 @@ def test_event_discount_pct():
 
     obj.income_based_rate = "Low Income - 20%"
     assert obj.event_discount_pct() == 20
+
+
+def test_member_nfc_token_ids_empty(mocker):
+    """Test nfc_token_ids returns empty list when field is not set"""
+    mocker.patch.object(models.Member, "_get_custom_field", return_value=None)
+    m = models.Member()
+    assert m.nfc_token_ids == []
+
+
+def test_member_nfc_token_ids_with_data(mocker):
+    """Test nfc_token_ids parses JSON array of token enrollments"""
+    data = [{"timestamp": "2024-01-01T12:00:00Z", "nfc_id": "abc123"}]
+    mocker.patch.object(
+        models.Member, "_get_custom_field", return_value=json.dumps(data)
+    )
+    m = models.Member()
+    assert m.nfc_token_ids == data
+
+
+def test_member_nfc_token_ids_invalid_json(mocker):
+    """Test nfc_token_ids returns empty list for invalid JSON"""
+    mocker.patch.object(models.Member, "_get_custom_field", return_value="not json")
+    m = models.Member()
+    assert m.nfc_token_ids == []

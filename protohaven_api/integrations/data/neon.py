@@ -30,6 +30,7 @@ class CustomField:
     INCOME_BASED_RATE = 78
     LAST_REVIEW = 166
     MEMBER_AGREEMENT_ACCEPTED = 167
+    NFC_TOKEN_IDS = 168
 
     # PROOF_OF_INCOME doesn't exist in the output fields, likely because
     # it's a file attachment and not a "primitive" field type.

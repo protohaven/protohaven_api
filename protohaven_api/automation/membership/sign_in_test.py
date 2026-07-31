@@ -505,6 +505,7 @@ def test_as_member_notfound(mocker):
         "waiver_signed": False,
         "neon_id": "",
         "reservations": [],
+        "nfc_token_ids": [],
     }
     m.assert_not_called()
 

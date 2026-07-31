@@ -56,6 +56,7 @@ def result_base():
         "announcements": [],
         "firstname": "member",
         "reservations": [],
+        "nfc_token_ids": [],
     }
 
 
@@ -361,6 +362,7 @@ def as_member(data, send):  # pylint: disable=too-many-statements,too-many-local
 
     result["neon_id"] = m.neon_id
     result["firstname"] = m.fname
+    result["nfc_token_ids"] = m.nfc_token_ids or []
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m.neon_id}"
 
     meta = {"full_name": f"{m.fname} {m.lname}"}

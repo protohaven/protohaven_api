@@ -639,6 +639,19 @@ class Member:  # pylint:disable=too-many-public-methods
         return v[0].title(), v[1].upper()
 
     @property
+    def nfc_token_ids(self) -> list:
+        """Return NFC Token IDs custom field as list of {timestamp, nfc_id} dicts"""
+        import json
+
+        v = self._get_custom_field("Nfc Token Ids", "value")
+        if not v:
+            return []
+        try:
+            return json.loads(v)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @property
     def booked_id(self):
         """Return Booked user ID custom field from Neon"""
         got = self._get_custom_field("Booked User ID", "value")

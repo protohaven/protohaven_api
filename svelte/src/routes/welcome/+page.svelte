@@ -9,6 +9,7 @@
 	import Waiver from '$lib/waiver.svelte';
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
+	import NfcEnroll from '$lib/nfc_enroll.svelte';
 	let state = 'splash';
 	let name = 'member';
 	let email = null;
@@ -21,6 +22,8 @@
 	let feedback = null;
 	let referrer = '';
 	let testing = false;
+	let neon_id = '';
+	let nfc_token_ids = [];
 
 	let announcements = [];
 	let violations = [];
@@ -34,6 +37,8 @@
 	let toast_msg = null;
 	let toast_timer = null;
 	let enable_nfc = false;
+	/** @type {import('$lib/nfc_enroll.svelte').default | null} */
+	let nfc_enroll_ref = null;
 
 	onMount(() => {
 		console.log('Base WS:', base_ws());
@@ -74,8 +79,27 @@
 			if (data.type === 'status') {
 				server_mqtt_connected = data.server_mqtt_connected;
 				nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
+			} else if (data.origin.endsWith('last_enrollment')) {
+				console.log('Received NFC enrollment result via MQTT:', data.data);
+				// Only process if in enrollment flow AND for the current user
+				if (
+					state === 'enrolling_nfc' &&
+					nfc_enroll_ref &&
+					String(data.data.neon_id) === String(neon_id)
+				) {
+					nfc_enroll_ref.on_last_enrollment(data.data);
+				}
 			} else if (data.origin.endsWith('signin')) {
 				console.log('Received sign in attempt via MQTT:', data.data);
+				// If we're in the enrollment flow, this is a confirmation tap
+				if (
+					state === 'enrolling_nfc' &&
+					nfc_enroll_ref &&
+					String(data.data.email) === String(email)
+				) {
+					nfc_enroll_ref.on_tap_detected();
+					return;
+				}
 				// If we're already showing sign-in result, restart the flow first
 				if (state === 'signin_ok') {
 					restart_flow();
@@ -167,6 +191,9 @@
 		announcements = [];
 		violations = [];
 		reservations = [];
+		neon_id = '';
+		nfc_token_ids = [];
+		nfc_enroll_ref = null;
 	}
 
 	function on_signin_return(survey_response) {
@@ -197,6 +224,8 @@
 			return;
 		}
 		name = result.firstname;
+		neon_id = result.neon_id;
+		nfc_token_ids = result.nfc_token_ids || [];
 		announcements = result.announcements;
 		violations = result.violations;
 		reservations = result.reservations;
@@ -221,6 +250,23 @@
 		// Put this in a setTimeout so that we escape the event
 		// and don't accidentally trigger an enter-based return event
 		setTimeout(() => (state = 'signin_ok'), 50);
+	}
+
+	function on_start_nfc_enroll() {
+		// Transition from signin_ok to enrollment flow
+		state = 'enrolling_nfc';
+	}
+
+	function on_nfc_enrollment_cancel() {
+		// Return to splash screen after enrollment cancel/timeout
+		on_signin_return();
+	}
+
+	function on_nfc_enrollment_complete() {
+		// Enrollment succeeded, return to signin_ok briefly then close
+		show_toast('success', 'NFC Tag Enrolled', 'Tap your tag to sign in next time!');
+		// Small delay so user sees the toast, then close
+		setTimeout(() => on_signin_return(), 3000);
 	}
 </script>
 
@@ -265,11 +311,22 @@
 			<SigninOk
 				{name}
 				{email}
+				{neon_id}
+				{nfc_token_ids}
 				guest={person == 'guest'}
 				{announcements}
 				{violations}
 				{reservations}
 				on_close={on_signin_return}
+				on_enroll={on_start_nfc_enroll}
+			/>
+		{:else if state == 'enrolling_nfc'}
+			<NfcEnroll
+				{neon_id}
+				{email}
+				on_close={on_nfc_enrollment_cancel}
+				on_enrolled={on_nfc_enrollment_complete}
+				bind:this={nfc_enroll_ref}
 			/>
 		{/if}
 	</Row>
