@@ -86,7 +86,11 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
     """Persistent websocket that listens for Neon ID badge scans and toast
     notifications via MQTT. Messages are forwarded to the Svelte frontend.
     Also tracks NFC device heartbeat and MQTT broker status, sending periodic
-    status updates to the client."""
+    status updates to the client.
+
+    Note: mqtt.py subscribes using MQTTv5 "subscription groups", so messages
+    only send to a single subscribed client.
+    """
     log.info("welcome_neon_ws init")
     neon_signin_topic = get_config("mqtt/neon_signin_topic")
     neon_toast_topic = get_config("mqtt/neon_toast_topic")

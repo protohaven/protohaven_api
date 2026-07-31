@@ -388,3 +388,4 @@ mqtt:
   ca_cert_path: ""
   neon_signin_topic: "protohaven_api/v1/user/signin"
   neon_toast_topic: "protohaven_api/v1/kiosk/toast"
+  shared_subscription_group: ${MQTT_SHARED_SUB_GROUP}

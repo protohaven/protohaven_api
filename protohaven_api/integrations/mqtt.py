@@ -5,8 +5,10 @@ import logging
 import socket
 import threading
 import time
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import MQTTProtocolVersion
 
 from protohaven_api.config import get_config
 
@@ -38,10 +40,25 @@ class Client:
     HEARTBEAT_PD_SEC = 5.0
 
     def __init__(self, notify_discord_cb):
-        self.c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        # Note: we use MQTTv5 to support shared subscription groups.
+        self.c = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            protocol=MQTTProtocolVersion.MQTTv5,
+        )
         self.notify_discord_cb = notify_discord_cb
         self._topic_callbacks = {}  # topic -> list of callbacks
         self._topic_callbacks_lock = threading.Lock()
+
+        # For topics we subscribe to on all gunicorn workers,
+        # we use MQTT5 shared subscription groups so that messages are only
+        # delivered to one worker. This prevents duplicate handling.
+        # https://www.hivemq.com/blog/mqtt5-essentials-part7-shared-subscriptions/
+        #
+        # Note that subscribe/unsubscribe requires the $share/group1/ prefix, but
+        # `topic` values passed to the handler do not include this prefix.
+        self._subscription_group = (
+            get_config("mqtt/shared_subscription_group") or "group1"
+        )
 
     def _start(self):
         self.c.on_connect = self.on_connect
@@ -56,6 +73,13 @@ class Client:
             get_config("mqtt/keepalive_sec"),
         )
 
+    def _group_topic(self, topic) -> str:
+        """Convert a topic to a group topic for single-worker message actions.
+        See self._subscription_group comment in __init__ of this class"""
+        if topic.startswith("$share"):
+            return topic
+        return str(Path(f"$share/{self._subscription_group}") / topic)
+
     def register_topic_callback(self, topic, callback):
         """Register a callback for messages on a specific MQTT topic.
         The callback will be called with (topic, payload) for each message.
@@ -64,8 +88,9 @@ class Client:
             if topic not in self._topic_callbacks:
                 self._topic_callbacks[topic] = []
                 if self.c.is_connected():
-                    self.c.subscribe(topic)
-                    log.info(f"Subscribed to {topic}")
+                    t = self._group_topic(topic)
+                    self.c.subscribe(t)
+                    log.info(f"Subscribed to {t}")
             self._topic_callbacks[topic].append(callback)
 
     def unregister_topic_callback(self, topic, callback):
@@ -78,21 +103,24 @@ class Client:
                 if not self._topic_callbacks[topic]:
                     del self._topic_callbacks[topic]
                     if self.c.is_connected():
-                        self.c.unsubscribe(topic)
+                        self.c.unsubscribe(self._group_topic(topic))
                         log.info(f"Unsubscribed from {topic}")
 
     def on_connect(
         self, _, userdata, flags, reason_code, properties
     ):  # pylint:disable=unused-argument
         """Connection update events"""
+
         log.info(f"Connected with result code {reason_code}")
-        for sub in ("/protohaven_api/v1/notify_discord",):
+        for sub in (self._group_topic("protohaven_api/v1/notify_discord"),):
+            log.info(f"Subscribing to {sub}")
             self.c.subscribe(sub)
             log.info(f"Subscribed to {sub}")
+
         # Re-subscribe to any registered topic callbacks
         with self._topic_callbacks_lock:
             for topic in self._topic_callbacks:
-                self.c.subscribe(topic)
+                self.c.subscribe(self._group_topic(topic))
                 log.info(f"Subscribed to {topic}")
 
     def on_message(self, _, userdata, msg):  # pylint:disable=unused-argument
@@ -102,7 +130,7 @@ class Client:
             log.info(f"RECV {msg.topic}: {msg.payload[:128]}...")
             data = json.loads(msg.payload)
 
-            if msg.topic == "/protohaven_api/v1/notify_discord":
+            if msg.topic == "protohaven_api/v1/notify_discord":
                 if not data.get("channel") or not data.get("message"):
                     log.error(
                         "`channel` and `message` required for discord notiication"
@@ -115,16 +143,14 @@ class Client:
             # Dispatch to registered topic callbacks
             with self._topic_callbacks_lock:
                 for topic, callbacks in list(self._topic_callbacks.items()):
-                    if mqtt.topic_matches_sub(topic, msg.topic):
-                        for cb in callbacks:
-                            try:
-                                cb(msg.topic, data)
-                            except (
-                                Exception  # pylint: disable=broad-exception-caught
-                            ) as e:
-                                log.warning(
-                                    f"Topic callback error for {msg.topic}: {e}"
-                                )
+                    if mqtt.topic_matches_sub(topic, msg.topic) and len(callbacks) > 0:
+                        # Only one callback may fire per topic; we just pick
+                        # the last one.
+                        cb = callbacks[-1]
+                        try:
+                            cb(msg.topic, data)
+                        except Exception as e:  # pylint: disable=broad-exception-caught
+                            log.warning(f"Topic callback error for {msg.topic}: {e}")
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.warning(f"on_message error: {e}")
 

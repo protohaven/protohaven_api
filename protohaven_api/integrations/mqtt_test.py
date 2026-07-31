@@ -12,7 +12,7 @@ def test_on_connect(mocker):
     mocker.patch.object(c, "c")
     c.on_connect(None, None, {}, 0, None)
     c.c.subscribe.assert_any_call(  # pylint: disable=no-member
-        "/protohaven_api/v1/notify_discord"
+        "$share/group1/protohaven_api/v1/notify_discord"
     )
 
 
@@ -38,7 +38,7 @@ def test_register_topic_callback_connected(mocker):
 
     c.c.is_connected.return_value = True
     c.register_topic_callback("test/topic", cb)
-    c.c.subscribe.assert_called_once_with("test/topic")
+    c.c.subscribe.assert_called_once_with("$share/group1/test/topic")
 
 
 def test_unregister_topic_callback(mocker):
@@ -69,7 +69,7 @@ def test_unregister_last_callback_unsubscribes(mocker):
     c.register_topic_callback("test/topic", cb)
     c.unregister_topic_callback("test/topic", cb)
     assert "test/topic" not in c._topic_callbacks
-    c.c.unsubscribe.assert_called_once_with("test/topic")
+    c.c.unsubscribe.assert_called_once_with("$share/group1/test/topic")
 
 
 def test_on_connect_resubscribes_callbacks(mocker):
@@ -80,7 +80,7 @@ def test_on_connect_resubscribes_callbacks(mocker):
     c._topic_callbacks["test/topic"] = [cb]
 
     c.on_connect(None, None, {}, 0, None)
-    c.c.subscribe.assert_any_call("test/topic")
+    c.c.subscribe.assert_any_call("$share/group1/test/topic")
 
 
 def test_on_message_dispatches_to_callbacks(mocker):
@@ -128,5 +128,5 @@ def test_on_connect_registered_callbacks(mocker):
     c._topic_callbacks["custom/topic"] = [cb]
 
     c.on_connect(None, None, {}, 0, None)
-    c.c.subscribe.assert_any_call("/protohaven_api/v1/notify_discord")
-    c.c.subscribe.assert_any_call("custom/topic")
+    c.c.subscribe.assert_any_call("$share/group1/protohaven_api/v1/notify_discord")
+    c.c.subscribe.assert_any_call("$share/group1/custom/topic")
