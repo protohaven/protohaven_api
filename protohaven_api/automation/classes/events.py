@@ -72,7 +72,7 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
         )
         neon_gen = _fetch_upcoming_events_neon(after, published, attendees, tickets)
         eb_gen = eventbrite.fetch_events(
-            status="live,started,ended,completed", batching=True
+            status="live,started,ended,completed", batching=True, attendees=attendees
         )
         not_done: set[futures.Future] = {
             executor.submit(lambda: (neon_gen, next(neon_gen))),  # type: ignore[call-overload]
