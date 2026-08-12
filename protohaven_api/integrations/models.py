@@ -892,19 +892,16 @@ class Event:  # pylint: disable=too-many-public-methods
 
     @property
     def attendees(self) -> Generator[Attendee, None, None]:
-        """With attendee data, returns Attendee instances"""
+        """With attendee data, returns Attendee instances.
+        Returns empty if data not loaded"""
         for a in self.eventbrite_attendee_data or []:
-            at = Attendee()
-            at.eventbrite_data = a
-            yield at
+            yield Attendee(eventbrite_data=a)
         for a in self.neon_attendee_data or []:
-            at = Attendee()
-            at.neon_raw_data = a
-            yield at
+            yield Attendee(neon_raw_data=a)
 
     @property
-    def signups(self) -> set[int]:
-        """With attendee data, compute number of unique registrants for the event"""
+    def _signups(self) -> set[int]:
+        """With attendee data, compute set of unique registrants for the event"""
         if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
             raise NoAttendeeDataError("Missing attendee data for call to signups()")
 
@@ -919,14 +916,20 @@ class Event:  # pylint: disable=too-many-public-methods
                 n += tc["quantity_sold"]
             return n
         ac = self.neon_search_data.get("Event Registration Attendee Count")
-        return int(ac) if ac is not None else len(self.signups)
+        return int(ac) if ac is not None else len(self._signups)
 
     @property
     def occupancy(self):
-        """With attendee data, compute occupancy of the event"""
-        if self.neon_attendee_data is None and self.eventbrite_attendee_data is None:
-            raise NoAttendeeDataError("Missing attendee data for call to occupancy()")
-        return 0 if not self.capacity else len(self.signups) / self.capacity
+        """With attendee data, compute occupancy of the event.
+        Raises NoAttendeeDataError if insufficient data to compute occupancy
+        """
+        if (
+            not self.eventbrite_data
+            and not self.neon_raw_data
+            and not self.neon_search_data
+        ):
+            raise NoAttendeeDataError()
+        return 0 if not self.capacity else self.attendee_count / self.capacity
 
     def in_blocklist(self):
         """Return True if this event is in a blocklist of not-useful events"""

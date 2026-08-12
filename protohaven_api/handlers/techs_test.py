@@ -318,19 +318,18 @@ def test_techs_backfill_events(mocker, tech_client):
     """Test the techs_backfill_events handler for expected output."""
     events = []
     for name, ovr in [
-        ("Event A", {"supply_cost": 10}),
+        ("Event A", {"supply_cost": 10, "attendee_count": 1}),
         (
             f"{tl.TECH_ONLY_PREFIX} no registants",
             {
                 "event_id": "999",
                 "published": False,
-                "signups": [],
                 "single_registration_ticket_id": None,
             },
         ),
         (
             "Upcoming event with no registants",
-            {"event_id": "875", "signups": [], "attendee_count": 0},
+            {"event_id": "875"},
         ),
         (
             "Private Instruction - ignored",
@@ -344,17 +343,21 @@ def test_techs_backfill_events(mocker, tech_client):
             single_registration_ticket_id="t1",
             published=True,
             registration=True,
-            attendee_count=1,
-            signups=[1],
+            attendee_count=0,
             capacity=10,
             start_date=d(0),
             supply_cost=0,
-            neon_attendee_data=None,
+            neon_attendee_data=True,
         )
-        m.attendees = []
         m.name = name
         for k, v in ovr.items():
             setattr(m, k, v)
+
+        m.attendees = []
+        for _ in range(m.attendee_count):
+            m.attendees.append(
+                mocker.MagicMock(valid=True, neon_id=123, name="Foo", email="a@b.com")
+            )
         events.append(m)
 
     mocker.patch.object(
@@ -369,7 +372,7 @@ def test_techs_backfill_events(mocker, tech_client):
     assert response.status_code == 200
     assert response.json["events"] == [
         {
-            "attendees": [1],
+            "attendees": [123],
             "attendee_details": [],
             "capacity": 10,
             "id": "123",
