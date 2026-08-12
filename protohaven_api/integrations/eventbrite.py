@@ -131,7 +131,7 @@ def _utcfmt(d: datetime.datetime) -> str:
     )
 
 
-def create_event(  # pylint: disable=too-many-arguments
+def create_event(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     name: str,
     sessions: list[Interval],
     summary: str | None = None,
