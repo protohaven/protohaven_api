@@ -1,6 +1,7 @@
 <script type="typescript">
 	import {
 		Alert,
+    Icon,
 		Input,
 		Image,
 		Button,
@@ -92,9 +93,9 @@
 	{#if !guest && nfc_token_ids.length === 0}
 		<Alert color="info" class="text-center">
 			<h4 class="my-2">
-				<span style="font-size:1.4em;">📱</span> Enable Tap-to-Sign-In
+        Want to sign in faster?
 			</h4>
-			<p class="mb-3">Enroll an NFC tag and sign in with just a tap — no typing needed!</p>
+			<p class="mb-3">Enroll an NFC tag to sign in with just a tap.</p>
 			<Row class="justify-content-center mb-2">
 				<Col sm={{ size: 'auto' }}>
 					<Button
@@ -105,6 +106,7 @@
 							on_enroll();
 						}}
 					>
+            <Icon name="circle-square" />
 						Enroll NFC Tag
 					</Button>
 				</Col>

@@ -386,6 +386,10 @@ mqtt:
   username: ${MQTT_USERNAME}
   password: ${MQTT_PASSWORD}
   ca_cert_path: ""
-  neon_signin_topic: "protohaven_api/v1/user/signin"
   neon_toast_topic: "protohaven_api/v1/kiosk/toast"
+  nfc_heartbeat_topic: "protohaven_api/v1/kiosk/nfc_device/heartbeat"
+  neon_signin_topic: "protohaven_api/v1/user/signin"
+  nfc_enroll_topic:  "protohaven_api/v1/user/enroll_nfc"
+  nfc_written_topic: "protohaven_api/v1/user/nfc_written"
+  nfc_max_tracked_tokens: 10
   shared_subscription_group: ${MQTT_SHARED_SUB_GROUP}

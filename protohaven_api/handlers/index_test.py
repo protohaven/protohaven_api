@@ -417,16 +417,16 @@ def test_humanize_sessions(mocker):
 def test_user_enroll_nfc_no_data(client):
     """Test enroll_nfc returns 400 when no JSON body"""
     rep = client.post(
-        "/user/enroll_nfc", data="not json", content_type="application/json"
+        "/member/enroll_nfc", data="not json", content_type="application/json"
     )
     assert rep.status_code == 400
 
 
 def test_user_enroll_nfc_missing_fields(mocker, client):
     """Test enroll_nfc returns 400 when missing required fields"""
-    rep = client.post("/user/enroll_nfc", json={"neon_id": "123"})
+    rep = client.post("/member/enroll_nfc", json={"neon_id": "123"})
     assert rep.status_code == 400
-    rep = client.post("/user/enroll_nfc", json={"email": "a@b.com"})
+    rep = client.post("/member/enroll_nfc", json={"email": "a@b.com"})
     assert rep.status_code == 400
 
 
@@ -435,7 +435,7 @@ def test_user_enroll_nfc_success(mocker, client):
     mock_mqtt = mocker.MagicMock()
     mocker.patch.object(index.mqtt, "get", return_value=mock_mqtt)
 
-    rep = client.post("/user/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
+    rep = client.post("/member/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
     assert rep.status_code == 200
     assert rep.json["status"] == "ok"
     mock_mqtt.c.publish.assert_called_once()
@@ -447,7 +447,7 @@ def test_user_enroll_nfc_no_mqtt(mocker, client):
     """Test enroll_nfc returns 503 when no MQTT client"""
     mocker.patch.object(index.mqtt, "get", return_value=None)
 
-    rep = client.post("/user/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
+    rep = client.post("/member/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
     assert rep.status_code == 503
 
 
@@ -528,21 +528,3 @@ def test_handle_nfc_last_enrollment_member_not_found(mocker):
 
     tokens = json.loads(call_args[1][1])
     assert tokens == [{"timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"}]
-
-
-def test_init_nfc_enrollment_listener_no_mqtt(mocker):
-    """Test init_nfc_enrollment_listener warns when no MQTT client"""
-    mocker.patch.object(index.mqtt, "get", return_value=None)
-    mock_log = mocker.patch.object(index, "log")
-    index.init_nfc_enrollment_listener()
-    mock_log.warning.assert_called()
-
-
-def test_init_nfc_enrollment_listener_success(mocker):
-    """Test init_nfc_enrollment_listener registers callback"""
-    mock_mqtt = mocker.MagicMock()
-    mocker.patch.object(index.mqtt, "get", return_value=mock_mqtt)
-    index.init_nfc_enrollment_listener()
-    mock_mqtt.register_topic_callback.assert_called_once_with(
-        index.NFC_LAST_ENROLLMENT_TOPIC, index._handle_nfc_last_enrollment
-    )

@@ -23,11 +23,6 @@ page = Blueprint("index", __name__, template_folder="templates")
 
 log = logging.getLogger("handlers.index")
 
-# Topic for requesting NFC enrollment on the kiosk device
-NFC_ENROLL_TOPIC = "protohaven_api/v1/user/enroll_nfc"
-# Topic the NFC device publishes to after successful enrollment
-NFC_LAST_ENROLLMENT_TOPIC = "protohaven_api/user/last_enrollment"
-
 
 @page.route("/")
 @require_login
@@ -101,7 +96,8 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
     log.info("welcome_neon_ws init")
     neon_signin_topic = get_config("mqtt/neon_signin_topic")
     neon_toast_topic = get_config("mqtt/neon_toast_topic")
-    nfc_heartbeat_topic = "protohaven_api/v1/kiosk/nfc_device/heartbeat"
+    nfc_heartbeat_topic = get_config("mqtt/nfc_heartbeat_topic")
+    nfc_written_topic = get_config("mqtt/nfc_written_topic")
 
     # Track NFC device heartbeat
     nfc_last_heartbeat = None
@@ -116,12 +112,10 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
         nfc_last_heartbeat = time.time()
         log.debug(f"NFC heartbeat received: {data}")
 
-    def handle_last_enrollment(topic: str, data: dict):
+    def handle_nfc_written(topic: str, data: dict):
         """Handle NFC enrollment result: forward to frontend AND update Neon"""
-        # Forward to frontend first
         handle_message(topic, data)
-        # Then update Neon with the enrollment data
-        _handle_nfc_last_enrollment(topic, data)
+        _store_nfc_write_info(data)
 
     def send_status():
         """Send NFC/MQTT connection status to the client"""
@@ -144,9 +138,7 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
         mqtt_client.register_topic_callback(neon_signin_topic, handle_message)
         mqtt_client.register_topic_callback(neon_toast_topic, handle_message)
         mqtt_client.register_topic_callback(nfc_heartbeat_topic, handle_nfc_heartbeat)
-        mqtt_client.register_topic_callback(
-            NFC_LAST_ENROLLMENT_TOPIC, handle_last_enrollment
-        )
+        mqtt_client.register_topic_callback(nfc_written_topic, handle_nfc_written)
         log.info("Registered welcome_neon_ws listeners")
     else:
         log.info("MQTT client not set up; aborting")
@@ -170,9 +162,7 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
             mqtt_client.unregister_topic_callback(
                 nfc_heartbeat_topic, handle_nfc_heartbeat
             )
-            mqtt_client.unregister_topic_callback(
-                NFC_LAST_ENROLLMENT_TOPIC, handle_last_enrollment
-            )
+            mqtt_client.unregister_topic_callback(nfc_written_topic, handle_nfc_written)
     log.info("Neon sign-in WS listener ended")
 
 
@@ -219,13 +209,14 @@ def survey_response():
     return Response(json.dumps({"status": status}), status=status)
 
 
-@page.route("/user/enroll_nfc", methods=["POST"])
-def user_enroll_nfc():
+@page.route("/member/enroll_nfc", methods=["POST"])
+def member_enroll_nfc():
     """Initiate NFC tag enrollment for a user.
 
     Expects JSON body: {neon_id, email}
     Publishes an MQTT message to the NFC kiosk device to begin enrollment.
     """
+    nfc_enroll_topic = get_config("mqtt/nfc_enroll_topic")
     data = request.json
     if not data:
         return Response("JSON body required", status=400)
@@ -243,26 +234,29 @@ def user_enroll_nfc():
         return Response("MQTT client not available", status=503)
 
     mqtt_client.c.publish(
-        NFC_ENROLL_TOPIC,
+        nfc_enroll_topic,
         json.dumps({"neon_id": neon_id, "email": email}),
     )
-    log.info(f"Published enrollment request to {NFC_ENROLL_TOPIC}")
+    log.info(f"Published enrollment request to {nfc_enroll_topic}")
 
     return {"status": "ok", "message": "Enrollment initiated"}
 
 
-def _handle_nfc_last_enrollment(topic: str, data: dict):
+def _store_nfc_write_info(data: dict):
     """Handle an NFC enrollment result from the kiosk device.
 
     Expects payload: {neon_id, timestamp, nfc_id}
     Appends the enrollment to the user's NFC Token IDs custom field (ID 168).
+    If too many have been enrolled, older token information
+    is deleted.
     """
+    max_tracked_tokens = get_config("mqtt/nfc_max_tracked_tokens", default=3)
     neon_id = str(data.get("neon_id", "")).strip()
     timestamp = data.get("timestamp", "")
     nfc_id = str(data.get("nfc_id", "")).strip()
 
     if not neon_id or not timestamp or not nfc_id:
-        log.error(f"Invalid last_enrollment payload (missing fields): {data}")
+        log.error(f"Invalid nfc_written payload (missing fields): {data}")
         return
 
     log.info(
@@ -271,15 +265,13 @@ def _handle_nfc_last_enrollment(topic: str, data: dict):
     )
 
     try:
-        # Fetch existing tokens
         m = neon.search_member_by_neon_id(
             neon_id,
             fields=[CustomField.NFC_TOKEN_IDS],
         )
         existing_tokens = m.nfc_token_ids if m else []
-
-        # Append new enrollment
-        existing_tokens.append({"timestamp": timestamp, "nfc_id": nfc_id})
+        existing_tokens.append((timestamp, nfc_id))
+        existing_tokens = existing_tokens[-max_tracked_tokens:]
 
         # Update Neon custom field
         set_custom_fields(
@@ -289,24 +281,6 @@ def _handle_nfc_last_enrollment(topic: str, data: dict):
         log.info(f"Updated NFC Token IDs for neon_id={neon_id}: {existing_tokens}")
     except Exception as e:  # pylint: disable=broad-exception-caught
         log.error(f"Failed to update NFC Token IDs for neon_id={neon_id}: {e}")
-
-
-def init_nfc_enrollment_listener():
-    """Register a permanent MQTT listener for NFC enrollment results.
-
-    Call once at application startup after the MQTT client is running.
-    """
-    mqtt_client = mqtt.get()
-    if not mqtt_client:
-        log.warning("MQTT client not available; NFC enrollment listener not registered")
-        return
-
-    mqtt_client.register_topic_callback(
-        NFC_LAST_ENROLLMENT_TOPIC, _handle_nfc_last_enrollment
-    )
-    log.info(
-        f"Registered permanent NFC enrollment listener on {NFC_LAST_ENROLLMENT_TOPIC}"
-    )
 
 
 @page.route("/class_listing", methods=["GET"])

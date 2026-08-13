@@ -36,19 +36,19 @@ class CustomField:
     # it's a file attachment and not a "primitive" field type.
 
     @classmethod
-    def from_id(cls, v):
-        """Converts to a CustomField from a neon ID"""
+    def from_id(cls, v: str | int) -> str:
+        """Converts to a CustomField string from a neon ID"""
         for k in dir(cls):
             if int(v) == getattr(cls, k):
                 result = " ".join(
                     [w.capitalize() for w in k.split("_")]
                 )  # Neon uses capital case names for custom fields
-
-                # Small correction to include ampersand
-                # since it cannot be used in a variable name
-                if result == "Notify Board And Staff":
-                    return "Notify Board & Staff"
-                return result
+                # Slight tweaks for some fields
+                return {
+                    "Notify Board And Staff": "Notify Board & Staff",
+                    "Booked User Id": "Booked User ID",
+                    "Nfc Token Ids": "NFC Token IDs",
+                }.get(result) or result
         raise CustomFieldNotFoundError(f"No CustomField ID {v}")
 
 

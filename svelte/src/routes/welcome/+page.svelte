@@ -37,7 +37,6 @@
 	let toast_msg = null;
 	let toast_timer = null;
 	let enable_nfc = false;
-	/** @type {import('$lib/nfc_enroll.svelte').default | null} */
 	let nfc_enroll_ref = null;
 
 	onMount(() => {
@@ -79,27 +78,11 @@
 			if (data.type === 'status') {
 				server_mqtt_connected = data.server_mqtt_connected;
 				nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
-			} else if (data.origin.endsWith('last_enrollment')) {
-				console.log('Received NFC enrollment result via MQTT:', data.data);
-				// Only process if in enrollment flow AND for the current user
-				if (
-					state === 'enrolling_nfc' &&
-					nfc_enroll_ref &&
-					String(data.data.neon_id) === String(neon_id)
-				) {
-					nfc_enroll_ref.on_last_enrollment(data.data);
-				}
+			} else if (nfc_enroll_ref) {
+        // Enrollment flow consumes all non-status messages until complete
+        nfc_enroll_ref.on_mqtt_message(data);
 			} else if (data.origin.endsWith('signin')) {
 				console.log('Received sign in attempt via MQTT:', data.data);
-				// If we're in the enrollment flow, this is a confirmation tap
-				if (
-					state === 'enrolling_nfc' &&
-					nfc_enroll_ref &&
-					String(data.data.email) === String(email)
-				) {
-					nfc_enroll_ref.on_tap_detected();
-					return;
-				}
 				// If we're already showing sign-in result, restart the flow first
 				if (state === 'signin_ok') {
 					restart_flow();
@@ -261,13 +244,6 @@
 		// Return to splash screen after enrollment cancel/timeout
 		on_signin_return();
 	}
-
-	function on_nfc_enrollment_complete() {
-		// Enrollment succeeded, return to signin_ok briefly then close
-		show_toast('success', 'NFC Tag Enrolled', 'Tap your tag to sign in next time!');
-		// Small delay so user sees the toast, then close
-		setTimeout(() => on_signin_return(), 3000);
-	}
 </script>
 
 <main>
@@ -325,7 +301,6 @@
 				{neon_id}
 				{email}
 				on_close={on_nfc_enrollment_cancel}
-				on_enrolled={on_nfc_enrollment_complete}
 				bind:this={nfc_enroll_ref}
 			/>
 		{/if}

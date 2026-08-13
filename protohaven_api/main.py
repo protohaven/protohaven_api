@@ -68,13 +68,6 @@ if get_config("mqtt/enabled", as_bool=True):
     threading.Thread(
         target=mqtt.run, daemon=True, args=(comms.send_discord_message,)
     ).start()
-    # Allow MQTT client time to connect before registering permanent listeners
-    time.sleep(1.0)
-    from protohaven_api.handlers.index import (  # pylint: disable=import-outside-toplevel
-        init_nfc_enrollment_listener,
-    )
-
-    init_nfc_enrollment_listener()
 else:
     log.warning("Skipping startup of mqtt client")
 
