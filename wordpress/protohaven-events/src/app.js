@@ -1,4 +1,4 @@
-import { get_event_tickets, process, fetch_remaining_events, LEVELS } from './lib';
+import { get_event_tickets, process, fetch_events, LEVELS } from './lib';
 import {Item} from './item';
 import { useEffect, useState } from '@wordpress/element';
 
@@ -16,6 +16,8 @@ export function App( { imgSize, initialData } ) {
 	const [filters, setFilters] = useState({area: null, level: null, age: 9999, from_date: null, to_date: null, show_full: true});
 	const [pricing, setPricing] = useState({});
 	const [user, setUser] = useState({});
+	const [retrying, setRetrying] = useState(!Array.isArray(initialData.events) || initialData.events.length === 0);
+	const [fetchFailed, setFetchFailed] = useState(false);
 	useEffect(() => {
 		// See if we should go through the API server when clicking through on classes
 		// Note: this requires serving from `protohaven.org` or risk CORS rejection
@@ -29,46 +31,63 @@ export function App( { imgSize, initialData } ) {
 			throw e;
 		});
 
-		// Maintain a copy of loading vars so that
-		// callbacks have shared context
-		let tmpClasses = {};
-		let tmpAreas = new Set();
-		let tmpLevels = new Set();
-		console.log(initialData);
-		const [c2, a2, l2] = process(initialData.events, tmpClasses, tmpAreas, tmpLevels);
-		setClasses(Object.values(c2));
-		setAreas(tmpAreas);
-		setLevels(tmpLevels);
-		Object.values(c2).forEach((c) => {
-			Object.entries(c.times).forEach(([tid, t]) => {
-				get_event_tickets(tid).then((data) => {
-					let price = null;
-					let discount = null;
-					if (data.forEach === undefined) {
-						console.warn("Invalid ticket data:", data);
-						return;
-					}
-					data.forEach((p) => {
-						if (p.name === 'Single Registration') {
-							t.price = p.price;
-						} else if (p.name === 'Member Rate') {
-							t.discount = p.price;
-						} else if (!t.price) {
-							t.price = p.price; // Fall back to any price data if present
+		const processEvents = (events) => {
+			// Maintain a copy of loading vars so that
+			// callbacks have shared context
+			const tmpClasses = {};
+			const tmpAreas = new Set();
+			const tmpLevels = new Set();
+			console.log(events);
+			const [c2, a2, l2] = process(events, tmpClasses, tmpAreas, tmpLevels);
+			setClasses(Object.values(c2));
+			setAreas(tmpAreas);
+			setLevels(tmpLevels);
+			Object.values(c2).forEach((c) => {
+				Object.entries(c.times).forEach(([tid, t]) => {
+					get_event_tickets(tid).then((data) => {
+						let price = null;
+						let discount = null;
+						if (data.forEach === undefined) {
+							console.warn("Invalid ticket data:", data);
+							return;
 						}
-						t.sold = (t.sold || 0) + p.sold;
+						data.forEach((p) => {
+							if (p.name === 'Single Registration') {
+								t.price = p.price;
+							} else if (p.name === 'Member Rate') {
+								t.discount = p.price;
+							} else if (!t.price) {
+								t.price = p.price; // Fall back to any price data if present
+							}
+							t.sold = (t.sold || 0) + p.sold;
+						});
+						if (t.price && !t.discount) {
+							// Eventbrite doesn't list actual ticket discounts;
+							// we assume 20% off by default for members.
+							// See `def event_discount_pct()` in `models.py` for details.
+							t.discount = Math.floor(t.price * 0.8);
+						}
+						console.log("t.sold", t.sold);
+						setClasses(Object.values(c2)); // Trigger rerender
 					});
-					if (t.price && !t.discount) {
-						// Eventbrite doesn't list actual ticket discounts;
-						// we assume 20% off by default for members.
-						// See `def event_discount_pct()` in `models.py` for details.
-						t.discount = Math.floor(t.price * 0.8);
-					}
-					console.log("t.sold", t.sold);
-					setClasses(Object.values(c2)); // Trigger rerender
 				});
 			});
-		});
+		};
+
+		const initialEvents = Array.isArray(initialData.events) ? initialData.events : [];
+		processEvents(initialEvents);
+
+		if (initialEvents.length === 0) {
+			setRetrying(true);
+			fetch_events().then((data) => {
+				processEvents(data.events);
+			}).catch((e) => {
+				console.warn("Unable to fetch class info after retries", e);
+				setFetchFailed(true);
+			}).finally(() => {
+				setRetrying(false);
+			});
+		}
 	}, []);
 
 
@@ -144,7 +163,13 @@ export function App( { imgSize, initialData } ) {
 		</div>
 		<div className="ph-grid">
 		{items.map((i) => i[1])}
-		{!any_visible && <div className="status-message">
+		{!any_visible && retrying && <div className="status-message">
+				<div>Loading classes...</div>
+		</div>}
+		{!any_visible && !retrying && fetchFailed && <div className="status-message">
+				<div>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohaven.org">hello@protohaven.org</a></div>
+		</div>}
+		{!any_visible && !retrying && !fetchFailed && <div className="status-message">
 				<div>No classes are available for your search.</div>
 				<div>Please broaden your search,
 		request <a href="https://form.asana.com/?k=YXgO7epJe3brNGLS6sOw7A&d=1199692158232291" target="_blank">Private Instruction</a>, or <a href="mailto:education@protohaven.org">Contact Us</a>.

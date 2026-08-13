@@ -44,6 +44,43 @@ export function get_event_tickets(event_id) {
 	});
 }
 
+async function fetchEventsOnce() {
+	let url = `/?rest_route=/protohaven-events-plugin-api/v1/events`;
+	if (typeof window !== 'undefined' && window.location.search.includes('nocache=1')) {
+		url += '&nocache=1';
+	}
+	const rep = await fetch(url);
+	if (!rep.ok) {
+		throw new Error(`Error fetching events: ${rep.status}`);
+	}
+	const data = await rep.json();
+	if (!data || !Array.isArray(data.events)) {
+		throw new Error('Invalid event data returned');
+	}
+	return data;
+}
+
+export async function fetch_events(retries = 3, baseDelay = 1000) {
+	let lastErr = new Error('Unable to fetch class info');
+	for (let attempt = 0; attempt <= retries; attempt++) {
+		if (attempt > 0) {
+			await new Promise((resolve) => setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)));
+		}
+		try {
+			const data = await fetchEventsOnce();
+			if (data.events.length > 0) {
+				return data;
+			}
+			console.warn(`Attempt ${attempt + 1} to fetch events returned no class data`);
+			lastErr = new Error('No class data returned');
+		} catch (e) {
+			console.warn(`Attempt ${attempt + 1} to fetch events failed`, e);
+			lastErr = e;
+		}
+	}
+	throw lastErr;
+}
+
 // Map class level to a humanized string
 export const LEVELS = [
 	[200, "Intermediate"],
