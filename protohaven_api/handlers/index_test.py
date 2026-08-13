@@ -6,6 +6,7 @@ import json
 import pytest
 
 from protohaven_api.app import configure_app
+from protohaven_api.config import get_config
 from protohaven_api.handlers import index
 from protohaven_api.integrations import neon
 from protohaven_api.rbac import set_rbac
@@ -412,3 +413,115 @@ def test_humanize_sessions(mocker):
         )
         == "2 Sessions, 3.5h Each"
     )
+
+
+def test_user_enroll_nfc_no_data(client):
+    """Test enroll_nfc returns 400 when no JSON body"""
+    rep = client.post(
+        "/member/enroll_nfc", data="not json", content_type="application/json"
+    )
+    assert rep.status_code == 400
+
+
+def test_user_enroll_nfc_missing_fields(mocker, client):
+    """Test enroll_nfc returns 400 when missing required fields"""
+    rep = client.post("/member/enroll_nfc", json={"neon_id": "123"})
+    assert rep.status_code == 400
+    rep = client.post("/member/enroll_nfc", json={"email": "a@b.com"})
+    assert rep.status_code == 400
+
+
+def test_user_enroll_nfc_success(mocker, client):
+    """Test enroll_nfc publishes MQTT message and returns ok"""
+    mock_mqtt = mocker.MagicMock()
+    nfc_enroll_topic = get_config("mqtt/nfc_enroll_topic")
+    mocker.patch.object(index.mqtt, "get", return_value=mock_mqtt)
+
+    rep = client.post("/member/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
+    assert rep.status_code == 200
+    assert rep.json["status"] == "ok"
+    mock_mqtt.c.publish.assert_called_once()
+    call_args = mock_mqtt.c.publish.call_args[0]
+    assert call_args[0] == nfc_enroll_topic
+
+
+def test_user_enroll_nfc_no_mqtt(mocker, client):
+    """Test enroll_nfc returns 503 when no MQTT client"""
+    mocker.patch.object(index.mqtt, "get", return_value=None)
+
+    rep = client.post("/member/enroll_nfc", json={"neon_id": "123", "email": "a@b.com"})
+    assert rep.status_code == 503
+
+
+def test_store_nfc_write_info_invalid_data(mocker):
+    """Test _store_nfc_write_info logs error on missing fields"""
+    mock_log = mocker.patch.object(index, "log")
+
+    index._store_nfc_write_info({})
+    mock_log.error.assert_called()
+
+    index._store_nfc_write_info({"neon_id": "123", "timestamp": "2024-01-01"})
+    mock_log.error.assert_called()
+
+
+def test_store_nfc_write_info_success(mocker):
+    """Test _store_nfc_write_info appends token and updates Neon"""
+    mock_member = mocker.MagicMock()
+    mock_member.nfc_token_ids = [{"timestamp": "old_ts", "nfc_id": "old_id"}]
+    mocker.patch.object(
+        index.neon, "search_member_by_neon_id", return_value=mock_member
+    )
+    mock_set = mocker.patch.object(index, "set_custom_fields")
+
+    index._store_nfc_write_info(
+        {"neon_id": "123", "timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"},
+    )
+
+    mock_set.assert_called_once()
+    call_args = mock_set.call_args[0]
+    assert call_args[0] == "123"
+    assert call_args[1][0] == index.CustomField.NFC_TOKEN_IDS
+    import json
+
+    tokens = json.loads(call_args[1][1])
+    assert len(tokens) == 2
+    assert tokens[1] == ["2024-06-01T12:00:00Z", "abc123"]
+
+
+def test_store_nfc_write_info_no_existing_tokens(mocker):
+    """Test _store_nfc_write_info with no existing tokens"""
+    mock_member = mocker.MagicMock()
+    mock_member.nfc_token_ids = []
+    mocker.patch.object(
+        index.neon, "search_member_by_neon_id", return_value=mock_member
+    )
+    mock_set = mocker.patch.object(index, "set_custom_fields")
+
+    index._store_nfc_write_info(
+        {"neon_id": "123", "timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"},
+    )
+
+    mock_set.assert_called_once()
+    call_args = mock_set.call_args[0]
+    import json
+
+    tokens = json.loads(call_args[1][1])
+    assert tokens == [["2024-06-01T12:00:00Z", "abc123"]]
+
+
+def test_store_nfc_write_info_member_not_found(mocker):
+    """Test _store_nfc_write_info when member lookup returns None"""
+    mocker.patch.object(index.neon, "search_member_by_neon_id", return_value=None)
+    mock_set = mocker.patch.object(index, "set_custom_fields")
+    mock_log = mocker.patch.object(index, "log")
+
+    index._store_nfc_write_info(
+        {"neon_id": "999", "timestamp": "2024-06-01T12:00:00Z", "nfc_id": "abc123"},
+    )
+
+    mock_set.assert_called_once()
+    call_args = mock_set.call_args[0]
+    import json
+
+    tokens = json.loads(call_args[1][1])
+    assert tokens == [["2024-06-01T12:00:00Z", "abc123"]]

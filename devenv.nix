@@ -1,6 +1,4 @@
-{ pkgs, ... }:
-
-{
+{pkgs, ...}: {
   # https://devenv.sh/reference/options/
   packages = [
     pkgs.cypress
@@ -24,7 +22,7 @@
       enable = true;
       directory = "./svelte";
       corepack.enable = true;
-      node.package = pkgs.nodejs_22;
+      package = pkgs.nodejs_22;
       pnpm = {
         enable = true;
         install.enable = true;
@@ -41,36 +39,56 @@
   };
 
   scripts = {
-    dev-run-docker.exec = /* sh */ ''
-      docker compose watch
-    '';
+    dev-run-docker.exec =
+      /*
+      sh
+      */
+      ''
+        docker compose watch
+      '';
   };
 
   tasks = {
     "lint:python" = {
-      before = [ "devenv:enterTest" ];
+      before = ["devenv:enterTest"];
 
-      exec = /* sh */ ''
-        pylint -rn -sn \
-          --generated-members=client.tasks,client.projects $(git ls-files '*.py') \
-          --disable=logging-fstring-interpolation,import-error
-      '';
+      exec =
+        /*
+        sh
+        */
+        ''
+          pylint -rn -sn \
+            --generated-members=client.tasks,client.projects $(git ls-files '*.py') \
+            --disable=logging-fstring-interpolation,import-error
+        '';
     };
   };
 
   processes = {
-    flask.exec = /* sh */ ''
-      flask --app protohaven_api.main run
-    '';
+    flask.exec =
+      /*
+      sh
+      */
+      ''
+        flask --app protohaven_api.main run
+      '';
 
-    svelte.exec = /* sh */ ''
-      pushd svelte
-      pnpm run dev
-    '';
+    svelte.exec =
+      /*
+      sh
+      */
+      ''
+        pushd svelte
+        pnpm run dev
+      '';
 
-    nocodb.exec = /* sh */ ''
-      docker compose up nocodb
-    '';
+    nocodb.exec =
+      /*
+      sh
+      */
+      ''
+        docker compose up nocodb
+      '';
   };
 
   # services = {
@@ -81,11 +99,15 @@
   #   hello
   # '';
 
-  enterTest = /* sh */ ''
-    python -m pytest -v
+  enterTest =
+    /*
+    sh
+    */
+    ''
+      python -m pytest -v
 
-    pushd svelte
-    pnpm cypress run --component
-    popd
-  '';
+      pushd svelte
+      pnpm cypress run --component
+      popd
+    '';
 }

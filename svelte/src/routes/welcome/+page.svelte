@@ -9,6 +9,7 @@
 	import Waiver from '$lib/waiver.svelte';
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
+	import NfcEnroll from '$lib/nfc_enroll.svelte';
 	let state = 'splash';
 	let name = 'member';
 	let email = null;
@@ -21,6 +22,8 @@
 	let feedback = null;
 	let referrer = '';
 	let testing = false;
+	let neon_id = '';
+	let nfc_token_ids = [];
 
 	let announcements = [];
 	let violations = [];
@@ -34,6 +37,7 @@
 	let toast_msg = null;
 	let toast_timer = null;
 	let enable_nfc = false;
+	let nfc_enroll_ref = null;
 
 	onMount(() => {
 		console.log('Base WS:', base_ws());
@@ -74,6 +78,9 @@
 			if (data.type === 'status') {
 				server_mqtt_connected = data.server_mqtt_connected;
 				nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
+			} else if (nfc_enroll_ref) {
+        // Enrollment flow consumes all non-status messages until complete
+        nfc_enroll_ref.on_mqtt_message(data);
 			} else if (data.origin.endsWith('signin')) {
 				console.log('Received sign in attempt via MQTT:', data.data);
 				// If we're already showing sign-in result, restart the flow first
@@ -167,6 +174,9 @@
 		announcements = [];
 		violations = [];
 		reservations = [];
+		neon_id = '';
+		nfc_token_ids = [];
+		nfc_enroll_ref = null;
 	}
 
 	function on_signin_return(survey_response) {
@@ -197,6 +207,8 @@
 			return;
 		}
 		name = result.firstname;
+		neon_id = result.neon_id;
+		nfc_token_ids = result.nfc_token_ids || [];
 		announcements = result.announcements;
 		violations = result.violations;
 		reservations = result.reservations;
@@ -221,6 +233,16 @@
 		// Put this in a setTimeout so that we escape the event
 		// and don't accidentally trigger an enter-based return event
 		setTimeout(() => (state = 'signin_ok'), 50);
+	}
+
+	function on_start_nfc_enroll() {
+		// Transition from signin_ok to enrollment flow
+		state = 'enrolling_nfc';
+	}
+
+	function on_nfc_enrollment_cancel() {
+		// Return to splash screen after enrollment cancel/timeout
+		on_signin_return();
 	}
 </script>
 
@@ -265,11 +287,21 @@
 			<SigninOk
 				{name}
 				{email}
+				{neon_id}
+				{nfc_token_ids}
 				guest={person == 'guest'}
 				{announcements}
 				{violations}
 				{reservations}
 				on_close={on_signin_return}
+				on_enroll={on_start_nfc_enroll}
+			/>
+		{:else if state == 'enrolling_nfc'}
+			<NfcEnroll
+				{neon_id}
+				{email}
+				on_close={on_nfc_enrollment_cancel}
+				bind:this={nfc_enroll_ref}
 			/>
 		{/if}
 	</Row>

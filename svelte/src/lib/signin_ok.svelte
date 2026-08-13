@@ -1,6 +1,7 @@
 <script type="typescript">
 	import {
 		Alert,
+    Icon,
 		Input,
 		Image,
 		Button,
@@ -20,6 +21,7 @@
 	import FetchError from '$lib/fetch_error.svelte';
 
 	export let on_close;
+	export let on_enroll;
 	export let name;
 	export let guest = false;
 	export let radioGroup;
@@ -27,6 +29,8 @@
 	export let violations;
 	export let reservations = [];
 	export let email;
+	export let neon_id = '';
+	export let nfc_token_ids = [];
 
 	let count = 15;
 	function updateTimer() {
@@ -79,12 +83,36 @@
 	<Row class="text-center my-3">
 		{#if !guest}
 			<h2>Welcome, {name}!</h2>
-			{#if announcements.length == 0 && violations.length == 0}<p>You're all set!</p>{/if}
+			{#if announcements.length == 0 && violations.length == 0 && nfc_token_ids.length > 0}<p>You're all set!</p>{/if}
 		{:else}
 			<h2>Welcome guest!</h2>
 			<p>You're all set! But if you have a moment, we'd appreciate your feedback...</p>
 		{/if}
 	</Row>
+
+	{#if !guest && nfc_token_ids.length === 0}
+		<Alert color="info" class="text-center">
+			<h4 class="my-2">
+        Want to sign in faster?
+			</h4>
+			<p class="mb-3">Enroll an NFC tag to sign in with just a tap.</p>
+			<Row class="justify-content-center mb-2">
+				<Col sm={{ size: 'auto' }}>
+					<Button
+						color="success"
+						size="lg"
+						on:click={() => {
+							clearInterval(interval);
+							on_enroll();
+						}}
+					>
+            <Icon name="circle-square" />
+						Enroll NFC Tag
+					</Button>
+				</Col>
+			</Row>
+		</Alert>
+	{/if}
 
 	{#if guest}
 		<Row class="text-left justify-content-center my-3">

@@ -2,6 +2,7 @@
 """Objects modeling particular entities that are commonly passed between systems"""
 
 import datetime
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -637,6 +638,17 @@ class Member:  # pylint:disable=too-many-public-methods
         if len(v) != 2:
             return (None, None)
         return v[0].title(), v[1].upper()
+
+    @property
+    def nfc_token_ids(self) -> list[tuple[str, str]]:
+        """Return NFC Token IDs custom field as list of (timestamp, nfc_id) tuples"""
+        v = self._get_custom_field("NFC Token IDs", "value")
+        if not v:
+            return []
+        try:
+            return json.loads(v)
+        except (json.JSONDecodeError, TypeError):
+            return []
 
     @property
     def booked_id(self):
