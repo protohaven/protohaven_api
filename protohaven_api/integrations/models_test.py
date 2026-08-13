@@ -394,7 +394,8 @@ def test_volunteer_bio_and_picture():
     assert member.volunteer_picture == "http://localhost:8080/abc"
 
 
-def test_event_properties():  # pylint: disable=too-many-statements
+@pytest.mark.parametrize("source", ["neon_raw", "neon_search", "eventbrite"])
+def test_event_properties(source):  # pylint: disable=too-many-statements
     """Test all public @property methods of Event class"""
     # Setup test data
     start = d(0, 18)
@@ -491,64 +492,57 @@ def test_event_properties():  # pylint: disable=too-many-statements
         }
     ]
 
-    # Test each data source
-    for source, data in [
-        ("neon_raw", neon_raw),
-        ("neon_search", neon_search),
-        ("eventbrite", eventbrite),
-    ]:
-        if source == "neon_raw":
-            evt = Event.from_neon_fetch(data)
-        elif source == "neon_search":
-            evt = Event.from_neon_search(data)
-        else:
-            evt = Event.from_eventbrite_search(data)
+    if source == "neon_raw":
+        evt = Event.from_neon_fetch(neon_raw)
+    elif source == "neon_search":
+        evt = Event.from_neon_search(neon_search)
+    else:
+        evt = Event.from_eventbrite_search(eventbrite)
 
-        if "neon" in source:
-            evt.set_attendee_data(attendees)
-            evt.set_ticket_data(tickets)
-        else:
-            evt.set_attendee_data(eb_attendees)
-        evt.set_airtable_data(airtable)
+    if "neon" in source:
+        evt.set_attendee_data(attendees)
+        evt.set_ticket_data(tickets)
+    else:
+        evt.set_attendee_data(eb_attendees)
+    evt.set_airtable_data(airtable)
 
-        # Test properties
-        assert evt.event_id == ("123" if source != "eventbrite" else "456")
-        assert evt.name == "Test Event"
-        assert evt.description
-        assert evt.capacity == 10
-        assert evt.archived is False
-        assert evt.published is True
-        assert evt.registration is True
-        assert evt.start_utc == start.astimezone(dtz.UTC)
-        assert evt.end_utc == end.astimezone(dtz.UTC)
-        assert evt.start_date == start
-        assert evt.end_date == end
-        at = list(evt.attendees)[0]
-        assert at.name == "first last"
-        assert at.email == "a@b.com"
-        assert evt.signups == {1}
-        assert list(evt.ticket_options) == [
-            {
-                "id": 111,
-                "name": "Single Registration" if "neon" in source else "General",
-                "price": 10,
-                "sold": 1,
-                "total": 10,
-            }
-        ]
-        assert evt.attendee_count == 1
-        assert evt.occupancy == 0.1
-        assert evt.in_blocklist() is False
-        assert evt.has_open_seats_below_price(15) == 9
-        assert evt.single_registration_ticket_id == 111
-        assert evt.url
-        assert evt.instructor_email == "test@example.com"
-        assert evt.instructor_name == "Test Instructor"
-        assert evt.supply_cost == "10.00"
-        assert evt.volunteer == "Yes"
-        assert evt.supply_state == "Ordered"
-        assert evt.display_category == "Test Category"
-        assert evt.display_level == "Test Level"
+    # Test properties
+    assert evt.event_id == ("123" if source != "eventbrite" else "456")
+    assert evt.name == "Test Event"
+    assert evt.description
+    assert evt.capacity == 10
+    assert evt.archived is False
+    assert evt.published is True
+    assert evt.registration is True
+    assert evt.start_utc == start.astimezone(dtz.UTC)
+    assert evt.end_utc == end.astimezone(dtz.UTC)
+    assert evt.start_date == start
+    assert evt.end_date == end
+    at = list(evt.attendees)[0]
+    assert at.name == "first last"
+    assert at.email == "a@b.com"
+    assert list(evt.ticket_options) == [
+        {
+            "id": 111,
+            "name": "Single Registration" if "neon" in source else "General",
+            "price": 10,
+            "sold": 1,
+            "total": 10,
+        }
+    ]
+    assert evt.attendee_count == 1
+    assert evt.occupancy == 0.1
+    assert evt.in_blocklist() is False
+    assert evt.has_open_seats_below_price(15) == 9
+    assert evt.single_registration_ticket_id == 111
+    assert evt.url
+    assert evt.instructor_email == "test@example.com"
+    assert evt.instructor_name == "Test Instructor"
+    assert evt.supply_cost == "10.00"
+    assert evt.volunteer == "Yes"
+    assert evt.supply_state == "Ordered"
+    assert evt.display_category == "Test Category"
+    assert evt.display_level == "Test Level"
 
 
 def test_event_url():
@@ -679,13 +673,26 @@ def test_sign_in_event_absent_fields():
 def test_event_missing_attendee_data():
     """Ensure distinction between no data and no attendees"""
     e = Event()
-    # with pytest.raises(NoAttendeeDataError):
-    #    print(e.signups)
     with pytest.raises(NoAttendeeDataError):
         print(e.occupancy)
+    e.neon_raw_data = {"foo": "bar"}
     e.neon_attendee_data = []
-    assert not e.signups
+    assert e.attendee_count == 0
     assert e.occupancy == 0
+
+
+def test_event_attendee_count_from_eb_qty_sold():
+    """Check that eventbrite ticket class data can inform
+    attendee count"""
+    e = Event()
+    e.eventbrite_data = {
+        "ticket_classes": [
+            {"quantity_sold": 1},
+            {"quantity_sold": 2},
+            {"quantity_sold": 3},
+        ]
+    }
+    assert e.attendee_count == 6
 
 
 def test_sign_in_event_invalid_attribute():

@@ -33,7 +33,10 @@ def is_valid_id(evt_id: EventbriteID) -> bool:
 
 
 def fetch_events(
-    include_ticketing=True, status="live", batching=False
+    include_ticketing=True,
+    status="live",
+    batching=False,
+    attendees=False,
 ) -> Iterable[Event] | Iterable[list[Event]]:
     """Fetches all events from Eventbrite.
     To view attendee counts etc, set include_ticketing=True
@@ -48,6 +51,10 @@ def fetch_events(
         params["expand"] = "ticket_classes"
     for _ in range(100):
         rep = get_connector().eventbrite_request("GET", url, params=params)
+        ee = [Event.from_eventbrite_search(data) for data in rep["events"]]
+        if attendees:
+            for e in ee:
+                e.set_attendee_data(list(fetch_attendees(e.evt_id, raw=True)))
         if batching:
             yield [Event.from_eventbrite_search(data) for data in rep["events"]]
         else:
@@ -359,14 +366,14 @@ def upload_logo_image(image_url: str):
     return confirm_rep.get("id")
 
 
-def fetch_attendees(event_id: EventbriteID) -> Iterable[Attendee]:
+def fetch_attendees(event_id: EventbriteID, raw: bool = False) -> Iterable[Attendee]:
     """Fetch attendee data for a specific Eventbrite event"""
     url = f"/events/{event_id}/attendees/"
     params: dict[str, Any] = {}
     for _ in range(100):
         rep = get_connector().eventbrite_request("GET", url, params=params)
         for data in rep["attendees"]:
-            yield Attendee(eventbrite_data=data)
+            yield data if raw else Attendee(eventbrite_data=data)
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]

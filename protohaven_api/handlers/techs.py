@@ -490,32 +490,31 @@ def techs_backfill_events():
         if evt.name.startswith(TECH_ONLY_PREFIX) or evt.attendee_count > 0:
             # Get attendee details for admins
             attendee_details = []
-            if is_admin and evt.neon_attendee_data is not None:
-                for attendee in evt.attendees:
-                    if attendee.valid:
-                        attendee_info = {
-                            "neon_id": attendee.neon_id,
-                            "name": attendee.name,
-                            "email": attendee.email,
-                            "is_volunteer": False,
-                        }
-                        # Try to get phone number from member account
-                        if attendee.neon_id:
-                            try:
-                                member = neon_base.fetch_account(attendee.neon_id)
-                                if member and hasattr(member, "phone") and member.phone:
-                                    attendee_info["phone"] = member.phone
-                                attendee_info["is_volunteer"] = member.is_volunteer()
-                            except RuntimeError:
-                                pass  # Silently fail if we can't fetch member data
-                        attendee_details.append(attendee_info)
+            for attendee in evt.attendees:
+                if attendee.valid:
+                    attendee_info = {
+                        "neon_id": attendee.neon_id,
+                        "name": attendee.name,
+                        "email": attendee.email,
+                        "is_volunteer": False,
+                    }
+                    # Try to get phone number from member account
+                    if attendee.neon_id:
+                        try:
+                            member = neon_base.fetch_account(attendee.neon_id)
+                            if member and hasattr(member, "phone") and member.phone:
+                                attendee_info["phone"] = member.phone
+                            attendee_info["is_volunteer"] = member.is_volunteer()
+                        except RuntimeError:
+                            pass  # Silently fail if we can't fetch member data
+                    attendee_details.append(attendee_info)
 
             for_techs.append(
                 {
                     "id": evt.event_id,
                     "ticket_id": evt.single_registration_ticket_id,
                     "name": evt.name,
-                    "attendees": list(evt.signups),
+                    "attendees": [a["neon_id"] for a in attendee_details],
                     "attendee_details": attendee_details if is_admin else [],
                     "capacity": evt.capacity,
                     "start": evt.start_date.isoformat(),
