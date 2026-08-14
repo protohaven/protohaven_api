@@ -169,9 +169,9 @@ class Connector:  # pylint: disable=too-many-public-methods
                 # Therefore, we must specifically use domain_wide_delegated_scopes
                 # See https://admin.google.com/ac/owl/domainwidedelegation
                 # https://developers.google.com/identity/protocols/oauth2/service-account#python
-                .with_scopes("google/domain_wide_delegated_scopes").with_subject(
-                    from_addr
-                )
+                .with_scopes(
+                    get_config("google/domain_wide_delegated_scopes")
+                ).with_subject(from_addr)
             )
             service = build("gmail", "v1", credentials=creds)
             msg = MIMEText(body, "html" if html else "plain")
