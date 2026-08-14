@@ -56,7 +56,7 @@ if get_config("general/precache_sign_in", as_bool=True):
             f"Using external Neon cache server: {get_config('cache_server/base_url')}"
         )
     airtable.cache.start()
-    booked.cache.start(delay=60.0 if server_mode == "prod" else 0)
+    booked.cache.start()
     init_signin()
 
 if get_config("discord_bot/enabled", as_bool=True):

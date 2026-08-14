@@ -137,8 +137,15 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
     if mqtt_client:
         mqtt_client.register_topic_callback(neon_signin_topic, handle_message)
         mqtt_client.register_topic_callback(neon_toast_topic, handle_message)
-        mqtt_client.register_topic_callback(nfc_heartbeat_topic, handle_nfc_heartbeat)
-        mqtt_client.register_topic_callback(nfc_written_topic, handle_nfc_written)
+        # Heartbeat is delivered to all connected clients
+        mqtt_client.register_topic_callback(
+            nfc_heartbeat_topic, handle_nfc_heartbeat, as_group=False
+        )
+        # NFC writes are sent to all connected clients; only those
+        # in an enrollment flow actually use the message
+        mqtt_client.register_topic_callback(
+            nfc_written_topic, handle_nfc_written, as_group=False
+        )
         log.info("Registered welcome_neon_ws listeners")
     else:
         log.info("MQTT client not set up; aborting")
@@ -160,9 +167,11 @@ def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
             mqtt_client.unregister_topic_callback(neon_signin_topic, handle_message)
             mqtt_client.unregister_topic_callback(neon_toast_topic, handle_message)
             mqtt_client.unregister_topic_callback(
-                nfc_heartbeat_topic, handle_nfc_heartbeat
+                nfc_heartbeat_topic, handle_nfc_heartbeat, as_group=False
             )
-            mqtt_client.unregister_topic_callback(nfc_written_topic, handle_nfc_written)
+            mqtt_client.unregister_topic_callback(
+                nfc_written_topic, handle_nfc_written, as_group=False
+            )
     log.info("Neon sign-in WS listener ended")
 
 

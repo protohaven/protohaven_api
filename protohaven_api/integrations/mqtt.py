@@ -80,20 +80,22 @@ class Client:
             return topic
         return str(Path(f"$share/{self._subscription_group}") / topic)
 
-    def register_topic_callback(self, topic, callback):
+    def register_topic_callback(self, topic, callback, as_group=True):
         """Register a callback for messages on a specific MQTT topic.
         The callback will be called with (topic, payload) for each message.
-        If already subscribed, just adds the callback to the list."""
+        If already subscribed, just adds the callback to the list.
+        Topics are registered within a topic group by default.
+        """
         with self._topic_callbacks_lock:
             if topic not in self._topic_callbacks:
                 self._topic_callbacks[topic] = []
                 if self.c.is_connected():
-                    t = self._group_topic(topic)
+                    t = self._group_topic(topic) if as_group else topic
                     self.c.subscribe(t)
                     log.info(f"Subscribed to {t}")
             self._topic_callbacks[topic].append(callback)
 
-    def unregister_topic_callback(self, topic, callback):
+    def unregister_topic_callback(self, topic, callback, as_group=True):
         """Unregister a previously registered callback for a topic."""
         with self._topic_callbacks_lock:
             if topic in self._topic_callbacks:
@@ -103,7 +105,9 @@ class Client:
                 if not self._topic_callbacks[topic]:
                     del self._topic_callbacks[topic]
                     if self.c.is_connected():
-                        self.c.unsubscribe(self._group_topic(topic))
+                        self.c.unsubscribe(
+                            self._group_topic(topic) if as_group else topic
+                        )
                         log.info(f"Unsubscribed from {topic}")
 
     def on_connect(

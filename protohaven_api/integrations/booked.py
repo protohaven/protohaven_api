@@ -381,7 +381,7 @@ class ReservationCache(WarmDict):
 
     def get_next_24h_reservations(self) -> Iterable[Any]:
         """Fetches the raw contents of the cache"""
-        log.info(f"Returning reservations: {self['reservations']}")
+        log.info(f"Returning reservations: {self.get('reservations')}")
         return self["reservations"]
 
     def get_today_reservations_by_tool(self):
