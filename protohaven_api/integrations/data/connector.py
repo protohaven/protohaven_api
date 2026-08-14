@@ -158,7 +158,8 @@ class Connector:  # pylint: disable=too-many-public-methods
         try:
             from_addr = get_config("comms/email/username")
             creds = service_account.Credentials.from_service_account_file(
-                get_config("gmail/credentials_path"), scopes=get_config("gmail/scopes")
+                get_config("google/credentials_path"),
+                scopes=get_config("google/scopes"),
             ).with_subject(from_addr)
             service = build("gmail", "v1", credentials=creds)
             msg = MIMEText(body, "html" if html else "plain")
@@ -320,8 +321,8 @@ class Connector:  # pylint: disable=too-many-public-methods
         """Sends a calendar read request to Google Calendar"""
 
         creds = service_account.Credentials.from_service_account_file(
-            get_config("calendar/credentials_path"),
-            scopes=get_config("calendar/scopes"),
+            get_config("google/credentials_path"),
+            scopes=get_config("google/scopes"),
         )
         service = build("calendar", "v3", credentials=creds)
         return (
