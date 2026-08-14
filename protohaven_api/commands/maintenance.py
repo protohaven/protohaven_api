@@ -6,6 +6,7 @@ import random
 import tempfile
 import traceback
 from pathlib import Path
+from typing import Callable
 
 from protohaven_api.automation.maintenance import manager
 from protohaven_api.automation.techs import techs as forecast
@@ -277,7 +278,7 @@ class Commands:
             print_yaml([])
 
     def _do_backup(  # pylint: disable=too-many-arguments
-        self, fn, backup_path, upload_path, parent_id, apply
+        self, fn: Callable[[str], int], backup_path, upload_path, parent_id, apply
     ):
         file_sz = fn(backup_path)
         log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")

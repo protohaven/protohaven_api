@@ -157,10 +157,13 @@ class Connector:  # pylint: disable=too-many-public-methods
         """
         try:
             from_addr = get_config("comms/email/username")
-            creds = service_account.Credentials.from_service_account_file(
-                get_config("google/credentials_path"),
-                scopes=get_config("google/scopes"),
-            ).with_subject(from_addr)
+            creds = (
+                service_account.Credentials.from_service_account_file(
+                    get_config("google/token_path")
+                )
+                .with_scopes(get_config("google/scopes"))
+                .with_subject(from_addr)
+            )
             service = build("gmail", "v1", credentials=creds)
             msg = MIMEText(body, "html" if html else "plain")
             msg["Subject"] = subject
@@ -231,7 +234,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         except requests.exceptions.JSONDecodeError:
             return r.content
 
-    def bookstack_download(self, api_suffix, dest):
+    def bookstack_download(self, api_suffix: str, dest: str) -> int:
         """Download a file from the Bookstack wiki"""
         url = urljoin(get_config("bookstack/base_url"), api_suffix.lstrip("/"))
         headers = {
@@ -319,11 +322,9 @@ class Connector:  # pylint: disable=too-many-public-methods
         self, calendar_id: str, time_min: datetime.datetime, time_max: datetime.datetime
     ):
         """Sends a calendar read request to Google Calendar"""
-
         creds = service_account.Credentials.from_service_account_file(
-            get_config("google/credentials_path"),
-            scopes=get_config("google/scopes"),
-        )
+            get_config("google/token_path")
+        ).with_scopes(get_config("google/scopes"))
         service = build("calendar", "v3", credentials=creds)
         return (
             service.events()  # pylint: disable=no-member

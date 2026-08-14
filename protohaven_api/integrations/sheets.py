@@ -5,6 +5,7 @@ import io
 import logging
 import re
 import tarfile
+from os.path import getsize
 from typing import Iterator
 
 from google.oauth2 import service_account
@@ -173,12 +174,12 @@ def _download_sheet(sheets_id: str):
     return file
 
 
-def fetch_sheets_backup(dest: str):
+def fetch_sheets_backup(dest: str) -> int:
     """Writes a tarball of the sheets found in sheets/ids
     Args:
         dest: the output location for the tarball
     Returns:
-        None
+        File size
     """
     with tarfile.open(dest, "w:gz") as tar:
         for [name, sheets_id] in get_config("google/sheets/ids").items():
@@ -190,3 +191,4 @@ def fetch_sheets_backup(dest: str):
             # We pass the stream back to the beginning before adding
             data_stream.seek(0)
             tar.addfile(tarinfo=info, fileobj=data_stream)
+    return getsize(dest)

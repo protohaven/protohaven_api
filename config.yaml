@@ -362,7 +362,6 @@ bookstack:
     approval_threshold: 1
 google:
   token_path: "token.json"
-  credentials_path: "credentials.json"
   scopes:
     - "https://www.googleapis.com/auth/drive"
     - "https://www.googleapis.com/auth/calendar.readonly"
