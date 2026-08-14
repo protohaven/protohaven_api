@@ -31,6 +31,7 @@
 	export let email;
 	export let neon_id = '';
 	export let nfc_token_ids = [];
+  export let enable_nfc_enroll = false;
 
 	let count = 15;
 	function updateTimer() {
@@ -90,7 +91,7 @@
 		{/if}
 	</Row>
 
-	{#if !guest && nfc_token_ids.length === 0}
+	{#if !guest && nfc_token_ids.length === 0 && enable_nfc_enroll}
 		<Alert color="info" class="text-center">
 			<h4 class="my-2">
         Want to sign in faster?
