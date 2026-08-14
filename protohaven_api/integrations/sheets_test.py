@@ -160,7 +160,9 @@ def install_fake_sheets_service(
         data: Map of maps corresponding to spreadsheets/sheets/data matrix.
     """
     mocker.patch.object(
-        sheets.service_account.Credentials, "from_service_account_file", return_value={}
+        sheets.service_account.Credentials,
+        "from_service_account_file",
+        return_value=mocker.Mock(),
     )
 
     mocker.patch.object(sheets, "build", return_value=FakeSheetService(data))
@@ -190,7 +192,7 @@ def test_get_sheets_range_fails(mocker):
 def test_get_instructor_submissions_raw(mocker):
     """Test getting instructor submissions data."""
     data = defaultdict(dict)
-    sheet_id = get_config("sheets/ids/instructor_hours")
+    sheet_id = get_config("google/sheets/ids/instructor_hours")
     now = str(datetime.datetime.now())
     data[sheet_id]["Form Responses 1"] = [["Timestamp", "foo"], [now, "bar"]]
     install_fake_sheets_service(s, mocker, data)
@@ -204,7 +206,7 @@ def test_get_instructor_submissions_raw(mocker):
 def test_get_passing_student_clearances(mocker):
     """Test getting student clearance data."""
     data = defaultdict(dict)
-    sheet_id = get_config("sheets/ids/instructor_hours")
+    sheet_id = get_config("google/sheets/ids/instructor_hours")
     now = str(datetime.datetime.now(tz=tz))
     data[sheet_id]["Form Responses 1"] = [
         ["Timestamp", s.PASS_HDR, s.CLEARANCE_HDR, s.TOOLS_HDR],
@@ -233,7 +235,7 @@ def test_get_passing_student_clearances(mocker):
 
 def test_get_sign_ins_between(mocker):
     """Tests retrieving sign-in data between two dates."""
-    sheet_id = get_config("sheets/ids/welcome_waiver_form")
+    sheet_id = get_config("google/sheets/ids/welcome_waiver_form")
     data = defaultdict(dict)
     begin = datetime.datetime(2026, 1, 1, tzinfo=tz)
     end = datetime.datetime(2026, 1, 31, tzinfo=tz)
@@ -272,7 +274,7 @@ def test_get_sign_ins_between(mocker):
 
 def test_get_ops_budget_state(mocker):
     """Tests retrieving budget state."""
-    sheet_id = get_config("sheets/ids/shop_manager_logbook")
+    sheet_id = get_config("google/sheets/ids/shop_manager_logbook")
     data = defaultdict(dict)
     data[sheet_id]["Budget Summary"] = [
         [],
@@ -288,7 +290,7 @@ def test_get_ops_budget_state(mocker):
 
 def test_get_ops_event_log(mocker):
     """Tests getting a range of ops event logs."""
-    sheet_id = get_config("sheets/ids/shop_manager_logbook")
+    sheet_id = get_config("google/sheets/ids/shop_manager_logbook")
     data = defaultdict(dict)
     begin = datetime.datetime(2026, 1, 1, tzinfo=tz)
     end = datetime.datetime(2026, 1, 31, tzinfo=tz)
@@ -319,7 +321,7 @@ def test_get_ops_event_log(mocker):
 def test_get_ops_inventory(mocker):
     """Test for the ops inventory method."""
     data = defaultdict(dict)
-    sheet_id = get_config("sheets/ids/shop_manager_logbook")
+    sheet_id = get_config("google/sheets/ids/shop_manager_logbook")
     headers = ["Recorded Qty", "Target Qty", "col1", "col2", "col3", "col4"]
     data[sheet_id]["Inventory"] = [headers, ["1", "2", "foo", "bar", "biz", "baz"]]
     install_fake_sheets_service(s, mocker, data)
@@ -345,7 +347,7 @@ def test_fetch_sheets_backup(mocker):
 
     mocked_method = mocker.patch.object(s, "_download_sheet")
     mocked_method.side_effect = side_effect
-    sheets = get_config("sheets/ids")
+    sheets = get_config("google/sheets/ids")
     # Prepare some sheets data
     with tempfile.NamedTemporaryFile() as t:
         s.fetch_sheets_backup(t.name)
