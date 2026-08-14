@@ -54,7 +54,7 @@ def fetch_events(
         ee = [Event.from_eventbrite_search(data) for data in rep["events"]]
         if attendees:
             for e in ee:
-                e.set_attendee_data(list(fetch_attendees(e.evt_id, raw=True)))
+                e.set_attendee_data(list(fetch_attendees(e.event_id, raw=True)))
         if batching:
             yield [Event.from_eventbrite_search(data) for data in rep["events"]]
         else:

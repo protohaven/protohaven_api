@@ -37,6 +37,7 @@
 	let toast_msg = null;
 	let toast_timer = null;
 	let enable_nfc = false;
+  let enable_nfc_enroll = false;
 	let nfc_enroll_ref = null;
 
 	onMount(() => {
@@ -47,11 +48,15 @@
 			console.log('testing mode enabled; test announcements will be fetched');
 		}
 		enable_nfc = params.get('nfc') === '1';
+		enable_nfc_enroll = params.get('enroll') === '1';
 		if (enable_nfc) {
 			// Establish persistent WebSocket for MQTT-based Neon ID badge scans
 			console.log("'nfc' GET param seen; establishing persistent websocket for NFC tap");
 			connect_neon_ws();
 		}
+    if (enable_nfc_enroll) {
+      console.log("NFC enrollment prompt enabled");
+    }
 	});
 
 	function connect_neon_ws() {
@@ -293,6 +298,7 @@
 				{announcements}
 				{violations}
 				{reservations}
+        {enable_nfc_enroll}
 				on_close={on_signin_return}
 				on_enroll={on_start_nfc_enroll}
 			/>

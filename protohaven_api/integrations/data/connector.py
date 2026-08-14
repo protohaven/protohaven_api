@@ -161,8 +161,17 @@ class Connector:  # pylint: disable=too-many-public-methods
                 service_account.Credentials.from_service_account_file(
                     get_config("google/token_path")
                 )
-                .with_scopes(get_config("google/scopes"))
-                .with_subject(from_addr)
+                # IMPORTANT: impersonating workspace users requires configuring domain-wide
+                # delegation for the service account user, which restricts the scopes allowed.
+                # We have configured *only* sending gmail messages, and not the other scopes
+                # specified in config.yaml.
+                #
+                # Therefore, we must specifically use domain_wide_delegated_scopes
+                # See https://admin.google.com/ac/owl/domainwidedelegation
+                # https://developers.google.com/identity/protocols/oauth2/service-account#python
+                .with_scopes(
+                    get_config("google/domain_wide_delegated_scopes")
+                ).with_subject(from_addr)
             )
             service = build("gmail", "v1", credentials=creds)
             msg = MIMEText(body, "html" if html else "plain")

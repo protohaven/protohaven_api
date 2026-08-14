@@ -365,8 +365,9 @@ google:
   scopes:
     - "https://www.googleapis.com/auth/drive"
     - "https://www.googleapis.com/auth/calendar.readonly"
-    - "https://www.googleapis.com/auth/gmail.send"
     - "https://www.googleapis.com/auth/spreadsheets.readonly"
+  domain_wide_delegated_scopes:
+    - "https://www.googleapis.com/auth/gmail.send"
   calendar:
     shop_events: "workshop@protohaven.org"
   sheets:
