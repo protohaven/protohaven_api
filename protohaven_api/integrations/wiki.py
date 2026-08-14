@@ -22,11 +22,11 @@ def get_tool_docs_summary():
     return get_connector().bookstack_request("GET", "/tool_docs_report")
 
 
-def fetch_db_backup(dest):
+def fetch_db_backup(dest: str) -> int:
     """Fetches a backup of the postgres DB for the wiki"""
     return get_connector().bookstack_download("/backups/dump_db", dest)
 
 
-def fetch_files_backup(dest):
+def fetch_files_backup(dest: str) -> int:
     """Fetches an archive of all files uploaded to the wiki"""
     return get_connector().bookstack_download("/backups/dump_files", dest)

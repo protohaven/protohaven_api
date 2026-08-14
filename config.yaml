@@ -232,14 +232,6 @@ airtable:
       automation_intents: "tblBgXQlOFjNqvBVm"
       volunteers_staff: "tblgwvc07mvLg3zds"
       recertification: "tbljedHQ90LwttPGp"
-calendar:
-  credentials_path: "credentials.json"
-  instructor_schedules: "c_ab048e21805a0b5f7f094a81f6dbd19a3cba5565b408962565679cd48ffd02d9@group.calendar.google.com"
-  shop_events: "workshop@protohaven.org"
-  scopes: ["https://www.googleapis.com/auth/calendar.readonly"]
-gmail: # See protohaven_api.integrations.data.connector, Connector.email() for details
-  credentials_path: "credentials.json"
-  scopes: ["https://www.googleapis.com/auth/gmail.send"]
 square:
   sandbox_app_id: "sandbox-sq0idb-sUaoKt-N2lB7_geQO-cgjg"
   sandbox_token: "EAAAEGKUuR67gUfi0Hmfq5dfn8nSiuhibpB2HSDQTlAzQbaCQCEcJ6uPUJjcyAcm" # pragma: allowlist secret
@@ -305,13 +297,6 @@ asana:
       on_hold: "1203723178286283"
   class_supply_requests: "1202392844192314"
   class_supply_default_section: "1202392844192315"
-sheets:
-  ids:
-    instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
-    welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
-    shop_manager_logbook: "1gzj35SJk_pvPGHRjLju6fjAiQ9NVd_CGxqnXVK4KsYs" # pragma: allowlist secret
-  credentials_path: "credentials.json"
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 eventbrite:
   base_url: "https://www.eventbriteapi.com/v3/"
   token: ${EVENTBRITE_TOKEN}
@@ -375,9 +360,20 @@ bookstack:
     - "maintenance-admin-required"
     - "it-maintenance"
     approval_threshold: 1
-drive:
-  credentials_path: "credentials.json"
-  scopes: ["https://www.googleapis.com/auth/drive"]
+google:
+  token_path: "token.json"
+  scopes:
+    - "https://www.googleapis.com/auth/drive"
+    - "https://www.googleapis.com/auth/calendar.readonly"
+    - "https://www.googleapis.com/auth/gmail.send"
+    - "https://www.googleapis.com/auth/spreadsheets.readonly"
+  calendar:
+    shop_events: "workshop@protohaven.org"
+  sheets:
+    ids:
+      instructor_hours: "1dM_b1O7Uzj4qwyyJ-uMTmrE6sIcWowYnzYxhhpcWbGI" # pragma: allowlist secret
+      welcome_waiver_form: "1UrLZV1uAxW4ziLdy02kSXg15jidRYpktgQP8D5qz2rU" # pragma: allowlist secret
+      shop_manager_logbook: "1gzj35SJk_pvPGHRjLju6fjAiQ9NVd_CGxqnXVK4KsYs" # pragma: allowlist secret
 mqtt:
   enabled: ${MQTT}
   host: ${MQTT_HOST}

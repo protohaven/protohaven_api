@@ -1,11 +1,15 @@
 import { useEffect, useState } from '@wordpress/element';
 
-function gotoURL(url, user, base_url){
+function genURL(url, user, base_url){
 	if (user && user.neon_id) {
 		// When logged in, we use an interstitial page to apply discounts for Eventbrite
 		url = `${base_url}/member/goto_class?url=${encodeURIComponent(url)}`;
 	}
-	window.open(url, '_blank').focus();
+	return url;
+}
+
+function gotoURL(url, user, base_url){
+	window.open(genURL(url, user, base_url), '_blank').focus();
 }
 
 function ap(hours) {
@@ -16,7 +20,7 @@ function dateStr(d1) {
 	return `${d1.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short' })}, ${d1.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short' })} ${d1.getDate()}, ${ap(d1.getHours())}`;
 }
 
-function FmtTimes( { times, expanded, onExpand } ) {
+function FmtTimes( { times, expanded, onExpand, user, base_url } ) {
 	times.sort((a, b) => a[1].d0 - b[1].d0);
 	let expand = [];
 	const EXPAND_THRESH = 2;
@@ -30,7 +34,7 @@ function FmtTimes( { times, expanded, onExpand } ) {
 			}
 		}
 		expand.push(<div key={evt_id}>
-			<a href={dd.url} target="_blank">{dateStr(dd.d0)}</a>
+			<a href={genURL(dd.url, user, base_url)} target="_blank">{dateStr(dd.d0)}</a>
 			&nbsp;{left}
 		</div>);
 		if (!expanded && expand.length >= EXPAND_THRESH) {
@@ -93,7 +97,7 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 		</div>
 		<div className="ph-fold">
 			<div className="ph-features">
-				<FmtTimes times={times} expanded={expanded} onExpand={setExpanded}/>
+				<FmtTimes times={times} expanded={expanded} onExpand={setExpanded} user={user} base_url={base_url}/>
 				<div>{hours}</div>
 				<div>Ages {age}+</div>
 				<div>{levelDesc}</div>

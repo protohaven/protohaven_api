@@ -14,8 +14,8 @@ log = logging.getLogger("integrations.drive")
 def _svc():
     """Creates the service"""
     creds = service_account.Credentials.from_service_account_file(
-        get_config("drive/credentials_path"), scopes=get_config("drive/scopes")
-    )
+        get_config("google/token_path")
+    ).with_scopes(get_config("google/scopes"))
     return build("drive", "v3", credentials=creds)
 
 

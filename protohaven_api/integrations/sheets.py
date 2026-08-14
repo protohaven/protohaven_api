@@ -5,6 +5,7 @@ import io
 import logging
 import re
 import tarfile
+from os.path import getsize
 from typing import Iterator
 
 from google.oauth2 import service_account
@@ -25,8 +26,9 @@ def _get_service_client(name: str, version: str):
     This account must have read access for the call to succeed.
     """
     creds = service_account.Credentials.from_service_account_file(
-        get_config("sheets/credentials_path"), scopes=get_config("sheets/scopes")
-    )
+        get_config("google/token_path")
+    ).with_scopes(get_config("google/scopes"))
+
     service = build(name, version, credentials=creds)
     return service
 
@@ -51,7 +53,7 @@ def get_instructor_submissions_raw(from_row=1300):
 
     Note: columns up to Neon ID are included
     """
-    sheet_id = get_config("sheets/ids/instructor_hours")
+    sheet_id = get_config("google/sheets/ids/instructor_hours")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:N")[0]
     for row in get_sheet_range(sheet_id, f"Form Responses 1!A{from_row}:N"):
         data = dict(zip(headers, row))
@@ -96,7 +98,7 @@ def get_passing_student_clearances(
 
 def get_sign_ins_between(start, end):
     """Returns sign-in events between start and end dates. Not very efficient."""
-    sheet_id = get_config("sheets/ids/welcome_waiver_form")
+    sheet_id = get_config("google/sheets/ids/welcome_waiver_form")
     headers = get_sheet_range(sheet_id, "Form Responses 1!A1:D")[0]
     # Remap long header names
     headers = [
@@ -118,7 +120,7 @@ def get_sign_ins_between(start, end):
 
 def get_ops_budget_state():
     """Returns ops budgeting state from shop manager logbook"""
-    sheet_id = get_config("sheets/ids/shop_manager_logbook")
+    sheet_id = get_config("google/sheets/ids/shop_manager_logbook")
     headers = [
         h.strip().lower()
         for row in get_sheet_range(sheet_id, "Budget Summary!A2:A")
@@ -135,7 +137,7 @@ def get_ops_budget_state():
 
 def get_ops_event_log(start=None, end=None):
     """Returns all events logged in the shop manager logbook between start and end dates."""
-    sheet_id = get_config("sheets/ids/shop_manager_logbook")
+    sheet_id = get_config("google/sheets/ids/shop_manager_logbook")
     headers = get_sheet_range(sheet_id, "Event Log!A1:E1")[0]
     for row in get_sheet_range(sheet_id, "Event Log!A2:E"):
         data = dict(zip(headers, row))
@@ -147,7 +149,7 @@ def get_ops_event_log(start=None, end=None):
 
 def get_ops_inventory():
     """Returns all inventory information in the shop manager logbook"""
-    sheet_id = get_config("sheets/ids/shop_manager_logbook")
+    sheet_id = get_config("google/sheets/ids/shop_manager_logbook")
     headers = get_sheet_range(sheet_id, "Inventory!A1:F1")[0]
     for row in get_sheet_range(sheet_id, "Inventory!A2:F"):
         d = dict(zip(headers, row))
@@ -172,15 +174,15 @@ def _download_sheet(sheets_id: str):
     return file
 
 
-def fetch_sheets_backup(dest: str):
+def fetch_sheets_backup(dest: str) -> int:
     """Writes a tarball of the sheets found in sheets/ids
     Args:
         dest: the output location for the tarball
     Returns:
-        None
+        File size
     """
     with tarfile.open(dest, "w:gz") as tar:
-        for [name, sheets_id] in get_config("sheets/ids").items():
+        for [name, sheets_id] in get_config("google/sheets/ids").items():
             data_stream = _download_sheet(sheets_id)
             content = data_stream.getvalue()
             data_len = len(content)
@@ -189,3 +191,4 @@ def fetch_sheets_backup(dest: str):
             # We pass the stream back to the beginning before adding
             data_stream.seek(0)
             tar.addfile(tarinfo=info, fileobj=data_stream)
+    return getsize(dest)
