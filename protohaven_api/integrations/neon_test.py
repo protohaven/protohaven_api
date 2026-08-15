@@ -318,11 +318,11 @@ def test_accounts_backup(mocker):
     )
     with tempfile.TemporaryDirectory() as d:
         dest = Path(d) / "out.tar.gz"
-        sz = n.accounts_backup(dest, "f1.txt")
+        sz = n.accounts_backup(dest)
         assert sz > 0
 
         with tarfile.open(dest, "r:gz") as tar:
-            got = tar.extractfile("f1.txt").read().decode("utf8")
+            got = tar.extractfile("accounts.json").read().decode("utf8")
             assert (
                 got
                 == '[{"a": "foo", "memberships": null}, {"a": "bar", "memberships": "baz"}]'
@@ -354,11 +354,11 @@ def test_events_backup(mocker):
     )
     with tempfile.TemporaryDirectory() as d:
         dest = Path(d) / "out.tar.gz"
-        sz = n.events_backup(dest, "f1.txt")
+        sz = n.events_backup(dest)
         assert sz > 0
 
         with tarfile.open(dest, "r:gz") as tar:
-            got = tar.extractfile("f1.txt").read().decode("utf8")
+            got = tar.extractfile("events.json").read().decode("utf8")
             assert (
                 got
                 == '[{"a": "foo", "attendees": null, "tickets": null}, {"a": "bar", "attendees": 1, "tickets": 2}]'

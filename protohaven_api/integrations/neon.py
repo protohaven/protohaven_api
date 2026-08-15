@@ -302,7 +302,6 @@ def make_tarfile(output_filename: str, source_dir: str):
 
 def accounts_backup(
     output_filename: str,
-    fname: str = "accounts.json",
 ) -> int:
     """Iterate through all account information on Neon CRM and write it
     into a gzipped tar file. Returns number of bytes of the archive"""
@@ -310,7 +309,7 @@ def accounts_backup(
         results = []
         for m in search_all_members(fields=[], also_fetch=True, fetch_memberships=True):
             results.append({**m.neon_raw_data, "memberships": m.neon_membership_data})
-        with open(Path(d) / fname, "w", encoding="utf8") as f:
+        with open(Path(d) / "accounts.json", "w", encoding="utf8") as f:
             f.write(json.dumps(results))
         make_tarfile(output_filename, str(d))
     return getsize(output_filename)
@@ -318,13 +317,12 @@ def accounts_backup(
 
 def events_backup(
     output_filename: str,
-    fname: str = "events.json",
-    max_age_days: int = 10 * 365,
 ) -> int:
     """Iterate through all events on Neon CRM and write to a gzipped tar file.
     Return number of bytes of the archive.
     Events older than 10 years are not returned.
     """
+    max_age_days = 10 * 365
     with tempfile.TemporaryDirectory() as d:
         results = []
         for e in neon_base.paginated_search(
@@ -349,7 +347,7 @@ def events_backup(
                 }
             )
 
-        with open(Path(d) / fname, "w", encoding="utf8") as f:
+        with open(Path(d) / "events.json", "w", encoding="utf8") as f:
             f.write(json.dumps(results))
         make_tarfile(output_filename, str(d))
     return getsize(output_filename)
