@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import time
+from typing import Any
 
 from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
@@ -322,7 +323,7 @@ def class_listing():
 @page.route("/neon_lookup", methods=["POST"])
 def neon_id_lookup():
     """Look up basic info of a user in Neon based on a search by name or email"""
-    result = []
+    result: list[dict[str, Any]] = []
     search = request.values.get("search")
     if search is None:
         log.info("No search data provided")

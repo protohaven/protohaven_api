@@ -6,7 +6,7 @@ import logging
 import re
 import time
 import urllib
-from typing import Iterable
+from typing import Any, Iterable
 
 import pyotp
 from bs4 import BeautifulSoup
@@ -59,7 +59,7 @@ def paginated_search(search_fields, output_fields, typ="accounts", pagination=No
     """Issue POST requests against Neon's V2 API, yielding all results across
     all result pages"""
     cur = 0
-    data = {
+    data: dict[str, Any] = {
         "searchFields": [
             {"field": f, "operator": o, "value": v} for f, o, v in search_fields
         ],
@@ -520,25 +520,25 @@ class NeonOne:  # pylint: disable=too-few-public-methods
                 self.delete_all_prices_and_groups(ctx, event_id)
 
             log.info("Beginning price assignment")
-            for p in pricing if include_discounts else pricing[:1]:
-                log.info(f"Assign pricing: {p['name']}")
+            for tier in pricing if include_discounts else pricing[:1]:
+                log.info(f"Assign pricing: {tier['name']}")
                 group_id = self.upsert_ticket_group(
-                    ctx, event_id, group_name=p["name"], group_desc=p["desc"]
+                    ctx, event_id, group_name=tier["name"], group_desc=tier["desc"]
                 )
-                if p.get("cond", None) is not None:
-                    self.assign_conditions_to_group(ctx, group_id, p["cond"])
+                if tier.get("cond", None) is not None:
+                    self.assign_conditions_to_group(ctx, group_id, tier["cond"])
 
                 # Some classes have so few seats that the ratio rounds down to zero
                 # We just skip those here.
-                qty = round(seats * p["qty_ratio"])
+                qty = round(seats * tier["qty_ratio"])
                 if qty <= 0:
                     continue
                 self.assign_price_to_group(
                     ctx,
                     event_id,
                     group_id,
-                    p["price_name"],
-                    round(price * p["price_ratio"]),
+                    tier["price_name"],
+                    round(price * tier["price_ratio"]),
                     qty,
                 )
 

@@ -10,6 +10,7 @@ from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, tasks, wyze
 from protohaven_api.integrations.comms import Msg
+from protohaven_api.integrations.models import Member
 
 log = logging.getLogger("cli.forwarding")
 
@@ -43,12 +44,12 @@ class Commands:
             if req.get("completed"):
                 continue
             req["notes"] = req["notes"].replace("\\n", "\n")
-            deadline = completion_re.search(req["notes"])
-            if deadline is None:
+            deadline_match = completion_re.search(req["notes"])
+            if deadline_match is None:
                 raise RuntimeError(
                     "Failed to extract deadline from request by " + req["name"]
                 )
-            deadline = safe_parse_datetime(deadline[1])
+            deadline = safe_parse_datetime(deadline_match[1])
             if deadline < tznow():
                 log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"
@@ -357,7 +358,7 @@ class Commands:
             return
 
         log.info(f"Expecting on-duty techs: {[t.name for t in techs_on_duty]}")
-        email_map = {}
+        email_map: dict[str, Member] = {}
         for t in techs_on_duty:
             for email in t.emails:
                 if email in email_map:

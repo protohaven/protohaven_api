@@ -399,7 +399,7 @@ class Commands:  # pylint: disable=too-few-public-methods
 
             log.info(f"Applying changes for #{neon_id}")
             records_for_comms = []
-            mutations = []
+            mutations: set[ClearanceCodeFull] = set()
             if args.apply:
                 for tool_code, inst_deadline, res_deadline, rec, _ in new_pending:
                     log.info(

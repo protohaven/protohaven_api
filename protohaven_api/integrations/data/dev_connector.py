@@ -1,6 +1,7 @@
 """Dev version of Connector class that operates on mock data"""
 
 import logging
+from functools import lru_cache
 from json import loads
 
 from protohaven_api.integrations.data import (
@@ -102,6 +103,7 @@ class DevConnector(Connector):
         """Create and return an Asana API client"""
         raise NotImplementedError("Asana client not implemented in dev mode")
 
+    @lru_cache(maxsize=1)
     def wyze_client(self):
         return dev_wyze.Client()
 

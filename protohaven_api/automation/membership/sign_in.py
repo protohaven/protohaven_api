@@ -4,6 +4,7 @@ import datetime
 import logging
 import multiprocessing.pool as mp_pool
 import traceback
+from typing import Any
 
 from protohaven_api.automation.membership.membership import PLACEHOLDER_START_DATE
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
@@ -158,8 +159,8 @@ def get_member_and_activation_state(email):
     https://docs.google.com/document/d/1O8qsvyWyVF7qY0cBQTNUcT60DdfMaLGg8FUDQdciivM/edit?usp=sharing
     """
     # Only select individuals as members, not companies
-    mm = (neon.cached_get(email) or {}).values()
-    mm = [m for m in mm if m.neon_id != m.company_id]
+    account_values = (neon.cached_get(email) or {}).values()
+    mm = [m for m in account_values if m.neon_id != m.company_id]
     if len(mm) == 0:
         return None, False
 
@@ -365,7 +366,7 @@ def as_member(data, send):  # pylint: disable=too-many-statements,too-many-local
     result["nfc_token_ids"] = m.nfc_token_ids or []
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m.neon_id}"
 
-    meta = {"full_name": f"{m.fname} {m.lname}"}
+    meta: dict[str, Any] = {"full_name": f"{m.fname} {m.lname}"}
 
     try:
         send("Fetching announcements...", 55)

@@ -172,7 +172,7 @@ class Commands:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 comms.send_discord_message(
                     "Error looking up Discord users for mentioning in `gen_maintenance_tasks`:\n"
-                    + traceback.print_exc()
+                    + traceback.format_exc()
                     + "\nCheck Cronicle logs for details",
                     "#tech-automation",
                     blocking=False,
@@ -331,7 +331,7 @@ class Commands:
                 self._do_backup(
                     fn,
                     Path(d) / f"neon_{args.category}_backup.tar.gz",
-                    f"neon_category_backup_{now.isoformat()}.tar.gz",
+                    f"neon_{args.category}_backup_{now.isoformat()}.tar.gz",
                     args.parent_id,
                     apply=args.apply,
                 )

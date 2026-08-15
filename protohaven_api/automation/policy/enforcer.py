@@ -94,7 +94,7 @@ def gen_fees(violations=None, latest_fee=None, now=None):
 def update_accruals(fees=None):
     """Update accrual column for every violation that has a fee in the Fees table.
     Note this doesn't update violations for which there are no Fees"""
-    totals = defaultdict(int)
+    totals: defaultdict[str, int] = defaultdict(int)
     if fees is None:
         fees = airtable.get_policy_fees()
     for f in fees:

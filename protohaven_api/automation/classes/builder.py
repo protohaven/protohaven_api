@@ -163,7 +163,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.log = _log
         self.for_techs = []
         self.actionable_classes = []  # (evt, action)
-        self.summary = defaultdict(lambda: {"action": set(), "targets": set()})
+        self.summary: defaultdict[str, dict[str, set[Any]]] = defaultdict(
+            lambda: {"action": set(), "targets": set()}
+        )
         self.output = []  # [{target, subject, body}]
         self.events = []
         self.notifications_by_class = {}

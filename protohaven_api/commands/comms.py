@@ -6,6 +6,7 @@ import re
 import sys
 from collections import defaultdict
 from os import getenv
+from typing import Any
 
 import yaml
 from discord.errors import Forbidden as ForbiddenError
@@ -157,7 +158,7 @@ class Commands:  # pylint: disable=too-few-public-methods
             log.info(f"{args.path} was empty, so nothing to do.")
             return
 
-        side_effects = defaultdict(list)
+        side_effects: defaultdict[str, list[Any]] = defaultdict(list)
         for e in data:
             for sa, sv in e.get("side_effect", {}).items():
                 print(sa, sv)

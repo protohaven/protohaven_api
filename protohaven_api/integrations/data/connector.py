@@ -26,6 +26,13 @@ from protohaven_api.integrations import discord_bot
 log = logging.getLogger("integrations.data.connector")
 
 
+def _fmt_content(content) -> str:
+    """Return response content as a string, decoding bytes when needed."""
+    if isinstance(content, bytes):
+        return content.decode(errors="replace")
+    return str(content)
+
+
 class Connector:  # pylint: disable=too-many-public-methods
     """Provides production access to dependencies."""
 
@@ -62,14 +69,14 @@ class Connector:  # pylint: disable=too-many-public-methods
 
             log.warning(
                 f"status code {r.status_code} on neon request {args} {kwargs};"
-                f"\ncontent: {r.content}"
+                f"\ncontent: {_fmt_content(r.content)}"
                 f"\nretry #{i+1}"
             )
             time.sleep(int(random.random() * self.max_retry_delay_sec))
 
         raise RuntimeError(
             f"neon_request(args={args}, kwargs={kwargs}) "
-            + f"returned {r.status_code}: {r.content}"
+            + f"returned {r.status_code}: {_fmt_content(r.content)}"
         )
 
     def neon_session(self):
@@ -217,7 +224,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         if r.status_code != 200:
             raise RuntimeError(
                 f"booked_request(mode={mode}, url={url}, args={args}, "
-                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+                + f"kwargs={kwargs}) returned {r.status_code}: {_fmt_content(r.content)}"
             )
         try:
             return r.json()
@@ -236,7 +243,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         if r.status_code != 200:
             raise RuntimeError(
                 f"eventbrite_request(mode={mode}, url={url}, args={args}, "
-                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+                + f"kwargs={kwargs}) returned {r.status_code}: {_fmt_content(r.content)}"
             )
         try:
             return r.json()
@@ -275,7 +282,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         if r.status_code != 200:
             raise RuntimeError(
                 f"bookstack_request(mode={mode}, url={url}, args={args}, "
-                + f"kwargs={kwargs}) returned {r.status_code}: {r.content}"
+                + f"kwargs={kwargs}) returned {r.status_code}: {_fmt_content(r.content)}"
             )
         try:
             return r.json()
