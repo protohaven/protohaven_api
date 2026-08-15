@@ -7,6 +7,7 @@ import re
 from collections import defaultdict
 from concurrent import futures
 from functools import lru_cache
+from typing import Any
 
 from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
@@ -126,14 +127,16 @@ def techs_docs_state():
 )
 def techs_members():
     """Fetches sign-in information for members within a date range"""
-    start = request.values.get("start")
-    start = (safe_parse_datetime(start) if start else tznow()).replace(
+    start_raw = request.values.get("start")
+    start = (safe_parse_datetime(start_raw) if start_raw else tznow()).replace(
         hour=0, minute=0, second=0, tzinfo=tz
     )
 
-    end = request.values.get("end")
-    if end:
-        end = safe_parse_datetime(end).replace(hour=23, minute=59, second=59, tzinfo=tz)
+    end_raw = request.values.get("end")
+    if end_raw:
+        end = safe_parse_datetime(end_raw).replace(
+            hour=23, minute=59, second=59, tzinfo=tz
+        )
     else:
         end = start.replace(hour=23, minute=59, second=59)
 
@@ -168,7 +171,7 @@ def _tool_areas():
 def techs_area_leads():
     """Fetches the mapping of areas to area leads"""
     areas = _tool_areas()
-    area_map = {a: [] for a in areas}
+    area_map: dict[str, list[dict[str, Any]]] = {a: [] for a in areas}
     extras_map = defaultdict(list)
 
     fields = [
@@ -201,11 +204,11 @@ DEFAULT_FORECAST_LEN = 14
 @page.route("/techs/forecast")
 def techs_forecast():
     """Provide advance notice of the level of staffing of tech shifts"""
-    date = request.args.get("date")
-    if date is None:
+    date_raw = request.args.get("date")
+    if date_raw is None:
         date = tznow()
     else:
-        date = safe_parse_datetime(date)
+        date = safe_parse_datetime(date_raw)
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     forecast_len = int(request.args.get("days", DEFAULT_FORECAST_LEN))
     if forecast_len <= 0:
@@ -290,7 +293,7 @@ def techs_forecast_override():
 @page.route("/techs/list")
 def techs_list():
     """Fetches tech info and lead status of observer"""
-    fields = [
+    fields: list[str | int] = [
         "First Name",
     ]
     if am_role(Role.SHOP_TECH) or am_lead_role():
@@ -352,7 +355,7 @@ def tech_update():
     nid = data["neon_id"]
 
     if am_lead_role():
-        editable_fields = (
+        editable_fields: tuple[str, ...] = (
             "shop_tech_shift",
             "area_lead",
             "interest",
@@ -656,7 +659,7 @@ def storage_sub_sock(ws):  # pylint: disable=too-many-locals
         all_fetches.append(executor.submit(sales.get_unpaid_invoices_by_id))
         all_fetches.append(executor.submit(airtable.get_storage_agreements))
 
-    not_done = all_fetches
+    not_done: set[futures.Future[Any]] = set(all_fetches)
     while True:
         _, not_done = futures.wait(not_done)
         if len(not_done) <= 0:
@@ -866,8 +869,7 @@ def run_attendance_report():  # pylint: disable=too-many-locals, too-many-statem
         sign_ins_by_email = defaultdict(list)
         for rec in airtable.get_signins_between(start, end):
             sign_ins_by_email[rec.email.lower().strip()].append(rec.created)
-        sign_ins_by_email = {k: sorted(v) for k, v in sign_ins_by_email.items()}
-        return sign_ins_by_email
+        return {k: sorted(v) for k, v in sign_ins_by_email.items()}
 
     log.info("Generating shift schedule")
     shifts = tauto.generate(start, numdays, True)["calendar_view"]

@@ -265,7 +265,7 @@ def fetch_output_fields():
 
 
 def search_active_members(
-    fields: list[str],
+    fields: list[str | int],
     fetch_memberships=False,
     also_fetch=False,
 ) -> Iterable[Member]:
@@ -355,7 +355,7 @@ def events_backup(
     return getsize(output_filename)
 
 
-MEMBER_SEARCH_OUTPUT_FIELDS = [
+MEMBER_SEARCH_OUTPUT_FIELDS: list[str | int] = [
     "Household ID",
     "Company ID",
     "First Name",

@@ -6,7 +6,7 @@ import random
 import tempfile
 import traceback
 from pathlib import Path
-from typing import Callable
+from typing import Any
 
 from protohaven_api.automation.maintenance import manager
 from protohaven_api.automation.techs import techs as forecast
@@ -172,7 +172,7 @@ class Commands:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 comms.send_discord_message(
                     "Error looking up Discord users for mentioning in `gen_maintenance_tasks`:\n"
-                    + traceback.print_exc()
+                    + traceback.format_exc()
                     + "\nCheck Cronicle logs for details",
                     "#tech-automation",
                     blocking=False,
@@ -278,7 +278,7 @@ class Commands:
             print_yaml([])
 
     def _do_backup(  # pylint: disable=too-many-arguments
-        self, fn: Callable[[str], int], backup_path, upload_path, parent_id, apply
+        self, fn: Any, backup_path, upload_path, parent_id, apply
     ):
         file_sz = fn(backup_path)
         log.info(f"Fetched {backup_path}; pushing to drive as {upload_path}")

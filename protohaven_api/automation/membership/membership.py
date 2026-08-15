@@ -129,7 +129,7 @@ def init_membership(  # pylint: disable=too-many-arguments,too-many-positional-a
     Action is gated on email configured in in config.yaml
     """
     assert account_id and membership_id and email and membership_name and fname
-    result = []
+    result: list[Msg] = []
     include_filter = get_config("neon/webhooks/new_membership/include_filter") or ""
     if include_filter.strip() != "":
         include_filter = {s.strip().lower() for s in include_filter.split(",")}

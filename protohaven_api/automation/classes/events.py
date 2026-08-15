@@ -25,8 +25,8 @@ def _should(condition: bool | Callable[[Any], bool], v: Any) -> bool:
 def _fetch_upcoming_events_neon(
     after: datetime.datetime,
     published: bool = True,
-    attendees: bool = False,
-    tickets: bool = False,
+    attendees: bool | Callable[[Any], bool] = False,
+    tickets: bool | Callable[[Any], bool] = False,
 ) -> Iterable[list[Event]]:
     """Fetch only neon upcoming events"""
     q_params = {
@@ -56,8 +56,8 @@ def fetch_upcoming_events(  # pylint: disable=too-many-locals
     back_days: int = 7,
     published: bool = True,
     merge_airtable: bool = False,
-    attendees: bool = False,
-    tickets: bool = False,
+    attendees: bool | Callable[[Any], bool] = False,
+    tickets: bool | Callable[[Any], bool] = False,
 ) -> Iterable[Event]:
     """Load upcoming events from all sources, with `back_days` of trailing event data.
     Note that querying is done based on the end date so multi-week intensives

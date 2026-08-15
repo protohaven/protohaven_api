@@ -5,6 +5,7 @@ import datetime
 import logging
 import re
 from collections import defaultdict
+from typing import Any
 
 from protohaven_api.automation.roles import roles
 from protohaven_api.commands.decorator import arg, command, print_yaml
@@ -102,7 +103,9 @@ class Commands:  # pylint: disable=too-few-public-methods
             airtable_intents[i.as_key()] = i
         log.info(f"Fetched {len(airtable_intents)} intents")
 
-        user_log = defaultdict(list)  # Log of actions taken, keyed by discord_id
+        user_log: defaultdict[str, list[Any]] = defaultdict(
+            list
+        )  # Log of actions taken, keyed by discord_id
 
         log.info("Syncing delayed intents (insert/delete)")
         roles.sync_delayed_intents(
@@ -256,9 +259,9 @@ class Commands:  # pylint: disable=too-few-public-methods
                 f"Crawling {len(not_associated)} unassociated discord users, "
                 "starting with most recent to join"
             )
-            not_associated = list(not_associated)
-            not_associated.sort(key=join_dates.get, reverse=True)
-            for discord_id in not_associated:
+            not_associated_list = list(not_associated)
+            not_associated_list.sort(key=join_dates.get, reverse=True)
+            for discord_id in not_associated_list:
                 if i >= args.limit:
                     log.info("Limit reached; stopping early")
                     break
@@ -282,9 +285,9 @@ class Commands:  # pylint: disable=too-few-public-methods
         if len(changes) > 0 or (
             len(not_associated_final) > 0 and args.warn_not_associated
         ):
-            m = len(not_associated_final)
+            num_notified = len(not_associated_final)
             notified = list(not_associated_final)
-            if m > 30:
+            if num_notified > 30:
                 notified = notified[:30] + ["..."]
             result.append(
                 Msg.tmpl(
@@ -293,7 +296,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                     changes=list(changes),
                     n=len(changes),
                     notified=notified,
-                    m=m,
+                    m=num_notified,
                 )
             )
 

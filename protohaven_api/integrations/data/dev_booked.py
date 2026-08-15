@@ -18,7 +18,7 @@ def get_reservations():
     """Mock events endpoint for Neon - needs to be completed"""
     if request.method == "POST":
         raise NotImplementedError(
-            f"Unhandled dev POST to /Reservations/: {request.data}"
+            f"Unhandled dev POST to /Reservations/: {request.data!r}"
         )
 
     start = safe_parse_datetime(request.values.get("startDateTime"))

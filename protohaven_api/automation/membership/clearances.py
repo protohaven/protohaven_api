@@ -6,7 +6,7 @@ import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Literal
+from typing import Iterable, Literal
 
 from dateutil import parser as dateparser
 
@@ -21,7 +21,10 @@ UpdateMethod = Literal["PATCH", "DELETE", "GET"]
 
 
 def update(
-    email: Email, method: UpdateMethod, delta: set[ClearanceCodeFull], apply=True
+    email: Email,
+    method: UpdateMethod,
+    delta: Iterable[ClearanceCodeFull],
+    apply=True,
 ) -> set[ClearanceCodeFull]:
     """Update clearances for `email` user"""
     m = list(neon.search_members_by_email(email))
@@ -31,7 +34,10 @@ def update(
 
 
 def update_by_neon_id(
-    neon_id: NeonID, method: UpdateMethod, delta: set[ClearanceCodeFull], apply=True
+    neon_id: NeonID,
+    method: UpdateMethod,
+    delta: Iterable[ClearanceCodeFull],
+    apply=True,
 ) -> set[ClearanceCodeFull]:
     """Update clearances for `email` user"""
     m = neon_base.fetch_account(neon_id, required=True)
@@ -39,7 +45,10 @@ def update_by_neon_id(
 
 
 def update_by_member(
-    m: Member, method: UpdateMethod, delta: set[ClearanceCodeFull], apply=True
+    m: Member,
+    method: UpdateMethod,
+    delta: Iterable[ClearanceCodeFull],
+    apply=True,
 ) -> set[ClearanceCodeFull]:
     """Update clearances for `email` user"""
     delta = set(delta)  # So we don't accidentally modify the parent arg

@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from flask import Blueprint, Response, request, session
 
@@ -99,7 +99,13 @@ def user_clearances():
             results[e] = {
                 "method": request.method,
                 "delta": delta,
-                "result": list(mclearance.update(e, request.method, resolved)),
+                "result": list(
+                    mclearance.update(
+                        e,
+                        cast(mclearance.UpdateMethod, request.method),
+                        resolved,
+                    )
+                ),
                 "status": 200,
                 "message": "success",
             }

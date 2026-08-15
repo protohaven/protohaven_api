@@ -733,7 +733,7 @@ class Event:  # pylint: disable=too-many-public-methods
 
     neon_raw_data: dict = field(default_factory=dict)
     neon_search_data: dict = field(default_factory=dict)
-    neon_attendee_data: dict | None = field(default=None)
+    neon_attendee_data: list | None = field(default=None)
     neon_ticket_data: dict | None = field(default=None)
     eventbrite_data: dict = field(default_factory=dict)
     eventbrite_attendee_data: list | None = field(default=None)

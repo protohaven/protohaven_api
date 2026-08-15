@@ -147,7 +147,7 @@ def instructor_class_templates():
 @require_login_role(
     Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
-def instructor_class_attendees() -> Union[Response, str]:
+def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
     """Gets the attendees for a given class, by its neon ID"""
     event_id = request.args.get("id")
     if event_id is None:
@@ -539,7 +539,7 @@ def recent_instructor_submissions():
 
     email = email.strip().lower()
     log.info(f"Lookup submissions with instructor email {email}")
-    result = {}
+    result: dict[str, list[Any]] = {}
     for sub in sheets.get_instructor_submissions_raw():
         if "Email Address" not in sub:
             continue
