@@ -38,7 +38,7 @@ repos:
   hooks:
     - id: mypy
       additional_dependencies: [types-requests, types-PyYAML, types-python-dateutil, types-Markdown]
-      args: [--ignore-missing-imports, --no-strict-optional]
+      args: [--ignore-missing-imports, --no-strict-optional, --check-untyped-defs]
       exclude: '_test\.py$'
 -   repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0

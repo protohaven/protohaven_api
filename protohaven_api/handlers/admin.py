@@ -99,7 +99,7 @@ def user_clearances():
             results[e] = {
                 "method": request.method,
                 "delta": delta,
-                "result": mclearance.update(e, request.method, resolved),
+                "result": list(mclearance.update(e, request.method, resolved)),
                 "status": 200,
                 "message": "success",
             }
