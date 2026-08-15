@@ -331,7 +331,7 @@ class Commands:
                 self._do_backup(
                     fn,
                     Path(d) / f"neon_{args.category}_backup.tar.gz",
-                    f"neon_category_backup_{now.isoformat()}.tar.gz",
+                    f"neon_{args.category}_backup_{now.isoformat()}.tar.gz",
                     args.parent_id,
                     apply=args.apply,
                 )
