@@ -37,16 +37,15 @@
 	let admin = false;
 	let user;
 
+	const tab_titles: Record<string, string> = {
+		classes: 'Classes',
+		profile: 'Profile',
+		roster: 'Roster',
+		templates: 'Class Templates'
+	};
+
 	let activeTab = 'classes';
-	$: page_title = `Instructor Dashboard: ${
-		activeTab === 'profile'
-			? 'Profile'
-			: activeTab === 'roster'
-				? 'Roster'
-				: activeTab === 'templates'
-					? 'Class Templates'
-					: 'Classes'
-	}`;
+	$: page_title = `Instructor Dashboard: ${tab_titles[activeTab] || 'Classes'}`;
 	onMount(() => {
 		activeTab = (window.location.hash || '#classes').substring(1).trim();
 		const urlParams = new URLSearchParams(window.location.search);

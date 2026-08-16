@@ -35,10 +35,14 @@
 	let show_discord_setup = false;
 	let neon_id;
 
+	const tab_titles = {
+		clearances: 'Clearances',
+		recertification: 'Recertification'
+	};
+
 	let activeTab = 'clearances';
-	$: page_title = `Member Dashboard: ${
-		activeTab === 'recertification' ? 'Recertification' : 'Clearances'
-	}`;
+	// @ts-ignore - activeTab is constrained to the keys of tab_titles
+	$: page_title = `Member Dashboard: ${tab_titles[activeTab] || 'Clearances'}`;
 
 	let promise = new Promise(() => {});
 	let recertPromise = new Promise(() => {

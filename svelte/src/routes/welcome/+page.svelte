@@ -11,20 +11,18 @@
 	import NfcStatus from '$lib/nfc_status.svelte';
 	import NfcEnroll from '$lib/nfc_enroll.svelte';
 
+	const state_titles = {
+		splash: 'Sign In',
+		waiver: 'Liability Waiver',
+		member_agreement: 'Member Agreement',
+		membership_expired: 'Membership Expired',
+		signin_ok: 'Sign In Complete',
+		enrolling_nfc: 'NFC Enrollment'
+	};
+
 	let state = 'splash';
-	$: page_title = `Sign-in Kiosk: ${
-		state === 'waiver'
-			? 'Liability Waiver'
-			: state === 'member_agreement'
-				? 'Member Agreement'
-				: state === 'membership_expired'
-					? 'Membership Expired'
-					: state === 'signin_ok'
-						? 'Sign In Complete'
-						: state === 'enrolling_nfc'
-							? 'NFC Enrollment'
-							: 'Sign In'
-	}`;
+	// @ts-ignore - state is constrained to the keys of state_titles
+	$: page_title = `Sign-in Kiosk: ${state_titles[state] || 'Sign In'}`;
 	let name = 'member';
 	let email = null;
 	let person = 'member';
