@@ -146,7 +146,7 @@ def delete_reservation(refnum):
 
 def get_reservations_for_areas(
     interval: Interval, areas: set[AreaID], user_id=None
-) -> Iterable[int]:
+) -> Iterable[dict[str, Any]]:
     """Fetches a list of reference numbers for reservations within a time interval,
     for specific areas, and by a specific user.
 

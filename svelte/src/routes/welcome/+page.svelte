@@ -11,7 +11,19 @@
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
 	import NfcEnroll from '$lib/nfc_enroll.svelte';
+
+	const state_titles = {
+		splash: 'Sign In',
+		waiver: 'Liability Waiver',
+		member_agreement: 'Member Agreement',
+		membership_expired: 'Membership Expired',
+		signin_ok: 'Sign In Complete',
+		enrolling_nfc: 'NFC Enrollment'
+	};
+
 	let state = 'splash';
+	// @ts-ignore - state is constrained to the keys of state_titles
+	$: page_title = `Sign-in Kiosk: ${state_titles[state] || 'Sign In'}`;
 	let name = 'member';
 	let email = null;
 	let person = 'member';
@@ -279,6 +291,10 @@
 		on_signin_return();
 	}
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 <main>
 	{#if toast_msg}

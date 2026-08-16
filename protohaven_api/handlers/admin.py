@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import TypedDict, cast
 
 from flask import Blueprint, Response, request, session
 
@@ -10,6 +11,7 @@ from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import get_config
 from protohaven_api.handlers.auth import login_with_neon_id
 from protohaven_api.integrations import airtable, comms, mqtt, neon, neon_base, tasks
+from protohaven_api.integrations.models import Email
 from protohaven_api.rbac import (
     Role,
     require_dev_environment,
@@ -46,12 +48,26 @@ def admin_discord_webhook():
     return "Sent (non-blocking)"
 
 
+class ClearanceResult(TypedDict):
+    """Result of attempting to apply clearance data
+    for an individual account.
+
+    Clearance results data types must all be JSON
+    serializable"""
+
+    method: str
+    delta: list[str]
+    result: list[str]
+    status: int
+    message: str
+
+
 @page.route("/user/clearances", methods=["GET", "PATCH", "DELETE"])
 @require_login_role(Role.AUTOMATION, redirect_to_login=False)
 def user_clearances():
     """CRUD operations for member clearances.
     used to update clearances when instructor submits logs"""
-    emails = [
+    emails: list[Email] = [
         e.strip()
         for e in request.values.get("emails", "").split(",")
         if e.strip() != ""
@@ -59,7 +75,7 @@ def user_clearances():
     log.info(request.values)
     if len(emails) == 0:
         return Response("Missing required param 'emails'", status=400)
-    results = {}
+    results: dict[Email, ClearanceResult] = {}
 
     delta = []
     if request.method != "GET":
@@ -83,8 +99,15 @@ def user_clearances():
             results[e] = {
                 "method": request.method,
                 "delta": delta,
-                "result": mclearance.update(e, request.method, resolved),
+                "result": list(
+                    mclearance.update(
+                        e,
+                        cast(mclearance.UpdateMethod, request.method),
+                        resolved,
+                    )
+                ),
                 "status": 200,
+                "message": "success",
             }
         except RuntimeError as exc:
             results[e] = {

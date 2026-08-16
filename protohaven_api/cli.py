@@ -69,7 +69,7 @@ class ProtohavenCLI(  # pylint: disable=too-many-ancestors
         parser = argparse.ArgumentParser(
             description="Protohaven CLI",
         )
-        parser.format_usage = fmt_usage
+        setattr(parser, "format_usage", fmt_usage)
         parser.add_argument("command", help="Subcommand to run")
         args = parser.parse_args(sys.argv[1:2])  # Limit to only initial command args
         if not hasattr(self, args.command):

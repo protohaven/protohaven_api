@@ -5,6 +5,10 @@
 	import Classes from '$lib/events/classes.svelte';
 </script>
 
+<svelte:head>
+	<title>Events Dashboard</title>
+</svelte:head>
+
 <Gcal />
 <Reservations />
 <Classes />

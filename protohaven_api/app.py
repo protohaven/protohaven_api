@@ -31,7 +31,11 @@ def configure_app(
     log = logging.getLogger("main")
     app = Flask(__name__)
     if behind_proxy:
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+        setattr(
+            app,
+            "wsgi_app",
+            ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1),
+        )
 
     if cors_all_routes:
         log.warning(

@@ -131,7 +131,7 @@ def insert_records(records, base, tbl):
     # https://airtable.com/developers/web/api/create-records
     assert len(records) <= 10
 
-    post_data = [{"fields": d} for d in records]
+    post_data: Any = [{"fields": d} for d in records]
     if get_connector().db_format() != "nocodb":
         post_data = {"records": post_data}
     return get_connector().db_request("POST", base, tbl, data=post_data)
@@ -142,7 +142,7 @@ def update_record(data, base, tbl, rec):
     Note that this uses an API endpoint that supports multiple records,
     up to a max of 10. We could modify this to better batch data requests in the future.
     """
-    post_data = [{"id": rec, "fields": data}]
+    post_data: Any = [{"id": rec, "fields": data}]
     if get_connector().db_format() != "nocodb":
         post_data = {"records": post_data}
 

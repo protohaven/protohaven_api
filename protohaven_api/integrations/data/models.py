@@ -20,7 +20,7 @@ class SignInEvent:  # pylint: disable=too-many-instance-attributes
     full_name: str
     clearances: list
     violations: list
-    status: list
+    status: str
 
     def to_airtable(self):
         """Convert data to Airtable record format"""
