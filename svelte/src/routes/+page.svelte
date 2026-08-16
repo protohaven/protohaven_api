@@ -1,3 +1,7 @@
+<svelte:head>
+	<title>Protohaven Dev Environment</title>
+</svelte:head>
+
 <h1>Protohaven Dev Environment</h1>
 <p>
 	<em>This page only appears in dev environment - Flask redirects via handler in production</em>

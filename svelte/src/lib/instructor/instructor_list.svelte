@@ -82,8 +82,6 @@
 	export let onEnrollmentChanged;
 
 	// State
-	let loaded = false;
-
 	let new_instructor: { neon_id: string | null; name: string; email: string } = {
 		neon_id: null,
 		name: '',
@@ -98,8 +96,9 @@
 	let enrolling = false;
 
 	let capabilities: InstructorCapability[] = [];
-	let enrollment_map = {};
-	let without_capabilities = new Set();
+	let enrollment_map: Record<string, string> = {};
+	let without_capabilities: string[] = [];
+	let without_enrollment: InstructorCapability[] = [];
 	let show_capabilities = false;
 
 	// Debounced search function
@@ -128,17 +127,19 @@
 
 	// Functions
 	// Process data when it becomes available
-	$: {
-		if (data && !loaded) {
-			loaded = true;
-			capabilities = data.capabilities || [];
-			enrollment_map = data.enrollment_map || {};
-			console.log(enrollment_map);
+	$: if (data) {
+		const next_capabilities = data.capabilities || [];
+		const next_enrollment_map = data.enrollment_map || {};
+		capabilities = next_capabilities;
+		enrollment_map = next_enrollment_map;
+		console.log(next_enrollment_map);
 
-			const cap_neon_ids = new Set(capabilities.map((c) => c.neon_id));
-			const enrolled_neon_ids = new Set(Object.keys(enrollment_map));
-			without_capabilities = Array.from(enrolled_neon_ids.difference(cap_neon_ids));
-		}
+		const cap_neon_ids = new Set(next_capabilities.map((c) => c.neon_id));
+		const enrolled_neon_ids = new Set(Object.keys(next_enrollment_map));
+		without_capabilities = Array.from(enrolled_neon_ids.difference(cap_neon_ids));
+		without_enrollment = next_capabilities.filter(
+			(c) => !c.neon_id || !next_enrollment_map[c.neon_id]
+		);
 	}
 
 	function search_neon_accounts() {
@@ -159,7 +160,7 @@
 	}
 
 	function is_enrolled(neon_id: string | null): boolean {
-		return neon_id && enrollment_map[neon_id];
+		return Boolean(neon_id && enrollment_map[neon_id]);
 	}
 
 	function set_enrollment(enroll: boolean) {
@@ -393,6 +394,31 @@
 				<ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
 				<ToastBody>{toast_msg.msg}</ToastBody>
 			</Toast>
+			{#if without_enrollment.length > 0}
+				<Alert color="danger">
+					The following people have Instructor Capabilities in Airtable but are not enrolled as
+					instructors in Neon CRM:
+					<ul>
+						{#each without_enrollment as inst}
+							<li>
+								{#if inst.neon_id}
+									<a
+										href={'https://protohaven.app.neoncrm.com/admin/accounts/' + inst.neon_id}
+										target="_blank">{inst.name}</a
+									>
+								{:else}
+									{inst.name}
+								{/if}
+							</li>
+						{/each}
+					</ul>
+					<p>
+						They are missing the <strong>Instructor</strong> API Server Role custom field setting in Neon
+						CRM. Add that role in Neon CRM to mark them as enrolled, or remove their Instructor Capabilities
+						in Airtable if this is a mistake.
+					</p>
+				</Alert>
+			{/if}
 			{#if without_capabilities.length > 0}
 				<Alert color="warning"
 					>The following people are enrolled as instructors in Neon CRM but they have no
@@ -440,12 +466,18 @@
 				</thead>
 				<tbody>
 					{#each capabilities as inst}
-						<tr>
+						<tr class:table-warning={!is_enrolled(inst.neon_id)}>
 							<td>
 								{inst.name}
 							</td>
 							<td>{inst.email}</td>
-							<td>{is_enrolled(inst.neon_id) ? 'Yes' : 'No'}</td>
+							<td>
+								{#if is_enrolled(inst.neon_id)}
+									<Badge color="success">Yes</Badge>
+								{:else}
+									<Badge color="danger">No</Badge>
+								{/if}
+							</td>
 							<td>
 								{#if inst.active}
 									<Badge color="success">Active</Badge>

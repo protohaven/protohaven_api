@@ -205,8 +205,8 @@ def gen_role_intents(  # pylint: disable=too-many-statements
     discord_members = list(comms.get_all_members())
     log.info(f"Got {len(discord_members)}; example {discord_members[0]}")
     discord_members.sort(key=lambda m: m[2])
-    additions = set()  # for early cutoff on `max_users_added`
-    revocations = set()  # for early cutoff on `max_users_removed`
+    additions: set[str] = set()  # for early cutoff on `max_users_added`
+    revocations: set[str] = set()  # for early cutoff on `max_users_removed`
 
     if user_filter is not None:
         log.warning(f"Filtering to provided user list: {user_filter}")
@@ -456,7 +456,7 @@ def setup_discord_user(discord_details):  # pylint: disable=too-many-locals
 
     m = mm[0]
     neon_member = None
-    neon_roles = set()
+    neon_roles: set[str | None] = set()
     for m in mm:
         neon_roles = neon_roles.union(
             {rev_roles.get(r["name"]) for r in m.roles if r["name"] in rev_roles}

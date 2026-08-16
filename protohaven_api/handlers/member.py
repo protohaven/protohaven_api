@@ -1,6 +1,5 @@
 """handlers for member pages"""
 
-import datetime
 import logging
 import re
 import threading
@@ -103,7 +102,7 @@ def get_recert_data():
 
     configs = airtable.get_tool_recert_configs_by_code()
 
-    pending: list[tuple[ToolCode, datetime.datetime, dict[str, Any]]] = []
+    pending: list[tuple[ToolCode, str, dict[str, Any]]] = []
     for pr in airtable.get_pending_recertifications():
         if pr.neon_id != neon_id:
             continue
@@ -118,9 +117,9 @@ def get_recert_data():
             )
         )
     pending.sort(key=lambda p: p[0])
-    configs = [c.as_dict() for c in configs.values()]
-    configs.sort(key=lambda c: c.get("tool"))
-    return {"pending": pending, "configs": configs}
+    config_list = [c.as_dict() for c in configs.values()]
+    config_list.sort(key=lambda c: c.get("tool"))
+    return {"pending": pending, "configs": config_list}
 
 
 @page.route("/member/goto_class", methods=["GET"])
@@ -134,10 +133,10 @@ def goto_class():
     log.info(f"goto_class {orig_url}")
 
     # If not eventbrite, then it's a Neon event which uses logged-in session to apply discounts
-    m = re.search(r"^https://www.eventbrite.com/e/(\d+).*", orig_url)
-    if not m or not m.group(1):
+    evt_match = re.search(r"^https://www.eventbrite.com/e/(\d+).*", orig_url)
+    if not evt_match or not evt_match.group(1):
         return redirect(orig_url)
-    evt_id = m.group(1)
+    evt_id = evt_match.group(1)
 
     log.info(f"Parsed event ID from url param: {evt_id}")
     if not eventbrite.is_valid_id(evt_id):
@@ -148,7 +147,7 @@ def goto_class():
     neon_id = _fetch_neon_id()
     if isinstance(neon_id, Response):
         return neon_id
-    m = neon.search_member_by_neon_id(
+    neon_member = neon.search_member_by_neon_id(
         neon_id,
         fields=[
             "Account Current Membership Status",
@@ -156,12 +155,12 @@ def goto_class():
             neon.CustomField.INCOME_BASED_RATE,
         ],
     )
-    if not m:
+    if not neon_member:
         return Response(
             f"Error fetching membership for #{neon_id} - not found", status=400
         )
     url = f"https://www.eventbrite.com/e/{evt_id}/"
-    percent_off = m.event_discount_pct()
+    percent_off = neon_member.event_discount_pct()
     if percent_off > 0:
         log.info(
             f"Generating {percent_off}% discount for member #{neon_id} for eventbrite #{evt_id}"

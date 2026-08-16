@@ -74,10 +74,10 @@ def run_neon_membership_created_callback_test(params, is_amp):
     created membership. Our manual call lies about the cost of the membership
     so that the callback actually executes and defers the membership."""
     print("\nFetching current user data")
-    m = list(neon.search_members_by_email(params.user, fetch_memberships=True))
-    if len(m) == 0:
+    members = list(neon.search_members_by_email(params.user, fetch_memberships=True))
+    if len(members) == 0:
         raise RuntimeError(f"No Neon account for {params.user}")
-    m = m[0]
+    m = members[0]
     print(f"\nFound account #{m.neon_id}")
     for mem in m.memberships():
         print("Deleting membership", mem.neon_id)

@@ -24,10 +24,23 @@
 	import DoorLocks from '$lib/techs/door_locks.svelte';
 	import { onMount } from 'svelte';
 
+	const tab_titles = {
+		cal: 'Cal',
+		members: 'Members',
+		tools: 'Tools',
+		storage: 'Storage',
+		areas: 'Areas',
+		techs: 'Roster',
+		events: 'Events',
+		attendance: 'Attendance'
+	};
+
 	let promise;
 	let admin = false;
 	let user;
-	let activeTab;
+	let activeTab = 'cal';
+	// @ts-ignore - activeTab is constrained to the keys of tab_titles
+	$: page_title = `Techs Dashboard: ${tab_titles[activeTab] || 'Cal'}`;
 	onMount(() => {
 		activeTab = (window.location.hash || '#cal').substring(1).trim();
 		const urlParams = new URLSearchParams(window.location.search);
@@ -54,6 +67,10 @@
 		console.log('activeTab', activeTab);
 	}
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 <Navbar color="secondary-subtle" sticky="">
 	<NavbarBrand>Techs Dashboard</NavbarBrand>

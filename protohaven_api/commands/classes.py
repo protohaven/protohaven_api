@@ -7,7 +7,7 @@ import re
 import traceback
 from collections import defaultdict
 from functools import lru_cache
-from typing import Iterable
+from typing import Any, Iterable
 
 import markdown
 
@@ -121,7 +121,11 @@ class Commands:
             else start + datetime.timedelta(days=30)
         )
         results = []
-        summary = {"name": "Scheduling reminder", "action": ["SEND"], "targets": set()}
+        summary: dict[str, Any] = {
+            "name": "Scheduling reminder",
+            "action": ["SEND"],
+            "targets": set(),
+        }
         filt = [f.strip() for f in args.filter.split(",")] if args.filter else None
         for nid, email in builder.get_unscheduled_instructors(
             start,
@@ -390,10 +394,12 @@ class Commands:
             )
 
         num = 0
-        to_schedule: list[airtable.Class] = list(
+        to_schedule: list[airtable.ScheduledClass] = list(
             resolve_schedule(args.min_future_days, args.ovr)
         )
-        scheduled_by_instructor = defaultdict(list)
+        scheduled_by_instructor: defaultdict[str, list[airtable.ScheduledClass]] = (
+            defaultdict(list)
+        )
         to_schedule.sort(key=lambda e: e.start_time)
 
         log.info("Attempting Neon auth as user to allow for pricing changes")

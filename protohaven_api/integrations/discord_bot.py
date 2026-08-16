@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 import discord
@@ -18,7 +19,7 @@ class PHClient(discord.Client):
         super().__init__(*args, **kwargs)
         self.role_map = {}
         self.user_map = {}
-        self.member_join_hook_fn = lambda details: []
+        self.member_join_hook_fn: Callable[..., list[Any]] = lambda details: []
         self._stored_loop = None
 
     async def setup_hook(self):

@@ -36,7 +36,16 @@
 	let promise = new Promise((resolve, reject) => {});
 	let admin = false;
 	let user;
-	let activeTab;
+
+	const tab_titles: Record<string, string> = {
+		classes: 'Classes',
+		profile: 'Profile',
+		roster: 'Roster',
+		templates: 'Class Templates'
+	};
+
+	let activeTab = 'classes';
+	$: page_title = `Instructor Dashboard: ${tab_titles[activeTab] || 'Classes'}`;
 	onMount(() => {
 		activeTab = (window.location.hash || '#classes').substring(1).trim();
 		const urlParams = new URLSearchParams(window.location.search);
@@ -131,6 +140,10 @@
 	let fullname = '';
 	let airtable_id = '';
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 <Navbar color="primary-subtle" sticky="">
 	<NavbarBrand>Instructor Dashboard</NavbarBrand>

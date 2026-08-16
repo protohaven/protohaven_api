@@ -206,8 +206,8 @@ class Commands:
         self, member_ids=None, pct=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
-        household_paying_member_count = defaultdict(int)
-        company_member_count = defaultdict(int)
+        household_paying_member_count: defaultdict[str, int] = defaultdict(int)
+        company_member_count: defaultdict[str, int] = defaultdict(int)
         member_data = {}
         if pct:
             pct.set_stages(2)
@@ -481,7 +481,7 @@ class Commands:
         if args.exclude:
             args.exclude = {a.strip() for a in args.exclude.split(",")}
             log.info(f"excluding {args.exclude}")
-        summary = []
+        summary: list[dict[str, Any]] = []
         log.info("Refreshing shop tech lead memberships...")
         self._refresh_role_memberships(
             args,

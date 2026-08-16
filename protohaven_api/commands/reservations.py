@@ -379,7 +379,7 @@ class Commands:
             if (user := booked_user_data.get(user_id))
         ]
         if args.apply and booked_member_ids:
-            log.info(str(booked.assign_members_group_users(booked_member_ids)))
+            log.info(str(booked.assign_members_group_users(list(booked_member_ids))))
 
         if len(added_member_strings) + len(removed_member_strings) > 0:
             summary.append(

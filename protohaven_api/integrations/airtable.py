@@ -48,7 +48,7 @@ class Class:  # pylint: disable=too-many-instance-attributes
 
     class_id: RecordID
     name: str
-    hours: list[int]
+    hours: list[float]
     capacity: int
     price: int
     supply_cost: int
@@ -113,7 +113,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     class_id: RecordID  # Record ID for the Class Templates table
     event_id: EventID  # Neon or Eventbrite published ID
     name: str
-    hours: list[int]
+    hours: list[float]
     period: datetime.timedelta
     capacity: int
     supply_state: str
@@ -153,7 +153,7 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
         sessions = [
             (d, d + datetime.timedelta(hours=hours[i])) for i, d in enumerate(starts)
         ]
-        class_ids = [None]
+        class_ids: list[str | None] = [None]
         if "Class" in f.keys():
             class_ids = _idref(row, "Class")
         return cls(
@@ -387,7 +387,7 @@ def fetch_instructor_capabilities(neon_id):
 
 def fetch_instructor_teachable_classes():
     """Fetch teachable classes from airtable"""
-    instructor_caps = defaultdict(list)
+    instructor_caps: defaultdict[str, list[str]] = defaultdict(list)
     for row in get_all_records("class_automation", "capabilities"):
         fields = row["fields"]
         if not fields.get("Neon ID"):
