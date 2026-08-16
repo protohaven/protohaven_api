@@ -34,7 +34,11 @@
 	let discord_id;
 	let show_discord_setup = false;
 	let neon_id;
-	let activeTab;
+
+	let activeTab = 'clearances';
+	$: page_title = `Member Dashboard: ${
+		activeTab === 'recertification' ? 'Recertification' : 'Clearances'
+	}`;
 
 	let promise = new Promise(() => {});
 	let recertPromise = new Promise(() => {
@@ -94,6 +98,10 @@
 		console.log('activeTab', activeTab);
 	}
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 {#await promise}
 	<Spinner />Loading...

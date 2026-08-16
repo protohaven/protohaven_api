@@ -30,6 +30,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Classes</title>
+</svelte:head>
+
 <main>
 	{#await promise}
 		<Spinner />

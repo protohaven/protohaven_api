@@ -10,7 +10,21 @@
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
 	import NfcEnroll from '$lib/nfc_enroll.svelte';
+
 	let state = 'splash';
+	$: page_title = `Sign-in Kiosk: ${
+		state === 'waiver'
+			? 'Liability Waiver'
+			: state === 'member_agreement'
+				? 'Member Agreement'
+				: state === 'membership_expired'
+					? 'Membership Expired'
+					: state === 'signin_ok'
+						? 'Sign In Complete'
+						: state === 'enrolling_nfc'
+							? 'NFC Enrollment'
+							: 'Sign In'
+	}`;
 	let name = 'member';
 	let email = null;
 	let person = 'member';
@@ -37,7 +51,7 @@
 	let toast_msg = null;
 	let toast_timer = null;
 	let enable_nfc = false;
-  let enable_nfc_enroll = false;
+	let enable_nfc_enroll = false;
 	let nfc_enroll_ref = null;
 
 	onMount(() => {
@@ -54,9 +68,9 @@
 			console.log("'nfc' GET param seen; establishing persistent websocket for NFC tap");
 			connect_neon_ws();
 		}
-    if (enable_nfc_enroll) {
-      console.log("NFC enrollment prompt enabled");
-    }
+		if (enable_nfc_enroll) {
+			console.log('NFC enrollment prompt enabled');
+		}
 	});
 
 	function connect_neon_ws() {
@@ -84,8 +98,8 @@
 				server_mqtt_connected = data.server_mqtt_connected;
 				nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
 			} else if (nfc_enroll_ref) {
-        // Enrollment flow consumes all non-status messages until complete
-        nfc_enroll_ref.on_mqtt_message(data);
+				// Enrollment flow consumes all non-status messages until complete
+				nfc_enroll_ref.on_mqtt_message(data);
 			} else if (data.origin.endsWith('signin')) {
 				console.log('Received sign in attempt via MQTT:', data.data);
 				// If we're already showing sign-in result, restart the flow first
@@ -251,6 +265,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
+
 <main>
 	{#if toast_msg}
 		<div style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
@@ -298,17 +316,12 @@
 				{announcements}
 				{violations}
 				{reservations}
-        {enable_nfc_enroll}
+				{enable_nfc_enroll}
 				on_close={on_signin_return}
 				on_enroll={on_start_nfc_enroll}
 			/>
 		{:else if state == 'enrolling_nfc'}
-			<NfcEnroll
-				{neon_id}
-				{email}
-				on_close={on_nfc_enrollment_cancel}
-				bind:this={nfc_enroll_ref}
-			/>
+			<NfcEnroll {neon_id} {email} on_close={on_nfc_enrollment_cancel} bind:this={nfc_enroll_ref} />
 		{/if}
 	</Row>
 </main>

@@ -27,7 +27,24 @@
 	let promise;
 	let admin = false;
 	let user;
-	let activeTab;
+	let activeTab = 'cal';
+	$: page_title = `Techs Dashboard: ${
+		activeTab === 'members'
+			? 'Members'
+			: activeTab === 'tools'
+				? 'Tools'
+				: activeTab === 'storage'
+					? 'Storage'
+					: activeTab === 'areas'
+						? 'Areas'
+						: activeTab === 'techs'
+							? 'Roster'
+							: activeTab === 'events'
+								? 'Events'
+								: activeTab === 'attendance'
+									? 'Attendance'
+									: 'Cal'
+	}`;
 	onMount(() => {
 		activeTab = (window.location.hash || '#cal').substring(1).trim();
 		const urlParams = new URLSearchParams(window.location.search);
@@ -54,6 +71,10 @@
 		console.log('activeTab', activeTab);
 	}
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 <Navbar color="secondary-subtle" sticky="">
 	<NavbarBrand>Techs Dashboard</NavbarBrand>
