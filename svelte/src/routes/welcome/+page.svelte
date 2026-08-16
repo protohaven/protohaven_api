@@ -6,6 +6,7 @@
 	import Splash from '$lib/splash.svelte';
 	import SigninOk from '$lib/signin_ok.svelte';
 	import MembershipExpired from '$lib/membership_expired.svelte';
+	import WrongTime from '$lib/wrong_time.svelte';
 	import Waiver from '$lib/waiver.svelte';
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
@@ -40,6 +41,11 @@
 	let announcements = [];
 	let violations = [];
 	let reservations = [];
+	let waiver_signed = false;
+	let member_agreement_signed = false;
+	let wrong_time = false;
+	let wrong_time_acknowledged = false;
+	let wrong_time_window = '';
 
 	let neon_ws = null;
 	let neon_ws_connected = false;
@@ -185,6 +191,11 @@
 		person = 'member';
 		waiver_ack = false;
 		member_agreement_accepted = false;
+		waiver_signed = false;
+		member_agreement_signed = false;
+		wrong_time = false;
+		wrong_time_acknowledged = false;
+		wrong_time_window = '';
 		referrer = '';
 		feedback = null;
 		state = 'splash';
@@ -229,19 +240,37 @@
 		announcements = result.announcements;
 		violations = result.violations;
 		reservations = result.reservations;
+		waiver_signed = result.waiver_signed;
+		member_agreement_signed = result.member_agreement_accepted;
+		wrong_time = person !== 'guest' && result.wrong_time && !wrong_time_acknowledged;
+		wrong_time_window = result.wrong_time_window || '';
 		if (person !== 'guest' && result.status !== 'Active') {
 			// Expired membership takes priority in notification
 			state = 'membership_expired';
 			return;
 		}
 
-		if (!result.waiver_signed) {
+		if (wrong_time) {
+			state = 'wrong_time';
+			return;
+		}
+
+		finish_signin_checks();
+	}
+
+	function continue_from_wrong_time() {
+		wrong_time_acknowledged = true;
+		finish_signin_checks();
+	}
+
+	function finish_signin_checks() {
+		if (!waiver_signed) {
 			state = 'waiver';
 			return;
 		}
 
 		// Check member agreement for members only
-		if (person === 'member' && !result.member_agreement_accepted) {
+		if (person === 'member' && !member_agreement_signed) {
 			state = 'member_agreement';
 			return;
 		}
@@ -302,6 +331,13 @@
 			<Waiver {name} on_submit={waiver_agreed} {checking} />
 		{:else if state == 'member_agreement'}
 			<MemberAgreement on_submit={member_agreement_agreed} {checking} />
+		{:else if state == 'wrong_time'}
+			<WrongTime
+				{name}
+				membership_window={wrong_time_window}
+				on_continue={continue_from_wrong_time}
+				on_close={restart_flow}
+			/>
 		{:else if state == 'membership_expired'}
 			<MembershipExpired {name} on_close={restart_flow} />
 		{:else if state == 'signin_ok'}
