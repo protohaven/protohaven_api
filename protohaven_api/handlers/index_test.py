@@ -525,3 +525,78 @@ def test_store_nfc_write_info_member_not_found(mocker):
 
     tokens = json.loads(call_args[1][1])
     assert tokens == [["2024-06-01T12:00:00Z", "abc123"]]
+
+
+def test_welcome_neon_ws_no_mqtt(mocker):
+    """welcome_neon_ws returns 500 when the MQTT client is unavailable"""
+    ws = mocker.MagicMock()
+    mocker.patch.object(index.mqtt, "get", return_value=None)
+    rep = index.welcome_neon_ws(ws)
+    assert rep.status_code == 500
+    ws.send.assert_not_called()
+
+
+def test_welcome_neon_ws_registers_handles_and_unregisters(mocker):
+    """welcome_neon_ws subscribes to MQTT topics, forwards messages, and cleans up"""
+    topics = {
+        "mqtt/neon_signin_topic": "signin",
+        "mqtt/neon_toast_topic": "toast",
+        "mqtt/nfc_heartbeat_topic": "heartbeat",
+        "mqtt/nfc_written_topic": "written",
+    }
+    mocker.patch.object(index, "get_config", side_effect=lambda k: topics[k])
+    mocker.patch.object(index.time, "time", return_value=100)
+    store = mocker.patch.object(index, "_store_nfc_write_info")
+
+    mqtt_client = mocker.MagicMock()
+    mqtt_client.c.is_connected.return_value = True
+    mocker.patch.object(index.mqtt, "get", return_value=mqtt_client)
+
+    ws = mocker.MagicMock()
+    ws.receive.side_effect = [
+        None,
+        json.dumps({"type": "ping"}),
+        json.dumps({"type": "other"}),
+        RuntimeError("stop"),
+    ]
+
+    with pytest.raises(RuntimeError):
+        index.welcome_neon_ws(ws)
+
+    registered = {
+        call.args[0]: call.args[1]
+        for call in mqtt_client.register_topic_callback.call_args_list
+    }
+    assert set(registered) == set(topics.values())
+
+    # Exercise each callback captured during registration.
+    registered["signin"]("signin", {"neon_id": "123"})
+    registered["heartbeat"]("heartbeat", {"ok": True})
+    registered["written"](
+        "written", {"neon_id": "123", "timestamp": "2025-01-01", "nfc_id": "abc"}
+    )
+    store.assert_called_once_with(
+        {"neon_id": "123", "timestamp": "2025-01-01", "nfc_id": "abc"}
+    )
+
+    # The initial status, timeout status, ping/pong, and forwarded messages all
+    # go through ws.send.
+    sent = [json.loads(call.args[0]) for call in ws.send.call_args_list]
+    assert sent[0]["type"] == "status"
+    assert sent[0]["server_mqtt_connected"] is True
+    assert sent[0]["nfc_heartbeat_age_sec"] is None
+    assert any(msg.get("type") == "pong" for msg in sent)
+    assert any(
+        msg.get("origin") == "signin" and msg.get("data") == {"neon_id": "123"}
+        for msg in sent
+    )
+
+    assert mqtt_client.unregister_topic_callback.call_count == 4
+    assert (
+        mqtt_client.unregister_topic_callback.call_args_list[2].kwargs["as_group"]
+        is False
+    )
+    assert (
+        mqtt_client.unregister_topic_callback.call_args_list[3].kwargs["as_group"]
+        is False
+    )
