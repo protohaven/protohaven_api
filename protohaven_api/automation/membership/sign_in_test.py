@@ -9,7 +9,7 @@ import pytest
 from protohaven_api.automation.membership import sign_in as s
 from protohaven_api.config import tz, tznow
 from protohaven_api.integrations.data.models import SignInEvent
-from protohaven_api.testing import MatchStr, d
+from protohaven_api.testing import MatchStr, d, t
 
 
 def test_activate_membership_ok(mocker):
@@ -123,6 +123,61 @@ def test_log_sign_in(mocker):
 
     s.log_sign_in(data, result, {})
     m.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "level,expected",
+    [
+        ("General Membership", "General Membership"),
+        ("General Membership - AMP", "General Membership"),
+        ("Weekend Membership", "Weekend Membership"),
+        ("Weekday", "Weekday Membership"),
+        ("Weeknight", "Weeknight Membership"),
+        ("Weeknight Membership ", "Weeknight Membership"),
+        ("Weeknight Membership - AMP", "Weeknight Membership"),
+        ("Instructor", None),
+        ("", None),
+    ],
+)
+def test_get_membership_window(level, expected):
+    window = s.get_membership_window(level)
+    if expected is None:
+        assert window is None
+    else:
+        assert window["description"] == s.MEMBERSHIP_WINDOWS[expected]["description"]
+
+
+def test_get_membership_window_non_string():
+    assert s.get_membership_window(None) is None
+    assert s.get_membership_window(123) is None
+    assert s.get_membership_window(object()) is None
+
+
+@pytest.mark.parametrize(
+    "level,when,expected",
+    [
+        ("General Membership", t(9, 0), True),
+        ("General Membership", t(10, 0), False),
+        ("General Membership", t(21, 0), False),
+        ("General Membership", t(22, 0), True),
+        ("General Membership", t(10, 6), False),
+        ("Weekend Membership", t(11, 5), False),
+        ("Weekend Membership", t(22, 5), True),
+        ("Weekend Membership", t(11, 0), True),
+        ("Weekday Membership", t(11, 0), False),
+        ("Weekday Membership", t(15, 0), False),
+        ("Weekday Membership", t(16, 0), True),
+        ("Weekday Membership", t(11, 5), True),
+        ("Weeknight Membership", t(16, 0), False),
+        ("Weeknight Membership", t(21, 0), False),
+        ("Weeknight Membership", t(22, 0), True),
+        ("Weeknight Membership", t(15, 0), True),
+        ("General Membership - AMP", t(9, 0), True),
+        ("Instructor", t(9, 0), False),
+    ],
+)
+def test_is_membership_time_mismatch(level, when, expected):
+    assert s.is_membership_time_mismatch(level, when) is expected
 
 
 def test_get_member_multiple_accounts(mocker):
@@ -506,6 +561,8 @@ def test_as_member_notfound(mocker):
         "neon_id": "",
         "reservations": [],
         "nfc_token_ids": [],
+        "wrong_time": False,
+        "wrong_time_window": "",
     }
     m.assert_not_called()
 
@@ -647,6 +704,48 @@ def test_as_member_violations(mocker):
         "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with violations: `[{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]` ([wiki](https://wiki.protohaven.org/books/it-maintenance/"
         "page/membership-validation))\n"
     )
+
+
+def test_as_member_wrong_time(mocker):
+    """Active members outside their membership window get a dismissible warning field"""
+    mocker.patch.object(s, "_apply_async")
+    mocker.patch.object(s, "notify_async")
+    mocker.patch.object(s, "tznow", return_value=t(9, 0))
+    mocker.patch.object(
+        s.neon,
+        "cache",
+        {
+            "a@b.com": {
+                12345: mocker.MagicMock(
+                    neon_id=12345,
+                    account_current_membership_status="Active",
+                    roles=[],
+                    fname="First",
+                    clearances=[],
+                    account_automation_ran="",
+                    membership_level="Weeknight Membership",
+                    waiver_accepted=(None, None),
+                    member_agreement_accepted=(None, None),
+                    announcements_acknowledged=None,
+                ),
+            }
+        },
+    )
+    mocker.patch.object(s.airtable.cache, "announcements_after", return_value=[])
+    mocker.patch.object(s.airtable.cache, "violations_for", return_value=[])
+
+    rep = s.as_member(
+        {
+            "person": "member",
+            "waiver_ack": True,
+            "email": "a@b.com",
+            "dependent_info": "DEP_INFO",
+        },
+        mocker.MagicMock(),
+    )
+    assert rep["status"] == "Active"
+    assert rep["wrong_time"] is True
+    assert rep["wrong_time_window"] == "4pm-10pm, Monday through Friday"
 
 
 def test_as_member_duplicates(mocker):

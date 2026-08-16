@@ -6,6 +6,7 @@
 	import Splash from '$lib/splash.svelte';
 	import SigninOk from '$lib/signin_ok.svelte';
 	import MembershipExpired from '$lib/membership_expired.svelte';
+	import WrongTime from '$lib/wrong_time.svelte';
 	import Waiver from '$lib/waiver.svelte';
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
@@ -28,6 +29,11 @@
 	let announcements = [];
 	let violations = [];
 	let reservations = [];
+	let waiver_signed = false;
+	let member_agreement_signed = false;
+	let wrong_time = false;
+	let wrong_time_acknowledged = false;
+	let wrong_time_window = '';
 
 	let neon_ws = null;
 	let neon_ws_connected = false;
@@ -37,7 +43,7 @@
 	let toast_msg = null;
 	let toast_timer = null;
 	let enable_nfc = false;
-  let enable_nfc_enroll = false;
+	let enable_nfc_enroll = false;
 	let nfc_enroll_ref = null;
 
 	onMount(() => {
@@ -54,9 +60,9 @@
 			console.log("'nfc' GET param seen; establishing persistent websocket for NFC tap");
 			connect_neon_ws();
 		}
-    if (enable_nfc_enroll) {
-      console.log("NFC enrollment prompt enabled");
-    }
+		if (enable_nfc_enroll) {
+			console.log('NFC enrollment prompt enabled');
+		}
 	});
 
 	function connect_neon_ws() {
@@ -84,8 +90,8 @@
 				server_mqtt_connected = data.server_mqtt_connected;
 				nfc_heartbeat_age_sec = data.nfc_heartbeat_age_sec;
 			} else if (nfc_enroll_ref) {
-        // Enrollment flow consumes all non-status messages until complete
-        nfc_enroll_ref.on_mqtt_message(data);
+				// Enrollment flow consumes all non-status messages until complete
+				nfc_enroll_ref.on_mqtt_message(data);
 			} else if (data.origin.endsWith('signin')) {
 				console.log('Received sign in attempt via MQTT:', data.data);
 				// If we're already showing sign-in result, restart the flow first
@@ -173,6 +179,11 @@
 		person = 'member';
 		waiver_ack = false;
 		member_agreement_accepted = false;
+		waiver_signed = false;
+		member_agreement_signed = false;
+		wrong_time = false;
+		wrong_time_acknowledged = false;
+		wrong_time_window = '';
 		referrer = '';
 		feedback = null;
 		state = 'splash';
@@ -217,19 +228,37 @@
 		announcements = result.announcements;
 		violations = result.violations;
 		reservations = result.reservations;
+		waiver_signed = result.waiver_signed;
+		member_agreement_signed = result.member_agreement_accepted;
+		wrong_time = person !== 'guest' && result.wrong_time && !wrong_time_acknowledged;
+		wrong_time_window = result.wrong_time_window || '';
 		if (person !== 'guest' && result.status !== 'Active') {
 			// Expired membership takes priority in notification
 			state = 'membership_expired';
 			return;
 		}
 
-		if (!result.waiver_signed) {
+		if (wrong_time) {
+			state = 'wrong_time';
+			return;
+		}
+
+		finish_signin_checks();
+	}
+
+	function continue_from_wrong_time() {
+		wrong_time_acknowledged = true;
+		finish_signin_checks();
+	}
+
+	function finish_signin_checks() {
+		if (!waiver_signed) {
 			state = 'waiver';
 			return;
 		}
 
 		// Check member agreement for members only
-		if (person === 'member' && !result.member_agreement_accepted) {
+		if (person === 'member' && !member_agreement_signed) {
 			state = 'member_agreement';
 			return;
 		}
@@ -286,6 +315,13 @@
 			<Waiver {name} on_submit={waiver_agreed} {checking} />
 		{:else if state == 'member_agreement'}
 			<MemberAgreement on_submit={member_agreement_agreed} {checking} />
+		{:else if state == 'wrong_time'}
+			<WrongTime
+				{name}
+				membership_window={wrong_time_window}
+				on_continue={continue_from_wrong_time}
+				on_close={restart_flow}
+			/>
 		{:else if state == 'membership_expired'}
 			<MembershipExpired {name} on_close={restart_flow} />
 		{:else if state == 'signin_ok'}
@@ -298,17 +334,12 @@
 				{announcements}
 				{violations}
 				{reservations}
-        {enable_nfc_enroll}
+				{enable_nfc_enroll}
 				on_close={on_signin_return}
 				on_enroll={on_start_nfc_enroll}
 			/>
 		{:else if state == 'enrolling_nfc'}
-			<NfcEnroll
-				{neon_id}
-				{email}
-				on_close={on_nfc_enrollment_cancel}
-				bind:this={nfc_enroll_ref}
-			/>
+			<NfcEnroll {neon_id} {email} on_close={on_nfc_enrollment_cancel} bind:this={nfc_enroll_ref} />
 		{/if}
 	</Row>
 </main>

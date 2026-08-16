@@ -57,7 +57,83 @@ def result_base():
         "firstname": "member",
         "reservations": [],
         "nfc_token_ids": [],
+        "wrong_time": False,
+        "wrong_time_window": "",
     }
+
+
+# Python weekdays: Monday=0 .. Sunday=6
+WEEKDAYS = frozenset(range(0, 5))
+WEEKENDS = frozenset((5, 6))
+ALL_DAYS = frozenset(range(7))
+
+# Restricted membership levels and their valid sign-in windows. All
+# times are Eastern, because Protohaven is in Pittsburgh and config.tz
+# is America/New_York.
+MEMBERSHIP_WINDOWS = {
+    "General Membership": {
+        "days": ALL_DAYS,
+        "start_minutes": 10 * 60,
+        "end_minutes": 22 * 60,
+        "description": "10am-10pm, 7 days a week",
+    },
+    "Weekend Membership": {
+        "days": WEEKENDS,
+        "start_minutes": 10 * 60,
+        "end_minutes": 22 * 60,
+        "description": "10am-10pm on Saturdays and Sundays",
+    },
+    "Weekday Membership": {
+        "days": WEEKDAYS,
+        "start_minutes": 10 * 60,
+        "end_minutes": 16 * 60,
+        "description": "10am-4pm, Monday through Friday",
+    },
+    "Weeknight Membership": {
+        "days": WEEKDAYS,
+        "start_minutes": 16 * 60,
+        "end_minutes": 22 * 60,
+        "description": "4pm-10pm, Monday through Friday",
+    },
+}
+
+
+def get_membership_window(level):
+    """Return the valid sign-in window for a restricted membership level.
+
+    Returns None for unlimited/unknown levels, so those members are not
+    warned about their sign-in time.
+    """
+    if not isinstance(level, str):
+        return None
+
+    name = level.strip()
+    if name.endswith(" - AMP"):
+        # AMP is the reduced-rate version of a General Membership.
+        name = name[: -len(" - AMP")].strip()
+
+    if name not in MEMBERSHIP_WINDOWS and not name.endswith(" Membership"):
+        # Accept the public membership-page names too (e.g. "Weeknight").
+        name = f"{name} Membership"
+
+    return MEMBERSHIP_WINDOWS.get(name)
+
+
+def _window_contains(window, now):
+    """Return True when now falls inside the membership window."""
+    minutes = now.hour * 60 + now.minute
+    return (
+        now.weekday() in window["days"]
+        and window["start_minutes"] <= minutes < window["end_minutes"]
+    )
+
+
+def is_membership_time_mismatch(level, now=None):
+    """Return True when the current time is outside this membership's window."""
+    window = get_membership_window(level)
+    if window is None:
+        return False
+    return not _window_contains(window, now or tznow())
 
 
 def is_membership_deferred(m):
@@ -364,6 +440,18 @@ def as_member(data, send):  # pylint: disable=too-many-statements,too-many-local
     result["firstname"] = m.fname
     result["nfc_token_ids"] = m.nfc_token_ids or []
     data["url"] = f"https://protohaven.app.neoncrm.com/admin/accounts/{m.neon_id}"
+
+    try:
+        now = tznow()
+        window = get_membership_window(m.membership_level)
+        result["wrong_time"] = window is not None and not _window_contains(window, now)
+        result["wrong_time_window"] = window["description"] if window else ""
+    except Exception:  # pylint: disable=broad-exception-caught
+        # A missing/unexpected membership level should not prevent sign-in.
+        traceback.print_exc()
+        notify_async(
+            f"Error checking membership hours (member #{data['email']}) - see log"
+        )
 
     meta = {"full_name": f"{m.fname} {m.lname}"}
 
