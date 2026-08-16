@@ -16,7 +16,14 @@
 	import { get } from '$lib/api.ts';
 	import OpsReport from '$lib/staff/ops_report.svelte';
 
-	let activeTab;
+	/** @type {Record<string, string>} */
+	const tab_titles = {
+		summary: 'Discord Summary',
+		opsreport: 'Ops Report'
+	};
+
+	let activeTab = 'summary';
+	$: page_title = `Staff Dashboard: ${tab_titles[activeTab] || 'Discord Summary'}`;
 	let user;
 	let promise;
 	onMount(() => {
@@ -39,6 +46,10 @@
 		console.log('activeTab', activeTab);
 	}
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 <Navbar color="primary-subtle" sticky="">
 	<NavbarBrand>Staff Dashboard</NavbarBrand>

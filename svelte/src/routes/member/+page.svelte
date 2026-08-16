@@ -34,7 +34,15 @@
 	let discord_id;
 	let show_discord_setup = false;
 	let neon_id;
-	let activeTab;
+
+	const tab_titles = {
+		clearances: 'Clearances',
+		recertification: 'Recertification'
+	};
+
+	let activeTab = 'clearances';
+	// @ts-ignore - activeTab is constrained to the keys of tab_titles
+	$: page_title = `Member Dashboard: ${tab_titles[activeTab] || 'Clearances'}`;
 
 	let promise = new Promise(() => {});
 	let recertPromise = new Promise(() => {
@@ -94,6 +102,10 @@
 		console.log('activeTab', activeTab);
 	}
 </script>
+
+<svelte:head>
+	<title>{page_title}</title>
+</svelte:head>
 
 {#await promise}
 	<Spinner />Loading...
