@@ -23,8 +23,7 @@ export interface ToastMessage {
 export type SortType = 'clearances_desc' | 'clearances_asc' | 'name';
 
 export interface InstructorListData {
-	instructors: Instructor[];
-	education_lead: boolean;
+	enrollment_map: Record<string, string>;
 	capabilities?: InstructorCapability[];
 	classes?: ClassTemplate[];
 }
