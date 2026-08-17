@@ -14,7 +14,7 @@ Please check immediately for techs on duty.
 
 Current door states:
 {% for door in door_states %}
-- {{door.name}}: {% if door.open_close_state %}OPEN{% else %}CLOSED{% endif %} ({% if door.is_online %}online{% else %}offline{% endif %})
+- {{door.name}}: {% if door.open_close_state %}OPEN{% else %}CLOSED{% endif %}{% if not door.is_online %} (offline){% endif %}
 {% endfor %}
 {% endif %}
 {% if footer is defined %}
