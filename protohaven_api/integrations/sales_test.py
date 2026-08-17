@@ -22,3 +22,30 @@ def test_get_unpaid_invoices_by_id(mocker):
     got = dict(s.get_unpaid_invoices_by_id())
     expected = {"inv1": "001", "inv3": "003"}
     assert got == expected
+
+
+def test_get_subscriptions_paginates_with_cursor_in_body(mocker):
+    """Subsequent subscription searches must send the cursor in the body"""
+    page_1 = mocker.Mock()
+    page_1.is_success.return_value = True
+    page_1.body = {"subscriptions": [{"id": "sub1"}], "cursor": "next-page"}
+
+    page_2 = mocker.Mock()
+    page_2.is_success.return_value = True
+    page_2.body = {"subscriptions": [{"id": "sub2"}]}
+
+    mocker.patch.object(s, "client")
+    mock_client_instance = mocker.Mock()
+    mock_client_instance.subscriptions.search_subscriptions.side_effect = [
+        page_1,
+        page_2,
+    ]
+    s.client.return_value = mock_client_instance
+
+    got = list(s.get_subscriptions())
+
+    assert got == [{"id": "sub1"}, {"id": "sub2"}]
+    assert mock_client_instance.subscriptions.search_subscriptions.call_args_list == [
+        mocker.call(body={}),
+        mocker.call(body={"cursor": "next-page"}),
+    ]
