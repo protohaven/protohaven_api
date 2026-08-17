@@ -35,7 +35,7 @@ def get_subscriptions():
         yield from result.body["subscriptions"]
         if result.body.get("cursor"):
             result = client().subscriptions.search_subscriptions(
-                cursor=result.body["cursor"]
+                body={"cursor": result.body["cursor"]}
             )
         else:
             break
