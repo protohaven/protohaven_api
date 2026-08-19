@@ -183,13 +183,27 @@ class Commands:
             help="Space-separated list of Neon IDs to validate",
             type=str,
         ),
+        arg(
+            "--ignore_membership_types",
+            help="CSV string of membership types to ignore",
+            type=str,
+        ),
     )
     def validate_memberships(self, args, pct):
         """Loops through all accounts and verifies that memberships are correctly set"""
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
-        problems = list(self._validate_memberships_internal(args.member_ids, pct))
+        if args.ignore_membership_types:
+            args.ignore_membership_types = {
+                m.strip() for m in args.ignore_membership_types.split(",") if m.strip()
+            }
+            log.warning(f"Ignoring membership types: {args.ignore_membership_types}")
+        problems = list(
+            self._validate_memberships_internal(
+                args.member_ids, pct, args.ignore_membership_types
+            )
+        )
         if len(problems) > 0:
             print_yaml(
                 Msg.tmpl(
@@ -203,7 +217,7 @@ class Commands:
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def _validate_memberships_internal(
-        self, member_ids=None, pct=None
+        self, member_ids=None, pct=None, ignore_membership_types=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
         household_paying_member_count: defaultdict[str, int] = defaultdict(int)
@@ -275,6 +289,7 @@ class Commands:
                 acct,
                 household_paying_member_count.get(acct.household_id, 0),
                 company_member_count.get(acct.company_id, 0),
+                ignore_membership_types=ignore_membership_types,
             ):
                 yield {
                     "name": acct.name,
@@ -283,7 +298,12 @@ class Commands:
                 }
 
     def _validate_membership_singleton(
-        self, acct, household_paying_member_count, company_member_count, now=None
+        self,
+        acct,
+        household_paying_member_count,
+        company_member_count,
+        now=None,
+        ignore_membership_types=None,
     ):  # pylint: disable=too-many-branches
         """Validate membership of a single member"""
         if now is None:
@@ -325,12 +345,13 @@ class Commands:
 
         if am.level in (
             "General Membership",
+            "Weekday Membership",
             "Weekend Membership",
             "Weeknight Membership",
             "Founding Member",
             "Primary Family Membership",
             "Youth Program",
-        ):
+        ) or am.level in (ignore_membership_types or ()):
             return  # Ignore remaining validations
 
         if "AMP" in am.level:
