@@ -58,6 +58,13 @@
 			});
 	}
 
+	function is_registered(r) {
+		return (
+			(r.attendees || []).indexOf(user?.neon_id) !== -1 ||
+			(r.attendee_emails || []).indexOf((user?.email || '').toLowerCase()) !== -1
+		);
+	}
+
 	let new_event_form = {
 		name: null,
 		capacity: 6,
@@ -156,7 +163,7 @@
 							<div>
 								<a href={`https://protohaven.org/e/${r.id}`} target="_blank">Event Details</a>
 							</div>
-							<div>{r.capacity - r.attendees.length} seat(s) left</div>
+							<div>{r.capacity - (r.attendee_count ?? r.attendees.length)} seat(s) left</div>
 
 							{#if r.attendee_details && r.attendee_details.length > 0}
 								<div class="mt-3">
@@ -199,14 +206,14 @@
 
 							{#if user && p.can_register}
 								<div>
-									{#if r.attendees.indexOf(user.neon_id) !== -1}
+									{#if is_registered(r)}
 										<strong>You are registered!</strong>
 										<Button
 											color="secondary"
 											on:click={() => action(r.id, r.ticket_id, 'unregister')}
 											disabled={submitting}>Unregister</Button
 										>
-									{:else if r.capacity - r.attendees.length > 0}
+									{:else if r.capacity - (r.attendee_count ?? r.attendees.length) > 0}
 										<Button
 											color="primary"
 											on:click={() => action(r.id, r.ticket_id, 'register')}

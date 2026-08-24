@@ -44,6 +44,19 @@ def post_discount(org_id):  # pylint: disable=unused-argument
     return {"id": code}
 
 
+@app.route("/orders/", methods=["POST"])
+def post_order():
+    """Stub Eventbrite order creation"""
+    order = request.json.get("order", {})
+    return {"id": "1", **order}
+
+
+@app.route("/orders/<order_id>/cancel/", methods=["POST"])
+def post_cancel_order(order_id):
+    """Stub Eventbrite free order cancellation"""
+    return {"id": order_id, "cancelled": True}
+
+
 def handle(mode, url, params=None, json=None):  # pylint: disable=unused-argument
     """Local execution of mock flask endpoints for Eventbrite"""
     if mode == "GET":

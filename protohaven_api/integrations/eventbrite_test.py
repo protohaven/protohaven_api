@@ -155,3 +155,136 @@ def test_assign_pricing_clear_existing(mocker):
 
     # Check the POST call to create new ticket class
     assert calls[3][0] == ("POST", "/events/event_123/ticket_classes/")
+
+
+def test_fetch_events_preserves_attendee_data(mocker):
+    """Attendee data fetched during event listing must be attached to yielded events"""
+    raw_event = {"id": "1", "name": "Event 1"}
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.return_value = {
+        "events": [raw_event],
+        "pagination": {"has_more_items": False},
+    }
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+    mocker.patch.object(e, "get_config", return_value="org")
+    mocker.patch.object(
+        e,
+        "fetch_attendees",
+        side_effect=lambda *args, **kwargs: iter([{"id": "attendee_1"}]),
+    )
+
+    batched = list(e.fetch_events(batching=True, attendees=True))
+    assert len(batched) == 1
+    assert len(batched[0]) == 1
+    assert batched[0][0].eventbrite_attendee_data == [{"id": "attendee_1"}]
+
+    mock_connector.eventbrite_request.return_value = {
+        "events": [raw_event],
+        "pagination": {"has_more_items": False},
+    }
+    unbatched = list(e.fetch_events(attendees=True))
+    assert len(unbatched) == 1
+    assert unbatched[0].eventbrite_attendee_data == [{"id": "attendee_1"}]
+
+
+def test_register_attendee(mocker):
+    """Registering an attendee creates an Eventbrite order"""
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.return_value = {"id": "order_1"}
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+
+    got = e.register_attendee(
+        "event_1",
+        "ticket_class_1",
+        "First",
+        "Last",
+        "first@example.com",
+        discount_code="FREE100",
+    )
+
+    assert got == {"id": "order_1"}
+    mock_connector.eventbrite_request.assert_called_once_with(
+        "POST",
+        "/orders/",
+        json={
+            "order": {
+                "email": "first@example.com",
+                "first_name": "First",
+                "last_name": "Last",
+                "event_id": "event_1",
+                "attendees": [
+                    {
+                        "ticket_class_id": "ticket_class_1",
+                        "first_name": "First",
+                        "last_name": "Last",
+                        "email": "first@example.com",
+                    }
+                ],
+                "discount_code": "FREE100",
+            }
+        },
+    )
+
+
+def test_cancel_attendee_order(mocker):
+    """Cancelling by email cancels the matching free order"""
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.return_value = {
+        "id": "order_1",
+        "cancelled": True,
+    }
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+    mocker.patch.object(
+        e,
+        "fetch_attendees",
+        return_value=iter(
+            [
+                {
+                    "id": "attendee_1",
+                    "order_id": "order_1",
+                    "cancelled": False,
+                    "refunded": False,
+                    "profile": {"email": "FIRST@example.com"},
+                }
+            ]
+        ),
+    )
+
+    got = e.cancel_attendee_order("event_1", "first@example.com")
+
+    assert got == {"id": "order_1", "cancelled": True}
+    mock_connector.eventbrite_request.assert_called_once_with(
+        "POST", "/orders/order_1/cancel/"
+    )
+
+
+def test_cancel_attendee_order_multiple_attendees_raises(mocker):
+    """Do not cancel orders that contain multiple attendees"""
+    mock_connector = mocker.MagicMock()
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+    mocker.patch.object(
+        e,
+        "fetch_attendees",
+        return_value=iter(
+            [
+                {
+                    "id": "attendee_1",
+                    "order_id": "order_1",
+                    "profile": {"email": "first@example.com"},
+                },
+                {
+                    "id": "attendee_2",
+                    "order_id": "order_1",
+                    "profile": {"email": "second@example.com"},
+                },
+            ]
+        ),
+    )
+
+    try:
+        e.cancel_attendee_order("event_1", "first@example.com")
+    except RuntimeError as exc:
+        assert "multiple attendees" in str(exc)
+    else:
+        raise AssertionError("Expected RuntimeError")
+    mock_connector.eventbrite_request.assert_not_called()

@@ -18,6 +18,7 @@ from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import (
     airtable,
     comms,
+    eventbrite,
     neon,
     neon_base,
     sales,
@@ -491,18 +492,20 @@ def techs_backfill_events():
         # attendee_count requires attendee data to have been fetched,
         # so we have to additionally check here
         if evt.name.startswith(TECH_ONLY_PREFIX) or evt.attendee_count > 0:
+            is_eventbrite = eventbrite.is_valid_id(evt.event_id)
+
             # Get attendee details for admins
             attendee_details = []
             for attendee in evt.attendees:
                 if attendee.valid:
                     attendee_info = {
-                        "neon_id": attendee.neon_id,
+                        "neon_id": None if is_eventbrite else attendee.neon_id,
                         "name": attendee.name,
                         "email": attendee.email,
                         "is_volunteer": False,
                     }
                     # Try to get phone number from member account
-                    if attendee.neon_id:
+                    if is_admin and not is_eventbrite and attendee.neon_id:
                         try:
                             member = neon_base.fetch_account(attendee.neon_id)
                             if member and hasattr(member, "phone") and member.phone:
@@ -517,7 +520,15 @@ def techs_backfill_events():
                     "id": evt.event_id,
                     "ticket_id": evt.single_registration_ticket_id,
                     "name": evt.name,
-                    "attendees": [a["neon_id"] for a in attendee_details],
+                    "attendees": [
+                        a["neon_id"]
+                        for a in attendee_details
+                        if a["neon_id"] is not None
+                    ],
+                    "attendee_emails": [
+                        a["email"] for a in attendee_details if a.get("email")
+                    ],
+                    "attendee_count": len(attendee_details),
                     "attendee_details": attendee_details if is_admin else [],
                     "capacity": evt.capacity,
                     "start": evt.start_date.isoformat(),
@@ -567,7 +578,7 @@ def _notify_registration(account_id, attendee_neon_id, event_id, action):
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-def techs_event_registration():  # pylint: disable=too-many-return-statements
+def techs_event_registration():  # pylint: disable=too-many-return-statements,too-many-branches
     """Register/unregister a shop tech for an event, or admin de-register any attendee"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
@@ -606,12 +617,57 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
                 "Admin privileges required for admin unregister action", status=403
             )
 
-        if action == "register":
-            ret = neon.register_for_event(attendee_neon_id, event_id, ticket_id)
+        if eventbrite.is_valid_id(event_id):
+            member = neon_base.fetch_account(attendee_neon_id, required=True)
+            if action == "register":
+                evt = eauto.fetch_event(event_id, tickets=True)
+                eb_ticket_id = ticket_id or evt.single_registration_ticket_id
+                if not eb_ticket_id:
+                    return Response(
+                        "No Eventbrite ticket class found for registration",
+                        status=400,
+                    )
+                ticket = next(
+                    (
+                        t
+                        for t in evt.ticket_options
+                        if str(t["id"]) == str(eb_ticket_id)
+                    ),
+                    None,
+                )
+                if ticket is None:
+                    return Response(
+                        f"Ticket class {eb_ticket_id} not found for event {event_id}",
+                        status=400,
+                    )
+                discount_code = None
+                if ticket["price"] > 0:
+                    discount_code = eventbrite.generate_discount_code(
+                        event_id, percent_off=100
+                    )
+                ret = eventbrite.register_attendee(
+                    event_id,
+                    eb_ticket_id,
+                    member.fname,
+                    member.lname,
+                    member.email,
+                    discount_code=discount_code,
+                )
+            else:
+                ret = eventbrite.cancel_attendee_order(event_id, member.email)
+                if ret is None:
+                    return Response(
+                        f"Registration not found for account {attendee_neon_id} "
+                        f"in event {event_id}",
+                        status=404,
+                    )
         else:
-            ret = neon.delete_single_ticket_registration(
-                attendee_neon_id, event_id
-            ) or {"status": "ok"}
+            if action == "register":
+                ret = neon.register_for_event(attendee_neon_id, event_id, ticket_id)
+            else:
+                ret = neon.delete_single_ticket_registration(
+                    attendee_neon_id, event_id
+                ) or {"status": "ok"}
         if ret:
             _notify_registration(account_id, attendee_neon_id, event_id, action)
             return ret

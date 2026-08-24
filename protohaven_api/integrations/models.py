@@ -923,6 +923,8 @@ class Event:  # pylint: disable=too-many-public-methods
     def attendee_count(self) -> int:
         """Return the number of attendees for the event"""
         if self.eventbrite_data:
+            if self.eventbrite_attendee_data is not None:
+                return len(self._signups)
             n = 0
             for tc in self.eventbrite_data.get("ticket_classes") or []:
                 n += tc["quantity_sold"]
@@ -979,8 +981,16 @@ class Event:  # pylint: disable=too-many-public-methods
                 "Missing ticket data for call to single_registration_ticket_id"
             )
 
+        if self.eventbrite_data:
+            # Eventbrite only has one ticket class in our usage, named
+            # "General Admission" by assign_pricing. Prefer a free ticket
+            # for shop-tech backfill registrations.
+            for t in self.ticket_options:
+                if t["name"] in ("General", "General Admission") and t["price"] == 0:
+                    return t["id"]
+
         for t in self.ticket_options:
-            if t["name"] in ("Single Registration", "General"):
+            if t["name"] in ("Single Registration", "General", "General Admission"):
                 return t["id"]
         return None
 

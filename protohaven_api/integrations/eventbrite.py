@@ -3,8 +3,9 @@
 import datetime
 import logging
 import uuid
+from collections import defaultdict
 from io import BytesIO
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 import requests
 
@@ -56,10 +57,9 @@ def fetch_events(
             for e in ee:
                 e.set_attendee_data(list(fetch_attendees(e.event_id, raw=True)))
         if batching:
-            yield [Event.from_eventbrite_search(data) for data in rep["events"]]
+            yield ee
         else:
-            for data in rep["events"]:
-                yield Event.from_eventbrite_search(data)
+            yield from ee
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]
@@ -377,3 +377,93 @@ def fetch_attendees(event_id: EventbriteID, raw: bool = False) -> Iterable[Atten
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]
+
+
+def register_attendee(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    event_id: EventbriteID,
+    ticket_class_id: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    discount_code: DiscountCode | None = None,
+):
+    """Create a zero-cost Eventbrite order for `email`.
+
+    Eventbrite does not expose a direct "create attendee" endpoint. Instead,
+    attendees are registered by creating an order. Free orders are fulfilled
+    immediately; for paid ticket classes, pass a 100%-off discount code.
+    """
+    if not email or not first_name or not last_name:
+        raise RuntimeError(
+            "first_name, last_name, and email are required to register an "
+            "Eventbrite attendee"
+        )
+
+    order = {
+        "email": email,
+        "first_name": first_name,
+        "last_name": last_name,
+        "event_id": event_id,
+        "attendees": [
+            {
+                "ticket_class_id": ticket_class_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+            }
+        ],
+    }
+    if discount_code:
+        order["discount_code"] = discount_code
+
+    response = get_connector().eventbrite_request(
+        "POST", "/orders/", json={"order": order}
+    )
+    if not response.get("id"):
+        raise RuntimeError(
+            f"Failed to register attendee for eventbrite event {event_id}: {response}"
+        )
+    return response
+
+
+def cancel_order(order_id: str):
+    """Cancel a free Eventbrite order by ID."""
+    return get_connector().eventbrite_request("POST", f"/orders/{order_id}/cancel/")
+
+
+def cancel_attendee_order(event_id: EventbriteID, email: str):
+    """Cancel the free Eventbrite order for `email` on `event_id`.
+
+    Returns the cancellation response, or None when no matching attendee can be
+    found. Raises RuntimeError when the matching attendee belongs to an order
+    with more than one attendee, since cancelling it would affect other people.
+    """
+    target = (email or "").strip().lower()
+    if not target:
+        return None
+
+    matches = []
+    order_attendee_counts: dict[str, int] = defaultdict(int)
+    for a in fetch_attendees(event_id, raw=True):
+        raw_attendee = cast(dict[str, Any], a)
+        if raw_attendee.get("cancelled") or raw_attendee.get("refunded"):
+            continue
+        order_id = raw_attendee.get("order_id")
+        if order_id:
+            order_attendee_counts[order_id] += 1
+        if (
+            raw_attendee.get("profile", {}).get("email") or ""
+        ).strip().lower() == target:
+            matches.append(raw_attendee)
+
+    if not matches:
+        return None
+
+    order_id = matches[0].get("order_id")
+    if not order_id:
+        return None
+    if order_attendee_counts.get(order_id, 0) != 1:
+        raise RuntimeError(
+            f"Cannot cancel Eventbrite order {order_id}; it contains multiple attendees"
+        )
+    return cancel_order(order_id)

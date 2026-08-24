@@ -332,6 +332,36 @@ def test_none_vs_empty_ticket_data():
     assert evt.single_registration_ticket_id is None
 
 
+def test_eventbrite_single_registration_ticket_id_prefers_free():
+    """Eventbrite 'General Admission' tickets are recognized and free tickets win"""
+    evt = Event.from_eventbrite_search(
+        {
+            "ticket_classes": [
+                {
+                    "id": "paid",
+                    "name": "General Admission",
+                    "free": False,
+                    "cost": {"major_value": "10.00"},
+                    "quantity_total": 10,
+                    "quantity_sold": 0,
+                },
+                {
+                    "id": "free",
+                    "name": "General Admission",
+                    "free": True,
+                    "cost": None,
+                    "quantity_total": 10,
+                    "quantity_sold": 0,
+                },
+            ]
+        }
+    )
+    assert evt.single_registration_ticket_id == "free"
+
+    evt.eventbrite_data["ticket_classes"] = evt.eventbrite_data["ticket_classes"][:1]
+    assert evt.single_registration_ticket_id == "paid"
+
+
 def test_latest_membership_when_no_memberships(mocker):
     """Fetch the latest membership in the member data"""
     member = Member()
@@ -693,6 +723,19 @@ def test_event_attendee_count_from_eb_qty_sold():
         ]
     }
     assert e.attendee_count == 6
+
+
+def test_eventbrite_attendee_count_prefers_fetched_attendees():
+    """Fetched Eventbrite attendee data is more accurate than quantity_sold"""
+    e = Event()
+    e.eventbrite_data = {"ticket_classes": [{"quantity_sold": 0}]}
+    e.set_attendee_data(
+        [
+            {"id": "1", "cancelled": False, "refunded": False},
+            {"id": "2", "cancelled": True, "refunded": False},
+        ]
+    )
+    assert e.attendee_count == 1
 
 
 def test_sign_in_event_invalid_attribute():
