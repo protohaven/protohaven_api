@@ -20,6 +20,7 @@
 	import Members from '$lib/techs/members.svelte';
 	import AreaLeads from '$lib/techs/area_leads.svelte';
 	import Storage from '$lib/techs/storage.svelte';
+	import Violations from '$lib/techs/violations.svelte';
 	import Events from '$lib/techs/events.svelte';
 	import DoorLocks from '$lib/techs/door_locks.svelte';
 	import { onMount } from 'svelte';
@@ -29,6 +30,7 @@
 		members: 'Members',
 		tools: 'Tools',
 		storage: 'Storage',
+		violations: 'Violations',
 		areas: 'Areas',
 		techs: 'Roster',
 		events: 'Events',
@@ -111,6 +113,7 @@
 	<NavItem><NavLink href="#members" on:click={on_tab}>Members</NavLink></NavItem>
 	<NavItem><NavLink href="#tools" on:click={on_tab}>Tools</NavLink></NavItem>
 	<NavItem><NavLink href="#storage" on:click={on_tab}>Storage</NavLink></NavItem>
+	<NavItem><NavLink href="#violations" on:click={on_tab}>Violations</NavLink></NavItem>
 	<NavItem><NavLink href="#areas" on:click={on_tab}>Areas</NavLink></NavItem>
 	<NavItem><NavLink href="#techs" on:click={on_tab}>Roster</NavLink></NavItem>
 	<NavItem><NavLink href="#events" on:click={on_tab}>Events</NavLink></NavItem>
@@ -122,6 +125,7 @@
 <Members {user} visible={activeTab == 'members'} />
 <ToolState visible={activeTab == 'tools'} />
 <Storage visible={activeTab == 'storage'} />
+<Violations {user} visible={activeTab == 'violations'} />
 <AreaLeads visible={activeTab == 'areas'} />
 <TechsList {user} visible={activeTab === 'techs'} />
 <Attendance visible={activeTab === 'attendance'} />

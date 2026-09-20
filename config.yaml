@@ -144,6 +144,7 @@ nocodb:
       sections: "mxq6xd6e7nqmnm0"
       violations: "m1jbelb76ix3cn4"
       fees: "myl3brdewxm9uti"
+      closures: "mwkafmcufq8g9rj"
     people:
       base_id: "p5s997hwsl4pccd"
       shop_tech_forecast_overrides: "mbnsv0gknsanym3"
@@ -221,6 +222,7 @@ airtable:
       sections: "tblfCye5J6cS3rBGs"
       violations: "tblxivDVVxoARFkHC"
       fees: "tblpM1KXai4koCgCV"
+      closures: "tbl2nIlPOIWtLTtes"
     people:
       token: ${AIRTABLE_TOKEN_PEOPLE}
       base_id: "appZIwlIgaq1Ps28Y"
