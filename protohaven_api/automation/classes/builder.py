@@ -15,6 +15,7 @@ from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
 from protohaven_api.integrations import (  # pylint: disable=import-error
     airtable,
+    eventbrite,
     neon_base,
 )
 from protohaven_api.integrations.airtable import ScheduledClass
@@ -195,7 +196,11 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
             }
             for a in evt.attendees:
                 if a.valid:
-                    self.attendee_emails[a.neon_id] = get_account_email(a.neon_id)
+                    e = a.email
+                    if not e and not eventbrite.is_valid_id(evt.event_id):
+                        e = get_account_email(a.neon_id)
+                    if e is not None:
+                        self.attendee_emails[a.neon_id] = e
             self.log.debug(f"Annotated {evt.event_id}")
         self.log.info(f"Fetched and annotated {len(self.events)} event(s) fron Neon")
 
