@@ -57,6 +57,7 @@ class Commands:
 
             if "invoice_ids" not in sub:
                 log.warning(f"Sub missing invoice_ids, ignoring - {sub}")
+                continue
 
             sub_id = sub["id"]
             square_base = get_config(
