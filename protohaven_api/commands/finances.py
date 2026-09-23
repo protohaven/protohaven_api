@@ -55,6 +55,9 @@ class Commands:
             status = sub["status"]
             n += 1
 
+            if "invoice_ids" not in sub:
+                log.warning(f"Sub missing invoice_ids, ignoring - {sub}")
+
             sub_id = sub["id"]
             square_base = get_config(
                 "general/external_urls/square_dashboard",
