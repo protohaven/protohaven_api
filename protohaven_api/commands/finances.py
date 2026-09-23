@@ -85,7 +85,7 @@ class Commands:
 
             unpaid_urls = [
                 f"[{unpaid_invoices[i]}](<https://app.squareup.com/dashboard/invoices/{i}>)"
-                for i in sub["invoice_ids"]
+                for i in sub.get("invoice_ids") or []
                 if i in unpaid_invoices
             ]
 

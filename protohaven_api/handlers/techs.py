@@ -762,7 +762,7 @@ def storage_sub_sock(ws):  # pylint: disable=too-many-locals
         )
     log.info("Fetching and looping through subscriptions")
     for sub in sales.get_subscriptions():
-        unpaid = [i for i in sub["invoice_ids"] if i in unpaid_invoices]
+        unpaid = [i for i in (sub.get("invoice_ids") or []) if i in unpaid_invoices]
 
         # Include not only active subscriptions, but cancelled subs
         # that haven't been fully paid out.
