@@ -55,6 +55,10 @@ class Commands:
             status = sub["status"]
             n += 1
 
+            if "invoice_ids" not in sub:
+                log.warning(f"Sub missing invoice_ids, ignoring - {sub}")
+                continue
+
             sub_id = sub["id"]
             square_base = get_config(
                 "general/external_urls/square_dashboard",
@@ -85,7 +89,7 @@ class Commands:
 
             unpaid_urls = [
                 f"[{unpaid_invoices[i]}](<https://app.squareup.com/dashboard/invoices/{i}>)"
-                for i in sub["invoice_ids"]
+                for i in sub.get("invoice_ids") or []
                 if i in unpaid_invoices
             ]
 

@@ -38,6 +38,7 @@ class Connector:  # pylint: disable=too-many-public-methods
 
     def __init__(self):
         self.timeout = get_config("connector/timeout")
+        self.backup_timeout = get_config("connector/backup_timeout")
         self.max_attempts = get_config("connector/num_attempts")
         self.max_retry_delay_sec = get_config("connector/max_retry_delay_sec")
 
@@ -257,7 +258,7 @@ class Connector:  # pylint: disable=too-many-public-methods
             "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
         }
         response = requests.get(
-            url, headers=headers, timeout=self.timeout * 5, stream=True
+            url, headers=headers, timeout=self.backup_timeout, stream=True
         )
         response.raise_for_status()
 

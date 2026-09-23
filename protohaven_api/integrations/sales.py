@@ -74,7 +74,7 @@ def subscription_tax_pct(sub, price):
 
     # Not having a tax_percentage field doesn't guarantee it has no tax.
     # We have to inspect the latest invoice and work backwards from the charge.
-    if len(sub["invoice_ids"]) == 0:
+    if len(sub.get("invoice_ids") or []) == 0:
         return 0.0  # Not charged, not taxed
 
     inv = get_invoice(sub["invoice_ids"][0])  # 0 is most recent

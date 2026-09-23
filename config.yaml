@@ -117,6 +117,7 @@ comms:
     Board: 953363629837799434
 connector:
   timeout: 20.0
+  backup_timeout: 300.0
   num_attempts: 3
   max_retry_delay_sec: 3.0
 nocodb:
