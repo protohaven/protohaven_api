@@ -44,7 +44,7 @@ def resolve_schedule(min_future_days, overrides) -> Iterable[airtable.ScheduledC
                 continue  # Skip if not in override list
         else:
             if event.start_time < now:
-                log.info(
+                log.debug(
                     f"Skipping event {event.schedule_id} from the past {event.name}"
                 )
                 continue
