@@ -1,5 +1,7 @@
 """Tests for QA assertion helpers."""
 
+# pylint: disable=missing-function-docstring
+
 import pytest
 
 from protohaven_api.qa.base import (

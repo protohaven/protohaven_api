@@ -71,9 +71,7 @@ class CronicleClient:
         """Fetch the full Cronicle event schedule."""
         return self._get("/api/app/get_schedule/v1")
 
-    def run_event(
-        self, event_id: str, image: str, params: dict[str, Any]
-    ) -> list[str]:
+    def run_event(self, event_id: str, image: str, params: dict[str, Any]) -> list[str]:
         """Start a Cronicle event and return its job IDs."""
         data = {
             "id": event_id,
@@ -129,4 +127,6 @@ class CronicleClient:
         logs = {job_id: self.job_log(job_id) for job_id in job_ids}
         for job_id, text in logs.items():
             log.info(f"Log for {job_id}:\n{text}")
-        return JobResult(code=code if code is not None else 0, job_ids=job_ids, logs=logs)
+        return JobResult(
+            code=code if code is not None else 0, job_ids=job_ids, logs=logs
+        )

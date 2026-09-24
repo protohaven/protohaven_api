@@ -49,9 +49,7 @@ class CleanupStack:
                 log.exception(f"QA cleanup failed: {desc}")
                 failures.append(f"- {desc}: {e}")
         if failures:
-            body = "QA cleanup failed; manual cleanup required:\n" + "\n".join(
-                failures
-            )
+            body = "QA cleanup failed; manual cleanup required:\n" + "\n".join(failures)
             try:
                 comms.send_discord_message(body, QA_CHANNEL, blocking=False)
             except Exception:  # pylint: disable=broad-exception-caught
@@ -92,6 +90,7 @@ class QAContext:
         """Return configured ARGS for an event, or empty string."""
         return str(self.event_params(event_id).get("ARGS", "") or "")
 
+    # pylint: disable=too-many-arguments
     def run(
         self,
         name: str,

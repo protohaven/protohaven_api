@@ -1,11 +1,13 @@
 """QA tests for read-only Cronicle jobs."""
 
+# pylint: disable=missing-function-docstring
+
 import datetime
 import logging
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, neon, neon_base
+from protohaven_api.integrations import airtable, neon_base
 from protohaven_api.qa.base import (
     QAContext,
     assert_log_contains,
@@ -71,8 +73,11 @@ def _first_shift_with_people(now):
     for ap, hour in (("AM", 11), ("PM", 17)):
         people = day[ap]["people"]
         if people:
-            return day, ap, people, now.replace(
-                hour=hour, minute=0, second=0, microsecond=0
+            return (
+                day,
+                ap,
+                people,
+                now.replace(hour=hour, minute=0, second=0, microsecond=0),
             )
     return None
 

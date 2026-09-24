@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import airtable, airtable_base
 from protohaven_api.qa.base import QAContext
 
@@ -10,11 +11,7 @@ def _record_ids(content: Any) -> list[str]:
     if isinstance(content, dict) and "records" in content:
         return [r["id"] for r in content["records"]]
     if isinstance(content, (list, tuple)):
-        return [
-            r.get("id") or r.get("Id")
-            for r in content
-            if isinstance(r, dict)
-        ]
+        return [r.get("id") or r.get("Id") for r in content if isinstance(r, dict)]
     return []
 
 
@@ -36,9 +33,7 @@ def insert_record(
     return rec_id
 
 
-def create_signin(
-    ctx: QAContext, email: str, created: str, full_name: str
-) -> str:
+def create_signin(ctx: QAContext, email: str, created: str, full_name: str) -> str:
     """Create a front-desk sign-in record."""
     return insert_record(
         ctx,
@@ -75,8 +70,6 @@ def create_pending_recert(
     ctx: QAContext, neon_id: str, tool_code: str, deadline: str
 ) -> str:
     """Create a pending recertification row."""
-    from protohaven_api.config import safe_parse_datetime
-
     parsed_deadline = safe_parse_datetime(deadline)
     _, content = airtable.insert_pending_recertification(
         neon_id, tool_code, parsed_deadline, parsed_deadline

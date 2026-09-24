@@ -1,5 +1,7 @@
 """Tests for the QA Cronicle client."""
 
+# pylint: disable=missing-function-docstring
+
 import pytest
 
 from protohaven_api.qa.cronicle import CronicleClient
@@ -7,9 +9,9 @@ from protohaven_api.qa.cronicle import CronicleClient
 
 def test_run_event_returns_ids(mocker):
     client = CronicleClient("https://cron.example", "key")
-    mocker.patch.object(client, "_post", return_value={"ids": ["j1", "j2"]})
+    mock_post = mocker.patch.object(client, "_post", return_value={"ids": ["j1", "j2"]})
     assert client.run_event("evt", "img", {"ARGS": "--help"}) == ["j1", "j2"]
-    client._post.assert_called_once_with(
+    mock_post.assert_called_once_with(
         "/api/app/run_event/v2",
         {
             "id": "evt",
@@ -49,9 +51,7 @@ def test_run_and_fetch_logs_polls(mocker):
 def test_run_and_fetch_logs_timeout(mocker):
     client = CronicleClient("https://cron.example", "key", poll_interval=0)
     mocker.patch.object(client, "_post", return_value={"ids": ["j1"]})
-    mocker.patch.object(
-        client, "_get", return_value={"job": {"complete": 0}}
-    )
+    mocker.patch.object(client, "_get", return_value={"job": {"complete": 0}})
     mocker.patch.object(client, "job_timeout", 0)
     with pytest.raises(TimeoutError):
         client.run_and_fetch_logs("evt", "img", {})

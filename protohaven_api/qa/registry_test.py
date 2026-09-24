@@ -1,5 +1,7 @@
 """Tests for the QA job registry."""
 
+# pylint: disable=missing-function-docstring
+
 from protohaven_api.qa.registry import ALL_JOBS, get_job, jobs_by_category
 
 

@@ -22,9 +22,13 @@ def create_task(
     If `ctx` is provided, cleanup is registered to complete the task.
     """
     gid = _project_gid(project)
-    result = get_connector().asana_tasks().create_task(
-        {"data": {"projects": [gid], "name": name, "notes": notes}},
-        {},
+    result = (
+        get_connector()
+        .asana_tasks()
+        .create_task(
+            {"data": {"projects": [gid], "name": name, "notes": notes}},
+            {},
+        )
     )
     task_gid = result.get("gid")
     if not task_gid:

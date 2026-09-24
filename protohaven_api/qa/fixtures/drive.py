@@ -4,9 +4,7 @@ from protohaven_api.integrations import drive
 from protohaven_api.qa.base import QAContext
 
 
-def upload_file(
-    ctx: QAContext, src: str, mimetype: str, dest: str
-) -> str:
+def upload_file(ctx: QAContext, src: str, mimetype: str, dest: str) -> str:
     """Upload a file into the configured QA Drive folder and register cleanup."""
     if not ctx.drive_folder_id:
         raise RuntimeError("QA Drive folder ID is required")

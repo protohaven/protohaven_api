@@ -1,7 +1,7 @@
 """Discord QA fixture helpers for the dedicated QA user."""
 
 from protohaven_api.integrations import comms
-from protohaven_api.qa.base import QAContext, QA_DM
+from protohaven_api.qa.base import QA_DM, QAContext
 
 DISCORD_USER = QA_DM.removeprefix("@")
 

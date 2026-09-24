@@ -1,9 +1,11 @@
 """Tests for the QA cleanup stack."""
 
+# pylint: disable=missing-function-docstring
+
 import pytest
 
 from protohaven_api.qa import base
-from protohaven_api.qa.base import CleanupError, CleanupStack, QA_CHANNEL
+from protohaven_api.qa.base import QA_CHANNEL, CleanupError, CleanupStack
 
 
 def test_cleanup_runs_in_reverse_order():

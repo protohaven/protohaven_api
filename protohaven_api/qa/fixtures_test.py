@@ -1,5 +1,7 @@
 """Tests for QA fixture helpers."""
 
+# pylint: disable=missing-function-docstring
+
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
 

@@ -1,5 +1,7 @@
 """QA tests for Cronicle prober jobs."""
 
+# pylint: disable=missing-function-docstring
+
 from protohaven_api.qa.base import QAContext
 
 

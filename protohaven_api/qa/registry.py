@@ -70,9 +70,21 @@ def _specs():
             jobs.asana_tasks.test_project_requests,
         ),
         JobSpec(
-            "maint_tasks_noop",
-            "asana_tasks",
+            "maint_tasks",
+            "additive",
             jobs.asana_tasks.test_gen_maintenance_tasks_noop,
+        ),
+        JobSpec("sync_tools", "additive", jobs.additive.test_sync_tools),
+        JobSpec("post_classes", "additive", jobs.additive.test_post_classes),
+        JobSpec(
+            "policy_enforcement",
+            "additive",
+            jobs.additive.test_policy_enforcement,
+        ),
+        JobSpec(
+            "refresh_volunteer_memberships",
+            "additive",
+            jobs.additive.test_refresh_volunteer_memberships,
         ),
         JobSpec("backup_wiki", "additive", jobs.additive.test_backup_wiki),
         JobSpec(

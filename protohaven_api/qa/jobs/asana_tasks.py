@@ -1,5 +1,7 @@
 """QA tests for jobs that complete Asana tasks."""
 
+# pylint: disable=missing-function-docstring
+
 import datetime
 
 from protohaven_api.config import tznow

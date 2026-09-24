@@ -1,5 +1,7 @@
 """QA tests for destructive Cronicle jobs."""
 
+# pylint: disable=missing-function-docstring
+
 from protohaven_api.integrations import neon
 from protohaven_api.qa.base import (
     QAContext,

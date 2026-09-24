@@ -20,3 +20,14 @@ def test_enforce_policies_no_output(mocker, cli):
     mocker.patch.object(e.airtable, "get_policy_sections", return_value=[])
     mocker.patch.object(v.enforcer, "gen_fees", return_value=[])
     assert cli("enforce_policies", ["--apply"]) == []
+
+
+def test_enforce_policies_no_apply_skips_accruals(mocker, cli):
+    """--no-apply must not mutate violation accrual totals."""
+    mocker.patch.object(v.airtable, "get_policy_violations", return_value=[])
+    mocker.patch.object(v.airtable, "get_policy_fees", return_value=[])
+    mocker.patch.object(e.airtable, "get_policy_sections", return_value=[])
+    mocker.patch.object(v.enforcer, "gen_fees", return_value=[])
+    update_accruals = mocker.patch.object(v.enforcer, "update_accruals")
+    assert cli("enforce_policies", ["--no-apply"]) == []
+    update_accruals.assert_not_called()

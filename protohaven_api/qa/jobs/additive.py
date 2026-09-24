@@ -1,19 +1,20 @@
 """QA tests for additive Cronicle jobs."""
 
+# pylint: disable=missing-function-docstring
+
 import datetime
 import functools
 import logging
 import re
 
 from protohaven_api.config import tznow
-from protohaven_api.integrations import airtable, airtable_base, booked, neon
+from protohaven_api.integrations import airtable, airtable_base, booked, drive, neon
 from protohaven_api.qa.base import (
     QAContext,
     assert_log_contains,
     assert_no_comms_sent,
     assert_sent_discord,
 )
-from protohaven_api.qa.fixtures import airtable as airtable_fixture
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
 log = logging.getLogger("qa.additive")
@@ -40,8 +41,6 @@ def _register_uploaded_files_from_log(ctx: QAContext, text: str):
 
 
 def _delete_drive_file(file_id: str):
-    from protohaven_api.integrations import drive
-
     drive.delete_file(file_id)
 
 
@@ -102,8 +101,7 @@ def test_sync_booked_members(ctx: QAContext):
 
 def test_restock_discounts(ctx: QAContext):
     before = {
-        r["id"]
-        for r in airtable_base.get_all_records("class_automation", "discounts")
+        r["id"] for r in airtable_base.get_all_records("class_automation", "discounts")
     }
     cur_qty = airtable.get_num_valid_unassigned_coupons(
         tznow() + datetime.timedelta(days=30)
@@ -120,8 +118,7 @@ def test_restock_discounts(ctx: QAContext):
     assert result.code == 0
     assert_sent_discord(result)
     after = {
-        r["id"]
-        for r in airtable_base.get_all_records("class_automation", "discounts")
+        r["id"] for r in airtable_base.get_all_records("class_automation", "discounts")
     }
     for rec_id in after - before:
         ctx.cleanup.register(
@@ -133,6 +130,49 @@ def test_restock_discounts(ctx: QAContext):
                 rec_id,
             ),
         )
+
+
+def test_sync_tools(ctx: QAContext):
+    result = ctx.run(
+        "sync_reservable_tools",
+        "elvv9mdlx2j",
+        f"--no-apply --filter=qa-no-such-tool-{ctx.run_id}",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_no_comms_sent(result)
+
+
+def test_post_classes(ctx: QAContext):
+    result = ctx.run(
+        "post_classes_to_neon",
+        "elzk399t7ph",
+        f"--no-apply --ovr=qa-no-such-schedule-{ctx.run_id}",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_no_comms_sent(result)
+
+
+def test_refresh_volunteer_memberships(ctx: QAContext):
+    result = ctx.run(
+        "refresh_volunteer_memberships",
+        "em8x5gxfp4t",
+        f"--no-apply --filter=qa-no-such-neon-{ctx.run_id} --limit=1",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_no_comms_sent(result)
+
+
+def test_policy_enforcement(ctx: QAContext):
+    result = ctx.run(
+        "enforce_policies",
+        "elzd1jx39n8",
+        "--no-apply",
+        send_comms=True,
+    )
+    assert result.code == 0
 
 
 def test_sync_clearances(ctx: QAContext):

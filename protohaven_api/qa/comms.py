@@ -13,7 +13,7 @@ def send_advance_notice(ctx: QAContext, job_names: list[str]) -> None:
     names = "\n".join(f"- {n}" for n in job_names)
     body = (
         "Cronicle QA starting; the following jobs will run against prod "
-        f"credentials:\n{names}\n\n"
+        f"credentials (run_id={ctx.run_id}):\n{names}\n\n"
         f"All generated alerts are overridden to {QA_CHANNEL}; email is "
         f"overridden to {QA_EMAIL}. No action is needed unless a cleanup "
         "failure notice follows."

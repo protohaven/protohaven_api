@@ -48,7 +48,8 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.warning("--apply not set; no fee(s) will be added")
 
         # Update accrual totals so they're visible at protohaven.org/violations
-        enforcer.update_accruals()
+        if args.apply:
+            enforcer.update_accruals()
         result = enforcer.gen_comms(violations, old_fees, new_fees)
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
