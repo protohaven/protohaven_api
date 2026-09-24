@@ -1,6 +1,10 @@
 # Cronicle QA Test Plan
 
-Status: plan only. No QA code has been implemented yet.
+Status: Implemented in `protohaven_api/qa`. Known remaining gap:
+`gen_maintenance_tasks` is exercised with `--no-apply` and a scoped filter
+because Bookstack has no safe create/delete API for maintenance tags; the
+plan's mock Airtable recurring-maintenance record is not available in the
+current implementation.
 
 ## 1. Goals
 
