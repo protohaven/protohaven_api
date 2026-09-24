@@ -597,6 +597,16 @@ def create_member(name: str, email: str) -> NeonID:
         raise
 
 
+def delete_account_unsafe(account_id):
+    """Delete a Neon account.
+
+    This is intended for QA-created mock accounts. Neon may not support
+    account deletion for all account types; failures must be escalated for
+    manual cleanup.
+    """
+    return neon_base.delete("api_key2", f"/accounts/{account_id}")
+
+
 def patch_member_role(neon_id: NeonID, role, enabled: bool):
     """Enables or disables a specific role for a user with the given `email`"""
     mem = neon_base.fetch_account(neon_id)

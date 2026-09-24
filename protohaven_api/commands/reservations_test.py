@@ -320,6 +320,29 @@ def test_sync_booked_members_include(mocker):
     r.neon.set_booked_user_id.assert_not_called()
 
 
+def test_sync_booked_members_include_preserves_existing_group(mocker):
+    """--include adds a scoped user without replacing existing group members."""
+    c = r.Commands()
+    mocker.patch.object(r, "booked")
+    mocker.patch.object(r, "neon")
+    mocker.patch.object(r, "print_yaml")
+
+    member = mocker.MagicMock()
+    member.email = "a@x.com"
+    member.name = "A X"
+    member.booked_id = None
+    member.neon_id = "n1"
+    member.fname = "A"
+    member.lname = "X"
+    c._fetch_neon_sources = mocker.MagicMock(return_value=[member])
+    c._fetch_booked_sources = mocker.MagicMock(return_value={})
+    r.booked.create_user_as_member.return_value = {"userId": 7}
+    r.booked.get_members_group.return_value = {"users": ["/Users/5"]}
+
+    c.sync_booked_members(["--include=a@x.com", "--apply"], mocker.MagicMock())
+    r.booked.assign_members_group_users.assert_called_once_with([5, 7])
+
+
 def test_sync_booked_members_associate_existing_user(mocker):
     """An existing Booked user with the same email is associated with Neon"""
     c = r.Commands()

@@ -278,6 +278,7 @@ class Commands:
         if args.include is not None:
             args.include = {a.strip().lower() for a in args.include.split(",")}
             log.warning(f"including users by email: {args.include}")
+        include_only = args.include is not None
 
         pct.set_stages(4)
         neon_members = self._fetch_neon_sources()
@@ -368,18 +369,26 @@ class Commands:
         current_member_user_ids = {
             int(u.split("/")[-1]) for u in booked.get_members_group()["users"]
         }
+        group_user_ids = booked_member_ids
+        if include_only:
+            # A scoped QA run must not remove existing Members group users.
+            group_user_ids = current_member_user_ids | booked_member_ids
         added_member_strings = [
             f"#{user.id} {user.full_name} ({user.email})"
             for user_id in booked_member_ids - current_member_user_ids
             if (user := booked_user_data.get(user_id))
         ]
-        removed_member_strings = [
-            f"#{user.id} {user.full_name} ({user.email})"
-            for user_id in current_member_user_ids - booked_member_ids
-            if (user := booked_user_data.get(user_id))
-        ]
-        if args.apply and booked_member_ids:
-            log.info(str(booked.assign_members_group_users(list(booked_member_ids))))
+        removed_member_strings = (
+            []
+            if include_only
+            else [
+                f"#{user.id} {user.full_name} ({user.email})"
+                for user_id in current_member_user_ids - booked_member_ids
+                if (user := booked_user_data.get(user_id))
+            ]
+        )
+        if args.apply and group_user_ids:
+            log.info(str(booked.assign_members_group_users(list(group_user_ids))))
 
         if len(added_member_strings) + len(removed_member_strings) > 0:
             summary.append(

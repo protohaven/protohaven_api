@@ -95,6 +95,12 @@ class Commands:
             type=int,
             default=4,
         ),
+        arg(
+            "--filter",
+            help="CSV of maintenance task IDs to restrict scheduling to",
+            type=str,
+            default=None,
+        ),
     )
     def gen_maintenance_tasks(self, args, _):
         """Check recurring tasks list in Airtable, add new tasks to asana
@@ -105,7 +111,10 @@ class Commands:
             log.warning("===========================================")
 
         assert args.num > 0
+        filt = {f.strip() for f in args.filter.split(",")} if args.filter else None
         tt = manager.get_maintenance_needed_tasks()
+        if filt:
+            tt = [t for t in tt if str(t.get("id")) in filt]
         log.info(f"Found {len(tt)} needed maintenance tasks")
         tt.sort(key=lambda t: t["next_schedule"])
         errs = []
