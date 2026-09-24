@@ -220,7 +220,7 @@ if __name__ == "__main__":
             "check_empty_shifts",
             test_simple,
             "emryv0nravu",
-            {"ARGS_CHAN_OVERRIDE": COVR, "ARGS": "--dry-run"},
+            {"ARGS_CHAN_OVERRIDE": COVR},
         ),
         (
             "donations_summary",
@@ -311,7 +311,7 @@ if __name__ == "__main__":
             {
                 "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": (
-                    '--no-apply --exclude_areas="Class Supplies,Maintenance,"'
+                    '--no-apply --exclude_areas="Class Supplies,Maintenance,'
                     "Staff Room,Back Yard,Rental Room,Maker Market,Rack Storage,"
                     'Left Restroom,Right Restroom,Kitchen,Gallery,Custodial Room,All,Digital,Other"'
                 ),
@@ -353,6 +353,33 @@ if __name__ == "__main__":
             "backup_wiki",
             test_simple,
             "em4u369ldgl",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": '--no-apply --parent_id=""',
+            },
+        ),
+        (
+            "backup_neon_accounts",
+            test_simple,
+            "emssampvlg3",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": '--no-apply --parent_id="" --category=accounts',
+            },
+        ),
+        (
+            "backup_neon_events",
+            test_simple,
+            "emssb5u1vg9",
+            {
+                "ARGS_CHAN_OVERRIDE": COVR,
+                "ARGS": '--no-apply --parent_id="" --category=events',
+            },
+        ),
+        (
+            "backup_sheets",
+            test_simple,
+            "emss9yewlg0",
             {
                 "ARGS_CHAN_OVERRIDE": COVR,
                 "ARGS": '--no-apply --parent_id=""',

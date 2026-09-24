@@ -313,6 +313,7 @@ def class_listing():
     return result
 
 
+@page.route("/neon_lookup", methods=["POST"])
 @require_login_role(
     Role.SHOP_TECH_LEAD,
     Role.STAFF,
@@ -320,7 +321,6 @@ def class_listing():
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-@page.route("/neon_lookup", methods=["POST"])
 def neon_id_lookup():
     """Look up basic info of a user in Neon based on a search by name or email"""
     result: list[dict[str, Any]] = []
