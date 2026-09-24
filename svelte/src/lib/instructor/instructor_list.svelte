@@ -414,7 +414,7 @@
 					</ul>
 					<p>
 						They are missing the <strong>Instructor</strong> API Server Role custom field setting in Neon
-						CRM. Add that role in Neon CRM to mark them as enrolled, or remove their Instructor Capabilities
+						CRM. Add that role in Neon CRM using the "Enroll" button above, or remove their Instructor Capabilities
 						in Airtable if this is a mistake.
 					</p>
 				</Alert>
