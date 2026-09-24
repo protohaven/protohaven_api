@@ -1,14 +1,17 @@
 """Airtable integration (classes, tool state etc)"""  # pylint: disable=too-many-lines
 
 import datetime
+import io
 import json
 import logging
 import re
+import tarfile
 import traceback
 import urllib.parse
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from functools import lru_cache
+from os.path import getsize
 from typing import Any, Iterable
 
 from dateutil import parser as dateparser
@@ -1101,3 +1104,25 @@ def get_all_instructor_capabilities_formatted():
 
         bios.append(bio)
     return bios
+
+
+def fetch_airtable_backup(dest: str) -> int:
+    """Writes a tarball of all data in every configured Airtable table.
+
+    Args:
+        dest: the output location for the tarball
+    Returns:
+        File size
+    """
+    with tarfile.open(dest, "w:gz") as tar:
+        for base, tables in get_config("airtable/data").items():
+            for table_name, _ in tables.items():
+                if table_name in ("token", "base_id"):
+                    continue
+                records = list(get_all_records(base, table_name))
+                content = json.dumps(records, indent=2).encode("utf-8")
+                data_stream = io.BytesIO(content)
+                info = tarfile.TarInfo(name=f"{base}/{table_name}.json")
+                info.size = len(content)
+                tar.addfile(tarinfo=info, fileobj=data_stream)
+    return getsize(dest)

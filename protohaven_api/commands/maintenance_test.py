@@ -269,3 +269,17 @@ def test_backup_sheets(mocker, cli):
     sheets_backup.assert_called_once()
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]
+
+
+def test_backup_airtable(mocker, cli):
+    """Test backing up Airtable data"""
+    mocker.patch.object(m, "tznow", return_value=d(0))
+    airtable_backup = mocker.patch.object(
+        m.airtable, "fetch_airtable_backup", return_value=1024
+    )
+    mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
+
+    got = cli("backup_airtable", ["--parent_id=test_parent_id", "--apply"])
+    airtable_backup.assert_called_once()
+    assert mock_do_backup.call_count == 1
+    assert "test_parent_id" in got[0]["body"]
