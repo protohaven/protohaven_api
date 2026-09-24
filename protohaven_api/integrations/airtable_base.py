@@ -55,18 +55,20 @@ def get_airtable_schema(base):
     return content
 
 
-MAX_ITERS = 100
-
-
 def get_all_records(
     base: str, tbl: str, params: dict = None
 ) -> Iterable[dict[str, Any]]:
-    """Get all records for a given named table (ID in config.yaml)"""
+    """Get all records for a given named table (ID in config.yaml)
+
+    Airtable pagination uses the `offset` query parameter and has no
+    documented total-record cap, so this loops until the API stops returning
+    an offset. NocoDB uses `next` URLs for the same purpose.
+    """
     records: list[dict[str, Any]] = []
     s = ""
     params = params or {}
-    niter = 0
-    while niter < MAX_ITERS:
+    prev_page = None
+    while True:
         status, content = get_connector().db_request("GET", base, tbl, params=params)
         if status == 404:
             raise TableNotFoundError(
@@ -83,20 +85,33 @@ def get_all_records(
         data = content
         if get_connector().db_format() == "nocodb":
             records += data["records"]
-            if not "next" in data:
+            if "next" not in data:
                 break
             log.info(data["next"])
 
             parsed = parse_qs(urlparse(data["next"]).query)
-            params["page"] = parsed["page"][0]
+            page = parsed["page"][0]
+            if page == prev_page:
+                raise RuntimeError(
+                    f"NocoDB pagination did not advance for {base} {tbl} "
+                    f"(page {page})"
+                )
+            prev_page = page
+            params["page"] = page
             if "pageSize" in parsed:
                 params["pageSize"] = parsed["pageSize"][0]
         else:
             records += data["records"]
-            if data.get("offset") is None:
+            offset = data.get("offset")
+            if offset is None:
                 break
-            params["offset"] = data["offset"]
-        niter += 1
+            if offset == prev_page:
+                raise RuntimeError(
+                    f"Airtable pagination did not advance for {base} {tbl} "
+                    f"(offset {offset})"
+                )
+            prev_page = offset
+            params["offset"] = offset
     return records
 
 
