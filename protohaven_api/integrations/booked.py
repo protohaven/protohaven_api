@@ -334,6 +334,16 @@ def get_user(user_id):
     return get_connector().booked_request("GET", f"/Users/{user_id}")
 
 
+def delete_user(user_id):
+    """Deletes an individual user from Booked."""
+    return get_connector().booked_request("DELETE", f"/Users/{user_id}")
+
+
+def delete_resource(resource_id):
+    """Deletes an individual resource from Booked."""
+    return get_connector().booked_request("DELETE", f"/Resources/{resource_id}")
+
+
 def update_user(user_id, data):
     """Updates a user in Booked (see `get_user` for data)"""
     return get_connector().booked_request("POST", f"/Users/{user_id}", json=data)

@@ -41,6 +41,30 @@ def test_send_discord_message_with_user_embed_error(mocker):
     )
 
 
+def test_send_discord_message_channel_override(mocker):
+    """#channel targets honor CHAN_OVERRIDE."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={
+            "webhooks": {
+                "original": "https://original_webhook",
+                "override": "https://override_webhook",
+            }
+        },
+    )
+    mocker.patch.dict(
+        "os.environ",
+        {"CHAN_OVERRIDE": "#override"},
+        clear=False,
+    )
+    mocker.patch.object(c, "get_connector")
+    c.send_discord_message("Test content", "#original")
+    c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
+        "https://override_webhook", mocker.ANY
+    )
+
+
 def test_send_discord_message_dm(mocker):
     """Ensure #user targets are sent via DM"""
     mocker.patch.object(

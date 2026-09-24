@@ -229,9 +229,7 @@ def test_sync_reservable_tools_creates_placeholder_and_applies(mocker):
     r.booked.create_resource.return_value = {"resourceId": 9}
     r.booked.get_resource_id_to_name_map.return_value = {9: "Woodshop - Saw"}
 
-    c.sync_reservable_tools(
-        ["--apply", "--filter=SAW", "--exclude_areas=Metal Shop"], mocker.MagicMock()
-    )
+    c.sync_reservable_tools(["--apply"], mocker.MagicMock())
 
     r.booked.create_resource.assert_called_once_with("placeholder")
     r.airtable.set_booked_resource_id.assert_called_once_with("t1", 9)
@@ -239,6 +237,46 @@ def test_sync_reservable_tools_creates_placeholder_and_applies(mocker):
         {"resourceId": 9, "name": "Woodshop - Saw"}
     )
     r.print_yaml.assert_called_once()
+
+
+def test_sync_reservable_tools_scoped_filter_skips_placeholders_and_permissions(mocker):
+    """Scoped QA runs do not create placeholders or rewrite Members permissions."""
+    c = r.Commands()
+    c._area_colors.cache_clear()
+    mocker.patch.object(r, "airtable")
+    mocker.patch.object(r, "booked")
+    mocker.patch.object(r, "print_yaml")
+    mocker.patch.object(
+        r.Commands,
+        "_sync_reservable_tool",
+        return_value=({"resourceId": 9, "name": "Woodshop - Saw"}, ["change"]),
+    )
+    mocker.patch.object(r.Commands, "_sync_booked_permissions")
+
+    r.airtable.get_areas.return_value = [{"fields": {"Name": "Woodshop"}}]
+    r.booked.get_resource_group_map.return_value = {"Woodshop": 1}
+    r.booked.get_resources.return_value = [{"resourceId": 9, "name": "Woodshop - Saw"}]
+    r.airtable.get_tools.return_value = [
+        {
+            "id": "t1",
+            "fields": {
+                "Reservable": True,
+                "Tool Name": "Saw",
+                "Name (from Shop Area)": ["Woodshop"],
+                "BookedResourceId": 9,
+                "Tool Code": "SAW",
+            },
+        }
+    ]
+    r.booked.get_resource_id_to_name_map.return_value = {9: "Woodshop - Saw"}
+
+    c.sync_reservable_tools(["--apply", "--filter=SAW"], mocker.MagicMock())
+
+    r.booked.create_resource.assert_not_called()
+    r.Commands._sync_booked_permissions.assert_not_called()
+    r.booked.update_resource.assert_called_once_with(
+        {"resourceId": 9, "name": "Woodshop - Saw"}
+    )
 
 
 def test_sync_reservable_tools_extra_resources_raise(mocker):
@@ -318,6 +356,29 @@ def test_sync_booked_members_include(mocker):
 
     c.sync_booked_members(["--include=b@x.com"], mocker.MagicMock())
     r.neon.set_booked_user_id.assert_not_called()
+
+
+def test_sync_booked_members_include_preserves_existing_group(mocker):
+    """--include adds a scoped user without replacing existing group members."""
+    c = r.Commands()
+    mocker.patch.object(r, "booked")
+    mocker.patch.object(r, "neon")
+    mocker.patch.object(r, "print_yaml")
+
+    member = mocker.MagicMock()
+    member.email = "a@x.com"
+    member.name = "A X"
+    member.booked_id = None
+    member.neon_id = "n1"
+    member.fname = "A"
+    member.lname = "X"
+    c._fetch_neon_sources = mocker.MagicMock(return_value=[member])
+    c._fetch_booked_sources = mocker.MagicMock(return_value={})
+    r.booked.create_user_as_member.return_value = {"userId": 7}
+    r.booked.get_members_group.return_value = {"users": ["/Users/5"]}
+
+    c.sync_booked_members(["--include=a@x.com", "--apply"], mocker.MagicMock())
+    r.booked.assign_members_group_users.assert_called_once_with([5, 7])
 
 
 def test_sync_booked_members_associate_existing_user(mocker):

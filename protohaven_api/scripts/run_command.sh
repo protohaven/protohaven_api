@@ -20,7 +20,7 @@ full_cmd="YAML_OUT=$ARGS_YAML_OUT python3 -m protohaven_api.cli $ARGS_CMD $ARGS"
 echo "> $full_cmd"
 eval "$full_cmd"
 if [ "$ARGS_SEND_COMMS" = "1" ]; then
-  comms_cmd="python3 -m protohaven_api.cli send_comms --path=$ARGS_YAML_OUT --confirm"
+  comms_cmd="python3 -m protohaven_api.cli send_comms --path=$ARGS_YAML_OUT --confirm --side-effects"
   echo "> $comms_cmd"
   eval "$comms_cmd"
 fi

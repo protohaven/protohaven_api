@@ -72,6 +72,45 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
 
 
+def test_gen_maintenance_tasks_filter(mocker, cli):
+    """--filter restricts scheduling to the named maintenance record IDs."""
+    mocker.patch.object(m.forecast, "generate", return_value={})
+    mocker.patch.object(
+        m.neon, "search_members_with_discord_association", return_value={}
+    )
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec1",
+                "section": "foo",
+                "name": "task one",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(1),
+            },
+            {
+                "id": "rec2",
+                "section": "foo",
+                "name": "task two",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(2),
+            },
+        ],
+    )
+    add_task = mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+
+    cli("gen_maintenance_tasks", ["--apply", "--filter=rec1", "--num=1"])
+    add_task.assert_called_once_with(
+        "task one", "details", "rec1", "tech_ready", section="foo"
+    )
+
+
 def test_tech_discord_mapping(mocker, cli):
     """Test that tech discord handles are correctly mapped from forecast data"""
     t1 = mocker.MagicMock(discord_user="tech1")

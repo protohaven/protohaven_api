@@ -19,7 +19,12 @@ class Commands:  # pylint: disable=too-few-public-methods
             help="If true, apply fees in Airtable",
             action=argparse.BooleanOptionalAction,
             default=False,
-        )
+        ),
+        arg(
+            "--filter",
+            help="CSV of violation record IDs to restrict enforcement to",
+            default=None,
+        ),
     )
     def enforce_policies(self, args, _):
         """Follows violation logic for any ongoing violations.
@@ -27,6 +32,9 @@ class Commands:  # pylint: disable=too-few-public-methods
         For any action needed to suspend users, generate comms.
         Also generate a summary of changes for sending to Discord."""
         violations = airtable.get_policy_violations()
+        if args.filter:
+            args.filter = {a.strip() for a in args.filter.split(",")}
+            violations = [v for v in violations if v["id"] in args.filter]
         old_fees = [
             (f["fields"]["Violation"][0], f["fields"]["Amount"], f["fields"]["Created"])
             for f in airtable.get_policy_fees()
@@ -48,7 +56,17 @@ class Commands:  # pylint: disable=too-few-public-methods
                 log.warning("--apply not set; no fee(s) will be added")
 
         # Update accrual totals so they're visible at protohaven.org/violations
-        enforcer.update_accruals()
+        if args.apply:
+            if args.filter:
+                fees = [
+                    f
+                    for f in airtable.get_policy_fees()
+                    if f["fields"].get("Violation")
+                    and f["fields"]["Violation"][0] in args.filter
+                ]
+                enforcer.update_accruals(fees)
+            else:
+                enforcer.update_accruals()
         result = enforcer.gen_comms(violations, old_fees, new_fees)
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")

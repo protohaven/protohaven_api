@@ -48,3 +48,13 @@ def upload_file(src, mimetype, dest, parent_id):
     )
 
     return file.get("id")
+
+
+def delete_file(file_id):
+    """Deletes a file from Google Drive."""
+    return (
+        _svc()  # pylint: disable=no-member
+        .files()
+        .delete(fileId=file_id, supportsAllDrives=True)
+        .execute()
+    )

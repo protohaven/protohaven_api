@@ -9,6 +9,7 @@ import re
 import traceback
 from dataclasses import dataclass, field
 from functools import lru_cache
+from os import getenv
 from typing import Any, List, Tuple
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
@@ -120,12 +121,14 @@ DISCORD_CHAR_LIMIT = 1950
 def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
+    chan_ovr = getenv("CHAN_OVERRIDE")
     if channel is None:
         channel = cfg["webhooks"]["techs-live"]
     elif channel.startswith("@"):  # Send to a user
         return get_connector().discord_bot_fn("send_dm", channel[1:], content)
     elif channel.startswith("#"):  # Send to a channel
-        channel = cfg["webhooks"][channel[1:]]
+        channel = (chan_ovr or channel)[1:]
+        channel = cfg["webhooks"][channel]
     else:
         raise RuntimeError(f"Unknown channel '{channel}' for discord message")
 
