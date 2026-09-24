@@ -279,7 +279,7 @@ def test_policy_enforcement(ctx: QAContext):
     before_fees = {
         r["id"] for r in airtable.get_policy_fees() if r["fields"].get("Created")
     }
-    airtable_fixture.create_violation(
+    violation_id = airtable_fixture.create_violation(
         ctx,
         acct.neon_id,
         daily_fee=5,
@@ -298,7 +298,15 @@ def test_policy_enforcement(ctx: QAContext):
     after_fees = {
         r["id"] for r in airtable.get_policy_fees() if r["fields"].get("Created")
     }
-    for rec_id in after_fees - before_fees:
+    for rec in airtable.get_policy_fees():
+        rec_id = rec["id"]
+        if rec_id in before_fees or rec_id not in after_fees:
+            continue
+        violation_links = rec["fields"].get("Violation") or []
+        if isinstance(violation_links, str):
+            violation_links = [violation_links]
+        if violation_id not in violation_links:
+            continue
         ctx.cleanup.register(
             f"delete policy_enforcement/fees record {rec_id}",
             functools.partial(

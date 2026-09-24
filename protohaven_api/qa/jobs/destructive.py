@@ -233,7 +233,7 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     preflight = ctx.run(
         "cleanup_orphaned_class_reservations",
         "emmtkylp1m7",
-        "--no-apply --max=100 --days=10",
+        "--no-apply --max=1000 --days=10",
         send_comms=False,
     )
     assert preflight.code == 0

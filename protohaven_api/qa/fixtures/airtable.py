@@ -177,7 +177,7 @@ def create_tool_record(
     tool_code: str,
     tool_name: str,
     area: str,
-    booked_resource_id: str,
+    booked_resource_id: Any,
     reservable: bool = True,
 ) -> str:
     """Create a temporary Airtable tool record tied to a mock Booked resource."""
@@ -189,7 +189,7 @@ def create_tool_record(
             "Tool Code": tool_code,
             "Tool Name": tool_name,
             "Name (from Shop Area)": [area],
-            "BookedResourceId": str(booked_resource_id),
+            "BookedResourceId": booked_resource_id,
             "Reservable": reservable,
             "Current Status": "Green",
         },
