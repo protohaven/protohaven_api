@@ -9,6 +9,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.config import get_config
 from protohaven_api.handlers import index
 from protohaven_api.integrations import neon
+from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import set_rbac
 from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
@@ -245,7 +246,13 @@ def test_event_ticket_info_no_id(mocker, client):
     assert rep.status != 200
 
 
-def test_neon_lookup(mocker, client):
+@pytest.fixture()
+def lead_client(client):
+    setup_session(client, [Role.SHOP_TECH_LEAD])
+    return client
+
+
+def test_neon_lookup(mocker, lead_client):
     """Test neon_lookup returns structured data"""
     mock_member = mocker.MagicMock()
     mock_member.neon_id = "123"
@@ -255,7 +262,7 @@ def test_neon_lookup(mocker, client):
 
     mocker.patch.object(index.neon.cache, "find_best_match", return_value=[mock_member])
 
-    response = client.post("/neon_lookup", data={"search": "John"})
+    response = lead_client.post("/neon_lookup", data={"search": "John"})
     assert response.status_code == 200
     result = json.loads(response.data.decode("utf8"))
     assert result == [
