@@ -290,7 +290,7 @@ def test_policy_enforcement(ctx: QAContext):
     result = ctx.run(
         "enforce_policies",
         "elzd1jx39n8",
-        "--apply",
+        f"--apply --filter={violation_id}",
         send_comms=True,
     )
     assert result.code == 0
