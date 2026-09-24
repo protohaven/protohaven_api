@@ -554,8 +554,12 @@ def create_coupon_codes(
     )
 
 
-def create_member(name: str, email: str) -> NeonID:
-    """Create a new member in Neon with the given name and email"""
+def create_member(name: str, email: str, last_name: str | None = None) -> NeonID:
+    """Create a new member in Neon with the given name and email.
+
+    If `last_name` is supplied, `name` is used verbatim as the first name.
+    Otherwise the final whitespace-separated token in `name` becomes the last name.
+    """
     if not name or not email:
         raise RuntimeError("Name and email are required")
 
@@ -564,14 +568,17 @@ def create_member(name: str, email: str) -> NeonID:
     if existing:
         return existing[0].neon_id
 
-    # Parse name into first and last
-    name_parts = name.strip().split()
-    if len(name_parts) < 2:
-        first_name = name
-        last_name = ""
+    if last_name is not None:
+        first_name = name.strip()
     else:
-        first_name = " ".join(name_parts[:-1])
-        last_name = name_parts[-1]
+        # Parse name into first and last
+        name_parts = name.strip().split()
+        if len(name_parts) < 2:
+            first_name = name
+            last_name = ""
+        else:
+            first_name = " ".join(name_parts[:-1])
+            last_name = name_parts[-1]
 
     # Create the account
     account_data = {

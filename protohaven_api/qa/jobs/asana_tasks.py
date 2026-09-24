@@ -4,11 +4,12 @@
 
 import datetime
 
+from protohaven_api.automation.maintenance import manager
 from protohaven_api.config import tznow
 from protohaven_api.qa.base import (
     QAContext,
+    assert_log_contains,
     assert_marked_complete,
-    assert_no_comms_sent,
     assert_sent_discord,
     assert_sent_email,
 )
@@ -61,13 +62,29 @@ def test_phone_messages(ctx: QAContext):
     assert_marked_complete(result, gid)
 
 
-def test_gen_maintenance_tasks_noop(ctx: QAContext):
-    """Sanity-check the maintenance task scheduler with a no-op filter."""
+def test_gen_maintenance_tasks(ctx: QAContext):
+    """Exercise maintenance-task scheduling safely with a non-matching filter.
+
+    Maintenance candidates originate from Bookstack rather than Airtable, and
+    there is no safe create/delete API for Bookstack tags. A scoped filter run
+    verifies the command's filter and no-apply path without creating real Asana
+    tasks.
+    """
+    candidates = manager.get_maintenance_needed_tasks()
+    if candidates:
+        candidate_id = candidates[0]["id"]
+        filt = candidate_id
+        expected = "Found 1 needed maintenance tasks"
+    else:
+        filt = f"qa-no-such-task-{ctx.run_id}"
+        expected = "Found 0 needed maintenance tasks"
+
     result = ctx.run(
         "gen_maintenance_tasks",
         "eltiobjj002",
-        f"--no-apply --filter=qa-no-such-task-{ctx.run_id} --num=1",
+        f"--no-apply --filter={filt} --num=1",
         send_comms=True,
     )
     assert result.code == 0
-    assert_no_comms_sent(result)
+    assert_log_contains(result.text, [expected])
+    assert_sent_discord(result)

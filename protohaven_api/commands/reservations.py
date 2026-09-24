@@ -121,8 +121,9 @@ class Commands:
         if not args.apply:
             log.warning("==== --apply NOT SET, NO CHANGES WILL BE MADE ====")
         if args.filter is not None:
-            args.filter = {a.strip() for a in args.filter.split(",")}
+            args.filter = {a.strip().upper() for a in args.filter.split(",")}
             log.warning(f"Filtering to tools by tool code: {args.filter}")
+        scoped = args.filter is not None
         if args.exclude_areas is not None:
             args.exclude_areas = {a.strip() for a in args.exclude_areas.split(",")}
             log.warning(f"Excluding areas: {args.exclude_areas}")
@@ -162,6 +163,12 @@ class Commands:
                 continue
             r = all_resources.get(t["fields"].get("BookedResourceId"))
             if not r:
+                if scoped:
+                    log.info(
+                        "Skipping placeholder creation for %s during scoped run",
+                        t["fields"].get("Tool Name"),
+                    )
+                    continue
                 summary.append(
                     f"Create placeholder resource for {t['fields'].get('Tool Name')}"
                 )
@@ -186,20 +193,27 @@ class Commands:
                 if args.apply:
                     log.info(booked.update_resource(r))
 
-        self._sync_booked_permissions(
-            airtable_booked_ids, all_resources, summary, args.apply
-        )
-        pct[3] = 0.5
-
-        extra_booked_resources = {
-            k: v
-            for k, v in booked.get_resource_id_to_name_map().items()
-            if k not in airtable_booked_ids
-        }
-        if len(extra_booked_resources) > 0:
-            raise RuntimeError(
-                f"These resources exist in Booked, but not in Airtable: {extra_booked_resources}"
+        if scoped:
+            log.info(
+                "Scoped run (--filter set); skipping Members group permission "
+                "rewrite and extra-resource validation"
             )
+        else:
+            self._sync_booked_permissions(
+                airtable_booked_ids, all_resources, summary, args.apply
+            )
+            pct[3] = 0.5
+
+            extra_booked_resources = {
+                k: v
+                for k, v in booked.get_resource_id_to_name_map().items()
+                if k not in airtable_booked_ids
+            }
+            if len(extra_booked_resources) > 0:
+                raise RuntimeError(
+                    "These resources exist in Booked, but not in Airtable: "
+                    f"{extra_booked_resources}"
+                )
         log.info("Done - all resources in Booked exist in Airtable")
 
         if len(summary) > 0:

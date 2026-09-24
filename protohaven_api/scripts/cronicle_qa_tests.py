@@ -9,7 +9,7 @@ from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.qa import registry, verify
 from protohaven_api.qa.base import CleanupError, QAContext
-from protohaven_api.qa.comms import send_advance_notice
+from protohaven_api.qa.comms import request_acknowledgment, send_advance_notice
 from protohaven_api.qa.cronicle import CronicleClient
 
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +26,11 @@ def main() -> int:
         help="Base URL for Cronicle commands",
     )
     parser.add_argument(
-        "--api_key", required=True, help="API key for Cronicle commands"
+        "--api_key",
+        "--key",
+        dest="api_key",
+        required=True,
+        help="API key for Cronicle commands",
     )
     parser.add_argument(
         "--image",
@@ -41,6 +45,17 @@ def main() -> int:
         help="Job name to run; may be repeated (default: all non-destructive)",
     )
     parser.add_argument(
+        "--command",
+        dest="commands",
+        action="append",
+        default=[],
+        help="Compatibility alias for --job; run only the named QA job(s)",
+    )
+    parser.add_argument(
+        "--after",
+        help="Compatibility flag; skip all jobs up to and including this named job",
+    )
+    parser.add_argument(
         "--include-destructive",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -53,6 +68,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--no-advance-notice",
+        "--skip-advance-notice",
+        dest="no_advance_notice",
         action="store_true",
         help="Skip sending the QA advance notice to internal channels",
     )
@@ -66,9 +83,9 @@ def main() -> int:
     init_connector(Connector)
 
     specs = registry.ALL_JOBS
-    if args.jobs:
+    if args.jobs or args.commands:
         selected = []
-        for name in args.jobs:
+        for name in args.jobs + args.commands:
             spec = registry.get_job(name)
             if spec is None:
                 parser.error(f"Unknown job: {name}")
@@ -76,6 +93,16 @@ def main() -> int:
         specs = selected
     else:
         specs = [s for s in specs if not s.destructive or args.include_destructive]
+
+    if args.after:
+        after_spec = registry.get_job(args.after)
+        if after_spec is None:
+            parser.error(f"Unknown job: {args.after}")
+        after_idx = specs.index(after_spec)
+        specs = specs[after_idx + 1 :]
+        if not specs:
+            log.info("No jobs remain after %s", args.after)
+            return 0
 
     if not specs:
         log.info("No jobs selected")
@@ -89,7 +116,21 @@ def main() -> int:
     )
 
     if not args.no_advance_notice:
-        send_advance_notice(ctx, [s.name for s in specs])
+        send_advance_notice(
+            ctx,
+            [s.name for s in specs],
+            duration_minutes=max(10, 2 * len(specs)),
+            failure_channels=(
+                "#tech-automation",
+                "#class-automation",
+                "#tool-automation",
+                "#membership-automation",
+            ),
+        )
+        request_acknowledgment(
+            [s.name for s in specs],
+            interactive=sys.stdin.isatty() and not args.commands,
+        )
 
     failures = []
     try:

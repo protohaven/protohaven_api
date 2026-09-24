@@ -102,10 +102,15 @@ class QAContext:
         params: dict[str, Any] | None = None,
     ):
         """Run a Cronicle event with QA comm overrides."""
-        p = {
-            "ARGS_CHAN_OVERRIDE": QA_CHANNEL,
-            "ARGS_EMAIL_OVERRIDE": QA_EMAIL,
-        }
+        # Start from the event's configured params so fields like ARGS_CMD and
+        # any future Cronicle-only settings survive, then apply QA overrides.
+        p = dict(self.event_params(event_id))
+        p.update(
+            {
+                "ARGS_CHAN_OVERRIDE": QA_CHANNEL,
+                "ARGS_EMAIL_OVERRIDE": QA_EMAIL,
+            }
+        )
         if dm:
             p["ARGS_DM_OVERRIDE"] = QA_DM
         if send_comms:
@@ -157,6 +162,12 @@ def assert_sent_email(result: JobResult, email: str = QA_EMAIL) -> None:
     """Assert that an email was sent to the override address."""
     assert result.code == 0
     assert_log_contains(result.text, ["Sent msg", email])
+
+
+def assert_sent_dm(result: JobResult, dm: str = QA_DM) -> None:
+    """Assert that a Discord DM was sent to the override user."""
+    assert result.code == 0
+    assert_log_contains(result.text, [f"Sent to Discord {dm}:"])
 
 
 def assert_no_comms_sent(result: JobResult) -> None:

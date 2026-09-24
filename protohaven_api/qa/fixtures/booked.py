@@ -1,9 +1,20 @@
 """Booked QA fixture helpers."""
 
+import logging
 from dataclasses import dataclass
 
 from protohaven_api.integrations import booked
 from protohaven_api.qa.base import QAContext
+
+log = logging.getLogger("qa.fixtures.booked")
+
+
+def _delete_reservation_if_present(refnum: str) -> None:
+    try:
+        booked.delete_reservation(refnum)
+    except Exception:  # pylint: disable=broad-exception-caught
+        # The job under test may have already deleted the reservation.
+        log.warning("Reservation %s was already deleted", refnum)
 
 
 @dataclass
@@ -49,6 +60,6 @@ def reserve(
     refnum = result["referenceNumber"]
     ctx.cleanup.register(
         f"delete Booked reservation {refnum}",
-        lambda: booked.delete_reservation(refnum),
+        lambda: _delete_reservation_if_present(refnum),
     )
     return refnum
