@@ -213,21 +213,25 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     )
     booked.apply_resource_custom_fields(resource_id, area=area)
 
-    matching_ref = booked_fixture.reserve(
-        ctx,
-        resource_id,
-        start,
-        end,
-        title=name,
+    matching_ref = str(
+        booked_fixture.reserve(
+            ctx,
+            resource_id,
+            start,
+            end,
+            title=name,
+        )
     )
     assert matching_ref
     orphan_start = start + datetime.timedelta(days=2)
-    orphan_ref = booked_fixture.reserve(
-        ctx,
-        resource_id,
-        orphan_start,
-        orphan_start + datetime.timedelta(hours=2),
-        title="QA orphan reservation",
+    orphan_ref = str(
+        booked_fixture.reserve(
+            ctx,
+            resource_id,
+            orphan_start,
+            orphan_start + datetime.timedelta(hours=2),
+            title="QA orphan reservation",
+        )
     )
 
     preflight = ctx.run(
