@@ -247,6 +247,8 @@ def test_post_classes(ctx: QAContext):
         f"delete Eventbrite event {eventbrite_id}",
         lambda: eventbrite.delete_event_unsafe(eventbrite_id),
     )
+    row = airtable.get_scheduled_class(rec_id)
+    assert str(row.event_id) == str(eventbrite_id)
     assert_sent_email(result)
     assert_sent_discord(result)
 

@@ -3,10 +3,12 @@
 # pylint: disable=missing-function-docstring
 
 import datetime
+import os
 
 from protohaven_api.automation.maintenance import manager
 from protohaven_api.config import tznow
 from protohaven_api.qa.base import (
+    QA_CHANNEL,
     QAContext,
     assert_log_contains,
     assert_marked_complete,
@@ -70,7 +72,15 @@ def test_gen_maintenance_tasks(ctx: QAContext):
     verifies the command's filter and no-apply path without creating real Asana
     tasks.
     """
-    candidates = manager.get_maintenance_needed_tasks()
+    old_chan_ovr = os.environ.get("CHAN_OVERRIDE")
+    os.environ["CHAN_OVERRIDE"] = QA_CHANNEL
+    try:
+        candidates = manager.get_maintenance_needed_tasks()
+    finally:
+        if old_chan_ovr is None:
+            os.environ.pop("CHAN_OVERRIDE", None)
+        else:
+            os.environ["CHAN_OVERRIDE"] = old_chan_ovr
     if candidates:
         candidate_id = candidates[0]["id"]
         filt = candidate_id
