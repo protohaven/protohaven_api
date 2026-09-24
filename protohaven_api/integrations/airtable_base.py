@@ -47,6 +47,14 @@ def get_record(base, tbl, rec):
     return content
 
 
+def get_airtable_schema(base):
+    """Grabs schema metadata for all tables in an Airtable base"""
+    status, content = get_connector().airtable_meta_request(base)
+    if status != 200:
+        raise RuntimeError(f"Airtable metadata fetch {base}", status, content)
+    return content
+
+
 MAX_ITERS = 100
 
 

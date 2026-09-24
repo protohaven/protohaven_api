@@ -100,6 +100,15 @@ TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}),
     ("test_html_template", {"val": "test_body"}),
     (
+        "airtable_backup_summary",
+        {
+            "stats": [
+                {"name": "airtable.tar.gz", "drive_id": "CDE", "size_kb": 123},
+            ],
+            "parent_id": "PAR",
+        },
+    ),
+    (
         "class_automation_summary",
         {
             "events": {
@@ -458,6 +467,7 @@ TESTED_TEMPLATES = [
 HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
+    "airtable_backup_summary": "db777ac0512e916a",  # pragma: allowlist secret
     "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_scheduled": "b57307cca2f8262c",  # pragma: allowlist secret

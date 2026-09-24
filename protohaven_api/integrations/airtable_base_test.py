@@ -5,6 +5,17 @@ from protohaven_api.integrations import airtable_base as a
 from protohaven_api.testing import d
 
 
+def test_get_airtable_schema(mocker):
+    mocker.patch.object(a, "get_connector")
+    a.get_connector().airtable_meta_request.return_value = (
+        200,
+        {"tables": [{"id": "tbl1", "fields": []}]},
+    )
+    assert a.get_airtable_schema("test_base") == {
+        "tables": [{"id": "tbl1", "fields": []}]
+    }
+
+
 def test_get_all_records_airtable(mocker):
     mocker.patch.object(a, "get_connector")
     a.get_connector().db_format.return_value = "airtable"
