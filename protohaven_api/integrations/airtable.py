@@ -21,6 +21,7 @@ from protohaven_api.integrations.airtable_base import (
     _idref,
     _refid,
     delete_record,
+    get_airtable_schema,
     get_all_records,
     get_all_records_after,
     get_all_records_between,
@@ -1116,6 +1117,12 @@ def fetch_airtable_backup(dest: str) -> int:
     """
     with tarfile.open(dest, "w:gz") as tar:
         for base, tables in get_config("airtable/data").items():
+            schema = get_airtable_schema(base)
+            schema_content = json.dumps(schema, indent=2).encode("utf-8")
+            schema_info = tarfile.TarInfo(name=f"{base}/_schema.json")
+            schema_info.size = len(schema_content)
+            tar.addfile(tarinfo=schema_info, fileobj=io.BytesIO(schema_content))
+
             for table_name, _ in tables.items():
                 if table_name in ("token", "base_id"):
                     continue

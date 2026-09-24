@@ -1199,6 +1199,24 @@ def test_fetch_airtable_backup(mocker, tmp_path):
         return [{"id": "rec1", "fields": {"Name": "foo"}}]
 
     mocker.patch.object(a, "get_all_records", side_effect=fake_get_all_records)
+    mocker.patch.object(
+        a,
+        "get_airtable_schema",
+        side_effect=lambda base: {
+            "tables": [
+                {
+                    "name": f"{base}_schema",
+                    "fields": [
+                        {
+                            "name": "Name",
+                            "type": "singleLineText",
+                            "description": "A name",
+                        }
+                    ],
+                }
+            ]
+        },
+    )
 
     dest = str(tmp_path / "airtable_backup.tar.gz")
     assert a.fetch_airtable_backup(dest) > 0
@@ -1206,9 +1224,13 @@ def test_fetch_airtable_backup(mocker, tmp_path):
     with tarfile.open(dest, "r:gz") as tar:
         names = sorted(tar.getnames())
         assert names == [
+            "base1/_schema.json",
             "base1/tbl1.json",
             "base1/tbl2.json",
+            "base2/_schema.json",
             "base2/tbl3.json",
         ]
         content = json.loads(tar.extractfile("base1/tbl1.json").read())
         assert content == [{"id": "rec1", "fields": {"Name": "foo"}}]
+        schema = json.loads(tar.extractfile("base1/_schema.json").read())
+        assert schema["tables"][0]["fields"][0]["type"] == "singleLineText"

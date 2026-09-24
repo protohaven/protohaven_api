@@ -140,6 +140,31 @@ class Connector:  # pylint: disable=too-many-public-methods
                 time.sleep(int(random.random() * self.max_retry_delay_sec))
         return None, None
 
+    def airtable_meta_request(self, base):
+        """Fetch schema metadata (tables and fields) for an Airtable base."""
+        cfg = get_config("airtable")
+        path = f"meta/bases/{cfg['data'][base]['base_id']}/tables"
+        url = urljoin(cfg["requests"]["url"], path)
+        headers = {
+            "Authorization": f"Bearer {cfg['data'][base]['token']}",
+            "Content-Type": "application/json",
+        }
+        for i in range(self.max_attempts):
+            try:
+                rep = requests.request(
+                    "GET", url, headers=headers, timeout=self.timeout
+                )
+                return rep.status_code, json.loads(rep.content) if rep.content else None
+            except requests.exceptions.ReadTimeout as rt:
+                if i == self.max_attempts - 1:
+                    raise rt
+                log.warning(
+                    f"ReadTimeout on Airtable metadata request for base {base}, "
+                    f"retry #{i+1}"
+                )
+                time.sleep(int(random.random() * self.max_retry_delay_sec))
+        return None, None
+
     def google_form_submit(self, url, params):
         """Submit a google form with data"""
         return requests.get(url, params, timeout=self.timeout)

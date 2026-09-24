@@ -41,6 +41,31 @@ def test_airtable_read_max_retries(c):
         c.db_request("GET", "tools_and_equipment", "tools")
 
 
+def test_airtable_meta_request(mocker, c):
+    """Airtable schema metadata is fetched from the meta endpoint"""
+    mocker.patch.object(
+        con,
+        "get_config",
+        return_value={
+            "requests": {"url": "https://api.airtable.com/v0/"},
+            "data": {
+                "class_automation": {
+                    "token": "tok",  # pragma: allowlist secret
+                    "base_id": "app123",
+                }
+            },
+        },
+    )
+    con.requests.request.return_value = mocker.Mock(
+        status_code=200, content=b'{"tables": []}'
+    )
+
+    assert c.airtable_meta_request("class_automation") == (200, {"tables": []})
+    assert con.requests.request.call_args.args[1].endswith(  # pylint: disable=no-member
+        "/meta/bases/app123/tables"
+    )
+
+
 def test_neon_request_attendees_endpoint(mocker, c):
     """Ensure /attendees is ratelimited via cache_server_request"""
     con.requests.request.return_value = mocker.Mock(
