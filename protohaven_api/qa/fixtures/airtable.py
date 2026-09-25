@@ -120,7 +120,41 @@ def create_empty_shift_override(
     ap: str,
     original_tech_names: list[str],
 ) -> str:
-    """Force a forecast shift to be empty and register cleanup."""
+    """Force a forecast shift to be empty and register cleanup.
+
+    If the shift already has an override, replace it with an empty legacy
+    override and restore the original override during cleanup instead of
+    layering a second record on top of it.
+    """
+    shift_key = f"{safe_parse_datetime(date).strftime('%Y-%m-%d')} {ap}"
+    existing_id = None
+    for key, (rec_id, _, _) in airtable.get_forecast_overrides(include_pii=True):
+        if key == shift_key:
+            existing_id = rec_id
+            break
+
+    if existing_id is not None:
+        original = airtable_base.get_record(
+            "people", "shop_tech_forecast_overrides", existing_id
+        )
+        original_fields = dict(original.get("fields", {}))
+        airtable_base.update_record(
+            {"Override": ""},
+            "people",
+            "shop_tech_forecast_overrides",
+            existing_id,
+        )
+        ctx.cleanup.register(
+            f"restore shop_tech_forecast_overrides {existing_id}",
+            lambda: airtable_base.update_record(
+                original_fields,
+                "people",
+                "shop_tech_forecast_overrides",
+                existing_id,
+            ),
+        )
+        return existing_id
+
     _, content = airtable.set_forecast_override(
         None,
         date,

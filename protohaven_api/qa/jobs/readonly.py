@@ -130,7 +130,6 @@ def _default_shift_people(shift):
 def _force_empty_shift(ctx: QAContext, day, ap) -> None:
     """Force a forecast shift to be empty using its pre-override people."""
     shift = day[ap]
-    assert not shift.get("ovr"), "Cannot force empty a shift with existing override"
     airtable_fixture.create_empty_shift_override(
         ctx,
         day["date"],
@@ -174,7 +173,9 @@ def test_tech_sign_ins(ctx: QAContext):
         found = _first_shift_with_people(
             now, exclude={(day["date"], ap)}, skip_overrides=True
         )
-        assert found, "No clean shift available to force empty for alert case"
+        if found is None:
+            found = _first_shift_with_people(now, exclude={(day["date"], ap)})
+        assert found, "No shift available to force empty for alert case"
         target_day, target_ap, _, _ = found
         _force_empty_shift(ctx, target_day, target_ap)
         when = _shift_when(now, target_day, target_ap)
@@ -201,7 +202,9 @@ def test_check_empty_shifts(ctx: QAContext):
         log.info(f"Found upcoming empty shift: {day} {ap}")
     else:
         found = _first_shift_with_people(now, skip_overrides=True)
-        assert found, "No clean shift available to force empty"
+        if found is None:
+            found = _first_shift_with_people(now)
+        assert found, "No shift available to force empty"
         day, ap, _, _ = found
         log.info(f"Forcing empty shift: {day} {ap}")
         _force_empty_shift(ctx, day, ap)
