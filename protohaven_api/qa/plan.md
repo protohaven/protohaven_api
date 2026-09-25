@@ -58,7 +58,7 @@ imports `protohaven_api.qa` and runs the registry.
 
 ```python
 COVR = "#cronicle-automation"
-EOVR = "hello+qa-testing@protohaven.org"
+EOVR = "qa-testing@protohaven.org"
 DOVR = "@workshop_protohaven"   # dedicated QA Discord user
 ```
 
@@ -71,7 +71,7 @@ For any job that should send comms:
 
 ```text
 ARGS_CHAN_OVERRIDE=#cronicle-automation
-ARGS_EMAIL_OVERRIDE=hello+qa-testing@protohaven.org
+ARGS_EMAIL_OVERRIDE=qa-testing@protohaven.org
 ARGS_DM_OVERRIDE=@workshop_protohaven   # where applicable
 ARGS_SEND_COMMS=1
 ARGS_YAML_OUT=/tmp/qa_<job>.yaml
@@ -87,7 +87,7 @@ ARGS_YAML_OUT=
 Assertions are made from the Cronicle job log:
 
 - Discord sent: `Sent to Discord #cronicle-automation:`
-- Email sent: `Sent msg` and `hello+qa-testing@protohaven.org`
+- Email sent: `Sent msg` and `qa-testing@protohaven.org`
 - No action: generated empty YAML / `was empty, so nothing to do.` and no
   `Sent to Discord` or `Sent msg`
 - Asana side effect: `marked complete:`
@@ -95,7 +95,7 @@ Assertions are made from the Cronicle job log:
 ### 3.2 Advance notice
 
 Before running any tests, send one message to `#cronicle-automation` and one
-email to `hello+qa-testing@protohaven.org` containing:
+email to `qa-testing@protohaven.org` containing:
 
 - list of jobs about to run
 - expected duration
@@ -597,7 +597,7 @@ These changes are outside the QA harness but needed for safe, meaningful QA:
 - Every Cronicle event ID is mapped to a job-specific setup/run/assert/cleanup
   plan.
 - All comms are overridden to `#cronicle-automation`,
-  `hello+qa-testing@protohaven.org`, and `@workshop_protohaven`.
+  `qa-testing@protohaven.org`, and `@workshop_protohaven`.
 - Cronicle logs, not manual “Confirm message was sent”, determine pass/fail.
 - Cleanup is exception-safe and reports manual cleanup needs to
   `#cronicle-automation`.

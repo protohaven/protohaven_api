@@ -11,7 +11,7 @@ from protohaven_api.qa.cronicle import CronicleClient
 
 log = logging.getLogger("qa.base")
 
-QA_EMAIL = "hello+qa-testing@protohaven.org"
+QA_EMAIL = "qa-testing@protohaven.org"
 QA_CHANNEL = "#cronicle-automation"
 QA_DM = "@workshop_protohaven"
 

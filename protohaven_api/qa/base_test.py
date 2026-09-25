@@ -44,7 +44,7 @@ def test_comms_assertions():
     with pytest.raises(AssertionError):
         assert_no_comms_sent(sent)
 
-    email = JobResult(0, ["j"], {"j": "Sent msg to hello+qa-testing@protohaven.org"})
+    email = JobResult(0, ["j"], {"j": "Sent msg to qa-testing@protohaven.org"})
     assert_sent_email(email)
 
 
