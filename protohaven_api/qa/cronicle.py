@@ -45,7 +45,9 @@ class CronicleClient:
         self.poll_interval = poll_interval
         self.session = requests.Session()
 
-    def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    def _get(
+        self, path: str, params: dict[str, Any] | None = None, raw: bool = False
+    ) -> Any:
         rep = self.session.get(
             f"{self.base_url}{path}",
             headers={"X-API-Key": self.api_key},
@@ -54,6 +56,8 @@ class CronicleClient:
             verify=False,
         )
         rep.raise_for_status()
+        if raw:
+            return rep.text
         return rep.json()
 
     def _post(self, path: str, data: dict[str, Any]) -> Any:
@@ -91,7 +95,8 @@ class CronicleClient:
 
     def job_log(self, job_id: str) -> str:
         """Fetch log output for a single Cronicle job."""
-        rep = self._get("/api/app/get_job_log", {"id": job_id})
+        # Cronicle returns this endpoint as plain text (not JSON) in prod.
+        rep = self._get("/api/app/get_job_log", {"id": job_id}, raw=True)
         if isinstance(rep, str):
             return rep
         for key in ("text", "log", "output", "rows"):
@@ -125,8 +130,9 @@ class CronicleClient:
             time.sleep(self.poll_interval)
 
         logs = {job_id: self.job_log(job_id) for job_id in job_ids}
-        for job_id, text in logs.items():
-            log.info(f"Log for {job_id}:\n{text}")
-        return JobResult(
-            code=code if code is not None else 0, job_ids=job_ids, logs=logs
-        )
+        final_code = code if code is not None else 0
+        outcome = "failed" if final_code != 0 else "succeeded"
+        log.info(f"Cronicle job(s) {outcome}; log links:")
+        for job_id in job_ids:
+            log.info(f"{self.base_url}/#JobDetails?id={job_id}")
+        return JobResult(code=final_code, job_ids=job_ids, logs=logs)

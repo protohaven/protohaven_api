@@ -3,7 +3,7 @@
 import logging
 
 from protohaven_api.integrations import comms
-from protohaven_api.qa.base import QA_CHANNEL, QA_DM, QA_EMAIL, QAContext
+from protohaven_api.qa.base import QA_CHANNEL, QA_EMAIL, QAContext
 
 log = logging.getLogger("qa.comms")
 
@@ -30,8 +30,9 @@ def send_advance_notice(
         "resources/reservations, and Drive files) will be created and cleaned "
         "up automatically.\n"
         f"All generated alerts are overridden to {QA_CHANNEL}; email is "
-        f"overridden to {QA_EMAIL}; DMs are overridden to {QA_DM}. No action "
-        "is needed unless a cleanup failure notice follows."
+        f"overridden to {QA_EMAIL}; DMs are overridden to the dedicated QA "
+        "Discord user (workshop_protohaven). No action is needed unless a "
+        "cleanup failure notice follows."
         f"{failure_warning}"
     )
     try:
