@@ -191,12 +191,15 @@ def test_check_empty_shifts(ctx: QAContext):
     empty = _first_empty_shift(now)
     if empty is not None:
         day, ap, _ = empty
+        log.info(f"Found upcoming empty shift: {day} {ap}")
     else:
         found = _first_shift_with_people(now)
         assert found, "No shift available to force empty"
         day, ap, people, _ = found
+        log.info(f"Forcing empty shift: {day} {ap}")
         _force_empty_shift(ctx, day, ap, people)
 
+    log.info(f"Running on empty shift on {day['date']}")
     result = ctx.run(
         "check_empty_shifts",
         "emryv0nravu",
