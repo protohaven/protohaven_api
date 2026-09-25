@@ -175,6 +175,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.ignore_ovr: list[EventID] = []
         self.filter_ovr: list[EventID] = []
         self.confirm_ovr: list[EventID] = []
+        self.cancel_ovr: list[EventID] = []
 
     def fetch_and_aggregate_data(self):
         """Fetches and aggregates data from Neon and Airtable to use in notifying
@@ -236,6 +237,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
         if evt.event_id in self.confirm_ovr:
             self.push_class(evt, Action.CONFIRM, "override")
+        elif evt.event_id in self.cancel_ovr:
+            self.push_class(evt, Action.CANCEL, "override")
         else:
             log.info(
                 f"Checking actions needed for #{evt.event_id} {evt.name} "

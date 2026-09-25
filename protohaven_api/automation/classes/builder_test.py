@@ -314,6 +314,19 @@ def test_builder_notifications(mocker, evt, caplog, tc):
         assert got == tc.want
 
 
+def test_cancel_override_forces_cancel(mocker, evt):
+    """cancel_ovr forces Action.CANCEL even when the class would confirm."""
+    evt.attendee_count = 6
+    evt.occupancy = 1.0
+    _mock_builder(mocker, upcoming_events=[evt])
+    eb = builder.ClassEmailBuilder()
+    eb.cancel_ovr = ["1234"]
+    got = eb.build(d(EVT_DAY - 1, 20))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "Your class 'Test Event' was canceled" in subjects
+    assert "Test Event is on for January 31!" not in subjects
+
+
 def test_builder_notified(mocker):
     """Tests that `notified` correctly returns True when comms have already been recently
     sent to a target"""

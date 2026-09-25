@@ -203,11 +203,13 @@ class Commands:
         b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"))
         b.ignore_ovr = args.ignore or []
         b.confirm_ovr = args.confirm or []
+        b.cancel_ovr = args.cancel or []
         b.filter_ovr = args.filter or []
         b.published = args.published_only
         log.info(
             f"Configured email builder: ignore_ovr {b.ignore_ovr}"
-            f"confirm_ovr {b.confirm_ovr} filter_ovr {b.filter_ovr} published_only {b.published}"
+            f"confirm_ovr {b.confirm_ovr} cancel_ovr {b.cancel_ovr}"
+            f" filter_ovr {b.filter_ovr} published_only {b.published}"
         )
         result = b.build()
         print_yaml(result)
