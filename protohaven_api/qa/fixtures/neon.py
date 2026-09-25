@@ -27,6 +27,32 @@ def search_qa_accounts():
     return list(neon.search_members_by_email(QA_EMAIL_PREFIX, operator="CONTAIN"))
 
 
+def anonymize_mock_account(account_id: str, run_id: str) -> None:
+    """Rename a QA-created Neon account so it no longer matches the QA search.
+
+    Neon's V2 API does not expose account deletion. This keeps the account
+    from leaking into future QA runs while leaving an auditable record.
+    """
+    neon_base.patch_account(
+        account_id,
+        {
+            "primaryContact": {
+                "email1": f"qa-deleted-{run_id}-{account_id}@protohaven.org",
+                "firstName": "QA Deleted",
+                "lastName": f"{run_id}-{account_id}",
+            }
+        },
+    )
+
+
+def anonymize_legacy_qa_accounts() -> None:
+    """Anonymize any QA-prefixed accounts left by previous failed runs."""
+    for acct in search_qa_accounts():
+        account_id = getattr(acct, "neon_id", None)
+        if account_id:
+            anonymize_mock_account(account_id, f"legacy-{account_id}")
+
+
 @dataclass
 class MockNeonAccount:
     """Handle for a QA-created Neon account."""
@@ -46,7 +72,8 @@ def create_mock_account(ctx: QAContext, job: str) -> MockNeonAccount:
     name = qa_name(job, ctx.run_id)
     neon_id = neon.create_member("QA Cronicle", email, last_name=f"{job} {ctx.run_id}")
     ctx.cleanup.register(
-        f"delete Neon account {neon_id}", lambda: neon.delete_account_unsafe(neon_id)
+        f"anonymize Neon account {neon_id}",
+        lambda: anonymize_mock_account(neon_id, ctx.run_id),
     )
     return MockNeonAccount(neon_id=neon_id, email=email, name=name)
 
