@@ -322,14 +322,14 @@ def _run_class_emails(ctx: QAContext, event_id: str):
 
 def test_class_emails(ctx: QAContext):
     scenarios = [
-        ("LOW_ATTENDANCE_7DAYS", 5, None, 0, 6, ["instructor_low_attendance"]),
+        ("LOW_ATTENDANCE_7DAYS", 5, None, 0, 6, ["help us find"]),
         (
             "SUPPLY_CHECK_NEEDED",
             8,
             "Supply Check Needed",
             0,
             6,
-            ["instructor_check_supplies"],
+            ["please confirm class supplies"],
         ),
         (
             "CONFIRM",
@@ -337,7 +337,7 @@ def test_class_emails(ctx: QAContext):
             None,
             1,
             6,
-            ["instructor_class_confirmed", "registrant_class_confirmed"],
+            ["Your class '", "and will be running"],
         ),
         (
             "CANCEL",
@@ -345,16 +345,19 @@ def test_class_emails(ctx: QAContext):
             None,
             0,
             6,
-            ["instructor_class_canceled", "registrant_class_canceled"],
+            [
+                "If you have any questions",
+                "We can either refund the full amount",
+            ],
         ),
-        ("FOR_TECHS", 1, None, 2, 10, ["tech_openings"]),
+        ("FOR_TECHS", 1, None, 2, 10, ["New classes for tech backfill"]),
         (
             "POST_RUN_SURVEY",
             -2,
             None,
             1,
             6,
-            ["instructor_log_reminder", "registrant_post_class_survey"],
+            ["Please submit instructor log", "Please share feedback"],
         ),
     ]
     for scenario, days_out, supply_state, attendees, capacity, needles in scenarios:
