@@ -338,7 +338,7 @@ def test_class_emails(ctx: QAContext):
             None,
             1,
             6,
-            ["Your class '", "and will be running"],
+            ["Your class '", "is on for"],
         ),
         (
             "CANCEL",
@@ -346,10 +346,7 @@ def test_class_emails(ctx: QAContext):
             None,
             0,
             6,
-            [
-                "If you have any questions",
-                "We can either refund the full amount",
-            ],
+            ["Your class '", "was canceled"],
         ),
         ("FOR_TECHS", 1, None, 3, 10, ["New classes for tech backfill"]),
         (
