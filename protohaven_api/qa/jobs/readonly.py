@@ -8,7 +8,7 @@ import logging
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, neon, neon_base
+from protohaven_api.integrations import airtable, neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.qa.base import (
     QAContext,
@@ -288,13 +288,11 @@ def _create_class_event(
     )
 
     if attendees:
-        ticket_id = neon.fetch_event(
-            event_id, tickets=True
-        ).single_registration_ticket_id
-        assert ticket_id
+        # QA events are free Neon events; free classes do not have a Neon
+        # ticket ID. Registration still works with a null ticket ID.
         for i in range(attendees):
             acct = neon_fixture.create_mock_account(ctx, f"class-emails-{scenario}-{i}")
-            neon_fixture.register_for_event(ctx, acct.neon_id, event_id, ticket_id)
+            neon_fixture.register_for_event(ctx, acct.neon_id, event_id, None)
 
     fields = {k: v for k, v in raw["fields"].items() if k in _SCHEDULE_WRITABLE_FIELDS}
     fields.update(

@@ -84,7 +84,7 @@ def create_membership(
 
 
 def register_for_event(
-    ctx: QAContext, account_id: str, event_id: str, ticket_id: str
+    ctx: QAContext, account_id: str, event_id: str, ticket_id: str | None
 ) -> None:
     """Register a mock Neon account for a QA event and register cleanup."""
     neon.register_for_event(account_id, event_id, ticket_id)
