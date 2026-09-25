@@ -81,7 +81,10 @@ class CronicleClient:
             "id": event_id,
             "retries": 0,
             "timeout": self.job_timeout,
-            "params": {"image": image, **params},
+            # The Cronicle docker plugin reads the image name from the
+            # uppercase IMAGE job param. Put it last so it always wins over
+            # any IMAGE param already configured on the event.
+            "params": {**params, "IMAGE": image},
         }
         rep = self._post("/api/app/run_event/v2", data)
         if "ids" not in rep:

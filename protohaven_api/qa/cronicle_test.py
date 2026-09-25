@@ -17,7 +17,22 @@ def test_run_event_returns_ids(mocker):
             "id": "evt",
             "retries": 0,
             "timeout": client.job_timeout,
-            "params": {"image": "img", "ARGS": "--help"},
+            "params": {"ARGS": "--help", "IMAGE": "img"},
+        },
+    )
+
+
+def test_run_event_image_overrides_existing_image_param(mocker):
+    client = CronicleClient("https://cron.example", "key")
+    mock_post = mocker.patch.object(client, "_post", return_value={"ids": ["j1"]})
+    assert client.run_event("evt", "img", {"IMAGE": "old", "ARGS": "--help"}) == ["j1"]
+    mock_post.assert_called_once_with(
+        "/api/app/run_event/v2",
+        {
+            "id": "evt",
+            "retries": 0,
+            "timeout": client.job_timeout,
+            "params": {"IMAGE": "img", "ARGS": "--help"},
         },
     )
 
