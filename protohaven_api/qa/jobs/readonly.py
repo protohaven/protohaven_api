@@ -69,6 +69,7 @@ def test_check_door_sensors(ctx: QAContext):
         send_comms=True,
     )
     for name in _event_args_names(args):
+        log.info(f"Asserting log contains: {name}")
         assert_log_contains(result.text, [name])
     _assert_conditional_comms(result)
 
@@ -143,6 +144,7 @@ def test_tech_sign_ins(ctx: QAContext):
         when.isoformat(),
         person.name,
     )
+    log.info(f"Running sign-in with people found on: {when.isoformat}")
     result = ctx.run(
         "tech_sign_ins",
         "elzn07uwhqg",
@@ -172,7 +174,7 @@ def test_tech_sign_ins(ctx: QAContext):
     else:
         _, _, when = empty
 
-    log.info("Running tech_sign_ins against shift: {when.isoformat()}")
+    log.info(f"Running tech_sign_ins against shift: {when.isoformat()}")
     result = ctx.run(
         "tech_sign_ins",
         "elzn07uwhqg",
