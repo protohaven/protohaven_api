@@ -130,8 +130,13 @@ class CronicleClient:
             time.sleep(self.poll_interval)
 
         logs = {job_id: self.job_log(job_id) for job_id in job_ids}
-        for job_id, text in logs.items():
-            log.info(f"Log for {job_id}:\n{text}")
-        return JobResult(
-            code=code if code is not None else 0, job_ids=job_ids, logs=logs
-        )
+        final_code = code if code is not None else 0
+        if final_code != 0:
+            for job_id, text in logs.items():
+                log.info(f"Log for {job_id}:\n{text}")
+        else:
+            log.info(
+                "Cronicle job(s) succeeded; omitting full logs. "
+                "Use Cronicle job details for full output if needed."
+            )
+        return JobResult(code=final_code, job_ids=job_ids, logs=logs)
