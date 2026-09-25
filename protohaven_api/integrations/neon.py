@@ -609,9 +609,16 @@ def delete_account_unsafe(account_id):
 
     This is intended for QA-created mock accounts. Neon may not support
     account deletion for all account types; failures must be escalated for
-    manual cleanup.
+    manual cleanup. A 404 is treated as success because the account is
+    already gone.
     """
-    return neon_base.delete("api_key2", f"/accounts/{account_id}")
+    try:
+        return neon_base.delete("api_key2", f"/accounts/{account_id}")
+    except RuntimeError as e:
+        if "returned 404" in str(e):
+            log.info(f"Neon account {account_id} already absent; nothing to delete")
+            return None
+        raise
 
 
 def patch_member_role(neon_id: NeonID, role, enabled: bool):

@@ -309,11 +309,14 @@ def _create_class_event(
     return event_id
 
 
-def _run_class_emails(ctx: QAContext, event_id: str):
+def _run_class_emails(ctx: QAContext, event_id: str, extra: str = ""):
+    args = f"--filter={event_id} --no-published_only"
+    if extra:
+        args = f"{args} {extra}"
     return ctx.run(
         "gen_class_emails",
         "elwnkuoqf8g",
-        f"--filter={event_id} --no-published_only",
+        args,
         send_comms=True,
     )
 
@@ -348,7 +351,7 @@ def test_class_emails(ctx: QAContext):
                 "We can either refund the full amount",
             ],
         ),
-        ("FOR_TECHS", 1, None, 2, 10, ["New classes for tech backfill"]),
+        ("FOR_TECHS", 1, None, 3, 10, ["New classes for tech backfill"]),
         (
             "POST_RUN_SURVEY",
             -2,
@@ -367,7 +370,11 @@ def test_class_emails(ctx: QAContext):
             attendees=attendees,
             capacity=capacity,
         )
-        result = _run_class_emails(ctx, event_id)
+        extra = {
+            "CONFIRM": f"--confirm={event_id}",
+            "CANCEL": f"--cancel={event_id}",
+        }.get(scenario, "")
+        result = _run_class_emails(ctx, event_id, extra)
         assert result.code == 0
         assert_log_contains(result.text, needles)
         if scenario == "FOR_TECHS":

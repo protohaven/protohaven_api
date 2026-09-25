@@ -160,6 +160,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                     "subject": "Test Event: Please share feedback",
                 },
                 {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
+                    "subject": "Test Event: Please share feedback",
+                },
+                {
                     "id": "N/A",
                     "target": "#class-automation",
                     "subject": "Automation notification summary",
@@ -216,6 +221,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
                 {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
+                    "subject": "Your class 'Test Event' is on for January 31!",
+                },
+                {
                     "id": "N/A",
                     "target": "#class-automation",
                     "subject": "Automation notification summary",
@@ -235,6 +245,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
+                    "subject": "Your class 'Test Event' is on for January 31!",
+                },
+                {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
                 {
@@ -262,6 +277,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
+                    "subject": "Your class 'Test Event' was canceled",
+                },
+                {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
                     "subject": "Your class 'Test Event' was canceled",
                 },
                 {

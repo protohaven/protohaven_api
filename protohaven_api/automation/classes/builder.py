@@ -305,12 +305,13 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def _build_registrant_notification(self, evt, action, a):
         """Build notification for a registrant `a` about event `evt`"""
-        if a.email is None:
+        email = self.attendee_emails.get(a.neon_id, a.email)
+        if email is None:
             self.log.error(f"Skipping email to attendee {a.fname}; no email given")
             return
-        if self.notified(a.email, evt, action.day_offset):
+        if self.notified(email, evt, action.day_offset):
             self.log.debug(
-                f"Skipping email to attendee {a.fname} ({a.email}); already notified"
+                f"Skipping email to attendee {a.fname} ({email}); already notified"
             )
             return
         tmpl = {
@@ -327,7 +328,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 action,
                 Msg.tmpl(
                     tmpl,
-                    target=f"{a.name} ({a.email})",
+                    target=f"{a.name} ({email})",
                     evt=evt,
                     a=a,
                     now=tznow(),
