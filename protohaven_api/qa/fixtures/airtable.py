@@ -26,8 +26,11 @@ def insert_record(
     description: str,
 ) -> str:
     """Insert one record and register its deletion."""
-    _, content = airtable_base.insert_records([fields], base, table)
-    rec_id = _record_ids(content)[0]
+    status, content = airtable_base.insert_records([fields], base, table)
+    ids = _record_ids(content)
+    if status != 200 or not ids:
+        raise RuntimeError(f"Insert {base}/{table} failed: {status} {content}")
+    rec_id = ids[0]
     ctx.cleanup.register(
         f"delete Airtable {base}/{table} record {rec_id} ({description})",
         lambda: airtable_base.delete_record(base, table, rec_id),
@@ -48,8 +51,13 @@ def create_signin(ctx: QAContext, email: str, created: str, full_name: str) -> s
 
 def create_schedule_row(ctx: QAContext, payload: dict[str, Any]) -> str:
     """Create a class schedule row and register its deletion."""
-    _, content = airtable.append_classes_to_schedule([payload])
-    rec_id = _record_ids(content)[0]
+    status, content = airtable.append_classes_to_schedule([payload])
+    ids = _record_ids(content)
+    if status != 200 or not ids:
+        raise RuntimeError(
+            f"Insert class_automation/schedule failed: {status} {content}"
+        )
+    rec_id = ids[0]
     ctx.cleanup.register(
         f"delete class_automation/schedule record {rec_id}",
         lambda: airtable_base.delete_record("class_automation", "schedule", rec_id),

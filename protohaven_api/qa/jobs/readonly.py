@@ -236,6 +236,25 @@ def _copyable_schedule_row():
     raise AssertionError("No existing Airtable class schedule row to copy")
 
 
+# Only writable Schedule table fields should be sent to NocoDB. Lookup fields
+# (e.g. "Name (from Class)") and system fields ("Id", "nc_order") are derived
+# or maintained by the database and reject inserts when included explicitly.
+_SCHEDULE_WRITABLE_FIELDS = {
+    "Class",
+    "Sessions",
+    "Email",
+    "Instructor",
+    "Confirmed",
+    "Rejected",
+    "Neon ID",
+    "Event ID",
+    "Supply State",
+    "Instructor ID",
+    "Instructor Log Date",
+    "Volunteer",
+}
+
+
 def _create_class_event(
     ctx: QAContext,
     scenario: str,
@@ -277,14 +296,13 @@ def _create_class_event(
             acct = neon_fixture.create_mock_account(ctx, f"class-emails-{scenario}-{i}")
             neon_fixture.register_for_event(ctx, acct.neon_id, event_id, ticket_id)
 
-    fields = dict(raw["fields"])
+    fields = {k: v for k, v in raw["fields"].items() if k in _SCHEDULE_WRITABLE_FIELDS}
     fields.update(
         {
             "Neon ID": event_id,
             "Sessions": start.isoformat(),
             "Confirmed": tznow().isoformat(),
             "Rejected": "",
-            "Name": name,
         }
     )
     if supply_state is not None:
