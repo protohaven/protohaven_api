@@ -87,13 +87,16 @@ def test_check_cameras(ctx: QAContext):
     _assert_conditional_comms(result)
 
 
-def _first_shift_with_people(now, exclude=None):
+def _first_shift_with_people(now, exclude=None, skip_overrides=False):
     exclude = exclude or set()
     for day in forecast.generate(now, 7, include_pii=True)["calendar_view"]:
         for ap, hour in (("AM", 11), ("PM", 17)):
             if (day["date"], ap) in exclude:
                 continue
-            people = day[ap]["people"]
+            shift = day[ap]
+            if skip_overrides and shift.get("ovr"):
+                continue
+            people = shift["people"]
             if people and not day["is_holiday"]:
                 when = safe_parse_datetime(day["date"]).replace(
                     hour=hour, minute=0, second=0, microsecond=0
@@ -116,12 +119,23 @@ def _first_empty_shift(now, exclude=None):
     return None
 
 
-def _force_empty_shift(ctx: QAContext, day, ap, people) -> None:
+def _default_shift_people(shift):
+    """Return the people on a shift before any override was applied."""
+    ovr = shift.get("ovr") or {}
+    if "orig" in ovr:
+        return ovr["orig"]
+    return shift["people"]
+
+
+def _force_empty_shift(ctx: QAContext, day, ap) -> None:
+    """Force a forecast shift to be empty using its pre-override people."""
+    shift = day[ap]
+    assert not shift.get("ovr"), "Cannot force empty a shift with existing override"
     airtable_fixture.create_empty_shift_override(
         ctx,
         day["date"],
         ap,
-        [p.name for p in people],
+        [p.name for p in _default_shift_people(shift)],
     )
 
 
@@ -157,19 +171,12 @@ def test_tech_sign_ins(ctx: QAContext):
     # Alert case: use a nearby empty shift, forcing one if necessary.
     empty = _first_empty_shift(now, exclude={(day["date"], ap)})
     if empty is None:
-        target = None
-        for d in forecast.generate(now, 7, include_pii=True)["calendar_view"]:
-            for a in ("AM", "PM"):
-                if (d["date"], a) == (day["date"], ap):
-                    continue
-                if d[a]["people"] and not d["is_holiday"]:
-                    target = (d, a, d[a]["people"])
-                    break
-            if target:
-                break
-        assert target, "No shift available to force empty for alert case"
-        target_day, target_ap, target_people = target
-        _force_empty_shift(ctx, target_day, target_ap, target_people)
+        found = _first_shift_with_people(
+            now, exclude={(day["date"], ap)}, skip_overrides=True
+        )
+        assert found, "No clean shift available to force empty for alert case"
+        target_day, target_ap, _, _ = found
+        _force_empty_shift(ctx, target_day, target_ap)
         when = _shift_when(now, target_day, target_ap)
     else:
         _, _, when = empty
@@ -193,11 +200,11 @@ def test_check_empty_shifts(ctx: QAContext):
         day, ap, _ = empty
         log.info(f"Found upcoming empty shift: {day} {ap}")
     else:
-        found = _first_shift_with_people(now)
-        assert found, "No shift available to force empty"
-        day, ap, people, _ = found
+        found = _first_shift_with_people(now, skip_overrides=True)
+        assert found, "No clean shift available to force empty"
+        day, ap, _, _ = found
         log.info(f"Forcing empty shift: {day} {ap}")
-        _force_empty_shift(ctx, day, ap, people)
+        _force_empty_shift(ctx, day, ap)
 
     match = _first_empty_shift(now)
     assert match
