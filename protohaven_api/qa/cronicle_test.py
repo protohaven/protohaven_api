@@ -63,10 +63,14 @@ def test_run_and_fetch_logs_omits_full_logs_on_success(mocker):
     result = client.run_and_fetch_logs("evt", "img", {})
     assert result.code == 0
     assert result.text == "job output"
-    assert all("Log for j1:" not in str(call) for call in log_info.call_args_list)
+    assert any(
+        "https://cron.example/#JobDetails?id=j1" in str(call)
+        for call in log_info.call_args_list
+    )
+    assert all("job output" not in str(call) for call in log_info.call_args_list)
 
 
-def test_run_and_fetch_logs_emits_full_logs_on_failure(mocker):
+def test_run_and_fetch_logs_links_to_logs_on_failure(mocker):
     client = CronicleClient("https://cron.example", "key", poll_interval=0)
     mocker.patch.object(client, "_post", return_value={"ids": ["j1"]})
     mocker.patch.object(
@@ -81,7 +85,11 @@ def test_run_and_fetch_logs_emits_full_logs_on_failure(mocker):
     result = client.run_and_fetch_logs("evt", "img", {})
     assert result.code == 1
     assert result.text == "job failed output"
-    assert any("Log for j1:" in str(call) for call in log_info.call_args_list)
+    assert any(
+        "https://cron.example/#JobDetails?id=j1" in str(call)
+        for call in log_info.call_args_list
+    )
+    assert all("job failed output" not in str(call) for call in log_info.call_args_list)
 
 
 def test_run_and_fetch_logs_timeout(mocker):

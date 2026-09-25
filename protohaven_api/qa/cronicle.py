@@ -131,12 +131,8 @@ class CronicleClient:
 
         logs = {job_id: self.job_log(job_id) for job_id in job_ids}
         final_code = code if code is not None else 0
-        if final_code != 0:
-            for job_id, text in logs.items():
-                log.info(f"Log for {job_id}:\n{text}")
-        else:
-            log.info(
-                "Cronicle job(s) succeeded; omitting full logs. "
-                "Use Cronicle job details for full output if needed."
-            )
+        outcome = "failed" if final_code != 0 else "succeeded"
+        log.info(f"Cronicle job(s) {outcome}; log links:")
+        for job_id in job_ids:
+            log.info(f"{self.base_url}/#JobDetails?id={job_id}")
         return JobResult(code=final_code, job_ids=job_ids, logs=logs)
