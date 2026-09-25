@@ -38,7 +38,7 @@ def test_run_and_fetch_logs_polls(mocker):
         side_effect=[
             {"job": {"complete": 0}},
             {"job": {"complete": 1, "code": 0}},
-            {"text": "job output"},
+            "job output",
         ],
     )
     result = client.run_and_fetch_logs("evt", "img", {})

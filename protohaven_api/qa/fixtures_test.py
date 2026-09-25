@@ -15,5 +15,5 @@ def test_search_qa_accounts_uses_contains(mocker):
     mock_search = mocker.patch.object(neon_fixture.neon, "search_members_by_email")
     neon_fixture.search_qa_accounts()
     mock_search.assert_called_once_with(
-        neon_fixture.QA_EMAIL_PREFIX, operator="CONTAINS"
+        neon_fixture.QA_EMAIL_PREFIX, operator="CONTAIN"
     )
