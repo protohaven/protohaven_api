@@ -172,6 +172,7 @@ def test_tech_sign_ins(ctx: QAContext):
     else:
         _, _, when = empty
 
+    log.info("Running tech_sign_ins against shift: {when.isoformat()}")
     result = ctx.run(
         "tech_sign_ins",
         "elzn07uwhqg",
@@ -180,7 +181,7 @@ def test_tech_sign_ins(ctx: QAContext):
     )
     assert result.code == 0
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["shift_no_techs"])
+    assert_log_contains(result.text, ["shift has no signed in techs"])
 
 
 def test_check_empty_shifts(ctx: QAContext):
