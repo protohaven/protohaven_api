@@ -199,6 +199,10 @@ def test_check_empty_shifts(ctx: QAContext):
         log.info(f"Forcing empty shift: {day} {ap}")
         _force_empty_shift(ctx, day, ap, people)
 
+    match = _first_empty_shift(now)
+    log.info(f"First empty shift: {match[0]}, {match[1]}")
+    assert match
+
     log.info(f"Running on empty shift on {day['date']}")
     result = ctx.run(
         "check_empty_shifts",
