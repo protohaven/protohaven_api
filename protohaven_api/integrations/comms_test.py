@@ -65,6 +65,36 @@ def test_send_discord_message_channel_override(mocker):
     )
 
 
+def test_send_discord_message_retries_transient_webhook_errors(mocker):
+    """Transient Discord 5xx/429 responses are retried."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={"webhooks": {"test_channel": "https://test_webhook"}},
+    )
+    conn = mocker.patch.object(c, "get_connector").return_value
+    conn.discord_webhook.side_effect = [
+        mocker.Mock(status_code=503),
+        mocker.Mock(status_code=204),
+    ]
+    c.send_discord_message("Test content", "#test_channel")
+    assert conn.discord_webhook.call_count == 2
+
+
+def test_send_discord_message_retry_returns_last_failure(mocker):
+    """If all Discord webhook attempts fail, the last response is returned."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={"webhooks": {"test_channel": "https://test_webhook"}},
+    )
+    conn = mocker.patch.object(c, "get_connector").return_value
+    conn.discord_webhook.return_value = mocker.Mock(status_code=503)
+    result = c.send_discord_message("Test content", "#test_channel")
+    assert conn.discord_webhook.call_count == 3
+    assert result.status_code == 503
+
+
 def test_send_discord_message_dm(mocker):
     """Ensure #user targets are sent via DM"""
     mocker.patch.object(

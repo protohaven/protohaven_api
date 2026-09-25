@@ -6,6 +6,7 @@ see https://myaccount.google.com/u/3/lesssecureapps
 
 import logging
 import re
+import time
 import traceback
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -118,6 +119,32 @@ def send_email(subject, body, recipients, html):
 DISCORD_CHAR_LIMIT = 1950
 
 
+DISCORD_RETRYABLE_STATUSES = (429, 500, 502, 503, 504)
+DISCORD_MAX_ATTEMPTS = 3
+
+
+def _discord_webhook_with_retry(channel, content):
+    """POST to a Discord webhook, retrying transient HTTP failures.
+
+    Discord occasionally returns 429/5xx during QA and production runs.
+    Returning the final response preserves the caller's raise_for_status
+    behavior so permanent failures still propagate.
+    """
+    result = None
+    for attempt in range(DISCORD_MAX_ATTEMPTS):
+        result = get_connector().discord_webhook(channel, content)
+        if result.status_code not in DISCORD_RETRYABLE_STATUSES:
+            return result
+        if attempt < DISCORD_MAX_ATTEMPTS - 1:
+            delay = 2**attempt
+            log.warning(
+                f"Discord webhook returned {result.status_code}; "
+                f"retrying in {delay}s (attempt {attempt + 1}/{DISCORD_MAX_ATTEMPTS})"
+            )
+            time.sleep(delay)
+    return result
+
+
 def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
@@ -201,7 +228,7 @@ def send_discord_message(content, channel=None, blocking=True):
     for i in range(0, len(content), DISCORD_CHAR_LIMIT):
         chunk = content[i : i + DISCORD_CHAR_LIMIT]
         log.info(f"Sending msg ({len(chunk)}/{len(content)} chars)")
-        result = get_connector().discord_webhook(channel, chunk)
+        result = _discord_webhook_with_retry(channel, chunk)
         if blocking:
             result.raise_for_status()
     return result
