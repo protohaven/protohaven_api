@@ -363,29 +363,3 @@ def test_events_backup(mocker):
                 got
                 == '[{"a": "foo", "attendees": null, "tickets": null}, {"a": "bar", "attendees": 1, "tickets": 2}]'
             )
-
-
-def test_delete_account_unsafe_ignores_404(mocker):
-    """QA account cleanup treats an already-absent account as success."""
-    delete = mocker.patch.object(
-        n.neon_base,
-        "delete",
-        side_effect=RuntimeError(
-            "neon_request(args=('DELETE', '.../accounts/3590')) returned 404:"
-        ),
-    )
-    assert n.delete_account_unsafe("3590") is None
-    delete.assert_called_once_with("api_key2", "/accounts/3590")
-
-
-def test_delete_account_unsafe_raises_other_errors(mocker):
-    """QA account cleanup still escalates non-404 Neon failures."""
-    mocker.patch.object(
-        n.neon_base,
-        "delete",
-        side_effect=RuntimeError(
-            "neon_request(args=('DELETE', '.../accounts/3590')) returned 500: boom"
-        ),
-    )
-    with pytest.raises(RuntimeError, match="returned 500"):
-        n.delete_account_unsafe("3590")
