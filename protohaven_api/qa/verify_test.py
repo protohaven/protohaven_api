@@ -16,7 +16,7 @@ def test_no_qa_neon_accounts_passes(mocker):
 
 
 def test_no_qa_neon_accounts_raises(mocker):
-    acct = mocker.Mock(neon_id="123", email="hello+qa-cronicle-x-1@protohaven.org")
+    acct = mocker.Mock(neon_id="123", email="qa-testing+qa-cronicle-x-1@protohaven.org")
     mocker.patch.object(
         verify.neon_fixture, "anonymize_legacy_qa_accounts", return_value=None
     )

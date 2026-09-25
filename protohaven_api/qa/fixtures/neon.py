@@ -9,7 +9,7 @@ from typing import Any
 from protohaven_api.integrations import neon, neon_base
 from protohaven_api.qa.base import QAContext
 
-QA_EMAIL_PREFIX = "hello+qa-cronicle-"
+QA_EMAIL_PREFIX = "qa-testing+qa-cronicle-"
 
 
 def qa_email(job: str, run_id: str) -> str:

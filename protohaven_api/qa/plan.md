@@ -121,7 +121,7 @@ Every mock resource is registered in a `CleanupStack`. Cleanup runs in
 Every QA-created Neon account uses a unique, searchable identity:
 
 ```text
-email:    hello+qa-cronicle-<job>-<run_id>@protohaven.org
+email:    qa-testing+qa-cronicle-<job>-<run_id>@protohaven.org
 first:    QA Cronicle
 last:     <Job> <run_id>
 ```
@@ -575,7 +575,7 @@ These changes are outside the QA harness but needed for safe, meaningful QA:
 4. Add `--filter` to `gen_maintenance_tasks`.
 5. Make `sync_booked_members --include` safe for scoped runs without rewriting
    the full Members group.
-6. Ensure QA mock Neon accounts use the `hello+qa-cronicle-*` convention and
+6. Ensure QA mock Neon accounts use the `qa-testing+qa-cronicle-*` convention and
    final verification can search for them.
 
 ## 7. Unit-test strategy for the QA harness

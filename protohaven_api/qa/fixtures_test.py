@@ -7,7 +7,7 @@ from protohaven_api.qa.fixtures import neon as neon_fixture
 
 def test_qa_email_is_unique_and_searchable():
     email = neon_fixture.qa_email("sync-booked-members", "abc123")
-    assert email == "hello+qa-cronicle-sync-booked-members-abc123@protohaven.org"
+    assert email == "qa-testing+qa-cronicle-sync-booked-members-abc123@protohaven.org"
     assert email.startswith(neon_fixture.QA_EMAIL_PREFIX)
 
 
