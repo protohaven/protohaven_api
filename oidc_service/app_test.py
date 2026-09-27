@@ -7,7 +7,7 @@ import jwt
 import pytest
 
 from oidc_service import app as oidc_app
-from oidc_service import helpers
+from oidc_service import auth_codes, clients
 
 ISSUER = "http://127.0.0.1:5002"
 REDIRECT_URI = "http://localhost:6875/oidc/callback"
@@ -72,10 +72,26 @@ def _oidc_request():
     }
 
 
-def _auth_code(app, claims=None):
-    return helpers.create_auth_code(
-        app, _oidc_request(), claims or {"sub": "1234", "neon_id": "1234"}
+def _auth_code(app, user_claims=None):
+    return auth_codes.create_auth_code(
+        app,
+        _oidc_request(),
+        user_claims or {"sub": "1234", "neon_id": "1234"},
     )
+
+
+def test_prod_requires_configured_signing_key(mocker):
+    """Production mode fails fast instead of generating an ephemeral key."""
+    cfg = _config()
+    cfg["general/server_mode"] = "prod"
+    mocker.patch.object(
+        oidc_app,
+        "get_config",
+        side_effect=lambda path, default=None: cfg.get(path, default),
+    )
+
+    with pytest.raises(RuntimeError):
+        oidc_app.create_app()
 
 
 def test_openid_configuration(client):
@@ -91,7 +107,7 @@ def test_openid_configuration(client):
 
 def test_parse_clients_ignores_unsubstituted_env_placeholders():
     """Clients with missing env values are ignored instead of being used."""
-    parsed = helpers.parse_clients(
+    parsed = clients.parse_clients(
         [
             {
                 "client_id": "ok",
@@ -163,7 +179,7 @@ def test_callback_redirects_with_signed_code(mocker, app, client):
     mocker.patch.object(
         oidc_app.oauth, "retrieve_token", return_value={"access_token": "1234"}
     )
-    mocker.patch.object(oidc_app.helpers, "fetch_neon_member", return_value=_member())
+    mocker.patch.object(oidc_app.claims, "fetch_neon_member", return_value=_member())
     with client.session_transaction() as session:
         session["oidc_request"] = _oidc_request()
 
@@ -177,7 +193,7 @@ def test_callback_redirects_with_signed_code(mocker, app, client):
     params = parse_qs(location.query)
     assert params["state"] == ["xyz"]
     code = params["code"][0]
-    decoded = helpers.load_auth_code(app, code)
+    decoded = auth_codes.load_auth_code(app, code)
     assert decoded["claims"]["sub"] == "1234"
     assert decoded["claims"]["roles"] == ["Admin", "Instructor"]
     assert decoded["claims"]["email"] == "ada@example.com"

@@ -52,9 +52,14 @@ def at_hash(token: str) -> str:
     return base64.urlsafe_b64encode(digest[:16]).rstrip(b"=").decode()
 
 
-def generate_rsa_key():
-    """Generate an RSA keypair for token signing."""
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+def generate_rsa_key(key_size: int = 3072):
+    """Generate an RSA keypair for token signing.
+
+    ``key_size`` defaults to 3072 bits: 2048 is still widely interoperable, but
+    3072 provides a better security margin for a long-lived signing key without
+    meaningful practical impact on OIDC token signing/verification.
+    """
+    key = rsa.generate_private_key(public_exponent=65537, key_size=key_size)
     private_pem = key.private_bytes(
         serialization.Encoding.PEM,
         serialization.PrivateFormat.PKCS8,
@@ -67,12 +72,23 @@ def generate_rsa_key():
     return private_pem, public_pem
 
 
-def setup_signing_keys(app):
-    """Load or generate the RSA keypair used to sign JWTs."""
+def setup_signing_keys(app, allow_ephemeral: bool = False):
+    """Load or generate the RSA keypair used to sign JWTs.
+
+    Ephemeral keys are only allowed when explicitly requested. In production,
+    ``create_app`` passes ``allow_ephemeral=False`` so a missing or invalid key
+    fails fast instead of silently issuing tokens signed by a key that will
+    disappear on the next restart.
+    """
     private_pem = app.config.get("OIDC_PRIVATE_KEY_PEM")
     if isinstance(private_pem, str):
         private_pem = private_pem.replace("\\n", "\n").encode("utf8")
     if not private_pem:
+        if not allow_ephemeral:
+            raise RuntimeError(
+                "oidc/rsa_private_key is required in production; refusing to "
+                "generate an ephemeral signing key"
+            )
         private_pem, _ = generate_rsa_key()
         app.logger.warning(
             "No oidc/rsa_private_key configured; generated an ephemeral RSA key. "

@@ -5,9 +5,10 @@ The provider delegates authentication to Neon CRM using the existing
 ``protohaven_api.integrations.neon_base`` module, which means this service
 reuses the repository's Neon integration rather than reimplementing it.
 
-Web handlers in this module stay intentionally thin. Client validation, claim
-building, authorization-code handling, and Neon account fetching live in
-``helpers.py``. JWT/key handling lives in ``tokens.py``.
+Web handlers in this module stay intentionally thin. Client validation lives in
+``clients.py``, claim building and Neon account fetching in ``claims.py``,
+authorization-code handling in ``auth_codes.py``, request/response helpers in
+``web.py``, and JWT/key handling in ``tokens.py``.
 """
 
 import logging
@@ -16,7 +17,7 @@ import secrets
 from flask import Flask, Response, jsonify, redirect, request, session
 from itsdangerous import BadData, SignatureExpired
 
-from oidc_service import helpers, tokens
+from oidc_service import auth_codes, claims, clients, tokens, web
 from protohaven_api import oauth
 from protohaven_api.config import get_config
 
@@ -28,19 +29,19 @@ def create_app():  # pylint: disable=too-many-statements
 
     configured_secret = get_config("oidc/session_secret")
     app.secret_key = (
-        None if helpers.unset(configured_secret) else configured_secret
+        None if clients.unset(configured_secret) else configured_secret
     ) or secrets.token_hex(32)
-    if helpers.unset(configured_secret):
+    if clients.unset(configured_secret):
         app.logger.warning(
             "No oidc/session_secret configured; using an ephemeral Flask session key."
         )
 
     issuer = str(get_config("oidc/issuer", "http://127.0.0.1:5002")).rstrip("/")
-    if helpers.unset(issuer):
+    if clients.unset(issuer):
         issuer = "http://127.0.0.1:5002"
     app.config["OIDC_ISSUER"] = issuer
 
-    app.config["OIDC_CLIENTS"] = helpers.parse_clients(get_config("oidc/clients", []))
+    app.config["OIDC_CLIENTS"] = clients.parse_clients(get_config("oidc/clients", []))
     if not app.config["OIDC_CLIENTS"]:
         app.logger.warning(
             "No OIDC clients configured; all authorization requests will fail."
@@ -54,9 +55,10 @@ def create_app():  # pylint: disable=too-many-statements
 
     private_key_pem = get_config("oidc/rsa_private_key")
     app.config["OIDC_PRIVATE_KEY_PEM"] = (
-        None if helpers.unset(private_key_pem) else private_key_pem
+        None if clients.unset(private_key_pem) else private_key_pem
     )
-    tokens.setup_signing_keys(app)
+    server_mode = str(get_config("general/server_mode", "dev")).lower()
+    tokens.setup_signing_keys(app, allow_ephemeral=server_mode != "prod")
 
     @app.get("/.well-known/openid-configuration")
     def openid_configuration():
@@ -72,7 +74,7 @@ def create_app():  # pylint: disable=too-many-statements
                 "subject_types_supported": ["public"],
                 "id_token_signing_alg_values_supported": ["RS256"],
                 "scopes_supported": list(tokens.SUPPORTED_SCOPES),
-                "claims_supported": list(helpers.USERINFO_CLAIM_NAMES),
+                "claims_supported": list(claims.USERINFO_CLAIM_NAMES),
                 "token_endpoint_auth_methods_supported": [
                     "client_secret_post",
                     "client_secret_basic",
@@ -98,22 +100,20 @@ def create_app():  # pylint: disable=too-many-statements
         response_type = request.args.get("response_type", "")
         state = request.args.get("state")
         nonce = request.args.get("nonce")
-        scopes = helpers.requested_scopes()
+        scopes = web.requested_scopes()
 
         if response_type != "code":
-            return helpers.oidc_json_error(
+            return web.oidc_json_error(
                 "unsupported_response_type", "Only response_type=code is supported"
             )
         if "openid" not in scopes:
-            return helpers.oidc_json_error(
-                "invalid_scope", "The openid scope is required"
-            )
+            return web.oidc_json_error("invalid_scope", "The openid scope is required")
 
-        client = helpers.find_client(app, client_id)
+        client = clients.find_client(app, client_id)
         if client is None:
-            return helpers.oidc_json_error("unauthorized_client", "Unknown client_id")
-        if not redirect_uri or not helpers.valid_redirect_uri(client, redirect_uri):
-            return helpers.oidc_json_error(
+            return web.oidc_json_error("unauthorized_client", "Unknown client_id")
+        if not redirect_uri or not clients.valid_redirect_uri(client, redirect_uri):
+            return web.oidc_json_error(
                 "invalid_request", "redirect_uri is not registered for this client"
             )
 
@@ -140,7 +140,7 @@ def create_app():  # pylint: disable=too-many-statements
         state = oidc_request.get("state")
         neon_error = request.args.get("error")
         if neon_error:
-            return helpers.oidc_redirect_error(
+            return web.oidc_redirect_error(
                 redirect_uri,
                 "access_denied",
                 request.args.get("error_description", neon_error),
@@ -149,7 +149,7 @@ def create_app():  # pylint: disable=too-many-statements
 
         code = request.args.get("code")
         if not code:
-            return helpers.oidc_redirect_error(
+            return web.oidc_redirect_error(
                 redirect_uri, "invalid_request", "Missing authorization code", state
             )
 
@@ -160,19 +160,19 @@ def create_app():  # pylint: disable=too-many-statements
                 raise RuntimeError(
                     f"Neon token response did not contain access_token: {neon_token}"
                 )
-            member = helpers.fetch_neon_member(neon_id)
-            claims = helpers.member_claims(member, oidc_request["scope"].split())
-            auth_code = helpers.create_auth_code(app, oidc_request, claims)
+            member = claims.fetch_neon_member(neon_id)
+            user_claims = claims.member_claims(member, oidc_request["scope"].split())
+            auth_code = auth_codes.create_auth_code(app, oidc_request, user_claims)
         except Exception:  # pylint: disable=broad-exception-caught
             app.logger.exception("Failed to complete Neon OIDC authentication")
-            return helpers.oidc_redirect_error(
+            return web.oidc_redirect_error(
                 redirect_uri, "server_error", "Neon authentication failed", state
             )
 
         return redirect(
-            helpers.url_with_params(
+            web.url_with_params(
                 redirect_uri,
-                {"code": auth_code, **helpers.state_params(state)},
+                {"code": auth_code, **web.state_params(state)},
             )
         )
 
@@ -180,52 +180,46 @@ def create_app():  # pylint: disable=too-many-statements
     def token():  # pylint: disable=too-many-return-statements
         """Exchange an OIDC authorization code for tokens."""
         if request.form.get("grant_type") != "authorization_code":
-            return helpers.oidc_json_error("unsupported_grant_type", status=400)
+            return web.oidc_json_error("unsupported_grant_type", status=400)
 
-        client_id, client_secret = helpers.client_credentials()
-        client = helpers.find_client(app, client_id)
+        client_id, client_secret = web.client_credentials()
+        client = clients.find_client(app, client_id)
         if client is None or not secrets.compare_digest(
             client_secret, client["client_secret"]
         ):
-            return helpers.oidc_json_error("invalid_client", status=401)
+            return web.oidc_json_error("invalid_client", status=401)
 
         code = request.form.get("code", "")
         redirect_uri = request.form.get("redirect_uri", "")
         if not code:
-            return helpers.oidc_json_error(
-                "invalid_request", "Missing authorization code"
-            )
+            return web.oidc_json_error("invalid_request", "Missing authorization code")
 
         try:
-            oidc_request = helpers.load_auth_code(app, code)
+            oidc_request = auth_codes.load_auth_code(app, code)
         except SignatureExpired:
-            return helpers.oidc_json_error(
-                "invalid_grant", "Authorization code expired"
-            )
+            return web.oidc_json_error("invalid_grant", "Authorization code expired")
         except BadData:
-            return helpers.oidc_json_error(
-                "invalid_grant", "Invalid authorization code"
-            )
+            return web.oidc_json_error("invalid_grant", "Invalid authorization code")
 
         if oidc_request["client_id"] != client_id:
-            return helpers.oidc_json_error(
+            return web.oidc_json_error(
                 "invalid_grant", "Authorization code client mismatch"
             )
         if oidc_request["redirect_uri"] != redirect_uri:
-            return helpers.oidc_json_error("invalid_grant", "redirect_uri mismatch")
+            return web.oidc_json_error("invalid_grant", "redirect_uri mismatch")
 
         jti = oidc_request.get("jti")
         if jti in app.extensions["oidc_used_codes"]:
-            return helpers.oidc_json_error(
+            return web.oidc_json_error(
                 "invalid_grant", "Authorization code already used"
             )
         app.extensions["oidc_used_codes"].add(jti)
 
         scopes = oidc_request["scope"].split()
-        claims = oidc_request["claims"]
-        access_token = tokens.issue_access_token(app, client_id, scopes, claims)
+        user_claims = oidc_request["claims"]
+        access_token = tokens.issue_access_token(app, client_id, scopes, user_claims)
         id_token = tokens.issue_id_token(
-            app, client_id, oidc_request, claims, access_token
+            app, client_id, oidc_request, user_claims, access_token
         )
         return jsonify(
             {
@@ -241,16 +235,16 @@ def create_app():  # pylint: disable=too-many-statements
     @app.post("/userinfo")
     def userinfo():
         """Return claims for the supplied access token."""
-        token = helpers.bearer_token()
+        token = web.bearer_token()
         if not token:
-            return helpers.oidc_json_error(
+            return web.oidc_json_error(
                 "invalid_token", "Missing bearer token", status=401
             )
 
         try:
             payload = tokens.decode_access_token(app, token)
         except tokens.JWTError as e:
-            return helpers.oidc_json_error("invalid_token", str(e), status=401)
-        return jsonify(helpers.userinfo_claims(payload))
+            return web.oidc_json_error("invalid_token", str(e), status=401)
+        return jsonify(claims.userinfo_claims(payload))
 
     return app
