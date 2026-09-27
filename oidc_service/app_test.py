@@ -94,6 +94,33 @@ def test_prod_requires_configured_signing_key(mocker):
         oidc_app.create_app()
 
 
+def test_prod_requires_configured_session_secret(mocker):
+    """Production mode also fails fast without a session signing secret."""
+    cfg = _config()
+    cfg["general/server_mode"] = "prod"
+    cfg["oidc/session_secret"] = None
+    cfg["oidc/rsa_private_key"] = (
+        "unused-because-session-secret-fails-first"  # pragma: allowlist secret
+    )
+    mocker.patch.object(
+        oidc_app,
+        "get_config",
+        side_effect=lambda path, default=None: cfg.get(path, default),
+    )
+
+    with pytest.raises(RuntimeError):
+        oidc_app.create_app()
+
+
+def test_auth_code_is_opaque(app):
+    """Authorization codes do not expose their claims to URL/proxy logs."""
+    code = _auth_code(
+        app, {"sub": "1234", "email": "never-put-this-in-a-url@example.com"}
+    )
+    assert "never-put-this-in-a-url@example.com" not in code
+    assert "1234" not in code
+
+
 def test_openid_configuration(client):
     """Discovery metadata points at this service."""
     rep = client.get("/.well-known/openid-configuration")
@@ -261,3 +288,23 @@ def test_userinfo_returns_claims_for_access_token(app, client):
 
     assert rep.status_code == 200
     assert rep.get_json()["sub"] == "1234"
+
+
+def test_userinfo_rejects_id_token(app, client):
+    """ID tokens must not be accepted as access tokens."""
+    code = _auth_code(app)
+    token_rep = client.post(
+        "/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+            "client_id": "bookstack",
+            "client_secret": "bookstack-secret",  # pragma: allowlist secret
+        },
+    )
+    id_token = token_rep.get_json()["id_token"]
+
+    rep = client.get("/userinfo", headers={"Authorization": f"Bearer {id_token}"})
+
+    assert rep.status_code == 401

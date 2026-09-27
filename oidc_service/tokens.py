@@ -145,10 +145,11 @@ def issue_access_token(app, client_id, scopes, claims):
     return sign_jwt(
         app,
         {
+            **claims,
             "sub": claims["sub"],
             "aud": client_id,
             "scope": " ".join(scopes),
-            **claims,
+            "token_use": "access_token",
         },
         app.config["OIDC_ACCESS_TOKEN_TTL"],
     )
@@ -157,11 +158,11 @@ def issue_access_token(app, client_id, scopes, claims):
 def issue_id_token(app, client_id, oidc_request, claims, access_token):
     """Issue an OIDC ID token."""
     payload = {
+        **claims,
         "sub": claims["sub"],
         "aud": client_id,
         "auth_time": oidc_request["auth_time"],
         "at_hash": at_hash(access_token),
-        **claims,
     }
     if oidc_request.get("nonce"):
         payload["nonce"] = oidc_request["nonce"]
@@ -169,13 +170,25 @@ def issue_id_token(app, client_id, oidc_request, claims, access_token):
 
 
 def decode_access_token(app, token):
-    """Decode and validate an access token JWT."""
+    """Decode and validate an access token JWT.
+
+    This is intentionally stricter than ``jwt.decode``: it verifies issuer,
+    audience, and the ``token_use`` marker so ID tokens cannot be replayed to
+    the userinfo endpoint as if they were access tokens.
+    """
     audiences = [c["client_id"] for c in app.config["OIDC_CLIENTS"]]
-    decode_kwargs = {"algorithms": ["RS256"]}
+    decode_kwargs = {
+        "algorithms": ["RS256"],
+        "issuer": app.config["OIDC_ISSUER"],
+        "options": {"require": ["exp", "iat", "sub", "aud", "scope", "token_use"]},
+    }
     if audiences:
         decode_kwargs["audience"] = audiences
-    return jwt.decode(
+    payload = jwt.decode(
         token,
         app.config["OIDC_PUBLIC_KEY"],
         **decode_kwargs,
     )
+    if payload.get("token_use") != "access_token":
+        raise JWTError("Token is not an OIDC access token")
+    return payload

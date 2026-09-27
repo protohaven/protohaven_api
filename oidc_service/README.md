@@ -41,8 +41,8 @@ values are used:
 | Key | Purpose |
 | --- | --- |
 | `oidc/issuer` | Public base URL for this service, e.g. `https://oidc.protohaven.org` |
-| `oidc/session_secret` | Flask session signing secret |
-| `oidc/rsa_private_key` | PEM RSA private key used to sign JWTs. If omitted, an ephemeral key is generated and logged as a warning. |
+| `oidc/session_secret` | Flask session signing secret. Required in production; dev/test may use an ephemeral key. |
+| `oidc/rsa_private_key` | PEM RSA private key used to sign JWTs. Required in production; dev/test may use an ephemeral key. |
 | `oidc/access_token_ttl_sec` | Access token lifetime (default 3600) |
 | `oidc/id_token_ttl_sec` | ID token lifetime (default 3600) |
 | `oidc/auth_code_ttl_sec` | Authorization code lifetime (default 600) |
@@ -74,9 +74,14 @@ and point it at `http://127.0.0.1:5002/.well-known/openid-configuration`.
 
 ## Operational notes
 
-Authorization-code replay protection uses in-process storage. For production,
-run a single OIDC worker or replace `app.extensions["oidc_used_codes"]` with a
-shared store before running multiple workers.
+Authorization codes are encrypted and short-lived, and they are single-use.
+Replay protection uses in-process storage. For production, run a single OIDC
+worker or replace `app.extensions["oidc_used_codes"]` with a shared store
+before running multiple workers.
+
+In production the service refuses to start without both `oidc/session_secret`
+and `oidc/rsa_private_key`. It also enables `Secure` session cookies when
+`oidc/issuer` is HTTPS.
 
 ## Tokens and claims
 

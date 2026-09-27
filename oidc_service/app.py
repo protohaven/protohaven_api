@@ -13,9 +13,9 @@ authorization-code handling in ``auth_codes.py``, request/response helpers in
 
 import logging
 import secrets
+import threading
 
 from flask import Flask, Response, jsonify, redirect, request, session
-from itsdangerous import BadData, SignatureExpired
 
 from oidc_service import auth_codes, claims, clients, tokens, web
 from protohaven_api import oauth
@@ -27,19 +27,31 @@ def create_app():  # pylint: disable=too-many-statements
     app = Flask(__name__)
     app.logger.setLevel(logging.INFO)
 
+    server_mode = str(get_config("general/server_mode", "dev")).lower()
+
     configured_secret = get_config("oidc/session_secret")
-    app.secret_key = (
-        None if clients.unset(configured_secret) else configured_secret
-    ) or secrets.token_hex(32)
     if clients.unset(configured_secret):
+        if server_mode == "prod":
+            raise RuntimeError(
+                "oidc/session_secret is required in production; refusing to "
+                "generate an ephemeral Flask session key"
+            )
+        app.secret_key = secrets.token_hex(32)
         app.logger.warning(
             "No oidc/session_secret configured; using an ephemeral Flask session key."
         )
+    else:
+        app.secret_key = configured_secret
 
     issuer = str(get_config("oidc/issuer", "http://127.0.0.1:5002")).rstrip("/")
     if clients.unset(issuer):
         issuer = "http://127.0.0.1:5002"
     app.config["OIDC_ISSUER"] = issuer
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=issuer.startswith("https://"),
+    )
 
     app.config["OIDC_CLIENTS"] = clients.parse_clients(get_config("oidc/clients", []))
     if not app.config["OIDC_CLIENTS"]:
@@ -52,12 +64,12 @@ def create_app():  # pylint: disable=too-many-statements
     app.config["OIDC_ID_TOKEN_TTL"] = int(get_config("oidc/id_token_ttl_sec", 3600))
     app.config["OIDC_AUTH_CODE_TTL"] = int(get_config("oidc/auth_code_ttl_sec", 600))
     app.extensions["oidc_used_codes"] = set()
+    app.extensions["oidc_used_codes_lock"] = threading.Lock()
 
     private_key_pem = get_config("oidc/rsa_private_key")
     app.config["OIDC_PRIVATE_KEY_PEM"] = (
         None if clients.unset(private_key_pem) else private_key_pem
     )
-    server_mode = str(get_config("general/server_mode", "dev")).lower()
     tokens.setup_signing_keys(app, allow_ephemeral=server_mode != "prod")
 
     @app.get("/.well-known/openid-configuration")
@@ -196,9 +208,9 @@ def create_app():  # pylint: disable=too-many-statements
 
         try:
             oidc_request = auth_codes.load_auth_code(app, code)
-        except SignatureExpired:
+        except auth_codes.AuthCodeExpired:
             return web.oidc_json_error("invalid_grant", "Authorization code expired")
-        except BadData:
+        except auth_codes.AuthCodeError:
             return web.oidc_json_error("invalid_grant", "Invalid authorization code")
 
         if oidc_request["client_id"] != client_id:
@@ -209,11 +221,12 @@ def create_app():  # pylint: disable=too-many-statements
             return web.oidc_json_error("invalid_grant", "redirect_uri mismatch")
 
         jti = oidc_request.get("jti")
-        if jti in app.extensions["oidc_used_codes"]:
-            return web.oidc_json_error(
-                "invalid_grant", "Authorization code already used"
-            )
-        app.extensions["oidc_used_codes"].add(jti)
+        with app.extensions["oidc_used_codes_lock"]:
+            if jti in app.extensions["oidc_used_codes"]:
+                return web.oidc_json_error(
+                    "invalid_grant", "Authorization code already used"
+                )
+            app.extensions["oidc_used_codes"].add(jti)
 
         scopes = oidc_request["scope"].split()
         user_claims = oidc_request["claims"]
