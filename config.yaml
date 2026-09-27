@@ -72,6 +72,22 @@ neon:
   # Membership automation settings
   automation:
     default_coupon_amount_usd: 75
+oidc:
+  issuer: ${OIDC_ISSUER}
+  session_secret: ${OIDC_SESSION_SECRET}
+  rsa_private_key: ${OIDC_RSA_PRIVATE_KEY}
+  access_token_ttl_sec: 3600
+  id_token_ttl_sec: 3600
+  auth_code_ttl_sec: 600
+  clients:
+    - client_id: ${OIDC_BOOKSTACK_CLIENT_ID}
+      client_secret: ${OIDC_BOOKSTACK_CLIENT_SECRET}
+      redirect_uris:
+        - ${OIDC_BOOKSTACK_REDIRECT_URI}
+    - client_id: ${OIDC_NOCODB_CLIENT_ID}
+      client_secret: ${OIDC_NOCODB_CLIENT_SECRET}
+      redirect_uris:
+        - ${OIDC_NOCODB_REDIRECT_URI}
 discord_bot:
   enabled: ${DISCORD_BOT}
   event_hooks:
