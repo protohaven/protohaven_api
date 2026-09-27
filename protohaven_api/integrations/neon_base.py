@@ -563,6 +563,8 @@ def create_event(  # pylint: disable=too-many-arguments,too-many-positional-argu
     published=True,
     registration=True,
     free=False,
+    registration_open_date=None,
+    registration_close_date=None,
 ):
     """Creates a new event in Neon CRM"""
     event = {
@@ -583,8 +585,16 @@ def create_event(  # pylint: disable=too-many-arguments,too-many-positional-argu
             "endDate": end.strftime("%Y-%m-%d"),
             "startTime": start.strftime("%-I:%M %p"),
             "endTime": end.strftime("%-I:%M %p"),
-            "registrationOpenDate": datetime.datetime.now().isoformat(),
-            "registrationCloseDate": (start - datetime.timedelta(hours=24)).isoformat(),
+            "registrationOpenDate": (
+                registration_open_date.isoformat()
+                if registration_open_date is not None
+                else datetime.datetime.now().isoformat()
+            ),
+            "registrationCloseDate": (
+                registration_close_date.isoformat()
+                if registration_close_date is not None
+                else (start - datetime.timedelta(hours=24)).isoformat()
+            ),
             "timeZone": {"id": "1"},
         },
         "financialSettings": {

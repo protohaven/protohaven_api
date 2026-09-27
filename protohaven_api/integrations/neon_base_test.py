@@ -571,6 +571,26 @@ def test_delete_event_unsafe(mocker):
         nb.delete_event_unsafe("")
 
 
+def test_create_event_live_registration_date_overrides(mocker):
+    """Callers may override Neon registration open/close dates."""
+    mocker.patch.object(nb, "get_connector")
+    m = mocker.patch.object(
+        nb.get_connector(), "neon_request", return_value={"id": "evt1"}
+    )
+    nb.create_event(
+        "Name",
+        "Desc",
+        d(0, 10),
+        d(0, 12),
+        dry_run=False,
+        registration_open_date=d(-2, 10),
+        registration_close_date=d(-1, 10),
+    )
+    payload = json.loads(m.call_args.kwargs["data"])
+    assert payload["eventDates"]["registrationOpenDate"] == d(-2, 10).isoformat()
+    assert payload["eventDates"]["registrationCloseDate"] == d(-1, 10).isoformat()
+
+
 def test_create_event_dry_run():
     """dry_run logs the event and returns None"""
     assert nb.create_event("Name", "Desc", d(0, 10), d(0, 12), dry_run=True) is None
