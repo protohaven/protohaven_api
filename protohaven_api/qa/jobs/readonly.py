@@ -280,6 +280,7 @@ def _create_class_event(
         published=False,
         registration=attendees > 0,
         free=True,
+        max_attendees=capacity,
     )
     assert event_id
     ctx.cleanup.register(
@@ -370,6 +371,7 @@ def test_class_emails(ctx: QAContext):
         extra = {
             "CONFIRM": f"--confirm={event_id}",
             "CANCEL": f"--cancel={event_id}",
+            "FOR_TECHS": f"--for-techs={event_id}",
         }.get(scenario, "")
         result = _run_class_emails(ctx, event_id, extra)
         assert result.code == 0

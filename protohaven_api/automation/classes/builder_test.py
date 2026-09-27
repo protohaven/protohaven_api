@@ -327,6 +327,20 @@ def test_cancel_override_forces_cancel(mocker, evt):
     assert "Test Event is on for January 31!" not in subjects
 
 
+def test_for_techs_override_forces_tech_backfill(mocker, evt):
+    """for_techs_ovr forces Action.FOR_TECHS even when the class would confirm."""
+    evt.attendee_count = 3
+    evt.capacity = 10
+    evt.occupancy = 0.3
+    _mock_builder(mocker, upcoming_events=[evt])
+    eb = builder.ClassEmailBuilder()
+    eb.for_techs_ovr = ["1234"]
+    got = eb.build(d(EVT_DAY - 1, 20))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "New classes for tech backfill:" in subjects
+    assert "Test Event is on for January 31!" not in subjects
+
+
 def test_builder_notified(mocker):
     """Tests that `notified` correctly returns True when comms have already been recently
     sent to a target"""
