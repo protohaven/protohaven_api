@@ -13,11 +13,10 @@ authorization-code handling in ``auth_codes.py``, request/response helpers in
 
 import logging
 import secrets
-import threading
 
 from flask import Flask, Response, jsonify, redirect, request, session
 
-from oidc_service import auth_codes, claims, clients, tokens, web
+from oidc_service import auth_codes, claims, clients, rate_limit, tokens, web
 from protohaven_api import oauth
 from protohaven_api.config import get_config
 
@@ -63,8 +62,25 @@ def create_app():  # pylint: disable=too-many-statements
     )
     app.config["OIDC_ID_TOKEN_TTL"] = int(get_config("oidc/id_token_ttl_sec", 3600))
     app.config["OIDC_AUTH_CODE_TTL"] = int(get_config("oidc/auth_code_ttl_sec", 600))
-    app.extensions["oidc_used_codes"] = set()
-    app.extensions["oidc_used_codes_lock"] = threading.Lock()
+    app.extensions["oidc_used_codes"] = auth_codes.UsedCodeStore(
+        ttl_sec=app.config["OIDC_AUTH_CODE_TTL"]
+    )
+    app.extensions["oidc_authorize_limiter"] = rate_limit.RateLimiter(
+        max_requests=max(1, int(get_config("oidc/authorize_rate_limit_per_min", 60))),
+        window_sec=60.0,
+    )
+    app.extensions["oidc_authorize_lockout"] = rate_limit.LockoutManager(
+        threshold=max(1, int(get_config("oidc/auth_failure_lockout_threshold", 10))),
+        lockout_sec=float(get_config("oidc/auth_failure_lockout_sec", 900)),
+    )
+    app.extensions["oidc_token_limiter"] = rate_limit.RateLimiter(
+        max_requests=max(1, int(get_config("oidc/token_rate_limit_per_min", 30))),
+        window_sec=60.0,
+    )
+    app.extensions["oidc_token_lockout"] = rate_limit.LockoutManager(
+        threshold=max(1, int(get_config("oidc/auth_failure_lockout_threshold", 10))),
+        lockout_sec=float(get_config("oidc/auth_failure_lockout_sec", 900)),
+    )
 
     private_key_pem = get_config("oidc/rsa_private_key")
     app.config["OIDC_PRIVATE_KEY_PEM"] = (
@@ -105,8 +121,24 @@ def create_app():  # pylint: disable=too-many-statements
         return jsonify({"status": "ok"})
 
     @app.get("/authorize")
-    def authorize():
+    def authorize():  # pylint: disable=too-many-return-statements
         """Start an OIDC authorization request by redirecting to Neon CRM."""
+        ip = request.remote_addr or "unknown"
+        if app.extensions["oidc_authorize_lockout"].is_locked(ip):
+            return web.oidc_json_error(
+                "rate_limited",
+                "Too many failed authorization attempts; try again later",
+                status=429,
+            )
+        if not app.extensions["oidc_authorize_limiter"].allow(ip):
+            return web.oidc_json_error(
+                "rate_limited", "Too many authorization requests", status=429
+            )
+
+        def authorize_failure(error, description, status=400):
+            app.extensions["oidc_authorize_lockout"].record_failure(ip)
+            return web.oidc_json_error(error, description, status=status)
+
         client_id = request.args.get("client_id", "")
         redirect_uri = request.args.get("redirect_uri", "")
         response_type = request.args.get("response_type", "")
@@ -115,20 +147,21 @@ def create_app():  # pylint: disable=too-many-statements
         scopes = web.requested_scopes()
 
         if response_type != "code":
-            return web.oidc_json_error(
+            return authorize_failure(
                 "unsupported_response_type", "Only response_type=code is supported"
             )
         if "openid" not in scopes:
-            return web.oidc_json_error("invalid_scope", "The openid scope is required")
+            return authorize_failure("invalid_scope", "The openid scope is required")
 
         client = clients.find_client(app, client_id)
         if client is None:
-            return web.oidc_json_error("unauthorized_client", "Unknown client_id")
+            return authorize_failure("unauthorized_client", "Unknown client_id")
         if not redirect_uri or not clients.valid_redirect_uri(client, redirect_uri):
-            return web.oidc_json_error(
+            return authorize_failure(
                 "invalid_request", "redirect_uri is not registered for this client"
             )
 
+        app.extensions["oidc_authorize_lockout"].reset(ip)
         session["oidc_request"] = {
             "client_id": client_id,
             "redirect_uri": redirect_uri,
@@ -191,43 +224,56 @@ def create_app():  # pylint: disable=too-many-statements
     @app.post("/token")
     def token():  # pylint: disable=too-many-return-statements
         """Exchange an OIDC authorization code for tokens."""
-        if request.form.get("grant_type") != "authorization_code":
-            return web.oidc_json_error("unsupported_grant_type", status=400)
-
+        ip = request.remote_addr or "unknown"
         client_id, client_secret = web.client_credentials()
+        lockout_key = f"{ip}:{client_id or 'unknown'}"
+
+        if app.extensions["oidc_token_lockout"].is_locked(lockout_key):
+            return web.oidc_json_error(
+                "temporarily_unavailable",
+                "Too many failed token attempts; try again later",
+                status=429,
+            )
+        if not app.extensions["oidc_token_limiter"].allow(ip):
+            return web.oidc_json_error(
+                "temporarily_unavailable", "Too many token requests", status=429
+            )
+
+        def token_failure(error, description=None, status=400):
+            app.extensions["oidc_token_lockout"].record_failure(lockout_key)
+            return web.oidc_json_error(error, description, status=status)
+
+        if request.form.get("grant_type") != "authorization_code":
+            return token_failure("unsupported_grant_type", status=400)
+
         client = clients.find_client(app, client_id)
         if client is None or not secrets.compare_digest(
             client_secret, client["client_secret"]
         ):
-            return web.oidc_json_error("invalid_client", status=401)
+            return token_failure("invalid_client", status=401)
 
         code = request.form.get("code", "")
         redirect_uri = request.form.get("redirect_uri", "")
         if not code:
-            return web.oidc_json_error("invalid_request", "Missing authorization code")
+            return token_failure("invalid_request", "Missing authorization code")
 
         try:
             oidc_request = auth_codes.load_auth_code(app, code)
         except auth_codes.AuthCodeExpired:
-            return web.oidc_json_error("invalid_grant", "Authorization code expired")
+            return token_failure("invalid_grant", "Authorization code expired")
         except auth_codes.AuthCodeError:
-            return web.oidc_json_error("invalid_grant", "Invalid authorization code")
+            return token_failure("invalid_grant", "Invalid authorization code")
 
         if oidc_request["client_id"] != client_id:
-            return web.oidc_json_error(
-                "invalid_grant", "Authorization code client mismatch"
-            )
+            return token_failure("invalid_grant", "Authorization code client mismatch")
         if oidc_request["redirect_uri"] != redirect_uri:
-            return web.oidc_json_error("invalid_grant", "redirect_uri mismatch")
+            return token_failure("invalid_grant", "redirect_uri mismatch")
 
         jti = oidc_request.get("jti")
-        with app.extensions["oidc_used_codes_lock"]:
-            if jti in app.extensions["oidc_used_codes"]:
-                return web.oidc_json_error(
-                    "invalid_grant", "Authorization code already used"
-                )
-            app.extensions["oidc_used_codes"].add(jti)
+        if app.extensions["oidc_used_codes"].contains_and_mark(jti):
+            return token_failure("invalid_grant", "Authorization code already used")
 
+        app.extensions["oidc_token_lockout"].reset(lockout_key)
         scopes = oidc_request["scope"].split()
         user_claims = oidc_request["claims"]
         access_token = tokens.issue_access_token(app, client_id, scopes, user_claims)

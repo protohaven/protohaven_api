@@ -15,6 +15,7 @@ import base64
 import hashlib
 import json
 import secrets
+import threading
 import time
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -26,6 +27,35 @@ class AuthCodeError(Exception):
 
 class AuthCodeExpired(AuthCodeError):
     """Raised when an otherwise valid authorization code has expired."""
+
+
+class UsedCodeStore:
+    """Thread-safe, TTL-cleaned set of already-redeemed authorization code jtis."""
+
+    def __init__(self, ttl_sec: float):
+        self.ttl_sec = ttl_sec
+        self._used: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def cleanup(self, now: float | None = None):
+        """Remove expired jtis."""
+        now = now if now is not None else time.time()
+        with self._lock:
+            expired = [jti for jti, expires in self._used.items() if expires <= now]
+            for jti in expired:
+                del self._used[jti]
+
+    def contains_and_mark(self, jti: str, now: float | None = None) -> bool:
+        """Return True if the jti is already used; otherwise mark it used."""
+        now = now if now is not None else time.time()
+        with self._lock:
+            expired = [jti for jti, expires in self._used.items() if expires <= now]
+            for expired_jti in expired:
+                del self._used[expired_jti]
+            if jti in self._used:
+                return True
+            self._used[jti] = now + self.ttl_sec
+            return False
 
 
 def _fernet(app) -> Fernet:

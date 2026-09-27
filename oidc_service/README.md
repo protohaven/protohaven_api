@@ -46,6 +46,10 @@ values are used:
 | `oidc/access_token_ttl_sec` | Access token lifetime (default 3600) |
 | `oidc/id_token_ttl_sec` | ID token lifetime (default 3600) |
 | `oidc/auth_code_ttl_sec` | Authorization code lifetime (default 600) |
+| `oidc/authorize_rate_limit_per_min` | Allowed `/authorize` requests per IP per minute (default 60) |
+| `oidc/token_rate_limit_per_min` | Allowed `/token` requests per IP per minute (default 30) |
+| `oidc/auth_failure_lockout_threshold` | Failed auth attempts before a temporary lockout (default 10) |
+| `oidc/auth_failure_lockout_sec` | Lockout duration in seconds (default 900) |
 | `oidc/clients` | List of OIDC clients with `client_id`, `client_secret`, and `redirect_uris` |
 
 For production, set `OIDC_ISSUER` to the externally reachable URL and configure
@@ -75,9 +79,10 @@ and point it at `http://127.0.0.1:5002/.well-known/openid-configuration`.
 ## Operational notes
 
 Authorization codes are encrypted and short-lived, and they are single-use.
-Replay protection uses in-process storage. For production, run a single OIDC
-worker or replace `app.extensions["oidc_used_codes"]` with a shared store
-before running multiple workers.
+Replay protection uses in-process storage with TTL cleanup. Rate limiting and
+failed-auth lockouts are also process-local, so this service is designed for a
+single OIDC worker. Replace the in-process stores with a shared store before
+running multiple workers.
 
 In production the service refuses to start without both `oidc/session_secret`
 and `oidc/rsa_private_key`. It also enables `Secure` session cookies when

@@ -121,6 +121,51 @@ def test_auth_code_is_opaque(app):
     assert "1234" not in code
 
 
+def test_authorize_lockout_after_failed_attempts(mocker):
+    """Repeated invalid authorize requests lock the caller out."""
+    cfg = _config()
+    cfg["oidc/auth_failure_lockout_threshold"] = 1
+    mocker.patch.object(
+        oidc_app,
+        "get_config",
+        side_effect=lambda path, default=None: cfg.get(path, default),
+    )
+    app = oidc_app.create_app()
+    client = app.test_client()
+    query_string = {
+        "client_id": "unknown",
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid",
+    }
+
+    assert client.get("/authorize", query_string=query_string).status_code == 400
+    assert client.get("/authorize", query_string=query_string).status_code == 429
+
+
+def test_token_lockout_after_failed_attempts(mocker):
+    """Repeated invalid token requests lock the caller out."""
+    cfg = _config()
+    cfg["oidc/auth_failure_lockout_threshold"] = 1
+    mocker.patch.object(
+        oidc_app,
+        "get_config",
+        side_effect=lambda path, default=None: cfg.get(path, default),
+    )
+    app = oidc_app.create_app()
+    client = app.test_client()
+    data = {
+        "grant_type": "authorization_code",
+        "code": "bad-code",
+        "redirect_uri": REDIRECT_URI,
+        "client_id": "unknown",
+        "client_secret": "bad-secret",  # pragma: allowlist secret
+    }
+
+    assert client.post("/token", data=data).status_code == 401
+    assert client.post("/token", data=data).status_code == 429
+
+
 def test_openid_configuration(client):
     """Discovery metadata points at this service."""
     rep = client.get("/.well-known/openid-configuration")
