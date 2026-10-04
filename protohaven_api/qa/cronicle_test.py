@@ -38,7 +38,7 @@ def test_run_and_fetch_logs_polls(mocker):
         side_effect=[
             {"job": {"complete": 0}},
             {"job": {"complete": 1, "code": 0}},
-            {"text": "job output"},
+            "job output",
         ],
     )
     result = client.run_and_fetch_logs("evt", "img", {})
@@ -46,6 +46,50 @@ def test_run_and_fetch_logs_polls(mocker):
     assert result.job_ids == ["j1"]
     assert result.logs == {"j1": "job output"}
     assert result.text == "job output"
+
+
+def test_run_and_fetch_logs_omits_full_logs_on_success(mocker):
+    client = CronicleClient("https://cron.example", "key", poll_interval=0)
+    mocker.patch.object(client, "_post", return_value={"ids": ["j1"]})
+    mocker.patch.object(
+        client,
+        "_get",
+        side_effect=[
+            {"job": {"complete": 1, "code": 0}},
+            "job output",
+        ],
+    )
+    log_info = mocker.patch("protohaven_api.qa.cronicle.log.info")
+    result = client.run_and_fetch_logs("evt", "img", {})
+    assert result.code == 0
+    assert result.text == "job output"
+    assert any(
+        "https://cron.example/#JobDetails?id=j1" in str(call)
+        for call in log_info.call_args_list
+    )
+    assert all("job output" not in str(call) for call in log_info.call_args_list)
+
+
+def test_run_and_fetch_logs_links_to_logs_on_failure(mocker):
+    client = CronicleClient("https://cron.example", "key", poll_interval=0)
+    mocker.patch.object(client, "_post", return_value={"ids": ["j1"]})
+    mocker.patch.object(
+        client,
+        "_get",
+        side_effect=[
+            {"job": {"complete": 1, "code": 1}},
+            "job failed output",
+        ],
+    )
+    log_info = mocker.patch("protohaven_api.qa.cronicle.log.info")
+    result = client.run_and_fetch_logs("evt", "img", {})
+    assert result.code == 1
+    assert result.text == "job failed output"
+    assert any(
+        "https://cron.example/#JobDetails?id=j1" in str(call)
+        for call in log_info.call_args_list
+    )
+    assert all("job failed output" not in str(call) for call in log_info.call_args_list)
 
 
 def test_run_and_fetch_logs_timeout(mocker):

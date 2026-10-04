@@ -24,7 +24,7 @@ def qa_name(job: str, run_id: str) -> str:
 
 def search_qa_accounts():
     """Return all Neon accounts matching the QA email prefix."""
-    return list(neon.search_members_by_email(QA_EMAIL_PREFIX, operator="CONTAINS"))
+    return list(neon.search_members_by_email(QA_EMAIL_PREFIX, operator="CONTAIN"))
 
 
 @dataclass

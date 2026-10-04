@@ -15,6 +15,17 @@ QA_EMAIL = "hello+qa-testing@protohaven.org"
 QA_CHANNEL = "#cronicle-automation"
 QA_DM = "@workshop_protohaven"
 
+MAX_ASSERT_LOG_CHARS = 4000
+
+
+def _truncate_log(log_text: str, limit: int = MAX_ASSERT_LOG_CHARS) -> str:
+    """Return log text suitable for an assertion message without dumping huge logs."""
+    if len(log_text) <= limit:
+        return log_text
+    half = limit // 2
+    omitted = len(log_text) - limit
+    return f"{log_text[:half]}\n... [{omitted} chars truncated] ...\n{log_text[-half:]}"
+
 
 class CleanupError(RuntimeError):
     """Raised when one or more cleanup steps fail."""
@@ -143,13 +154,17 @@ class JobResult:
 def assert_log_contains(log_text: str, substrings: list[str]) -> None:
     """Assert that each substring appears in the given log text."""
     missing = [s for s in substrings if s not in log_text]
-    assert not missing, f"Expected log substrings missing: {missing}\n{log_text}"
+    assert (
+        not missing
+    ), f"Expected log substrings missing: {missing}\n{_truncate_log(log_text)}"
 
 
 def assert_log_not_contains(log_text: str, substrings: list[str]) -> None:
     """Assert that none of the substrings appear in the given log text."""
     present = [s for s in substrings if s in log_text]
-    assert not present, f"Unexpected log substrings found: {present}\n{log_text}"
+    assert (
+        not present
+    ), f"Unexpected log substrings found: {present}\n{_truncate_log(log_text)}"
 
 
 def assert_sent_discord(result: JobResult, channel: str = QA_CHANNEL) -> None:
