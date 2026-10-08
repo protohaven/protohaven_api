@@ -155,7 +155,11 @@ def _area_and_exclusions():
     common = air_areas & booked_groups
     assert common, "No shared Airtable/Booked area available"
     area = next(iter(common))
-    return area, ",".join(sorted(air_areas - {area}))
+    # Exclude every area except the shared one from BOTH sources. The prod sync
+    # requires the remaining Airtable areas and Booked groups to match exactly,
+    # so leaving an extra Booked-only group in scope would fail the preflight.
+    exclusions = (air_areas | booked_groups) - {area}
+    return area, ",".join(sorted(exclusions))
 
 
 def test_sync_tools(ctx: QAContext):
@@ -204,6 +208,7 @@ def _copyable_eventbrite_row():
         if (
             f.get("Class")
             and f.get("Instructor")
+            and f.get("Email")
             and f.get("Sessions")
             and f.get("Eventbrite (from Class)")
         ):
@@ -216,17 +221,18 @@ def test_post_classes(ctx: QAContext):
     start = (tznow() + datetime.timedelta(days=30)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
-    fields = dict(raw["fields"])
-    fields.update(
-        {
-            "Neon ID": "",
-            "Event ID": "",
-            "Sessions": start.isoformat(),
-            "Confirmed": tznow().isoformat(),
-            "Rejected": "",
-            "Name": f"QA Cronicle Post Classes {ctx.run_id}",
-        }
-    )
+    # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
+    # Class)"), so insert only the writable schedule fields and let Airtable
+    # populate the lookups from the linked class template.
+    src_fields = raw["fields"]
+    fields = {
+        "Class": src_fields.get("Class"),
+        "Instructor": src_fields.get("Instructor"),
+        "Instructor ID": src_fields.get("Instructor ID"),
+        "Email": src_fields.get("Email"),
+        "Sessions": start.isoformat(),
+        "Confirmed": tznow().isoformat(),
+    }
     rec_id = airtable_fixture.create_schedule_row(ctx, fields)
 
     result = ctx.run(
