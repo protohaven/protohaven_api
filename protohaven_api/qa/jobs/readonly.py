@@ -605,4 +605,4 @@ def test_recertification(ctx: QAContext):
     assert result.code == 0
     assert_sent_email(result)
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["member_recert_update", "suspend clearances"])
+    assert_log_contains(result.text, ["temporarily suspended", "suspend clearances"])
