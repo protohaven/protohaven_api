@@ -435,12 +435,12 @@ def test_shop_tech_applications(ctx: QAContext):
 
 def _private_instruction_notes(ctx, tag):
     return (
-        "Details: QA private instruction request\n"
-        "Availability: Immediately\n"
-        "Name: QA Tester\n"
-        "Email: hello+qa-testing@protohaven.org\n"
-        "Phone: 555-0000\n"
-        f"Tag: {tag}\n"
+        "Details:\nQA private instruction request\n"
+        "Availability:\nImmediately\n"
+        "Name:\nQA Tester\n"
+        "Email:\nhello+qa-testing@protohaven.org\n"
+        "Phone:\n555-0000\n"
+        f"Tag:\n{tag}\n"
     )
 
 
