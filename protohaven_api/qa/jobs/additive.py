@@ -279,7 +279,7 @@ def test_refresh_volunteer_memberships(ctx: QAContext):
     )
     assert result.code == 0
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["volunteer_refresh_summary"])
+    assert_log_contains(result.text, ["1 volunteer membership(s) refreshed:"])
 
 
 def test_policy_enforcement(ctx: QAContext):

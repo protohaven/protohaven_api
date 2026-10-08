@@ -1,6 +1,6 @@
 """Airtable QA fixture helpers."""
 
-# pylint: disable=too-many-arguments
+# pylint: disable=too-many-arguments, protected-access
 
 from typing import Any
 
@@ -192,20 +192,29 @@ def create_violation(
     sections = airtable.get_policy_sections()
     assert sections, "No policy sections configured"
     section = sections[0]
-    _, content = airtable_base.insert_records(
+    status, content = airtable_base.insert_records(
         [
             {
                 "Neon ID": neon_id,
                 "Onset": (onset or tznow()).isoformat(),
                 "Daily Fee": daily_fee,
                 "Notes": notes,
-                "Relevant Sections": [section["id"]],
+                "Relevant Sections": [
+                    airtable_base._refid(
+                        section["id"]
+                    )  # pylint: disable=protected-access
+                ],
             }
         ],
         "policy_enforcement",
         "violations",
     )
-    rec_id = _record_ids(content)[0]
+    ids = _record_ids(content)
+    if status != 200 or not ids:
+        raise RuntimeError(
+            f"Insert policy_enforcement/violations failed: {status} {content}"
+        )
+    rec_id = ids[0]
     ctx.cleanup.register(
         f"delete policy_enforcement/violations record {rec_id}",
         lambda: airtable_base.delete_record("policy_enforcement", "violations", rec_id),
