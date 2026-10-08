@@ -505,7 +505,7 @@ def test_membership_val(ctx: QAContext):
 
     # Active membership with no end date.
     acct = neon_fixture.create_mock_account(ctx, "membership-val-no-end")
-    neon_fixture.create_membership(acct.neon_id, now, None)
+    neon_fixture.create_membership(acct.neon_id, now, None, term_unit="LIFE")
     ids.append(acct.neon_id)
 
     # Shop Tech membership without the API server role.

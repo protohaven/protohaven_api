@@ -86,18 +86,21 @@ def create_membership(
     term: dict[str, Any] | None = None,
     fee: int = 0,
     status: str = "SUCCEEDED",
+    term_unit: str = "MONTH",
 ) -> dict[str, Any]:
     """Create a membership for a mock Neon account.
 
     ``end`` may be ``None`` to deliberately create an active membership with
-    no end date.
+    no end date. Neon V2 only permits omitting ``termEndDate`` for term units
+    that have no fixed duration (e.g. ``LIFE``), so callers should pass the
+    matching ``term_unit`` when requesting an open-ended membership.
     """
     payload: dict[str, Any] = {
         "accountId": account_id,
         "membershipLevel": level or {"id": 1, "name": "General Membership"},
         "membershipTerm": term or {"id": 1, "name": "General - $115/mo (Join)"},
         "termStartDate": start.strftime("%Y-%m-%d"),
-        "termUnit": "MONTH",
+        "termUnit": term_unit,
         "transactionDate": start.strftime("%Y-%m-%d"),
         "autoRenewal": False,
         "enrollType": "JOIN",

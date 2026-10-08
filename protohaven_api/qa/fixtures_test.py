@@ -11,6 +11,28 @@ def test_qa_email_is_unique_and_searchable():
     assert email.startswith(neon_fixture.QA_EMAIL_PREFIX)
 
 
+def test_create_membership_omits_term_end_for_life_unit(mocker):
+    post = mocker.patch.object(neon_fixture.neon_base, "post")
+    neon_fixture.create_membership(
+        "123", neon_fixture.datetime.datetime(2026, 10, 8), None, term_unit="LIFE"
+    )
+    payload = post.call_args.args[2]
+    assert "termEndDate" not in payload
+    assert payload["termUnit"] == "LIFE"
+
+
+def test_create_membership_includes_term_end_for_dated_membership(mocker):
+    post = mocker.patch.object(neon_fixture.neon_base, "post")
+    neon_fixture.create_membership(
+        "123",
+        neon_fixture.datetime.datetime(2026, 10, 8),
+        neon_fixture.datetime.datetime(2026, 11, 8),
+    )
+    payload = post.call_args.args[2]
+    assert payload["termEndDate"] == "2026-11-08"
+    assert payload["termUnit"] == "MONTH"
+
+
 def test_search_qa_accounts_uses_contains(mocker):
     mock_search = mocker.patch.object(neon_fixture.neon, "search_members_by_email")
     neon_fixture.search_qa_accounts()
