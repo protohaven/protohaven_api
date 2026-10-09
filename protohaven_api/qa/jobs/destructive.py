@@ -19,6 +19,7 @@ from protohaven_api.integrations.models import Role
 from protohaven_api.qa.base import (
     QAContext,
     assert_log_contains,
+    assert_log_not_contains,
     assert_sent_discord,
     assert_sent_dm,
     assert_sent_email,
@@ -44,7 +45,8 @@ def _active_membership(acct, start=None, end=None):
 
 
 def test_discord_nick(ctx: QAContext):
-    acct = neon_fixture.create_mock_account(ctx, "discord-nick")
+    job = "disc-nick"
+    acct = neon_fixture.create_mock_account(ctx, job)
     neon.set_discord_user(acct.neon_id, discord_fixture.DISCORD_USER)
     _active_membership(acct)
     discord_fixture.set_nickname(ctx, "QA Old Nickname")
@@ -56,10 +58,12 @@ def test_discord_nick(ctx: QAContext):
         send_comms=True,
         dm=True,
     )
+    expected_name = neon_fixture.qa_name(job, ctx.run_id)
     assert result.code == 0
     assert_sent_discord(result)
     assert_sent_dm(result)
-    assert_log_contains(result.text, ["discord_nick_changed"])
+    assert_log_contains(result.text, [f" -> {expected_name})"])
+    assert_log_not_contains(result.text, ["400 Bad Request", "Must be 32"])
 
 
 def test_discord_role(ctx: QAContext):
