@@ -40,7 +40,11 @@ def anonymize_mock_account(account_id: str, run_id: str) -> None:
                 "email1": f"qa-deleted-{run_id}-{account_id}@protohaven.org",
                 "firstName": "QA Deleted",
                 "lastName": f"{run_id}-{account_id}",
-            }
+            },
+            "accountCustomFields": [
+                {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
+                {"id": str(neon.CustomField.BOOKED_USER_ID), "value": ""},
+            ],
         },
     )
 

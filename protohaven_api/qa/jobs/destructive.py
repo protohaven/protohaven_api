@@ -46,6 +46,14 @@ def _active_membership(acct, start=None, end=None):
 
 def test_discord_nick(ctx: QAContext):
     job = "disc-nick"
+    # Older failed QA runs may have left the shared QA Discord user linked to
+    # their (now anonymized) Neon accounts. Clear those stale links first so
+    # enforce_discord_nicknames targets the account created below.
+    for stale in list(
+        neon.search_members_with_discord_id(discord_fixture.DISCORD_USER)
+    ):
+        neon.set_discord_user(stale.neon_id, "")
+
     acct = neon_fixture.create_mock_account(ctx, job)
     neon.set_discord_user(acct.neon_id, discord_fixture.DISCORD_USER)
     _active_membership(acct)

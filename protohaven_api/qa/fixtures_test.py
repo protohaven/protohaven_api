@@ -53,7 +53,11 @@ def test_anonymize_mock_account_patches_primary_contact(mocker):
                 "email1": "qa-deleted-abc123-3590@protohaven.org",
                 "firstName": "QA Deleted",
                 "lastName": "abc123-3590",
-            }
+            },
+            "accountCustomFields": [
+                {"id": str(neon_fixture.neon.CustomField.DISCORD_USER), "value": ""},
+                {"id": str(neon_fixture.neon.CustomField.BOOKED_USER_ID), "value": ""},
+            ],
         },
     )
 
