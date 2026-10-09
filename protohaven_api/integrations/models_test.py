@@ -11,6 +11,7 @@ from protohaven_api.integrations import models
 from protohaven_api.integrations.models import (
     Event,
     Member,
+    Membership,
     NoAttendeeDataError,
     Role,
     SignInEvent,
@@ -875,3 +876,8 @@ def test_member_nfc_token_ids_invalid_json(mocker):
     mocker.patch.object(models.Member, "_get_custom_field", return_value="not json")
     m = models.Member()
     assert m.nfc_token_ids == []
+
+
+def test_membership_without_end_date_is_not_lapsed():
+    """Open-ended memberships should compare safely with tz-aware now."""
+    assert not Membership().is_lapsed(d(0))
