@@ -199,7 +199,7 @@ def test_sync_tools(ctx: QAContext):
         send_comms=False,
     )
     assert dry.code == 0
-    assert_log_contains(dry.text, ["Change "])
+    assert_log_contains(dry.text, ["Changed custom attributes"])
 
     applied = ctx.run(
         "sync_reservable_tools",
@@ -208,7 +208,7 @@ def test_sync_tools(ctx: QAContext):
         send_comms=True,
     )
     assert applied.code == 0
-    assert_log_contains(applied.text, ["Change "])
+    assert_log_contains(applied.text, ["Changed custom attributes"])
     assert_sent_discord(applied)
 
 
