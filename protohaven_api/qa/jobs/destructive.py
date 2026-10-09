@@ -186,20 +186,24 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         lambda: neon_base.delete_event_unsafe(event_id),
     )
 
-    fields = dict(raw["fields"])
-    fields.update(
-        {
-            "Neon ID": event_id,
-            "Sessions": start.isoformat(),
-            "Confirmed": tznow().isoformat(),
-            "Rejected": "",
-            "Name": name,
-        }
-    )
-    airtable_fixture.create_schedule_row(ctx, fields)
-
-    area = (fields.get("Name (from Area) (from Class)") or [None])[0]
+    area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]
     assert area, "No area available on copied schedule row"
+
+    # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
+    # Class)"), so insert only the writable schedule fields and let Airtable
+    # populate the lookups from the linked class template.
+    fields = {
+        "Class": raw["fields"].get("Class"),
+        "Instructor": raw["fields"].get("Instructor"),
+        "Instructor ID": raw["fields"].get("Instructor ID"),
+        "Email": raw["fields"].get("Email"),
+        "Neon ID": event_id,
+        "Sessions": start.isoformat(),
+        "Confirmed": tznow().isoformat(),
+        "Rejected": "",
+        "Name": name,
+    }
+    airtable_fixture.create_schedule_row(ctx, fields)
     resource_id = booked_fixture.create_resource(
         ctx, f"QA orphan resource {ctx.run_id}"
     )
