@@ -326,9 +326,9 @@ def test_policy_enforcement(ctx: QAContext):
     assert_log_contains(
         result.text,
         [
-            "violation_started",
-            "violation_ongoing",
-            "enforcement_summary",
+            "new Protohaven violation issued",
+            "ongoing Protohaven violation has accrued",
+            "Violations and Actions Summary",
         ],
     )
     after_fees = {
