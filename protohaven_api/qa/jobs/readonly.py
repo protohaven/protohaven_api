@@ -529,8 +529,8 @@ def test_membership_val(ctx: QAContext):
         acct.neon_id,
         now,
         now + datetime.timedelta(days=30),
-        level={"id": 1, "name": "AMP General"},
-        term={"id": 1, "name": "ELI"},
+        level=neon_fixture.find_membership_option("/membershipLevels", "AMP"),
+        term=neon_fixture.find_membership_option("/membershipTerms", "ELI"),
     )
     ids.append(acct.neon_id)
 

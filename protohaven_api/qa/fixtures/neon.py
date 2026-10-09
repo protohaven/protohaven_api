@@ -62,6 +62,20 @@ class MockNeonAccount:
     name: str
 
 
+def find_membership_option(api_path: str, needle: str) -> dict[str, Any]:
+    """Look up a Neon membership level/term by name substring.
+
+    Hardcoding Neon option IDs in QA fixtures is brittle; Neon option IDs can
+    differ from the names developers expect. This queries Neon directly so the
+    QA fixture uses the IDs that Neon actually has.
+    """
+    for row in neon_base.paginated_fetch("api_key2", api_path):
+        name = row.get("name") or ""
+        if needle.lower() in name.lower():
+            return {"id": row["id"], "name": row["name"]}
+    raise RuntimeError(f"No Neon option matching {needle!r} in {api_path}")
+
+
 def create_mock_account(ctx: QAContext, job: str) -> MockNeonAccount:
     """Create a uniquely identifiable Neon account and register cleanup.
 
