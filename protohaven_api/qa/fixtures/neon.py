@@ -110,6 +110,31 @@ def create_membership(
     }
     if end is not None:
         payload["termEndDate"] = end.strftime("%Y-%m-%d")
+    if fee > 0:
+        # Neon requires at least one payment when creating a paid membership.
+        payload["payments"] = [
+            {
+                "amount": fee,
+                "paymentStatus": "Succeeded",
+                "note": "",
+                "tenderType": 3,  # Check
+                "receivedDate": None,
+                "creditCardOnline": None,
+                "creditCardOffline": None,
+                "ach": None,
+                "check": {
+                    "institution": "",
+                    "routingNumber": "",
+                    "accountNumber": None,
+                    "accountOwner": "QA Cronicle",
+                    "checkNumber": "",
+                    "accountType": "Checking",
+                },
+                "wire": None,
+                "inKind": None,
+                "dafpay": None,
+            }
+        ]
     return neon_base.post("api_key2", "/memberships", payload)
 
 

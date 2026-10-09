@@ -66,3 +66,48 @@ def test_anonymize_legacy_qa_accounts_skips_missing_ids(mocker):
     neon_fixture.anonymize_legacy_qa_accounts()
     search.assert_called_once_with()
     anonymize.assert_called_once_with("3590", "legacy-3590")
+
+
+def test_create_membership_adds_payment_for_paid_membership(mocker):
+    post = mocker.patch.object(neon_fixture.neon_base, "post")
+    neon_fixture.create_membership(
+        "123",
+        neon_fixture.datetime.datetime(2026, 10, 8),
+        neon_fixture.datetime.datetime(2026, 11, 8),
+        fee=20,
+    )
+    payload = post.call_args.args[2]
+    assert payload["payments"] == [
+        {
+            "amount": 20,
+            "paymentStatus": "Succeeded",
+            "note": "",
+            "tenderType": 3,
+            "receivedDate": None,
+            "creditCardOnline": None,
+            "creditCardOffline": None,
+            "ach": None,
+            "check": {
+                "institution": "",
+                "routingNumber": "",
+                "accountNumber": None,
+                "accountOwner": "QA Cronicle",
+                "checkNumber": "",
+                "accountType": "Checking",
+            },
+            "wire": None,
+            "inKind": None,
+            "dafpay": None,
+        }
+    ]
+
+
+def test_create_membership_omits_payments_for_free_membership(mocker):
+    post = mocker.patch.object(neon_fixture.neon_base, "post")
+    neon_fixture.create_membership(
+        "123",
+        neon_fixture.datetime.datetime(2026, 10, 8),
+        neon_fixture.datetime.datetime(2026, 11, 8),
+    )
+    payload = post.call_args.args[2]
+    assert "payments" not in payload
