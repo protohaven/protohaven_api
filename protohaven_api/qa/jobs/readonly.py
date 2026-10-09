@@ -521,9 +521,11 @@ def test_membership_val(ctx: QAContext):
 
     # AMP income-rate/term mismatch.
     acct = neon_fixture.create_mock_account(ctx, "membership-val-amp")
+    # Income Based Rate is a Neon select field, so it must be set via
+    # optionValues with the option ID (41 = Low Income - 20%).
     neon_base.set_custom_fields(
         acct.neon_id,
-        (CustomField.INCOME_BASED_RATE, "Low Income"),
+        (CustomField.INCOME_BASED_RATE, [{"id": 41}]),
     )
     # Use known-good Neon option IDs; Neon resolves the ID, not the name.
     # id 31 is "Weeknight Membership - AMP" and id 107 is
