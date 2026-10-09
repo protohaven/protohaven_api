@@ -248,7 +248,7 @@ def create_tool_record(
             "Shop Area": [area_id],
             "BookedResourceId": booked_resource_id,
             "Reservable": reservable,
-            "Current Status": "Green",
+            "Current Status": "Green (fully operational)",
         },
         description="tool",
     )

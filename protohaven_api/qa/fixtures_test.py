@@ -134,4 +134,5 @@ def test_create_tool_record_sets_shop_area_link(mocker):
     assert got == "rec_tool"
     fields = insert.call_args.args[3]
     assert fields["Shop Area"] == ["rec_area"]
+    assert fields["Current Status"] == "Green (fully operational)"
     assert "Name (from Shop Area)" not in fields
