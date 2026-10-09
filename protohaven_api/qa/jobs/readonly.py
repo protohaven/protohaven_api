@@ -525,12 +525,16 @@ def test_membership_val(ctx: QAContext):
         acct.neon_id,
         (CustomField.INCOME_BASED_RATE, "Low Income"),
     )
+    # Use known-good Neon option IDs; Neon resolves the ID, not the name.
+    # id 31 is "Weeknight Membership - AMP" and id 107 is
+    # "Weeknight Membership- ELI ($19.50)", so this exercises AMP validation
+    # and the income-based-rate/term mismatch path.
     neon_fixture.create_membership(
         acct.neon_id,
         now,
         now + datetime.timedelta(days=30),
-        level=neon_fixture.find_membership_option("/membershipLevels", "AMP"),
-        term=neon_fixture.find_membership_option("/membershipTerms", "ELI"),
+        level={"id": 31, "name": "Weeknight Membership - AMP"},
+        term={"id": 107, "name": "Weeknight Membership- ELI ($19.50)"},
     )
     ids.append(acct.neon_id)
 

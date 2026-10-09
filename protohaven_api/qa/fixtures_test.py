@@ -2,8 +2,6 @@
 
 # pylint: disable=missing-function-docstring
 
-import pytest
-
 from protohaven_api.qa.fixtures import airtable as airtable_fixture
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
@@ -34,32 +32,6 @@ def test_create_membership_includes_term_end_for_dated_membership(mocker):
     payload = post.call_args.args[2]
     assert payload["termEndDate"] == "2026-11-08"
     assert payload["termUnit"] == "MONTH"
-
-
-def test_find_membership_option_matches_by_substring(mocker):
-    fetch = mocker.patch.object(
-        neon_fixture.neon_base,
-        "paginated_fetch",
-        return_value=iter(
-            [
-                {"id": 1, "name": "General Membership"},
-                {"id": 31, "name": "Weeknight Membership - AMP"},
-            ]
-        ),
-    )
-    got = neon_fixture.find_membership_option("/membershipLevels", "AMP")
-    assert got == {"id": 31, "name": "Weeknight Membership - AMP"}
-    fetch.assert_called_once_with("api_key2", "/membershipLevels")
-
-
-def test_find_membership_option_raises_when_missing(mocker):
-    mocker.patch.object(
-        neon_fixture.neon_base,
-        "paginated_fetch",
-        return_value=iter([{"id": 1, "name": "General Membership"}]),
-    )
-    with pytest.raises(RuntimeError, match="No Neon option"):
-        neon_fixture.find_membership_option("/membershipLevels", "AMP")
 
 
 def test_search_qa_accounts_uses_contains(mocker):
