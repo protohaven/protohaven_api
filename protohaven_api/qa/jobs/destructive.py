@@ -131,7 +131,7 @@ def test_init_memberships(ctx: QAContext):
     assert result.code == 0
     assert_sent_email(result)
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["membership_init_summary"])
+    assert_log_contains(result.text, ["Membership init summary"])
 
     after_coupons = _snapshot_assigned_coupons()
     for rec_id, fields in after_coupons.items():
