@@ -209,7 +209,6 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         "Sessions": start.isoformat(),
         "Confirmed": tznow().isoformat(),
         "Rejected": "",
-        "Name": name,
     }
     airtable_fixture.create_schedule_row(ctx, fields)
     resource_id = booked_fixture.create_resource(
