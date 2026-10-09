@@ -4,6 +4,7 @@
 
 from protohaven_api.qa.fixtures import airtable as airtable_fixture
 from protohaven_api.qa.fixtures import neon as neon_fixture
+from protohaven_api.testing import d
 
 
 def test_qa_email_is_unique_and_searchable():
@@ -112,6 +113,30 @@ def test_create_membership_omits_payments_for_free_membership(mocker):
     )
     payload = post.call_args.args[2]
     assert "payments" not in payload
+
+
+def test_create_violation_sets_neon_id_as_integer(mocker):
+    ctx = mocker.Mock()
+    mocker.patch.object(
+        airtable_fixture.airtable_base,
+        "get_connector",
+        return_value=mocker.Mock(**{"db_format.return_value": "nocodb"}),
+    )
+    mocker.patch.object(
+        airtable_fixture.airtable,
+        "get_policy_sections",
+        return_value=[{"id": "123"}],
+    )
+    insert = mocker.patch.object(
+        airtable_fixture.airtable_base,
+        "insert_records",
+        return_value=(200, {"records": [{"id": "rec_violation"}]}),
+    )
+    got = airtable_fixture.create_violation(ctx, "3646", onset=d(0))
+    assert got == "rec_violation"
+    fields = insert.call_args.args[0][0]
+    assert fields["Neon ID"] == 3646
+    assert isinstance(fields["Neon ID"], int)
 
 
 def test_create_tool_record_sets_shop_area_link(mocker):

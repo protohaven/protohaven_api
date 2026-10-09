@@ -195,7 +195,7 @@ def create_violation(
     status, content = airtable_base.insert_records(
         [
             {
-                "Neon ID": neon_id,
+                "Neon ID": int(neon_id),
                 "Onset": (onset or tznow()).isoformat(),
                 "Daily Fee": daily_fee,
                 "Notes": notes,
