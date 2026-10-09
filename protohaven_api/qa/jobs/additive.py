@@ -7,6 +7,8 @@ import functools
 import logging
 import re
 
+from googleapiclient.errors import HttpError
+
 from protohaven_api.config import tznow
 from protohaven_api.integrations import (
     airtable,
@@ -52,7 +54,13 @@ def _register_uploaded_files_from_log(ctx: QAContext, text: str):
 
 
 def _delete_drive_file(file_id: str):
-    drive.delete_file(file_id)
+    try:
+        drive.delete_file(file_id)
+    except HttpError as e:
+        if getattr(e, "resp", None) is not None and e.resp.status == 404:
+            log.warning("Drive file %s already deleted; skipping cleanup", file_id)
+            return
+        raise
 
 
 def _test_backup_job(ctx: QAContext, name: str):
