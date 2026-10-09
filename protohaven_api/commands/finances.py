@@ -208,6 +208,8 @@ class Commands:
                 args.member_ids, pct, args.ignore_membership_types
             )
         )
+        for problem in problems:
+            log.info(problem)
         if len(problems) > 0:
             print_yaml(
                 Msg.tmpl(

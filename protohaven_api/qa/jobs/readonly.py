@@ -545,7 +545,7 @@ def test_membership_val(ctx: QAContext):
     assert_log_contains(
         result.text,
         [
-            "membership_validation_problems",
+            "validation problems found",
             "no end date",
             "Needs role Shop Tech",
             "Mismatch between Income based rate",
