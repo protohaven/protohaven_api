@@ -6,6 +6,7 @@ import datetime
 import functools
 import logging
 import re
+import shlex
 
 from googleapiclient.errors import HttpError
 
@@ -172,10 +173,11 @@ def _area_and_exclusions():
 
 def test_sync_tools(ctx: QAContext):
     area, exclusions = _area_and_exclusions()
+    exclusions_arg = shlex.quote(exclusions)
     preflight = ctx.run(
         "sync_reservable_tools",
         "elvv9mdlx2j",
-        f"--no-apply --filter=qa-no-such-tool --exclude_areas={exclusions}",
+        f"--no-apply --filter=qa-no-such-tool --exclude_areas={exclusions_arg}",
         send_comms=False,
     )
     assert preflight.code == 0
@@ -193,7 +195,7 @@ def test_sync_tools(ctx: QAContext):
     dry = ctx.run(
         "sync_reservable_tools",
         "elvv9mdlx2j",
-        f"--no-apply --filter={tool_code} --exclude_areas={exclusions}",
+        f"--no-apply --filter={tool_code} --exclude_areas={exclusions_arg}",
         send_comms=False,
     )
     assert dry.code == 0
@@ -202,7 +204,7 @@ def test_sync_tools(ctx: QAContext):
     applied = ctx.run(
         "sync_reservable_tools",
         "elvv9mdlx2j",
-        f"--apply --filter={tool_code} --exclude_areas={exclusions}",
+        f"--apply --filter={tool_code} --exclude_areas={exclusions_arg}",
         send_comms=True,
     )
     assert applied.code == 0
