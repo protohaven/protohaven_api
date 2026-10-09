@@ -8,7 +8,7 @@ import logging
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, neon, neon_base
+from protohaven_api.integrations import airtable, eventbrite, neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.qa.base import (
     QAContext,
@@ -225,37 +225,38 @@ def _create_class_event(
     attendees: int = 0,
     capacity: int = 6,
 ):
-    """Create an unpublished Neon event + matching Airtable schedule row."""
+    """Create an unlisted Eventbrite event + matching Airtable schedule row."""
     raw = _copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=days_out)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Class Emails {scenario} {ctx.run_id}"
-    event_id = neon_base.create_event(
+    event_id = eventbrite.create_event(
         name,
-        "Temporary QA event; will be deleted automatically.",
-        start,
-        end,
-        dry_run=False,
+        [(start, end)],
+        summary="Temporary QA event; will be deleted automatically.",
+        max_attendees=capacity,
         published=False,
-        registration=attendees > 0,
-        free=True,
     )
     assert event_id
+    eventbrite.assign_pricing(event_id, 0, capacity, clear_existing=True)
+    eventbrite.set_event_scheduled_state(event_id, scheduled=attendees > 0)
     ctx.cleanup.register(
-        f"delete Neon event {event_id}",
-        lambda: neon_base.delete_event_unsafe(event_id),
+        f"delete Eventbrite event {event_id}",
+        lambda: eventbrite.delete_event_unsafe(event_id),
     )
 
     if attendees:
-        ticket_id = neon.fetch_event(
-            event_id, tickets=True
+        ticket_id = eventbrite.fetch_event(
+            event_id, include_ticketing=True
         ).single_registration_ticket_id
         assert ticket_id
         for i in range(attendees):
             acct = neon_fixture.create_mock_account(ctx, f"class-emails-{scenario}-{i}")
-            neon_fixture.register_for_event(ctx, acct.neon_id, event_id, ticket_id)
+            eventbrite.register_attendee(
+                event_id, ticket_id, "QA Cronicle", acct.neon_id, acct.email
+            )
 
     fields = dict(raw["fields"])
     fields.update(

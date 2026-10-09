@@ -13,8 +13,8 @@ from protohaven_api.integrations import (
     airtable_base,
     booked,
     comms,
+    eventbrite,
     neon,
-    neon_base,
 )
 from protohaven_api.integrations.models import Role
 from protohaven_api.qa.base import (
@@ -178,20 +178,16 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Orphaned Reservations {ctx.run_id}"
-    event_id = neon_base.create_event(
+    event_id = eventbrite.create_event(
         name,
-        "Temporary QA event; will be deleted automatically.",
-        start,
-        end,
-        dry_run=False,
+        [(start, end)],
+        summary="Temporary QA event; will be deleted automatically.",
         published=True,
-        registration=False,
-        free=True,
     )
     assert event_id
     ctx.cleanup.register(
-        f"delete Neon event {event_id}",
-        lambda: neon_base.delete_event_unsafe(event_id),
+        f"delete Eventbrite event {event_id}",
+        lambda: eventbrite.delete_event_unsafe(event_id),
     )
 
     fields = dict(raw["fields"])

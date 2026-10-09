@@ -175,24 +175,22 @@ def test_techs_forecast_as_tech(mocker, tech_client):
 
 def test_techs_event_registration_success_register(tech_client, mocker):
     """Test successful registration"""
-    mocker.patch.object(tl.neon, "register_for_event", return_value={"key": "value"})
-    mocker.patch.object(tl.neon, "delete_single_ticket_registration")
-    mocker.patch.object(tl.comms, "send_discord_message")
-    mocker.patch.object(
-        tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
+    member = mocker.MagicMock(
+        fname="First", lname="Last", email="a@b.com", name="First Last"
     )
-    m = mocker.MagicMock(capacity=6, start_date=d(0))
+    mocker.patch.object(tl.neon_base, "fetch_account", return_value=member)
+    mocker.patch.object(tl.comms, "send_discord_message")
+    m = mocker.MagicMock(
+        capacity=6,
+        start_date=d(0),
+        single_registration_ticket_id="test_ticket",
+        ticket_options=[{"id": "test_ticket", "price": 0}],
+    )
     m.name = "Event Name"
     m.attendee_count = 1
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=m)
     mocker.patch.object(
-        tl.eauto,
-        "fetch_event",
-        return_value=m,
-    )
-    mocker.patch.object(
-        tl.neon,
-        "fetch_attendees",
-        return_value=[{"accountId": 1, "registrationStatus": "SUCCEEDED"}],
+        tl.eventbrite, "register_attendee", return_value={"key": "value"}
     )
     assert tech_client.post(
         "/techs/event",
@@ -202,8 +200,9 @@ def test_techs_event_registration_success_register(tech_client, mocker):
             "action": "register",
         },
     ).json == {"key": "value"}
-    tl.neon.register_for_event.assert_called_with(1234, "test_event", "test_ticket")
-    tl.neon.delete_single_ticket_registration.assert_not_called()
+    tl.eventbrite.register_attendee.assert_called_once_with(
+        "test_event", "test_ticket", "First", "Last", "a@b.com", discount_code=None
+    )
     tl.comms.send_discord_message.assert_has_calls(
         [
             mocker.call(MatchStr("5 seat"), "#instructors", blocking=False),
@@ -214,24 +213,17 @@ def test_techs_event_registration_success_register(tech_client, mocker):
 
 def test_techs_event_registration_success_unregister(tech_client, mocker):
     """Test successful unregistration"""
-    mocker.patch.object(tl.neon, "register_for_event")
-    mocker.patch.object(tl.neon, "delete_single_ticket_registration", return_value=b"")
-    mocker.patch.object(tl.comms, "send_discord_message")
-    mocker.patch.object(
-        tl.neon_base, "fetch_account", return_value=mocker.MagicMock(name="First Last")
+    member = mocker.MagicMock(
+        fname="First", lname="Last", email="a@b.com", name="First Last"
     )
+    mocker.patch.object(tl.neon_base, "fetch_account", return_value=member)
+    mocker.patch.object(tl.comms, "send_discord_message")
     m = mocker.MagicMock(capacity=6, start_date=d(0))
     m.name = "Event Name"
     m.attendee_count = 1
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=m)
     mocker.patch.object(
-        tl.eauto,
-        "fetch_event",
-        return_value=m,
-    )
-    mocker.patch.object(
-        tl.neon,
-        "fetch_attendees",
-        return_value=[{"accountId": 1, "registrationStatus": "SUCCEEDED"}],
+        tl.eventbrite, "cancel_attendee_order", return_value={"status": "ok"}
     )
     assert tech_client.post(
         "/techs/event",
@@ -241,8 +233,7 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
             "action": "unregister",
         },
     ).json == {"status": "ok"}
-    tl.neon.register_for_event.assert_not_called()
-    tl.neon.delete_single_ticket_registration.assert_called_with(1234, "test_event")
+    tl.eventbrite.cancel_attendee_order.assert_called_once_with("test_event", "a@b.com")
     tl.comms.send_discord_message.assert_has_calls(
         [
             mocker.call(MatchStr("5 seat"), "#instructors", blocking=False),
@@ -251,13 +242,9 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     )
 
 
-def test_techs_event_registration_missing_args(tech_client, mocker):
+def test_techs_event_registration_missing_args(tech_client):
     """Test registration with missing arguments"""
-    mocker.patch.object(tl.neon, "register_for_event")
-    mocker.patch.object(tl.neon, "delete_single_ticket_registration")
     assert tech_client.post("/techs/event", json={}).status_code == 400
-    tl.neon.register_for_event.assert_not_called()
-    tl.neon.delete_single_ticket_registration.assert_not_called()
 
 
 def test_techs_forecast_override_post(mocker, tech_client):
@@ -372,7 +359,7 @@ def test_techs_backfill_events(mocker, tech_client):
     assert response.status_code == 200
     assert response.json["events"] == [
         {
-            "attendees": [123],
+            "attendees": [],
             "attendee_count": 1,
             "attendee_details": [],
             "attendee_emails": ["a@b.com"],
@@ -396,40 +383,6 @@ def test_techs_backfill_events(mocker, tech_client):
             "ticket_id": None,
         },
     ]
-
-
-def test_techs_event_registration_register(mocker, tech_client):
-    """Test techs_event_registration for registering"""
-    mocker.patch.object(tl.neon, "register_for_event", return_value={"status": "ok"})
-    mocker.patch.object(tl.comms, "send_discord_message")
-    mocker.patch.object(tl, "_notify_registration")
-    mocker.patch.object(tl.neon, "delete_single_ticket_registration")
-
-    rep = tech_client.post(
-        "/techs/event", json={"event_id": 123, "ticket_id": 456, "action": "register"}
-    )
-    assert rep.json == {"status": "ok"}
-    tl.neon.register_for_event.assert_called_once_with(1234, 123, 456)
-    tl._notify_registration.assert_called_once_with(1234, 1234, 123, "register")
-    tl.neon.delete_single_ticket_registration.assert_not_called()
-
-
-def test_techs_event_registration_unregister(mocker, tech_client):
-    """Test techs_event_registration for registering"""
-    mocker.patch.object(tl.neon, "register_for_event")
-    mocker.patch.object(tl.comms, "send_discord_message")
-    mocker.patch.object(tl, "_notify_registration")
-    mocker.patch.object(
-        tl.neon, "delete_single_ticket_registration", return_value={"status": "ok"}
-    )
-
-    rep = tech_client.post(
-        "/techs/event", json={"event_id": 123, "ticket_id": 456, "action": "unregister"}
-    )
-    assert rep.json == {"status": "ok"}
-    tl.neon.register_for_event.assert_not_called()
-    tl.neon.delete_single_ticket_registration.assert_called_once_with(1234, 123)
-    tl._notify_registration.assert_called_once_with(1234, 1234, 123, "unregister")
 
 
 def test_techs_event_registration_eventbrite_free(mocker, tech_client):
@@ -599,7 +552,11 @@ def test_new_tech_event(mocker, lead_client):
     """Test new tech-only event creation"""
     mocker.patch.object(tl, "tznow", return_value=d(0))
     mock_create_event = mocker.patch.object(
-        tl.neon_base, "create_event", return_value={}
+        tl.eventbrite, "create_event", return_value="123"
+    )
+    mock_assign_pricing = mocker.patch.object(tl.eventbrite, "assign_pricing")
+    mock_publish = mocker.patch.object(
+        tl.eventbrite, "set_event_scheduled_state", return_value={"published": True}
     )
 
     # Test valid event creation
@@ -615,15 +572,13 @@ def test_new_tech_event(mocker, lead_client):
     assert response.status_code == 200
     mock_create_event.assert_called_once_with(
         name=f"{tl.TECH_ONLY_PREFIX} Test Event",
-        desc="Tech-only event; created via api.protohaven.org/techs dashboard",
-        start=d(1, 14),
-        end=d(1, 16),
+        sessions=[(d(1, 14), d(1, 16))],
+        summary="Tech-only event; created via api.protohaven.org/techs dashboard",
         max_attendees=10,
-        dry_run=False,
         published=False,
-        registration=True,
-        free=True,
     )
+    mock_assign_pricing.assert_called_once_with("123", 0, 10, clear_existing=True)
+    mock_publish.assert_called_once_with("123", scheduled=True)
 
     # Test empty name
     response = lead_client.post(

@@ -81,14 +81,3 @@ def create_membership(
     if end is not None:
         payload["termEndDate"] = end.strftime("%Y-%m-%d")
     return neon_base.post("api_key2", "/memberships", payload)
-
-
-def register_for_event(
-    ctx: QAContext, account_id: str, event_id: str, ticket_id: str
-) -> None:
-    """Register a mock Neon account for a QA event and register cleanup."""
-    neon.register_for_event(account_id, event_id, ticket_id)
-    ctx.cleanup.register(
-        f"delete Neon registration for {account_id} in event {event_id}",
-        lambda: neon.delete_single_ticket_registration(account_id, event_id),
-    )
