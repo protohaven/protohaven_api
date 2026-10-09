@@ -185,7 +185,7 @@ def test_techs_event_registration_success_register(tech_client, mocker):
     m.name = "Event Name"
     m.attendee_count = 1
     mocker.patch.object(
-        tl.neon,
+        tl.eauto,
         "fetch_event",
         return_value=m,
     )
@@ -224,7 +224,7 @@ def test_techs_event_registration_success_unregister(tech_client, mocker):
     m.name = "Event Name"
     m.attendee_count = 1
     mocker.patch.object(
-        tl.neon,
+        tl.eauto,
         "fetch_event",
         return_value=m,
     )
@@ -698,7 +698,7 @@ def test_rm_tech_event_missing_eid(mocker, lead_client):
 def test_rm_tech_event_not_found(mocker, lead_client):
     """Test deleting a non-existent techs-only event"""
     eid = "12345"
-    mocker.patch.object(tl.neon, "fetch_event", return_value=None)
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=None)
 
     response = lead_client.post("/techs/rm_event", json={"eid": eid})
     assert response.status_code == 404
@@ -711,7 +711,7 @@ def test_rm_tech_event_non_tech_only(mocker, lead_client):
     mock_event = mocker.MagicMock(neon_id=eid)
     mock_event.name = "Test Event"
 
-    mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=mock_event)
 
     response = lead_client.post("/techs/rm_event", json={"eid": eid})
     assert response.status_code == 400
