@@ -1,5 +1,7 @@
 """Tests for eventbrite integration"""
 
+import pytest
+
 from protohaven_api.integrations import eventbrite as e
 from protohaven_api.testing import d
 
@@ -288,3 +290,31 @@ def test_cancel_attendee_order_multiple_attendees_raises(mocker):
     else:
         raise AssertionError("Expected RuntimeError")
     mock_connector.eventbrite_request.assert_not_called()
+
+
+def test_set_event_scheduled_state_treats_already_unpublished_as_success(mocker):
+    """Unpublishing a new, unlisted Eventbrite event should be idempotent."""
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.side_effect = RuntimeError(
+        "eventbrite_request(mode=POST, url=.../unpublish/, args=(), kwargs={}) "
+        'returned 400: {"error":"NOT_PUBLISHED",...}'
+    )
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+    mocker.patch.object(e.log, "info")
+
+    assert e.set_event_scheduled_state("evt_123", scheduled=False) == {}
+    mock_connector.eventbrite_request.assert_called_once_with(
+        "POST", "/events/evt_123/unpublish/"
+    )
+
+
+def test_set_event_scheduled_state_raises_other_unpublish_errors(mocker):
+    """Non-idempotent unpublish failures still surface to the caller."""
+    mock_connector = mocker.MagicMock()
+    mock_connector.eventbrite_request.side_effect = RuntimeError(
+        "eventbrite_request returned 400: SOME_OTHER_ERROR"
+    )
+    mocker.patch.object(e, "get_connector", return_value=mock_connector)
+
+    with pytest.raises(RuntimeError, match="SOME_OTHER_ERROR"):
+        e.set_event_scheduled_state("evt_123", scheduled=False)
