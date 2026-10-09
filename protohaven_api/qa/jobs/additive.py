@@ -66,10 +66,15 @@ def _delete_drive_file(file_id: str):
 
 def _test_backup_job(ctx: QAContext, name: str):
     _require_drive_folder(ctx)
+    args = f"--apply --parent_id={ctx.drive_folder_id}"
+    if name == "backup_neon_accounts":
+        args += " --category=accounts"
+    elif name == "backup_neon_events":
+        args += " --category=events"
     result = ctx.run(
         name,
         BACKUP_EVENTS[name],
-        f"--apply --parent_id={ctx.drive_folder_id}",
+        args,
         send_comms=True,
     )
     assert result.code == 0
