@@ -12,7 +12,6 @@ from protohaven_api.integrations import (
     airtable,
     airtable_base,
     booked,
-    comms,
     neon,
     neon_base,
 )
@@ -63,26 +62,15 @@ def test_discord_nick(ctx: QAContext):
     assert_log_contains(result.text, ["discord_nick_changed"])
 
 
-def _discord_has_role(role: str) -> bool:
-    for member in comms.get_all_members():
-        if member[0] == discord_fixture.DISCORD_USER:
-            return any(r == role for r, _ in member[3])
-    return False
-
-
 def test_discord_role(ctx: QAContext):
     role = "Techs"
-    originally_had_role = _discord_has_role(role)
+    originally_had_role = discord_fixture.has_role(role)
     if originally_had_role:
-        comms.revoke_discord_role(discord_fixture.DISCORD_USER, role)
-        ctx.cleanup.register(
-            f"restore Discord role {role} to {discord_fixture.DISCORD_USER}",
-            lambda: comms.set_discord_role(discord_fixture.DISCORD_USER, role),
-        )
+        discord_fixture.revoke_role(ctx, role)
     else:
         ctx.cleanup.register(
             f"remove QA-added Discord role {role} from {discord_fixture.DISCORD_USER}",
-            lambda: comms.revoke_discord_role(discord_fixture.DISCORD_USER, role),
+            lambda: discord_fixture.remove_role(role),
         )
 
     acct = neon_fixture.create_mock_account(ctx, "discord-role")
