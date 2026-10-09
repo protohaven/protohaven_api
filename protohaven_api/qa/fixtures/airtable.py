@@ -232,6 +232,12 @@ def create_tool_record(
     reservable: bool = True,
 ) -> str:
     """Create a temporary Airtable tool record tied to a mock Booked resource."""
+    area_id = next(
+        (a["id"] for a in airtable.get_areas() if a["fields"].get("Name") == area),
+        None,
+    )
+    if not area_id:
+        raise RuntimeError(f"Airtable area not found: {area}")
     return insert_record(
         ctx,
         "tools_and_equipment",
@@ -239,7 +245,7 @@ def create_tool_record(
         {
             "Tool Code": tool_code,
             "Tool Name": tool_name,
-            "Name (from Shop Area)": [area],
+            "Shop Area": [area_id],
             "BookedResourceId": booked_resource_id,
             "Reservable": reservable,
             "Current Status": "Green",

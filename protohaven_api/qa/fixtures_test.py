@@ -2,6 +2,7 @@
 
 # pylint: disable=missing-function-docstring
 
+from protohaven_api.qa.fixtures import airtable as airtable_fixture
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
 
@@ -111,3 +112,26 @@ def test_create_membership_omits_payments_for_free_membership(mocker):
     )
     payload = post.call_args.args[2]
     assert "payments" not in payload
+
+
+def test_create_tool_record_sets_shop_area_link(mocker):
+    ctx = mocker.Mock()
+    mocker.patch.object(
+        airtable_fixture.airtable,
+        "get_areas",
+        return_value=[{"id": "rec_area", "fields": {"Name": "Woodshop"}}],
+    )
+    insert = mocker.patch.object(
+        airtable_fixture, "insert_record", return_value="rec_tool"
+    )
+    got = airtable_fixture.create_tool_record(
+        ctx,
+        tool_code="QA-123",
+        tool_name="QA tool",
+        area="Woodshop",
+        booked_resource_id="123",
+    )
+    assert got == "rec_tool"
+    fields = insert.call_args.args[3]
+    assert fields["Shop Area"] == ["rec_area"]
+    assert "Name (from Shop Area)" not in fields
