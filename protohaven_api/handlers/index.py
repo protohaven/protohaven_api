@@ -11,6 +11,7 @@ from flask import Blueprint, Response, current_app, redirect, request, session
 from flask_sock import Sock
 
 from protohaven_api.automation.classes import events as eauto
+from protohaven_api.automation.membership import membership as membership_automation
 from protohaven_api.automation.membership import sign_in
 from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, booked, mqtt, neon
@@ -79,6 +80,20 @@ def event_ticker():
         )
         if len(result) >= 3:
             break
+    if not result:
+        for cls in membership_automation.get_sample_classes(
+            get_config("neon/automation/default_coupon_amount_usd", 75)
+        ):
+            result.append(
+                {
+                    "url": f"https://protohaven.org/e/{cls['id']}",
+                    "name": cls["name"],
+                    "date": cls["date"].strftime("%b %-d, %-I%p"),
+                    "seats_left": cls["remaining"],
+                }
+            )
+            if len(result) >= 3:
+                break
     return result
 
 

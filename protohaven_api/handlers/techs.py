@@ -464,6 +464,7 @@ def techs_backfill_events():
     for_techs = []
     now = tznow()
     is_admin = am_lead_role()
+    is_generic_shop_tech = am_neon_id(get_config("general/shop_tech_neon_id"))
 
     def _keep(evt):
         if evt.in_blocklist():
@@ -500,6 +501,7 @@ def techs_backfill_events():
                         {
                             "name": attendee.name,
                             "email": attendee.email,
+                            "phone": attendee.phone,
                         }
                     )
 
@@ -522,7 +524,8 @@ def techs_backfill_events():
 
     return {
         "events": for_techs,
-        "can_register": am_role(Role.SHOP_TECH) or am_lead_role(),
+        "can_register": (am_role(Role.SHOP_TECH) or am_lead_role())
+        and not is_generic_shop_tech,
         "can_edit": am_lead_role()
         or am_role(Role.EDUCATION_LEAD)
         or am_role(Role.STAFF),

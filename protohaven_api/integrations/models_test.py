@@ -9,6 +9,7 @@ from dateutil import tz as dtz
 from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import models
 from protohaven_api.integrations.models import (
+    Attendee,
     Event,
     Member,
     Membership,
@@ -25,6 +26,21 @@ def test_from_neon_fetch():
     m = Member.from_neon_fetch(data)
     assert m.neon_raw_data == data
     assert Member.from_neon_fetch(None) is None
+
+
+def test_attendee_phone_from_eventbrite():
+    """Attendee.phone reads phone fields from Eventbrite profile data."""
+    a = Attendee(
+        eventbrite_data={
+            "profile": {
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "email": "ada@example.com",
+                "home_phone": "(412) 555-0100",
+            }
+        }
+    )
+    assert a.phone == "(412) 555-0100"
 
 
 def test_from_neon_search():

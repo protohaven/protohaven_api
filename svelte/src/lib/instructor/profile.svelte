@@ -13,6 +13,7 @@
 		Alert
 	} from '@sveltestrap/sveltestrap';
 	import FetchError from '../fetch_error.svelte';
+	import { is_instructor_onboarded } from './types';
 
 	interface ProfileData {
 		fullname?: string;
@@ -23,6 +24,7 @@
 		capabilities_listed?: string;
 		paperwork?: string;
 		discord_user?: string;
+		[key: string]: unknown;
 	}
 
 	export let profile: Promise<ProfileData | null> | null = null; // Async fetch from parent
@@ -31,19 +33,6 @@
 		const value = (v ?? '').toLowerCase();
 		const has_ok = value.indexOf('ok') !== -1;
 		return has_ok ? 'light' : 'warning';
-	}
-	function onboarded(p: ProfileData): boolean {
-		for (const k of [
-			'active_membership',
-			'capabilities_listed',
-			'paperwork',
-			'discord_user'
-		] as const) {
-			if (li_color(p[k]) == 'warning') {
-				return false;
-			}
-		}
-		return true;
 	}
 </script>
 
@@ -87,7 +76,7 @@
 						>Discord: {#if p.discord_user == 'missing'}Missing{:else}OK{/if}</ListGroupItem
 					>
 				</ListGroup>
-				{#if !onboarded(p)}
+				{#if !is_instructor_onboarded(p)}
 					<Alert color="warning" class="m-3">
 						<strong
 							>Your status is incomplete. Click <a

@@ -20,6 +20,7 @@
 	import InstructorList from '$lib/instructor/instructor_list.svelte';
 	import ClassTemplates from '$lib/instructor/class_templates.svelte';
 	import FetchError from '$lib/fetch_error.svelte';
+	import { is_instructor_onboarded } from '$lib/instructor/types';
 	import type { InstructorListData } from '$lib/instructor/types';
 
 	interface WhoAmI {
@@ -117,23 +118,6 @@
 		console.log('activeTab', activeTab);
 	}
 
-	function onboarded(p: InstructorProfile | null | undefined) {
-		if (!p) {
-			return false;
-		}
-		for (const k of [
-			'active_membership',
-			'capabilities_listed',
-			'paperwork',
-			'discord_user'
-		] as const) {
-			if (String(p[k] ?? '').indexOf('OK') === -1) {
-				return false;
-			}
-		}
-		return true;
-	}
-
 	let profile: Promise<InstructorProfile> = new Promise<InstructorProfile>(() => {});
 	let templates: Promise<Record<string, SchedulerClassTemplate>> = Promise.resolve({});
 	let instructorListData: Promise<InstructorListData> | null = null; // Store instructor list data for admin tabs
@@ -208,7 +192,7 @@
 			{#await profile}
 				...
 			{:then p}
-				<Icon name={onboarded(p) ? 'check-all' : 'exclamation-triangle'} />
+				<Icon name={is_instructor_onboarded(p) ? 'check-all' : 'exclamation-triangle'} />
 			{/await}
 		</NavLink></NavItem
 	>

@@ -12,6 +12,7 @@
 		CardTitle,
 		CardSubtitle,
 		CardBody,
+		Alert,
 		Input,
 		Spinner,
 		Toast,
@@ -52,6 +53,16 @@
 	let end_date = isodate(new Date());
 
 	export let visible: boolean = false;
+	export let user: {
+		roles?: string[];
+		[key: string]: unknown;
+	} | null = null;
+	let can_view = false;
+	$: can_view =
+		user !== null &&
+		(user.roles || []).some((role: string) =>
+			['Shop Tech', 'Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'].includes(role)
+		);
 	let search_term = '';
 	let search_results: SearchResult[] = [];
 	let searching = false;
@@ -198,195 +209,201 @@
 			<CardSubtitle>Today's sign-ins, including membership state and clearances</CardSubtitle>
 		</CardHeader>
 		<CardBody>
-			<div class="row">
-				<div class="col-md-6">
-					<FormGroup>
-						<Label>Start Date</Label>
-						<Input type="date" bind:value={start_date} on:change={refresh} />
-					</FormGroup>
-				</div>
-				<div class="col-md-6">
-					<FormGroup>
-						<Label>End Date</Label>
-						<Input type="date" bind:value={end_date} on:change={refresh} />
-					</FormGroup>
-				</div>
-			</div>
-
-			<FormGroup>
-				<Label>Search Member</Label>
-				<div class="position-relative">
-					<div class="d-flex align-items-center">
-						<Input
-							type="text"
-							bind:value={search_term}
-							on:keydown={on_search_term_edit}
-							placeholder="Search by name or email"
-							aria-label="Search members by name or email"
-						/>
-						{#if searching}
-							<Spinner size="sm" class="ms-2" />
-						{/if}
-						{#if selected_member}
-							<Button color="secondary" size="sm" class="ms-2" on:click={clear_selection}>
-								Clear
-							</Button>
-						{/if}
+			{#if !can_view}
+				<Alert color="warning"
+					>Access denied. You must be logged in as a Shop Tech or Tech Lead to view members.</Alert
+				>
+			{:else}
+				<div class="row">
+					<div class="col-md-6">
+						<FormGroup>
+							<Label>Start Date</Label>
+							<Input type="date" bind:value={start_date} on:change={refresh} />
+						</FormGroup>
 					</div>
+					<div class="col-md-6">
+						<FormGroup>
+							<Label>End Date</Label>
+							<Input type="date" bind:value={end_date} on:change={refresh} />
+						</FormGroup>
+					</div>
+				</div>
 
-					{#if search_results.length > 0}
-						<div
-							class="position-absolute bg-white border rounded shadow mt-1"
-							style="z-index: 1000; width: 100%; max-height: 300px; overflow-y: auto;"
-						>
-							<ListGroup flush>
-								{#each search_results as result}
-									<ListGroupItem
-										tag="button"
-										action
-										on:click={() => {
-											selected_member = result;
-											search_term = `${selected_member.name} (${selected_member.email})`;
-											search_results = [];
-											refresh();
-										}}
-										class="text-start"
-									>
-										{result.name} ({result.email})
-									</ListGroupItem>
-								{/each}
-							</ListGroup>
+				<FormGroup>
+					<Label>Search Member</Label>
+					<div class="position-relative">
+						<div class="d-flex align-items-center">
+							<Input
+								type="text"
+								bind:value={search_term}
+								on:keydown={on_search_term_edit}
+								placeholder="Search by name or email"
+								aria-label="Search members by name or email"
+							/>
+							{#if searching}
+								<Spinner size="sm" class="ms-2" />
+							{/if}
+							{#if selected_member}
+								<Button color="secondary" size="sm" class="ms-2" on:click={clear_selection}>
+									Clear
+								</Button>
+							{/if}
 						</div>
-					{/if}
-				</div>
-				<small class="form-text text-muted">
-					{#if selected_member}
-						Showing sign-in history for {selected_member.name} only
-					{:else}
-						Showing all members who signed in on selected date
-					{/if}
-				</small>
-			</FormGroup>
 
-			{#if selected_member && total_signins > 0}
-				<div class="mt-4">
-					<h5>Sign-in Frequency for {selected_member.name}</h5>
-					<p class="text-muted">
-						Showing distinct days signed in for each day of the week
-						{#if start_date !== end_date}
-							from {new Date(start_date).toLocaleDateString()} to {new Date(
-								end_date
-							).toLocaleDateString()}
-						{:else}
-							on {new Date(start_date).toLocaleDateString()}
+						{#if search_results.length > 0}
+							<div
+								class="position-absolute bg-white border rounded shadow mt-1"
+								style="z-index: 1000; width: 100%; max-height: 300px; overflow-y: auto;"
+							>
+								<ListGroup flush>
+									{#each search_results as result}
+										<ListGroupItem
+											tag="button"
+											action
+											on:click={() => {
+												selected_member = result;
+												search_term = `${selected_member.name} (${selected_member.email})`;
+												search_results = [];
+												refresh();
+											}}
+											class="text-start"
+										>
+											{result.name} ({result.email})
+										</ListGroupItem>
+									{/each}
+								</ListGroup>
+							</div>
 						{/if}
-					</p>
-
-					<div class="table-responsive">
-						<table class="table table-bordered table-sm">
-							<thead>
-								<tr>
-									<th>Day of Week</th>
-									<th>Distinct Days Signed In</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each Object.entries(day_of_week_stats) as [day, count]}
-									<tr>
-										<td>{day}</td>
-										<td>
-											{#if count > 0}
-												<strong>{count}</strong>
-											{:else}
-												<span class="text-muted">0</span>
-											{/if}
-										</td>
-									</tr>
-								{/each}
-								<tr class="table-secondary">
-									<td><strong>Total Sign-ins</strong></td>
-									<td><strong>{total_signins}</strong></td>
-								</tr>
-							</tbody>
-						</table>
 					</div>
-				</div>
-			{/if}
+					<small class="form-text text-muted">
+						{#if selected_member}
+							Showing sign-in history for {selected_member.name} only
+						{:else}
+							Showing all members who signed in on selected date
+						{/if}
+					</small>
+				</FormGroup>
 
-			{#await promise}
-				<Spinner />Loading...
-			{:then p}
-				<ListGroup>
-					{#each p as r}
-						<ListGroupItem>
-							<p>
-								<strong
-									>{r.email}{#if r.name}&nbsp;({r.name}){/if}</strong
-								>
-								{#if isodate(r.created) != isodate(new Date())}
-									{DAY_NAMES[r.created.getDay()]} {isodate(r.created)}
-								{/if}
-								{r.created.toLocaleTimeString()} -
-								{#if !r.member}
-									Guest
-								{:else}
-									Member (<span
-										style="{r.status !== 'Active' ? 'background-color: yellow;' : null}}"
-										>{r.status}</span
-									>)
-								{/if}
-							</p>
-							{#if r.timestamps.size > 1}
-								<p>All event timestamps: {Array.from(r.timestamps).join(', ')}</p>
-							{/if}
-							{#if !r.clearances.length && !r.violations.length}
-								<p>No clearances, no violations</p>
+				{#if selected_member && total_signins > 0}
+					<div class="mt-4">
+						<h5>Sign-in Frequency for {selected_member.name}</h5>
+						<p class="text-muted">
+							Showing distinct days signed in for each day of the week
+							{#if start_date !== end_date}
+								from {new Date(start_date).toLocaleDateString()} to {new Date(
+									end_date
+								).toLocaleDateString()}
 							{:else}
-								<Accordion>
-									{#if r.clearances.length}
-										<AccordionItem header={r.clearances.length + ' clearance(s)'}>
-											<ListGroup>
-												{#each r.clearances as c}
-													<ListGroupItem>{c}</ListGroupItem>
-												{/each}
-											</ListGroup>
-										</AccordionItem>
-									{/if}
-									{#if r.violations.length}
-										<AccordionItem>
-											<p
-												class="m-0"
-												slot="header"
-												style={r.violations.length ? 'background-color: yellow;' : null}
-											>
-												{r.violations.length + ' violation(s)'}
-											</p>
-											<ListGroup>
-												{#each r.violations as v}
-													<ListGroupItem>{v}</ListGroupItem>
-												{/each}
-											</ListGroup>
-										</AccordionItem>
-									{/if}
-								</Accordion>
+								on {new Date(start_date).toLocaleDateString()}
 							{/if}
-						</ListGroupItem>
-					{/each}
-				</ListGroup>
-			{:catch error}
-				<FetchError {error} />
-			{/await}
+						</p>
 
-			<Toast
-				class="me-1"
-				style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
-				autohide
-				isOpen={toast_msg !== null}
-				on:close={() => (toast_msg = null)}
-			>
-				<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>
-				<ToastBody>{toast_msg?.msg}</ToastBody>
-			</Toast>
+						<div class="table-responsive">
+							<table class="table table-bordered table-sm">
+								<thead>
+									<tr>
+										<th>Day of Week</th>
+										<th>Distinct Days Signed In</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each Object.entries(day_of_week_stats) as [day, count]}
+										<tr>
+											<td>{day}</td>
+											<td>
+												{#if count > 0}
+													<strong>{count}</strong>
+												{:else}
+													<span class="text-muted">0</span>
+												{/if}
+											</td>
+										</tr>
+									{/each}
+									<tr class="table-secondary">
+										<td><strong>Total Sign-ins</strong></td>
+										<td><strong>{total_signins}</strong></td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				{/if}
+
+				{#await promise}
+					<Spinner />Loading...
+				{:then p}
+					<ListGroup>
+						{#each p as r}
+							<ListGroupItem>
+								<p>
+									<strong
+										>{r.email}{#if r.name}&nbsp;({r.name}){/if}</strong
+									>
+									{#if isodate(r.created) != isodate(new Date())}
+										{DAY_NAMES[r.created.getDay()]} {isodate(r.created)}
+									{/if}
+									{r.created.toLocaleTimeString()} -
+									{#if !r.member}
+										Guest
+									{:else}
+										Member (<span
+											style="{r.status !== 'Active' ? 'background-color: yellow;' : null}}"
+											>{r.status}</span
+										>)
+									{/if}
+								</p>
+								{#if r.timestamps.size > 1}
+									<p>All event timestamps: {Array.from(r.timestamps).join(', ')}</p>
+								{/if}
+								{#if !r.clearances.length && !r.violations.length}
+									<p>No clearances, no violations</p>
+								{:else}
+									<Accordion>
+										{#if r.clearances.length}
+											<AccordionItem header={r.clearances.length + ' clearance(s)'}>
+												<ListGroup>
+													{#each r.clearances as c}
+														<ListGroupItem>{c}</ListGroupItem>
+													{/each}
+												</ListGroup>
+											</AccordionItem>
+										{/if}
+										{#if r.violations.length}
+											<AccordionItem>
+												<p
+													class="m-0"
+													slot="header"
+													style={r.violations.length ? 'background-color: yellow;' : null}
+												>
+													{r.violations.length + ' violation(s)'}
+												</p>
+												<ListGroup>
+													{#each r.violations as v}
+														<ListGroupItem>{v}</ListGroupItem>
+													{/each}
+												</ListGroup>
+											</AccordionItem>
+										{/if}
+									</Accordion>
+								{/if}
+							</ListGroupItem>
+						{/each}
+					</ListGroup>
+				{:catch error}
+					<FetchError {error} />
+				{/await}
+
+				<Toast
+					class="me-1"
+					style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
+					autohide
+					isOpen={toast_msg !== null}
+					on:close={() => (toast_msg = null)}
+				>
+					<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>
+					<ToastBody>{toast_msg?.msg}</ToastBody>
+				</Toast>
+			{/if}
 		</CardBody>
 	</Card>
 {/if}

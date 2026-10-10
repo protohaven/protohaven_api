@@ -50,6 +50,30 @@ def test_whoami_no_roles(client):
     }
 
 
+def test_event_ticker_falls_back_to_sample_classes(mocker, client):
+    """Event ticker returns sample classes when no advertised events exist."""
+    mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=[])
+    mocker.patch.object(
+        index.membership_automation,
+        "get_sample_classes",
+        return_value=[
+            {"date": d(0, 10), "name": "Sample Class", "remaining": 2, "id": "123"}
+        ],
+    )
+
+    rep = client.get("/event_ticker")
+
+    assert rep.status_code == 200
+    assert json.loads(rep.data.decode("utf8")) == [
+        {
+            "url": "https://protohaven.org/e/123",
+            "name": "Sample Class",
+            "date": "Jan 1, 10AM",
+            "seats_left": 2,
+        }
+    ]
+
+
 def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
     m1 = mocker.MagicMock(

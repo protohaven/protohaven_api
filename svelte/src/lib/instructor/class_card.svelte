@@ -255,7 +255,7 @@
 				{#if c.event_id}
 					<div>Log submissions:</div>
 					<ul>
-						{#if getSubmissionTimestamps(c)}
+						{#if getSubmissionTimestamps(c).length > 0}
 							{#each getSubmissionTimestamps(c) as timestamp}
 								<li>
 									Submitted: {new Date(timestamp).toLocaleString('en-US', {
@@ -321,7 +321,7 @@
 						>
 					{:else}
 						<DropdownItem divider />
-						<DropdownItem on:click={() => cancel(c.schedule_id)}
+						<DropdownItem on:click={() => cancel(schedule_id)}
 							>Cancel class (requires no attendees)</DropdownItem
 						>
 					{/if}

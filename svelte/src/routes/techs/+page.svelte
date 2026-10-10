@@ -116,7 +116,7 @@
 	{/if}
 </Nav>
 <Shifts {user} visible={activeTab == 'cal'} />
-<Members visible={activeTab == 'members'} />
+<Members {user} visible={activeTab == 'members'} />
 <ToolState visible={activeTab == 'tools'} />
 <Storage visible={activeTab == 'storage'} />
 <AreaLeads visible={activeTab == 'areas'} />

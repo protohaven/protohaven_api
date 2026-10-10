@@ -113,8 +113,11 @@
 					}
 					mediaLog[d.channel].push({ author: d.author, ref: d.ref, link: l, type: 'video' });
 				}
+				messageLog = messageLog;
+				mediaLog = mediaLog;
 			} else if (d.type === 'channel_summary') {
 				channel_summaries[d.channel] = d.content;
+				channel_summaries = channel_summaries;
 			} else if (d.type === 'final_summary') {
 				final_summary = d.content;
 			}
