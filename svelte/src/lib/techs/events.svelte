@@ -44,11 +44,11 @@
 
 	let submitting = false;
 	let submission = new Promise((r, _) => r(null));
-	function action(event_id, ticket_id, action, attendee_neon_id = null) {
+	function action(event_id, ticket_id, action, attendee_email = null) {
 		submitting = true;
 		const data = { event_id, ticket_id, action };
-		if (attendee_neon_id !== null) {
-			data.attendee_neon_id = attendee_neon_id;
+		if (attendee_email !== null) {
+			data.attendee_email = attendee_email;
 		}
 		submission = post('/techs/event', data)
 			.then((result) => console.log(result))
@@ -178,7 +178,7 @@
 												{#if attendee.phone}
 													<div>Phone: {attendee.phone}</div>
 												{/if}
-												{#if attendee.is_volunteer}
+												{#if p.is_admin}
 													<div class="mt-1">
 														<Button
 															color="danger"
@@ -189,7 +189,7 @@
 																		`Are you sure you want to de-register ${attendee.name} from this event?`
 																	)
 																) {
-																	action(r.id, null, 'unregister', attendee.neon_id);
+																	action(r.id, null, 'unregister', attendee.email);
 																}
 															}}
 															disabled={submitting}

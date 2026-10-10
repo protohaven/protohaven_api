@@ -385,14 +385,44 @@ def test_techs_backfill_events(mocker, tech_client):
     ]
 
 
+def test_techs_backfill_events_admin_attendee_details(mocker, lead_client):
+    """Admins receive Eventbrite attendee name/email without Neon IDs"""
+    m = mocker.MagicMock(
+        event_id="123",
+        in_blocklist=lambda: False,
+        single_registration_ticket_id="t1",
+        published=True,
+        registration=True,
+        attendee_count=1,
+        capacity=10,
+        start_date=d(0),
+        supply_cost=0,
+    )
+    m.name = "Event A"
+    attendee = mocker.MagicMock(valid=True)
+    attendee.name = "Foo Bar"
+    attendee.email = "a@b.com"
+    m.attendees = [attendee]
+
+    mocker.patch.object(tl.eauto, "fetch_upcoming_events", return_value=[m])
+    mocker.patch.object(tl, "tznow", return_value=d(-1, 10))
+    mocker.patch.object(tl, "am_lead_role", return_value=True)
+
+    response = lead_client.get("/techs/events")
+    assert response.status_code == 200
+    assert response.json["events"][0]["attendee_details"] == [
+        {"name": "Foo Bar", "email": "a@b.com"}
+    ]
+    assert response.json["events"][0]["attendees"] == []
+    assert response.json["events"][0]["attendee_emails"] == ["a@b.com"]
+
+
 def test_techs_event_registration_eventbrite_free(mocker, tech_client):
     """Shop techs can register for a free Eventbrite ticket"""
     event_id = "375402919237"
-    mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(fname="First", lname="Last", email="a@b.com"),
-    )
+    member = mocker.MagicMock(fname="First", lname="Last", email="a@b.com")
+    member.name = "First Last"
+    mocker.patch.object(tl.neon_base, "fetch_account", return_value=member)
     mocker.patch.object(
         tl.eauto,
         "fetch_event",
@@ -420,17 +450,17 @@ def test_techs_event_registration_eventbrite_free(mocker, tech_client):
         "a@b.com",
         discount_code=None,
     )
-    tl._notify_registration.assert_called_once_with(1234, 1234, event_id, "register")
+    tl._notify_registration.assert_called_once_with(
+        "First Last", "First Last", event_id, "register"
+    )
 
 
 def test_techs_event_registration_eventbrite_paid_applies_discount(mocker, tech_client):
     """Paid Eventbrite tickets get a 100% discount before creating the order"""
     event_id = "375402919237"
-    mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(fname="First", lname="Last", email="a@b.com"),
-    )
+    member = mocker.MagicMock(fname="First", lname="Last", email="a@b.com")
+    member.name = "First Last"
+    mocker.patch.object(tl.neon_base, "fetch_account", return_value=member)
     mocker.patch.object(
         tl.eauto,
         "fetch_event",
@@ -469,11 +499,9 @@ def test_techs_event_registration_eventbrite_paid_applies_discount(mocker, tech_
 def test_techs_event_registration_eventbrite_unregister(mocker, tech_client):
     """Shop techs can unregister themselves from an Eventbrite event by email"""
     event_id = "375402919237"
-    mocker.patch.object(
-        tl.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(fname="First", lname="Last", email="a@b.com"),
-    )
+    member = mocker.MagicMock(fname="First", lname="Last", email="a@b.com")
+    member.name = "First Last"
+    mocker.patch.object(tl.neon_base, "fetch_account", return_value=member)
     mocker.patch.object(
         tl.eventbrite, "cancel_attendee_order", return_value={"status": "ok"}
     )
@@ -486,7 +514,92 @@ def test_techs_event_registration_eventbrite_unregister(mocker, tech_client):
 
     assert rep.json == {"status": "ok"}
     tl.eventbrite.cancel_attendee_order.assert_called_once_with(event_id, "a@b.com")
-    tl._notify_registration.assert_called_once_with(1234, 1234, event_id, "unregister")
+    tl._notify_registration.assert_called_once_with(
+        "First Last", "First Last", event_id, "unregister"
+    )
+
+
+def test_techs_event_registration_admin_unregister_by_email(mocker, lead_client):
+    """Admins can de-register Eventbrite attendees by email after tech verification"""
+    event_id = "375402919237"
+    target = Member.from_neon_search(
+        {
+            "First Name": "Target",
+            "Last Name": "Tech",
+            "API server role": "Shop Tech",
+        }
+    )
+    mocker.patch.object(tl.neon, "search_members_by_email", return_value=[target])
+    actor = mocker.MagicMock()
+    actor.name = "Admin Name"
+    mocker.patch.object(tl.neon_base, "fetch_account", return_value=actor)
+    mocker.patch.object(
+        tl.eventbrite, "cancel_attendee_order", return_value={"status": "ok"}
+    )
+    mocker.patch.object(tl, "_notify_registration")
+
+    rep = lead_client.post(
+        "/techs/event",
+        json={
+            "event_id": event_id,
+            "ticket_id": None,
+            "action": "unregister",
+            "attendee_email": " Tech@Example.com ",
+        },
+    )
+
+    assert rep.json == {"status": "ok"}
+    tl.neon.search_members_by_email.assert_called_once_with("tech@example.com")
+    tl.eventbrite.cancel_attendee_order.assert_called_once_with(
+        event_id, "tech@example.com"
+    )
+    tl._notify_registration.assert_called_once_with(
+        "Admin Name", "Target Tech", event_id, "unregister"
+    )
+
+
+def test_techs_event_registration_admin_unregister_rejects_non_tech(
+    mocker, lead_client
+):
+    """Admins cannot de-register an email that does not resolve to a tech"""
+    target = Member.from_neon_search({"First Name": "Public", "Last Name": "Attendee"})
+    mocker.patch.object(tl.neon, "search_members_by_email", return_value=[target])
+    cancel = mocker.patch.object(tl.eventbrite, "cancel_attendee_order")
+    notify = mocker.patch.object(tl, "_notify_registration")
+
+    rep = lead_client.post(
+        "/techs/event",
+        json={
+            "event_id": "375402919237",
+            "ticket_id": None,
+            "action": "unregister",
+            "attendee_email": "public@example.com",
+        },
+    )
+
+    assert rep.status_code == 400
+    cancel.assert_not_called()
+    notify.assert_not_called()
+
+
+def test_techs_event_registration_admin_unregister_requires_lead(mocker, tech_client):
+    """Non-lead techs cannot use the admin de-registration by email path"""
+    search = mocker.patch.object(tl.neon, "search_members_by_email")
+    cancel = mocker.patch.object(tl.eventbrite, "cancel_attendee_order")
+
+    rep = tech_client.post(
+        "/techs/event",
+        json={
+            "event_id": "375402919237",
+            "ticket_id": None,
+            "action": "unregister",
+            "attendee_email": "tech@example.com",
+        },
+    )
+
+    assert rep.status_code == 403
+    search.assert_not_called()
+    cancel.assert_not_called()
 
 
 def test_techs_area_leads(mocker, tech_client):
