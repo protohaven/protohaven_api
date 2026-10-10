@@ -790,22 +790,8 @@ def test_image_url():
     e.eventbrite_data = {"logo": {}}
     assert e.image_url is None
 
-    # Test with description containing image tag
+    # Test with no eventbrite_data
     e.eventbrite_data = None
-    e.description = '<p><img src="https://example.com/image.jpg"></p>'
-    assert e.image_url == "https://example.com/image.jpg"
-
-    # Test with description containing image tag but no src
-    e.description = '<html><body><img alt="test"></body></html>'
-    assert e.image_url is None
-
-    # Test with description containing no image tag
-    e.description = "<p>No image here</p>"
-    assert e.image_url is None
-
-    # Test with no eventbrite_data and no description
-    e.eventbrite_data = None
-    e.description = None
     assert e.image_url is None
 
 

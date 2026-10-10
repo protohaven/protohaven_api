@@ -1,10 +1,13 @@
 """Facilitates fetching event information from Eventbrite"""
 
 import datetime
+import json
 import logging
+import tarfile
 import uuid
 from collections import defaultdict
 from io import BytesIO
+from os.path import getsize
 from typing import Any, Iterable, cast
 
 import requests
@@ -63,6 +66,33 @@ def fetch_events(
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]
+
+
+def events_backup(output_filename: str) -> int:
+    """Fetch all Eventbrite events and write them as a gzipped tar archive.
+
+    Each archived event includes its Eventbrite search/ticketing data and
+    attendee data. Returns the archive size in bytes.
+    """
+    results = []
+    for e in fetch_events(
+        include_ticketing=True,
+        status=None,
+        attendees=True,
+    ):
+        assert isinstance(e, Event)
+        results.append(
+            {
+                "eventbrite_data": e.eventbrite_data,
+                "eventbrite_attendee_data": e.eventbrite_attendee_data,
+            }
+        )
+    content = json.dumps(results, indent=2).encode("utf-8")
+    with tarfile.open(output_filename, "w:gz") as tar:
+        info = tarfile.TarInfo(name="events.json")
+        info.size = len(content)
+        tar.addfile(tarinfo=info, fileobj=BytesIO(content))
+    return getsize(output_filename)
 
 
 def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:

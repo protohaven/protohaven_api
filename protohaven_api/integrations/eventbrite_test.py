@@ -2,11 +2,16 @@
 
 # pylint: disable=protected-access,duplicate-code
 
+import json
+import tarfile
+import tempfile
+from pathlib import Path
+
 import pytest
 import requests
 
 from protohaven_api.integrations import eventbrite as e
-from protohaven_api.integrations.models import Attendee
+from protohaven_api.integrations.models import Attendee, Event
 from protohaven_api.testing import d, t
 
 
@@ -47,6 +52,33 @@ def test_fetch_events(mocker):
     assert events[0].event_id == "1"
     assert events[1].event_id == "2"
     assert mock_request.call_count == 2
+
+
+def test_events_backup(mocker):
+    """Events backup archives Eventbrite event and attendee data"""
+    mock_event = Event.from_eventbrite_search(
+        {"id": "1", "ticket_classes": [{"id": "tc1"}]}
+    )
+    mock_event.set_attendee_data([{"id": "a1"}])
+    mocker.patch.object(
+        e,
+        "fetch_events",
+        return_value=iter([mock_event]),
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest = Path(tmpdir) / "out.tar.gz"
+        sz = e.events_backup(str(dest))
+        assert sz > 0
+
+        with tarfile.open(dest, "r:gz") as tar:
+            got = tar.extractfile("events.json").read().decode("utf8")
+            assert json.loads(got) == [
+                {
+                    "eventbrite_data": {"id": "1", "ticket_classes": [{"id": "tc1"}]},
+                    "eventbrite_attendee_data": [{"id": "a1"}],
+                }
+            ]
 
 
 def test_fetch_event(mocker):

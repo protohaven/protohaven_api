@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from typing import Generator, Optional
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 from dateutil import tz as dtz
 
@@ -1031,11 +1030,6 @@ class Event:  # pylint: disable=too-many-public-methods
         """Extracts and returns the URL to the image for the class"""
         if self.eventbrite_data:
             return self.eventbrite_data.get("logo", {}).get("url")
-        if self.description:
-            soup = BeautifulSoup(self.description, "html.parser")
-            img = soup.find("img")
-            if img and img.get("src"):
-                return img["src"] or None
         return None
 
     @property
