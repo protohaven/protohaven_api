@@ -378,13 +378,6 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=True,
         ),
-        arg(
-            "--category",
-            help="Which category of data to back up",
-            choices=["events"],
-            type=str,
-            required=True,
-        ),
     )
     def backup_eventbrite(self, args, _):
         """Fetch and back up Eventbrite data to google drive"""
@@ -393,14 +386,11 @@ class Commands:
         # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
         stats = []
         with tempfile.TemporaryDirectory() as d:
-            fn = {
-                "events": eventbrite.events_backup,
-            }[args.category]
             stats.append(
                 self._do_backup(
-                    fn,
-                    Path(d) / f"eventbrite_{args.category}_backup.tar.gz",
-                    f"eventbrite_{args.category}_backup_{now.isoformat()}.tar.gz",
+                    eventbrite.events_backup,
+                    Path(d) / "eventbrite_events_backup.tar.gz",
+                    f"eventbrite_events_backup_{now.isoformat()}.tar.gz",
                     args.parent_id,
                     apply=args.apply,
                 )
@@ -408,7 +398,7 @@ class Commands:
         print_yaml(
             Msg.tmpl(
                 "eventbrite_backup_summary",
-                category=args.category,
+                category="events",
                 parent_id=args.parent_id,
                 stats=stats,
                 target="#membership-automation",

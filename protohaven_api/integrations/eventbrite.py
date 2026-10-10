@@ -4,12 +4,10 @@ import datetime
 import json
 import logging
 import tarfile
-import tempfile
 import uuid
 from collections import defaultdict
 from io import BytesIO
 from os.path import getsize
-from pathlib import Path
 from typing import Any, Iterable, cast
 
 import requests
@@ -70,35 +68,30 @@ def fetch_events(
         params["continuation"] = rep["pagination"]["continuation"]
 
 
-def make_tarfile(output_filename: str, source_dir: str):
-    """Write a gzipped tar archive of `source_dir` to `output_filename`."""
-    with tarfile.open(output_filename, "w:gz") as tar:
-        tar.add(source_dir, arcname="")
-
-
 def events_backup(output_filename: str) -> int:
     """Fetch all Eventbrite events and write them as a gzipped tar archive.
 
     Each archived event includes its Eventbrite search/ticketing data and
     attendee data. Returns the archive size in bytes.
     """
-    with tempfile.TemporaryDirectory() as d:
-        results = []
-        for e in fetch_events(
-            include_ticketing=True,
-            status=None,
-            attendees=True,
-        ):
-            assert isinstance(e, Event)
-            results.append(
-                {
-                    "eventbrite_data": e.eventbrite_data,
-                    "eventbrite_attendee_data": e.eventbrite_attendee_data,
-                }
-            )
-        with open(Path(d) / "events.json", "w", encoding="utf8") as f:
-            f.write(json.dumps(results))
-        make_tarfile(output_filename, str(d))
+    results = []
+    for e in fetch_events(
+        include_ticketing=True,
+        status=None,
+        attendees=True,
+    ):
+        assert isinstance(e, Event)
+        results.append(
+            {
+                "eventbrite_data": e.eventbrite_data,
+                "eventbrite_attendee_data": e.eventbrite_attendee_data,
+            }
+        )
+    content = json.dumps(results, indent=2).encode("utf-8")
+    with tarfile.open(output_filename, "w:gz") as tar:
+        info = tarfile.TarInfo(name="events.json")
+        info.size = len(content)
+        tar.addfile(tarinfo=info, fileobj=BytesIO(content))
     return getsize(output_filename)
 
 

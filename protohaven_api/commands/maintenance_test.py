@@ -262,10 +262,7 @@ def test_backup_eventbrite(mocker, cli):
     )
     mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
 
-    got = cli(
-        "backup_eventbrite",
-        ["--parent_id=test_parent_id", "--category=events", "--apply"],
-    )
+    got = cli("backup_eventbrite", ["--parent_id=test_parent_id", "--apply"])
 
     events_backup.assert_called_once()
     assert mock_do_backup.call_count == 1

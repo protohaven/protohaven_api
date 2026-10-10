@@ -69,8 +69,6 @@ def _test_backup_job(ctx: QAContext, name: str):
     args = f"--apply --parent_id={ctx.drive_folder_id}"
     if name == "backup_neon_accounts":
         args += " --category=accounts"
-    elif name == "backup_eventbrite_events":
-        args += " --category=events"
     result = ctx.run(
         name,
         BACKUP_EVENTS[name],
