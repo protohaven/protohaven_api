@@ -26,6 +26,7 @@
 
 	import FetchError from '../fetch_error.svelte';
 	import { get, isodate, post } from '$lib/api.ts';
+	import { calculate_day_of_week_stats, DAY_NAMES } from './members_utils';
 
 	let start_date = isodate(new Date());
 	let end_date = isodate(new Date());
@@ -44,7 +45,6 @@
 	let toast_msg = null;
 
 	// Day of week statistics
-	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 	let day_of_week_stats = {
 		Sunday: 0,
 		Monday: 0,
@@ -131,34 +131,9 @@
 	}
 
 	function calculateDayOfWeekStats(memberSignins) {
-		// Reset stats
-		resetDayOfWeekStats();
-
-		// Track unique dates for each day of week
-		const uniqueDatesByDay = {
-			0: new Set(), // Sunday
-			1: new Set(), // Monday
-			2: new Set(), // Tuesday
-			3: new Set(), // Wednesday
-			4: new Set(), // Thursday
-			5: new Set(), // Friday
-			6: new Set() // Saturday
-		};
-
-		// Process each sign-in
-		for (const signin of memberSignins) {
-			const date = new Date(signin.created);
-			const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-			const dateKey = isodate(date); // Unique date string
-
-			uniqueDatesByDay[dayOfWeek].add(dateKey);
-		}
-
-		// Convert to day names and counts
-		for (let i = 0; i < 7; i++) {
-			day_of_week_stats[DAY_NAMES[i]] = uniqueDatesByDay[i].size;
-			total_signins += uniqueDatesByDay[i].size;
-		}
+		const { stats, total_signins: total } = calculate_day_of_week_stats(memberSignins);
+		day_of_week_stats = stats;
+		total_signins = total;
 	}
 
 	function resetDayOfWeekStats() {

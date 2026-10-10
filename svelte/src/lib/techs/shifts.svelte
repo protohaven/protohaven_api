@@ -34,6 +34,7 @@
 	import Calendar from './calendar.svelte';
 	import FetchError from '../fetch_error.svelte';
 	import { get, post, isodate } from '$lib/api.ts';
+	import { days_between, isToday } from './shifts_utils';
 
 	export let user;
 	export let visible;
@@ -47,24 +48,6 @@
 	start_date = isodate(start_date);
 	end_date.setDate(end_date.getDate() + DEFAULT_DURATION);
 	end_date = isodate(end_date);
-
-	function isToday(date) {
-		let now = new Date();
-		// Apply time zone to prevent day offset
-		date = new Date(date + ' EST');
-		return (
-			now.getFullYear() === date.getFullYear() &&
-			now.getMonth() === date.getMonth() &&
-			now.getDate() === date.getDate()
-		);
-	}
-
-	function days_between(d1, d2) {
-		// https://stackoverflow.com/a/2627493
-		return Math.round(
-			Math.abs((new Date(end_date) - new Date(start_date)) / (24 * 60 * 60 * 1000))
-		);
-	}
 
 	let loaded = false;
 	let promise = new Promise((resolve) => {

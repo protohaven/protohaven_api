@@ -1,6 +1,7 @@
 <script type="typescript" lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { get } from '$lib/api.ts';
+	import { doorSummary, formatTime } from './door_locks_utils';
 	import { Icon, Tooltip, Badge, Spinner } from '@sveltestrap/sveltestrap';
 
 	export let visible = true;
@@ -32,26 +33,6 @@
 		} finally {
 			loading = false;
 		}
-	}
-
-	// Format timestamp for display
-	function formatTime(timestamp: string): string {
-		if (!timestamp) return 'Never';
-		try {
-			const date = new Date(timestamp);
-			return date.toLocaleTimeString('en-US', {
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: true
-			});
-		} catch {
-			return 'Invalid time';
-		}
-	}
-
-	function doorSummary(door: any): string {
-		if (!door.is_online) return `${door.name}: Offline`;
-		return `${door.name}: ${door.open_close_state ? 'OPEN' : 'CLOSED'}`;
 	}
 
 	// Count open doors
