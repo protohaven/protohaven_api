@@ -700,6 +700,18 @@ class Attendee:
         )
 
     @property
+    def phone(self):
+        """Phone number of the attendee, if present in the source data"""
+        profile = self.eventbrite_data.get("profile", {})
+        for key in ("home_phone", "cell_phone", "work_phone", "phone"):
+            if profile.get(key):
+                return profile[key]
+        for key in ("phone", "phone1", "mobilePhone"):
+            if self.neon_raw_data.get(key):
+                return self.neon_raw_data[key]
+        return None
+
+    @property
     def valid(self):
         """Return true if the attendee has paid successfully and not cancelled"""
         return self.neon_raw_data.get("registrationStatus") == "SUCCEEDED" or (

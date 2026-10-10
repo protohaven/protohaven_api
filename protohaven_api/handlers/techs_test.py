@@ -343,7 +343,9 @@ def test_techs_backfill_events(mocker, tech_client):
         m.attendees = []
         for _ in range(m.attendee_count):
             m.attendees.append(
-                mocker.MagicMock(valid=True, neon_id=123, name="Foo", email="a@b.com")
+                mocker.MagicMock(
+                    valid=True, neon_id=123, name="Foo", email="a@b.com", phone=None
+                )
             )
         events.append(m)
 
@@ -402,6 +404,7 @@ def test_techs_backfill_events_admin_attendee_details(mocker, lead_client):
     attendee = mocker.MagicMock(valid=True)
     attendee.name = "Foo Bar"
     attendee.email = "a@b.com"
+    attendee.phone = "(412) 555-0100"
     m.attendees = [attendee]
 
     mocker.patch.object(tl.eauto, "fetch_upcoming_events", return_value=[m])
@@ -411,10 +414,51 @@ def test_techs_backfill_events_admin_attendee_details(mocker, lead_client):
     response = lead_client.get("/techs/events")
     assert response.status_code == 200
     assert response.json["events"][0]["attendee_details"] == [
-        {"name": "Foo Bar", "email": "a@b.com"}
+        {"name": "Foo Bar", "email": "a@b.com", "phone": "(412) 555-0100"}
     ]
     assert response.json["events"][0]["attendees"] == []
     assert response.json["events"][0]["attendee_emails"] == ["a@b.com"]
+
+
+def test_techs_backfill_events_generic_shop_tech_cannot_register(mocker, client):
+    """The generic shop tech login cannot self-register for tech backfill events."""
+    m = mocker.MagicMock(
+        event_id="123",
+        in_blocklist=lambda: False,
+        single_registration_ticket_id="t1",
+        published=True,
+        registration=True,
+        attendee_count=0,
+        capacity=10,
+        start_date=d(0),
+        supply_cost=0,
+    )
+    m.name = "Event A"
+    m.attendees = []
+
+    mocker.patch.object(tl.eauto, "fetch_upcoming_events", return_value=[m])
+    mocker.patch.object(tl, "tznow", return_value=d(-1, 10))
+    mocker.patch.object(tl, "am_lead_role", return_value=False)
+    mocker.patch.object(tl, "am_role", return_value=True)
+    mocker.patch.object(tl, "am_neon_id", return_value=True)
+
+    response = client.get("/techs/events")
+    assert response.status_code == 200
+    assert response.json["can_register"] is False
+
+
+def test_techs_event_registration_generic_shop_tech_rejected(mocker, tech_client):
+    """The generic shop tech login cannot register for events."""
+    mocker.patch.object(tl, "am_neon_id", return_value=True)
+    register = mocker.patch.object(tl.eventbrite, "register_attendee")
+
+    rep = tech_client.post(
+        "/techs/event",
+        json={"event_id": "375402919237", "ticket_id": None, "action": "register"},
+    )
+
+    assert rep.status_code == 400
+    register.assert_not_called()
 
 
 def test_techs_event_registration_eventbrite_free(mocker, tech_client):

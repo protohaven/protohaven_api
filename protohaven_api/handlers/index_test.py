@@ -50,6 +50,16 @@ def test_whoami_no_roles(client):
     }
 
 
+def test_event_ticker_empty_when_no_advertised_events(mocker, client):
+    """Event ticker shows no classes rather than fabricating sample classes."""
+    mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=[])
+
+    rep = client.get("/event_ticker")
+
+    assert rep.status_code == 200
+    assert json.loads(rep.data.decode("utf8")) == []
+
+
 def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
     m1 = mocker.MagicMock(

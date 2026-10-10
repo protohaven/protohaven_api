@@ -44,7 +44,11 @@
 	});
 	export let on_update: () => void;
 
-	$: loggedin = edit && edit.fullname;
+	const EDIT_ROLES = ['Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'];
+	$: can_edit =
+		edit !== null &&
+		Array.isArray(edit.roles) &&
+		edit.roles.some((role: string) => EDIT_ROLES.includes(role));
 
 	function rm(tech: string) {
 		if (!edit) {
@@ -110,12 +114,12 @@
 				{/if}
 				{#each edit.techs as t}
 					<ListGroupItem>
-						{#if loggedin}
+						{#if can_edit}
 							<Button on:click={() => rm(t)}>X</Button>&nbsp;
 						{/if}{t}</ListGroupItem
 					>
 				{/each}
-				{#if loggedin}
+				{#if can_edit}
 					<ListGroupItem>
 						{#await all_techs}
 							<Spinner />
@@ -145,7 +149,7 @@
 	</ModalBody>
 	<ModalFooter>
 		<div style="width: 100%">
-			{#if !loggedin}
+			{#if !can_edit}
 				<Alert color="warning"
 					>You must be <a href="https://api.protohaven.org/login">logged in</a> to modify the shift schedule</Alert
 				>
@@ -165,9 +169,9 @@
 		{:catch error}
 			<FetchError {error} />
 		{/await}
-		<Button color="primary" on:click={save} disabled={acting || !loggedin}>Save</Button>
+		<Button color="primary" on:click={save} disabled={acting || !can_edit}>Save</Button>
 		{#if edit?.id}
-			<Button color="primary" on:click={revert} disabled={acting || !loggedin}>Revert</Button>
+			<Button color="primary" on:click={revert} disabled={acting || !can_edit}>Revert</Button>
 		{/if}
 		<Button color="secondary" on:click={() => (edit = null)} disabled={acting}>Cancel</Button>
 	</ModalFooter>

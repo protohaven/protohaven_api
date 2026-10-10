@@ -193,6 +193,48 @@ def test_class_details_both_email_and_session(mocker, inst_client):
     assert rep.status == "200 OK"
 
 
+def test_cancel_class_deletes_auto_reservations(mocker, inst_client):
+    """Cancelling a class deletes its auto-reservations."""
+    c = mocker.MagicMock()
+    c.instructor_email = "foo@bar.com"
+    c.neon_id = "12345"
+    c.areas = ["Area1"]
+    c.sessions = [
+        (
+            datetime.datetime(2025, 1, 15, 18, 0),
+            datetime.datetime(2025, 1, 15, 21, 0),
+        )
+    ]
+    c.as_response.return_value = {"event_id": "12345", "name": "Test Class"}
+
+    mocker.patch.object(instructor.airtable, "get_scheduled_class", return_value=c)
+    mocker.patch.object(instructor.eauto, "fetch_attendees", return_value=[])
+    mocker.patch.object(
+        instructor.eauto, "set_event_scheduled_state", return_value=True
+    )
+    get_reservations = mocker.patch.object(
+        instructor.booked,
+        "get_reservations_for_areas",
+        return_value=[
+            {
+                "referenceNumber": "res-1",
+                "resourceId": "resource-1",
+                "bufferedStartDate": "2025-01-15",
+            }
+        ],
+    )
+    delete_reservation = mocker.patch.object(
+        instructor.booked, "delete_reservation", return_value=True
+    )
+
+    rep = inst_client.post("/instructor/class/cancel", json={"class_id": "sched-1"})
+
+    assert rep.status_code == 200
+    assert rep.json == {"event_id": "12345", "name": "Test Class"}
+    get_reservations.assert_called_once_with(c.sessions[0], c.areas)
+    delete_reservation.assert_called_once_with("res-1")
+
+
 def test_get_instructor_readiness_all_bad(mocker):
     mocker.patch.object(instructor, "airtable")
     instructor.airtable.fetch_instructor_capabilities.return_value = None

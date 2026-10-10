@@ -513,7 +513,7 @@ def cancel_class():
                 )
                 log.info(str(booked.delete_reservation(res["referenceNumber"])))
 
-    return {"success": True}
+    return c.as_response()
 
 
 @page.route("/instructor/submissions", methods=["GET"])
