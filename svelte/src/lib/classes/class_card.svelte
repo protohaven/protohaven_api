@@ -1,5 +1,4 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script lang="ts">
 	import {
 		Button,
 		Modal,
@@ -17,49 +16,84 @@
 		ListGroupItem
 	} from '@sveltestrap/sveltestrap';
 
-	export let c;
+	interface ClassListingItem {
+		id?: string | number;
+		name?: string;
+		day?: string;
+		time?: string;
+		timestamp?: string | number;
+		description?: string;
+		airtable_data?: {
+			fields?: Record<string, unknown>;
+		};
+	}
 
-	function open_signup(id) {
-		let url =
+	interface AirtableImage {
+		url?: string;
+		thumbnails?: {
+			large?: {
+				url?: string;
+			};
+		};
+	}
+
+	interface ClassCardData {
+		price?: string | number;
+		hours?: string | number;
+		age?: string | number;
+		description?: string;
+		what_bring_wear?: string;
+		what_create?: string;
+		instructor?: string;
+		dates?: string[];
+	}
+
+	export let c: ClassListingItem;
+
+	function open_signup() {
+		const url =
 			'https://protohaven.app.neoncrm.com/np/clients/protohaven/eventRegistration.jsp?event=' +
-			c['id'];
+			String(c['id']);
 		window.open(url, '_blank');
 	}
 
 	let img_src = 'https://api.protohaven.org/static/img/favicon.jpg';
 	let img_thumb = 'https://api.protohaven.org/static/img/favicon.jpg';
-	let data = {};
+	let data: ClassCardData = {};
 	$: {
-		let img_data = (c['airtable_data'] || { fields: {} })['fields']['Image (from Class)'];
-		if (img_data && img_data.length) {
+		const fields = (c['airtable_data'] || { fields: {} }).fields || {};
+		const img_data = fields['Image (from Class)'];
+		if (Array.isArray(img_data) && img_data.length) {
+			const img = img_data[0] as AirtableImage;
 			console.log(img_data);
-			img_src = img_data[0]['url'];
-			if (img_data[0].thumbnails) {
-				img_thumb = img_data[0]['thumbnails']['large']['url'];
+			img_src = img.url ?? img_src;
+			if (img.thumbnails?.large?.url) {
+				img_thumb = img.thumbnails.large.url;
 			} else {
 				img_thumb = img_src;
 			}
 		}
 
 		if (c['airtable_data']) {
-			let f = c['airtable_data']['fields'];
+			const f = c['airtable_data'].fields || {};
 
-			let dates = [];
-			let startDate = new Date(c['timestamp']);
-			for (let i = 0; i < f['Days (from Class)']; i++) {
-				let d = new Date(startDate);
+			const dates: string[] = [];
+			const startDate = new Date(c['timestamp'] ?? Date.now());
+			const days = Number(f['Days (from Class)']) || 0;
+			for (let i = 0; i < days; i++) {
+				const d = new Date(startDate);
 				d.setDate(startDate.getDate() + 7 * i);
 				dates.push(d.toLocaleDateString());
 			}
 
 			data = {
-				price: f['Price (from Class)'],
-				hours: f['Hours (from Class)'],
-				age: f['Age Requirement (from Class)'],
-				description: f['Short Description (from Class)'],
-				what_bring_wear: f['What to Bring/Wear (from Class)'],
-				what_create: f['What you Will Create (from Class)'],
-				instructor: f['Instructor'],
+				price: f['Price (from Class)'] as string | number | undefined,
+				hours: f['Hours (from Class)'] as string | number | undefined,
+				age: f['Age Requirement (from Class)'] as string | number | undefined,
+				description: f['Short Description (from Class)'] as string | undefined,
+				what_bring_wear: f['What to Bring/Wear (from Class)'] as string | undefined,
+				what_create: f['What you Will Create (from Class)'] as string | undefined,
+				instructor: f['Instructor'] as string | undefined,
 				dates
 			};
 		}
@@ -97,6 +131,7 @@
 	<ModalHeader {toggle}>{c['name']}</ModalHeader>
 	<ModalBody>
 		{#if !c['airtable_data']}
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html c['description']}
 		{:else}
 			<Image fluid src={img_src} alt="class image" />
@@ -111,7 +146,7 @@
 		{/if}
 	</ModalBody>
 	<ModalFooter>
-		<Button color="primary" on:click={open_signup}>Register</Button>
+		<Button color="primary" on:click={() => open_signup()}>Register</Button>
 		<Button color="secondary" on:click={toggle}>Close</Button>
 	</ModalFooter>
 </Modal>

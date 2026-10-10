@@ -1,50 +1,17 @@
 <script type="typescript" lang="ts">
-	import { onMount } from 'svelte';
 	import {
 		Table,
-		Dropdown,
-		DropdownToggle,
-		DropdownItem,
-		DropdownMenu,
 		Button,
-		Row,
-		Container,
-		Col,
 		Card,
 		CardHeader,
-		Badge,
 		CardTitle,
-		Modal,
 		CardSubtitle,
-		CardText,
-		Icon,
-		Tooltip,
-		CardFooter,
 		CardBody,
 		Input,
-		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
-		Toast,
-		ToastBody,
-		ToastHeader,
-		ListGroup,
-		ListGroupItem
+		Spinner
 	} from '@sveltestrap/sveltestrap';
-	import { get, post, isodate } from '$lib/api.ts';
-	import type {
-		Tech,
-		DisplayTech,
-		SearchResult,
-		ToastMessage,
-		SortType,
-		TechListData
-	} from './types';
+	import { post, isodate } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
-	import TechCard from './tech_card.svelte';
 
 	// Component props
 	export let visible: boolean;
@@ -52,13 +19,22 @@
 	const DEFAULT_DURATION = 30;
 	const DEFAULT_TRAIL = 1;
 
-	let promise = Promise.resolve([]);
-	let start_date = new Date();
-	let end_date = new Date(start_date);
-	start_date.setDate(start_date.getDate() - DEFAULT_DURATION - DEFAULT_TRAIL);
-	start_date = isodate(start_date);
-	end_date.setDate(end_date.getDate() - DEFAULT_TRAIL);
-	end_date = isodate(end_date);
+	interface AttendanceReport {
+		header: string[];
+		rows: (string | number)[][];
+	}
+
+	let promise: Promise<AttendanceReport> = Promise.resolve({ header: [], rows: [] });
+	let start_date: string;
+	let end_date: string;
+	{
+		const start = new Date();
+		const end = new Date(start);
+		start.setDate(start.getDate() - DEFAULT_DURATION - DEFAULT_TRAIL);
+		end.setDate(end.getDate() - DEFAULT_TRAIL);
+		start_date = isodate(start);
+		end_date = isodate(end);
+	}
 	function fetch_attendance() {
 		promise = post('/techs/attendance_report', { start_date, end_date }).then((data) => {
 			console.log(data);

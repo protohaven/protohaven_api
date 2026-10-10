@@ -41,9 +41,9 @@
 	</CardHeader>
 	<CardBody>
 		<Container style="max-width: none;">
-			<Row cols={{ xxl: 2, xl: 2, l: 2, md: 2, sm: 1, xs: 1 }}>
+			<Row cols={{ xl: 2, lg: 2, md: 2, sm: 1, xs: 1 }}>
 				<Col>
-					<Row cols={{ xxl: 2, xl: 2, l: 2, md: 1, sm: 1, xs: 1 }}>
+					<Row cols={{ xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}>
 						{#if tech.volunteer_bio}
 							<img
 								src={tech.volunteer_picture}

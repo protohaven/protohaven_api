@@ -1,7 +1,5 @@
-<script type="typescript">
+<script lang="ts">
 	import {
-		Button,
-		Icon,
 		Image,
 		Card,
 		CardHeader,
@@ -9,30 +7,38 @@
 		CardSubtitle,
 		CardText,
 		CardBody,
-		CardFooter,
 		Spinner,
 		ListGroup,
 		ListGroupItem,
 		Alert
 	} from '@sveltestrap/sveltestrap';
-	import { onMount } from 'svelte';
-	import { get, post } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
 
-	export let email;
-	export let on_scheduler;
-	export let profile; // Async fetch from parent
-
-	function li_color(v) {
-		v = v.toLowerCase();
-		let has_ok = v.indexOf('ok') !== -1;
-		if (has_ok) {
-			return 'light';
-		}
-		return 'warning';
+	interface ProfileData {
+		fullname?: string;
+		profile_img?: string;
+		bio?: string;
+		email_status?: string;
+		active_membership?: string;
+		capabilities_listed?: string;
+		paperwork?: string;
+		discord_user?: string;
 	}
-	function onboarded(p) {
-		for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user']) {
+
+	export let profile: Promise<ProfileData | null> | null = null; // Async fetch from parent
+
+	function li_color(v: string | undefined): string {
+		const value = (v ?? '').toLowerCase();
+		const has_ok = value.indexOf('ok') !== -1;
+		return has_ok ? 'light' : 'warning';
+	}
+	function onboarded(p: ProfileData): boolean {
+		for (const k of [
+			'active_membership',
+			'capabilities_listed',
+			'paperwork',
+			'discord_user'
+		] as const) {
 			if (li_color(p[k]) == 'warning') {
 				return false;
 			}
@@ -48,7 +54,7 @@
 		</CardHeader>
 		<CardBody><Spinner></Spinner></CardBody>
 	{:then p}
-		{#if p !== undefined}
+		{#if p}
 			<CardHeader>
 				<CardTitle>
 					<div>{p.fullname}</div>

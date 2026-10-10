@@ -29,7 +29,7 @@ export function groupReservations(reservations: Reservation[]) {
 	return grouped;
 }
 
-export function uniqueStarts(reservations: Reservation[]) {
+export function uniqueStarts(reservations: Pick<Reservation, 'start' | 'ts'>[]) {
 	const uniques: Record<string, string | undefined> = {};
 	for (const r of reservations) {
 		uniques[r.start ?? ''] = r.ts;

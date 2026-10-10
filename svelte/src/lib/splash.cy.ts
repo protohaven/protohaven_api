@@ -24,7 +24,11 @@ describe('Splash', () => {
 		cy.mount(Splash, {
 			props: {
 				on_member: cy.stub().as('on_member'),
-				on_guest: cy.stub().as('on_guest')
+				on_guest: cy.stub().as('on_guest'),
+				feedback: null,
+				email: '',
+				progress: null,
+				dependent_info: ''
 			}
 		});
 

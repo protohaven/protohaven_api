@@ -1,61 +1,38 @@
 <script type="typescript" lang="ts">
-	import { onMount } from 'svelte';
 	import {
 		Alert,
 		Table,
-		Dropdown,
-		DropdownToggle,
-		DropdownItem,
-		DropdownMenu,
 		Button,
-		Row,
-		Container,
-		Col,
 		Card,
 		CardHeader,
 		Badge,
 		CardTitle,
-		Modal,
 		CardSubtitle,
-		CardText,
-		Icon,
-		Tooltip,
-		CardFooter,
 		CardBody,
 		Input,
 		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
 		Toast,
 		ToastBody,
 		ToastHeader,
 		ListGroup,
 		ListGroupItem
 	} from '@sveltestrap/sveltestrap';
-	import { get, post } from '$lib/api.ts';
+	import { post } from '$lib/api.ts';
 	import type {
-		Instructor,
-		DisplayInstructor,
 		SearchResult,
 		ToastMessage,
-		SortType,
 		InstructorListData,
 		InstructorCapability
 	} from './types';
-	import FetchError from '../fetch_error.svelte';
-	import InstructorCard from './instructor_card.svelte';
 
 	// Utility functions
-	function debounce<T extends (...args: any[]) => any>(
-		func: T,
+	function debounce<A extends unknown[]>(
+		func: (...args: A) => void,
 		wait: number
-	): (...args: Parameters<T>) => void {
-		let timeout: NodeJS.Timeout | null = null;
+	): (...args: A) => void {
+		let timeout: ReturnType<typeof setTimeout> | null = null;
 
-		return (...args: Parameters<T>) => {
+		return (...args: A) => {
 			if (timeout) {
 				clearTimeout(timeout);
 			}
@@ -65,7 +42,7 @@
 		};
 	}
 
-	function handleApiError(error: any, context: string): ToastMessage {
+	function handleApiError(error: unknown, context: string): ToastMessage {
 		console.error(`${context}:`, error);
 		return {
 			color: 'danger',
@@ -76,10 +53,9 @@
 
 	// Component props
 	export let visible: boolean;
-	export let user: { email: string };
 	export let admin: boolean;
 	export let data: InstructorListData | null = null;
-	export let onEnrollmentChanged;
+	export let onEnrollmentChanged: () => void;
 
 	// State
 	let new_instructor: { neon_id: string | null; name: string; email: string } = {
@@ -91,7 +67,6 @@
 	let search_term = '';
 	let search_results: SearchResult[] = [];
 	let searching = false;
-	let search_promise: Promise<SearchResult[]> = Promise.resolve([]);
 	let show_create_account = false;
 	let enrolling = false;
 
@@ -99,7 +74,6 @@
 	let enrollment_map: Record<string, string> = {};
 	let without_capabilities: string[] = [];
 	let without_enrollment: InstructorCapability[] = [];
-	let show_capabilities = false;
 
 	// Debounced search function
 	const debouncedSearch = debounce(() => {
@@ -110,15 +84,17 @@
 		}
 
 		searching = true;
-		search_promise = post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
+		post(`/neon_lookup?search=${encodeURIComponent(search_term)}`, {})
 			.then((results: SearchResult[]) => {
 				search_results = results;
-				search_results.push({ name: '+ Create New', email: 'Neon CRM' });
+				search_results.push({ name: '+ Create New', email: 'Neon CRM', neon_id: '' });
+				return search_results;
 			})
 			.catch((err) => {
 				console.error('Search failed:', err);
 				search_results = [];
 				toast_msg = handleApiError(err, 'search Neon accounts');
+				return search_results;
 			})
 			.finally(() => {
 				searching = false;
@@ -147,7 +123,7 @@
 	}
 
 	// Reactive search term
-	function on_search_term_edit(e) {
+	function on_search_term_edit(e: KeyboardEvent) {
 		console.log(e);
 		if (search_term !== `${new_instructor.name} (${new_instructor.email})`) {
 			search_neon_accounts();
@@ -177,14 +153,20 @@
 
 		enrolling = true;
 
-		let payload = {
+		const payload: {
+			neon_id: string | null;
+			name: string;
+			email: string;
+			enroll: boolean;
+			create_account?: boolean;
+		} = {
 			...new_instructor,
 			enroll
 		};
 
 		// If we're creating a new account, include name and email
 		if (show_create_account && enroll) {
-			payload['create_account'] = true;
+			payload.create_account = true;
 		}
 
 		post('/instructor/enroll', payload)
@@ -210,30 +192,6 @@
 			})
 			.catch((error) => {
 				toast_msg = handleApiError(error, 'change enrollment');
-			})
-			.finally(() => {
-				enrolling = false;
-			});
-	}
-
-	function disenroll_instructor(inst: Instructor) {
-		if (!confirm(`Are you sure you want to disenroll ${inst.name} as an instructor?`)) {
-			return;
-		}
-
-		enrolling = true;
-		post('/instructor/enroll', { neon_id: inst.neon_id, enroll: false })
-			.then(() => {
-				toast_msg = {
-					color: 'success',
-					msg: `${inst.name} successfully disenrolled as instructor.`,
-					title: 'Disenrollment successful'
-				};
-				// Refresh the list
-				onEnrollmentChanged();
-			})
-			.catch((error) => {
-				toast_msg = handleApiError(error, 'disenroll instructor');
 			})
 			.finally(() => {
 				enrolling = false;
@@ -386,13 +344,13 @@
 				class="me-1"
 				style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
 				autohide
-				isOpen={toast_msg}
+				isOpen={toast_msg !== null}
 				on:close={() => (toast_msg = null)}
 				aria-live="polite"
 				aria-atomic="true"
 			>
-				<ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-				<ToastBody>{toast_msg.msg}</ToastBody>
+				<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>
+				<ToastBody>{toast_msg?.msg}</ToastBody>
 			</Toast>
 			{#if without_enrollment.length > 0}
 				<Alert color="danger">
@@ -414,8 +372,8 @@
 					</ul>
 					<p>
 						They are missing the <strong>Instructor</strong> API Server Role custom field setting in Neon
-						CRM. Add that role in Neon CRM using the "Enroll" button above, or remove their Instructor Capabilities
-						in Airtable if this is a mistake.
+						CRM. Add that role in Neon CRM using the "Enroll" button above, or remove their Instructor
+						Capabilities in Airtable if this is a mistake.
 					</p>
 				</Alert>
 			{/if}
@@ -499,7 +457,7 @@
 							<td>
 								{#if Object.keys(inst.classes).length > 0}
 									<div style="display: flex; flex-wrap: wrap; gap: 4px;">
-										{#each Object.entries(inst.classes) as [id, name]}
+										{#each Object.entries(inst.classes) as [, name]}
 											<Badge color="primary" pill>{name}</Badge>
 										{/each}
 									</div>
