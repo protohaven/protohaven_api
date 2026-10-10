@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import {
 		Alert,
 		Modal,
@@ -14,28 +14,51 @@
 	import FetchError from '../fetch_error.svelte';
 	import { onMount } from 'svelte';
 
-	export let edit = null; // obj with `date`, `ap`, `techs`, `orig`, `email`, `fullname`
-	let all_techs = new Promise((re, rj) => {});
+	interface ForecastOverride {
+		id?: string;
+		date?: string;
+		ap?: string;
+		techs: string[];
+		orig?: string[];
+		editor?: string;
+		fullname?: string;
+		email?: string;
+		[key: string]: unknown;
+	}
+
+	interface TechOption {
+		name: string;
+		shift: string;
+	}
+
+	export let edit: ForecastOverride | null = null; // obj with `date`, `ap`, `techs`, `orig`, `email`, `fullname`
+	let all_techs: Promise<TechOption[]> = new Promise(() => {});
 	onMount(() => {
 		all_techs = get('/techs/list').then((data) => {
-			let tt = data.techs.map((t) => {
+			let tt = data.techs.map((t: TechOption) => {
 				return { name: t.name, shift: t.shift };
 			});
-			tt.sort((a, b) => a.name > b.name);
+			tt.sort((a: TechOption, b: TechOption) => a.name.localeCompare(b.name));
 			return tt;
 		});
 	});
-	export let on_update;
+	export let on_update: () => void;
 
 	$: loggedin = edit && edit.fullname;
 
-	function rm(tech) {
-		edit.techs = edit.techs.filter((t) => t != tech);
+	function rm(tech: string) {
+		if (!edit) {
+			return;
+		}
+		edit.techs = edit.techs.filter((t: string) => t != tech);
 	}
 
-	let selected;
-	let custom_text;
+	let selected = '';
+	let custom_text = '';
 	function add_custom() {
+		if (!edit) {
+			return;
+		}
 		edit.techs.push(custom_text);
 		edit = edit; // Trigger update
 		custom_text = '';
@@ -45,19 +68,22 @@
 		if (selected === 'custom' || selected === '') {
 			return;
 		}
+		if (!edit) {
+			return;
+		}
 		edit.techs.push(selected);
 		edit = edit; // Trigger update
 		selected = '';
 	}
 
-	let promise = new Promise((resolve) => {
+	let promise: Promise<unknown> = new Promise((resolve) => {
 		resolve(null);
 	});
 	let acting = false;
 	function save() {
 		acting = true;
 		promise = post('/techs/forecast/override', edit)
-			.then((result) => {
+			.then(() => {
 				edit = null;
 				on_update();
 			})
@@ -66,7 +92,7 @@
 	function revert() {
 		acting = true;
 		promise = del('/techs/forecast/override', edit)
-			.then((result) => {
+			.then(() => {
 				edit = null;
 				on_update();
 			})
@@ -74,7 +100,7 @@
 	}
 </script>
 
-<Modal isOpen={edit} header="{edit && edit.date} {edit && edit.ap}">
+<Modal isOpen={edit !== null} header="{edit && edit.date} {edit && edit.ap}">
 	<ModalBody>
 		{#if edit}
 			Current shift:
@@ -124,9 +150,9 @@
 					>You must be <a href="https://api.protohaven.org/login">logged in</a> to modify the shift schedule</Alert
 				>
 			{/if}
-			{#if edit.id}
+			{#if edit?.id}
 				Original:
-				{#each edit.orig as t}
+				{#each edit?.orig ?? [] as t}
 					<ul>
 						<li>{t}</li>
 					</ul>
@@ -140,7 +166,7 @@
 			<FetchError {error} />
 		{/await}
 		<Button color="primary" on:click={save} disabled={acting || !loggedin}>Save</Button>
-		{#if edit.id}
+		{#if edit?.id}
 			<Button color="primary" on:click={revert} disabled={acting || !loggedin}>Revert</Button>
 		{/if}
 		<Button color="secondary" on:click={() => (edit = null)} disabled={acting}>Cancel</Button>

@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import '../../app.scss';
 	import { onMount } from 'svelte';
 	import { get, post } from '$lib/api.ts';
@@ -8,15 +8,9 @@
 	import Recertification from '$lib/member/recertification.svelte';
 	import {
 		Icon,
-		Accordion,
-		AccordionItem,
-		Badge,
 		Card,
 		Spinner,
-		ListGroup,
-		ListGroupItem,
 		CardTitle,
-		CardSubtitle,
 		CardHeader,
 		CardBody,
 		CardFooter,
@@ -29,32 +23,40 @@
 		NavLink
 	} from '@sveltestrap/sveltestrap';
 
-	let first;
-	let last;
-	let discord_id;
+	type Whoami = {
+		fullname: string;
+		email: string;
+		neon_id: string;
+		roles: string[];
+		clearances: string[];
+	};
+
+	type RecertData = {
+		pending: unknown[];
+		configs: unknown[];
+	};
+
+	let discord_id = '';
 	let show_discord_setup = false;
-	let neon_id;
+	let neon_id: string | null = null;
 
 	const tab_titles = {
 		clearances: 'Clearances',
 		recertification: 'Recertification'
 	};
 
-	let activeTab = 'clearances';
-	// @ts-ignore - activeTab is constrained to the keys of tab_titles
-	$: page_title = `Member Dashboard: ${tab_titles[activeTab] || 'Clearances'}`;
+	let activeTab: string = 'clearances';
+	$: page_title = `Member Dashboard: ${(tab_titles as Record<string, string>)[activeTab] || 'Clearances'}`;
 
-	let promise = new Promise(() => {});
-	let recertPromise = new Promise(() => {
-		return { pending: [], configs: [] };
-	});
+	let promise: Promise<Whoami> = new Promise<Whoami>(() => {});
+	let recertPromise: Promise<RecertData | null> = new Promise<RecertData | null>(() => {});
 	onMount(() => {
 		activeTab = (window.location.hash || '#clearances').substring(1).trim();
 		const urlParams = new URLSearchParams(window.location.search);
 		discord_id = urlParams.get('discord_id') || '';
 		show_discord_setup = discord_id !== '';
 		neon_id = urlParams.get('neon_id') || null;
-		promise = get('/whoami').then((data) => {
+		promise = get('/whoami').then((data: Whoami) => {
 			neon_id = neon_id || data.neon_id;
 			return data;
 		});
@@ -75,15 +77,15 @@
 		}
 	}
 
-	let feedback;
-	let output;
+	let feedback: string | null = null;
+	let output: string | null = null;
 	let submitting = false;
-	let submit_promise = new Promise((res, rej) => res(null));
+	let submit_promise: Promise<void> = Promise.resolve();
 	function set_discord() {
 		output = null;
 		submitting = true;
 		submit_promise = post('/member/set_discord', { discord_id, neon_id })
-			.then((data) => {
+			.then(() => {
 				output = 'Discord user set successfully.';
 			})
 			.finally(() => {
@@ -91,13 +93,13 @@
 			});
 	}
 
-	function match(array1, array2) {
+	function match(array1: string[], array2: string[]) {
 		const filteredArray = array1.filter((value) => array2.includes(value));
 		return filteredArray.length > 0;
 	}
 
-	function on_tab(e) {
-		activeTab = e.target.href.split('#')[1] || 'clearances';
+	function on_tab(e: MouseEvent) {
+		activeTab = (e.target as HTMLAnchorElement).href.split('#')[1] || 'clearances';
 		window.location.hash = activeTab;
 		console.log('activeTab', activeTab);
 	}
@@ -132,16 +134,16 @@
 					Associate a new discord user: <Input
 						type="text"
 						bind:value={discord_id}
-						invalid={feedback}
-						{feedback}
+						invalid={feedback !== null}
+						feedback={feedback ?? undefined}
 					></Input>
 				</p>
 			</CardBody>
 			<CardFooter>
-				<Button on:click={set_discord} disabled={submitting || feedback}>Save</Button>
+				<Button on:click={set_discord} disabled={submitting || feedback !== null}>Save</Button>
 				{#await submit_promise}
 					<Spinner />
-				{:then d}
+				{:then}
 					{#if output}{output}{/if}
 				{:catch error}
 					<FetchError {error} nohelp />
@@ -156,8 +158,8 @@
 			{#if rc}
 				<NavItem
 					><NavLink href="#recertification" on:click={on_tab}>
-						{#await recertPromise then rc}
-							{#if rc.pending && rc.pending.length > 0}
+						{#await recertPromise then rc2}
+							{#if rc2 && rc2.pending && rc2.pending.length > 0}
 								<Icon name="exclamation-triangle" />
 							{/if}
 						{/await}

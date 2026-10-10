@@ -13,9 +13,9 @@
 	} from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api';
 	import FetchError from '../fetch_error.svelte';
-	import { groupReservations, uniqueStarts } from './reservation_grouping';
+	import { groupReservations, uniqueStarts, type Reservation } from './reservation_grouping';
 
-	let promise = new Promise(() => {});
+	let promise: Promise<Reservation[]> = new Promise<Reservation[]>(() => {});
 	onMount(() => {
 		promise = get('/events/reservations');
 	});

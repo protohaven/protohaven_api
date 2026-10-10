@@ -1,7 +1,10 @@
-<script type="typescript">
-	export let error;
-	export let nohelp;
+<script lang="ts">
 	import { Alert } from '@sveltestrap/sveltestrap';
+
+	type ErrorLike = { message: string };
+
+	export let error: ErrorLike;
+	export let nohelp = false;
 </script>
 
 <Alert color="danger">

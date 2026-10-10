@@ -1,65 +1,78 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script type="typescript" lang="ts">
 	import {
-		Table,
 		Label,
-		Accordion,
-		AccordionItem,
 		Button,
-		Row,
-		Container,
-		Col,
 		Card,
 		CardHeader,
 		CardTitle,
-		Modal,
-		CardSubtitle,
-		CardText,
-		Icon,
-		Tooltip,
 		CardFooter,
 		CardBody,
 		Input,
 		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
-		Toast,
-		ToastBody,
-		ToastHeader
+		FormGroup
 	} from '@sveltestrap/sveltestrap';
 	import Editor from './forecast_override.svelte';
-	import Calendar from './calendar.svelte';
 	import FetchError from '../fetch_error.svelte';
-	import { get, post, isodate } from '$lib/api.ts';
+	import { get, isodate } from '$lib/api.ts';
 	import { days_between, isToday } from '$lib/dates';
 
-	export let user;
-	export let visible;
+	interface UserInfo {
+		fullname?: string;
+		email?: string;
+		[key: string]: unknown;
+	}
+
+	interface ForecastOverrideInfo {
+		id?: string;
+		orig?: string[];
+		editor?: string;
+	}
+
+	interface ShiftPeriod {
+		id?: string;
+		color?: string;
+		ovr?: ForecastOverrideInfo | null;
+		people: string[];
+	}
+
+	interface CalendarDay {
+		filler?: boolean;
+		date: string;
+		AM: ShiftPeriod;
+		PM: ShiftPeriod;
+	}
+
+	interface ForecastEdit {
+		ap: string;
+		date: string;
+		techs: string[];
+		id?: string;
+		orig?: string[];
+		editor?: string;
+		fullname?: string;
+		email?: string;
+		[key: string]: unknown;
+	}
+
+	export let user: UserInfo | null = null;
+	export let visible: boolean;
 
 	const DEFAULT_DURATION = 14;
 	const DEFAULT_TRAIL = 3;
 
-	let start_date = new Date();
-	let end_date = new Date(start_date);
-	start_date.setDate(start_date.getDate() - DEFAULT_TRAIL);
-	start_date = isodate(start_date);
-	end_date.setDate(end_date.getDate() + DEFAULT_DURATION);
-	end_date = isodate(end_date);
+	let start_date: string;
+	let end_date: string;
+	{
+		const start = new Date();
+		const end = new Date(start);
+		start.setDate(start.getDate() - DEFAULT_TRAIL);
+		end.setDate(end.getDate() + DEFAULT_DURATION);
+		start_date = isodate(start);
+		end_date = isodate(end);
+	}
 
 	let loaded = false;
-	let promise = new Promise((resolve) => {
-		calendar_view: [
-			{
-				filler: false,
-				date: '2024-12-01',
-				techs: ['a', 'b'],
-				edited: false
-			}
-		];
-	});
+	let promise: Promise<CalendarDay[]> = new Promise(() => {});
 	function refresh() {
 		const diff_days = days_between(start_date, end_date) + 1; // Inclusive
 		promise = get(`/techs/forecast?date=${isodate(start_date)}&days=${diff_days}`).then((data) => {
@@ -73,19 +86,19 @@
 			let d = new Date(cal[0].date);
 			while (d.getUTCDay() !== 0) {
 				d.setDate(d.getDate() - 1);
-				cal.unshift({ date: isodate(d), filler: true });
+				cal.unshift({ date: isodate(d), filler: true, AM: { people: [] }, PM: { people: [] } });
 			}
 			d = new Date(cal[cal.length - 1].date);
 			while (d.getUTCDay() !== 6) {
 				d.setDate(d.getDate() + 1);
-				cal.push({ date: isodate(d), filler: true });
+				cal.push({ date: isodate(d), filler: true, AM: { people: [] }, PM: { people: [] } });
 			}
 			return cal;
 		});
 	}
-	function date_changed(was_start) {
+	function date_changed(was_start: boolean) {
 		console.log('date_changed');
-		let fix = null;
+		let fix: number | null = null;
 		let start = new Date(start_date);
 		let end = new Date(end_date);
 		if (!end || end < start) {
@@ -97,13 +110,13 @@
 		if (fix) {
 			console.log('fix', fix);
 			if (was_start) {
-				end_date = new Date(start_date);
-				end_date.setDate(end_date.getDate() + fix);
-				end_date = isodate(end_date);
+				const d = new Date(start_date);
+				d.setDate(d.getDate() + fix);
+				end_date = isodate(d);
 			} else {
-				start_date = new Date(end_date);
-				start_date.setDate(start_date.getDate() - fix);
-				start_date = isodate(start_date);
+				const d = new Date(end_date);
+				d.setDate(d.getDate() - fix);
+				start_date = isodate(d);
 			}
 		}
 		refresh();
@@ -114,11 +127,12 @@
 		}
 	}
 
-	let edit = null;
+	let edit: ForecastEdit | null = null;
+	const shift_periods: ('AM' | 'PM')[] = ['AM', 'PM'];
 
-	function start_edit(s, ap) {
+	function start_edit(s: CalendarDay, ap: 'AM' | 'PM') {
 		console.log(s, ap);
-		let e = { ap: ap, date: s.date, techs: s[ap].people, ...user };
+		let e: ForecastEdit = { ap: ap, date: s.date, techs: s[ap].people, ...(user ?? {}) };
 		if (s[ap].ovr) {
 			e = { ...e, id: s[ap].ovr.id, orig: s[ap].ovr.orig, editor: s[ap].ovr.editor };
 		} else {
@@ -163,7 +177,7 @@
 								<span class={'day' + (isToday(v.date) ? ' today' : '')}>
 									<div>{v.date}</div>
 									<div class="my-2">
-										{#each ['AM', 'PM'] as ap}
+										{#each shift_periods as ap}
 											<div>
 												{#if v[ap].ovr}*{/if}{ap}
 											</div>

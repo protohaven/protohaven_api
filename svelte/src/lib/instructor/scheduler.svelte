@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import {
 		Dropdown,
 		DropdownMenu,
@@ -7,7 +7,6 @@
 		Row,
 		Col,
 		Button,
-		Badge,
 		Icon,
 		Input,
 		Modal,
@@ -16,32 +15,49 @@
 		ModalFooter,
 		Spinner,
 		ListGroup,
-		Accordion,
-		AccordionItem,
 		ListGroupItem,
 		Alert
 	} from '@sveltestrap/sveltestrap';
-	import { onMount } from 'svelte';
-	import { get, post, isodatetime } from '$lib/api.ts';
-	export let open;
-	export let inst;
-	export let inst_id;
-	export let templates = {};
-	export let classes = {};
-	export let admin;
-	export let email;
+	import { post } from '$lib/api.ts';
+
+	interface ClassTemplate {
+		class_id: string;
+		name: string;
+		hours: number[];
+		capacity: number;
+		price: number;
+		period: number;
+		areas: string[];
+		clearances: string[];
+	}
+
+	interface SelectedClass {
+		id: string;
+		tmpl: ClassTemplate;
+		starts: [string, string][];
+	}
+
+	interface ValidationResult {
+		valid: boolean;
+		errors: string[];
+	}
+
+	export let open: boolean;
+	export let templates: Promise<Record<string, ClassTemplate>> | Record<string, ClassTemplate> = {};
+	export let classes: Record<string, string> = {};
+	export let email: string;
 
 	let ovr = false;
 	let validation_override = '';
 	$: ovr = validation_override.length > 32;
 
-	function day_of_week(date) {
+	function day_of_week(date: string) {
 		const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 		console.log(date);
 		return days[new Date(`${date} 12:00pm`).getDay()];
 	}
 
-	function human_time(timestr) {
+	function human_time(timestr: string) {
 		let sp = timestr.split(':');
 		const hour = parseInt(sp[0], 10);
 		const h12 = hour < 13 ? hour : hour % 12;
@@ -51,8 +67,8 @@
 		return `${h}:${sp[1].trim()}${ap}`;
 	}
 
-	function candidate_times(session_duration) {
-		let times = [];
+	function candidate_times() {
+		let times: string[] = [];
 		const MAX_HR = 24;
 		const MIN_HR = 0;
 		for (let hour = MIN_HR; hour <= MAX_HR; hour++) {
@@ -66,11 +82,10 @@
 		return times;
 	}
 
-	let session = [];
-	let selected = null;
+	let selected: SelectedClass | null = null;
 
 	let running = false;
-	async function select(cls_id) {
+	async function select(cls_id: string) {
 		let tmpl = (await templates)[cls_id];
 		console.log(tmpl, templates, cls_id);
 		selected = {
@@ -79,34 +94,44 @@
 			starts: Array.from({ length: tmpl.hours.length || 1 }, (_, i) => {
 				const date = new Date();
 				date.setDate(date.getDate() + 14 + i);
-				const ct = candidate_times(tmpl.hours[i]);
-				const t = ct.indexOf('18:00') === -1 ? ct.pop() : '18:00';
-				return [date.toISOString().split('T')[0].slice(0, 10), t];
+				const ct = candidate_times();
+				const t = ct.indexOf('18:00') === -1 ? (ct.pop() ?? '18:00') : '18:00';
+				return [date.toISOString().split('T')[0].slice(0, 10), t] as [string, string];
 			})
 		};
 		console.log('Selected class:', cls_id, templates, selected);
 		do_validate();
 	}
 
+	function set_start_time(i: number, time: string) {
+		if (selected) {
+			selected.starts[i][1] = time;
+		}
+	}
+
 	function post_data() {
-		const sessions = selected.starts.map(([date, time], i) => {
+		if (!selected) {
+			throw new Error('No class selected');
+		}
+		const sel = selected;
+		const sessions = sel.starts.map(([date, time], i) => {
 			// https://www.javaspring.net/blog/date-parsing-in-javascript-is-different-between-safari-and-chrome/#3-why-these-differences-exist-root-causes
 			// Javascript is horrendous with date math and I've given up
 			// after 5 attempts at passing an ISO formatted date.
 			// The most recent failure was Mozilla's "resist fingerprinting" config
 			// reporting local time as UTC and causing a 4hr shift vs EST
-			return [date, time, selected.tmpl.hours[i]];
+			return [date, time, sel.tmpl.hours[i]] as [string, string, number];
 		});
-		console.log('cls_id ' + selected.id + '; sessions ', sessions);
+		console.log('cls_id ' + sel.id + '; sessions ', sessions);
 		return {
-			cls_id: selected.id,
+			cls_id: sel.id,
 			sessions,
 			skip_validation: ovr
 		};
 	}
 
 	const DEBOUNCE_MS = 1000;
-	let debounce_timeout = null;
+	let debounce_timeout: ReturnType<typeof setTimeout> | null = null;
 	let controller = new AbortController(); // For cancelling validation early
 	function do_validate_debounced() {
 		// This attempts to limit unnecessary validation work on the server, which should make things feel more responsive overall.
@@ -123,7 +148,7 @@
 		debounce_timeout = setTimeout(do_validate, DEBOUNCE_MS);
 	}
 
-	let validation_result = { valid: false, errors: [] };
+	let validation_result: ValidationResult = { valid: false, errors: [] };
 	function do_validate() {
 		running = true;
 		post(
@@ -206,10 +231,10 @@
 					None
 				{/if}
 				<h5>Select times for each session</h5>
-				{#each selected.starts as _, i}
+				{#each selected.starts as start, i}
 					<Row>
 						<Col>
-							{day_of_week(selected.starts[i][0])}
+							{day_of_week(start[0])}
 						</Col>
 						<Col>
 							<Input
@@ -220,18 +245,18 @@
 							/>
 						</Col>
 						<Col>
-							<Dropdown autoclose={true}>
+							<Dropdown autoClose={true}>
 								<DropdownToggle caret>
-									{human_time(selected.starts[i][1])}
+									{human_time(start[1])}
 								</DropdownToggle>
 								<DropdownMenu class="dropdown-menu-scrollable">
-									{#each candidate_times(selected.tmpl.hours[i]) as time}
+									{#each candidate_times() as time}
 										<DropdownItem
 											on:click={() => {
-												selected.starts[i][1] = time;
+												set_start_time(i, time);
 												do_validate_debounced();
 											}}
-											active={selected.starts[i][1] === time}
+											active={start[1] === time}
 										>
 											{human_time(time)}
 										</DropdownItem>
@@ -296,7 +321,7 @@
 	h5 {
 		margin-top: 20px;
 	}
-	.dropdown-menu-scrollable {
+	:global(.dropdown-menu-scrollable) {
 		max-height: 300px;
 		overflow-y: auto;
 	}

@@ -14,22 +14,34 @@
 		Spinner
 	} from '@sveltestrap/sveltestrap';
 	import { open_ws } from '../api';
-	import { get } from '$lib/api';
+	import { get, isodate } from '$lib/api';
 
-	import { isodate } from '$lib/api';
+	interface WhoAmI {
+		fullname?: string;
+		email?: string;
+		[key: string]: unknown;
+	}
+
+	interface MediaItem {
+		author: string;
+		ref: string;
+		link: string;
+		type: 'image' | 'video';
+	}
+
 	let endDate = isodate(new Date());
 	let startDate = isodate(new Date(new Date().setDate(new Date().getDate() - 30)));
-	let channels = {};
-	export let visible;
-	export let user;
+	let channels: Record<string, boolean> = {};
+	export let visible: boolean = false;
+	export let user: WhoAmI | null = null;
 
 	async function fetchChannels() {
 		try {
 			const response = await get('/staff/discord_member_channels');
 			console.log(response);
-			channels = Object.fromEntries(response.map((entry) => [entry, false]));
+			channels = Object.fromEntries(response.map((entry: string) => [entry, false]));
 		} catch (error) {
-			alert('Failed to fetch channels:', error);
+			alert(`Failed to fetch channels: ${error}`);
 		}
 	}
 	onMount(() => {
@@ -50,18 +62,15 @@
 		channels = Object.fromEntries(Object.keys(channels).map((entry) => [entry, false]));
 	}
 
-	let messageLog = {};
-	let mediaLog = {};
-	let channel_summaries = [];
+	let messageLog: Record<string, string[]> = {};
+	let mediaLog: Record<string, MediaItem[]> = {};
+	let channel_summaries: Record<string, string> = {};
 	let final_summary = '';
 
-	let lastreload = null;
+	let lastreload: number | null = null;
 	function maybeReload(force = false) {
 		const now = new Date().getTime();
 		if (!lastreload || force || now - lastreload > 500) {
-			messageLog = messageLog;
-			channel_summaries = channel_summaries;
-			mediaLog = mediaLog;
 			lastreload = now;
 		}
 	}
@@ -71,7 +80,7 @@
 		submitting = true;
 		messageLog = {};
 		mediaLog = {};
-		channel_summaries = [];
+		channel_summaries = {};
 		final_summary = '';
 		const socket = open_ws('/staff/summarize_discord');
 		socket.onopen = () => {
@@ -85,20 +94,20 @@
 		};
 
 		socket.onmessage = (m) => {
-			let d = JSON.parse(m.data);
+			const d = JSON.parse(m.data);
 			if (messageLog[d.channel] === undefined) {
 				messageLog[d.channel] = [];
 			}
 			if (d.type === 'individual') {
 				messageLog[d.channel].push(`${d.created_at} ${d.author}: ${d.content}`);
 				console.log(d.links);
-				for (let l of d.images) {
+				for (const l of d.images) {
 					if (!mediaLog[d.channel]) {
 						mediaLog[d.channel] = [];
 					}
 					mediaLog[d.channel].push({ author: d.author, ref: d.ref, link: l, type: 'image' });
 				}
-				for (let l of d.videos) {
+				for (const l of d.videos) {
 					if (!mediaLog[d.channel]) {
 						mediaLog[d.channel] = [];
 					}
@@ -181,6 +190,7 @@
 				<p>{channel_summaries[channel]}</p>
 			{/each}
 			<h5>Final Summary:</h5>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html final_summary}
 			<h5>Media</h5>
 			{#each Object.keys(mediaLog) as channel}
@@ -189,10 +199,11 @@
 					<p>
 						<a href={l.ref} target="_blank">
 							{#if l.type == 'image'}
-								<img class="thumb" src={l.link} />
+								<img class="thumb" src={l.link} alt="" />
 							{:else}
 								<video class="thumb" controls>
 									<source src={l.link} type="video/mp4" />
+									<track kind="captions" />
 									Your browser does not support the video tag.
 								</video>
 							{/if}

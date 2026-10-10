@@ -1,33 +1,17 @@
 <script type="typescript" lang="ts">
-	import { onMount } from 'svelte';
 	import {
-		Table,
 		Dropdown,
 		DropdownToggle,
 		DropdownItem,
 		DropdownMenu,
 		Button,
-		Row,
-		Container,
-		Col,
 		Card,
 		CardHeader,
-		Badge,
 		CardTitle,
-		Modal,
 		CardSubtitle,
-		CardText,
-		Icon,
-		Tooltip,
-		CardFooter,
 		CardBody,
 		Input,
 		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
 		Toast,
 		ToastBody,
 		ToastHeader,
@@ -47,11 +31,11 @@
 	import TechCard from './tech_card.svelte';
 
 	// Utility functions
-	function debounce<T extends (...args: any[]) => any>(
+	function debounce<T extends (...args: never[]) => unknown>(
 		func: T,
 		wait: number
 	): (...args: Parameters<T>) => void {
-		let timeout: NodeJS.Timeout | null = null;
+		let timeout: ReturnType<typeof setTimeout> | null = null;
 
 		return (...args: Parameters<T>) => {
 			if (timeout) {
@@ -63,7 +47,7 @@
 		};
 	}
 
-	function handleApiError(error: any, context: string): ToastMessage {
+	function handleApiError(error: unknown, context: string): ToastMessage {
 		console.error(`${context}:`, error);
 		return {
 			color: 'danger',
@@ -74,7 +58,7 @@
 
 	// Component props
 	export let visible: boolean;
-	export let user: { email: string };
+	export let user: { email?: string } | null = null;
 
 	// State
 	let loaded = false;
@@ -89,7 +73,6 @@
 	let search_term = '';
 	let search_results: SearchResult[] = [];
 	let searching = false;
-	let search_promise: Promise<SearchResult[]> = Promise.resolve([]);
 	let show_create_account = false;
 	let enrolling = false;
 
@@ -120,10 +103,10 @@
 		}
 
 		searching = true;
-		search_promise = post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
+		post(`/neon_lookup?search=${encodeURIComponent(search_term)}`, {})
 			.then((results: SearchResult[]) => {
 				search_results = results;
-				search_results.push({ name: '+ Create New', email: 'Neon CRM' });
+				search_results.push({ neon_id: '', name: '+ Create New', email: 'Neon CRM' });
 			})
 			.catch((err) => {
 				console.error('Search failed:', err);
@@ -137,6 +120,7 @@
 
 	// Functions
 	function refresh() {
+		const current_email = user?.email?.trim().toLowerCase();
 		promise = get('/techs/list')
 			.then((data: TechListData) => {
 				loaded = true;
@@ -147,7 +131,7 @@
 							? t.shop_tech_shift.join(' ')
 							: t.shop_tech_shift
 					};
-					if (t.email.trim().toLowerCase() === user.email.trim().toLowerCase()) {
+					if (current_email && t.email.trim().toLowerCase() === current_email) {
 						user_data = displayTech;
 					}
 					return displayTech;
@@ -172,7 +156,7 @@
 	}
 
 	// Reactive search term
-	function on_search_term_edit(e) {
+	function on_search_term_edit(e: KeyboardEvent) {
 		console.log(e);
 		if (search_term !== `${new_tech.name} (${new_tech.email})`) {
 			search_neon_accounts();
@@ -228,14 +212,20 @@
 
 		enrolling = true;
 
-		let payload = {
+		const payload: {
+			enroll: boolean;
+			neon_id: string | null;
+			name: string;
+			email: string;
+			create_account?: boolean;
+		} = {
 			...new_tech,
 			enroll
 		};
 
 		// If we're creating a new account, include name and email
 		if (show_create_account && enroll) {
-			payload['create_account'] = true;
+			payload.create_account = true;
 		}
 
 		post('/techs/enroll', payload)
@@ -318,8 +308,10 @@
 						isTechLead={p.tech_lead}
 						onUpdate={update_tech}
 						onDisenroll={disenroll_tech}
-						modalOpen={modal_open === user_data.email}
-						onToggleModal={() => clearance_click(user_data.email)}
+						modalOpen={modal_open === user_data?.email}
+						onToggleModal={() => {
+							if (user_data) clearance_click(user_data.email);
+						}}
 					/>
 					<hr />
 				{/if}
@@ -463,13 +455,13 @@
 					class="me-1"
 					style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
 					autohide
-					isOpen={toast_msg}
+					isOpen={toast_msg !== null}
 					on:close={() => (toast_msg = null)}
 					aria-live="polite"
 					aria-atomic="true"
 				>
-					<ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-					<ToastBody>{toast_msg.msg}</ToastBody>
+					<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>
+					<ToastBody>{toast_msg?.msg}</ToastBody>
 				</Toast>
 
 				{#each techs_sorted as t}

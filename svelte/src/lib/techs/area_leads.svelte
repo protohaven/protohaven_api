@@ -1,37 +1,28 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script type="typescript" lang="ts">
 	import {
-		Table,
-		Button,
-		Row,
-		Col,
 		Card,
 		CardHeader,
-		Badge,
 		CardTitle,
-		Modal,
 		CardSubtitle,
-		CardText,
-		Icon,
-		Tooltip,
-		CardFooter,
 		CardBody,
-		Input,
-		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
-		Toast,
-		ToastBody,
-		ToastHeader
+		Spinner
 	} from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api.ts';
 
-	export let visible;
+	interface AreaLeadTech {
+		name: string;
+		email?: string;
+		shift: string[];
+	}
+
+	interface AreaLeadsData {
+		area_leads: Record<string, AreaLeadTech[]>;
+		other_leads: Record<string, AreaLeadTech[]>;
+	}
+
+	export let visible: boolean;
 	let loaded = false;
-	let promise = new Promise((resolve) => {});
+	let promise: Promise<AreaLeadsData> = new Promise(() => {});
 	function refresh() {
 		promise = get('/techs/area_leads').then((data) => {
 			loaded = true;
@@ -56,7 +47,7 @@
 				<Spinner />
 			{:then p}
 				{#each Object.keys(p['area_leads']) as area}
-					<Card color={p['area_leads'][area].length ? null : 'warning'}>
+					<Card color={p['area_leads'][area].length ? undefined : 'warning'}>
 						<CardHeader><CardTitle>{area}</CardTitle></CardHeader>
 						<CardBody>
 							{#each p['area_leads'][area] as tech}

@@ -1,17 +1,7 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import '../../app.scss';
 	import FetchError from '$lib/fetch_error.svelte';
-	import {
-		Spinner,
-		Row,
-		Card,
-		Container,
-		Navbar,
-		NavItem,
-		NavbarBrand,
-		NavLink,
-		Nav
-	} from '@sveltestrap/sveltestrap';
+	import { Spinner, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api.ts';
 	import TechsList from '$lib/techs/techs_list.svelte';
 	import Attendance from '$lib/techs/attendance.svelte';
@@ -24,7 +14,14 @@
 	import DoorLocks from '$lib/techs/door_locks.svelte';
 	import { onMount } from 'svelte';
 
-	const tab_titles = {
+	interface WhoAmI {
+		fullname?: string;
+		email?: string;
+		roles?: string[];
+		[key: string]: unknown;
+	}
+
+	const tab_titles: Record<string, string> = {
 		cal: 'Cal',
 		members: 'Members',
 		tools: 'Tools',
@@ -35,11 +32,10 @@
 		attendance: 'Attendance'
 	};
 
-	let promise;
+	let promise: Promise<unknown> = Promise.resolve(null);
 	let admin = false;
-	let user;
+	let user: WhoAmI | null = null;
 	let activeTab = 'cal';
-	// @ts-ignore - activeTab is constrained to the keys of tab_titles
 	$: page_title = `Techs Dashboard: ${tab_titles[activeTab] || 'Cal'}`;
 	onMount(() => {
 		activeTab = (window.location.hash || '#cal').substring(1).trim();
@@ -48,7 +44,7 @@
 		if (!e) {
 			promise = get('/whoami')
 				.then((d) => {
-					admin = (d.roles || []).some((role) =>
+					admin = (d.roles || []).some((role: string) =>
 						['Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'].includes(role)
 					);
 					user = d;
@@ -61,8 +57,9 @@
 				});
 		}
 	});
-	function on_tab(e) {
-		activeTab = e.target.href.split('#')[1] || 'cal';
+	function on_tab(e: MouseEvent) {
+		const target = e.target as HTMLAnchorElement;
+		activeTab = target.href.split('#')[1] || 'cal';
 		window.location.hash = activeTab;
 		console.log('activeTab', activeTab);
 	}
@@ -119,7 +116,7 @@
 	{/if}
 </Nav>
 <Shifts {user} visible={activeTab == 'cal'} />
-<Members {user} visible={activeTab == 'members'} />
+<Members visible={activeTab == 'members'} />
 <ToolState visible={activeTab == 'tools'} />
 <Storage visible={activeTab == 'storage'} />
 <AreaLeads visible={activeTab == 'areas'} />
