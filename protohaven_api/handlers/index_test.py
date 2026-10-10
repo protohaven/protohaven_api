@@ -60,6 +60,65 @@ def test_event_ticker_empty_when_no_advertised_events(mocker, client):
     assert json.loads(rep.data.decode("utf8")) == []
 
 
+def test_event_ticker_shows_advertised_events(mocker, client):
+    """Event ticker filters to advertised events and returns formatted data"""
+    mocker.patch.object(index, "tznow", return_value=d(0))
+
+    def make_event(
+        start,
+        name,
+        *,
+        registration=True,
+        attendee_count=2,
+        capacity=10,
+    ):
+        evt = mocker.MagicMock(
+            start_date=start,
+            registration=registration,
+            attendee_count=attendee_count,
+            capacity=capacity,
+            url=f"https://example.com/{name.lower().replace(' ', '-')}",
+        )
+        evt.name = name
+        return evt
+
+    events = [
+        make_event(d(1, 10), "First Advertised"),
+        make_event(d(2, 11), "Second Advertised"),
+        make_event(d(40), "Too Far Out"),
+        make_event(d(-1), "Past Event"),
+        make_event(d(3, 9), "Not Registered", registration=False),
+        make_event(d(4, 9), "No Attendees", attendee_count=0),
+        make_event(d(5, 9), "Full Class", attendee_count=10, capacity=10),
+        make_event(d(6, 9), "Third Advertised"),
+    ]
+    mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=events)
+
+    rep = client.get("/event_ticker")
+
+    assert rep.status_code == 200
+    assert json.loads(rep.data.decode("utf8")) == [
+        {
+            "url": "https://example.com/first-advertised",
+            "name": "First Advertised",
+            "date": d(1, 10).strftime("%b %-d, %-I%p"),
+            "seats_left": 8,
+        },
+        {
+            "url": "https://example.com/second-advertised",
+            "name": "Second Advertised",
+            "date": d(2, 11).strftime("%b %-d, %-I%p"),
+            "seats_left": 8,
+        },
+        {
+            "url": "https://example.com/third-advertised",
+            "name": "Third Advertised",
+            "date": d(6, 9).strftime("%b %-d, %-I%p"),
+            "seats_left": 8,
+        },
+    ]
+
+
 def test_class_listing(mocker, client):
     """Test class_listing function returns sorted class list with airtable data"""
     m1 = mocker.MagicMock(
@@ -396,6 +455,48 @@ def test_get_event_reservations(mocker, client):
     unknown_res = next(r for r in result if r["resource"] == "Unknown Tool")
     assert unknown_res["area"] == "Unknown Area"
     assert unknown_res["name"] == "Bob Jones"
+
+
+def test_events_dashboard_attendee_count(mocker, client):
+    """Attendee count endpoint returns the count for the requested event"""
+    mock_evt = mocker.MagicMock(attendee_count=7)
+    fetch = mocker.patch.object(index.eauto, "fetch_event", return_value=mock_evt)
+
+    rep = client.get("/events/attendees?id=123")
+
+    assert rep.status_code == 200
+    assert rep.data.decode("utf8") == "7"
+    fetch.assert_called_once_with("123", attendees=True)
+
+
+def test_events_dashboard_attendee_count_missing_event(mocker, client):
+    """Attendee count endpoint returns 0 when the event is not found"""
+    mocker.patch.object(index.eauto, "fetch_event", return_value=None)
+
+    rep = client.get("/events/attendees?id=missing")
+
+    assert rep.status_code == 200
+    assert rep.data.decode("utf8") == "0"
+
+
+def test_get_shop_events(mocker, client):
+    """Shop events endpoint returns named events sorted by start time"""
+    mocker.patch.object(
+        index,
+        "fetch_shop_events",
+        return_value={
+            "Tour": [["2025-01-03T10:00:00", "2025-01-03T11:00:00"]],
+            "Open Hours": [[d(1, 9), d(1, 12)]],
+        },
+    )
+
+    rep = client.get("/events/shop")
+
+    assert rep.status_code == 200
+    result = json.loads(rep.data.decode("utf8"))
+    assert [e["name"] for e in result] == ["Open Hours", "Tour"]
+    assert result[0]["start"].startswith("Thu, 02 Jan 2025")
+    assert result[1]["start"].startswith("Fri, 03 Jan 2025")
 
 
 def test_humanize_sessions(mocker):

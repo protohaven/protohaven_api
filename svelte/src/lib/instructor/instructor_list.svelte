@@ -112,7 +112,7 @@
 
 		const cap_neon_ids = new Set(next_capabilities.map((c) => c.neon_id));
 		const enrolled_neon_ids = new Set(Object.keys(next_enrollment_map));
-		without_capabilities = Array.from(enrolled_neon_ids.difference(cap_neon_ids));
+		without_capabilities = Array.from(enrolled_neon_ids).filter((nid) => !cap_neon_ids.has(nid));
 		without_enrollment = next_capabilities.filter(
 			(c) => !c.neon_id || !next_enrollment_map[c.neon_id]
 		);
