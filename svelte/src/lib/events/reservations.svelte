@@ -13,44 +13,12 @@
 	} from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api';
 	import FetchError from '../fetch_error.svelte';
+	import { groupReservations, uniqueStarts } from './reservation_grouping';
 
 	let promise = new Promise(() => {});
 	onMount(() => {
 		promise = get('/events/reservations');
 	});
-
-	// Group reservations by owner and area
-	function groupReservations(reservations: any[]) {
-		const grouped: Record<string, Record<string, any[]>> = {};
-
-		for (const reservation of reservations) {
-			const owner = reservation.name;
-			const area = reservation.area;
-
-			if (!grouped[owner]) {
-				grouped[owner] = {};
-			}
-
-			if (!grouped[owner][area]) {
-				grouped[owner][area] = [];
-			}
-
-			grouped[owner][area].push(reservation);
-		}
-
-		return grouped;
-	}
-
-	function uniqueStarts(reservations) {
-		const uniques = {};
-		for (let r of reservations) {
-			uniques[r.start] = r.ts;
-		}
-		const sorted = Array.from(Object.entries(uniques)).sort((a, b) => {
-			return b[1] < a[1] ? 1 : b[1] > a[1] ? -1 : 0;
-		});
-		return sorted.map((a) => a[0]).join(', ');
-	}
 </script>
 
 <Card>
