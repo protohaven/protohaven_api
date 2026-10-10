@@ -10,16 +10,6 @@ from protohaven_api.commands import classes as C
 from protohaven_api.testing import MatchStr, d, idfn, mkcli
 
 
-@pytest.fixture(name="e")
-def fixture_e(mocker):
-    mocker.patch.object(C.airtable, "update_record")
-    mocker.patch.object(C.neon, "set_event_scheduled_state")
-    mocker.patch.object(C.neon, "assign_pricing")
-    mocker.patch.object(C.neon_base, "create_event")
-    mocker.patch.object(C.scheduler, "push_schedule")
-    return C
-
-
 @pytest.fixture(name="cli")
 def fixture_cli(capsys):
     return mkcli(capsys, C)
@@ -94,7 +84,6 @@ def test_resolve_schedule_ignored_events(cli, mocker, tc):
         }
     )
 
-    mocker.patch.object(C.neon_base, "NeonOne")
     mocker.patch.object(
         C.neon_base,
         "create_event",

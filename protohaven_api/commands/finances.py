@@ -15,7 +15,6 @@ from protohaven_api.config import (  # pylint: disable=import-error
     tznow,
 )
 from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
     neon,
     sales,
 )
@@ -646,94 +645,3 @@ class Commands:
                 )
             )
         print_yaml(result)
-
-    @command(
-        arg(
-            "--apply",
-            help="When true, actually create coupons",
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        ),
-        arg(
-            "--coupon_amount",
-            help="Create coupons with this price",
-            type=int,
-            default=memauto.DEFAULT_COUPON_AMOUNT,
-        ),
-        arg(
-            "--remaining_days_valid",
-            help="Coupons expiring fewer than this many days from now are considered unusable",
-            type=int,
-            default=30,
-        ),
-        arg(
-            "--expiration_days",
-            help="Number of days until created coupons expire",
-            type=int,
-            default=90,
-        ),
-        arg(
-            "--limit",
-            help="Max number of coupons to create in this invocation",
-            type=int,
-            default=5,
-        ),
-        arg(
-            "--target_qty",
-            help="Number of coupons to have stockpiled",
-            type=int,
-            default=50,
-        ),
-    )
-    def restock_discounts(self, args, _):
-        """Create a batch of coupons for staging in the Discounts table of
-        Airtable. We fetch coupons from this table rather than directly
-        from Neon as the Neon process for creating a coupon is much more
-        brittle and likely to fail in the moment."""
-        now = tznow()
-        use_by = now + datetime.timedelta(args.remaining_days_valid)
-        cur_qty = airtable.get_num_valid_unassigned_coupons(use_by)
-        log.info(f"{cur_qty}/{args.target_qty} available coupons in Airtable")
-        if args.target_qty - cur_qty < args.limit:
-            log.info("Missing coupons less than --limit, cancelling")
-            print_yaml([])
-            return
-
-        to_add = [
-            memauto.generate_coupon_id()
-            for _ in range(min(args.limit, args.target_qty - cur_qty))
-        ]
-        log.info(f"Creating the following coupons: {to_add}")
-
-        expiry = now + datetime.timedelta(days=args.expiration_days)
-
-        log.info(f"Creating codes {to_add}...")
-        if args.apply:
-            to_add = list(
-                neon.create_coupon_codes(list(to_add), args.coupon_amount, now, expiry)
-            )
-            log.info(f"Created: {to_add}")
-        for cid in to_add:
-            status_code, content = airtable.create_coupon(
-                cid,
-                args.coupon_amount,
-                expiry - datetime.timedelta(args.remaining_days_valid),
-                expiry,
-            )
-            if status_code != 200:
-                log.warning(f"Failed to push coupon to airtable: {content}")
-            else:
-                log.info("...and pushed to airtable")
-
-        print_yaml(
-            [
-                Msg.tmpl(
-                    "discount_creation_summary",
-                    num=len(to_add),
-                    cur_qty=cur_qty,
-                    target_qty=args.target_qty,
-                    use_by=use_by.strftime("%Y-%m-%d"),
-                    target="#finance-automation",
-                )
-            ]
-        )

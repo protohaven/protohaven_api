@@ -1,18 +1,11 @@
 # pylint: disable=protected-access
 """Test base methods for neon integration"""
 
-import datetime
 import json
 
 import pytest
 
 from protohaven_api.integrations import neon_base as nb
-
-
-def _neo(mocker):
-    """Create a NeonOne without relying on a real TOTP secret"""
-    mocker.patch.object(nb.pyotp, "TOTP")
-    return nb.NeonOne()
 
 
 def test_paginated_search(mocker):
@@ -218,129 +211,3 @@ def test_set_custom_fields(mocker):
         },
         None,
     )
-
-
-def test_duplicate_request_token(mocker):
-    """Token starts at current time and increments on get"""
-    mocker.patch.object(nb.time, "time", return_value=100)
-    drt = nb.DuplicateRequestToken()
-    assert drt.i == 100
-    assert drt.get() == 101
-    assert drt.get() == 102
-
-
-def test_neon_one_do_login(mocker):
-    """do_login fills the expected login and MFA forms"""
-    neo = _neo(mocker)
-    mocker.patch.object(neo.totp, "now", return_value="123456")
-    page = mocker.MagicMock()
-    locator = mocker.MagicMock()
-    page.locator.return_value = locator
-
-    neo.do_login(page)
-
-    page.goto.assert_called_once_with("https://app.neoncrm.com/np/ssoAuth")
-    assert page.fill.call_args_list[0].args == ("input[name='email']", mocker.ANY)
-    locator.click.assert_called_once()
-    assert page.fill.call_args_list[1].args == ("input[name='password']", mocker.ANY)
-    assert page.fill.call_args_list[2].args == ("input[name='mfa_code']", "123456")
-    assert page.click.call_count == 2
-
-
-def test_create_single_use_abs_event_discounts(mocker):
-    """Playwright context is set up and one discount is posted per code"""
-    neo = _neo(mocker)
-    mock_sp = mocker.patch.object(nb, "sync_playwright")
-    p = mocker.MagicMock()
-    browser = mocker.MagicMock()
-    page = mocker.MagicMock()
-    mock_sp.return_value.__enter__.return_value = p
-    p.firefox.launch.return_value = browser
-    browser.new_page.return_value = page
-    mocker.patch.object(nb.NeonOne, "do_login")
-    post = mocker.patch.object(
-        nb.NeonOne, "_post_discount", side_effect=["CODE1", "CODE2"]
-    )
-
-    got = list(neo.create_single_use_abs_event_discounts(["CODE1", "CODE2"], 25))
-
-    assert got == ["CODE1", "CODE2"]
-    assert post.call_count == 2
-    browser.close.assert_called_once()
-
-
-def test_create_single_use_abs_event_discounts_retries_login(mocker):
-    """A login timeout triggers a second login attempt"""
-    neo = _neo(mocker)
-    mock_sp = mocker.patch.object(nb, "sync_playwright")
-    p = mocker.MagicMock()
-    browser = mocker.MagicMock()
-    page = mocker.MagicMock()
-    mock_sp.return_value.__enter__.return_value = p
-    p.firefox.launch.return_value = browser
-    browser.new_page.return_value = page
-    login = mocker.patch.object(
-        nb.NeonOne,
-        "do_login",
-        side_effect=[nb.PlaywrightTimeoutError("timeout"), None],
-    )
-    mocker.patch.object(nb, "time")
-    mocker.patch.object(nb.NeonOne, "_post_discount")
-
-    list(neo.create_single_use_abs_event_discounts(["CODE1"], 25))
-
-    assert login.call_count == 2
-
-
-def test_post_discount_success(mocker):
-    """_post_discount fills the coupon form and returns the code"""
-    neo = _neo(mocker)
-    page = mocker.MagicMock()
-    page.get_by_text.return_value.is_visible.return_value = True
-
-    got = neo._post_discount(
-        page,
-        None,
-        "CODE",
-        False,
-        25,
-        from_date=datetime.datetime(2025, 1, 1),
-        to_date=datetime.datetime(2025, 4, 1),
-    )
-
-    assert got == "CODE"
-    assert page.fill.call_count == 5
-    page.click.assert_called_once_with("input[type='submit']")
-
-
-def test_post_discount_rejects_percent_discounts(mocker):
-    """_post_discount currently only supports absolute discounts"""
-    neo = _neo(mocker)
-    page = mocker.MagicMock()
-    with pytest.raises(AssertionError):
-        neo._post_discount(
-            page,
-            None,
-            "CODE",
-            True,
-            25,
-            from_date=datetime.datetime(2025, 1, 1),
-            to_date=datetime.datetime(2025, 4, 1),
-        )
-
-
-def test_post_discount_missing_code_on_result_page(mocker):
-    """Raises if the submitted code does not appear after redirect"""
-    neo = _neo(mocker)
-    page = mocker.MagicMock()
-    page.get_by_text.return_value.is_visible.return_value = False
-    with pytest.raises(RuntimeError, match="code not found"):
-        neo._post_discount(
-            page,
-            None,
-            "CODE",
-            False,
-            25,
-            from_date=datetime.datetime(2025, 1, 1),
-            to_date=datetime.datetime(2025, 4, 1),
-        )
