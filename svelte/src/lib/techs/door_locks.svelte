@@ -1,7 +1,8 @@
 <script type="typescript" lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { get } from '$lib/api.ts';
-	import { doorSummary, formatTime } from './door_locks_utils';
+	import { formatTime } from '$lib/dates';
+	import { doorSummary } from './door_status';
 	import { Icon, Tooltip, Badge, Spinner } from '@sveltestrap/sveltestrap';
 
 	export let visible = true;

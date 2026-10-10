@@ -26,7 +26,7 @@
 
 	import FetchError from '../fetch_error.svelte';
 	import { get, isodate, post } from '$lib/api.ts';
-	import { calculate_day_of_week_stats, DAY_NAMES } from './members_utils';
+	import { calculate_day_of_week_stats, DAY_NAMES } from './signin_stats';
 
 	let start_date = isodate(new Date());
 	let end_date = isodate(new Date());

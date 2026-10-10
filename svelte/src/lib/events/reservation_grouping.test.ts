@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupReservations, uniqueStarts } from './reservations_utils';
+import { groupReservations, uniqueStarts } from './reservation_grouping';
 
 describe('reservations utils', () => {
 	it('groups reservations by owner and area', () => {

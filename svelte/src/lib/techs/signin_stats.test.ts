@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculate_day_of_week_stats, DAY_NAMES } from './members_utils';
+import { calculate_day_of_week_stats, DAY_NAMES } from './signin_stats';
 
 describe('members utils', () => {
 	it('counts unique sign-in dates by day of week', () => {

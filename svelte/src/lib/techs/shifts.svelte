@@ -34,7 +34,7 @@
 	import Calendar from './calendar.svelte';
 	import FetchError from '../fetch_error.svelte';
 	import { get, post, isodate } from '$lib/api.ts';
-	import { days_between, isToday } from './shifts_utils';
+	import { days_between, isToday } from '$lib/dates';
 
 	export let user;
 	export let visible;

@@ -13,7 +13,7 @@
 	} from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api';
 	import FetchError from '../fetch_error.svelte';
-	import { groupReservations, uniqueStarts } from './reservations_utils';
+	import { groupReservations, uniqueStarts } from './reservation_grouping';
 
 	let promise = new Promise(() => {});
 	onMount(() => {
