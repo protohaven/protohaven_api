@@ -36,7 +36,7 @@ log = logging.getLogger("qa.additive")
 BACKUP_EVENTS = {
     "backup_wiki": "em4u369ldgl",
     "backup_neon_accounts": "emssampvlg3",
-    "backup_neon_events": "emssb5u1vg9",
+    "backup_eventbrite_events": "emssb5u1vg9",
     "backup_sheets": "emss9yewlg0",
 }
 
@@ -69,8 +69,6 @@ def _test_backup_job(ctx: QAContext, name: str):
     args = f"--apply --parent_id={ctx.drive_folder_id}"
     if name == "backup_neon_accounts":
         args += " --category=accounts"
-    elif name == "backup_neon_events":
-        args += " --category=events"
     result = ctx.run(
         name,
         BACKUP_EVENTS[name],
@@ -91,8 +89,8 @@ def test_backup_neon_accounts(ctx: QAContext):
     _test_backup_job(ctx, "backup_neon_accounts")
 
 
-def test_backup_neon_events(ctx: QAContext):
-    _test_backup_job(ctx, "backup_neon_events")
+def test_backup_eventbrite_events(ctx: QAContext):
+    _test_backup_job(ctx, "backup_eventbrite_events")
 
 
 def test_backup_sheets(ctx: QAContext):

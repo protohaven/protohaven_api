@@ -16,6 +16,7 @@ from protohaven_api.integrations import (
     airtable,
     comms,
     drive,
+    eventbrite,
     neon,
     sheets,
     tasks,
@@ -357,6 +358,47 @@ class Commands:
             Msg.tmpl(
                 "neon_backup_summary",
                 category=args.category,
+                parent_id=args.parent_id,
+                stats=stats,
+                target="#membership-automation",
+            )
+        )
+        log.info("Done")
+
+    @command(
+        arg(
+            "--parent_id",
+            help="destination folder ID",
+            type=str,
+            required=True,
+        ),
+        arg(
+            "--apply",
+            help="actually create the backup",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+    )
+    def backup_eventbrite(self, args, _):
+        """Fetch and back up Eventbrite data to google drive"""
+        now = tznow()
+
+        # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
+        stats = []
+        with tempfile.TemporaryDirectory() as d:
+            stats.append(
+                self._do_backup(
+                    eventbrite.events_backup,
+                    Path(d) / "eventbrite_events_backup.tar.gz",
+                    f"eventbrite_events_backup_{now.isoformat()}.tar.gz",
+                    args.parent_id,
+                    apply=args.apply,
+                )
+            )
+        print_yaml(
+            Msg.tmpl(
+                "eventbrite_backup_summary",
+                category="events",
                 parent_id=args.parent_id,
                 stats=stats,
                 target="#membership-automation",
