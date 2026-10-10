@@ -1,5 +1,4 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script type="typescript" lang="ts">
 	import {
 		FormGroup,
 		Label,
@@ -15,10 +14,6 @@
 		CardBody,
 		Input,
 		Spinner,
-		Dropdown,
-		DropdownToggle,
-		DropdownMenu,
-		DropdownItem,
 		Toast,
 		ToastBody,
 		ToastHeader
@@ -28,21 +23,42 @@
 	import { get, isodate, post } from '$lib/api.ts';
 	import { calculate_day_of_week_stats, DAY_NAMES } from './signin_stats';
 
+	type SearchResult = {
+		name: string;
+		email: string;
+	};
+
+	type ToastMsg = {
+		color: string;
+		title: string;
+		msg: string;
+	} | null;
+
+	type SigninRecord = {
+		email: string;
+		name: string;
+		member: boolean;
+		status: string;
+		clearances: string[];
+		violations: string[];
+		created: Date;
+	};
+
+	type GroupedSignin = SigninRecord & {
+		timestamps: Set<string>;
+	};
+
 	let start_date = isodate(new Date());
 	let end_date = isodate(new Date());
 
-	export let visible;
-	let search = '';
+	export let visible: boolean = false;
 	let search_term = '';
-	let search_results = [];
+	let search_results: SearchResult[] = [];
 	let searching = false;
-	let search_promise = Promise.resolve([]);
-	let selected_member = null;
-	let promise = new Promise((r, _) => {
-		r([]);
-	});
+	let selected_member: SearchResult | null = null;
+	let promise: Promise<GroupedSignin[]> = Promise.resolve([]);
 	let loaded = false;
-	let toast_msg = null;
+	let toast_msg: ToastMsg = null;
 
 	// Day of week statistics
 	let day_of_week_stats = {
@@ -57,9 +73,9 @@
 	let total_signins = 0;
 
 	// Debounce function for search
-	function debounce(func, wait) {
-		let timeout;
-		return function executedFunction(...args) {
+	function debounce(func: (...args: unknown[]) => void, wait: number) {
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		return function executedFunction(...args: unknown[]) {
 			const later = () => {
 				clearTimeout(timeout);
 				func(...args);
@@ -76,7 +92,7 @@
 		}
 
 		searching = true;
-		search_promise = post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
+		post(`/neon_lookup?search=${encodeURIComponent(search_term)}`, undefined)
 			.then((results) => {
 				search_results = results;
 			})
@@ -101,26 +117,28 @@
 	function refresh() {
 		const start = isodate(start_date);
 		const end = isodate(end_date);
-		promise = get(`/techs/members?start=${start}&end=${end}`).then((data) => {
+		promise = get(`/techs/members?start=${start}&end=${end}`).then((data: SigninRecord[]) => {
 			loaded = true;
-			let by_email_and_day = {};
+			let by_email_and_day: Record<string, GroupedSignin> = {};
 			for (let d of data) {
 				d.created = new Date(d.created);
 				let dstr = isodate(d.created);
-				if (!by_email_and_day[[d['email'], dstr]]) {
-					by_email_and_day[[d['email'], dstr]] = { ...d, timestamps: new Set() };
+				const key = [d.email, dstr].join(',');
+				if (!by_email_and_day[key]) {
+					by_email_and_day[key] = { ...d, timestamps: new Set<string>() };
 				}
-				by_email_and_day[[d['email'], dstr]]['timestamps'].add(d.created.toLocaleTimeString());
+				by_email_and_day[key].timestamps.add(d.created.toLocaleTimeString());
 			}
-			let results = Object.values(by_email_and_day);
+			let results: GroupedSignin[] = Object.values(by_email_and_day);
 			// Sort descending, newest on top
-			results.sort((a, b) => b.created - a.created);
+			results.sort((a, b) => b.created.getTime() - a.created.getTime());
 
 			// Filter by selected member if one is selected
 			if (selected_member) {
-				results = results.filter((r) => r.email === selected_member.email);
+				const member = selected_member;
+				results = results.filter((r) => r.email === member.email);
 				// Calculate day of week statistics for selected member
-				calculateDayOfWeekStats(data.filter((d) => d.email === selected_member.email));
+				calculateDayOfWeekStats(data.filter((d) => d.email === member.email));
 			} else {
 				// Reset statistics when no member is selected
 				resetDayOfWeekStats();
@@ -130,7 +148,7 @@
 		});
 	}
 
-	function calculateDayOfWeekStats(memberSignins) {
+	function calculateDayOfWeekStats(memberSignins: SigninRecord[]) {
 		const { stats, total_signins: total } = calculate_day_of_week_stats(memberSignins);
 		day_of_week_stats = stats;
 		total_signins = total;
@@ -149,7 +167,7 @@
 		total_signins = 0;
 	}
 
-	function on_search_term_edit(e) {
+	function on_search_term_edit() {
 		if (search_term !== `${selected_member?.name} (${selected_member?.email})`) {
 			search_neon_accounts();
 		} else {
@@ -363,7 +381,7 @@
 				class="me-1"
 				style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
 				autohide
-				isOpen={toast_msg}
+				isOpen={toast_msg !== null}
 				on:close={() => (toast_msg = null)}
 			>
 				<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>

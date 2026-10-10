@@ -8,7 +8,7 @@ export const DAY_NAMES = [
 	'Thursday',
 	'Friday',
 	'Saturday'
-];
+] as const;
 
 interface MemberSignin {
 	created: Date | string;

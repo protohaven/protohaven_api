@@ -112,7 +112,7 @@
 								Last updated: {formatTime(lastUpdated)}
 							{/if}
 						</Tooltip>
-						<Badge color="success" id="door-status-badge" class="door-badge">✓</Badge>
+						<Badge color="success" id="door-status-badge">✓</Badge>
 					{/if}
 				{/if}
 
@@ -128,11 +128,5 @@
 <style>
 	.door-locks-status {
 		display: inline-block;
-	}
-
-	.door-badge {
-		cursor: help;
-		font-size: 0.8rem;
-		padding: 0.15rem 0.4rem;
 	}
 </style>

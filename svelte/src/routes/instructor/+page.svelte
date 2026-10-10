@@ -1,17 +1,11 @@
 <script type="typescript" lang="ts">
 	import '../../app.scss';
 	import { onMount } from 'svelte';
-	import { get, post } from '$lib/api.ts';
+	import { get } from '$lib/api.ts';
 
 	import {
-		Card,
-		CardHeader,
-		CardTitle,
-		CardBody,
 		Icon,
 		Container,
-		Row,
-		Col,
 		Navbar,
 		NavbarBrand,
 		Button,
@@ -26,16 +20,41 @@
 	import InstructorList from '$lib/instructor/instructor_list.svelte';
 	import ClassTemplates from '$lib/instructor/class_templates.svelte';
 	import FetchError from '$lib/fetch_error.svelte';
+	import type { InstructorListData } from '$lib/instructor/types';
 
-	let start = new Date();
-	start.setDate(start.getDate() + 14);
-	start = start.toJSON().slice(0, 10);
-	let end = new Date();
-	end.setDate(end.getDate() + 40);
-	end = end.toJSON().slice(0, 10);
-	let promise = new Promise((resolve, reject) => {});
+	interface WhoAmI {
+		fullname?: string;
+		email?: string;
+		roles?: string[];
+		[key: string]: unknown;
+	}
+
+	interface SchedulerClassTemplate {
+		class_id: string;
+		name: string;
+		hours: number[];
+		capacity: number;
+		price: number;
+		period: number;
+		areas: string[];
+		clearances: string[];
+	}
+
+	interface InstructorProfile {
+		email?: string;
+		fullname?: string;
+		airtable_id?: string;
+		classes?: Record<string, string>;
+		active_membership?: string;
+		capabilities_listed?: string;
+		paperwork?: string;
+		discord_user?: string;
+		[key: string]: unknown;
+	}
+
+	let promise: Promise<unknown> = Promise.resolve(null);
 	let admin = false;
-	let user;
+	let user: WhoAmI | null = null;
 
 	const tab_titles: Record<string, string> = {
 		classes: 'Classes',
@@ -49,13 +68,14 @@
 	onMount(() => {
 		activeTab = (window.location.hash || '#classes').substring(1).trim();
 		const urlParams = new URLSearchParams(window.location.search);
-		let e = urlParams.get('email');
+		const e = urlParams.get('email');
 		console.log(`E is ${e}; fetching /whoami`);
 		try {
 			// Initial /whoami takes time to fetch and delays page interaction,
 			// so we serve a cached version before the request completes.
-			const cached = JSON.parse(localStorage.getItem('whoami_cache'));
-			if (cached) {
+			const cachedRaw = localStorage.getItem('whoami_cache');
+			if (cachedRaw) {
+				const cached = JSON.parse(cachedRaw);
 				user = cached.user;
 				admin = cached.admin;
 			}
@@ -64,7 +84,7 @@
 		}
 		promise = get('/whoami').then((d) => {
 			console.log(d);
-			admin = (d.roles || []).some((role) =>
+			admin = (d.roles || []).some((role: string) =>
 				['Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'].includes(role)
 			);
 			user = d;
@@ -87,35 +107,41 @@
 		});
 	});
 
-	function on_tab(e) {
-		if (!e.target.href) {
+	function on_tab(e: MouseEvent) {
+		const target = e.target as HTMLAnchorElement;
+		if (!target.href) {
 			return;
 		}
-		activeTab = e.target.href.split('#')[1] || 'classes';
+		activeTab = target.href.split('#')[1] || 'classes';
 		window.location.hash = activeTab;
 		console.log('activeTab', activeTab);
 	}
 
-	function onboarded(p) {
+	function onboarded(p: InstructorProfile | null | undefined) {
 		if (!p) {
 			return false;
 		}
-		for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user']) {
-			if (p[k].indexOf('OK') === -1) {
+		for (const k of [
+			'active_membership',
+			'capabilities_listed',
+			'paperwork',
+			'discord_user'
+		] as const) {
+			if (String(p[k] ?? '').indexOf('OK') === -1) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	let profile = null;
-	let templates = null;
-	let instructorListData = null; // Store instructor list data for admin tabs
+	let profile: Promise<InstructorProfile> = new Promise<InstructorProfile>(() => {});
+	let templates: Promise<Record<string, SchedulerClassTemplate>> = Promise.resolve({});
+	let instructorListData: Promise<InstructorListData> | null = null; // Store instructor list data for admin tabs
 	function fetch_instructor_list() {
 		instructorListData = get('/instructor/list');
 	}
 
-	function fetch_instructor_profile(email) {
+	function fetch_instructor_profile(email: string) {
 		const url = '/instructor/about?email=' + encodeURIComponent(email);
 		console.log(`getting profile data for email ${email} -> ${url}`);
 		profile = get(url)
@@ -124,7 +150,8 @@
 				if (result.classes) {
 					console.log('Seeking templates for classes:', result.classes);
 					templates = get(
-						'/instructor/class/templates?ids=' + encodeURIComponent(Object.keys(result.classes))
+						'/instructor/class/templates?ids=' +
+							encodeURIComponent(Object.keys(result.classes).join(','))
 					);
 				}
 
@@ -137,8 +164,6 @@
 	}
 
 	let scheduler_open = false;
-	let fullname = '';
-	let airtable_id = '';
 </script>
 
 <svelte:head>
@@ -202,12 +227,9 @@
 				<Spinner />
 			{:then p}
 				<Scheduler
-					{admin}
-					email={p.email}
-					inst={fullname}
+					email={p.email ?? ''}
 					classes={p.classes || {}}
 					{templates}
-					inst_id={airtable_id}
 					bind:open={scheduler_open}
 				/>
 
@@ -220,11 +242,9 @@
 				{#if activeTab === 'classes'}
 					<Button
 						class="mx-2"
-						enabled={p.capabilities_listed !== 'missing'}
+						disabled={p.capabilities_listed === 'missing'}
 						on:click={() => {
 							scheduler_open = true;
-							fullname = p.fullname;
-							airtable_id = p.airtable_id;
 						}}>Open Scheduler</Button
 					>
 
@@ -238,7 +258,6 @@
 						<strong>Loading instructor roster...</strong>
 					{:then data}
 						<InstructorList
-							{user}
 							{data}
 							{admin}
 							visible={activeTab === 'roster'}

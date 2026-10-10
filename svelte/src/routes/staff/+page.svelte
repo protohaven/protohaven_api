@@ -1,37 +1,33 @@
-<script>
+<script lang="ts">
 	import '../../app.scss';
-	import {
-		Spinner,
-		Row,
-		Card,
-		Container,
-		Navbar,
-		NavItem,
-		NavbarBrand,
-		NavLink,
-		Nav
-	} from '@sveltestrap/sveltestrap';
+	import { Spinner, Navbar, NavItem, NavbarBrand, NavLink, Nav } from '@sveltestrap/sveltestrap';
 	import SummarizeDiscord from '$lib/staff/summarize_discord.svelte';
 	import { onMount } from 'svelte';
 	import { get } from '$lib/api.ts';
 	import OpsReport from '$lib/staff/ops_report.svelte';
 
-	/** @type {Record<string, string>} */
-	const tab_titles = {
+	interface WhoAmI {
+		fullname?: string;
+		email?: string;
+		[key: string]: unknown;
+	}
+
+	const tab_titles: Record<string, string> = {
 		summary: 'Discord Summary',
 		opsreport: 'Ops Report'
 	};
 
 	let activeTab = 'summary';
 	$: page_title = `Staff Dashboard: ${tab_titles[activeTab] || 'Discord Summary'}`;
-	let user;
-	let promise;
+	let user: WhoAmI | null = null;
+	let promise: Promise<unknown> = Promise.resolve(null);
 	onMount(() => {
 		activeTab = (window.location.hash || '#summary').substring(1).trim();
 		console.log('active', activeTab);
 		promise = get('/whoami')
 			.then((d) => {
 				user = d;
+				return d;
 			})
 			.catch((e) => {
 				if (e.message.indexOf('You are not logged in') !== -1) {
@@ -40,8 +36,9 @@
 				throw e;
 			});
 	});
-	function on_tab(e) {
-		activeTab = e.target.href.split('#')[1] || 'summary';
+	function on_tab(e: MouseEvent) {
+		const target = e.target as HTMLAnchorElement;
+		activeTab = target.href.split('#')[1] || 'summary';
 		window.location.hash = activeTab;
 		console.log('activeTab', activeTab);
 	}
@@ -73,4 +70,4 @@
 	<NavItem><NavLink href="#opsreport" on:click={on_tab}>Ops Report</NavLink></NavItem>
 </Nav>
 <SummarizeDiscord visible={activeTab == 'summary'} {user} />
-<OpsReport visible={activeTab == 'opsreport'} {user} />
+<OpsReport visible={activeTab == 'opsreport'} />
