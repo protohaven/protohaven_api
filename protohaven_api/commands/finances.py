@@ -208,6 +208,8 @@ class Commands:
                 args.member_ids, pct, args.ignore_membership_types
             )
         )
+        for problem in problems:
+            log.info(problem)
         if len(problems) > 0:
             print_yaml(
                 Msg.tmpl(
@@ -337,7 +339,9 @@ class Commands:
                     log.info(
                         f"Abnormal zero-cost: {acct.neon_id} - active membership {am.neon_id}"
                     )
-            if am.end_date is None or am.end_date == datetime.datetime.max:
+            if am.end_date is None or (
+                am.end_date.replace(tzinfo=None) == datetime.datetime.max
+            ):
                 yield f"Membership {am.level} with no end date (infinite duration)"
                 log.info(
                     f"Infinite duration: {acct.neon_id} - active membership {am.neon_id}"

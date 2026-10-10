@@ -175,6 +175,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
         self.ignore_ovr: list[EventID] = []
         self.filter_ovr: list[EventID] = []
         self.confirm_ovr: list[EventID] = []
+        self.cancel_ovr: list[EventID] = []
+        self.for_techs_ovr: list[EventID] = []
 
     def fetch_and_aggregate_data(self):
         """Fetches and aggregates data from Neon and Airtable to use in notifying
@@ -236,6 +238,10 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
         if evt.event_id in self.confirm_ovr:
             self.push_class(evt, Action.CONFIRM, "override")
+        elif evt.event_id in self.cancel_ovr:
+            self.push_class(evt, Action.CANCEL, "override")
+        elif evt.event_id in self.for_techs_ovr:
+            self.push_class(evt, Action.FOR_TECHS, "override")
         else:
             log.info(
                 f"Checking actions needed for #{evt.event_id} {evt.name} "
@@ -305,12 +311,13 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def _build_registrant_notification(self, evt, action, a):
         """Build notification for a registrant `a` about event `evt`"""
-        if a.email is None:
+        email = self.attendee_emails.get(a.neon_id, a.email)
+        if email is None:
             self.log.error(f"Skipping email to attendee {a.fname}; no email given")
             return
-        if self.notified(a.email, evt, action.day_offset):
+        if self.notified(email, evt, action.day_offset):
             self.log.debug(
-                f"Skipping email to attendee {a.fname} ({a.email}); already notified"
+                f"Skipping email to attendee {a.fname} ({email}); already notified"
             )
             return
         tmpl = {
@@ -327,7 +334,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 action,
                 Msg.tmpl(
                     tmpl,
-                    target=f"{a.name} ({a.email})",
+                    target=f"{a.name} ({email})",
                     evt=evt,
                     a=a,
                     now=tznow(),

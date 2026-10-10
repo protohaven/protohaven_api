@@ -30,6 +30,28 @@ def test_airtable_read_retry(mocker, c):
     con.time.sleep.assert_called()
 
 
+def test_airtable_read_retries_invalid_json(mocker, c):
+    """A transient non-JSON DB response retries and recovers on GET"""
+    con.requests.request.side_effect = [
+        mocker.MagicMock(status_code=502, content=b"<html>Bad Gateway</html>"),
+        mocker.MagicMock(status_code=200, content=json.dumps({"records": []})),
+    ]
+    status, content = c.db_request("GET", "tools_and_equipment", "tools")
+    assert status == 200
+    assert content == {"records": []}
+    con.time.sleep.assert_called()
+
+
+def test_airtable_read_returns_raw_content_on_invalid_json(mocker, c):
+    """After retries, invalid non-JSON is returned for a clearer caller error"""
+    con.requests.request.side_effect = [
+        mocker.MagicMock(status_code=502, content=b"<html>Bad Gateway</html>")
+    ] * 3
+    status, content = c.db_request("GET", "tools_and_equipment", "tools")
+    assert status == 502
+    assert content == b"<html>Bad Gateway</html>"
+
+
 def test_airtable_read_max_retries(c):
     """Too many retries eventually causes a failure"""
     con.requests.request.side_effect = [

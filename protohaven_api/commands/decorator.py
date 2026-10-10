@@ -60,7 +60,7 @@ def dump_yaml(data: Any) -> str:
 
 def print_yaml(data: Any) -> None:
     """Prints yaml to config defined path, or to stdout if not set"""
-    path = get_config("general/yaml_out").strip()
+    path = (get_config("general/yaml_out") or "").strip()
     if path and path != "${YAML_OUT}":
         log.info(f"Writing yaml file to '{path}'")
         with open(path, "w", encoding="utf8") as f:
