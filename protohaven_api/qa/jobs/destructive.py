@@ -105,7 +105,12 @@ def test_discord_role(ctx: QAContext):
     assert_sent_dm(result)
     assert_sent_discord(result)
     assert_log_contains(
-        result.text, ["Discord role assigned", "discord_role_change_dm"]
+        result.text,
+        [
+            "Your Discord Roles Are Changing",
+            "Discord Role Automation Summary",
+            "Intents updated in airtable",
+        ],
     )
 
 
