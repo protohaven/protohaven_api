@@ -1,4 +1,4 @@
-"""Tests for NeonOne integration methods"""
+"""Tests for Neon integration methods"""
 
 # pylint: skip-file
 import datetime

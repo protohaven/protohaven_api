@@ -468,18 +468,6 @@ Use the **Eventbrite class creation path**, not Neon.
   User ID` is set; `booked_member_sync_summary` sent to `COVR`.
 - **Cleanup:** delete the mock Booked user, then the mock Neon account.
 
-#### `restock_discounts` (`em6fgimj413`) — `restock_discounts`
-
-- **Setup:** query current valid unassigned coupon count.
-- **Run:**
-  `--no-apply --limit=2 --target_qty=<current_count + 2>`, overrides,
-  send_comms on.
-- **Assert:** exit 0; generated codes logged and pushed to Airtable; summary to
-  `COVR`.
-- **Cleanup:** delete the Airtable coupon records created by the run.
-- **Note:** avoid creating Neon coupon codes in QA because they are
-  browser-created and not safely deletable.
-
 #### `refresh_volunteer_memberships` (`em8x5gxfp4t`) — `refresh_volunteer_memberships`
 
 - **Setup:** create a mock Neon account with the Shop Tech role and a

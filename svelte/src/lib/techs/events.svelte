@@ -49,6 +49,7 @@
 		events: EventItem[];
 		can_register: boolean;
 		can_edit: boolean;
+		is_admin: boolean;
 	}
 
 	interface NewEventForm {
@@ -64,7 +65,8 @@
 	let promise: Promise<EventsData> = Promise.resolve({
 		events: [],
 		can_register: false,
-		can_edit: false
+		can_edit: false,
+		is_admin: false
 	});
 	function reload() {
 		promise = get('/techs/events').then((data) => {
@@ -84,17 +86,17 @@
 		event_id: string | number | null,
 		ticket_id: string | number | null | undefined,
 		action: 'register' | 'unregister',
-		attendee_neon_id: string | number | null | undefined = null
+		attendee_email: string | null = null
 	) {
 		submitting = true;
 		const data: {
 			event_id: string | number | null;
 			ticket_id: string | number | null | undefined;
 			action: string;
-			attendee_neon_id?: string | number | null | undefined;
+			attendee_email?: string | null;
 		} = { event_id, ticket_id, action };
-		if (attendee_neon_id !== null) {
-			data.attendee_neon_id = attendee_neon_id;
+		if (attendee_email !== null) {
+			data.attendee_email = attendee_email;
 		}
 		submission = post('/techs/event', data)
 			.then((result) => console.log(result))
@@ -226,7 +228,7 @@
 												{#if attendee.phone}
 													<div>Phone: {attendee.phone}</div>
 												{/if}
-												{#if attendee.is_volunteer}
+												{#if p.is_admin}
 													<div class="mt-1">
 														<Button
 															color="danger"
@@ -237,7 +239,7 @@
 																		`Are you sure you want to de-register ${attendee.name} from this event?`
 																	)
 																) {
-																	action(r.id, null, 'unregister', attendee.neon_id);
+																	action(r.id, null, 'unregister', attendee.email);
 																}
 															}}
 															disabled={submitting}
