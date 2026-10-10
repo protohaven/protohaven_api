@@ -5,11 +5,10 @@
 
 import datetime
 import logging
-from typing import Any
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import safe_parse_datetime, tznow
-from protohaven_api.integrations import airtable, neon_base
+from protohaven_api.integrations import airtable, eventbrite, neon_base
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.qa.base import (
     QAContext,
@@ -257,35 +256,38 @@ def _create_class_event(
     attendees: int = 0,
     capacity: int = 6,
 ):
-    """Create an unpublished Neon event + matching Airtable schedule row."""
+    """Create an unlisted Eventbrite event + matching Airtable schedule row."""
     raw = airtable_fixture.copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=days_out)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Class Emails {scenario} {ctx.run_id}"
-    create_kwargs: dict[str, Any] = {
-        "dry_run": False,
-        "published": False,
-        "registration": attendees > 0,
-        "free": True,
-        "max_attendees": capacity,
-    }
-    if days_out < 0:
-        # Neon requires open <= close and end > open. For past-dated QA events,
-        # both registration dates must be in the past rather than defaulting
-        # the open date to the current time.
-        create_kwargs["registration_open_date"] = start - datetime.timedelta(days=2)
-        create_kwargs["registration_close_date"] = start - datetime.timedelta(days=1)
-    create_event = neon_fixture.create_temporary_event
-    event_id = create_event(ctx, name, start, end, **create_kwargs)
+    event_id = eventbrite.create_event(
+        name,
+        [(start, end)],
+        summary="Temporary QA event; will be deleted automatically.",
+        max_attendees=capacity,
+        published=False,
+    )
+    assert event_id
+    eventbrite.assign_pricing(event_id, 0, capacity, clear_existing=True)
+    eventbrite.set_event_scheduled_state(event_id, scheduled=attendees > 0)
+    ctx.cleanup.register(
+        f"delete Eventbrite event {event_id}",
+        lambda: eventbrite.delete_event_unsafe(event_id),
+    )
 
     if attendees:
-        # QA events are free Neon events; free classes do not have a Neon
-        # ticket ID. Registration still works with a null ticket ID.
+        ticket_id = eventbrite.fetch_event(
+            event_id, include_ticketing=True
+        ).single_registration_ticket_id
+        assert ticket_id
         for i in range(attendees):
             acct = neon_fixture.create_mock_account(ctx, f"class-emails-{scenario}-{i}")
-            neon_fixture.register_for_event(ctx, acct.neon_id, event_id, None)
+            eventbrite.register_attendee(
+                event_id, ticket_id, "QA Cronicle", acct.neon_id, acct.email
+            )
 
     fields = {k: v for k, v in raw["fields"].items() if k in _SCHEDULE_WRITABLE_FIELDS}
     fields.update(

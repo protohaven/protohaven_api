@@ -7,28 +7,7 @@ from collections import namedtuple
 import pytest
 
 from protohaven_api.commands import classes as C
-from protohaven_api.integrations.data.neon import Category
 from protohaven_api.testing import MatchStr, d, idfn, mkcli
-
-
-def test_category_from_event_name():
-    """Test a few cases to make sure categories are correctly applied"""
-    assert (
-        C.Commands._neon_category_from_event_name("Digital 113: 2D Vector Creation")
-        == Category.PROJECT_BASED_WORKSHOP
-    )
-    assert (
-        C.Commands._neon_category_from_event_name("Welding 101: MIG Welding Clearance")
-        == Category.SKILLS_AND_SAFETY_WORKSHOP
-    )
-    assert (
-        C.Commands._neon_category_from_event_name("All Member Meeting")
-        == Category.MEMBER_EVENT
-    )
-    assert (
-        C.Commands._neon_category_from_event_name("Valentine's Day Make & Take Party")
-        == Category.SOMETHING_ELSE_AMAZING
-    )
 
 
 @pytest.fixture(name="e")
@@ -166,7 +145,7 @@ def test_format_class_description(mocker):
 
 
 def _tcls(mocker):
-    """Used as a test class for test_post_classes_to_neon tests"""
+    """Used as a test class for test_post_classes tests"""
     c = mocker.MagicMock(
         spec=True,  # Don't autocreate attributes
         class_id="abcd",
@@ -192,7 +171,7 @@ def _tcls(mocker):
         capacity=6,
         price=90,
         instructor_email="a@b.com",
-        use_eventbrite=False,
+        use_eventbrite=True,
     )
     c.name = "test class"
     return c
@@ -240,14 +219,18 @@ Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
     ],
     ids=idfn,
 )
-def test_post_classes_to_neon_actions(cli, mocker, tc):
+def test_post_classes_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
-    m2 = mocker.MagicMock()
-    mocker.patch.object(C.neon_base, "NeonOne", return_value=m2)
+    mocker.patch.object(C.eventbrite, "upload_logo_image", return_value=9)
     mock_delete = mocker.patch.object(
-        C.neon_base, "delete_event_unsafe", return_value=True
+        C.eventbrite, "delete_event_unsafe", return_value=True
     )
-    mocker.patch.object(C.neon_base, "create_event", return_value="123")
+    mock_create = mocker.patch.object(C.eventbrite, "create_event", return_value="123")
+    mock_content = mocker.patch.object(
+        C.eventbrite, "set_structured_content", return_value=2
+    )
+    mock_pricing = mocker.patch.object(C.eventbrite, "assign_pricing")
+    mock_publish = mocker.patch.object(C.eventbrite, "set_event_scheduled_state")
     mocker.patch.object(C.airtable, "update_record")
     mocker.patch.object(C.Commands, "reserve_equipment_for_event", create=True)
     mocker.patch.object(
@@ -257,64 +240,62 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
     mocker.patch.object(
         C.Commands, "_fetch_boilerplate", return_value=("Foo", "Bar", "Baz")
     )
-    got = cli("post_classes_to_neon", ["--apply", *tc.args])
+    got = cli("post_classes", ["--apply", *tc.args])
 
     assert {g["target"] for g in got} == {
         "a@b.com",
         "#instructors",
         "#class-automation",
     }
-    C.neon_base.create_event.assert_called_with(
+    mock_create.assert_called_once_with(
         "test class",
-        desc=mocker.ANY,
-        start=d(20, 8),
-        end=d(20, 11),
-        category="27",
+        [(d(20, 8), d(20, 11))],
+        summary="summary",
         max_attendees=6,
-        dry_run=False,
         published=tc.publish,
-        registration=tc.register,
+        logo_id=9,
     )
     assert (
         '<p><img height="200" src="http://testimg"/></p>'
-        in C.neon_base.create_event.mock_calls[0][2]["desc"]
+        in mock_content.call_args[0][1]
     )
-    m2.assign_pricing.assert_called_with(
-        "123", 90, 6, include_discounts=tc.discount, clear_existing=True
-    )
+    mock_pricing.assert_called_once_with("123", 90, 6, clear_existing=True)
+    mock_publish.assert_called_once_with("123", scheduled=tc.register)
     if tc.reserve:
         C.Commands.reserve_equipment_for_event.assert_called_once()
     mock_delete.assert_not_called()
 
 
-def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
+def test_post_classes_reverts_on_failure(cli, mocker):
     """Test that class creation is reverted when part of the process fails"""
     mocker.patch.object(C.comms, "send_discord_message")
-    mock_neonone = mocker.MagicMock()
-    mock_neonone.assign_pricing.side_effect = Exception("Pricing failed!")
-    mocker.patch.object(C.neon_base, "NeonOne", return_value=mock_neonone)
     mocker.patch.object(C, "resolve_schedule", return_value=[_tcls(mocker)])
+    mocker.patch.object(C.eventbrite, "upload_logo_image", return_value=9)
+    mocker.patch.object(
+        C.eventbrite, "assign_pricing", side_effect=Exception("Pricing failed!")
+    )
 
     mock_delete = mocker.patch.object(
-        C.neon_base, "delete_event_unsafe", return_value=True
+        C.eventbrite, "delete_event_unsafe", return_value=True
     )
-    mock_schedule = mocker.patch.object(
-        C.neon_base, "create_event", return_value="test_event_id"
+    mock_create = mocker.patch.object(
+        C.eventbrite, "create_event", return_value="test_event_id"
     )
+    mocker.patch.object(C.eventbrite, "set_structured_content", return_value=2)
+    mocker.patch.object(C.eventbrite, "set_event_scheduled_state")
     mocker.patch.object(
         C.Commands, "_format_class_description", return_value="test_description"
     )
     mock_airtable = mocker.patch.object(C.airtable, "update_record")
 
-    got = cli("post_classes_to_neon", ["--apply"])
+    got = cli("post_classes", ["--apply"])
     assert got == []
 
     # Verify behavior
     C.comms.send_discord_message.assert_called_with(
         MatchStr("Reverted class #test_event_id"), "#class-automation", blocking=False
     )
-    mock_schedule.assert_called_once()
-    mock_neonone.assign_pricing.assert_called_once()
+    mock_create.assert_called_once()
     mock_airtable.assert_called_once_with(
         {"Neon ID": ""}, "class_automation", "schedule", "efgh"
     )

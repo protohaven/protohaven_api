@@ -13,9 +13,8 @@ from pathlib import Path
 from typing import Iterable
 
 import rapidfuzz
-from flask import Response
 
-from protohaven_api.config import get_config, tznow, utcnow
+from protohaven_api.config import get_config, tznow
 from protohaven_api.integrations import neon_base
 from protohaven_api.integrations.data.connector import (
     get as get_connector,  # pylint: disable=import-outside-toplevel
@@ -23,116 +22,14 @@ from protohaven_api.integrations.data.connector import (
 from protohaven_api.integrations.data.neon import CustomField
 from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.integrations.models import (
-    Attendee,
     ClearanceCodeFull,
     ClearanceCodeShort,
-    Event,
-    EventID,
     Member,
     NeonID,
     ToolCode,
 )
 
 log = logging.getLogger("integrations.neon")
-
-
-def _search_upcoming_events(
-    from_date: datetime.datetime, to_date: datetime.datetime
-) -> Iterable[Event]:
-    """Lookup upcoming events"""
-    for evt in neon_base.paginated_search(
-        [
-            ("Event Start Date", "GREATER_AND_EQUAL", from_date.strftime("%Y-%m-%d")),
-            ("Event Start Date", "LESS_AND_EQUAL", to_date.strftime("%Y-%m-%d")),
-        ],
-        [
-            "Event ID",
-            "Event Name",
-            "Event Web Publish",
-            "Event Web Register",
-            "Event Registration Attendee Count",
-            "Event Capacity",
-            "Event Start Date",
-            "Event Start Time",
-        ],
-        typ="events",
-        pagination={"sortColumn": "Event Start Date", "sortDirection": "ASC"},
-    ):
-        yield Event.from_neon_search(evt)
-
-
-def fetch_event(event_id: EventID, tickets=False, attendees=False):
-    """Fetch data on an individual (legacy) event in Neon"""
-    evt = Event.from_neon_fetch(neon_base.get("api_key1", f"/events/{event_id}"))
-    if tickets:
-        evt.set_ticket_data(fetch_tickets_internal_do_not_use_directly(event_id))
-    if attendees:
-        evt.set_attendee_data(fetch_attendees(event_id, raw=True))
-    return evt
-
-
-def register_for_event(account_id, event_id, ticket_id):
-    """Register for `event_id` with `account_id`"""
-    return neon_base.post(
-        "api_key3",
-        "/eventRegistrations",
-        {
-            "eventId": event_id,
-            "registrationAmount": 0,
-            "ignoreCapacity": False,
-            "sendSystemEmail": True,
-            "registrantAccountId": account_id,
-            "totalCharge": 0,
-            "registrationDateTime": utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "tickets": [
-                {
-                    "ticketId": ticket_id,
-                    "attendees": [{"accountId": account_id}],
-                }
-            ],
-        },
-    )
-
-
-def delete_single_ticket_registration(account_id, event_id):
-    """Deletes single-ticket, single-attendee registrations
-    for event with `event_id` made by `account_id`. This
-    works for registrations created with `register_for_event()`."""
-    for reg in neon_base.paginated_fetch(
-        "api_key1", f"/events/{event_id}/eventRegistrations"
-    ):
-        tickets = reg.get("tickets", [])
-        if len(tickets) != 1:
-            continue
-        attendees = tickets[0].get("attendees", {})
-        if len(attendees) != 1:
-            continue
-
-        if attendees[0]["accountId"] == account_id:
-            return neon_base.delete("api_key3", f"/eventRegistrations/{reg['id']}")
-    return Response(
-        f"Registration not found for account {account_id} in event {event_id}",
-        status=404,
-    )
-
-
-def fetch_tickets_internal_do_not_use_directly(event_id):
-    """Fetch ticket information for a specific Neon event.
-    This is used in automation.classes.events `fetch_upcoming_events()`
-    to load additional ticketing information for classes. It should only be used
-    indirectly by calling that function.
-    """
-    content = neon_base.get("api_key1", f"/events/{event_id}/tickets")
-    assert isinstance(content, list)
-    return content
-
-
-def fetch_attendees(event_id: str, raw=False) -> Iterable[Attendee]:
-    """Fetch attendee data on an individual (legacy) event in Neon"""
-    for result in neon_base.paginated_fetch(
-        "api_key1", f"/events/{event_id}/attendees"
-    ):
-        yield result if raw else Attendee(neon_raw_data=result)
 
 
 def resolve_clearance_code_full(
@@ -315,44 +212,6 @@ def accounts_backup(
     return getsize(output_filename)
 
 
-def events_backup(
-    output_filename: str,
-) -> int:
-    """Iterate through all events on Neon CRM and write to a gzipped tar file.
-    Return number of bytes of the archive.
-    Events older than 10 years are not returned.
-    """
-    max_age_days = 10 * 365
-    with tempfile.TemporaryDirectory() as d:
-        results = []
-        for e in neon_base.paginated_search(
-            [
-                (
-                    "Event Start Date",
-                    "GREATER_AND_EQUAL",
-                    (tznow() - datetime.timedelta(days=max_age_days)).strftime(
-                        "%Y-%m-%d"
-                    ),
-                ),
-            ],
-            ["Event ID"],
-            typ="events",
-        ):
-            evt = fetch_event(e["Event ID"], attendees=True, tickets=True)
-            results.append(
-                {
-                    **evt.neon_raw_data,
-                    "attendees": evt.neon_attendee_data,
-                    "tickets": evt.neon_ticket_data,
-                }
-            )
-
-        with open(Path(d) / "events.json", "w", encoding="utf8") as f:
-            f.write(json.dumps(results))
-        make_tarfile(output_filename, str(d))
-    return getsize(output_filename)
-
-
 MEMBER_SEARCH_OUTPUT_FIELDS: list[str | int] = [
     "Household ID",
     "Company ID",
@@ -518,33 +377,6 @@ def search_members_with_discord_id(
     )
 
 
-@lru_cache(maxsize=1)
-def get_sample_classes(cache_bust, until=10):  # pylint: disable=unused-argument
-    """Fetch sample classes for advertisement on the homepage"""
-    sample_classes = []
-    now = tznow()
-    until = tznow() + datetime.timedelta(days=until)
-    for evt in _search_upcoming_events(
-        from_date=now,
-        to_date=until,
-    ):
-        if not evt.published or not evt.registration or not evt.start_date:
-            continue
-        if not evt.attendee_count or evt.capacity <= evt.attendee_count:
-            continue
-        sample_classes.append(
-            {
-                "url": f"https://protohaven.org/e/{evt.event_id}",
-                "name": evt.name,
-                "date": evt.start_date.strftime("%b %-d, %-I%p"),
-                "seats_left": evt.capacity - evt.attendee_count,
-            }
-        )
-        if len(sample_classes) >= 3:
-            break
-    return sample_classes
-
-
 def create_coupon_codes(
     codes, amt, from_date=None, to_date=None
 ) -> Iterable[neon_base.NeonCoupon]:
@@ -684,21 +516,6 @@ def update_account_automation_run_status(account_id, status: str, now=None):
             status + " " + (now or tznow()).strftime("%Y-%m-%d"),
         ),
     )
-
-
-def set_event_scheduled_state(neon_id, scheduled=True):
-    """Publishes or unpublishes an event in Neon, including registration
-    and public visibility in protohaven.org/classes/"""
-    return neon_base.patch(
-        "api_key1",
-        f"/events/{neon_id}",
-        {
-            "publishEvent": scheduled,
-            "enableEventRegistrationForm": scheduled,
-            "archived": not scheduled,
-            "enableWaitListing": scheduled,
-        },
-    )["id"]
 
 
 # Sign-ins need to be speedy; if it takes more than half a second, folks will

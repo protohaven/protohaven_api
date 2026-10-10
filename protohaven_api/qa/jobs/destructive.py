@@ -11,6 +11,7 @@ from protohaven_api.config import tznow
 from protohaven_api.integrations import (
     airtable_base,
     booked,
+    eventbrite,
     neon,
 )
 from protohaven_api.integrations.models import Role
@@ -174,14 +175,17 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Orphaned Reservations {ctx.run_id}"
-    create_kwargs = {
-        "dry_run": False,
-        "published": True,
-        "registration": False,
-        "free": True,
-    }
-    create_event = neon_fixture.create_temporary_event
-    event_id = create_event(ctx, name, start, end, **create_kwargs)
+    event_id = eventbrite.create_event(
+        name,
+        [(start, end)],
+        summary="Temporary QA event; will be deleted automatically.",
+        published=True,
+    )
+    assert event_id
+    ctx.cleanup.register(
+        f"delete Eventbrite event {event_id}",
+        lambda: eventbrite.delete_event_unsafe(event_id),
+    )
 
     area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]
     assert area, "No area available on copied schedule row"

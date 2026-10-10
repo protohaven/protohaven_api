@@ -329,7 +329,7 @@ class Commands:
         arg(
             "--category",
             help="Which category of data to back up",
-            choices=["accounts", "events"],
+            choices=["accounts"],
             type=str,
             required=True,
         ),
@@ -343,7 +343,6 @@ class Commands:
         with tempfile.TemporaryDirectory() as d:
             fn = {
                 "accounts": neon.accounts_backup,
-                "events": neon.events_backup,
             }[args.category]
             stats.append(
                 self._do_backup(

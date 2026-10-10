@@ -50,15 +50,3 @@ class CustomField:
                     "Nfc Token Ids": "NFC Token IDs",
                 }.get(result) or result
         raise CustomFieldNotFoundError(f"No CustomField ID {v}")
-
-
-@dataclass
-class Category:
-    """Event categories from Neon"""
-
-    VOLUNTEER_DAY = "32"
-    MEMBER_EVENT = "33"
-    PROJECT_BASED_WORKSHOP = "15"
-    SHOP_TECH = "34"
-    SKILLS_AND_SAFETY_WORKSHOP = "16"
-    SOMETHING_ELSE_AMAZING = "27"
