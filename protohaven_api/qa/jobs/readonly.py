@@ -5,6 +5,7 @@
 
 import datetime
 import logging
+from typing import Any
 
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.config import safe_parse_datetime, tznow
@@ -263,25 +264,21 @@ def _create_class_event(
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Class Emails {scenario} {ctx.run_id}"
-    create_kwargs = {}
+    create_kwargs: dict[str, Any] = {
+        "dry_run": False,
+        "published": False,
+        "registration": attendees > 0,
+        "free": True,
+        "max_attendees": capacity,
+    }
     if days_out < 0:
         # Neon requires open <= close and end > open. For past-dated QA events,
         # both registration dates must be in the past rather than defaulting
         # the open date to the current time.
         create_kwargs["registration_open_date"] = start - datetime.timedelta(days=2)
         create_kwargs["registration_close_date"] = start - datetime.timedelta(days=1)
-    event_id = neon_fixture.create_temporary_event(
-        ctx,
-        name,
-        start,
-        end,
-        dry_run=False,
-        published=False,
-        registration=attendees > 0,
-        free=True,
-        max_attendees=capacity,
-        **create_kwargs,
-    )
+    create_event = neon_fixture.create_temporary_event
+    event_id = create_event(ctx, name, start, end, **create_kwargs)
 
     if attendees:
         # QA events are free Neon events; free classes do not have a Neon

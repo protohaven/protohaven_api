@@ -166,6 +166,7 @@ def test_init_memberships(ctx: QAContext):
         )
 
 
+# pylint: disable=too-many-locals
 def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     raw = airtable_fixture.copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=3)).replace(
@@ -173,16 +174,14 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Orphaned Reservations {ctx.run_id}"
-    event_id = neon_fixture.create_temporary_event(
-        ctx,
-        name,
-        start,
-        end,
-        dry_run=False,
-        published=True,
-        registration=False,
-        free=True,
-    )
+    create_kwargs = {
+        "dry_run": False,
+        "published": True,
+        "registration": False,
+        "free": True,
+    }
+    create_event = neon_fixture.create_temporary_event
+    event_id = create_event(ctx, name, start, end, **create_kwargs)
 
     area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]
     assert area, "No area available on copied schedule row"
