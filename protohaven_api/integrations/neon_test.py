@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from flask import Response
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon as n
@@ -86,55 +85,6 @@ def test_set_tech_custom_fields(mocker):
         "13245", interest="doing things", shop_tech_shift=["Sunday", "PM"]
     )
     m.assert_called_with("13245", (152, "Sunday PM"), (148, "doing things"))
-
-
-def test_get_sample_classes_neon(mocker):
-    m = mocker.MagicMock(
-        published=True,
-        registration=True,
-        event_id=123,
-        capacity=10,
-        attendee_count=5,
-        start_date=d(4, 15),
-    )
-    m.name = "Sample Event"
-
-    mocker.patch.object(n, "_search_upcoming_events", return_value=[m])
-    mocker.patch.object(n, "tznow", return_value=d(0))
-    result = n.get_sample_classes(cache_bust=True)
-    assert result == [
-        {
-            "url": "https://protohaven.org/e/123",
-            "name": "Sample Event",
-            "date": "Jan 5, 3PM",
-            "seats_left": 5,
-        }
-    ]
-
-
-def test_delete_single_ticket_registration(mocker):
-    """Test deleting a single ticket registration."""
-    fetch_registrations_mock = mocker.patch.object(
-        n.neon_base,
-        "paginated_fetch",
-        return_value=[
-            {"id": "reg1", "tickets": [{"attendees": [{"accountId": "acc123"}]}]},
-            {"id": "reg2", "tickets": [{"attendees": [{"accountId": "acc456"}]}]},
-        ],
-    )
-    delete_mock = mocker.patch.object(
-        n.neon_base, "delete", return_value=Response("Deleted", status=200)
-    )
-
-    # Test successful deletion
-    response = n.delete_single_ticket_registration("acc123", "event1")
-    assert response.status_code == 200
-    delete_mock.assert_called_once_with("api_key3", "/eventRegistrations/reg1")
-
-    # Test registration not found
-    response = n.delete_single_ticket_registration("acc789", "event1")
-    assert response.status_code == 404
-    assert response.data == b"Registration not found for account acc789 in event event1"
 
 
 def test_account_cache_case_insensitive(mocker):
@@ -326,40 +276,4 @@ def test_accounts_backup(mocker):
             assert (
                 got
                 == '[{"a": "foo", "memberships": null}, {"a": "bar", "memberships": "baz"}]'
-            )
-
-
-def test_events_backup(mocker):
-    mocker.patch.object(
-        n.neon_base,
-        "paginated_search",
-        return_value=[
-            {"Event ID": "123"},
-            {"Event ID": "456"},
-        ],
-    )
-    mocker.patch.object(
-        n,
-        "fetch_event",
-        side_effect=[
-            mocker.MagicMock(
-                neon_raw_data={"a": "foo"},
-                neon_attendee_data=None,
-                neon_ticket_data=None,
-            ),
-            mocker.MagicMock(
-                neon_raw_data={"a": "bar"}, neon_attendee_data=1, neon_ticket_data=2
-            ),
-        ],
-    )
-    with tempfile.TemporaryDirectory() as d:
-        dest = Path(d) / "out.tar.gz"
-        sz = n.events_backup(dest)
-        assert sz > 0
-
-        with tarfile.open(dest, "r:gz") as tar:
-            got = tar.extractfile("events.json").read().decode("utf8")
-            assert (
-                got
-                == '[{"a": "foo", "attendees": null, "tickets": null}, {"a": "bar", "attendees": 1, "tickets": 2}]'
             )

@@ -6,6 +6,9 @@ import datetime
 import functools
 import logging
 import re
+import shlex
+
+from googleapiclient.errors import HttpError
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import (
@@ -52,15 +55,26 @@ def _register_uploaded_files_from_log(ctx: QAContext, text: str):
 
 
 def _delete_drive_file(file_id: str):
-    drive.delete_file(file_id)
+    try:
+        drive.delete_file(file_id)
+    except HttpError as e:
+        if getattr(e, "resp", None) is not None and e.resp.status == 404:
+            log.warning("Drive file %s already deleted; skipping cleanup", file_id)
+            return
+        raise
 
 
 def _test_backup_job(ctx: QAContext, name: str):
     _require_drive_folder(ctx)
+    args = f"--apply --parent_id={ctx.drive_folder_id}"
+    if name == "backup_neon_accounts":
+        args += " --category=accounts"
+    elif name == "backup_neon_events":
+        args += " --category=events"
     result = ctx.run(
         name,
         BACKUP_EVENTS[name],
-        f"--apply --parent_id={ctx.drive_folder_id}",
+        args,
         send_comms=True,
     )
     assert result.code == 0
@@ -155,15 +169,20 @@ def _area_and_exclusions():
     common = air_areas & booked_groups
     assert common, "No shared Airtable/Booked area available"
     area = next(iter(common))
-    return area, ",".join(sorted(air_areas - {area}))
+    # Exclude every area except the shared one from BOTH sources. The prod sync
+    # requires the remaining Airtable areas and Booked groups to match exactly,
+    # so leaving an extra Booked-only group in scope would fail the preflight.
+    exclusions = (air_areas | booked_groups) - {area}
+    return area, ",".join(sorted(exclusions))
 
 
 def test_sync_tools(ctx: QAContext):
     area, exclusions = _area_and_exclusions()
+    exclusions_arg = shlex.quote(exclusions)
     preflight = ctx.run(
         "sync_reservable_tools",
         "elvv9mdlx2j",
-        f"--no-apply --filter=qa-no-such-tool --exclude_areas={exclusions}",
+        f"--no-apply --filter=qa-no-such-tool --exclude_areas={exclusions_arg}",
         send_comms=False,
     )
     assert preflight.code == 0
@@ -181,20 +200,20 @@ def test_sync_tools(ctx: QAContext):
     dry = ctx.run(
         "sync_reservable_tools",
         "elvv9mdlx2j",
-        f"--no-apply --filter={tool_code} --exclude_areas={exclusions}",
+        f"--no-apply --filter={tool_code} --exclude_areas={exclusions_arg}",
         send_comms=False,
     )
     assert dry.code == 0
-    assert_log_contains(dry.text, ["Change "])
+    assert_log_contains(dry.text, ["Changed custom attributes"])
 
     applied = ctx.run(
         "sync_reservable_tools",
         "elvv9mdlx2j",
-        f"--apply --filter={tool_code} --exclude_areas={exclusions}",
+        f"--apply --filter={tool_code} --exclude_areas={exclusions_arg}",
         send_comms=True,
     )
     assert applied.code == 0
-    assert_log_contains(applied.text, ["Change "])
+    assert_log_contains(applied.text, ["Changed custom attributes"])
     assert_sent_discord(applied)
 
 
@@ -204,6 +223,7 @@ def _copyable_eventbrite_row():
         if (
             f.get("Class")
             and f.get("Instructor")
+            and f.get("Email")
             and f.get("Sessions")
             and f.get("Eventbrite (from Class)")
         ):
@@ -216,21 +236,22 @@ def test_post_classes(ctx: QAContext):
     start = (tznow() + datetime.timedelta(days=30)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
-    fields = dict(raw["fields"])
-    fields.update(
-        {
-            "Neon ID": "",
-            "Event ID": "",
-            "Sessions": start.isoformat(),
-            "Confirmed": tznow().isoformat(),
-            "Rejected": "",
-            "Name": f"QA Cronicle Post Classes {ctx.run_id}",
-        }
-    )
+    # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
+    # Class)"), so insert only the writable schedule fields and let Airtable
+    # populate the lookups from the linked class template.
+    src_fields = raw["fields"]
+    fields = {
+        "Class": src_fields.get("Class"),
+        "Instructor": src_fields.get("Instructor"),
+        "Instructor ID": src_fields.get("Instructor ID"),
+        "Email": src_fields.get("Email"),
+        "Sessions": start.isoformat(),
+        "Confirmed": tznow().isoformat(),
+    }
     rec_id = airtable_fixture.create_schedule_row(ctx, fields)
 
     result = ctx.run(
-        "post_classes_to_neon",
+        "post_classes",
         "elzk399t7ph",
         (
             f"--apply --ovr={rec_id} --no-publish --no-registration "
@@ -273,7 +294,7 @@ def test_refresh_volunteer_memberships(ctx: QAContext):
     )
     assert result.code == 0
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["volunteer_refresh_summary"])
+    assert_log_contains(result.text, ["1 volunteer membership(s) refreshed:"])
 
 
 def test_policy_enforcement(ctx: QAContext):
@@ -305,9 +326,9 @@ def test_policy_enforcement(ctx: QAContext):
     assert_log_contains(
         result.text,
         [
-            "violation_started",
-            "violation_ongoing",
-            "enforcement_summary",
+            "new Protohaven violation issued",
+            "ongoing Protohaven violation has accrued",
+            "Violations and Actions Summary",
         ],
     )
     after_fees = {

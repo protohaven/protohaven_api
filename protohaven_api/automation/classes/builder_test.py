@@ -160,6 +160,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                     "subject": "Test Event: Please share feedback",
                 },
                 {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
+                    "subject": "Test Event: Please share feedback",
+                },
+                {
                     "id": "N/A",
                     "target": "#class-automation",
                     "subject": "Automation notification summary",
@@ -216,6 +221,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
                 {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
+                    "subject": "Your class 'Test Event' is on for January 31!",
+                },
+                {
                     "id": "N/A",
                     "target": "#class-automation",
                     "subject": "Automation notification summary",
@@ -235,6 +245,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
+                    "subject": "Your class 'Test Event' is on for January 31!",
+                },
+                {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
                 {
@@ -265,6 +280,11 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                     "subject": "Your class 'Test Event' was canceled",
                 },
                 {
+                    "id": "1234",
+                    "target": "Noemail Alwayshidden (test@attendee.com)",
+                    "subject": "Your class 'Test Event' was canceled",
+                },
+                {
                     "id": "N/A",
                     "target": "#class-automation",
                     "subject": "Automation notification summary",
@@ -292,6 +312,33 @@ def test_builder_notifications(mocker, evt, caplog, tc):
             for d in got
         ]
         assert got == tc.want
+
+
+def test_cancel_override_forces_cancel(mocker, evt):
+    """cancel_ovr forces Action.CANCEL even when the class would confirm."""
+    evt.attendee_count = 6
+    evt.occupancy = 1.0
+    _mock_builder(mocker, upcoming_events=[evt])
+    eb = builder.ClassEmailBuilder()
+    eb.cancel_ovr = ["1234"]
+    got = eb.build(d(EVT_DAY - 1, 20))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "Your class 'Test Event' was canceled" in subjects
+    assert "Test Event is on for January 31!" not in subjects
+
+
+def test_for_techs_override_forces_tech_backfill(mocker, evt):
+    """for_techs_ovr forces Action.FOR_TECHS even when the class would confirm."""
+    evt.attendee_count = 3
+    evt.capacity = 10
+    evt.occupancy = 0.3
+    _mock_builder(mocker, upcoming_events=[evt])
+    eb = builder.ClassEmailBuilder()
+    eb.for_techs_ovr = ["1234"]
+    got = eb.build(d(EVT_DAY - 1, 20))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "New classes for tech backfill:" in subjects
+    assert "Test Event is on for January 31!" not in subjects
 
 
 def test_builder_notified(mocker):

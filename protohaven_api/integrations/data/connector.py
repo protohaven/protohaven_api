@@ -129,7 +129,35 @@ class Connector:  # pylint: disable=too-many-public-methods
                 rep = requests.request(
                     mode, url, headers=headers, timeout=self.timeout, data=data
                 )
-                return rep.status_code, json.loads(rep.content) if rep.content else None
+                try:
+                    content = json.loads(rep.content) if rep.content else None
+                except json.JSONDecodeError:
+                    # NocoDB/Airtable occasionally returns HTML or an empty body
+                    # through an intermediary. Surface that as a retryable DB
+                    # fetch failure instead of leaking a JSONDecodeError.
+                    if mode != "GET" or i == self.max_attempts - 1:
+                        log.error(
+                            f"Invalid JSON on DB request {mode} {base} {tbl} "
+                            f"{rec} {params}; status {rep.status_code}; "
+                            f"content: {_fmt_content(rep.content)}"
+                        )
+                        return rep.status_code, rep.content
+                    log.warning(
+                        f"Invalid JSON on DB request {mode} {base} {tbl} "
+                        f"{rec} {params}; status {rep.status_code}; retry #{i+1}"
+                    )
+                    time.sleep(int(random.random() * self.max_retry_delay_sec))
+                    continue
+                if mode == "GET" and rep.status_code in (429, 500, 502, 503, 504):
+                    if i == self.max_attempts - 1:
+                        return rep.status_code, content
+                    log.warning(
+                        f"status code {rep.status_code} on DB request {mode} "
+                        f"{base} {tbl} {rec} {params}; retry #{i+1}"
+                    )
+                    time.sleep(int(random.random() * self.max_retry_delay_sec))
+                    continue
+                return rep.status_code, content
             except requests.exceptions.ReadTimeout as rt:
                 if mode != "GET" or i == self.max_attempts - 1:
                     raise rt

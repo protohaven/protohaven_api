@@ -1,9 +1,8 @@
-"""Commands related to classes in Neon and Airtable"""
+"""Commands related to classes in Eventbrite and Airtable"""
 
 import argparse
 import datetime
 import logging
-import re
 import traceback
 from collections import defaultdict
 from functools import lru_cache
@@ -25,7 +24,6 @@ from protohaven_api.integrations import (  # pylint: disable=import-error
     neon_base,
 )
 from protohaven_api.integrations.comms import Msg
-from protohaven_api.integrations.data.neon import Category
 from protohaven_api.integrations.models import EventID
 
 log = logging.getLogger("cli.classes")
@@ -73,7 +71,7 @@ def resolve_schedule(min_future_days, overrides) -> Iterable[airtable.ScheduledC
 
 
 class Commands:
-    """Commands for managing classes in Airtable and Neon"""
+    """Commands for managing classes in Airtable and Eventbrite"""
 
     @command(
         arg(
@@ -172,6 +170,12 @@ class Commands:
             nargs="+",
         ),
         arg(
+            "--for-techs",
+            help="class IDs to auto-backfill to techs when generating emails",
+            type=EventID,
+            nargs="+",
+        ),
+        arg(
             "--ignore",
             help="class IDs to ignore when generating emails",
             type=EventID,
@@ -197,33 +201,25 @@ class Commands:
         ),
     )
     def gen_class_emails(self, args, _):
-        """Reads schedule of classes from Neon and Airtable and outputs
+        """Reads schedule of classes from Eventbrite and Airtable and outputs
         a list of emails to send to instructors, techs, and students.
         This does not actually send the emails; for that, see send_comms."""
         b = builder.ClassEmailBuilder(logging.getLogger("cli.email_builder"))
         b.ignore_ovr = args.ignore or []
         b.confirm_ovr = args.confirm or []
+        b.cancel_ovr = args.cancel or []
+        b.for_techs_ovr = args.for_techs or []
         b.filter_ovr = args.filter or []
         b.published = args.published_only
         log.info(
             f"Configured email builder: ignore_ovr {b.ignore_ovr}"
-            f"confirm_ovr {b.confirm_ovr} filter_ovr {b.filter_ovr} published_only {b.published}"
+            f"confirm_ovr {b.confirm_ovr} cancel_ovr {b.cancel_ovr}"
+            f" for_techs_ovr {b.for_techs_ovr} filter_ovr {b.filter_ovr}"
+            f" published_only {b.published}"
         )
         result = b.build()
         print_yaml(result)
         log.info(f"Generated {len(result)} notification(s)")
-
-    @classmethod
-    def _neon_category_from_event_name(cls, name):
-        """Parses the event name and returns a category matching what kind of event it is"""
-        if name == "All Member Meeting":
-            return Category.MEMBER_EVENT
-        m = re.search(r"\w+? (\d+):", name)
-        if m is None:
-            return Category.SOMETHING_ELSE_AMAZING
-        if int(m[1]) >= 110:
-            return Category.PROJECT_BASED_WORKSHOP
-        return Category.SKILLS_AND_SAFETY_WORKSHOP
 
     @lru_cache(maxsize=1)
     def _fetch_boilerplate(self):
@@ -370,10 +366,10 @@ class Commands:
             default=True,
         ),
     )
-    def post_classes_to_neon(
+    def post_classes(
         self, args, _
     ):  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
-        """Post a list of classes to Neon"""
+        """Post a list of classes to Eventbrite"""
         log.info(
             f"Classes will {'NOT ' if not args.publish else ''}be published to the public list"
         )
@@ -402,9 +398,6 @@ class Commands:
         )
         to_schedule.sort(key=lambda e: e.start_time)
 
-        log.info("Attempting Neon auth as user to allow for pricing changes")
-        session = neon_base.NeonOne()
-
         log.info(f"Scheduling {len(to_schedule)} events:")
         for event in to_schedule:
             log.info(
@@ -419,19 +412,12 @@ class Commands:
             num += 1
             result_id = None
             try:
-                if args.apply and not event.use_eventbrite:
-                    result_id = neon_base.create_event(
-                        event.name,
-                        desc=self._format_class_description(event),
-                        start=event.sessions[0][0],
-                        end=event.sessions[-1][1],
-                        category=self._neon_category_from_event_name(event.name),
-                        max_attendees=event.capacity,
-                        dry_run=not args.apply,
-                        published=args.publish,
-                        registration=args.registration,
+                if not event.use_eventbrite:
+                    raise RuntimeError(
+                        f"Schedule row {event.schedule_id} still points at legacy Neon; "
+                        "migrate it to Eventbrite before posting classes"
                     )
-                elif args.apply and event.use_eventbrite:
+                if args.apply:
                     image_id = None
                     if event.image_link:
                         log.info(
@@ -454,7 +440,7 @@ class Commands:
                 assert result_id
                 event.event_id = result_id
 
-                if args.apply and event.use_eventbrite:
+                if args.apply:
                     desc = self._format_class_description(event, include_summary=False)
                     content_version = eventbrite.set_structured_content(
                         event.event_id, desc
@@ -463,18 +449,7 @@ class Commands:
                         f"  Structured content added for {event.event_id}: {content_version}"
                     )
 
-                log.info("- Assigning pricing")
-                if args.apply and not event.use_eventbrite:
-                    log.info("  (uses Firefox process via playwright)")
-                    session.assign_pricing(
-                        event.event_id,
-                        event.price,
-                        event.capacity,
-                        include_discounts=args.discounts,
-                        clear_existing=True,
-                    )
-                    log.info("  Pricing assigned")
-                elif args.apply and event.use_eventbrite:
+                    log.info("- Assigning pricing")
                     log.info(
                         str(
                             eventbrite.assign_pricing(
@@ -491,7 +466,6 @@ class Commands:
                     )
                     log.info(f"  {pub_rep}")
                     log.info(f"  Eventbrite event published: {event.event_id}")
-
                 else:
                     log.info("  Skip (--no-apply)")
 
@@ -502,11 +476,9 @@ class Commands:
                         "schedule",
                         event.schedule_id,
                     )
-                    log.info("- Neon ID updated in Airtable")
+                    log.info("- Event ID written to legacy Neon ID field in Airtable")
                 else:
-                    log.info(
-                        f"  Skipped Neon ID update in airtable ({event.schedule_id})"
-                    )
+                    log.info(f"  Skipped Airtable update ({event.schedule_id})")
 
                 if args.reserve:
                     log.info("Reserving equipment for scheduled classes")
@@ -517,12 +489,9 @@ class Commands:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")
                 log.error(traceback.format_exc())
-                if result_id:
+                if result_id and event.use_eventbrite:
                     log.error("Failed; reverting event creation")
-                    if event.use_eventbrite:
-                        log.info(eventbrite.delete_event_unsafe(result_id))
-                    else:
-                        log.info(neon_base.delete_event_unsafe(result_id))
+                    log.info(eventbrite.delete_event_unsafe(result_id))
 
                     airtable.update_record(
                         {"Neon ID": ""},
