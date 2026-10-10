@@ -2,14 +2,11 @@
 
 import datetime
 import logging
-import random
-import string
-from enum import Enum
 from functools import lru_cache
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import get_config, safe_parse_datetime
-from protohaven_api.integrations import airtable, comms, eventbrite, neon
+from protohaven_api.integrations import eventbrite, neon
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("membership_automation")
@@ -19,11 +16,6 @@ log = logging.getLogger("membership_automation")
 PLACEHOLDER_START_DATE = safe_parse_datetime("9001-01-01")
 DEFAULT_COUPON_AMOUNT = get_config("neon/automation/default_coupon_amount_usd", 75)
 DEFERRED_STATUS = "deferred"
-
-
-def generate_coupon_id(n=8):
-    """https://stackoverflow.com/a/2257449"""
-    return "".join(random.choices(string.ascii_uppercase + string.digits, k=n))
 
 
 @lru_cache(maxsize=1)
@@ -49,66 +41,18 @@ def get_sample_classes(coupon_amount):
     return sample_classes
 
 
-class CouponType(Enum):
-    """Coupons are only applicable for the service from
-    which they were created. This allows specifying the
-    service of a coupon, e.g. Eventbrite"""
-
-    NEON = 1
-    EVENTBRITE = 2
-
-
-def fetch_new_member_coupon(
-    coupon_amount, assignee, apply, coupon_type: CouponType
-) -> neon.neon_base.NeonCoupon | eventbrite.DiscountCode:
+def fetch_new_member_coupon(coupon_amount) -> eventbrite.DiscountCode:
     """Fetches a coupon for a new member to try our classes.
 
-    For Neon coupons, this tries to fetch a cached coupon from Airtable,
-    creating one in-situ if there is not a valid one of the correct
-    amount present.
-
-    For Eventbrite coupons, the coupon is created directly via their API,
-    because their API isn't hot garbage.
+    Coupons are created directly via the Eventbrite API and expire after
+    90 days.
     """
-    if coupon_type == CouponType.EVENTBRITE:
-        return eventbrite.generate_discount_code(
-            evt_id=None,
-            amount_off=coupon_amount,
-            percent_off=None,
-            expiration_hours=24 * 90,  # 90 days
-        )
-    if coupon_type == CouponType.NEON:
-        coupon = airtable.get_next_available_coupon()
-        if not coupon:
-            comms.send_discord_message(
-                "WARNING: no valid coupon available in Airtable requiring"
-                "unstable, in-place creation of new one. See Discounts table "
-                "in airtable, also `restock_discounts` cronicle job",
-                "#finance-automation",
-                blocking=False,
-            )
-            cid = generate_coupon_id()
-            if apply:
-                neon.create_coupon_codes([cid], coupon_amount)
-            return cid
-
-        if coupon["fields"]["Amount"] != coupon_amount:
-            comms.send_discord_message(
-                "WARNING: pricing mismatch on cached discounts requiring "
-                "unstable, in-place creation of new one. See Discounts table "
-                "in airtable, also `restock_discounts` cronicle job",
-                "#finance-automation",
-                blocking=False,
-            )
-            cid = generate_coupon_id()
-            if apply:
-                neon.create_coupon_codes([cid], coupon_amount)
-            return cid
-
-        cid = coupon["fields"]["Code"]
-        airtable.mark_coupon_assigned(coupon["id"], assignee)
-        return cid
-    raise RuntimeError(f"Unsupported coupon code type {coupon_type}")
+    return eventbrite.generate_discount_code(
+        evt_id=None,
+        amount_off=coupon_amount,
+        percent_off=None,
+        expiration_hours=24 * 90,  # 90 days
+    )
 
 
 def init_membership(  # pylint: disable=too-many-arguments,too-many-positional-arguments,inconsistent-return-statements
@@ -165,21 +109,10 @@ def init_membership(  # pylint: disable=too-many-arguments,too-many-positional-a
     cid = None
     if coupon_amount > 0:
         coupon_type_cfg = (
-            (get_config("general/new_membership/discount_type") or "neon")
-            .strip()
-            .lower()
+            (get_config("general/new_membership/discount_type") or "").strip().lower()
         )
-        assert coupon_type_cfg in ("eventbrite", "neon")
-        cid = fetch_new_member_coupon(
-            coupon_amount,
-            email,
-            apply,
-            coupon_type=(
-                CouponType.EVENTBRITE
-                if coupon_type_cfg == "eventbrite"
-                else CouponType.NEON
-            ),
-        )
+        assert coupon_type_cfg == "eventbrite"
+        cid = fetch_new_member_coupon(coupon_amount)
         log.info(f"Using coupon ID {cid}")
 
     if apply:

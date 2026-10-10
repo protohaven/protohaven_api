@@ -573,10 +573,16 @@ def test_init_new_memberships_e2e(mocker, cli):
         "update_account_automation_run_status",
         return_value=mocker.MagicMock(status_code=200),
     )
-    mocker.patch.object(f.memauto, "get_config", return_value=None)
+    mocker.patch.object(
+        f.memauto,
+        "get_config",
+        side_effect=lambda k: {
+            "general/new_membership/discount_type": "eventbrite"
+        }.get(k),
+    )
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
-    m1.assert_called_with(75, "a@b.com", True, coupon_type=f.memauto.CouponType.NEON)
+    m1.assert_called_with(75)
     m2.assert_called_with(456, mocker.ANY, mocker.ANY)
     m3.assert_called_with(123, "deferred")
 

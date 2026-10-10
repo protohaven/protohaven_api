@@ -215,13 +215,6 @@ def _specs():
             send_comms=True,
         ),
         JobSpec(
-            "restock_discounts",
-            "additive",
-            jobs.additive.test_restock_discounts,
-            "em6fgimj413",
-            send_comms=True,
-        ),
-        JobSpec(
             "sync_clearances",
             "additive",
             jobs.additive.test_sync_clearances,

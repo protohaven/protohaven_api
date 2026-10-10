@@ -49,6 +49,7 @@ def test_init_membership(mocker, include_filter, initializes):
             "neon/webhooks/new_membership/include_filter": include_filter,
             "neon/webhooks/new_membership/excluded_membership_types": None,
             "neon/webhooks/new_membership/additional_targets": "",
+            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     # Test with coupon_amount > 0
@@ -98,6 +99,7 @@ def test_init_membership_addl_targets(mocker):
             "neon/webhooks/new_membership/include_filter": "j@d.com",
             "neon/webhooks/new_membership/excluded_membership_types": None,
             "neon/webhooks/new_membership/additional_targets": "test@example.com",
+            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     # Test with coupon_amount > 0
@@ -132,7 +134,10 @@ def test_init_membership_email_filter(mocker):
     mocker.patch.object(
         m,
         "get_config",
-        side_effect={"neon/webhooks/new_membership/include_filter": "j@d.com"}.get,
+        side_effect={
+            "neon/webhooks/new_membership/include_filter": "j@d.com",
+            "general/new_membership/discount_type": "eventbrite",
+        }.get,
     )
     mocker.patch.object(
         neon, "set_membership_date_range", return_value=mocker.Mock(status_code=200)
@@ -167,7 +172,8 @@ def test_init_membership_type_filter(mocker):
         m,
         "get_config",
         side_effect={
-            "neon/webhooks/new_membership/excluded_membership_types": "AnotherType"
+            "neon/webhooks/new_membership/excluded_membership_types": "AnotherType",
+            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     mocker.patch.object(
@@ -196,7 +202,13 @@ def test_init_membership_no_classes(mocker):
         return_value=mocker.Mock(status_code=200),
     )
     mocker.patch.object(m, "get_sample_classes", return_value=[])
-    mocker.patch.object(m, "get_config", return_value=None)
+    mocker.patch.object(
+        m,
+        "get_config",
+        side_effect=lambda k: {
+            "general/new_membership/discount_type": "eventbrite"
+        }.get(k),
+    )
     # Test with coupon_amount > 0
     msgs = m.init_membership(
         "123", "General", "456", "j@d.com", "John Doe", coupon_amount=50, apply=True
@@ -218,7 +230,13 @@ def test_init_membership_amp(mocker):
         return_value=mocker.Mock(status_code=200),
     )
     mocker.patch.object(m, "get_sample_classes", return_value=[])
-    mocker.patch.object(m, "get_config", return_value=None)
+    mocker.patch.object(
+        m,
+        "get_config",
+        side_effect=lambda k: {
+            "general/new_membership/discount_type": "eventbrite"
+        }.get(k),
+    )
     # Test with coupon_amount > 0
     msgs = m.init_membership(
         "123",
@@ -232,13 +250,6 @@ def test_init_membership_amp(mocker):
     assert len(msgs) == 2
     assert msgs[1].subject == "John Doe: please verify your income"
     assert "proof of income must be on file" in msgs[1].body
-
-
-def test_generate_coupon_id():
-    """Test that coupons are generated uniquely"""
-    got = m.generate_coupon_id(n=10)
-    assert len(got) == 10
-    assert m.generate_coupon_id(n=10) != got
 
 
 def test_get_sample_classes(mocker):
@@ -278,78 +289,18 @@ def test_get_sample_classes(mocker):
     ]
 
 
-def test_fetch_new_member_coupon_no_coupon(mocker):
-    """Test fetch_new_member_coupon when no coupon is available"""
-    mocker.patch.object(m.airtable, "get_next_available_coupon", return_value=None)
-    mock_send_discord = mocker.patch.object(m.comms, "send_discord_message")
-    mock_generate_coupon_id = mocker.patch.object(
-        m, "generate_coupon_id", return_value="new_cid"
-    )
-    mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
-
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.NEON)
-
-    mock_send_discord.assert_called_once()
-    mock_generate_coupon_id.assert_called_once()
-    mock_create_coupon_codes.assert_called_once_with(["new_cid"], 10)
-    assert result == "new_cid"
-
-
 def test_fetch_new_member_coupon_eventbrite(mocker):
-    """Test fetch_new_member_coupon when no coupon is available"""
-    m1 = mocker.patch.object(
+    """New member coupons are generated directly in Eventbrite"""
+    mock_generate = mocker.patch.object(
         m.eventbrite, "generate_discount_code", return_value="new_cid"
     )
-    m2 = mocker.patch.object(m.neon, "create_coupon_codes")
-    m3 = mocker.patch.object(m.airtable, "get_next_available_coupon")
-    m4 = mocker.patch.object(m.comms, "send_discord_message")
 
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.EVENTBRITE)
+    result = m.fetch_new_member_coupon(10)
 
-    m1.assert_called_once()
-    m2.assert_not_called()
-    m3.assert_not_called()
-    m4.assert_not_called()
-    assert result == "new_cid"
-
-
-def test_fetch_new_member_coupon_with_coupon_matching(mocker):
-    """Test fetch_new_member_coupon with matching coupon available"""
-    mocker.patch.object(
-        m.airtable,
-        "get_next_available_coupon",
-        return_value={
-            "fields": {"Amount": 10, "Code": "valid_code"},
-            "id": "coupon_id",
-        },
+    mock_generate.assert_called_once_with(
+        evt_id=None,
+        amount_off=10,
+        percent_off=None,
+        expiration_hours=24 * 90,
     )
-    mock_mark_coupon_assigned = mocker.patch.object(m.airtable, "mark_coupon_assigned")
-
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.NEON)
-
-    mock_mark_coupon_assigned.assert_called_once_with("coupon_id", "assignee")
-    assert result == "valid_code"
-
-
-def test_fetch_new_member_coupon_with_coupon_mismatch(mocker):
-    """Test fetch_new_member_coupon with coupon amount mismatch"""
-    mocker.patch.object(
-        m.airtable,
-        "get_next_available_coupon",
-        return_value={
-            "fields": {"Amount": 20, "Code": "mismatch_code"},
-            "id": "coupon_id",
-        },
-    )
-    mock_send_discord = mocker.patch.object(m.comms, "send_discord_message")
-    mock_generate_coupon_id = mocker.patch.object(
-        m, "generate_coupon_id", return_value="new_cid"
-    )
-    mock_create_coupon_codes = mocker.patch.object(m.neon, "create_coupon_codes")
-
-    result = m.fetch_new_member_coupon(10, "assignee", True, m.CouponType.NEON)
-
-    mock_send_discord.assert_called_once()
-    mock_generate_coupon_id.assert_called_once()
-    mock_create_coupon_codes.assert_called_once_with(["new_cid"], 10)
     assert result == "new_cid"

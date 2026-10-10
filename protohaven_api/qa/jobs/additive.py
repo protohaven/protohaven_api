@@ -124,43 +124,6 @@ def test_sync_booked_members(ctx: QAContext):
             break
 
 
-def test_restock_discounts(ctx: QAContext):
-    before = {
-        r["id"] for r in airtable_base.get_all_records("class_automation", "discounts")
-    }
-    cur_qty = airtable.get_num_valid_unassigned_coupons(
-        tznow() + datetime.timedelta(days=30)
-    )
-    result = ctx.run(
-        "restock_discounts",
-        "em6fgimj413",
-        (
-            f"--no-apply --limit=2 --target_qty={cur_qty + 2} "
-            "--coupon_amount=1 --remaining_days_valid=30 --expiration_days=90"
-        ),
-        send_comms=True,
-    )
-    assert result.code == 0
-    assert_sent_discord(result)
-    assert_log_contains(
-        result.text,
-        ["Creating the following coupons", "pushed to airtable"],
-    )
-    after = {
-        r["id"] for r in airtable_base.get_all_records("class_automation", "discounts")
-    }
-    for rec_id in after - before:
-        ctx.cleanup.register(
-            f"delete Airtable coupon {rec_id}",
-            functools.partial(
-                airtable_base.delete_record,
-                "class_automation",
-                "discounts",
-                rec_id,
-            ),
-        )
-
-
 def _area_and_exclusions():
     air_areas = {
         a["fields"]["Name"] for a in airtable.get_areas() if a["fields"].get("Name")

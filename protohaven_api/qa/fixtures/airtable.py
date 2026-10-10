@@ -118,19 +118,6 @@ def create_pending_recert(
     return rec_id
 
 
-def create_coupon_record(
-    ctx: QAContext, code: str, amount: int, use_by: str, expires: str
-) -> str:
-    """Create an Airtable coupon record."""
-    return insert_record(
-        ctx,
-        "class_automation",
-        "discounts",
-        {"Code": code, "Amount": amount, "Use By": use_by, "Expires": expires},
-        description="coupon",
-    )
-
-
 def create_empty_shift_override(
     ctx: QAContext,
     date,
