@@ -1,6 +1,6 @@
 """Airtable QA fixture helpers."""
 
-# pylint: disable=too-many-arguments
+# pylint: disable=too-many-arguments, protected-access
 
 from typing import Any
 
@@ -26,8 +26,11 @@ def insert_record(
     description: str,
 ) -> str:
     """Insert one record and register its deletion."""
-    _, content = airtable_base.insert_records([fields], base, table)
-    rec_id = _record_ids(content)[0]
+    status, content = airtable_base.insert_records([fields], base, table)
+    ids = _record_ids(content)
+    if status != 200 or not ids:
+        raise RuntimeError(f"Insert {base}/{table} failed: {status} {content}")
+    rec_id = ids[0]
     ctx.cleanup.register(
         f"delete Airtable {base}/{table} record {rec_id} ({description})",
         lambda: airtable_base.delete_record(base, table, rec_id),
@@ -48,13 +51,27 @@ def create_signin(ctx: QAContext, email: str, created: str, full_name: str) -> s
 
 def create_schedule_row(ctx: QAContext, payload: dict[str, Any]) -> str:
     """Create a class schedule row and register its deletion."""
-    _, content = airtable.append_classes_to_schedule([payload])
-    rec_id = _record_ids(content)[0]
+    status, content = airtable.append_classes_to_schedule([payload])
+    ids = _record_ids(content)
+    if status != 200 or not ids:
+        raise RuntimeError(
+            f"Insert class_automation/schedule failed: {status} {content}"
+        )
+    rec_id = ids[0]
     ctx.cleanup.register(
         f"delete class_automation/schedule record {rec_id}",
         lambda: airtable_base.delete_record("class_automation", "schedule", rec_id),
     )
     return rec_id
+
+
+def copyable_schedule_row() -> dict[str, Any]:
+    """Return an existing schedule row suitable for cloning in QA tests."""
+    for row in airtable.get_class_automation_schedule_raw():
+        f = row["fields"]
+        if f.get("Class") and f.get("Instructor") and f.get("Sessions"):
+            return row
+    raise AssertionError("No existing Airtable class schedule row to copy")
 
 
 def create_capabilities_row(ctx: QAContext, fields: dict[str, Any]) -> str:
@@ -120,7 +137,41 @@ def create_empty_shift_override(
     ap: str,
     original_tech_names: list[str],
 ) -> str:
-    """Force a forecast shift to be empty and register cleanup."""
+    """Force a forecast shift to be empty and register cleanup.
+
+    If the shift already has an override, replace it with an empty legacy
+    override and restore the original override during cleanup instead of
+    layering a second record on top of it.
+    """
+    shift_key = f"{safe_parse_datetime(date).strftime('%Y-%m-%d')} {ap}"
+    existing_id = None
+    for key, (rec_id, _, _) in airtable.get_forecast_overrides(include_pii=True):
+        if key == shift_key:
+            existing_id = rec_id
+            break
+
+    if existing_id is not None:
+        original = airtable_base.get_record(
+            "people", "shop_tech_forecast_overrides", existing_id
+        )
+        original_fields = dict(original.get("fields", {}))
+        airtable_base.update_record(
+            {"Override": ""},
+            "people",
+            "shop_tech_forecast_overrides",
+            existing_id,
+        )
+        ctx.cleanup.register(
+            f"restore shop_tech_forecast_overrides {existing_id}",
+            lambda: airtable_base.update_record(
+                original_fields,
+                "people",
+                "shop_tech_forecast_overrides",
+                existing_id,
+            ),
+        )
+        return existing_id
+
     _, content = airtable.set_forecast_override(
         None,
         date,
@@ -150,20 +201,29 @@ def create_violation(
     sections = airtable.get_policy_sections()
     assert sections, "No policy sections configured"
     section = sections[0]
-    _, content = airtable_base.insert_records(
+    status, content = airtable_base.insert_records(
         [
             {
-                "Neon ID": neon_id,
+                "Neon ID": int(neon_id),
                 "Onset": (onset or tznow()).isoformat(),
                 "Daily Fee": daily_fee,
                 "Notes": notes,
-                "Relevant Sections": [section["id"]],
+                "Relevant Sections": [
+                    airtable_base._refid(
+                        section["id"]
+                    )  # pylint: disable=protected-access
+                ],
             }
         ],
         "policy_enforcement",
         "violations",
     )
-    rec_id = _record_ids(content)[0]
+    ids = _record_ids(content)
+    if status != 200 or not ids:
+        raise RuntimeError(
+            f"Insert policy_enforcement/violations failed: {status} {content}"
+        )
+    rec_id = ids[0]
     ctx.cleanup.register(
         f"delete policy_enforcement/violations record {rec_id}",
         lambda: airtable_base.delete_record("policy_enforcement", "violations", rec_id),
@@ -181,6 +241,12 @@ def create_tool_record(
     reservable: bool = True,
 ) -> str:
     """Create a temporary Airtable tool record tied to a mock Booked resource."""
+    area_id = next(
+        (a["id"] for a in airtable.get_areas() if a["fields"].get("Name") == area),
+        None,
+    )
+    if not area_id:
+        raise RuntimeError(f"Airtable area not found: {area}")
     return insert_record(
         ctx,
         "tools_and_equipment",
@@ -188,10 +254,10 @@ def create_tool_record(
         {
             "Tool Code": tool_code,
             "Tool Name": tool_name,
-            "Name (from Shop Area)": [area],
+            "Shop Area": [area_id],
             "BookedResourceId": booked_resource_id,
             "Reservable": reservable,
-            "Current Status": "Green",
+            "Current Status": "Green (fully operational)",
         },
         description="tool",
     )

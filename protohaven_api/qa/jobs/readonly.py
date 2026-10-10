@@ -69,6 +69,7 @@ def test_check_door_sensors(ctx: QAContext):
         send_comms=True,
     )
     for name in _event_args_names(args):
+        log.info(f"Asserting log contains: {name}")
         assert_log_contains(result.text, [name])
     _assert_conditional_comms(result)
 
@@ -86,13 +87,16 @@ def test_check_cameras(ctx: QAContext):
     _assert_conditional_comms(result)
 
 
-def _first_shift_with_people(now, exclude=None):
+def _first_shift_with_people(now, exclude=None, skip_overrides=False):
     exclude = exclude or set()
     for day in forecast.generate(now, 7, include_pii=True)["calendar_view"]:
         for ap, hour in (("AM", 11), ("PM", 17)):
             if (day["date"], ap) in exclude:
                 continue
-            people = day[ap]["people"]
+            shift = day[ap]
+            if skip_overrides and shift.get("ovr"):
+                continue
+            people = shift["people"]
             if people and not day["is_holiday"]:
                 when = safe_parse_datetime(day["date"]).replace(
                     hour=hour, minute=0, second=0, microsecond=0
@@ -115,12 +119,22 @@ def _first_empty_shift(now, exclude=None):
     return None
 
 
-def _force_empty_shift(ctx: QAContext, day, ap, people) -> None:
+def _default_shift_people(shift):
+    """Return the people on a shift before any override was applied."""
+    ovr = shift.get("ovr") or {}
+    if "orig" in ovr:
+        return ovr["orig"]
+    return shift["people"]
+
+
+def _force_empty_shift(ctx: QAContext, day, ap) -> None:
+    """Force a forecast shift to be empty using its pre-override people."""
+    shift = day[ap]
     airtable_fixture.create_empty_shift_override(
         ctx,
         day["date"],
         ap,
-        [p.name for p in people],
+        [p.name for p in _default_shift_people(shift)],
     )
 
 
@@ -143,6 +157,7 @@ def test_tech_sign_ins(ctx: QAContext):
         when.isoformat(),
         person.name,
     )
+    log.info(f"Running sign-in with people found on: {when.isoformat}")
     result = ctx.run(
         "tech_sign_ins",
         "elzn07uwhqg",
@@ -155,23 +170,19 @@ def test_tech_sign_ins(ctx: QAContext):
     # Alert case: use a nearby empty shift, forcing one if necessary.
     empty = _first_empty_shift(now, exclude={(day["date"], ap)})
     if empty is None:
-        target = None
-        for d in forecast.generate(now, 7, include_pii=True)["calendar_view"]:
-            for a in ("AM", "PM"):
-                if (d["date"], a) == (day["date"], ap):
-                    continue
-                if d[a]["people"] and not d["is_holiday"]:
-                    target = (d, a, d[a]["people"])
-                    break
-            if target:
-                break
-        assert target, "No shift available to force empty for alert case"
-        target_day, target_ap, target_people = target
-        _force_empty_shift(ctx, target_day, target_ap, target_people)
+        found = _first_shift_with_people(
+            now, exclude={(day["date"], ap)}, skip_overrides=True
+        )
+        if found is None:
+            found = _first_shift_with_people(now, exclude={(day["date"], ap)})
+        assert found, "No shift available to force empty for alert case"
+        target_day, target_ap, _, _ = found
+        _force_empty_shift(ctx, target_day, target_ap)
         when = _shift_when(now, target_day, target_ap)
     else:
         _, _, when = empty
 
+    log.info(f"Running tech_sign_ins against shift: {when.isoformat()}")
     result = ctx.run(
         "tech_sign_ins",
         "elzn07uwhqg",
@@ -180,7 +191,7 @@ def test_tech_sign_ins(ctx: QAContext):
     )
     assert result.code == 0
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["shift_no_techs"])
+    assert_log_contains(result.text, ["shift has no signed in techs"])
 
 
 def test_check_empty_shifts(ctx: QAContext):
@@ -188,12 +199,21 @@ def test_check_empty_shifts(ctx: QAContext):
     empty = _first_empty_shift(now)
     if empty is not None:
         day, ap, _ = empty
+        log.info(f"Found upcoming empty shift: {day} {ap}")
     else:
-        found = _first_shift_with_people(now)
+        found = _first_shift_with_people(now, skip_overrides=True)
+        if found is None:
+            found = _first_shift_with_people(now)
         assert found, "No shift available to force empty"
-        day, ap, people, _ = found
-        _force_empty_shift(ctx, day, ap, people)
+        day, ap, _, _ = found
+        log.info(f"Forcing empty shift: {day} {ap}")
+        _force_empty_shift(ctx, day, ap)
 
+    match = _first_empty_shift(now)
+    assert match
+    log.info(f"First empty shift: {match[0]}, {match[1]}")
+
+    log.info(f"Running on empty shift on {day['date']}")
     result = ctx.run(
         "check_empty_shifts",
         "emryv0nravu",
@@ -208,12 +228,23 @@ def test_check_empty_shifts(ctx: QAContext):
     assert_log_contains(result.text, ["empty_shift_techs"])
 
 
-def _copyable_schedule_row():
-    for row in airtable.get_class_automation_schedule_raw():
-        f = row["fields"]
-        if f.get("Class") and f.get("Instructor") and f.get("Sessions"):
-            return row
-    raise AssertionError("No existing Airtable class schedule row to copy")
+# Only writable Schedule table fields should be sent to NocoDB. Lookup fields
+# (e.g. "Name (from Class)") and system fields ("Id", "nc_order") are derived
+# or maintained by the database and reject inserts when included explicitly.
+_SCHEDULE_WRITABLE_FIELDS = {
+    "Class",
+    "Sessions",
+    "Email",
+    "Instructor",
+    "Confirmed",
+    "Rejected",
+    "Neon ID",
+    "Event ID",
+    "Supply State",
+    "Instructor ID",
+    "Instructor Log Date",
+    "Volunteer",
+}
 
 
 def _create_class_event(
@@ -226,7 +257,7 @@ def _create_class_event(
     capacity: int = 6,
 ):
     """Create an unlisted Eventbrite event + matching Airtable schedule row."""
-    raw = _copyable_schedule_row()
+    raw = airtable_fixture.copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=days_out)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
@@ -258,14 +289,13 @@ def _create_class_event(
                 event_id, ticket_id, "QA Cronicle", acct.neon_id, acct.email
             )
 
-    fields = dict(raw["fields"])
+    fields = {k: v for k, v in raw["fields"].items() if k in _SCHEDULE_WRITABLE_FIELDS}
     fields.update(
         {
             "Neon ID": event_id,
             "Sessions": start.isoformat(),
             "Confirmed": tznow().isoformat(),
             "Rejected": "",
-            "Name": name,
         }
     )
     if supply_state is not None:
@@ -274,25 +304,28 @@ def _create_class_event(
     return event_id
 
 
-def _run_class_emails(ctx: QAContext, event_id: str):
+def _run_class_emails(ctx: QAContext, event_id: str, extra: str = ""):
+    args = f"--filter={event_id} --no-published_only"
+    if extra:
+        args = f"{args} {extra}"
     return ctx.run(
         "gen_class_emails",
         "elwnkuoqf8g",
-        f"--filter={event_id} --no-published_only",
+        args,
         send_comms=True,
     )
 
 
 def test_class_emails(ctx: QAContext):
     scenarios = [
-        ("LOW_ATTENDANCE_7DAYS", 5, None, 0, 6, ["instructor_low_attendance"]),
+        ("LOW_ATTENDANCE_7DAYS", 5, None, 0, 6, ["help us find"]),
         (
             "SUPPLY_CHECK_NEEDED",
             8,
             "Supply Check Needed",
             0,
             6,
-            ["instructor_check_supplies"],
+            ["please confirm class supplies"],
         ),
         (
             "CONFIRM",
@@ -300,7 +333,7 @@ def test_class_emails(ctx: QAContext):
             None,
             1,
             6,
-            ["instructor_class_confirmed", "registrant_class_confirmed"],
+            ["Your class '", "is on for"],
         ),
         (
             "CANCEL",
@@ -308,16 +341,16 @@ def test_class_emails(ctx: QAContext):
             None,
             0,
             6,
-            ["instructor_class_canceled", "registrant_class_canceled"],
+            ["Your class '", "was canceled"],
         ),
-        ("FOR_TECHS", 1, None, 2, 10, ["tech_openings"]),
+        ("FOR_TECHS", 1, None, 3, 10, ["New classes for tech backfill"]),
         (
             "POST_RUN_SURVEY",
             -2,
             None,
             1,
             6,
-            ["instructor_log_reminder", "registrant_post_class_survey"],
+            ["Please submit instructor log", "Please share feedback"],
         ),
     ]
     for scenario, days_out, supply_state, attendees, capacity, needles in scenarios:
@@ -329,7 +362,12 @@ def test_class_emails(ctx: QAContext):
             attendees=attendees,
             capacity=capacity,
         )
-        result = _run_class_emails(ctx, event_id)
+        extra = {
+            "CONFIRM": f"--confirm={event_id}",
+            "CANCEL": f"--cancel={event_id}",
+            "FOR_TECHS": f"--for-techs={event_id}",
+        }.get(scenario, "")
+        result = _run_class_emails(ctx, event_id, extra)
         assert result.code == 0
         assert_log_contains(result.text, needles)
         if scenario == "FOR_TECHS":
@@ -383,12 +421,12 @@ def test_shop_tech_applications(ctx: QAContext):
 
 def _private_instruction_notes(ctx, tag):
     return (
-        "Details: QA private instruction request\n"
-        "Availability: Immediately\n"
-        "Name: QA Tester\n"
-        "Email: hello+qa-testing@protohaven.org\n"
-        "Phone: 555-0000\n"
-        f"Tag: {tag}\n"
+        "Details:\nQA private instruction request\n"
+        "Availability:\nImmediately\n"
+        "Name:\nQA Tester\n"
+        "Email:\nhello+qa-testing@protohaven.org\n"
+        "Phone:\n555-0000\n"
+        f"Tag:\n{tag}\n"
     )
 
 
@@ -453,7 +491,7 @@ def test_membership_val(ctx: QAContext):
 
     # Active membership with no end date.
     acct = neon_fixture.create_mock_account(ctx, "membership-val-no-end")
-    neon_fixture.create_membership(acct.neon_id, now, None)
+    neon_fixture.create_membership(acct.neon_id, now, None, term_unit="LIFE")
     ids.append(acct.neon_id)
 
     # Shop Tech membership without the API server role.
@@ -469,16 +507,22 @@ def test_membership_val(ctx: QAContext):
 
     # AMP income-rate/term mismatch.
     acct = neon_fixture.create_mock_account(ctx, "membership-val-amp")
+    # Income Based Rate is a Neon select field, so it must be set via
+    # optionValues with the option ID (41 = Low Income - 20%).
     neon_base.set_custom_fields(
         acct.neon_id,
-        (CustomField.INCOME_BASED_RATE, "Low Income"),
+        (CustomField.INCOME_BASED_RATE, [{"id": 41}]),
     )
+    # Use known-good Neon option IDs; Neon resolves the ID, not the name.
+    # id 31 is "Weeknight Membership - AMP" and id 107 is
+    # "Weeknight Membership- ELI ($19.50)", so this exercises AMP validation
+    # and the income-based-rate/term mismatch path.
     neon_fixture.create_membership(
         acct.neon_id,
         now,
         now + datetime.timedelta(days=30),
-        level={"id": 1, "name": "AMP General"},
-        term={"id": 1, "name": "ELI"},
+        level={"id": 31, "name": "Weeknight Membership - AMP"},
+        term={"id": 107, "name": "Weeknight Membership- ELI ($19.50)"},
     )
     ids.append(acct.neon_id)
 
@@ -493,7 +537,7 @@ def test_membership_val(ctx: QAContext):
     assert_log_contains(
         result.text,
         [
-            "membership_validation_problems",
+            "validation problems found",
             "no end date",
             "Needs role Shop Tech",
             "Mismatch between Income based rate",
@@ -553,4 +597,4 @@ def test_recertification(ctx: QAContext):
     assert result.code == 0
     assert_sent_email(result)
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["member_recert_update", "suspend clearances"])
+    assert_log_contains(result.text, ["temporarily suspended", "suspend clearances"])

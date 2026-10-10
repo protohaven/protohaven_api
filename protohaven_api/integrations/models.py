@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 from dateutil import tz as dtz
 
-from protohaven_api.config import safe_parse_datetime, tznow
+from protohaven_api.config import safe_parse_datetime, tz, tznow
 
 log = logging.getLogger("integrations.models")
 
@@ -143,7 +143,7 @@ class Membership:
         return (
             safe_parse_datetime(self.neon_raw_data.get("termEndDate"))
             if self.neon_raw_data.get("termEndDate")
-            else datetime.datetime.max
+            else datetime.datetime.max.replace(tzinfo=tz)
         )
 
     @property

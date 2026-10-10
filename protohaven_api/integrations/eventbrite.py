@@ -316,7 +316,16 @@ def set_event_scheduled_state(event_id: EventbriteID, scheduled: bool = True):
 
     # Deschedule/unpublish option
     url = f"/events/{event_id}/unpublish/"
-    response = get_connector().eventbrite_request("POST", url)
+    try:
+        response = get_connector().eventbrite_request("POST", url)
+    except RuntimeError as exc:
+        # Eventbrite rejects unpublishing an event that is already
+        # unpublished. Treat that as success so newly-created, unlisted
+        # events can be processed without reverting them.
+        if "NOT_PUBLISHED" in str(exc):
+            log.info(f"Event {event_id} is already unpublished")
+            return {}
+        raise
     if not response.get("unpublished"):
         raise RuntimeError(f"Failed to unpublish event {event_id}: {response}")
     return response

@@ -9,10 +9,8 @@ import re
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import (
-    airtable,
     airtable_base,
     booked,
-    comms,
     eventbrite,
     neon,
 )
@@ -20,6 +18,7 @@ from protohaven_api.integrations.models import Role
 from protohaven_api.qa.base import (
     QAContext,
     assert_log_contains,
+    assert_log_not_contains,
     assert_sent_discord,
     assert_sent_dm,
     assert_sent_email,
@@ -45,7 +44,16 @@ def _active_membership(acct, start=None, end=None):
 
 
 def test_discord_nick(ctx: QAContext):
-    acct = neon_fixture.create_mock_account(ctx, "discord-nick")
+    job = "disc-nick"
+    # Older failed QA runs may have left the shared QA Discord user linked to
+    # their (now anonymized) Neon accounts. Clear those stale links first so
+    # enforce_discord_nicknames targets the account created below.
+    for stale in list(
+        neon.search_members_with_discord_id(discord_fixture.DISCORD_USER)
+    ):
+        neon.set_discord_user(stale.neon_id, "")
+
+    acct = neon_fixture.create_mock_account(ctx, job)
     neon.set_discord_user(acct.neon_id, discord_fixture.DISCORD_USER)
     _active_membership(acct)
     discord_fixture.set_nickname(ctx, "QA Old Nickname")
@@ -57,32 +65,23 @@ def test_discord_nick(ctx: QAContext):
         send_comms=True,
         dm=True,
     )
+    expected_name = neon_fixture.qa_name(job, ctx.run_id)
     assert result.code == 0
     assert_sent_discord(result)
     assert_sent_dm(result)
-    assert_log_contains(result.text, ["discord_nick_changed"])
-
-
-def _discord_has_role(role: str) -> bool:
-    for member in comms.get_all_members():
-        if member[0] == discord_fixture.DISCORD_USER:
-            return any(r == role for r, _ in member[3])
-    return False
+    assert_log_contains(result.text, [f" -> {expected_name})"])
+    assert_log_not_contains(result.text, ["400 Bad Request", "Must be 32"])
 
 
 def test_discord_role(ctx: QAContext):
     role = "Techs"
-    originally_had_role = _discord_has_role(role)
+    originally_had_role = discord_fixture.has_role(role)
     if originally_had_role:
-        comms.revoke_discord_role(discord_fixture.DISCORD_USER, role)
-        ctx.cleanup.register(
-            f"restore Discord role {role} to {discord_fixture.DISCORD_USER}",
-            lambda: comms.set_discord_role(discord_fixture.DISCORD_USER, role),
-        )
+        discord_fixture.revoke_role(ctx, role)
     else:
         ctx.cleanup.register(
             f"remove QA-added Discord role {role} from {discord_fixture.DISCORD_USER}",
-            lambda: comms.revoke_discord_role(discord_fixture.DISCORD_USER, role),
+            lambda: discord_fixture.remove_role(role),
         )
 
     acct = neon_fixture.create_mock_account(ctx, "discord-role")
@@ -105,7 +104,12 @@ def test_discord_role(ctx: QAContext):
     assert_sent_dm(result)
     assert_sent_discord(result)
     assert_log_contains(
-        result.text, ["Discord role assigned", "discord_role_change_dm"]
+        result.text,
+        [
+            "Your Discord Roles Are Changing",
+            "Discord Role Automation Summary",
+            "Intents updated in airtable",
+        ],
     )
 
 
@@ -139,7 +143,7 @@ def test_init_memberships(ctx: QAContext):
     assert result.code == 0
     assert_sent_email(result)
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["membership_init_summary"])
+    assert_log_contains(result.text, ["Membership init summary"])
 
     after_coupons = _snapshot_assigned_coupons()
     for rec_id, fields in after_coupons.items():
@@ -163,16 +167,9 @@ def test_init_memberships(ctx: QAContext):
         )
 
 
-def _copyable_schedule_row():
-    for row in airtable.get_class_automation_schedule_raw():
-        f = row["fields"]
-        if f.get("Class") and f.get("Instructor") and f.get("Sessions"):
-            return row
-    raise AssertionError("No existing Airtable class schedule row to copy")
-
-
+# pylint: disable=too-many-locals
 def test_cleanup_orphaned_class_reservations(ctx: QAContext):
-    raw = _copyable_schedule_row()
+    raw = airtable_fixture.copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=3)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
@@ -190,20 +187,23 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         lambda: eventbrite.delete_event_unsafe(event_id),
     )
 
-    fields = dict(raw["fields"])
-    fields.update(
-        {
-            "Neon ID": event_id,
-            "Sessions": start.isoformat(),
-            "Confirmed": tznow().isoformat(),
-            "Rejected": "",
-            "Name": name,
-        }
-    )
-    airtable_fixture.create_schedule_row(ctx, fields)
-
-    area = (fields.get("Name (from Area) (from Class)") or [None])[0]
+    area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]
     assert area, "No area available on copied schedule row"
+
+    # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
+    # Class)"), so insert only the writable schedule fields and let Airtable
+    # populate the lookups from the linked class template.
+    fields = {
+        "Class": raw["fields"].get("Class"),
+        "Instructor": raw["fields"].get("Instructor"),
+        "Instructor ID": raw["fields"].get("Instructor ID"),
+        "Email": raw["fields"].get("Email"),
+        "Neon ID": event_id,
+        "Sessions": start.isoformat(),
+        "Confirmed": tznow().isoformat(),
+        "Rejected": "",
+    }
+    airtable_fixture.create_schedule_row(ctx, fields)
     resource_id = booked_fixture.create_resource(
         ctx, f"QA orphan resource {ctx.run_id}"
     )
