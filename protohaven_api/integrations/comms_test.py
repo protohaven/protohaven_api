@@ -375,6 +375,16 @@ TESTED_TEMPLATES = [
         },
     ),
     (
+        "eventbrite_backup_summary",
+        {
+            "stats": [
+                {"name": "events.ext", "drive_id": "CDE", "size_kb": 123},
+            ],
+            "category": "events",
+            "parent_id": "PAR",
+        },
+    ),
+    (
         "neon_backup_summary",
         {
             "stats": [
@@ -554,6 +564,7 @@ HASHES = {
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
     "membership_init_summary": "586bb53336cbac1f",  # pragma: allowlist secret
     "membership_validation_problems": "07e7e586afd0dd5e",  # pragma: allowlist secret
+    "eventbrite_backup_summary": "3816e0a7060e8bec",  # pragma: allowlist secret
     "neon_backup_summary": "33e2ac11fce96ebd",  # pragma: allowlist secret
     "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
     "not_associated": "4368092931234979",  # pragma: allowlist secret

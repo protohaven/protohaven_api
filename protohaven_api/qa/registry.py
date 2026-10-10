@@ -194,9 +194,9 @@ def _specs():
             send_comms=True,
         ),
         JobSpec(
-            "backup_neon_events",
+            "backup_eventbrite_events",
             "additive",
-            jobs.additive.test_backup_neon_events,
+            jobs.additive.test_backup_eventbrite_events,
             "emssb5u1vg9",
             send_comms=True,
         ),

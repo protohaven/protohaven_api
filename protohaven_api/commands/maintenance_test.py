@@ -254,6 +254,24 @@ def test_check_cameras(mocker, cli):
         assert expected in got[0]["body"]
 
 
+def test_backup_eventbrite(mocker, cli):
+    """Test backing up Eventbrite events"""
+    mocker.patch.object(m, "tznow", return_value=d(0))
+    events_backup = mocker.patch.object(
+        m.eventbrite, "events_backup", return_value=1024
+    )
+    mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
+
+    got = cli(
+        "backup_eventbrite",
+        ["--parent_id=test_parent_id", "--category=events", "--apply"],
+    )
+
+    events_backup.assert_called_once()
+    assert mock_do_backup.call_count == 1
+    assert "test_parent_id" in got[0]["body"]
+
+
 def test_backup_wiki(mocker, cli):
     """Test backing up with mocked actions"""
     mocker.patch.object(m, "tznow", return_value=d(0))
