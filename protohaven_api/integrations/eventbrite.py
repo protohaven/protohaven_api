@@ -98,28 +98,30 @@ def generate_discount_code(
     now = tznow()
     code = str(uuid.uuid4()).replace("-", "")
     log.info(f"Generating eventbrite discount code for event {evt_id}: {code}")
-    params = {
-        "discount": {
-            "type": "coded",
-            "code": code,
-            "percent_off": str(percent_off),
-            "quantity_available": 1,
-            # Note: these must be in Naive Local ISO8601 format
-            # That's YYYY-MM-DDTHH:MM:SS in the time zone of the event.
-            # Note that we schedule our events in UTC, so this is UTC time
-            # without the "Z"
-            "end_date": _eb_naive_local_utc_timestr(
-                now + datetime.timedelta(hours=expiration_hours)
-            ),
-        }
+    discount = {
+        "type": "coded",
+        "code": code,
+        "quantity_available": 1,
+        # Note: these must be in Naive Local ISO8601 format
+        # That's YYYY-MM-DDTHH:MM:SS in the time zone of the event.
+        # Note that we schedule our events in UTC, so this is UTC time
+        # without the "Z"
+        "end_date": _eb_naive_local_utc_timestr(
+            now + datetime.timedelta(hours=expiration_hours)
+        ),
     }
+    if percent_off is not None:
+        discount["percent_off"] = str(percent_off)
+    if amount_off is not None:
+        discount["amount_off"] = f"{amount_off:.2f}"
+    params = {"discount": discount}
     if evt_id is not None:
         params["discount"]["event_id"] = int(evt_id)
 
     org_id = get_config("eventbrite/organization_id")
     url = f"/organizations/{org_id}/discounts/"
     response = get_connector().eventbrite_request("POST", url, json=params)
-    if not response["code"]:
+    if not response.get("code"):
         raise RuntimeError(f"Failed to create eventbrite discount code: {response}")
     return response["code"]
 
@@ -286,7 +288,7 @@ def assign_pricing(
     }
     url = f"/events/{event_id}/ticket_classes/"
     response = get_connector().eventbrite_request("POST", url, json=params)
-    if not response["resource_uri"]:
+    if not response.get("resource_uri"):
         raise RuntimeError(f"Failed to create eventbrite ticket class: {response}")
     return response["resource_uri"]
 
