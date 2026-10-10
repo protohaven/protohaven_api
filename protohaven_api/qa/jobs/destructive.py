@@ -9,11 +9,9 @@ import re
 
 from protohaven_api.config import tznow
 from protohaven_api.integrations import (
-    airtable,
     airtable_base,
     booked,
     neon,
-    neon_base,
 )
 from protohaven_api.integrations.models import Role
 from protohaven_api.qa.base import (
@@ -168,35 +166,22 @@ def test_init_memberships(ctx: QAContext):
         )
 
 
-def _copyable_schedule_row():
-    for row in airtable.get_class_automation_schedule_raw():
-        f = row["fields"]
-        if f.get("Class") and f.get("Instructor") and f.get("Sessions"):
-            return row
-    raise AssertionError("No existing Airtable class schedule row to copy")
-
-
 def test_cleanup_orphaned_class_reservations(ctx: QAContext):
-    raw = _copyable_schedule_row()
+    raw = airtable_fixture.copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=3)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
     end = start + datetime.timedelta(hours=3)
     name = f"QA Cronicle Orphaned Reservations {ctx.run_id}"
-    event_id = neon_base.create_event(
+    event_id = neon_fixture.create_temporary_event(
+        ctx,
         name,
-        "Temporary QA event; will be deleted automatically.",
         start,
         end,
         dry_run=False,
         published=True,
         registration=False,
         free=True,
-    )
-    assert event_id
-    ctx.cleanup.register(
-        f"delete Neon event {event_id}",
-        lambda: neon_base.delete_event_unsafe(event_id),
     )
 
     area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]

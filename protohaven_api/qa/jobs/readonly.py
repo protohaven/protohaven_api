@@ -228,14 +228,6 @@ def test_check_empty_shifts(ctx: QAContext):
     assert_log_contains(result.text, ["empty_shift_techs"])
 
 
-def _copyable_schedule_row():
-    for row in airtable.get_class_automation_schedule_raw():
-        f = row["fields"]
-        if f.get("Class") and f.get("Instructor") and f.get("Sessions"):
-            return row
-    raise AssertionError("No existing Airtable class schedule row to copy")
-
-
 # Only writable Schedule table fields should be sent to NocoDB. Lookup fields
 # (e.g. "Name (from Class)") and system fields ("Id", "nc_order") are derived
 # or maintained by the database and reject inserts when included explicitly.
@@ -265,7 +257,7 @@ def _create_class_event(
     capacity: int = 6,
 ):
     """Create an unpublished Neon event + matching Airtable schedule row."""
-    raw = _copyable_schedule_row()
+    raw = airtable_fixture.copyable_schedule_row()
     start = (tznow() + datetime.timedelta(days=days_out)).replace(
         hour=18, minute=0, second=0, microsecond=0
     )
@@ -278,9 +270,9 @@ def _create_class_event(
         # the open date to the current time.
         create_kwargs["registration_open_date"] = start - datetime.timedelta(days=2)
         create_kwargs["registration_close_date"] = start - datetime.timedelta(days=1)
-    event_id = neon_base.create_event(
+    event_id = neon_fixture.create_temporary_event(
+        ctx,
         name,
-        "Temporary QA event; will be deleted automatically.",
         start,
         end,
         dry_run=False,
@@ -289,11 +281,6 @@ def _create_class_event(
         free=True,
         max_attendees=capacity,
         **create_kwargs,
-    )
-    assert event_id
-    ctx.cleanup.register(
-        f"delete Neon event {event_id}",
-        lambda: neon_base.delete_event_unsafe(event_id),
     )
 
     if attendees:

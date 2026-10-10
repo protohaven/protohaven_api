@@ -82,6 +82,29 @@ def create_mock_account(ctx: QAContext, job: str) -> MockNeonAccount:
     return MockNeonAccount(neon_id=neon_id, email=email, name=name)
 
 
+def create_temporary_event(
+    ctx: QAContext,
+    name: str,
+    start: datetime.datetime,
+    end: datetime.datetime,
+    **kwargs: Any,
+) -> str:
+    """Create a Neon event for QA and register cleanup deletion."""
+    event_id = neon_base.create_event(
+        name,
+        "Temporary QA event; will be deleted automatically.",
+        start,
+        end,
+        **kwargs,
+    )
+    assert event_id
+    ctx.cleanup.register(
+        f"delete Neon event {event_id}",
+        lambda: neon_base.delete_event_unsafe(event_id),
+    )
+    return event_id
+
+
 def create_membership(
     account_id: str,
     start: datetime.datetime,

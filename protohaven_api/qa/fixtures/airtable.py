@@ -65,6 +65,15 @@ def create_schedule_row(ctx: QAContext, payload: dict[str, Any]) -> str:
     return rec_id
 
 
+def copyable_schedule_row() -> dict[str, Any]:
+    """Return an existing schedule row suitable for cloning in QA tests."""
+    for row in airtable.get_class_automation_schedule_raw():
+        f = row["fields"]
+        if f.get("Class") and f.get("Instructor") and f.get("Sessions"):
+            return row
+    raise AssertionError("No existing Airtable class schedule row to copy")
+
+
 def create_capabilities_row(ctx: QAContext, fields: dict[str, Any]) -> str:
     """Create an instructor capabilities row."""
     return insert_record(
