@@ -366,7 +366,7 @@ class Commands:
             default=True,
         ),
     )
-    def post_classes_to_neon(
+    def post_classes(
         self, args, _
     ):  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
         """Post a list of classes to Eventbrite"""

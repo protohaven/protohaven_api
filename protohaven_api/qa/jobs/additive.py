@@ -251,7 +251,7 @@ def test_post_classes(ctx: QAContext):
     rec_id = airtable_fixture.create_schedule_row(ctx, fields)
 
     result = ctx.run(
-        "post_classes_to_neon",
+        "post_classes",
         "elzk399t7ph",
         (
             f"--apply --ovr={rec_id} --no-publish --no-registration "

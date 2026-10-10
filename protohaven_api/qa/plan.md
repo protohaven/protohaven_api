@@ -409,7 +409,7 @@ creates a temporary unpublished event and Airtable schedule row.
   command creates placeholders for all missing reservable tools before applying
   the filter. That path remains unit-tested.
 
-#### `post_classes` (`elzk399t7ph`) — `post_classes_to_neon`
+#### `post_classes` (`elzk399t7ph`)
 
 Use the **Eventbrite class creation path**, not Neon.
 

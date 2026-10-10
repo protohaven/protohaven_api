@@ -145,7 +145,7 @@ def test_format_class_description(mocker):
 
 
 def _tcls(mocker):
-    """Used as a test class for test_post_classes_to_neon tests"""
+    """Used as a test class for test_post_classes tests"""
     c = mocker.MagicMock(
         spec=True,  # Don't autocreate attributes
         class_id="abcd",
@@ -219,7 +219,7 @@ Tc = namedtuple("Tc", "desc,args,publish,register,discount,reserve")
     ],
     ids=idfn,
 )
-def test_post_classes_to_neon_actions(cli, mocker, tc):
+def test_post_classes_actions(cli, mocker, tc):
     """Test cases where the class is scheduled, with various args applied"""
     mocker.patch.object(C.eventbrite, "upload_logo_image", return_value=9)
     mock_delete = mocker.patch.object(
@@ -240,7 +240,7 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
     mocker.patch.object(
         C.Commands, "_fetch_boilerplate", return_value=("Foo", "Bar", "Baz")
     )
-    got = cli("post_classes_to_neon", ["--apply", *tc.args])
+    got = cli("post_classes", ["--apply", *tc.args])
 
     assert {g["target"] for g in got} == {
         "a@b.com",
@@ -266,7 +266,7 @@ def test_post_classes_to_neon_actions(cli, mocker, tc):
     mock_delete.assert_not_called()
 
 
-def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
+def test_post_classes_reverts_on_failure(cli, mocker):
     """Test that class creation is reverted when part of the process fails"""
     mocker.patch.object(C.comms, "send_discord_message")
     mocker.patch.object(C, "resolve_schedule", return_value=[_tcls(mocker)])
@@ -288,7 +288,7 @@ def test_post_classes_to_neon_reverts_on_failure(cli, mocker):
     )
     mock_airtable = mocker.patch.object(C.airtable, "update_record")
 
-    got = cli("post_classes_to_neon", ["--apply"])
+    got = cli("post_classes", ["--apply"])
     assert got == []
 
     # Verify behavior
