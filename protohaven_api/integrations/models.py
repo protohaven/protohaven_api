@@ -663,7 +663,7 @@ class Attendee:
     eventbrite_data: dict = field(default_factory=dict)
 
     @property
-    def neon_id(self):
+    def user_id(self):
         """ID of the attendee (Eventbrite attendee ID)"""
         return self.eventbrite_data.get("id")
 
@@ -824,7 +824,7 @@ class Event:  # pylint: disable=too-many-public-methods
         if self.eventbrite_attendee_data is None:
             raise NoAttendeeDataError("Missing attendee data for call to signups()")
 
-        return {at.neon_id for at in self.attendees if at.valid}
+        return {at.user_id for at in self.attendees if at.valid}
 
     @property
     def attendee_count(self) -> int:

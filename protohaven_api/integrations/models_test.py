@@ -714,7 +714,7 @@ def test_event_attendee_generator_data():
         e.attendee_count == 1
     )  # Called a second time, shouldn't exhaust the generator
     for a in e.attendees:
-        assert a.neon_id == 123
+        assert a.user_id == 123
 
 
 def test_image_url():
