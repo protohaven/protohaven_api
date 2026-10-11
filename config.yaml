@@ -32,9 +32,6 @@ general:
   recertification:
     bypass_hours_window_days: 90
     enabled_users: ${RECERT_ENABLED_USERS}
-  new_membership:
-    # Either "eventbrite" or "neon"
-    discount_type: ${NEW_MEMBERSHIP_DISCOUNT_TYPE}
 cache_server:
   enabled: ${CACHE_SERVER_ENABLED}
   port: 5001
@@ -50,15 +47,10 @@ neon:
   base_url: "https://api.neoncrm.com/v2/"
   app_url: "https://protohaven.app.neoncrm.com/"
   admin_url: "https://protohaven.app.neoncrm.com/np/admin/"
-  sso_url: "https://app.neonsso.com"
   oauth_client_id: ${NEON_OAUTH_CLIENT_ID}
   oauth_client_secret: ${NEON_OAUTH_CLIENT_SECRET}
   api_key1: ${NEON_API_KEY1}
   api_key2: ${NEON_API_KEY2}
-  api_key3: ${NEON_API_KEY3}
-  login_user: ${NEON_LOGIN_USER}
-  login_pass: ${NEON_LOGIN_PASS}
-  login_otp_code: ${NEON_LOGIN_OTP_CODE}
   waiver_expiration_days: 60
   waiver_published_date: "2023-03-14"
   member_agreement_expiration_days: 60
@@ -189,10 +181,6 @@ nocodb:
       base_id: "p5505lo0x0b4yuj"
       accounts: "mnk0ozc78npm418"
       memberships: "mv3lhkooul6is39"
-      events: "mjxxyvyn5a8qegm"
-      attendees: "meoi8fng058o3rb"
-      tickets: "mx3ak3a6hdre0c9"
-      clearance_codes: "mmk3g8k9pwcykd0"
     fake_wyze:
       base_id: "pjb065n0m7ilebg"
       devices: "mhjg19llr23inaa"
