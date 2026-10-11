@@ -169,25 +169,26 @@ Send `TEST_MEMBER_JOIN` in a DM to the Protohaven discord bot; this will run the
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove
 association.
 
-- [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+- [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+      (automated)
 
 Override and register the user in Neon via the link.
 
-- [ ] Discord association
+- [x] Discord association
       [form](https://staging.api.protohaven.org/member?discord_id=asdf)
-      correctly sets discord ID on Neon account
+      correctly sets discord ID on Neon account (automated)
 
 Remove all roles from Discord user, and change its display name to something
 other than `Test Member`.
 
-- [ ] When missing roles & nickname format, adds them & notifies (both of role
-      and nick change)
+- [x] When missing roles & nickname format, adds them & notifies (both of role
+      and nick change) (automated)
 
 Add an extra role to the user via Discord. (Does this actually work via
 TEST_MEMBER_JOIN? Isn't it just cron based?)
 
-- [ ] When called with registered user with extra roles, notifies of pending
-      removal
+- [x] When called with registered user with extra roles, notifies of pending
+      removal (automated)
 
 ## Webhooks
 

@@ -1,6 +1,6 @@
 # pylint: skip-file
 """Tests for role_automation functions"""
-from collections import namedtuple
+from collections import Counter, namedtuple
 from dataclasses import replace
 
 import pytest
@@ -363,6 +363,33 @@ def test_setup_discord_user_nickname_change(mocker):
     got = list(r.setup_discord_user(("a", "a", None, [("Members", 123)])))
     assert len(got) == 2
     assert got[0] == ("set_nickname", "a", "b")
+
+
+def test_setup_discord_user_nickname_and_roles_notifications(mocker):
+    """A registered user with a bad nickname and missing roles gets both fixes"""
+    m = mocker.MagicMock(
+        neon_id=1,
+        account_current_membership_status="Active",
+        roles=[{"name": "Instructor"}, {"name": "Shop Tech"}],
+    )
+    m.name = "Correct Name"
+    mocker.patch.object(
+        r.neon,
+        "search_members_with_discord_id",
+        return_value=[m],
+    )
+
+    got = list(r.setup_discord_user(("a", "Wrong Name", None, [("Members", 123)])))
+
+    action_counts = Counter(action[0] for action in got)
+    assert action_counts["set_nickname"] == 1
+    assert action_counts["send_dm"] == 2
+    assert action_counts["grant_role"] == 2
+    assert ("set_nickname", "a", "Correct Name") in got
+    assert {action[2] for action in got if action[0] == "grant_role"} == {
+        "Instructors",
+        "Techs",
+    }
 
 
 def test_setup_discord_user_multiple_accounts(mocker):
