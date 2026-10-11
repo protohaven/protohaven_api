@@ -318,24 +318,29 @@ def test_roles():
 
 
 def test_has_open_seats_below_price():
-    """Test ticket quanty is returned if under max price"""
-    evt = Event()
-    evt.neon_ticket_data = [
+    """Test ticket quantity is returned if under max price"""
+    evt = Event.from_eventbrite_search(
         {
-            "id": 123,
-            "name": "Single Registration",
-            "fee": 50,
-            "numberRemaining": 5,
-            "maxNumberAvailable": 7,
-        },
-        {
-            "id": 345,
-            "name": "VIP Registration",
-            "fee": 80,
-            "numberRemaining": 2,
-            "maxNumberAvailable": 4,
-        },
-    ]
+            "ticket_classes": [
+                {
+                    "id": 123,
+                    "name": "General",
+                    "free": False,
+                    "cost": {"major_value": "50.00"},
+                    "quantity_total": 7,
+                    "quantity_sold": 2,
+                },
+                {
+                    "id": 345,
+                    "name": "General Admission",
+                    "free": False,
+                    "cost": {"major_value": "80.00"},
+                    "quantity_total": 4,
+                    "quantity_sold": 2,
+                },
+            ]
+        }
+    )
     assert evt.has_open_seats_below_price(100) == 5
     assert evt.has_open_seats_below_price(49) == 0
 
@@ -345,7 +350,7 @@ def test_none_vs_empty_ticket_data():
     evt = Event()
     with pytest.raises(RuntimeError):
         print(evt.single_registration_ticket_id)
-    evt.neon_ticket_data = []
+    evt.eventbrite_data = {"ticket_classes": []}
     assert evt.single_registration_ticket_id is None
 
 
@@ -441,41 +446,10 @@ def test_volunteer_bio_and_picture():
     assert member.volunteer_picture == "http://localhost:8080/abc"
 
 
-@pytest.mark.parametrize("source", ["neon_raw", "neon_search", "eventbrite"])
-def test_event_properties(source):  # pylint: disable=too-many-statements
+def test_event_properties():  # pylint: disable=too-many-statements
     """Test all public @property methods of Event class"""
-    # Setup test data
     start = d(0, 18)
     end = d(0, 21)
-    neon_raw = {
-        "id": 123,
-        "name": "Test Event",
-        "description": "Test Description",
-        "maximumAttendees": 10,
-        "archived": False,
-        "publishEvent": True,
-        "enableEventRegistrationForm": True,
-        "eventDates": {
-            "startDate": start.strftime("%Y-%m-%d"),
-            "startTime": start.strftime("%H:00"),
-            "endDate": end.strftime("%Y-%m-%d"),
-            "endTime": end.strftime("%H:00"),
-        },
-    }
-    neon_search = {
-        "Event ID": 123,
-        "Event Name": "Test Event",
-        "Event Description": "Test Description",
-        "Event Capacity": 10,
-        "Event Archive": "No",
-        "Event Web Publish": "Yes",
-        "Event Web Register": "Yes",
-        "Event Start Date": start.strftime("%Y-%m-%d"),
-        "Event Start Time": start.strftime("%H:00"),
-        "Event End Date": end.strftime("%Y-%m-%d"),
-        "Event End Time": end.strftime("%H:00"),
-        "Event Registration Attendee Count": 1,
-    }
 
     eventbrite = {
         "id": "456",
@@ -508,15 +482,6 @@ def test_event_properties(source):  # pylint: disable=too-many-statements
             "Level (from Class)": "Test Level",
         }
     }
-    attendees = [
-        {
-            "accountId": 1,
-            "registrationStatus": "SUCCEEDED",
-            "email": "A@b.COM    ",
-            "firstName": "first",
-            "lastName": "last",
-        }
-    ]
     eb_attendees = [
         {
             "id": 1,
@@ -529,34 +494,15 @@ def test_event_properties(source):  # pylint: disable=too-many-statements
             },
         }
     ]
-    tickets = [
-        {
-            "id": 111,
-            "name": "Single Registration",
-            "fee": 10,
-            "maxNumberAvailable": 10,
-            "numberRemaining": 9,
-        }
-    ]
 
-    if source == "neon_raw":
-        evt = Event.from_neon_fetch(neon_raw)
-    elif source == "neon_search":
-        evt = Event.from_neon_search(neon_search)
-    else:
-        evt = Event.from_eventbrite_search(eventbrite)
-
-    if "neon" in source:
-        evt.set_attendee_data(attendees)
-        evt.set_ticket_data(tickets)
-    else:
-        evt.set_attendee_data(eb_attendees)
+    evt = Event.from_eventbrite_search(eventbrite)
+    evt.set_attendee_data(eb_attendees)
     evt.set_airtable_data(airtable)
 
     # Test properties
-    assert evt.event_id == ("123" if source != "eventbrite" else "456")
+    assert evt.event_id == "456"
     assert evt.name == "Test Event"
-    assert evt.description
+    assert evt.description == "summary"
     assert evt.capacity == 10
     assert evt.archived is False
     assert evt.published is True
@@ -571,7 +517,7 @@ def test_event_properties(source):  # pylint: disable=too-many-statements
     assert list(evt.ticket_options) == [
         {
             "id": 111,
-            "name": "Single Registration" if "neon" in source else "General",
+            "name": "General",
             "price": 10,
             "sold": 1,
             "total": 10,
@@ -593,17 +539,10 @@ def test_event_properties(source):  # pylint: disable=too-many-statements
 
 
 def test_event_url():
-    """Confirm URL building behavior based on event ID and origin"""
+    """Confirm Eventbrite URL building behavior"""
     e = Event()
     e.eventbrite_data = {"id": 12345}
     assert e.url == "https://www.eventbrite.com/e/12345/"
-
-    e.eventbrite_data = None
-    e.neon_raw_data = {"id": 67890}
-    assert (
-        e.url
-        == "https://protohaven.app.neoncrm.com/np/clients/protohaven/event.jsp?event=67890"
-    )
 
 
 def test_event_capacity_none_vs_zero():
@@ -636,10 +575,9 @@ def test_event_ticket_options_free():
 def test_none_vs_zero_attendee_count():
     """Specifically test handling of attendee count on various falsey data"""
     e = Event()
-    e.neon_search_data = {"Event Registration Attendee Count": "0"}
+    e.eventbrite_data = {"ticket_classes": [{"quantity_sold": 0}]}
     assert e.attendee_count == 0
-    e.neon_search_data = {}
-    e.neon_attendee_data = []
+    e.eventbrite_attendee_data = []
     assert e.attendee_count == 0
 
 
@@ -722,8 +660,8 @@ def test_event_missing_attendee_data():
     e = Event()
     with pytest.raises(NoAttendeeDataError):
         print(e.occupancy)
-    e.neon_raw_data = {"foo": "bar"}
-    e.neon_attendee_data = []
+    e.eventbrite_data = {"capacity": 0}
+    e.eventbrite_attendee_data = []
     assert e.attendee_count == 0
     assert e.occupancy == 0
 
@@ -768,7 +706,7 @@ def test_event_attendee_generator_data():
     e = Event()
 
     def attendees_gen():
-        yield {"accountId": 123}
+        yield {"id": 123, "cancelled": False, "refunded": False}
 
     e.set_attendee_data(attendees_gen())
     assert e.attendee_count == 1
@@ -776,7 +714,7 @@ def test_event_attendee_generator_data():
         e.attendee_count == 1
     )  # Called a second time, shouldn't exhaust the generator
     for a in e.attendees:
-        assert a.neon_id == 123
+        assert a.user_id == 123
 
 
 def test_image_url():

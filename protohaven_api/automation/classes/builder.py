@@ -200,9 +200,9 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 if a.valid:
                     e = a.email
                     if not e and not eventbrite.is_valid_id(evt.event_id):
-                        e = get_account_email(a.neon_id)
+                        e = get_account_email(a.user_id)
                     if e is not None:
-                        self.attendee_emails[a.neon_id] = e
+                        self.attendee_emails[a.user_id] = e
             self.log.debug(f"Annotated {evt.event_id}")
         self.log.info(f"Fetched and annotated {len(self.events)} event(s) fron Neon")
 
@@ -311,7 +311,7 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
 
     def _build_registrant_notification(self, evt, action, a):
         """Build notification for a registrant `a` about event `evt`"""
-        email = self.attendee_emails.get(a.neon_id, a.email)
+        email = self.attendee_emails.get(a.user_id, a.email)
         if email is None:
             self.log.error(f"Skipping email to attendee {a.fname}; no email given")
             return

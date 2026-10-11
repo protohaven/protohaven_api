@@ -32,6 +32,7 @@ def get_sample_classes(coupon_amount):
                 "name": evt.name,
                 "remaining": num_remaining,
                 "id": evt.event_id,
+                "url": evt.url,
             }
         )
         log.info(sample_classes[-1])

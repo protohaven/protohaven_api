@@ -119,7 +119,7 @@ def test_dashboard_schedule(mocker):
 def test_instructor_class_attendees(inst_client, mocker):
     # Create a mock Attendee object
     mock_attendee = mocker.MagicMock()
-    mock_attendee.neon_id = 123
+    mock_attendee.user_id = 123
     mock_attendee.email = "attendee@example.com"
     mock_attendee.fname = "John"
     mock_attendee.name = "John Doe"
@@ -140,7 +140,7 @@ def test_instructor_class_attendees(inst_client, mocker):
     rep = json.loads(result.data.decode("utf8"))
     # Check the structure matches what the handler returns
     assert len(rep) == 1
-    assert rep[0]["neon_id"] == 123
+    assert rep[0]["user_id"] == 123
     assert rep[0]["email"] == "attendee@example.com"
     assert rep[0]["member_email"] == "member@example.com"
     assert rep[0]["registration_status"] == "SUCCEEDED"
