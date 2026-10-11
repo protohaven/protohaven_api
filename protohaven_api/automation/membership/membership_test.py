@@ -49,7 +49,6 @@ def test_init_membership(mocker, include_filter, initializes):
             "neon/webhooks/new_membership/include_filter": include_filter,
             "neon/webhooks/new_membership/excluded_membership_types": None,
             "neon/webhooks/new_membership/additional_targets": "",
-            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     # Test with coupon_amount > 0
@@ -99,7 +98,6 @@ def test_init_membership_addl_targets(mocker):
             "neon/webhooks/new_membership/include_filter": "j@d.com",
             "neon/webhooks/new_membership/excluded_membership_types": None,
             "neon/webhooks/new_membership/additional_targets": "test@example.com",
-            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     # Test with coupon_amount > 0
@@ -136,7 +134,6 @@ def test_init_membership_email_filter(mocker):
         "get_config",
         side_effect={
             "neon/webhooks/new_membership/include_filter": "j@d.com",
-            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     mocker.patch.object(
@@ -173,7 +170,6 @@ def test_init_membership_type_filter(mocker):
         "get_config",
         side_effect={
             "neon/webhooks/new_membership/excluded_membership_types": "AnotherType",
-            "general/new_membership/discount_type": "eventbrite",
         }.get,
     )
     mocker.patch.object(
@@ -205,9 +201,7 @@ def test_init_membership_no_classes(mocker):
     mocker.patch.object(
         m,
         "get_config",
-        side_effect=lambda k: {
-            "general/new_membership/discount_type": "eventbrite"
-        }.get(k),
+        side_effect=lambda k: {}.get(k),
     )
     # Test with coupon_amount > 0
     msgs = m.init_membership(
@@ -233,9 +227,7 @@ def test_init_membership_amp(mocker):
     mocker.patch.object(
         m,
         "get_config",
-        side_effect=lambda k: {
-            "general/new_membership/discount_type": "eventbrite"
-        }.get(k),
+        side_effect=lambda k: {}.get(k),
     )
     # Test with coupon_amount > 0
     msgs = m.init_membership(

@@ -576,9 +576,7 @@ def test_init_new_memberships_e2e(mocker, cli):
     mocker.patch.object(
         f.memauto,
         "get_config",
-        side_effect=lambda k: {
-            "general/new_membership/discount_type": "eventbrite"
-        }.get(k),
+        side_effect=lambda k: {}.get(k),
     )
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
