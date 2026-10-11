@@ -334,7 +334,6 @@ def test_techs_backfill_events(mocker, tech_client):
             capacity=10,
             start_date=d(0),
             supply_cost=0,
-            neon_attendee_data=True,
         )
         m.name = name
         for k, v in ovr.items():

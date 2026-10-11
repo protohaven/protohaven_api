@@ -295,8 +295,20 @@ TESTED_TEMPLATES = [
             "coupon_code": "ASDF",
             "coupon_amount": 5,
             "sample_classes": [
-                {"date": d(0), "name": "class1", "remaining": 3, "id": 1},
-                {"date": d(1), "name": "class2", "remaining": 2, "id": 2},
+                {
+                    "date": d(0),
+                    "name": "class1",
+                    "remaining": 3,
+                    "id": 1,
+                    "url": "https://www.eventbrite.com/e/1/",
+                },
+                {
+                    "date": d(1),
+                    "name": "class2",
+                    "remaining": 2,
+                    "id": 2,
+                    "url": "https://www.eventbrite.com/e/2/",
+                },
             ],
         },
     ),
@@ -550,7 +562,7 @@ HASHES = {
     "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
     "class_supply_requests": "3e12f3737ad31808",  # pragma: allowlist secret
     "enforcement_summary": "18d1792e7afc0c24",  # pragma: allowlist secret
-    "init_membership": "c7d1c2cd9a12411e",  # pragma: allowlist secret
+    "init_membership": "b0f17b07b5d6dbf2",  # pragma: allowlist secret
     "instruction_requests": "64096a3f590a8f43",  # pragma: allowlist secret
     "instructor_applications": "500fced2472831c6",  # pragma: allowlist secret
     "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
