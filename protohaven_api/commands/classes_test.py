@@ -160,7 +160,6 @@ def _tcls(mocker):
         capacity=6,
         price=90,
         instructor_email="a@b.com",
-        use_eventbrite=True,
     )
     c.name = "test class"
     return c

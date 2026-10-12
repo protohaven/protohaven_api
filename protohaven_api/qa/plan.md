@@ -418,7 +418,7 @@ creates a temporary unpublished event and Airtable schedule row.
 Use the **Eventbrite class creation path**, not Neon.
 
 - **Setup:** create a temporary Airtable schedule row with future sessions,
-  confirmed, no event ID, `use_eventbrite` true.
+  confirmed, no event ID.
 - **Run:**
   `--apply --ovr=<schedule_id> --no-publish --no-registration --no-reserve --no-discounts`,
   overrides, send_comms on.

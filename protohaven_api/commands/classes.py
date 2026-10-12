@@ -407,16 +407,10 @@ class Commands:
                 f"${event.price}, {event.capacity} students, sessions "
                 f"{[s[0].strftime('%Y-%m-%d %-I:%M %p') for s in event.sessions]}"
             )
-            log.info(f"use_eventbrite={event.use_eventbrite}")
 
             num += 1
             result_id = None
             try:
-                if not event.use_eventbrite:
-                    raise RuntimeError(
-                        f"Schedule row {event.schedule_id} still points at legacy Neon; "
-                        "migrate it to Eventbrite before posting classes"
-                    )
                 if args.apply:
                     image_id = None
                     if event.image_link:
@@ -489,7 +483,7 @@ class Commands:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 log.error(f"Failed to create event #{result_id}: {str(e)[:256]}...")
                 log.error(traceback.format_exc())
-                if result_id and event.use_eventbrite:
+                if result_id:
                     log.error("Failed; reverting event creation")
                     log.info(eventbrite.delete_event_unsafe(result_id))
 
