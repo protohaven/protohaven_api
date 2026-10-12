@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Deque
 
 from protohaven_api.integrations import comms
-from protohaven_api.qa.cronicle import CronicleClient
+from protohaven_api.integrations.cronicle import CronicleClient
 
 log = logging.getLogger("qa.base")
 

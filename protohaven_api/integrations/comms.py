@@ -111,7 +111,14 @@ class Msg:  # pylint: disable=too-many-instance-attributes
 
 
 def send_email(subject, body, recipients, html):
-    """Sends an email via GMail API"""
+    """Sends an email via GMail API.
+
+    Honors the ``EMAIL_OVERRIDE`` environment variable used by QA to redirect
+    all email to a safe internal address.
+    """
+    email_ovr = getenv("EMAIL_OVERRIDE")
+    if email_ovr:
+        recipients = [email_ovr]
     return get_connector().email(subject, body, recipients, html)
 
 
@@ -149,9 +156,11 @@ def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
     chan_ovr = getenv("CHAN_OVERRIDE")
+    dm_ovr = getenv("DM_OVERRIDE")
     if channel is None:
         channel = cfg["webhooks"]["techs-live"]
     elif channel.startswith("@"):  # Send to a user
+        channel = dm_ovr or channel
         return get_connector().discord_bot_fn("send_dm", channel[1:], content)
     elif channel.startswith("#"):  # Send to a channel
         channel = (chan_ovr or channel)[1:]
