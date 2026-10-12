@@ -207,12 +207,6 @@ class Commands:
             default=None,
         ),
         arg(
-            "--user",
-            help="Deprecated; QA now creates ephemeral Neon accounts automatically.",
-            type=str,
-            default=None,
-        ),
-        arg(
             "--api_key",
             help="base64-encoded Automation API key (defaults to config.yaml)",
             type=str,
