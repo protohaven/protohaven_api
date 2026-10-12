@@ -128,7 +128,9 @@ class Commands:
             return
 
         client = CronicleClient(
-            args.base_url or get_config("cronicle/base_url") or "https://cron.protohaven.org/",
+            args.base_url
+            or get_config("cronicle/base_url")
+            or "https://cron.protohaven.org/",
             args.api_key,
         )
         ctx = QAContext(
@@ -191,7 +193,10 @@ class Commands:
     @command(
         arg(
             "--base_url",
-            help="Base URL of a running API server. Omit to run in-process so QA comms overrides apply.",
+            help=(
+                "Base URL of a running API server. Omit to run in-process "
+                "so QA comms overrides apply."
+            ),
             type=str,
             default=None,
         ),
@@ -215,7 +220,10 @@ class Commands:
         ),
         arg(
             "test",
-            help="specific tests to run - one of (new_member, new_amp_member, clearance, maintenance, all)",
+            help=(
+                "specific tests to run - one of (new_member, new_amp_member, "
+                "clearance, maintenance, all)"
+            ),
             nargs="?",
             default="all",
         ),

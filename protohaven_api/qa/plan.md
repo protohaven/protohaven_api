@@ -20,15 +20,16 @@ Cronicle QA runs jobs with **prod credentials**. The tests must:
 
 ## 2. QA package layout
 
-All QA-specific code moves out of `protohaven_api/scripts/cronicle_qa_tests.py`
-and into `protohaven_api/qa`, split into unit-testable modules:
+All QA-specific code moved out of the legacy
+`protohaven_api/scripts/cronicle_qa_tests.py` and into `protohaven_api/qa`,
+split into unit-testable modules. The Cronicle API client itself lives in
+`protohaven_api/integrations/cronicle.py`.
 
 ```text
 protohaven_api/qa/
   __init__.py
   plan.md
   base.py              # run IDs, context, cleanup stack, assertion helpers
-  cronicle.py          # schedule fetch, run_event, job status/log fetch
   comms.py             # overrides, advance notice, send assertions
   cleanup.py           # cleanup failure collection + #cronicle-automation notice
   fixtures/
@@ -49,8 +50,11 @@ protohaven_api/qa/
   *_test.py            # unit tests for the QA harness itself
 ```
 
-`protohaven_api/scripts/cronicle_qa_tests.py` becomes a thin CLI wrapper that
-imports `protohaven_api.qa` and runs the registry.
+The QA suite is run from the CLI:
+
+```shell
+python3 -m protohaven_api.cli cronicle_qa --api_key=... --image=...
+```
 
 ## 3. Shared QA behavior
 

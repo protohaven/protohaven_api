@@ -20,11 +20,11 @@ def test_cronicle_qa_runs_non_destructive_jobs(mocker, cli):
     spec.fn = mocker.Mock()
 
     ctx = mocker.Mock()
-    mocker.patch.object(C, "init_connector")
+    init_connector = mocker.patch.object(C, "init_connector")
     mocker.patch.object(C, "CronicleClient")
     mocker.patch.object(C, "QAContext", return_value=ctx)
     mocker.patch.object(C.registry, "ALL_JOBS", [spec])
-    mocker.patch.object(C.verify, "verify_no_qa_neon_accounts")
+    verify = mocker.patch.object(C.verify, "verify_no_qa_neon_accounts")
     mocker.patch.object(C, "send_advance_notice")
     mocker.patch.object(C, "request_acknowledgment")
 
@@ -39,18 +39,18 @@ def test_cronicle_qa_runs_non_destructive_jobs(mocker, cli):
         parse_yaml=False,
     )
 
-    C.init_connector.assert_called_once_with(C.Connector)
+    init_connector.assert_called_once_with(C.Connector)
     C.CronicleClient.assert_called_once_with(  # pylint: disable=no-member
         C.get_config("cronicle/base_url") or "https://cron.protohaven.org/", "key"
     )
     spec.fn.assert_called_once_with(ctx)
-    C.verify.verify_no_qa_neon_accounts.assert_not_called()
+    verify.assert_not_called()
     assert ctx.cleanup.cleanup.call_count == 2
 
 
 def test_webhook_qa_runs_clearance(mocker, cli):
     ctx = mocker.Mock()
-    mocker.patch.object(C, "init_connector")
+    init_connector = mocker.patch.object(C, "init_connector")
     mocker.patch.object(C, "_default_api_key", return_value="key")
     mocker.patch.object(C.webhooks, "WebhookQAContext", return_value=ctx)
     clearance = mocker.patch.object(C.webhooks, "test_clearance_webhook")
@@ -59,9 +59,9 @@ def test_webhook_qa_runs_clearance(mocker, cli):
 
     cli("webhook_qa", ["clearance"], parse_yaml=False)
 
-    C.init_connector.assert_called_once_with(C.Connector)
+    init_connector.assert_called_once_with(C.Connector)
     C.webhooks.WebhookQAContext.assert_called_once_with(  # pylint: disable=no-member
-        api_key="key", base_url=None, verify_ssl=True
+        api_key="key", base_url=None, verify_ssl=True  # pragma: allowlist secret
     )
     clearance.assert_called_once_with(ctx)
     new_member.assert_not_called()
