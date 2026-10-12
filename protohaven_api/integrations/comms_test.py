@@ -95,6 +95,39 @@ def test_send_discord_message_retry_returns_last_failure(mocker):
     assert result.status_code == 503
 
 
+def test_send_email_honors_email_override(mocker):
+    """Recipients are redirected when EMAIL_OVERRIDE is set."""
+    mocker.patch.dict(
+        "os.environ",
+        {"EMAIL_OVERRIDE": "qa-testing@protohaven.org"},
+        clear=False,
+    )
+    mock_email = mocker.patch.object(c, "get_connector").return_value.email
+    c.send_email("subj", "body", ["member@example.com"], False)
+    mock_email.assert_called_once_with(
+        "subj", "body", ["qa-testing@protohaven.org"], False
+    )
+
+
+def test_send_discord_message_dm_honors_dm_override(mocker):
+    """@user targets are redirected when DM_OVERRIDE is set."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={
+            "webhooks": {"test_channel": "https://test_channel_webhook"},
+        },
+    )
+    mocker.patch.dict(
+        "os.environ",
+        {"DM_OVERRIDE": "@workshop_protohaven"},
+        clear=False,
+    )
+    mock_bot = mocker.patch.object(c, "get_connector").return_value.discord_bot_fn
+    c.send_discord_message("Test content", "@testuser")
+    mock_bot.assert_called_once_with("send_dm", "workshop_protohaven", "Test content")
+
+
 def test_send_discord_message_dm(mocker):
     """Ensure #user targets are sent via DM"""
     mocker.patch.object(

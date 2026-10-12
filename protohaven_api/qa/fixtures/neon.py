@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from protohaven_api.integrations import neon, neon_base
-from protohaven_api.qa.base import QAContext
 
 QA_EMAIL_PREFIX = "qa-testing+qa-cronicle-"
 
@@ -66,7 +65,7 @@ class MockNeonAccount:
     name: str
 
 
-def create_mock_account(ctx: QAContext, job: str) -> MockNeonAccount:
+def create_mock_account(ctx: Any, job: str) -> MockNeonAccount:
     """Create a uniquely identifiable Neon account and register cleanup.
 
     Follows the plan convention: first name is ``QA Cronicle`` and last name
