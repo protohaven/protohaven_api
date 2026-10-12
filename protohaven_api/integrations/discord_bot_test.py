@@ -3,10 +3,10 @@
 from collections import namedtuple
 
 import pytest
-from discord import HTTPException
+from discord import DMChannel, HTTPException
 
 from protohaven_api.integrations import discord_bot as db
-from protohaven_api.testing import idfn
+from protohaven_api.testing import d, idfn
 
 Tc = namedtuple("Tc", "desc,usr,enabled,include,exclude,want")
 
@@ -55,6 +55,71 @@ def fixture_discord_bot(mocker):
     bot.get_guild = mocker.MagicMock()
     bot.role_map = {"Members": mocker.Mock()}
     return bot
+
+
+def _message(mocker, content="TEST_MEMBER_JOIN"):
+    """Build a DM message mock for on_message tests"""
+    author = mocker.MagicMock()
+    author.name = "Test Member"
+    author.id = 999
+    msg = mocker.MagicMock()
+    msg.author = author
+    msg.channel = mocker.MagicMock(spec=DMChannel)
+    msg.content = content
+    return msg
+
+
+@pytest.mark.asyncio
+async def test_on_message_test_member_join_runs_hook(discord_bot, mocker):
+    """TEST_MEMBER_JOIN DM dispatches each member_join_hook_fn action"""
+    msg = _message(mocker)
+    member = mocker.MagicMock()
+    discord_bot.guild.get_member.return_value = member
+    mocker.patch.object(discord_bot, "hook_on_user_is_permitted", return_value=True)
+    mocker.patch.object(discord_bot, "handle_hook_action", new=mocker.AsyncMock())
+    mocker.patch.object(db, "client", mocker.MagicMock())
+    details = ("999", "Test Member", d(0), [])
+    mocker.patch.object(discord_bot, "_member_details", return_value=details)
+    discord_bot.member_join_hook_fn = mocker.Mock(
+        return_value=[("send_dm", "999", "associate")]
+    )
+
+    await discord_bot.on_message(msg)
+
+    discord_bot.member_join_hook_fn.assert_called_once_with(details)
+    discord_bot.handle_hook_action.assert_awaited_once_with(
+        "send_dm", "999", "associate"
+    )
+
+
+@pytest.mark.asyncio
+async def test_on_message_test_member_join_ignored_when_not_permitted(
+    discord_bot, mocker
+):
+    """TEST_MEMBER_JOIN does not run the hook for non-permitted authors"""
+    msg = _message(mocker)
+    mocker.patch.object(discord_bot, "hook_on_user_is_permitted", return_value=False)
+    discord_bot.member_join_hook_fn = mocker.Mock()
+
+    await discord_bot.on_message(msg)
+
+    discord_bot.member_join_hook_fn.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_on_message_test_member_join_ignored_when_not_in_guild(
+    discord_bot, mocker
+):
+    """TEST_MEMBER_JOIN from a DM user outside the guild is ignored"""
+    msg = _message(mocker)
+    discord_bot.guild.get_member.return_value = None
+    mocker.patch.object(discord_bot, "hook_on_user_is_permitted", return_value=True)
+    mocker.patch.object(db, "client", mocker.MagicMock())
+    discord_bot.member_join_hook_fn = mocker.Mock()
+
+    await discord_bot.on_message(msg)
+
+    discord_bot.member_join_hook_fn.assert_not_called()
 
 
 @pytest.mark.asyncio

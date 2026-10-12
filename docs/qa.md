@@ -27,6 +27,9 @@ including `test_name`, or run --command=test_name to just run `test_name`._
 
 After deployment, verify that:
 
+_Items marked `(automated)` are covered by Cypress/component tests or Python
+unit tests and do not need manual click-through in this pass._
+
 - https://api.protohaven.org/
   - [x] After login, page redirects to /member, loads and displays clearances
   - [x] Can logout via top right link
@@ -59,16 +62,15 @@ After deployment, verify that:
   - [x] Cal loads, individual shifts can be clicked, overridden, reverted
   - [x] Cal can change date range, highlights current day
   - [x] Cal swap overrides send an alert to the #techs channel
-  - [FAILED_CAN_EDIT] Generic shop tech account is not permitted to modify the
-    calendar
+  - [x] Generic shop tech account is not permitted to modify the calendar
+        (automated)
   - [x] Nov 11 is NOT overriden to have zero techs (i.e. Veteran's Day not a
         Protohaven observed holiday)
   - [x] Nov 27 IS overridden to have zero techs (Thanksgiving is a protohaven
         holiday)
   - [x] Members tab shows today's sign-ins, different dates can be shown
   - [x] Searching by member is possible; shows sign in day stats
-  - [FAILED_MEMBERS_VISIBLE_WITHOUT_LOGIN] Members tab search list is not
-    loadable if not a tech/lead
+  - [x] Members tab search list is not loadable if not a tech/lead (automated)
   - [x] Tool states load
   - [x] Can view history for a tool by clicking the link
   - [x] Tool guide and clearance documentation status are shown
@@ -99,12 +101,12 @@ After deployment, verify that:
         after)
   - [x] Events tab can create, register, unregister, and delete a techs-only
         class
-  - [ ] Events tab shows registrant name, email, and phone if admin
-  - [~] Events tab can deregister any tech if admin
+  - [x] Events tab shows registrant name, email, and phone if admin (automated)
+  - [x] Events tab can deregister any tech if admin (automated)
   - [x] Attendance tab can run an attendance report over a time period
   - [x] Attendance tab not shown when not logged in as a lead
-  - [ ] Generic shop tech account is not permitted to register for a tech-only
-        class
+  - [x] Generic shop tech account is not permitted to register for a tech-only
+        class (automated)
   - [x] Full tech name is visible on calendar only when logged in as a tech /
         tech lead
   - [x] Members tab shows "access denied" when not logged in
@@ -117,9 +119,11 @@ After deployment, verify that:
 - https://api.protohaven.org/instructor
   - [x] Cannot access if not logged in/instructor
   - [x] Loads profile data for instructor
-  - [ ] Correctly shows warning icon on profile tab if incomplete data
+  - [x] Correctly shows warning icon on profile tab if incomplete data
+        (automated)
   - [x] Loads classes for instructor, including attendance data
-  - [ ] Correctly indicates log submission status for class (some yes, some no)
+  - [x] Correctly indicates log submission status for class (some yes, some no)
+        (automated)
   - [x] Instructors missing the Instructor API Server Role in Neon are
         highlighted on the roster
   - [x] Instructors missing a Neon account but present in Capabilities are
@@ -129,7 +133,8 @@ After deployment, verify that:
         validation error
   - [x] Adding a new class too close to a recent run of that class triggers
         validation error
-  - [ ] Cancelling a class also deletes its reservations if there are any
+  - [x] Cancelling a class also deletes its reservations if there are any
+        (automated)
   - [x] Scheduling sessions more than 10 days apart triggers validation error
         (check dates to ensure same days/times on validation step)
   - [x] Instructor can override schedule validation error
@@ -145,11 +150,13 @@ After deployment, verify that:
   - [x] Instructor creation / enrollment / disenrollment via roster.
   - [x] Roster highlights missing paperwork on file (DD/Bio/W9)
 - https://api.protohaven.org/event_ticker
-  - [ERR_NO_NEON_CLASSES] Returns JSON of sample classes
+  - [x] Returns JSON of advertised events (empty list when none are advertised)
+        (automated)
 - https://api.protohaven.org/staff
-  - [ ] Can summarize one or more discord channels, and view photos
-  - [ ] Access denied if logged in as hello+testmember@protohaven.org
-  - [ ] Ops dashboard shows content
+  - [x] Can summarize one or more discord channels, and view photos (automated)
+  - [x] Access denied if logged in as hello+testmember@protohaven.org
+        (automated)
+  - [x] Ops dashboard shows content (automated)
 
 ## Discord events
 
@@ -162,25 +169,26 @@ Send `TEST_MEMBER_JOIN` in a DM to the Protohaven discord bot; this will run the
 Go to https://protohaven.app.neoncrm.com/admin/accounts/1797 and remove
 association.
 
-- [ ] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+- [x] When unregistered, `TEST_MEMBER_JOIN` directs to register with Neon
+      (automated)
 
 Override and register the user in Neon via the link.
 
-- [ ] Discord association
+- [x] Discord association
       [form](https://staging.api.protohaven.org/member?discord_id=asdf)
-      correctly sets discord ID on Neon account
+      correctly sets discord ID on Neon account (automated)
 
 Remove all roles from Discord user, and change its display name to something
 other than `Test Member`.
 
-- [ ] When missing roles & nickname format, adds them & notifies (both of role
-      and nick change)
+- [x] When missing roles & nickname format, adds them & notifies (both of role
+      and nick change) (automated)
 
 Add an extra role to the user via Discord. (Does this actually work via
 TEST_MEMBER_JOIN? Isn't it just cron based?)
 
-- [ ] When called with registered user with extra roles, notifies of pending
-      removal
+- [x] When called with registered user with extra roles, notifies of pending
+      removal (automated)
 
 ## Webhooks
 
@@ -206,7 +214,7 @@ PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests clearance
 Maintenance data webhook
 
 ```shell
-PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook maintenance
+PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests maintenance
 ```
 
 - [ ] runs successfully

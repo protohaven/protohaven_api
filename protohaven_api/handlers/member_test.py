@@ -172,3 +172,65 @@ def test_goto_class_with_discount(mocker, memclient):
     assert response.status_code == 302
     expected_url = "https://www.eventbrite.com/e/123456789/?discount=DISCOUNT25"
     assert response.location == expected_url
+
+
+def test_set_discord_success(mocker, memclient):
+    """POST /member/set_discord associates the Neon account and starts setup"""
+    mocker.patch.object(member, "_fetch_neon_id", return_value="12345")
+    set_discord_user = mocker.patch.object(
+        member.neon,
+        "set_discord_user",
+        return_value={"accountId": "12345"},
+    )
+    setup = mocker.patch.object(member, "setup_discord_user_sync")
+    thread = mocker.patch.object(member.threading, "Thread")
+
+    response = memclient.post(
+        "/member/set_discord", json={"discord_id": "asdf", "neon_id": "12345"}
+    )
+
+    assert response.status_code == 200
+    set_discord_user.assert_called_once_with("12345", "asdf")
+    thread.assert_called_once_with(target=setup, daemon=True, args=("asdf",))
+    thread.return_value.start.assert_called_once()
+
+
+def test_set_discord_requires_discord_id(mocker, memclient):
+    """POST /member/set_discord rejects a missing discord_id"""
+    mocker.patch.object(member, "_fetch_neon_id", return_value="12345")
+
+    response = memclient.post("/member/set_discord", json={"neon_id": "12345"})
+
+    assert response.status_code == 400
+    assert b"discord_id field required" in response.data
+
+
+def test_set_discord_neon_mismatch(mocker, memclient):
+    """POST /member/set_discord fails when Neon returns another account ID"""
+    mocker.patch.object(member, "_fetch_neon_id", return_value="12345")
+    set_discord_user = mocker.patch.object(
+        member.neon,
+        "set_discord_user",
+        return_value={"accountId": "99999"},
+    )
+    setup = mocker.patch.object(member, "setup_discord_user_sync")
+    thread = mocker.patch.object(member.threading, "Thread")
+
+    response = memclient.post(
+        "/member/set_discord", json={"discord_id": "asdf", "neon_id": "12345"}
+    )
+
+    assert response.status_code == 500
+    set_discord_user.assert_called_once_with("12345", "asdf")
+    setup.assert_not_called()
+    thread.assert_not_called()
+
+
+def test_set_discord_requires_login(client):
+    """POST /member/set_discord redirects anonymous users to login"""
+    response = client.post(
+        "/member/set_discord", json={"discord_id": "asdf", "neon_id": "12345"}
+    )
+
+    assert response.status_code == 302
+    assert "/login" in response.location

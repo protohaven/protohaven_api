@@ -28,8 +28,17 @@ jobs:
           cache: pnpm
           cache-dependency-path: svelte/pnpm-lock.yaml
 
+      - name: Cache Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('svelte/pnpm-lock.yaml') }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Ensure Cypress binary
+        run: pnpm exec cypress install
 
       - name: Run svelte-check
         run: pnpm check
