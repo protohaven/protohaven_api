@@ -206,14 +206,14 @@ Legend: **Setup**, **Run**, **Assert/Cleanup**.
 
 - **Setup:** none.
 - **Run:** execute with `{}`; capture job log.
-- **Assert:** exit code 0; log contains probe URL and expected success marker.
+- **Assert:** exit code 0; log contains the HTTP success status marker (`200`).
 - **Cleanup:** none.
 
 #### `probe_homepage` (`em403g0czew`)
 
 - **Setup:** none.
 - **Run:** execute with `{}`.
-- **Assert:** exit code 0; log contains homepage probe success marker.
+- **Assert:** exit code 0; log contains the HTTP success status marker (`200`).
 - **Cleanup:** none.
 
 ### 5.2 Readonly jobs
