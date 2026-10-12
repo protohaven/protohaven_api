@@ -41,6 +41,21 @@ def test_send_discord_message_with_user_embed_error(mocker):
     )
 
 
+def test_resolve_discord_target_applies_overrides(mocker):
+    """Resolved targets reflect QA channel and DM overrides."""
+    mocker.patch.dict(
+        "os.environ",
+        {
+            "CHAN_OVERRIDE": "#qa-automation",
+            "DM_OVERRIDE": "@qa_user",
+        },
+        clear=False,
+    )
+    assert c.resolve_discord_target("#class-automation") == "#qa-automation"
+    assert c.resolve_discord_target("@workshop_protohaven") == "@qa_user"
+    assert c.resolve_discord_target() == "#techs-live"
+
+
 def test_send_discord_message_channel_override(mocker):
     """#channel targets honor CHAN_OVERRIDE."""
     mocker.patch.object(

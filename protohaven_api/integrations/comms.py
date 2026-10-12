@@ -152,19 +152,27 @@ def _discord_webhook_with_retry(channel, content):
     return result
 
 
-def send_discord_message(content, channel=None, blocking=True):
-    """Sends a message to the techs-live channel"""
-    cfg = get_config("comms")
+def resolve_discord_target(channel=None) -> str:
+    """Return the display target for a Discord message after applying overrides."""
     chan_ovr = getenv("CHAN_OVERRIDE")
     dm_ovr = getenv("DM_OVERRIDE")
     if channel is None:
-        channel = cfg["webhooks"]["techs-live"]
-    elif channel.startswith("@"):  # Send to a user
-        channel = dm_ovr or channel
+        return "#techs-live"
+    if channel.startswith("@"):  # Send to a user
+        return dm_ovr or channel
+    if channel.startswith("#"):  # Send to a channel
+        return chan_ovr or channel
+    raise RuntimeError(f"Unknown channel '{channel}' for discord message")
+
+
+def send_discord_message(content, channel=None, blocking=True):
+    """Sends a message to the techs-live channel"""
+    cfg = get_config("comms")
+    channel = resolve_discord_target(channel)
+    if channel.startswith("@"):
         return get_connector().discord_bot_fn("send_dm", channel[1:], content)
-    elif channel.startswith("#"):  # Send to a channel
-        channel = (chan_ovr or channel)[1:]
-        channel = cfg["webhooks"][channel]
+    if channel.startswith("#"):
+        channel = cfg["webhooks"][channel[1:]]
     else:
         raise RuntimeError(f"Unknown channel '{channel}' for discord message")
 
