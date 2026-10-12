@@ -5,9 +5,9 @@
 import pytest
 
 from protohaven_api.qa.base import (
-    MAX_ASSERT_LOG_CHARS,
     QA_CHANNEL,
     JobResult,
+    QAContext,
     assert_log_contains,
     assert_log_not_contains,
     assert_marked_complete,
@@ -29,14 +29,25 @@ def test_assert_log_not_contains():
         assert_log_not_contains("hello world", ["hello"])
 
 
-def test_assert_log_failures_truncate_large_output():
-    big_log = "x" * (MAX_ASSERT_LOG_CHARS + 100)
+def test_assert_log_failures_do_not_include_job_log_text():
     with pytest.raises(AssertionError) as err:
-        assert_log_contains(big_log, ["missing"])
+        assert_log_contains("secret job log contents", ["missing"])
     message = str(err.value)
-    assert len(message) <= MAX_ASSERT_LOG_CHARS + 200
-    assert "[100 chars truncated]" in message
     assert "missing" in message
+    assert "secret job log contents" not in message
+
+
+def test_qa_context_run_stores_last_result(mocker):
+    client = mocker.Mock()
+    result = mocker.Mock()
+    client.run_and_fetch_logs.return_value = result
+    ctx = QAContext(client=client, image="img")
+    mocker.patch.object(ctx, "event_params", return_value={})
+
+    out = ctx.run("probe_events", "em3xcyglgdj")
+
+    assert out is result
+    assert ctx.last_result is result
 
 
 def test_comms_assertions():

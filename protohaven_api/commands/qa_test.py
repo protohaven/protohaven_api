@@ -2,6 +2,8 @@
 
 # pylint: disable=missing-function-docstring
 
+import logging
+
 import pytest
 
 from protohaven_api.commands import qa as C
@@ -76,6 +78,48 @@ def test_cronicle_qa_sends_summary_after_advance_notice(mocker, cli):
 
     advance.assert_called_once()
     summary.assert_called_once_with(ctx, ["readonly_job"], [])
+
+
+def test_cronicle_qa_failure_logs_job_link_without_job_log_text(mocker, caplog):
+    spec = mocker.Mock()
+    spec.name = "probe_events"
+    spec.destructive = False
+
+    ctx = mocker.Mock()
+    ctx.last_result = None
+    client = mocker.Mock()
+    client.base_url = "https://cron.protohaven.org"
+
+    mocker.patch.object(C, "init_connector")
+    mocker.patch.object(C, "CronicleClient", return_value=client)
+    mocker.patch.object(C, "QAContext", return_value=ctx)
+    mocker.patch.object(C.registry, "ALL_JOBS", [spec])
+    mocker.patch.object(C.verify, "verify_no_qa_neon_accounts")
+    mocker.patch.object(C, "send_advance_notice")
+    mocker.patch.object(C, "request_acknowledgment")
+    mocker.patch.object(C, "send_summary_notice")
+    mocker.patch.object(C.sys, "exit")
+
+    def fail(job_id):
+        ctx.last_result = mocker.Mock(job_ids=[job_id])
+        raise AssertionError("missing substring")
+
+    spec.fn.side_effect = lambda _: fail("job123")
+
+    with caplog.at_level(logging.ERROR, logger="cli.qa"):
+        C.Commands().cronicle_qa(
+            [
+                "--api_key=key",
+                "--image=img",
+                "--skip-verify",
+                "--no-advance-notice",
+            ],
+            None,
+        )
+
+    assert "https://cron.protohaven.org/#JobDetails?id=job123" in caplog.text
+    assert "secret job log contents" not in caplog.text
+    C.sys.exit.assert_called_once_with(1)
 
 
 def test_webhook_qa_runs_clearance(mocker, cli):

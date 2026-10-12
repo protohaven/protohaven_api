@@ -4,6 +4,7 @@ import argparse
 import base64
 import logging
 import sys
+from typing import Any
 
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import get_config
@@ -32,6 +33,16 @@ def _default_api_key() -> str:
 def _fail(msg: str) -> None:
     log.error(msg)
     sys.exit(1)
+
+
+def _cronicle_log_links(client: CronicleClient, last_result: Any) -> str:
+    """Return a console-friendly Cronicle log link suffix for a failed job."""
+    if last_result is None or not getattr(last_result, "job_ids", None):
+        return ""
+    links = " | ".join(
+        f"{client.base_url}/#JobDetails?id={job_id}" for job_id in last_result.job_ids
+    )
+    return f" See {links}"
 
 
 class Commands:
@@ -159,13 +170,15 @@ class Commands:
         try:
             for spec in specs:
                 log.info("Running QA job: %s", spec.name)
+                ctx.last_result = None
                 try:
                     spec.fn(ctx)
                     log.info("PASS: %s", spec.name)
                     successes.append(spec.name)
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    log.exception("FAIL: %s", spec.name)
-                    failures.append(f"{spec.name}: {e}")
+                    links = _cronicle_log_links(client, ctx.last_result)
+                    log.error("FAIL: %s: %s%s", spec.name, e, links)
+                    failures.append(f"{spec.name}: {e}{links}")
                 finally:
                     try:
                         ctx.cleanup.cleanup()
@@ -176,7 +189,7 @@ class Commands:
                 try:
                     verify.verify_no_qa_neon_accounts()
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    log.exception("Final Neon verification failed")
+                    log.error("Final Neon verification failed: %s", e)
                     failures.append(f"verify_neon: {e}")
         finally:
             try:
