@@ -5,12 +5,12 @@ import logging
 import sys
 
 from protohaven_api.config import get_config
+from protohaven_api.integrations.cronicle import CronicleClient
 from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.qa import registry, verify
 from protohaven_api.qa.base import CleanupError, QAContext
 from protohaven_api.qa.comms import request_acknowledgment, send_advance_notice
-from protohaven_api.qa.cronicle import CronicleClient
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cronicle_qa")

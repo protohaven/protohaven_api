@@ -23,7 +23,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.automation.membership import membership as memauto
 from protohaven_api.config import tznow
 from protohaven_api.integrations import neon, neon_base
-from protohaven_api.qa.base import CleanupStack, QA_CHANNEL, QA_EMAIL
+from protohaven_api.qa.base import QA_CHANNEL, QA_EMAIL, CleanupStack
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
 log = logging.getLogger("qa.webhooks")
@@ -183,14 +183,18 @@ def test_new_member_webhook(ctx: WebhookQAContext, is_amp: bool = False) -> None
         rep = ctx.request(
             "POST", "/admin/neon_membership_created_callback", json=payload
         )
-    log.info("new member webhook response: %s %s", rep.status_code, rep.get_data(as_text=True))
+    log.info(
+        "new member webhook response: %s %s",
+        rep.status_code,
+        rep.get_data(as_text=True),
+    )
     assert rep.status_code == 200, rep.get_data(as_text=True)
 
-    acc = neon_base.fetch_account(
-        acct.neon_id, required=True, fetch_memberships=True
-    )
+    acc = neon_base.fetch_account(acct.neon_id, required=True, fetch_memberships=True)
     membership = acc.memberships()[0]
-    assert membership.start_date == memauto.PLACEHOLDER_START_DATE, membership.start_date
+    assert (
+        membership.start_date == memauto.PLACEHOLDER_START_DATE
+    ), membership.start_date
     assert (acc.account_automation_ran or "").startswith(
         memauto.DEFERRED_STATUS
     ), acc.account_automation_ran
@@ -204,7 +208,11 @@ def test_maintenance_webhook(ctx: WebhookQAContext) -> None:
         "/admin/get_maintenance_data",
         data={"tool_code": "FRG"},
     )
-    log.info("maintenance webhook response: %s %s", rep.status_code, rep.get_data(as_text=True))
+    log.info(
+        "maintenance webhook response: %s %s",
+        rep.status_code,
+        rep.get_data(as_text=True),
+    )
     assert rep.status_code == 200, rep.get_data(as_text=True)
     body = rep.get_json()
     assert "history" in body, body

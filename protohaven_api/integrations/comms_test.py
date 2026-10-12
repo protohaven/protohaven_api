@@ -209,6 +209,15 @@ TESTED_TEMPLATES = [
     ),
     ("booked_member_sync_summary", {"n": 5, "changes": [1, 2, 3]}),
     (
+        "cronicle_backup_summary",
+        {
+            "stats": [
+                {"name": "cronicle_backup.tar.gz", "drive_id": "CDE", "size_kb": 123},
+            ],
+            "parent_id": "PAR",
+        },
+    ),
+    (
         "class_scheduled",
         {
             "inst": "InstName",
@@ -578,6 +587,7 @@ HASHES = {
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
     "airtable_backup_summary": "db777ac0512e916a",  # pragma: allowlist secret
     "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
+    "cronicle_backup_summary": "51a003048c57c7c8",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_scheduled": "b57307cca2f8262c",  # pragma: allowlist secret
     "clearance_change_summary": "98410280f08a0823",  # pragma: allowlist secret

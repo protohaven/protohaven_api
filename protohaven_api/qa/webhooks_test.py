@@ -11,6 +11,8 @@ from protohaven_api.qa.base import QA_CHANNEL, QA_EMAIL
 
 
 class FakeResponse:
+    """Test double for Flask/requests webhook responses."""
+
     def __init__(self, status_code=200, json_data=None, text="ok"):
         self.status_code = status_code
         self._json = json_data or {}
@@ -27,7 +29,7 @@ class FakeResponse:
 def fixture_ctx(mocker):
     old_env = {k: os.environ.get(k) for k in webhooks.COMMS_OVERRIDE_KEYS}
     ctx = webhooks.WebhookQAContext(
-        api_key="key",
+        api_key="key",  # pragma: allowlist secret
         client=mocker.Mock(),
     )
     yield ctx
@@ -35,6 +37,7 @@ def fixture_ctx(mocker):
     assert all(os.environ.get(k) == v for k, v in old_env.items())
 
 
+# pylint: disable=unused-argument
 def test_context_sets_comms_overrides(ctx):
     assert os.environ["CHAN_OVERRIDE"] == QA_CHANNEL
     assert os.environ["EMAIL_OVERRIDE"] == QA_EMAIL
@@ -49,14 +52,14 @@ def test_local_request_adds_api_key_header(ctx):
         method="GET",
         data={"emails": "a@b.com"},
         json=None,
-        headers={"X-Protohaven-APIKey": "key"},
+        headers={"X-Protohaven-APIKey": "key"},  # pragma: allowlist secret
     )
 
 
 def test_remote_request(mocker):
     mock_requests = mocker.patch.object(webhooks.requests, "request")
     ctx = webhooks.WebhookQAContext(
-        api_key="key",
+        api_key="key",  # pragma: allowlist secret
         base_url="https://staging.example",
         verify_ssl=False,
     )
@@ -66,7 +69,7 @@ def test_remote_request(mocker):
         "https://staging.example/admin/neon_membership_created_callback",
         data=None,
         json={"x": 1},
-        headers={"X-Protohaven-APIKey": "key"},
+        headers={"X-Protohaven-APIKey": "key"},  # pragma: allowlist secret
         verify=False,
         allow_redirects=False,
         timeout=30,
@@ -76,9 +79,7 @@ def test_remote_request(mocker):
 
 def test_clearance_webhook(ctx, mocker):
     acct = mocker.Mock(neon_id="123", email="qa@example.com")
-    mocker.patch.object(
-        webhooks.neon_fixture, "create_mock_account", return_value=acct
-    )
+    mocker.patch.object(webhooks.neon_fixture, "create_mock_account", return_value=acct)
     responses = [
         FakeResponse(json_data={acct.email: {"result": []}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
@@ -95,9 +96,7 @@ def test_clearance_webhook(ctx, mocker):
 
 def test_new_member_webhook(ctx, mocker):
     acct = mocker.Mock(neon_id="123", email="qa@example.com")
-    mocker.patch.object(
-        webhooks.neon_fixture, "create_mock_account", return_value=acct
-    )
+    mocker.patch.object(webhooks.neon_fixture, "create_mock_account", return_value=acct)
     mocker.patch.object(
         webhooks.neon, "create_zero_cost_membership", return_value={"id": "456"}
     )
