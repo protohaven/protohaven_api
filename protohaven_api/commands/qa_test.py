@@ -25,8 +25,9 @@ def test_cronicle_qa_runs_non_destructive_jobs(mocker, cli):
     mocker.patch.object(C, "QAContext", return_value=ctx)
     mocker.patch.object(C.registry, "ALL_JOBS", [spec])
     verify = mocker.patch.object(C.verify, "verify_no_qa_neon_accounts")
-    mocker.patch.object(C, "send_advance_notice")
-    mocker.patch.object(C, "request_acknowledgment")
+    advance = mocker.patch.object(C, "send_advance_notice")
+    ack = mocker.patch.object(C, "request_acknowledgment")
+    summary = mocker.patch.object(C, "send_summary_notice")
 
     cli(
         "cronicle_qa",
@@ -45,7 +46,36 @@ def test_cronicle_qa_runs_non_destructive_jobs(mocker, cli):
     )
     spec.fn.assert_called_once_with(ctx)
     verify.assert_not_called()
+    advance.assert_not_called()
+    ack.assert_not_called()
+    summary.assert_not_called()
     assert ctx.cleanup.cleanup.call_count == 2
+
+
+def test_cronicle_qa_sends_summary_after_advance_notice(mocker, cli):
+    spec = mocker.Mock()
+    spec.name = "readonly_job"
+    spec.destructive = False
+    spec.fn = mocker.Mock()
+
+    ctx = mocker.Mock()
+    mocker.patch.object(C, "init_connector")
+    mocker.patch.object(C, "CronicleClient")
+    mocker.patch.object(C, "QAContext", return_value=ctx)
+    mocker.patch.object(C.registry, "ALL_JOBS", [spec])
+    mocker.patch.object(C.verify, "verify_no_qa_neon_accounts")
+    advance = mocker.patch.object(C, "send_advance_notice")
+    mocker.patch.object(C, "request_acknowledgment")
+    summary = mocker.patch.object(C, "send_summary_notice")
+
+    cli(
+        "cronicle_qa",
+        ["--api_key=key", "--image=img", "--skip-verify"],
+        parse_yaml=False,
+    )
+
+    advance.assert_called_once()
+    summary.assert_called_once_with(ctx, ["readonly_job"], [])
 
 
 def test_webhook_qa_runs_clearance(mocker, cli):

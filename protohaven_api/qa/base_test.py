@@ -6,6 +6,7 @@ import pytest
 
 from protohaven_api.qa.base import (
     MAX_ASSERT_LOG_CHARS,
+    QA_CHANNEL,
     JobResult,
     assert_log_contains,
     assert_log_not_contains,
@@ -39,7 +40,7 @@ def test_assert_log_failures_truncate_large_output():
 
 
 def test_comms_assertions():
-    sent = JobResult(0, ["j"], {"j": "Sent to Discord #cronicle-automation: hi"})
+    sent = JobResult(0, ["j"], {"j": f"Sent to Discord {QA_CHANNEL}: hi"})
     assert_sent_discord(sent)
     with pytest.raises(AssertionError):
         assert_no_comms_sent(sent)

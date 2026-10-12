@@ -12,7 +12,11 @@ from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.qa import registry, verify, webhooks
 from protohaven_api.qa.base import CleanupError, QAContext
-from protohaven_api.qa.comms import request_acknowledgment, send_advance_notice
+from protohaven_api.qa.comms import (
+    request_acknowledgment,
+    send_advance_notice,
+    send_summary_notice,
+)
 
 log = logging.getLogger("cli.qa")
 
@@ -144,12 +148,6 @@ class Commands:
                 ctx,
                 [s.name for s in specs],
                 duration_minutes=max(10, 2 * len(specs)),
-                failure_channels=(
-                    "#tech-automation",
-                    "#class-automation",
-                    "#tool-automation",
-                    "#membership-automation",
-                ),
             )
             request_acknowledgment(
                 [s.name for s in specs],
@@ -157,12 +155,14 @@ class Commands:
             )
 
         failures = []
+        successes = []
         try:
             for spec in specs:
                 log.info("Running QA job: %s", spec.name)
                 try:
                     spec.fn(ctx)
                     log.info("PASS: %s", spec.name)
+                    successes.append(spec.name)
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     log.exception("FAIL: %s", spec.name)
                     failures.append(f"{spec.name}: {e}")
@@ -183,6 +183,12 @@ class Commands:
                 ctx.cleanup.cleanup()
             except CleanupError as e:
                 failures.append(f"final cleanup: {e}")
+
+        if not args.no_advance_notice:
+            try:
+                send_summary_notice(ctx, successes, failures)
+            except Exception:  # pylint: disable=broad-exception-caught
+                log.exception("Failed to send QA summary after run")
 
         if failures:
             log.error("QA failures:\n%s", "\n".join(failures))

@@ -109,6 +109,7 @@ comms:
     docs-automation: ${WEBHOOK_DOCS_AUTOMATION}
     discord-automation: ${WEBHOOK_DISCORD_AUTOMATION}
     cronicle-automation: ${WEBHOOK_CRONICLE_AUTOMATION}
+    qa-automation: ${WEBHOOK_QA_AUTOMATION}
     tool-automation: ${WEBHOOK_TOOL_AUTOMATION}
     software: ${WEBHOOK_SOFTWARE}
     tech-automation: ${WEBHOOK_TECH_AUTOMATION}

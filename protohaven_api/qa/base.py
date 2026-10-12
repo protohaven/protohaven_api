@@ -12,7 +12,7 @@ from protohaven_api.integrations.cronicle import CronicleClient
 log = logging.getLogger("qa.base")
 
 QA_EMAIL = "qa-testing@protohaven.org"
-QA_CHANNEL = "#cronicle-automation"
+QA_CHANNEL = "#qa-automation"
 QA_DM = "@workshop_protohaven"
 
 MAX_ASSERT_LOG_CHARS = 4000
@@ -36,7 +36,7 @@ class CleanupStack:
     """Exception-safe LIFO cleanup stack.
 
     Cleanup functions are called in reverse registration order. If any
-    cleanup step fails, a notice is sent to #cronicle-automation and a
+    cleanup step fails, a notice is sent to #qa-automation and a
     CleanupError is raised at the end.
     """
 
