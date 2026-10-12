@@ -123,17 +123,17 @@ redirects and operating on ephemeral testing data.
 Membership creation webhook
 
 ```shell
-PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests new_member
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli webhook_qa new_member
 ```
 
 Clearance webhook
 
 ```shell
-PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests clearance
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli webhook_qa clearance
 ```
 
 Maintenance data webhook
 
 ```shell
-PH_SERVER_MODE=prod python3 -m protohaven_api.scripts.webhook_qa_tests maintenance
+PH_SERVER_MODE=prod python3 -m protohaven_api.cli webhook_qa maintenance
 ```
