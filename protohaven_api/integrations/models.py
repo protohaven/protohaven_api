@@ -964,7 +964,11 @@ class Event:  # pylint: disable=too-many-public-methods
             # If we can't parse hours, default to 3 hours per session
             hours = [3.0] * len(session_starts)
 
-        # Ensure we have enough hours for all sessions
+        # Ensure we have enough hours for all sessions. Some linked class
+        # templates return Days=0 for single-session classes, which would
+        # otherwise produce no hours and drop every session.
+        if not hours:
+            hours = [3.0] * len(session_starts)
         if len(hours) < len(session_starts):
             hours += [hours[0]] * (len(session_starts) - len(hours))
 

@@ -277,7 +277,9 @@ def _create_class_event(
         [(start, end)],
         summary="Temporary QA event; will be deleted automatically.",
         max_attendees=capacity,
-        published=False,
+        # Eventbrite does not allow order/attendee creation for unlisted
+        # events, so scenarios that register attendees must be listed.
+        published=attendees > 0,
     )
     assert event_id
     eventbrite.assign_pricing(event_id, 0, capacity, clear_existing=True)

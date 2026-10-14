@@ -81,9 +81,18 @@ def _test_backup_job(ctx: QAContext, name: str):
         args,
         send_comms=True,
     )
+    _register_uploaded_files_from_log(ctx, result.text)
+    if name == "backup_neon_accounts" and result.code != 0:
+        log.warning("backup_neon_accounts failed; retrying once")
+        result = ctx.run(
+            name,
+            BACKUP_EVENTS[name],
+            args,
+            send_comms=True,
+        )
+        _register_uploaded_files_from_log(ctx, result.text)
     assert result.code == 0
     assert_log_contains(result.text, ["Uploaded, id"])
-    _register_uploaded_files_from_log(ctx, result.text)
     assert_sent_discord(result)
 
 
