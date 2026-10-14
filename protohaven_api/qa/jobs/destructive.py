@@ -256,4 +256,4 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     assert result.code == 0
     assert_sent_discord(result)
     assert_log_contains(result.text, [f"Deleted reservation #{orphan_ref}"])
-    assert_log_contains(result.text, ["orphaned_reservations_cleanup"])
+    assert_log_contains(result.text, ["Cleaned up 1 orphaned reservation(s)"])
