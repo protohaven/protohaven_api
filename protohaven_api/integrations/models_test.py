@@ -549,6 +549,21 @@ def test_event_set_airtable_data_without_supply_cost():
     assert evt.supply_cost is None
 
 
+def test_event_areas_normalizes_single_string():
+    """Single area lookup strings are treated as a one-element list."""
+    evt = Event()
+    evt.set_airtable_data(
+        {
+            "fields": {
+                "Email": "a@b.com",
+                "Instructor": "Instructor Name",
+                "Name (from Area) (from Class)": "Woodshop",
+            }
+        }
+    )
+    assert evt.areas == ["Woodshop"]
+
+
 def test_event_url():
     """Confirm Eventbrite URL building behavior"""
     e = Event()

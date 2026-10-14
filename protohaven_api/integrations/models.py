@@ -905,7 +905,9 @@ class Event:  # pylint: disable=too-many-public-methods
             s = self.airtable_data.get("fields", {}).get(
                 "Name (from Area) (from Class)"
             )
-            return s
+            if isinstance(s, str):
+                return [s] if s else []
+            return s or []
         return []
 
     @property
