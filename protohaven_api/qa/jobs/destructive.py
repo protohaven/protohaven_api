@@ -181,6 +181,7 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         published=True,
     )
     assert event_id
+    eventbrite.set_event_scheduled_state(event_id, scheduled=True)
     ctx.cleanup.register(
         f"delete Eventbrite event {event_id}",
         lambda: eventbrite.delete_event_unsafe(event_id),
