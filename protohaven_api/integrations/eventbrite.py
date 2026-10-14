@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import tarfile
+import time
 import uuid
 from collections import defaultdict
 from io import BytesIO
@@ -377,19 +378,41 @@ def upload_logo_image(image_url: str):
         "GET", "/media/upload/?type=image-event-logo"
     )
 
-    # Second request to upload the image (probably Amazon S3)
-    response = requests.post(
-        prep["upload_url"],
-        data=prep["upload_data"],
-        files={
-            prep["file_parameter_name"]: (
-                f"image.{file_extension}",
-                BytesIO(img.content),
-                content_type,
-            ),
-        },
-        timeout=get_config("connector/timeout"),
-    )
+    # Second request to upload the image (probably Amazon S3). Eventbrite
+    # occasionally rate-limits this upload, so retry transient failures with
+    # exponential backoff. A fresh BytesIO is created per attempt because a
+    # failed request may leave the file pointer at the end of the stream.
+    attempts = int(get_config("connector/num_attempts") or 3)
+    max_delay = float(get_config("connector/max_retry_delay_sec") or 3.0)
+    retryable_statuses = (429, 500, 502, 503, 504)
+    response = None
+    for attempt in range(attempts):
+        response = requests.post(
+            prep["upload_url"],
+            data=prep["upload_data"],
+            files={
+                prep["file_parameter_name"]: (
+                    f"image.{file_extension}",
+                    BytesIO(img.content),
+                    content_type,
+                ),
+            },
+            timeout=get_config("connector/timeout"),
+        )
+        if response.status_code not in retryable_statuses:
+            break
+        if attempt < attempts - 1:
+            delay = min(max_delay, 2**attempt)
+            log.warning(
+                "Eventbrite image upload returned %s; retrying in %.1fs "
+                "(attempt %d/%d)",
+                response.status_code,
+                delay,
+                attempt + 1,
+                attempts,
+            )
+            time.sleep(delay)
+    assert response is not None
     response.raise_for_status()
 
     # Final request to notify successful save

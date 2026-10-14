@@ -736,6 +736,50 @@ def test_upload_logo_image(mocker):
     mock_s3_response.raise_for_status.assert_called_once_with()
 
 
+def test_upload_logo_image_retries_rate_limit(mocker):
+    """Transient Eventbrite image-upload 429s are retried with backoff."""
+    mock_conn = mocker.MagicMock()
+    mock_conn.eventbrite_request.side_effect = [
+        {
+            "upload_url": "https://s3.example/upload",
+            "upload_data": {"key": "value"},
+            "file_parameter_name": "file",
+            "upload_token": "token_1",
+        },
+        {"id": "logo_1"},
+    ]
+    mocker.patch.object(e, "get_connector", return_value=mock_conn)
+    mocker.patch.object(
+        e,
+        "get_config",
+        side_effect=lambda key: {
+            "connector/num_attempts": 3,
+            "connector/max_retry_delay_sec": 1,
+            "connector/timeout": 30,
+        }.get(key, 30),
+    )
+
+    mock_image = mocker.MagicMock()
+    mock_image.headers = {"Content-Type": "image/png"}
+    mock_image.content = b"image-bytes"
+    mocker.patch.object(e.requests, "get", return_value=mock_image)
+    mock_post = mocker.patch.object(
+        e.requests,
+        "post",
+        side_effect=[
+            mocker.Mock(status_code=429),
+            mocker.Mock(status_code=200),
+        ],
+    )
+    sleep = mocker.patch.object(e.time, "sleep")
+
+    got = e.upload_logo_image("https://example.com/logo.png")
+
+    assert got == "logo_1"
+    assert mock_post.call_count == 2
+    sleep.assert_called_once_with(1)
+
+
 def test_upload_logo_image_download_failure_raises(mocker):
     """An unreadable image URL fails before contacting Eventbrite"""
     mock_conn = mocker.MagicMock()
