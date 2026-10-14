@@ -176,6 +176,12 @@ class Commands:
             nargs="+",
         ),
         arg(
+            "--post-run-survey",
+            help="class IDs to auto-generate post-run surveys when generating emails",
+            type=EventID,
+            nargs="+",
+        ),
+        arg(
             "--ignore",
             help="class IDs to ignore when generating emails",
             type=EventID,
@@ -209,12 +215,15 @@ class Commands:
         b.confirm_ovr = args.confirm or []
         b.cancel_ovr = args.cancel or []
         b.for_techs_ovr = args.for_techs or []
+        b.post_run_survey_ovr = args.post_run_survey or []
         b.filter_ovr = args.filter or []
         b.published = args.published_only
         log.info(
             f"Configured email builder: ignore_ovr {b.ignore_ovr}"
             f"confirm_ovr {b.confirm_ovr} cancel_ovr {b.cancel_ovr}"
-            f" for_techs_ovr {b.for_techs_ovr} filter_ovr {b.filter_ovr}"
+            f" for_techs_ovr {b.for_techs_ovr}"
+            f" post_run_survey_ovr {b.post_run_survey_ovr}"
+            f" filter_ovr {b.filter_ovr}"
             f" published_only {b.published}"
         )
         result = b.build()

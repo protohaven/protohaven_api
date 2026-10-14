@@ -1,6 +1,7 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
 
 import datetime
+import html
 import logging
 import secrets
 from collections import defaultdict
@@ -51,7 +52,7 @@ def get_resource_area_map() -> dict[AreaID, list[ResourceID]]:
     for d in get_resources():
         for attr in d["customAttributes"]:
             if attr["id"] == area_id and attr["value"]:
-                result[attr["value"]].append(d["resourceId"])
+                result[html.unescape(attr["value"])].append(d["resourceId"])
                 break
     return result
 

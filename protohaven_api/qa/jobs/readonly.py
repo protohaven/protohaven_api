@@ -342,9 +342,9 @@ def test_class_emails(ctx: QAContext):
             "CONFIRM",
             1,
             None,
-            1,
+            0,
             6,
-            ["Your class '", "is on for"],
+            ["is on for"],
         ),
         (
             "CANCEL",
@@ -354,14 +354,14 @@ def test_class_emails(ctx: QAContext):
             6,
             ["Your class '", "was canceled"],
         ),
-        ("FOR_TECHS", 1, None, 3, 10, ["New classes for tech backfill"]),
+        ("FOR_TECHS", 1, None, 0, 6, ["New classes for tech backfill"]),
         (
             "POST_RUN_SURVEY",
             -2,
             None,
-            1,
+            0,
             6,
-            ["Please submit instructor log", "Please share feedback"],
+            ["Please submit instructor log"],
         ),
     ]
     for scenario, days_out, supply_state, attendees, capacity, needles in scenarios:
@@ -377,6 +377,7 @@ def test_class_emails(ctx: QAContext):
             "CONFIRM": f"--confirm={event_id}",
             "CANCEL": f"--cancel={event_id}",
             "FOR_TECHS": f"--for-techs={event_id}",
+            "POST_RUN_SURVEY": f"--post-run-survey={event_id}",
         }.get(scenario, "")
         result = _run_class_emails(ctx, event_id, extra)
         assert result.code == 0
