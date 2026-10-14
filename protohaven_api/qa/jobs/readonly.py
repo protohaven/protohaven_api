@@ -357,7 +357,7 @@ def test_class_emails(ctx: QAContext):
         ("FOR_TECHS", 1, None, 0, 6, ["New classes for tech backfill"]),
         (
             "POST_RUN_SURVEY",
-            -2,
+            1,
             None,
             0,
             6,
