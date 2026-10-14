@@ -453,12 +453,14 @@ Use the **Eventbrite class creation path**, not Neon.
 #### Backup jobs
 
 `backup_wiki` (`em4u369ldgl`), `backup_neon_accounts` (`emssampvlg3`),
-`backup_eventbrite_events` (`emssb5u1vg9`), `backup_sheets` (`emss9yewlg0`)
+`backup_eventbrite_events` (`emssb5u1vg9`), `backup_sheets` (`emss9yewlg0`),
+`backup_cronicle` (`emv84g76j9k`)
 
 - **Setup:** use a dedicated QA Drive folder ID.
 - **Run:** `--apply --parent_id=<QA_FOLDER_ID>`, overrides, send_comms on.
 - **Assert:** exit 0; log contains `Uploaded, id <file_id>`; summary to `COVR`.
 - **Cleanup:** delete each uploaded Drive file by file ID in `finally`.
+- **Cronicle:** preserve any event ARGS (e.g. API key) and append only QA flags.
 
 #### `sync_booked_members` (`em5ahun5604`) — `sync_booked_members`
 
