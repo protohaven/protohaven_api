@@ -38,10 +38,15 @@ def fetch_upcoming_events(
         if evt_id:
             airtable_map[str(evt_id)] = s
 
+    status = (
+        "live,started,ended,completed"
+        if published
+        else "live,started,ended,completed,draft"
+    )
     batches = cast(
         Iterable[list[Event]],
         eventbrite.fetch_events(
-            status="live,started,ended,completed",
+            status=status,
             batching=True,
             attendees=bool(attendees),
         ),

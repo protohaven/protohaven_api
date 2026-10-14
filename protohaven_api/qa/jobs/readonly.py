@@ -234,7 +234,7 @@ def test_check_empty_shifts(ctx: QAContext):
     )
     assert result.code == 0
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["empty_shift_techs"])
+    assert_log_contains(result.text, ["has nobody on duty"])
 
 
 # Only writable Schedule table fields should be sent to NocoDB. Lookup fields

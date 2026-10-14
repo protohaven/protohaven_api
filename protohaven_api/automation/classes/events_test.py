@@ -36,7 +36,7 @@ def test_fetch_upcoming_events_published_filter(mocker):
     mocker.patch.object(eauto, "tznow", return_value=d(0))
     listed = mocker.Mock(end_date=d(1), event_id="listed", published=True)
     unlisted = mocker.Mock(end_date=d(2), event_id="unlisted", published=False)
-    mocker.patch.object(
+    mock_fetch = mocker.patch.object(
         eauto.eventbrite,
         "fetch_events",
         return_value=[[listed, unlisted]],
@@ -44,6 +44,16 @@ def test_fetch_upcoming_events_published_filter(mocker):
 
     assert list(eauto.fetch_upcoming_events(published=True)) == [listed]
     assert list(eauto.fetch_upcoming_events(published=False)) == [listed, unlisted]
+    assert mock_fetch.call_args_list == [
+        mocker.call(
+            status="live,started,ended,completed", batching=True, attendees=False
+        ),
+        mocker.call(
+            status="live,started,ended,completed,draft",
+            batching=True,
+            attendees=False,
+        ),
+    ]
 
 
 def test_fetch_upcoming_events_filters_stale_events(mocker):

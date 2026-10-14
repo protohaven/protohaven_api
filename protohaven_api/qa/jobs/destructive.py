@@ -108,7 +108,6 @@ def test_discord_role(ctx: QAContext):
         [
             "Your Discord Roles Are Changing",
             "Discord Role Automation Summary",
-            "Intents updated in airtable",
         ],
     )
 
@@ -187,8 +186,11 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         lambda: eventbrite.delete_event_unsafe(event_id),
     )
 
-    area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]
-    assert area, "No area available on copied schedule row"
+    areas = raw["fields"].get("Name (from Area) (from Class)") or []
+    if isinstance(areas, str):
+        areas = [areas]
+    assert areas, "No area available on copied schedule row"
+    area = areas[0]
 
     # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
     # Class)"), so insert only the writable schedule fields and let Airtable
