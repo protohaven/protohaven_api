@@ -168,13 +168,15 @@ def resolve_discord_target(channel=None) -> str:
 def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
-    channel = resolve_discord_target(channel)
-    if channel.startswith("@"):
-        return get_connector().discord_bot_fn("send_dm", channel[1:], content)
-    if channel.startswith("#"):
-        channel = cfg["webhooks"][channel[1:]]
+    target = resolve_discord_target(channel)
+    if target.startswith("@"):
+        result = get_connector().discord_bot_fn("send_dm", target[1:], content)
+        log.info("Sent to Discord %s:", target)
+        return result
+    if target.startswith("#"):
+        channel = cfg["webhooks"][target[1:]]
     else:
-        raise RuntimeError(f"Unknown channel '{channel}' for discord message")
+        raise RuntimeError(f"Unknown channel '{target}' for discord message")
 
     # For convenience, any recognizable @role mentions are converted
     # See https://discord.com/developers/docs/reference#message-formatting
@@ -248,6 +250,7 @@ def send_discord_message(content, channel=None, blocking=True):
         result = _discord_webhook_with_retry(channel, chunk)
         if blocking:
             result.raise_for_status()
+    log.info("Sent to Discord %s:", target)
     return result
 
 

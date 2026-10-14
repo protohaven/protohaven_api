@@ -90,7 +90,7 @@ def test_check_cameras(ctx: QAContext):
 def _first_shift_with_people(now, exclude=None, skip_overrides=False):
     exclude = exclude or set()
     for day in forecast.generate(now, 7, include_pii=True)["calendar_view"]:
-        for ap, hour in (("AM", 11), ("PM", 17)):
+        for ap in ("AM", "PM"):
             if (day["date"], ap) in exclude:
                 continue
             shift = day[ap]
@@ -99,7 +99,10 @@ def _first_shift_with_people(now, exclude=None, skip_overrides=False):
             people = shift["people"]
             if people and not day["is_holiday"]:
                 when = safe_parse_datetime(day["date"]).replace(
-                    hour=hour, minute=0, second=0, microsecond=0
+                    hour=10 if ap == "AM" else 16,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
                 )
                 return day, ap, people, when
     return None
@@ -113,7 +116,10 @@ def _first_empty_shift(now, exclude=None):
                 continue
             if not day[ap]["people"] and not day["is_holiday"]:
                 when = safe_parse_datetime(day["date"]).replace(
-                    hour=11 if ap == "AM" else 17, minute=0, second=0, microsecond=0
+                    hour=10 if ap == "AM" else 16,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
                 )
                 return day, ap, when
     return None
@@ -140,7 +146,10 @@ def _force_empty_shift(ctx: QAContext, day, ap) -> None:
 
 def _shift_when(now, day, ap):
     return safe_parse_datetime(day["date"]).replace(
-        hour=11 if ap == "AM" else 17, minute=0, second=0, microsecond=0
+        hour=10 if ap == "AM" else 16,
+        minute=0,
+        second=0,
+        microsecond=0,
     )
 
 

@@ -1,6 +1,7 @@
 """Testing comms integration methods"""
 
 import hashlib
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -54,6 +55,27 @@ def test_resolve_discord_target_applies_overrides(mocker):
     assert c.resolve_discord_target("#class-automation") == "#qa-automation"
     assert c.resolve_discord_target("@workshop_protohaven") == "@qa_user"
     assert c.resolve_discord_target() == "#techs-live"
+
+
+def test_send_discord_message_logs_resolved_target(mocker, caplog):
+    """Discord sends log the resolved target after overrides."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={"webhooks": {"qa-automation": "https://qa_webhook"}},
+    )
+    mocker.patch.dict(
+        "os.environ",
+        {"CHAN_OVERRIDE": "#qa-automation"},
+        clear=False,
+    )
+    conn = mocker.patch.object(c, "get_connector").return_value
+    conn.discord_webhook.return_value = mocker.Mock(status_code=204)
+
+    with caplog.at_level(logging.INFO, logger="integrations.comms"):
+        c.send_discord_message("Test content", "#class-automation")
+
+    assert "Sent to Discord #qa-automation:" in caplog.text
 
 
 def test_send_discord_message_channel_override(mocker):

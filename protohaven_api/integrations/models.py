@@ -743,7 +743,6 @@ class Event:  # pylint: disable=too-many-public-methods
             data is not None
             and "Email" in data["fields"]
             and "Instructor" in data["fields"]
-            and "Supply Cost (from Class)" in data["fields"]
         ):
             self.airtable_data = data
 

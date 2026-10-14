@@ -538,6 +538,17 @@ def test_event_properties():  # pylint: disable=too-many-statements
     assert evt.display_level == "Test Level"
 
 
+def test_event_set_airtable_data_without_supply_cost():
+    """Airtable rows without supply-cost lookups still merge into events."""
+    evt = Event()
+    evt.set_airtable_data(
+        {"fields": {"Email": "a@b.com", "Instructor": "Instructor Name"}}
+    )
+    assert evt.instructor_email == "a@b.com"
+    assert evt.instructor_name == "Instructor Name"
+    assert evt.supply_cost is None
+
+
 def test_event_url():
     """Confirm Eventbrite URL building behavior"""
     e = Event()

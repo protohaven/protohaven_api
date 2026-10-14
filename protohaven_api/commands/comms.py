@@ -37,7 +37,6 @@ class Commands:  # pylint: disable=too-few-public-methods
             return None
         try:
             comms.send_discord_message(content, t)
-            log.info(f"Sent to Discord {resolved}: {e['subject']}")
             return [t]
         except ForbiddenError:
             # If a user has blocked our comms, that's on them. Consider it a
