@@ -181,6 +181,7 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         published=True,
     )
     assert event_id
+    eventbrite.assign_pricing(event_id, 0, 6, clear_existing=True)
     eventbrite.set_event_scheduled_state(event_id, scheduled=True)
     ctx.cleanup.register(
         f"delete Eventbrite event {event_id}",
