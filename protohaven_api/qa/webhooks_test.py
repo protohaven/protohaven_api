@@ -62,6 +62,7 @@ def test_local_request_adds_api_key_header(ctx):
     ctx.client.open.assert_called_once_with(
         "/user/clearances",
         method="GET",
+        query_string=None,
         data={"emails": "a@b.com"},
         json=None,
         headers={"X-Protohaven-APIKey": "key"},  # pragma: allowlist secret
@@ -82,6 +83,7 @@ def test_remote_request(mocker):
     mock_requests.assert_called_once_with(
         "POST",
         "https://staging.example/admin/neon_membership_created_callback",
+        params=None,
         data=None,
         json={"x": 1},
         headers={"X-Protohaven-APIKey": "key"},  # pragma: allowlist secret
@@ -145,5 +147,5 @@ def test_maintenance_webhook(ctx, mocker):
     ctx.request.assert_called_once_with(
         "GET",
         "/admin/get_maintenance_data",
-        data={"tool_code": "FRG"},
+        params={"tool_code": "FRG"},
     )

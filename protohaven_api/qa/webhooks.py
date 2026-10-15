@@ -70,11 +70,13 @@ class WebhookQAContext:
         """Restore pre-QA comms environment variables."""
         _restore_env(self._old_env)
 
+    # pylint: disable=too-many-arguments
     def request(
         self,
         method: str,
         path: str,
         *,
+        params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
@@ -86,6 +88,7 @@ class WebhookQAContext:
             return self.client.open(
                 path,
                 method=method,
+                query_string=params,
                 data=data,
                 json=json,
                 headers=headers,
@@ -95,6 +98,7 @@ class WebhookQAContext:
         return requests.request(
             method,
             url,
+            params=params,
             data=data,
             json=json,
             headers=headers,
@@ -119,7 +123,7 @@ def _response_json(rep: Any) -> Any:
 
 
 def _do_clearance_req(ctx: WebhookQAContext, method: str, data: dict[str, str]):
-    rep = ctx.request(method, "/user/clearances", data=data)
+    rep = ctx.request(method, "/user/clearances", params=data)
     log.info("%s %s: %s %s", method, data, rep.status_code, _response_text(rep))
     assert rep.status_code == 200, _response_text(rep)
     return rep
@@ -205,7 +209,7 @@ def test_new_member_webhook(ctx: WebhookQAContext, is_amp: bool = False) -> None
     assert rep.status_code == 200, _response_text(rep)
 
     acc = neon_base.fetch_account(acct.neon_id, required=True, fetch_memberships=True)
-    membership = acc.memberships()[0]
+    membership = next(iter(acc.memberships()))
     assert (
         membership.start_date == memauto.PLACEHOLDER_START_DATE
     ), membership.start_date
@@ -220,7 +224,7 @@ def test_maintenance_webhook(ctx: WebhookQAContext) -> None:
     rep = ctx.request(
         "GET",
         "/admin/get_maintenance_data",
-        data={"tool_code": "FRG"},
+        params={"tool_code": "FRG"},
     )
     log.info(
         "maintenance webhook response: %s %s",
