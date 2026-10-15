@@ -159,6 +159,12 @@ class Commands:
                 ctx,
                 [s.name for s in specs],
                 duration_minutes=max(10, 2 * len(specs)),
+                failure_channels=(
+                    "#tech-automation",
+                    "#class-automation",
+                    "#tool-automation",
+                    "#membership-automation",
+                ),
             )
             request_acknowledgment(
                 [s.name for s in specs],
