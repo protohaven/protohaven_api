@@ -100,10 +100,13 @@ def test_remote_request(mocker):
 def test_clearance_webhook(ctx, mocker):
     acct = mocker.Mock(neon_id="123", email="qa@example.com")
     mocker.patch.object(webhooks.neon_fixture, "create_mock_account", return_value=acct)
+    mocker.patch.object(
+        webhooks.neon, "resolve_clearance_code_full", return_value="FRG: Forge"
+    )
     responses = [
         FakeResponse(json_data={acct.email: {"result": []}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
-        FakeResponse(json_data={acct.email: {"result": ["FRG2: Forge 2"]}}),
+        FakeResponse(json_data={acct.email: {"result": ["FRG: Forge"]}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
     ]
@@ -141,6 +144,11 @@ def test_new_member_webhook(ctx, mocker):
 
 
 def test_maintenance_webhook(ctx, mocker):
+    mocker.patch.object(
+        webhooks.airtable,
+        "get_tools",
+        return_value=[{"fields": {"Tool Code": " SBL "}}],
+    )
     ctx.request = mocker.Mock(
         return_value=FakeResponse(json_data={"history": [], "active_tasks": []})
     )
@@ -148,5 +156,5 @@ def test_maintenance_webhook(ctx, mocker):
     ctx.request.assert_called_once_with(
         "GET",
         "/admin/get_maintenance_data",
-        params={"tool_code": "FRG"},
+        params={"tool_code": "SBL"},
     )

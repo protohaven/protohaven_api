@@ -21,8 +21,8 @@ import requests
 
 from protohaven_api.app import configure_app
 from protohaven_api.automation.membership import membership as memauto
-from protohaven_api.config import tznow
-from protohaven_api.integrations import neon, neon_base
+from protohaven_api.config import load_yaml_with_env_substitution, tznow
+from protohaven_api.integrations import airtable, neon, neon_base
 from protohaven_api.qa.base import QA_CHANNEL, QA_EMAIL, CleanupStack
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
@@ -65,6 +65,8 @@ class WebhookQAContext:
 
     def __post_init__(self) -> None:
         self._old_env = _set_qa_env_overrides()
+        # config.yaml substitution is cached, so clear it after changing env.
+        load_yaml_with_env_substitution.cache_clear()
         if self.base_url is None and self.client is None:
             self.client = configure_app(
                 session_secret=secrets.token_hex(16)
@@ -73,6 +75,7 @@ class WebhookQAContext:
     def restore_comms_overrides(self) -> None:
         """Restore pre-QA environment variables."""
         _restore_env(self._old_env)
+        load_yaml_with_env_substitution.cache_clear()
 
     # pylint: disable=too-many-arguments
     def request(
@@ -136,31 +139,25 @@ def _do_clearance_req(ctx: WebhookQAContext, method: str, data: dict[str, str]):
 def test_clearance_webhook(ctx: WebhookQAContext) -> None:
     """Exercise the ``/user/clearances`` webhook with an ephemeral Neon account."""
     acct = neon_fixture.create_mock_account(ctx, "webhook-clearance")
+    full_code = neon.resolve_clearance_code_full("FRG2")
+    assert full_code, "FRG2 clearance code not found in Neon"
 
     def _get_codes() -> set[str]:
         rep = _do_clearance_req(ctx, "GET", {"emails": acct.email})
         return set(_response_json(rep)[acct.email]["result"])
 
     codes = _get_codes()
-    if "FRG2: Forge 2" in codes:
-        _do_clearance_req(
-            ctx,
-            "DELETE",
-            {"emails": acct.email, "codes": "FRG2: Forge 2"},
-        )
+    if full_code in codes:
+        _do_clearance_req(ctx, "DELETE", {"emails": acct.email, "codes": "FRG2"})
         _get_codes()
 
-    _do_clearance_req(
-        ctx,
-        "PATCH",
-        {"emails": acct.email, "codes": "FRG2: Forge 2"},
-    )
+    _do_clearance_req(ctx, "PATCH", {"emails": acct.email, "codes": "FRG2"})
     codes = _get_codes()
-    assert "FRG2: Forge 2" in codes, codes
+    assert full_code in codes, codes
 
-    _do_clearance_req(ctx, "DELETE", {"emails": acct.email, "codes": "IMW"})
+    _do_clearance_req(ctx, "DELETE", {"emails": acct.email, "codes": "FRG2"})
     codes = _get_codes()
-    assert "FRG2: Forge 2" not in codes, codes
+    assert full_code not in codes, codes
     log.info("clearance webhook QA passed for %s", acct.email)
 
 
@@ -225,10 +222,15 @@ def test_new_member_webhook(ctx: WebhookQAContext, is_amp: bool = False) -> None
 
 def test_maintenance_webhook(ctx: WebhookQAContext) -> None:
     """Exercise the Bookstack maintenance data webhook."""
+    tool_code = next(
+        t["fields"]["Tool Code"].strip()
+        for t in airtable.get_tools()
+        if t["fields"].get("Tool Code", "").strip()
+    )
     rep = ctx.request(
         "GET",
         "/admin/get_maintenance_data",
-        params={"tool_code": "FRG"},
+        params={"tool_code": tool_code},
     )
     log.info(
         "maintenance webhook response: %s %s",
