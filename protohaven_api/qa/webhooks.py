@@ -104,10 +104,24 @@ class WebhookQAContext:
         )
 
 
+def _response_text(rep: Any) -> str:
+    """Return the body of a Flask or requests response as text."""
+    if hasattr(rep, "text"):
+        return rep.text
+    return rep.get_data(as_text=True)
+
+
+def _response_json(rep: Any) -> Any:
+    """Return the parsed JSON body of a Flask or requests response."""
+    if hasattr(rep, "json") and callable(rep.json):
+        return rep.json()
+    return rep.get_json()
+
+
 def _do_clearance_req(ctx: WebhookQAContext, method: str, data: dict[str, str]):
     rep = ctx.request(method, "/user/clearances", data=data)
-    log.info("%s %s: %s %s", method, data, rep.status_code, rep.get_data(as_text=True))
-    assert rep.status_code == 200, rep.get_data(as_text=True)
+    log.info("%s %s: %s %s", method, data, rep.status_code, _response_text(rep))
+    assert rep.status_code == 200, _response_text(rep)
     return rep
 
 
@@ -117,7 +131,7 @@ def test_clearance_webhook(ctx: WebhookQAContext) -> None:
 
     def _get_codes() -> set[str]:
         rep = _do_clearance_req(ctx, "GET", {"emails": acct.email})
-        return set(rep.get_json()[acct.email]["result"])
+        return set(_response_json(rep)[acct.email]["result"])
 
     codes = _get_codes()
     if "FRG2: Forge 2" in codes:
@@ -186,9 +200,9 @@ def test_new_member_webhook(ctx: WebhookQAContext, is_amp: bool = False) -> None
     log.info(
         "new member webhook response: %s %s",
         rep.status_code,
-        rep.get_data(as_text=True),
+        _response_text(rep),
     )
-    assert rep.status_code == 200, rep.get_data(as_text=True)
+    assert rep.status_code == 200, _response_text(rep)
 
     acc = neon_base.fetch_account(acct.neon_id, required=True, fetch_memberships=True)
     membership = acc.memberships()[0]
@@ -211,10 +225,10 @@ def test_maintenance_webhook(ctx: WebhookQAContext) -> None:
     log.info(
         "maintenance webhook response: %s %s",
         rep.status_code,
-        rep.get_data(as_text=True),
+        _response_text(rep),
     )
-    assert rep.status_code == 200, rep.get_data(as_text=True)
-    body = rep.get_json()
+    assert rep.status_code == 200, _response_text(rep)
+    body = _response_json(rep)
     assert "history" in body, body
     assert "active_tasks" in body, body
     log.info("maintenance webhook QA passed")

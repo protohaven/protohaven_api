@@ -1,6 +1,6 @@
 """Tests for the webhook QA harness."""
 
-# pylint: disable=missing-function-docstring
+# pylint: disable=missing-function-docstring,too-few-public-methods,protected-access
 
 import os
 
@@ -23,6 +23,18 @@ class FakeResponse:
 
     def get_data(self, as_text=False):
         return self.text if as_text else self.text.encode()
+
+
+class FakeRequestsResponse:
+    """Test double for a remote requests.Response."""
+
+    def __init__(self, status_code=200, json_data=None, text="ok"):
+        self.status_code = status_code
+        self._json = json_data or {}
+        self.text = text
+
+    def json(self):
+        return self._json
 
 
 @pytest.fixture(name="ctx")
@@ -58,12 +70,15 @@ def test_local_request_adds_api_key_header(ctx):
 
 def test_remote_request(mocker):
     mock_requests = mocker.patch.object(webhooks.requests, "request")
+    mock_requests.return_value = FakeRequestsResponse(
+        json_data={"ok": True}, text='{"ok": true}'
+    )
     ctx = webhooks.WebhookQAContext(
         api_key="key",  # pragma: allowlist secret
         base_url="https://staging.example",
         verify_ssl=False,
     )
-    ctx.request("POST", "/admin/neon_membership_created_callback", json={"x": 1})
+    rep = ctx.request("POST", "/admin/neon_membership_created_callback", json={"x": 1})
     mock_requests.assert_called_once_with(
         "POST",
         "https://staging.example/admin/neon_membership_created_callback",
@@ -74,6 +89,8 @@ def test_remote_request(mocker):
         allow_redirects=False,
         timeout=30,
     )
+    assert webhooks._response_text(rep) == '{"ok": true}'
+    assert webhooks._response_json(rep) == {"ok": True}
     ctx.restore_comms_overrides()
 
 
