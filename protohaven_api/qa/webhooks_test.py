@@ -39,7 +39,7 @@ class FakeRequestsResponse:
 
 @pytest.fixture(name="ctx")
 def fixture_ctx(mocker):
-    old_env = {k: os.environ.get(k) for k in webhooks.COMMS_OVERRIDE_KEYS}
+    old_env = {k: os.environ.get(k) for k in webhooks.ENV_OVERRIDE_KEYS}
     ctx = webhooks.WebhookQAContext(
         api_key="key",  # pragma: allowlist secret
         client=mocker.Mock(),
@@ -50,9 +50,10 @@ def fixture_ctx(mocker):
 
 
 # pylint: disable=unused-argument
-def test_context_sets_comms_overrides(ctx):
+def test_context_sets_env_overrides(ctx):
     assert os.environ["CHAN_OVERRIDE"] == QA_CHANNEL
     assert os.environ["EMAIL_OVERRIDE"] == QA_EMAIL
+    assert os.environ["NEW_MEMBERSHIP_ENABLED"] == "true"
 
 
 def test_local_request_adds_api_key_header(ctx):

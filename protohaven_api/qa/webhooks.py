@@ -28,19 +28,23 @@ from protohaven_api.qa.fixtures import neon as neon_fixture
 
 log = logging.getLogger("qa.webhooks")
 
-COMMS_OVERRIDE_KEYS = ("CHAN_OVERRIDE", "EMAIL_OVERRIDE")
+ENV_OVERRIDE_KEYS = ("CHAN_OVERRIDE", "EMAIL_OVERRIDE", "NEW_MEMBERSHIP_ENABLED")
+ENV_OVERRIDE_VALUES = {
+    "CHAN_OVERRIDE": QA_CHANNEL,
+    "EMAIL_OVERRIDE": QA_EMAIL,
+    "NEW_MEMBERSHIP_ENABLED": "true",
+}
 
 
-def _set_comms_overrides() -> dict[str, str | None]:
-    """Point Discord/email at QA targets and return the prior env values."""
-    old = {key: os.environ.get(key) for key in COMMS_OVERRIDE_KEYS}
-    os.environ["CHAN_OVERRIDE"] = QA_CHANNEL
-    os.environ["EMAIL_OVERRIDE"] = QA_EMAIL
+def _set_qa_env_overrides() -> dict[str, str | None]:
+    """Point comms and webhook initialization at QA targets."""
+    old = {key: os.environ.get(key) for key in ENV_OVERRIDE_KEYS}
+    os.environ.update(ENV_OVERRIDE_VALUES)
     return old
 
 
 def _restore_env(old: dict[str, str | None]) -> None:
-    """Restore environment variables changed by :func:`_set_comms_overrides`."""
+    """Restore environment variables changed by :func:`_set_qa_env_overrides`."""
     for key, value in old.items():
         if value is None:
             os.environ.pop(key, None)
@@ -60,14 +64,14 @@ class WebhookQAContext:
     client: Any = None
 
     def __post_init__(self) -> None:
-        self._old_env = _set_comms_overrides()
+        self._old_env = _set_qa_env_overrides()
         if self.base_url is None and self.client is None:
             self.client = configure_app(
                 session_secret=secrets.token_hex(16)
             ).test_client()
 
     def restore_comms_overrides(self) -> None:
-        """Restore pre-QA comms environment variables."""
+        """Restore pre-QA environment variables."""
         _restore_env(self._old_env)
 
     # pylint: disable=too-many-arguments
