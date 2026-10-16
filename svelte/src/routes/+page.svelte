@@ -25,6 +25,9 @@ Test change
 	<li>
 		<a href="http://localhost:5173/admin/login_as?neon_id=9999">Login</a> as Instructor/PrivateInstructor/EduLead
 	</li>
+	<li>
+		<a href="http://localhost:5173/admin/login_as?neon_id=7413">Login</a> as Shop Tech
+	</li>
 </ul>
 
 <h3>Directory</h3>

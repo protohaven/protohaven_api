@@ -125,11 +125,14 @@
 		}
 		refresh();
 	}
-	$: {
-		if (visible && !loaded) {
-			refresh();
-		}
-	}
+
+  onMount(() => {
+    $: {
+      if (visible && !loaded) {
+        refresh();
+      }
+    }
+  });
 
 	let edit = null;
 
