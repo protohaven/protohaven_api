@@ -1,5 +1,6 @@
 """Various objects representing physical and digital entities."""
 
+import datetime
 import json
 from collections import namedtuple
 
@@ -536,6 +537,55 @@ def test_event_properties():  # pylint: disable=too-many-statements
     assert evt.supply_state == "Ordered"
     assert evt.display_category == "Test Category"
     assert evt.display_level == "Test Level"
+
+
+def test_event_set_airtable_data_without_supply_cost():
+    """Airtable rows without supply-cost lookups still merge into events."""
+    evt = Event()
+    evt.set_airtable_data(
+        {"fields": {"Email": "a@b.com", "Instructor": "Instructor Name"}}
+    )
+    assert evt.instructor_email == "a@b.com"
+    assert evt.instructor_name == "Instructor Name"
+    assert evt.supply_cost is None
+
+
+def test_event_areas_normalizes_single_string():
+    """Single area lookup strings are treated as a one-element list."""
+    evt = Event()
+    evt.set_airtable_data(
+        {
+            "fields": {
+                "Email": "a@b.com",
+                "Instructor": "Instructor Name",
+                "Name (from Area) (from Class)": "Woodshop",
+            }
+        }
+    )
+    assert evt.areas == ["Woodshop"]
+
+
+def test_event_sessions_falls_back_when_days_lookup_is_zero():
+    """Days=0 from a linked template still yields the Airtable session time."""
+    evt = Event()
+    evt.set_airtable_data(
+        {
+            "fields": {
+                "Email": "a@b.com",
+                "Instructor": "Instructor Name",
+                "Sessions": "2025-01-01T18:00:00-05:00",
+                "Hours (from Class)": "3",
+                "Days (from Class)": "0",
+            }
+        }
+    )
+    assert evt.sessions == [
+        (
+            datetime.datetime.fromisoformat("2025-01-01T18:00:00-05:00"),
+            datetime.datetime.fromisoformat("2025-01-01T18:00:00-05:00")
+            + datetime.timedelta(hours=3),
+        )
+    ]
 
 
 def test_event_url():

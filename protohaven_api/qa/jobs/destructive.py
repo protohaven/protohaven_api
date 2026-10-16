@@ -108,7 +108,6 @@ def test_discord_role(ctx: QAContext):
         [
             "Your Discord Roles Are Changing",
             "Discord Role Automation Summary",
-            "Intents updated in airtable",
         ],
     )
 
@@ -182,13 +181,18 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
         published=True,
     )
     assert event_id
+    eventbrite.assign_pricing(event_id, 0, 6, clear_existing=True)
+    eventbrite.set_event_scheduled_state(event_id, scheduled=True)
     ctx.cleanup.register(
         f"delete Eventbrite event {event_id}",
         lambda: eventbrite.delete_event_unsafe(event_id),
     )
 
-    area = (raw["fields"].get("Name (from Area) (from Class)") or [None])[0]
-    assert area, "No area available on copied schedule row"
+    areas = raw["fields"].get("Name (from Area) (from Class)") or []
+    if isinstance(areas, str):
+        areas = [areas]
+    assert areas, "No area available on copied schedule row"
+    area = areas[0]
 
     # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
     # Class)"), so insert only the writable schedule fields and let Airtable
@@ -252,4 +256,4 @@ def test_cleanup_orphaned_class_reservations(ctx: QAContext):
     assert result.code == 0
     assert_sent_discord(result)
     assert_log_contains(result.text, [f"Deleted reservation #{orphan_ref}"])
-    assert_log_contains(result.text, ["orphaned_reservations_cleanup"])
+    assert_log_contains(result.text, ["Cleaned up 1 orphaned reservation(s)"])

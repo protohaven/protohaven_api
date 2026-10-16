@@ -16,7 +16,7 @@ Cronicle QA runs jobs with **prod credentials**. The tests must:
 4. Verify real job behavior from Cronicle logs, not from the old
    `input("Confirm message was sent")` prompt.
 5. Clean up mock data even when a job or assertion throws.
-6. Fail loudly and notify `#cronicle-automation` when automatic cleanup fails.
+6. Fail loudly and notify `#qa-automation` when automatic cleanup fails.
 
 ## 2. QA package layout
 
@@ -31,7 +31,7 @@ protohaven_api/qa/
   plan.md
   base.py              # run IDs, context, cleanup stack, assertion helpers
   comms.py             # overrides, advance notice, send assertions
-  cleanup.py           # cleanup failure collection + #cronicle-automation notice
+  cleanup.py           # cleanup failure collection + #qa-automation notice
   fixtures/
     neon.py            # mock Neon account/membership helpers
     airtable.py        # mock Airtable record helpers
@@ -61,7 +61,7 @@ python3 -m protohaven_api.cli cronicle_qa --api_key=... --image=...
 ### 3.1 Communication overrides
 
 ```python
-COVR = "#cronicle-automation"
+COVR = "#qa-automation"
 EOVR = "qa-testing@protohaven.org"
 DOVR = "@workshop_protohaven"   # dedicated QA Discord user
 ```
@@ -74,7 +74,7 @@ DOVR = "@workshop_protohaven"   # dedicated QA Discord user
 For any job that should send comms:
 
 ```text
-ARGS_CHAN_OVERRIDE=#cronicle-automation
+ARGS_CHAN_OVERRIDE=#qa-automation
 ARGS_EMAIL_OVERRIDE=qa-testing@protohaven.org
 ARGS_DM_OVERRIDE=@workshop_protohaven   # where applicable
 ARGS_SEND_COMMS=1
@@ -90,7 +90,7 @@ ARGS_YAML_OUT=
 
 Assertions are made from the Cronicle job log:
 
-- Discord sent: `Sent to Discord #cronicle-automation:`
+- Discord sent: `Sent to Discord #qa-automation:`
 - Email sent: `Sent msg` and `qa-testing@protohaven.org`
 - No action: generated empty YAML / `was empty, so nothing to do.` and no
   `Sent to Discord` or `Sent msg`
@@ -98,7 +98,7 @@ Assertions are made from the Cronicle job log:
 
 ### 3.2 Advance notice
 
-Before running any tests, send one message to `#cronicle-automation` and one
+Before running any tests, send one message to `#qa-automation` and one
 email to `qa-testing@protohaven.org` containing:
 
 - list of jobs about to run
@@ -116,7 +116,7 @@ Every mock resource is registered in a `CleanupStack`. Cleanup runs in
 `finally`, even after exceptions. If any cleanup step fails:
 
 1. Collect a structured description: resource type, identifier, cleanup error.
-2. Send one Discord message to `#cronicle-automation`:
+2. Send one Discord message to `#qa-automation`:
    `QA cleanup failed; manual cleanup required:` followed by the list.
 3. Return a non-zero exit code at the end of the QA run.
 
@@ -132,7 +132,7 @@ last:     <Job> <run_id>
 
 After all tests, `verify_no_qa_neon_accounts()` searches Neon for accounts
 with email/name matching the QA prefix and fails if any remain. Remaining
-accounts are included in the `#cronicle-automation` manual-cleanup notice.
+accounts are included in the `#qa-automation` manual-cleanup notice.
 
 ### 3.5 Cronicle log verification
 
@@ -161,7 +161,7 @@ Several commands call `comms.send_discord_message` directly with hardcoded
 channels such as `#tool-automation` or `#class-automation`. Update those paths
 (or the central `send_discord_message` helper) so channel targets honor
 `CHAN_OVERRIDE` when it is set. QA then routes failure-path messages to
-`#cronicle-automation` just like normal generated comms.
+`#qa-automation` just like normal generated comms.
 
 ### 3.8 Asana task filtering
 
@@ -206,14 +206,14 @@ Legend: **Setup**, **Run**, **Assert/Cleanup**.
 
 - **Setup:** none.
 - **Run:** execute with `{}`; capture job log.
-- **Assert:** exit code 0; log contains probe URL and expected success marker.
+- **Assert:** exit code 0; log contains the HTTP success status marker (`200`).
 - **Cleanup:** none.
 
 #### `probe_homepage` (`em403g0czew`)
 
 - **Setup:** none.
 - **Run:** execute with `{}`.
-- **Assert:** exit code 0; log contains homepage probe success marker.
+- **Assert:** exit code 0; log contains the HTTP success status marker (`200`).
 - **Cleanup:** none.
 
 ### 5.2 Readonly jobs
@@ -418,7 +418,7 @@ creates a temporary unpublished event and Airtable schedule row.
 Use the **Eventbrite class creation path**, not Neon.
 
 - **Setup:** create a temporary Airtable schedule row with future sessions,
-  confirmed, no event ID, `use_eventbrite` true.
+  confirmed, no event ID.
 - **Run:**
   `--apply --ovr=<schedule_id> --no-publish --no-registration --no-reserve --no-discounts`,
   overrides, send_comms on.
@@ -453,12 +453,14 @@ Use the **Eventbrite class creation path**, not Neon.
 #### Backup jobs
 
 `backup_wiki` (`em4u369ldgl`), `backup_neon_accounts` (`emssampvlg3`),
-`backup_eventbrite_events` (`emssb5u1vg9`), `backup_sheets` (`emss9yewlg0`)
+`backup_eventbrite_events` (`emssb5u1vg9`), `backup_sheets` (`emss9yewlg0`),
+`backup_cronicle` (`emv84g76j9k`)
 
 - **Setup:** use a dedicated QA Drive folder ID.
 - **Run:** `--apply --parent_id=<QA_FOLDER_ID>`, overrides, send_comms on.
 - **Assert:** exit 0; log contains `Uploaded, id <file_id>`; summary to `COVR`.
 - **Cleanup:** delete each uploaded Drive file by file ID in `finally`.
+- **Cronicle:** preserve any event ARGS (e.g. API key) and append only QA flags.
 
 #### `sync_booked_members` (`em5ahun5604`) — `sync_booked_members`
 
@@ -574,7 +576,7 @@ These changes are outside the QA harness but needed for safe, meaningful QA:
 
 - `cronicle.py`: mock `requests` and assert schedule/run/status/log polling.
 - `base.py` / `cleanup.py`: assert cleanup runs on exceptions and failed
-  cleanups produce the `#cronicle-automation` notice.
+  cleanups produce the `#qa-automation` notice.
 - `fixtures/*`: assert factories create the right payloads and register
   cleanup steps.
 - `jobs/*`: use `mkcli` from `protohaven_api.testing` where command-level
@@ -588,10 +590,10 @@ These changes are outside the QA harness but needed for safe, meaningful QA:
 - No `test_simple` remains.
 - Every Cronicle event ID is mapped to a job-specific setup/run/assert/cleanup
   plan.
-- All comms are overridden to `#cronicle-automation`,
+- All comms are overridden to `#qa-automation`,
   `qa-testing@protohaven.org`, and `@workshop_protohaven`.
 - Cronicle logs, not manual “Confirm message was sent”, determine pass/fail.
 - Cleanup is exception-safe and reports manual cleanup needs to
-  `#cronicle-automation`.
+  `#qa-automation`.
 - Final Neon search proves no QA mock accounts persist.
 - QA harness code lives under `protohaven_api/qa` with unit tests.

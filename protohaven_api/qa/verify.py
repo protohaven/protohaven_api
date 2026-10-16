@@ -15,7 +15,7 @@ def verify_no_qa_neon_accounts(notify: bool = True) -> None:
     First anonymizes any legacy QA-prefixed accounts left behind by prior
     failed runs (Neon V2 has no account delete endpoint). If leftovers
     remain and ``notify`` is true, send a manual-cleanup notice to
-    ``#cronicle-automation`` before raising.
+    ``#qa-automation`` before raising.
     """
     try:
         neon_fixture.anonymize_legacy_qa_accounts()

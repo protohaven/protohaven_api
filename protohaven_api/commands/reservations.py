@@ -511,7 +511,8 @@ class Commands:
         class_time_map = defaultdict(set)
         for event in published_events:
             log.info(f"{event.name} - {event.areas}")
-            for session_start, _ in event.sessions:
+            sessions = event.sessions or [(event.start_date, event.end_date)]
+            for session_start, _ in sessions:
                 log.info(f"\t{session_start.isoformat()}")
                 for area in event.areas or []:
                     class_time_map[area].add(session_start)

@@ -4,6 +4,7 @@ import argparse
 import base64
 import logging
 import sys
+from typing import Any
 
 from protohaven_api.commands.decorator import arg, command
 from protohaven_api.config import get_config
@@ -12,7 +13,11 @@ from protohaven_api.integrations.data.connector import Connector
 from protohaven_api.integrations.data.connector import init as init_connector
 from protohaven_api.qa import registry, verify, webhooks
 from protohaven_api.qa.base import CleanupError, QAContext
-from protohaven_api.qa.comms import request_acknowledgment, send_advance_notice
+from protohaven_api.qa.comms import (
+    request_acknowledgment,
+    send_advance_notice,
+    send_summary_notice,
+)
 
 log = logging.getLogger("cli.qa")
 
@@ -28,6 +33,16 @@ def _default_api_key() -> str:
 def _fail(msg: str) -> None:
     log.error(msg)
     sys.exit(1)
+
+
+def _cronicle_log_links(client: CronicleClient, last_result: Any) -> str:
+    """Return a console-friendly Cronicle log link suffix for a failed job."""
+    if last_result is None or not getattr(last_result, "job_ids", None):
+        return ""
+    links = " | ".join(
+        f"{client.base_url}/#JobDetails?id={job_id}" for job_id in last_result.job_ids
+    )
+    return f" See {links}"
 
 
 class Commands:
@@ -157,15 +172,19 @@ class Commands:
             )
 
         failures = []
+        successes = []
         try:
             for spec in specs:
                 log.info("Running QA job: %s", spec.name)
+                ctx.last_result = None
                 try:
                     spec.fn(ctx)
                     log.info("PASS: %s", spec.name)
+                    successes.append(spec.name)
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    log.exception("FAIL: %s", spec.name)
-                    failures.append(f"{spec.name}: {e}")
+                    links = _cronicle_log_links(client, ctx.last_result)
+                    log.error("FAIL: %s: %s%s", spec.name, e, links)
+                    failures.append(f"{spec.name}: {e}{links}")
                 finally:
                     try:
                         ctx.cleanup.cleanup()
@@ -176,13 +195,19 @@ class Commands:
                 try:
                     verify.verify_no_qa_neon_accounts()
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    log.exception("Final Neon verification failed")
+                    log.error("Final Neon verification failed: %s", e)
                     failures.append(f"verify_neon: {e}")
         finally:
             try:
                 ctx.cleanup.cleanup()
             except CleanupError as e:
                 failures.append(f"final cleanup: {e}")
+
+        if not args.no_advance_notice:
+            try:
+                send_summary_notice(ctx, successes, failures)
+            except Exception:  # pylint: disable=broad-exception-caught
+                log.exception("Failed to send QA summary after run")
 
         if failures:
             log.error("QA failures:\n%s", "\n".join(failures))
@@ -197,12 +222,6 @@ class Commands:
                 "Base URL of a running API server. Omit to run in-process "
                 "so QA comms overrides apply."
             ),
-            type=str,
-            default=None,
-        ),
-        arg(
-            "--user",
-            help="Deprecated; QA now creates ephemeral Neon accounts automatically.",
             type=str,
             default=None,
         ),

@@ -1,6 +1,6 @@
 """Tests for the webhook QA harness."""
 
-# pylint: disable=missing-function-docstring
+# pylint: disable=missing-function-docstring,too-few-public-methods,protected-access
 
 import os
 
@@ -25,9 +25,21 @@ class FakeResponse:
         return self.text if as_text else self.text.encode()
 
 
+class FakeRequestsResponse:
+    """Test double for a remote requests.Response."""
+
+    def __init__(self, status_code=200, json_data=None, text="ok"):
+        self.status_code = status_code
+        self._json = json_data or {}
+        self.text = text
+
+    def json(self):
+        return self._json
+
+
 @pytest.fixture(name="ctx")
 def fixture_ctx(mocker):
-    old_env = {k: os.environ.get(k) for k in webhooks.COMMS_OVERRIDE_KEYS}
+    old_env = {k: os.environ.get(k) for k in webhooks.ENV_OVERRIDE_KEYS}
     ctx = webhooks.WebhookQAContext(
         api_key="key",  # pragma: allowlist secret
         client=mocker.Mock(),
@@ -38,9 +50,10 @@ def fixture_ctx(mocker):
 
 
 # pylint: disable=unused-argument
-def test_context_sets_comms_overrides(ctx):
+def test_context_sets_env_overrides(ctx):
     assert os.environ["CHAN_OVERRIDE"] == QA_CHANNEL
     assert os.environ["EMAIL_OVERRIDE"] == QA_EMAIL
+    assert os.environ["NEW_MEMBERSHIP_ENABLED"] == "true"
 
 
 def test_local_request_adds_api_key_header(ctx):
@@ -50,6 +63,7 @@ def test_local_request_adds_api_key_header(ctx):
     ctx.client.open.assert_called_once_with(
         "/user/clearances",
         method="GET",
+        query_string=None,
         data={"emails": "a@b.com"},
         json=None,
         headers={"X-Protohaven-APIKey": "key"},  # pragma: allowlist secret
@@ -58,15 +72,19 @@ def test_local_request_adds_api_key_header(ctx):
 
 def test_remote_request(mocker):
     mock_requests = mocker.patch.object(webhooks.requests, "request")
+    mock_requests.return_value = FakeRequestsResponse(
+        json_data={"ok": True}, text='{"ok": true}'
+    )
     ctx = webhooks.WebhookQAContext(
         api_key="key",  # pragma: allowlist secret
         base_url="https://staging.example",
         verify_ssl=False,
     )
-    ctx.request("POST", "/admin/neon_membership_created_callback", json={"x": 1})
+    rep = ctx.request("POST", "/admin/neon_membership_created_callback", json={"x": 1})
     mock_requests.assert_called_once_with(
         "POST",
         "https://staging.example/admin/neon_membership_created_callback",
+        params=None,
         data=None,
         json={"x": 1},
         headers={"X-Protohaven-APIKey": "key"},  # pragma: allowlist secret
@@ -74,16 +92,21 @@ def test_remote_request(mocker):
         allow_redirects=False,
         timeout=30,
     )
+    assert webhooks._response_text(rep) == '{"ok": true}'
+    assert webhooks._response_json(rep) == {"ok": True}
     ctx.restore_comms_overrides()
 
 
 def test_clearance_webhook(ctx, mocker):
     acct = mocker.Mock(neon_id="123", email="qa@example.com")
     mocker.patch.object(webhooks.neon_fixture, "create_mock_account", return_value=acct)
+    mocker.patch.object(
+        webhooks.neon, "resolve_clearance_code_full", return_value="FRG: Forge"
+    )
     responses = [
         FakeResponse(json_data={acct.email: {"result": []}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
-        FakeResponse(json_data={acct.email: {"result": ["FRG2: Forge 2"]}}),
+        FakeResponse(json_data={acct.email: {"result": ["FRG: Forge"]}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
         FakeResponse(json_data={acct.email: {"result": []}}),
     ]
@@ -121,6 +144,11 @@ def test_new_member_webhook(ctx, mocker):
 
 
 def test_maintenance_webhook(ctx, mocker):
+    mocker.patch.object(
+        webhooks.airtable,
+        "get_tools",
+        return_value=[{"fields": {"Tool Code": " SBL "}}],
+    )
     ctx.request = mocker.Mock(
         return_value=FakeResponse(json_data={"history": [], "active_tasks": []})
     )
@@ -128,5 +156,5 @@ def test_maintenance_webhook(ctx, mocker):
     ctx.request.assert_called_once_with(
         "GET",
         "/admin/get_maintenance_data",
-        data={"tool_code": "FRG"},
+        params={"tool_code": "SBL"},
     )

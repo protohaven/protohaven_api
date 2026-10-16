@@ -570,6 +570,45 @@ def test_cleanup_orphaned_class_reservations(mocker):
     r.booked.delete_reservation.assert_called_once_with("R2")
 
 
+def test_cleanup_orphaned_class_reservations_falls_back_to_eventbrite_times(mocker):
+    """Reservations match Eventbrite start times when Airtable sessions are empty."""
+    c = r.Commands()
+    mocker.patch.object(r, "eauto")
+    mocker.patch.object(r, "booked")
+    mocker.patch.object(r, "print_yaml")
+    mocker.patch.object(r, "tznow", return_value=d(0, 10))
+
+    event = mocker.MagicMock()
+    event.airtable_data = True
+    event.event_id = "e1"
+    event.name = "Class"
+    event.start_date = d(1, 10)
+    event.end_date = d(1, 13)
+    event.areas = ["Woodshop"]
+    event.sessions = []
+    r.eauto.fetch_upcoming_events.return_value = [event]
+    r.booked.get_resource_area_map.return_value = {"Woodshop": [5]}
+    r.booked.get_automation_reservations.return_value = [
+        {
+            "resourceId": 5,
+            "referenceNumber": "R1",
+            "resourceName": "Woodshop - Saw",
+            "startDate": d(1, 10),
+            "title": "Class",
+        },
+        {
+            "resourceId": 5,
+            "referenceNumber": "R2",
+            "resourceName": "Woodshop - Saw",
+            "startDate": d(1, 14),
+            "title": "Orphan",
+        },
+    ]
+
+    c.cleanup_orphaned_class_reservations(["--apply"], mocker.MagicMock())
+    r.booked.delete_reservation.assert_called_once_with("R2")
+
+
 def test_cleanup_orphaned_class_reservations_max_and_delete_error(mocker):
     """Cleanup stops at max and records delete failures"""
     c = r.Commands()

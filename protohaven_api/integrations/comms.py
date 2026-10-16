@@ -152,21 +152,31 @@ def _discord_webhook_with_retry(channel, content):
     return result
 
 
-def send_discord_message(content, channel=None, blocking=True):
-    """Sends a message to the techs-live channel"""
-    cfg = get_config("comms")
+def resolve_discord_target(channel=None) -> str:
+    """Return the display target for a Discord message after applying overrides."""
     chan_ovr = getenv("CHAN_OVERRIDE")
     dm_ovr = getenv("DM_OVERRIDE")
     if channel is None:
-        channel = cfg["webhooks"]["techs-live"]
-    elif channel.startswith("@"):  # Send to a user
-        channel = dm_ovr or channel
-        return get_connector().discord_bot_fn("send_dm", channel[1:], content)
-    elif channel.startswith("#"):  # Send to a channel
-        channel = (chan_ovr or channel)[1:]
-        channel = cfg["webhooks"][channel]
+        return "#techs-live"
+    if channel.startswith("@"):  # Send to a user
+        return dm_ovr or channel
+    if channel.startswith("#"):  # Send to a channel
+        return chan_ovr or channel
+    raise RuntimeError(f"Unknown channel '{channel}' for discord message")
+
+
+def send_discord_message(content, channel=None, blocking=True):
+    """Sends a message to the techs-live channel"""
+    cfg = get_config("comms")
+    target = resolve_discord_target(channel)
+    if target.startswith("@"):
+        result = get_connector().discord_bot_fn("send_dm", target[1:], content)
+        log.info("Sent to Discord %s:", target)
+        return result
+    if target.startswith("#"):
+        channel = cfg["webhooks"][target[1:]]
     else:
-        raise RuntimeError(f"Unknown channel '{channel}' for discord message")
+        raise RuntimeError(f"Unknown channel '{target}' for discord message")
 
     # For convenience, any recognizable @role mentions are converted
     # See https://discord.com/developers/docs/reference#message-formatting
@@ -240,6 +250,7 @@ def send_discord_message(content, channel=None, blocking=True):
         result = _discord_webhook_with_retry(channel, chunk)
         if blocking:
             result.raise_for_status()
+    log.info("Sent to Discord %s:", target)
     return result
 
 

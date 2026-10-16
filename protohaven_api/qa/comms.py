@@ -52,6 +52,29 @@ def send_advance_notice(
         raise
 
 
+def send_summary_notice(
+    ctx: QAContext,
+    successes: list[str],
+    failures: list[str],
+) -> None:
+    """Send a post-run QA summary to the QA Discord channel."""
+    lines = [
+        f"Cronicle QA finished (run_id={ctx.run_id}): "
+        f"{len(successes)} passed, {len(failures)} failed."
+    ]
+    if successes:
+        lines.append("\nPassed:")
+        lines.extend(f"- {name}" for name in successes)
+    if failures:
+        lines.append("\nFailed:")
+        lines.extend(f"- {failure}" for failure in failures)
+    try:
+        comms.send_discord_message("\n".join(lines), QA_CHANNEL, blocking=True)
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.exception("Failed to send QA summary to Discord")
+        raise
+
+
 def request_acknowledgment(job_names: list[str], interactive: bool = True) -> None:
     """Require operator acknowledgment before running QA jobs.
 

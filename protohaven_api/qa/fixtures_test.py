@@ -1,6 +1,6 @@
 """Tests for QA fixture helpers."""
 
-# pylint: disable=missing-function-docstring
+# pylint: disable=duplicate-code,missing-function-docstring
 
 from protohaven_api.qa.fixtures import airtable as airtable_fixture
 from protohaven_api.qa.fixtures import neon as neon_fixture

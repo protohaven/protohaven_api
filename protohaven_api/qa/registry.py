@@ -208,6 +208,13 @@ def _specs():
             send_comms=True,
         ),
         JobSpec(
+            "backup_cronicle",
+            "additive",
+            jobs.additive.test_backup_cronicle,
+            "emv84g76j9k",
+            send_comms=True,
+        ),
+        JobSpec(
             "sync_booked_members",
             "additive",
             jobs.additive.test_sync_booked_members,

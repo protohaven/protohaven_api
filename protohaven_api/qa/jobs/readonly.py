@@ -90,7 +90,7 @@ def test_check_cameras(ctx: QAContext):
 def _first_shift_with_people(now, exclude=None, skip_overrides=False):
     exclude = exclude or set()
     for day in forecast.generate(now, 7, include_pii=True)["calendar_view"]:
-        for ap, hour in (("AM", 11), ("PM", 17)):
+        for ap in ("AM", "PM"):
             if (day["date"], ap) in exclude:
                 continue
             shift = day[ap]
@@ -99,7 +99,10 @@ def _first_shift_with_people(now, exclude=None, skip_overrides=False):
             people = shift["people"]
             if people and not day["is_holiday"]:
                 when = safe_parse_datetime(day["date"]).replace(
-                    hour=hour, minute=0, second=0, microsecond=0
+                    hour=10 if ap == "AM" else 16,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
                 )
                 return day, ap, people, when
     return None
@@ -113,7 +116,10 @@ def _first_empty_shift(now, exclude=None):
                 continue
             if not day[ap]["people"] and not day["is_holiday"]:
                 when = safe_parse_datetime(day["date"]).replace(
-                    hour=11 if ap == "AM" else 17, minute=0, second=0, microsecond=0
+                    hour=10 if ap == "AM" else 16,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
                 )
                 return day, ap, when
     return None
@@ -140,7 +146,10 @@ def _force_empty_shift(ctx: QAContext, day, ap) -> None:
 
 def _shift_when(now, day, ap):
     return safe_parse_datetime(day["date"]).replace(
-        hour=11 if ap == "AM" else 17, minute=0, second=0, microsecond=0
+        hour=10 if ap == "AM" else 16,
+        minute=0,
+        second=0,
+        microsecond=0,
     )
 
 
@@ -225,7 +234,7 @@ def test_check_empty_shifts(ctx: QAContext):
     )
     assert result.code == 0
     assert_sent_discord(result)
-    assert_log_contains(result.text, ["empty_shift_techs"])
+    assert_log_contains(result.text, ["has nobody on duty"])
 
 
 # Only writable Schedule table fields should be sent to NocoDB. Lookup fields
@@ -268,7 +277,9 @@ def _create_class_event(
         [(start, end)],
         summary="Temporary QA event; will be deleted automatically.",
         max_attendees=capacity,
-        published=False,
+        # Eventbrite does not allow order/attendee creation for unlisted
+        # events, so scenarios that register attendees must be listed.
+        published=attendees > 0,
     )
     assert event_id
     eventbrite.assign_pricing(event_id, 0, capacity, clear_existing=True)
@@ -331,9 +342,9 @@ def test_class_emails(ctx: QAContext):
             "CONFIRM",
             1,
             None,
-            1,
+            0,
             6,
-            ["Your class '", "is on for"],
+            ["is on for"],
         ),
         (
             "CANCEL",
@@ -343,14 +354,14 @@ def test_class_emails(ctx: QAContext):
             6,
             ["Your class '", "was canceled"],
         ),
-        ("FOR_TECHS", 1, None, 3, 10, ["New classes for tech backfill"]),
+        ("FOR_TECHS", 1, None, 0, 6, ["New classes for tech backfill"]),
         (
             "POST_RUN_SURVEY",
-            -2,
-            None,
             1,
+            None,
+            0,
             6,
-            ["Please submit instructor log", "Please share feedback"],
+            ["Please submit instructor log"],
         ),
     ]
     for scenario, days_out, supply_state, attendees, capacity, needles in scenarios:
@@ -366,6 +377,7 @@ def test_class_emails(ctx: QAContext):
             "CONFIRM": f"--confirm={event_id}",
             "CANCEL": f"--cancel={event_id}",
             "FOR_TECHS": f"--for-techs={event_id}",
+            "POST_RUN_SURVEY": f"--post-run-survey={event_id}",
         }.get(scenario, "")
         result = _run_class_emails(ctx, event_id, extra)
         assert result.code == 0

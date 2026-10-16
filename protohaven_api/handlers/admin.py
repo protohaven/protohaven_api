@@ -185,7 +185,7 @@ def neon_membership_created_callback():
 
     # We must make sure this is the only (i.e. first) membership for the account
     acct = neon_base.fetch_account(account_id, fetch_memberships=True, required=True)
-    num_memberships = len(acct.memberships())
+    num_memberships = sum(1 for _ in acct.memberships())
     if num_memberships != 1:
         log.info(
             f"Member has {num_memberships} memberships; skipping new member init automation"

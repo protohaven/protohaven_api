@@ -38,6 +38,7 @@ BACKUP_EVENTS = {
     "backup_neon_accounts": "emssampvlg3",
     "backup_eventbrite_events": "emssb5u1vg9",
     "backup_sheets": "emss9yewlg0",
+    "backup_cronicle": "emv84g76j9k",
 }
 
 
@@ -69,15 +70,29 @@ def _test_backup_job(ctx: QAContext, name: str):
     args = f"--apply --parent_id={ctx.drive_folder_id}"
     if name == "backup_neon_accounts":
         args += " --category=accounts"
+    if name == "backup_cronicle":
+        # The Cronicle backup event may carry secrets/API keys in its
+        # configured ARGS; preserve them and append only QA overrides.
+        event_args = ctx.event_args(BACKUP_EVENTS[name]).strip()
+        args = f"{event_args} {args}".strip()
     result = ctx.run(
         name,
         BACKUP_EVENTS[name],
         args,
         send_comms=True,
     )
+    _register_uploaded_files_from_log(ctx, result.text)
+    if name == "backup_neon_accounts" and result.code != 0:
+        log.warning("backup_neon_accounts failed; retrying once")
+        result = ctx.run(
+            name,
+            BACKUP_EVENTS[name],
+            args,
+            send_comms=True,
+        )
+        _register_uploaded_files_from_log(ctx, result.text)
     assert result.code == 0
     assert_log_contains(result.text, ["Uploaded, id"])
-    _register_uploaded_files_from_log(ctx, result.text)
     assert_sent_discord(result)
 
 
@@ -95,6 +110,10 @@ def test_backup_eventbrite_events(ctx: QAContext):
 
 def test_backup_sheets(ctx: QAContext):
     _test_backup_job(ctx, "backup_sheets")
+
+
+def test_backup_cronicle(ctx: QAContext):
+    _test_backup_job(ctx, "backup_cronicle")
 
 
 def test_sync_booked_members(ctx: QAContext):

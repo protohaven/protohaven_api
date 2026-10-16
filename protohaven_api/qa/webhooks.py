@@ -21,26 +21,30 @@ import requests
 
 from protohaven_api.app import configure_app
 from protohaven_api.automation.membership import membership as memauto
-from protohaven_api.config import tznow
-from protohaven_api.integrations import neon, neon_base
+from protohaven_api.config import load_yaml_with_env_substitution, tznow
+from protohaven_api.integrations import airtable, neon, neon_base
 from protohaven_api.qa.base import QA_CHANNEL, QA_EMAIL, CleanupStack
 from protohaven_api.qa.fixtures import neon as neon_fixture
 
 log = logging.getLogger("qa.webhooks")
 
-COMMS_OVERRIDE_KEYS = ("CHAN_OVERRIDE", "EMAIL_OVERRIDE")
+ENV_OVERRIDE_KEYS = ("CHAN_OVERRIDE", "EMAIL_OVERRIDE", "NEW_MEMBERSHIP_ENABLED")
+ENV_OVERRIDE_VALUES = {
+    "CHAN_OVERRIDE": QA_CHANNEL,
+    "EMAIL_OVERRIDE": QA_EMAIL,
+    "NEW_MEMBERSHIP_ENABLED": "true",
+}
 
 
-def _set_comms_overrides() -> dict[str, str | None]:
-    """Point Discord/email at QA targets and return the prior env values."""
-    old = {key: os.environ.get(key) for key in COMMS_OVERRIDE_KEYS}
-    os.environ["CHAN_OVERRIDE"] = QA_CHANNEL
-    os.environ["EMAIL_OVERRIDE"] = QA_EMAIL
+def _set_qa_env_overrides() -> dict[str, str | None]:
+    """Point comms and webhook initialization at QA targets."""
+    old = {key: os.environ.get(key) for key in ENV_OVERRIDE_KEYS}
+    os.environ.update(ENV_OVERRIDE_VALUES)
     return old
 
 
 def _restore_env(old: dict[str, str | None]) -> None:
-    """Restore environment variables changed by :func:`_set_comms_overrides`."""
+    """Restore environment variables changed by :func:`_set_qa_env_overrides`."""
     for key, value in old.items():
         if value is None:
             os.environ.pop(key, None)
@@ -60,21 +64,26 @@ class WebhookQAContext:
     client: Any = None
 
     def __post_init__(self) -> None:
-        self._old_env = _set_comms_overrides()
+        self._old_env = _set_qa_env_overrides()
+        # config.yaml substitution is cached, so clear it after changing env.
+        load_yaml_with_env_substitution.cache_clear()
         if self.base_url is None and self.client is None:
             self.client = configure_app(
                 session_secret=secrets.token_hex(16)
             ).test_client()
 
     def restore_comms_overrides(self) -> None:
-        """Restore pre-QA comms environment variables."""
+        """Restore pre-QA environment variables."""
         _restore_env(self._old_env)
+        load_yaml_with_env_substitution.cache_clear()
 
+    # pylint: disable=too-many-arguments
     def request(
         self,
         method: str,
         path: str,
         *,
+        params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
@@ -86,6 +95,7 @@ class WebhookQAContext:
             return self.client.open(
                 path,
                 method=method,
+                query_string=params,
                 data=data,
                 json=json,
                 headers=headers,
@@ -95,6 +105,7 @@ class WebhookQAContext:
         return requests.request(
             method,
             url,
+            params=params,
             data=data,
             json=json,
             headers=headers,
@@ -104,41 +115,49 @@ class WebhookQAContext:
         )
 
 
+def _response_text(rep: Any) -> str:
+    """Return the body of a Flask or requests response as text."""
+    if hasattr(rep, "text"):
+        return rep.text
+    return rep.get_data(as_text=True)
+
+
+def _response_json(rep: Any) -> Any:
+    """Return the parsed JSON body of a Flask or requests response."""
+    if hasattr(rep, "json") and callable(rep.json):
+        return rep.json()
+    return rep.get_json()
+
+
 def _do_clearance_req(ctx: WebhookQAContext, method: str, data: dict[str, str]):
-    rep = ctx.request(method, "/user/clearances", data=data)
-    log.info("%s %s: %s %s", method, data, rep.status_code, rep.get_data(as_text=True))
-    assert rep.status_code == 200, rep.get_data(as_text=True)
+    rep = ctx.request(method, "/user/clearances", params=data)
+    log.info("%s %s: %s %s", method, data, rep.status_code, _response_text(rep))
+    assert rep.status_code == 200, _response_text(rep)
     return rep
 
 
 def test_clearance_webhook(ctx: WebhookQAContext) -> None:
     """Exercise the ``/user/clearances`` webhook with an ephemeral Neon account."""
     acct = neon_fixture.create_mock_account(ctx, "webhook-clearance")
+    full_code = neon.resolve_clearance_code_full("FRG2")
+    assert full_code, "FRG2 clearance code not found in Neon"
 
     def _get_codes() -> set[str]:
         rep = _do_clearance_req(ctx, "GET", {"emails": acct.email})
-        return set(rep.get_json()[acct.email]["result"])
+        return set(_response_json(rep)[acct.email]["result"])
 
     codes = _get_codes()
-    if "FRG2: Forge 2" in codes:
-        _do_clearance_req(
-            ctx,
-            "DELETE",
-            {"emails": acct.email, "codes": "FRG2: Forge 2"},
-        )
+    if full_code in codes:
+        _do_clearance_req(ctx, "DELETE", {"emails": acct.email, "codes": "FRG2"})
         _get_codes()
 
-    _do_clearance_req(
-        ctx,
-        "PATCH",
-        {"emails": acct.email, "codes": "FRG2: Forge 2"},
-    )
+    _do_clearance_req(ctx, "PATCH", {"emails": acct.email, "codes": "FRG2"})
     codes = _get_codes()
-    assert "FRG2: Forge 2" in codes, codes
+    assert full_code in codes, codes
 
-    _do_clearance_req(ctx, "DELETE", {"emails": acct.email, "codes": "IMW"})
+    _do_clearance_req(ctx, "DELETE", {"emails": acct.email, "codes": "FRG2"})
     codes = _get_codes()
-    assert "FRG2: Forge 2" not in codes, codes
+    assert full_code not in codes, codes
     log.info("clearance webhook QA passed for %s", acct.email)
 
 
@@ -186,12 +205,12 @@ def test_new_member_webhook(ctx: WebhookQAContext, is_amp: bool = False) -> None
     log.info(
         "new member webhook response: %s %s",
         rep.status_code,
-        rep.get_data(as_text=True),
+        _response_text(rep),
     )
-    assert rep.status_code == 200, rep.get_data(as_text=True)
+    assert rep.status_code == 200, _response_text(rep)
 
     acc = neon_base.fetch_account(acct.neon_id, required=True, fetch_memberships=True)
-    membership = acc.memberships()[0]
+    membership = next(iter(acc.memberships()))
     assert (
         membership.start_date == memauto.PLACEHOLDER_START_DATE
     ), membership.start_date
@@ -203,18 +222,23 @@ def test_new_member_webhook(ctx: WebhookQAContext, is_amp: bool = False) -> None
 
 def test_maintenance_webhook(ctx: WebhookQAContext) -> None:
     """Exercise the Bookstack maintenance data webhook."""
+    tool_code = next(
+        t["fields"]["Tool Code"].strip()
+        for t in airtable.get_tools()
+        if t["fields"].get("Tool Code", "").strip()
+    )
     rep = ctx.request(
         "GET",
         "/admin/get_maintenance_data",
-        data={"tool_code": "FRG"},
+        params={"tool_code": tool_code},
     )
     log.info(
         "maintenance webhook response: %s %s",
         rep.status_code,
-        rep.get_data(as_text=True),
+        _response_text(rep),
     )
-    assert rep.status_code == 200, rep.get_data(as_text=True)
-    body = rep.get_json()
+    assert rep.status_code == 200, _response_text(rep)
+    body = _response_json(rep)
     assert "history" in body, body
     assert "active_tasks" in body, body
     log.info("maintenance webhook QA passed")

@@ -8,23 +8,13 @@ from typing import Any, Callable, Deque
 
 from protohaven_api.integrations import comms
 from protohaven_api.integrations.cronicle import CronicleClient
+from protohaven_api.integrations.cronicle import JobResult as CronicleJobResult
 
 log = logging.getLogger("qa.base")
 
 QA_EMAIL = "qa-testing@protohaven.org"
-QA_CHANNEL = "#cronicle-automation"
+QA_CHANNEL = "#qa-automation"
 QA_DM = "@workshop_protohaven"
-
-MAX_ASSERT_LOG_CHARS = 4000
-
-
-def _truncate_log(log_text: str, limit: int = MAX_ASSERT_LOG_CHARS) -> str:
-    """Return log text suitable for an assertion message without dumping huge logs."""
-    if len(log_text) <= limit:
-        return log_text
-    half = limit // 2
-    omitted = len(log_text) - limit
-    return f"{log_text[:half]}\n... [{omitted} chars truncated] ...\n{log_text[-half:]}"
 
 
 class CleanupError(RuntimeError):
@@ -36,7 +26,7 @@ class CleanupStack:
     """Exception-safe LIFO cleanup stack.
 
     Cleanup functions are called in reverse registration order. If any
-    cleanup step fails, a notice is sent to #cronicle-automation and a
+    cleanup step fails, a notice is sent to #qa-automation and a
     CleanupError is raised at the end.
     """
 
@@ -77,6 +67,7 @@ class QAContext:
     run_id: str = field(default_factory=lambda: secrets.token_hex(4))
     cleanup: CleanupStack = field(default_factory=CleanupStack)
     drive_folder_id: str | None = None
+    last_result: CronicleJobResult | None = None
 
     def __post_init__(self) -> None:
         self._schedule: dict[str, dict[str, Any]] | None = None
@@ -134,7 +125,9 @@ class QAContext:
             p["ARGS"] = args
         if params:
             p.update(params)
-        return self.client.run_and_fetch_logs(event_id, self.image, p)
+        result = self.client.run_and_fetch_logs(event_id, self.image, p)
+        self.last_result = result
+        return result
 
 
 @dataclass
@@ -154,17 +147,13 @@ class JobResult:
 def assert_log_contains(log_text: str, substrings: list[str]) -> None:
     """Assert that each substring appears in the given log text."""
     missing = [s for s in substrings if s not in log_text]
-    assert (
-        not missing
-    ), f"Expected log substrings missing: {missing}\n{_truncate_log(log_text)}"
+    assert not missing, f"Expected log substrings missing: {missing}"
 
 
 def assert_log_not_contains(log_text: str, substrings: list[str]) -> None:
     """Assert that none of the substrings appear in the given log text."""
     present = [s for s in substrings if s in log_text]
-    assert (
-        not present
-    ), f"Unexpected log substrings found: {present}\n{_truncate_log(log_text)}"
+    assert not present, f"Unexpected log substrings found: {present}"
 
 
 def assert_sent_discord(result: JobResult, channel: str = QA_CHANNEL) -> None:

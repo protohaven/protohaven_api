@@ -29,19 +29,19 @@ class Commands:  # pylint: disable=too-few-public-methods
 
     def _handle_discord(self, e: dict, apply: bool):
         t = e["target"].strip()
+        resolved = comms.resolve_discord_target(t)
         content = f"{e['subject']}\n\n{e['body']}"
         if not apply:
-            log.info(f"DRY RUN to discord {t}")
+            log.info(f"DRY RUN to discord {resolved}")
             log.info(content)
             return None
         try:
             comms.send_discord_message(content, t)
-            log.info(f"Sent to Discord {t}: {e['subject']}")
             return [t]
         except ForbiddenError:
             # If a user has blocked our comms, that's on them. Consider it a
             # success from our end.
-            log.warning(f"Failed to send to {t} (forbidden): {e['subject']}")
+            log.warning(f"Failed to send to {resolved} (forbidden): {e['subject']}")
             return [t]
 
     def _handle_email(self, e, apply):

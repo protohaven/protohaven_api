@@ -341,6 +341,18 @@ def test_for_techs_override_forces_tech_backfill(mocker, evt):
     assert "Test Event is on for January 31!" not in subjects
 
 
+def test_post_run_survey_override_forces_survey(mocker, evt):
+    """post_run_survey_ovr forces Action.POST_RUN_SURVEY regardless of occupancy."""
+    evt.attendee_count = 0
+    evt.occupancy = 0.0
+    _mock_builder(mocker, upcoming_events=[evt])
+    eb = builder.ClassEmailBuilder()
+    eb.post_run_survey_ovr = ["1234"]
+    got = eb.build(d(EVT_DAY - 1, 20))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "Test Event: Please submit instructor log" in subjects
+
+
 def test_builder_notified(mocker):
     """Tests that `notified` correctly returns True when comms have already been recently
     sent to a target"""
