@@ -1,6 +1,8 @@
 """Verify proper behavior of policy violation handlers"""
 
 # pylint: skip-file
+import io
+
 import pytest
 
 from protohaven_api.handlers import violations as vl
@@ -87,7 +89,9 @@ def test_violations(tech_client, mocker):
 
 def test_open_violation(tech_client, mocker):
     """The new violation endpoint passes sanitized data to Airtable"""
-    open_violation = mocker.patch.object(vl.airtable, "open_violation")
+    open_violation = mocker.patch.object(
+        vl.airtable, "open_violation", return_value="v1"
+    )
     response = tech_client.post(
         "/violations/open",
         json={
@@ -102,6 +106,7 @@ def test_open_violation(tech_client, mocker):
         },
     )
     assert response.status_code == 200
+    assert response.json == {"ok": True, "id": "v1"}
     assert open_violation.call_args.kwargs["reporter"] == "Shop Tech"
     assert open_violation.call_args.kwargs["tag_number"] == "4"
     assert open_violation.call_args.kwargs["fee"] == 15.0
@@ -109,6 +114,27 @@ def test_open_violation(tech_client, mocker):
         "https://example.com/a.jpg",
         "https://example.com/b.jpg",
     ]
+
+
+def test_upload_violation_evidence(tech_client, mocker):
+    """The evidence endpoint uploads pictures to the violation record"""
+    upload = mocker.patch.object(vl.airtable, "upload_violation_evidence")
+    response = tech_client.post(
+        "/violations/v1/evidence",
+        data={
+            "files": [
+                (io.BytesIO(b"abc"), "a.jpg", "image/jpeg"),
+                (io.BytesIO(b"defg"), "b.jpg", "image/jpeg"),
+            ]
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    assert response.json == {"ok": True}
+    uploaded = upload.call_args.args[1]
+    assert [u[0] for u in uploaded] == ["a.jpg", "b.jpg"]
+    assert [u[1] for u in uploaded] == ["image/jpeg", "image/jpeg"]
+    assert [u[2] for u in uploaded] == [b"abc", b"defg"]
 
 
 def test_close_violation(tech_client, mocker):

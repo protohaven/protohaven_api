@@ -91,6 +91,24 @@ class DevConnector(Connector):
         """Make a request to the Booked reservation system"""
         return self._must_json(dev_booked.handle, *args, **kwargs)
 
+    def attachment_upload(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, base, tbl, rec, field, filename, content_type, data
+    ):
+        """Dev mode: pretend the attachment was uploaded."""
+        log.info(
+            f"DEV attachment upload {base} {tbl} {rec} {field} {filename} "
+            f"({len(data)} bytes)"
+        )
+        return (
+            200,
+            {
+                "path": f"download/dev/{filename}",
+                "title": filename,
+                "mimetype": content_type,
+                "size": len(data),
+            },
+        )
+
     def eventbrite_request(self, *args, **kwargs):
         """Make a request to the Booked reservation system"""
         return self._must_json(dev_eventbrite.handle, *args, **kwargs)

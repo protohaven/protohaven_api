@@ -155,6 +155,7 @@ nocodb:
       violations: "m1jbelb76ix3cn4"
       fees: "myl3brdewxm9uti"
       closures: "mwkafmcufq8g9rj"
+      violation_evidence_field: "c94w929taic5sen"
     people:
       base_id: "p5s997hwsl4pccd"
       shop_tech_forecast_overrides: "mbnsv0gknsanym3"
@@ -204,6 +205,7 @@ nocodb:
 airtable:
   requests:
     url: "https://api.airtable.com/v0/"
+    upload_url: "https://content.airtable.com/v0/"
   data:
     tools_and_equipment:
       token: ${AIRTABLE_TOKEN_TOOLS_AND_EQUIPMENT}
@@ -229,6 +231,7 @@ airtable:
       violations: "tblxivDVVxoARFkHC"
       fees: "tblpM1KXai4koCgCV"
       closures: "tbl2nIlPOIWtLTtes"
+      violation_evidence_field: "Evidence"
     people:
       token: ${AIRTABLE_TOKEN_PEOPLE}
       base_id: "appZIwlIgaq1Ps28Y"

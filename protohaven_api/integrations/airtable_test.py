@@ -885,8 +885,12 @@ def test_policy_sections_violations_and_fees(mocker):
 def test_open_violation(mocker):
     """Opening a violation links section record IDs and sets the correct fields"""
     mocker.patch.object(a, "_refid", return_value="ref1")
-    insert = mocker.patch.object(a, "insert_records")
-    a.open_violation(
+    insert = mocker.patch.object(
+        a,
+        "insert_records",
+        return_value=(200, {"records": [{"id": "v1"}]}),
+    )
+    got = a.open_violation(
         "rep",
         "123",
         ["sec1"],
@@ -896,12 +900,39 @@ def test_open_violation(mocker):
         "notes",
         tag_number=4,
     )
+    assert got == "v1"
     fields = insert.call_args.args[0][0]
     assert fields["Relevant Sections"] == ["ref1"]
     assert fields["Neon ID"] == 123
     assert fields["Tag Number"] == 4
     assert fields["Daily Fee"] == 10
     assert insert.call_args.args[1:] == ("policy_enforcement", "violations")
+
+
+def test_upload_violation_evidence(mocker):
+    """Evidence uploads call the backend attachment upload endpoint"""
+    mocker.patch.object(
+        a,
+        "_policy_evidence_field",
+        return_value="evidence_field",
+    )
+    connector = mocker.patch.object(a, "get_connector")
+    upload = connector.return_value.attachment_upload
+    upload.return_value = (200, {"ok": True})
+    result = a.upload_violation_evidence(
+        "v1",
+        [("a.jpg", "image/jpeg", b"abc")],
+    )
+    assert result == [{"filename": "a.jpg", "content_type": "image/jpeg", "size": 3}]
+    upload.assert_called_once_with(
+        "policy_enforcement",
+        "violations",
+        "v1",
+        "evidence_field",
+        "a.jpg",
+        "image/jpeg",
+        b"abc",
+    )
 
 
 def test_close_violation(mocker):

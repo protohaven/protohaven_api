@@ -158,6 +158,79 @@ class Connector:  # pylint: disable=too-many-public-methods
                 time.sleep(int(random.random() * self.max_retry_delay_sec))
         return None, None
 
+    def attachment_upload(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        self,
+        base: str,
+        tbl: str,
+        rec: str,
+        field: str,
+        filename: str,
+        content_type: str,
+        data: bytes,
+    ) -> tuple[int, Any]:
+        """Upload file bytes directly to an attachment field.
+
+        NocoDB and Airtable both accept a JSON body with base64-encoded file
+        bytes; only the URL shape and auth headers differ.
+        """
+        fmt = self.db_format()
+        if fmt == "nocodb":
+            cfg = get_config("nocodb")
+            path = (
+                f"/api/v3/data/{cfg['data'][base]['base_id']}/"
+                f"{cfg['data'][base][tbl]}/records/{rec}/fields/{field}/upload"
+            )
+            headers = {
+                "xc-token": cfg["requests"]["token"],
+                "Content-Type": "application/json",
+            }
+            url = urljoin(cfg["requests"]["url"], path)
+        elif fmt == "airtable":
+            cfg = get_config("airtable")
+            path = f"{cfg['data'][base]['base_id']}/{rec}/{field}/uploadAttachment"
+            headers = {
+                "Authorization": f"Bearer {cfg['data'][base]['token']}",
+                "Content-Type": "application/json",
+            }
+            url = urljoin(cfg["requests"]["upload_url"], path)
+        else:
+            raise RuntimeError(f"unhandled DB format: {fmt}")
+
+        body = {
+            "contentType": content_type,
+            "file": base64.b64encode(data).decode("ascii"),
+            "filename": filename,
+        }
+        for i in range(self.max_attempts):
+            try:
+                rep = requests.request(
+                    "POST",
+                    url,
+                    headers=headers,
+                    data=json.dumps(body),
+                    timeout=self.timeout,
+                )
+                try:
+                    content = rep.json() if rep.content else None
+                except json.JSONDecodeError:
+                    content = rep.content
+                if rep.status_code == 200:
+                    return rep.status_code, content
+                log.warning(
+                    f"status code {rep.status_code} on attachment upload "
+                    f"{base} {tbl} {rec} {field}; retry #{i+1}"
+                )
+                time.sleep(int(random.random() * self.max_retry_delay_sec))
+            except requests.exceptions.ReadTimeout as rt:
+                if i == self.max_attempts - 1:
+                    raise rt
+                log.warning(
+                    f"ReadTimeout on attachment upload {base} {tbl} {rec} "
+                    f"{field}; retry #{i+1}"
+                )
+                time.sleep(int(random.random() * self.max_retry_delay_sec))
+        return None, None
+
     def airtable_meta_request(self, base):
         """Fetch schema metadata (tables and fields) for an Airtable base."""
         cfg = get_config("airtable")

@@ -787,6 +787,57 @@ def _fmt_neon_id(neon_id: Any) -> int | str | None:
         return str(neon_id)
 
 
+def _policy_evidence_field() -> str:
+    """Return the Evidence field name/id for the active DB backend."""
+    if get_connector().db_format() == "nocodb":
+        return get_config("nocodb/data/policy_enforcement/violation_evidence_field")
+    return get_config("airtable/data/policy_enforcement/violation_evidence_field")
+
+
+def _first_record_id(result: Any) -> str | None:
+    """Pull the new record ID from an Airtable/NocoDB insert response."""
+    if isinstance(result, tuple):
+        content = result[1] if len(result) > 1 else result[0]
+    else:
+        content = result
+    if isinstance(content, dict):
+        records = content.get("records") or []
+        if records and isinstance(records[0], dict):
+            return records[0].get("id")
+    return None
+
+
+def upload_violation_evidence(
+    violation_id: str,
+    files: Iterable[tuple[str, str, bytes]],
+) -> list[dict[str, Any]]:
+    """Upload evidence files to an existing violation's Evidence field."""
+    field = _policy_evidence_field()
+    result = []
+    for filename, content_type, data in files:
+        status, content = get_connector().attachment_upload(
+            "policy_enforcement",
+            "violations",
+            violation_id,
+            field,
+            filename,
+            content_type,
+            data,
+        )
+        if status != 200:
+            raise RuntimeError(
+                f"Evidence upload failed for {filename}: {status} {content}"
+            )
+        result.append(
+            {
+                "filename": filename,
+                "content_type": content_type,
+                "size": len(data),
+            }
+        )
+    return result
+
+
 def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     reporter: str,
     neon_id: Any,
@@ -796,7 +847,7 @@ def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-ar
     fee: float,
     notes: str,
     tag_number: int | str | None = None,
-):
+) -> str | None:
     """Opens a new violation with a fee schedule.
 
     `sections` is expected to be a list of Airtable/NocoDB record IDs for the
@@ -820,7 +871,9 @@ def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-ar
     formatted_evidence = _fmt_evidence(evidence)
     if formatted_evidence:
         fields["Evidence"] = formatted_evidence
-    return insert_records([fields], "policy_enforcement", "violations")
+    return _first_record_id(
+        insert_records([fields], "policy_enforcement", "violations")
+    )
 
 
 def close_violation(

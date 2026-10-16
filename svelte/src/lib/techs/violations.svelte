@@ -19,7 +19,7 @@
 		ToastBody,
 		ToastHeader
 	} from '@sveltestrap/sveltestrap';
-	import { get, post, as_datetimelocal, isodate } from '$lib/api.ts';
+	import { get, post, upload, as_datetimelocal, isodate } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
 
 	interface WhoAmI {
@@ -97,6 +97,9 @@
 	let onset = as_datetimelocal(new Date());
 	let notes = '';
 	let evidence = '';
+	let evidence_files: File[] = [];
+	let evidence_previews: string[] = [];
+	let uploading_evidence = false;
 	let custom_fee = '';
 	let selected_sections: Record<string, boolean> = {};
 	let fee_presets = [
@@ -155,6 +158,22 @@
 		search_results = [];
 	}
 
+	function handle_evidence_files(event: Event) {
+		const input = event.target as HTMLInputElement;
+		if (!input.files) {
+			return;
+		}
+		evidence_previews.forEach((url) => URL.revokeObjectURL(url));
+		evidence_files = Array.from(input.files);
+		evidence_previews = evidence_files.map((f) => URL.createObjectURL(f));
+	}
+
+	function clear_evidence_files() {
+		evidence_previews.forEach((url) => URL.revokeObjectURL(url));
+		evidence_files = [];
+		evidence_previews = [];
+	}
+
 	$: preset_total = fee_presets.filter((p) => p.selected).reduce((total, p) => total + p.amount, 0);
 	$: daily_fee = preset_total + (Number(custom_fee) || 0);
 
@@ -173,12 +192,27 @@
 				.filter(Boolean),
 			daily_fee
 		})
-			.then(() => {
+			.then(async (result) => {
+				if (evidence_files.length && !result.id) {
+					throw new Error('Violation was created but no id was returned for evidence upload');
+				}
+				if (evidence_files.length && result.id) {
+					uploading_evidence = true;
+					try {
+						await upload(`/violations/${result.id}/evidence`, evidence_files);
+					} catch (err) {
+						show_toast('danger', 'Error uploading evidence', (err as Error).message);
+						return;
+					} finally {
+						uploading_evidence = false;
+					}
+				}
 				show_toast('success', 'Violation opened', 'The violation was added to Airtable.');
 				refresh();
 				tag_number = '';
 				notes = '';
 				evidence = '';
+				clear_evidence_files();
 				custom_fee = '';
 				selected_sections = {};
 				selected_member = null;
@@ -326,14 +360,43 @@
 								/>
 							</FormGroup>
 							<FormGroup>
-								<Label for="violation-evidence">Evidence URLs</Label>
-								<Input
-									id="violation-evidence"
-									type="textarea"
-									bind:value={evidence}
-									placeholder="One image/evidence URL per line"
-								/>
-							</FormGroup>
+							<Label for="violation-evidence">Evidence URLs</Label>
+							<Input
+								id="violation-evidence"
+								type="textarea"
+								bind:value={evidence}
+								placeholder="One image/evidence URL per line"
+							/>
+						</FormGroup>
+						<FormGroup>
+							<Label for="violation-evidence-files">Pictures</Label>
+							<Input
+								id="violation-evidence-files"
+								type="file"
+								accept="image/*"
+								capture="environment"
+								multiple
+								on:change={handle_evidence_files}
+							/>
+							{#if evidence_previews.length}
+								<div class="d-flex flex-wrap gap-2 my-2">
+									{#each evidence_previews as src}
+										<img
+											src={src}
+											alt="Violation evidence"
+											class="border rounded"
+											width="96"
+											height="96"
+											style="object-fit: cover;"
+										/>
+									{/each}
+								</div>
+								<Button color="light" on:click={clear_evidence_files}>Clear pictures</Button>
+							{/if}
+							{#if uploading_evidence}
+								<Spinner /> Uploading pictures...
+							{/if}
+						</FormGroup>
 						</Col>
 					</Row>
 					<Row>
@@ -414,13 +477,24 @@
 							<p><strong>Sections:</strong> {v.sections.join(', ') || 'None'}</p>
 							<p><strong>Notes:</strong> {v.notes || 'None'}</p>
 							{#if v.evidence.length}
-								<p>
-									<strong>Evidence:</strong>
+							<div>
+								<strong>Evidence:</strong>
+								<div class="d-flex flex-wrap gap-2 my-2">
 									{#each v.evidence as url}
-										<a class="d-block" href={url} target="_blank">{url}</a>
+										<a href={url} target="_blank">
+											<img
+												src={url}
+												alt="Violation evidence"
+												class="border rounded"
+												width="96"
+												height="96"
+												style="object-fit: cover;"
+											/>
+										</a>
 									{/each}
-								</p>
-							{/if}
+								</div>
+							</div>
+						{/if}
 							<p>
 								<strong>Daily fee:</strong> ${v.daily_fee ?? 0} / day ·
 								<strong>Accrued:</strong> ${v.accrued ?? 0} ·

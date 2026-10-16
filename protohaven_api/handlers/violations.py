@@ -9,7 +9,7 @@ from typing import Any
 from dateutil.parser import ParserError
 from flask import Blueprint, Response, request
 
-from protohaven_api.config import safe_parse_datetime, tznow
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
 from protohaven_api.integrations import airtable, neon_base
 from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import require_login_role
@@ -51,8 +51,13 @@ def _evidence_urls(value: Any) -> list[str]:
         value = [value]
     result = []
     for v in value:
-        if isinstance(v, dict) and v.get("url"):
-            result.append(v["url"])
+        if isinstance(v, dict):
+            if v.get("url"):
+                result.append(v["url"])
+            elif v.get("path"):
+                result.append(
+                    f"{get_config('nocodb/requests/url')}/{str(v['path']).lstrip('/')}"
+                )
         elif str(v).strip():
             result.extend(u.strip() for u in re.split(r"[\n,]", str(v)) if u.strip())
     return result
@@ -179,7 +184,7 @@ def violations() -> list[dict[str, Any]]:
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-def open_violation() -> Response | dict[str, bool]:
+def open_violation() -> Response | dict[str, Any]:
     # pylint: disable=too-many-return-statements
     """Open a new violation from the techs dashboard."""
     data = request.get_json(silent=True) or {}
@@ -209,7 +214,7 @@ def open_violation() -> Response | dict[str, bool]:
     evidence = data.get("evidence") or []
     if isinstance(evidence, str):
         evidence = [u.strip() for u in re.split(r"[\n,]", evidence) if u.strip()]
-    airtable.open_violation(
+    violation_id = airtable.open_violation(
         reporter=reporter,
         neon_id=data.get("neon_id"),
         sections=[str(s) for s in sections],
@@ -218,6 +223,31 @@ def open_violation() -> Response | dict[str, bool]:
         fee=fee,
         notes=notes,
         tag_number=data.get("tag_number"),
+    )
+    return {"ok": True, "id": violation_id}
+
+
+@page.route("/violations/<violation_id>/evidence", methods=["POST"])
+@require_login_role(
+    Role.SHOP_TECH_LEAD,
+    Role.STAFF,
+    Role.EDUCATION_LEAD,
+    Role.SHOP_TECH,
+    redirect_to_login=False,
+)
+def upload_violation_evidence(violation_id: str) -> Response | dict[str, Any]:
+    """Upload one or more pictures to a violation's Evidence field."""
+    files = request.files.getlist("files")
+    if not files:
+        return Response("at least one file is required", status=400)
+    if any(not (f.mimetype or "").startswith("image/") for f in files):
+        return Response("only image files are supported", status=400)
+    airtable.upload_violation_evidence(
+        violation_id,
+        [
+            (f.filename or "upload", f.mimetype or "application/octet-stream", f.read())
+            for f in files
+        ],
     )
     return {"ok": True}
 
