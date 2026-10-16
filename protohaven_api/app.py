@@ -19,6 +19,7 @@ from protohaven_api.handlers.staff import page as staff_pages
 from protohaven_api.handlers.staff import setup_sock_routes as staff_ws_setup
 from protohaven_api.handlers.techs import page as techs_pages
 from protohaven_api.handlers.techs import setup_sock_routes as techs_ws_setup
+from protohaven_api.handlers.violations import page as violations_pages
 
 
 def configure_app(
@@ -76,6 +77,7 @@ def configure_app(
         instructor_pages,
         staff_pages,
         techs_pages,
+        violations_pages,
         reservations_pages,
         member_pages,
     ):

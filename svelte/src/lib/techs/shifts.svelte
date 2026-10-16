@@ -122,6 +122,7 @@
 		}
 		refresh();
 	}
+
 	$: {
 		if (visible && !loaded) {
 			refresh();

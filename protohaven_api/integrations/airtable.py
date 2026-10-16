@@ -29,6 +29,7 @@ from protohaven_api.integrations.airtable_base import (
     insert_records,
     update_record,
 )
+from protohaven_api.integrations.data.connector import get as get_connector
 from protohaven_api.integrations.data.warm_cache import WarmDict
 from protohaven_api.integrations.models import (
     AreaID,
@@ -757,45 +758,149 @@ def get_policy_violations():
     return [v for v in rows if v["fields"].get("Onset")]
 
 
-def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-    reporter, suspect, sections, evidence, onset, fee, notes
-):
-    """Opens a new violation with a fee schedule"""
-    section_map = {s["fields"]["id"]: s["id"] for s in get_policy_sections()}
-    return insert_records(
-        [
+def _fmt_evidence(
+    evidence: Iterable[str],
+) -> list[dict[str, str]] | str | None:
+    """Normalize evidence input to the format expected by the active DB backend.
+
+    Airtable stores evidence as attachments; NocoDB's snapshot stores it as text.
+    """
+    if not evidence:
+        return None
+    urls = [u.strip() for u in evidence if u and u.strip()]
+    if not urls:
+        return None
+    if get_connector().db_format() == "nocodb":
+        return "\n".join(urls)
+    return [{"url": u} for u in urls]
+
+
+def _fmt_neon_id(neon_id: Any) -> int | str | None:
+    """Normalize an optional Neon ID for Airtable/NocoDB number fields."""
+    if neon_id is None or neon_id == "":
+        return None
+    if isinstance(neon_id, float) and neon_id.is_integer():
+        return int(neon_id)
+    try:
+        return int(neon_id)
+    except (TypeError, ValueError):
+        return str(neon_id)
+
+
+def _policy_evidence_field() -> str:
+    """Return the Evidence field name/id for the active DB backend."""
+    if get_connector().db_format() == "nocodb":
+        return get_config("nocodb/data/policy_enforcement/violation_evidence_field")
+    return get_config("airtable/data/policy_enforcement/violation_evidence_field")
+
+
+def _first_record_id(result: Any) -> str | None:
+    """Pull the new record ID from an Airtable/NocoDB insert response."""
+    if isinstance(result, tuple):
+        content = result[1] if len(result) > 1 else result[0]
+    else:
+        content = result
+    if isinstance(content, dict):
+        records = content.get("records") or []
+        if records and isinstance(records[0], dict):
+            return records[0].get("id")
+    return None
+
+
+def upload_violation_evidence(
+    violation_id: str,
+    files: Iterable[tuple[str, str, bytes]],
+) -> list[dict[str, Any]]:
+    """Upload evidence files to an existing violation's Evidence field."""
+    field = _policy_evidence_field()
+    result = []
+    for filename, content_type, data in files:
+        status, content = get_connector().attachment_upload(
+            "policy_enforcement",
+            "violations",
+            violation_id,
+            field,
+            filename,
+            content_type,
+            data,
+        )
+        if status != 200:
+            raise RuntimeError(
+                f"Evidence upload failed for {filename}: {status} {content}"
+            )
+        result.append(
             {
-                "Reporter": reporter,
-                "Suspect": suspect,
-                "Relevant Sections": [_refid(section_map[int(s)]) for s in sections],
-                "Evidence": evidence,
-                "Onset": onset.isoformat(),
-                "Daily Fee": fee,
-                "Notes": notes,
+                "filename": filename,
+                "content_type": content_type,
+                "size": len(data),
             }
-        ],
-        "policy_enforcement",
-        "violations",
+        )
+    return result
+
+
+def open_violation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    reporter: str,
+    neon_id: Any,
+    sections: Iterable[str],
+    evidence: Iterable[str],
+    onset: datetime.datetime,
+    fee: float,
+    notes: str,
+    tag_number: int | str | None = None,
+) -> str | None:
+    """Opens a new violation with a fee schedule.
+
+    `sections` is expected to be a list of Airtable/NocoDB record IDs for the
+    policy sections table.
+    """
+    fields = {
+        "Reporter": reporter,
+        "Relevant Sections": [_refid(s) for s in sections],
+        "Onset": onset.isoformat(),
+        "Daily Fee": fee,
+        "Notes": notes,
+    }
+    formatted_neon_id = _fmt_neon_id(neon_id)
+    if formatted_neon_id is not None:
+        fields["Neon ID"] = formatted_neon_id
+    if tag_number is not None and str(tag_number).strip() != "":
+        try:
+            fields["Tag Number"] = int(tag_number)
+        except (TypeError, ValueError):
+            fields["Tag Number"] = tag_number
+    formatted_evidence = _fmt_evidence(evidence)
+    if formatted_evidence:
+        fields["Evidence"] = formatted_evidence
+    return _first_record_id(
+        insert_records([fields], "policy_enforcement", "violations")
     )
 
 
-def close_violation(instance, closer, resolution, suspect, notes):
-    """Close out a violation, with potentially some notes"""
-    match = [
-        p for p in get_policy_violations() if p["fields"]["Instance #"] == instance
-    ]
-    if len(match) != 1:
-        raise RuntimeError(
-            "No matching violation with instance number " + str(instance)
-        )
-    data = {
-        "Closer": closer,
-        "Closing Notes": notes,
-        "Resolution": resolution.isoformat(),
-    }
-    if suspect is not None:
-        data["Suspect"] = suspect
-    return update_record(data, "policy_enforcement", "violations", match[0]["id"])
+def close_violation(
+    violation_id: str,
+    closer: str,
+    resolution: datetime.datetime,
+    notes: str,
+    fees_outstanding: bool = False,
+):
+    """Close out a violation by creating a closure record.
+
+    The closure table has a link back to the violation, which populates the
+    violation's closure lookups.
+    """
+    return insert_records(
+        [
+            {
+                "Notes": notes,
+                "Violation": [_refid(violation_id)],
+                "Closer": closer,
+                "Close date": resolution.strftime("%Y-%m-%d"),
+                "Fees outstanding?": bool(fees_outstanding),
+            }
+        ],
+        "policy_enforcement",
+        "closures",
+    )
 
 
 def get_policy_fees():

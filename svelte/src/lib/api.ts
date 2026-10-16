@@ -51,6 +51,24 @@ export function post(url: string, data: unknown, signal: AbortSignal | null = nu
 	return json_req(url, data, 'POST', signal);
 }
 
+export function upload(url: string, files: File[]): Promise<any> {
+	const form = new FormData();
+	files.forEach((f) => form.append('files', f, f.name));
+	return fetch(url, { method: 'POST', body: form })
+		.then((rep) => Promise.all([rep.status, rep.statusText, rep.text()]))
+		.then(([status, statusText, body]) => {
+			if (status !== 200) {
+				console.log(status, statusText, body);
+				throw Error(`${status} ${statusText}: ${_trunc(body)}`);
+			}
+			try {
+				return JSON.parse(body);
+			} catch (err) {
+				throw Error(`JSON parse error: ${_trunc(body)}`);
+			}
+		});
+}
+
 export function patch(url: string, data: unknown): Promise<any> {
 	return json_req(url, data, 'PATCH');
 }

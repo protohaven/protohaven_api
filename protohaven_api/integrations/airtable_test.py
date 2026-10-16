@@ -883,33 +883,69 @@ def test_policy_sections_violations_and_fees(mocker):
 
 
 def test_open_violation(mocker):
-    """Opening a violation maps section names to linked record IDs"""
+    """Opening a violation links section record IDs and sets the correct fields"""
+    mocker.patch.object(a, "_refid", return_value="ref1")
+    insert = mocker.patch.object(
+        a,
+        "insert_records",
+        return_value=(200, {"records": [{"id": "v1"}]}),
+    )
+    got = a.open_violation(
+        "rep",
+        "123",
+        ["sec1"],
+        [],
+        d(0),
+        10,
+        "notes",
+        tag_number=4,
+    )
+    assert got == "v1"
+    fields = insert.call_args.args[0][0]
+    assert fields["Relevant Sections"] == ["ref1"]
+    assert fields["Neon ID"] == 123
+    assert fields["Tag Number"] == 4
+    assert fields["Daily Fee"] == 10
+    assert insert.call_args.args[1:] == ("policy_enforcement", "violations")
+
+
+def test_upload_violation_evidence(mocker):
+    """Evidence uploads call the backend attachment upload endpoint"""
     mocker.patch.object(
         a,
-        "get_policy_sections",
-        return_value=[{"fields": {"id": 1}, "id": "sec1"}],
+        "_policy_evidence_field",
+        return_value="evidence_field",
     )
+    connector = mocker.patch.object(a, "get_connector")
+    upload = connector.return_value.attachment_upload
+    upload.return_value = (200, {"ok": True})
+    result = a.upload_violation_evidence(
+        "v1",
+        [("a.jpg", "image/jpeg", b"abc")],
+    )
+    assert result == [{"filename": "a.jpg", "content_type": "image/jpeg", "size": 3}]
+    upload.assert_called_once_with(
+        "policy_enforcement",
+        "violations",
+        "v1",
+        "evidence_field",
+        "a.jpg",
+        "image/jpeg",
+        b"abc",
+    )
+
+
+def test_close_violation(mocker):
+    """Closing a violation creates a closure record linked to the violation"""
     mocker.patch.object(a, "_refid", return_value="ref1")
     insert = mocker.patch.object(a, "insert_records")
-    a.open_violation("rep", "sus", ["1"], "evidence", d(0), 10, "notes")
-    assert insert.call_args.args[0][0]["Relevant Sections"] == ["ref1"]
-    assert insert.call_args.args[0][0]["Daily Fee"] == 10
-
-
-def test_close_violation_success_and_error(mocker):
-    """Closing a violation updates the matching record and rejects ambiguity"""
-    mocker.patch.object(
-        a,
-        "get_policy_violations",
-        return_value=[{"id": "v1", "fields": {"Instance #": "I1"}}],
-    )
-    update = mocker.patch.object(a, "update_record")
-    a.close_violation("I1", "closer", d(0), "sus", "notes")
-    assert update.call_args.args[0]["Closer"] == "closer"
-
-    mocker.patch.object(a, "get_policy_violations", return_value=[])
-    with pytest.raises(RuntimeError, match="No matching violation"):
-        a.close_violation("I1", "closer", d(0), "sus", "notes")
+    a.close_violation("v1", "closer", d(0), "notes", fees_outstanding=True)
+    fields = insert.call_args.args[0][0]
+    assert fields["Violation"] == ["ref1"]
+    assert fields["Closer"] == "closer"
+    assert fields["Close date"] == "2025-01-01"
+    assert fields["Fees outstanding?"] is True
+    assert insert.call_args.args[1:] == ("policy_enforcement", "closures")
 
 
 def test_pay_fee_not_implemented():

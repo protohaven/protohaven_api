@@ -315,3 +315,48 @@ def test_cache_server_request_http_error(mocker):
     connector = con.Connector()
     with pytest.raises(RuntimeError, match="returned 500"):
         connector.cache_server_request("/get", {"key": "foo"})
+
+
+def test_attachment_upload_nocodb(mocker, c):
+    """Attachment uploads hit NocoDB's base64 field-upload endpoint."""
+    mocker.patch.object(c, "db_format", return_value="nocodb")
+    mocker.patch.object(
+        con,
+        "get_config",
+        return_value={
+            "requests": {"url": "http://nocodb:8080", "token": "tok"},
+            "data": {
+                "policy_enforcement": {
+                    "base_id": "p123",
+                    "violations": "v456",
+                }
+            },
+        },
+    )
+    con.requests.request.return_value = mocker.Mock(
+        status_code=200, content=b'{"ok": true}', json=lambda: {"ok": True}
+    )
+
+    status, content = c.attachment_upload(
+        "policy_enforcement",
+        "violations",
+        "rec1",
+        "fld1",
+        "a.jpg",
+        "image/jpeg",
+        b"abc",
+    )
+    assert status == 200
+    assert content == {"ok": True}
+    args = con.requests.request.call_args  # pylint: disable=no-member
+    assert args.args[0] == "POST"
+    assert (
+        args.args[1]
+        == "http://nocodb:8080/api/v3/data/p123/v456/records/rec1/fields/fld1/upload"
+    )
+    body = json.loads(args.kwargs["data"])
+    assert body == {
+        "contentType": "image/jpeg",
+        "file": con.base64.b64encode(b"abc").decode("ascii"),
+        "filename": "a.jpg",
+    }

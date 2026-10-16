@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 """Site for tech leads to manage shop techs"""
 
 import datetime
@@ -33,6 +32,14 @@ page = Blueprint("techs", __name__, template_folder="templates")
 
 
 log = logging.getLogger("handlers.techs")
+
+TECH_ROLES = (
+    Role.SHOP_TECH_LEAD,
+    Role.EDUCATION_LEAD,
+    Role.STAFF,
+    Role.SHOP_TECH,
+)
+TECH_ADMIN_ROLES = (Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF)
 
 
 @page.route("/tech_lead")
@@ -120,13 +127,7 @@ def techs_docs_state():
 
 
 @page.route("/techs/members")
-@require_login_role(
-    Role.SHOP_TECH_LEAD,
-    Role.EDUCATION_LEAD,
-    Role.STAFF,
-    Role.SHOP_TECH,
-    redirect_to_login=False,
-)
+@require_login_role(*TECH_ROLES, redirect_to_login=False)
 def techs_members():
     """Fetches sign-in information for members within a date range"""
     start_raw = request.values.get("start")
@@ -245,13 +246,7 @@ def _notify_override(name, shift, techs):
 
 
 @page.route("/techs/forecast/override", methods=["POST", "DELETE"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD,
-    Role.EDUCATION_LEAD,
-    Role.STAFF,
-    Role.SHOP_TECH,
-    redirect_to_login=False,
-)
+@require_login_role(*TECH_ROLES, redirect_to_login=False)
 def techs_forecast_override():
     """Update/remove forecast overrides on shop tech forecast"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
@@ -344,13 +339,7 @@ def techs_list():
 
 
 @page.route("/techs/update", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD,
-    Role.EDUCATION_LEAD,
-    Role.STAFF,
-    Role.SHOP_TECH,
-    redirect_to_login=False,
-)
+@require_login_role(*TECH_ROLES, redirect_to_login=False)
 def tech_update():
     """Update the custom fields of a shop tech in Neon"""
     data = request.json
@@ -377,9 +366,7 @@ def tech_update():
 
 
 @page.route("/techs/new_event", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
-)
+@require_login_role(*TECH_ADMIN_ROLES, redirect_to_login=False)
 def new_tech_event():
     """Create a new techs-only event in Eventbrite"""
     data = request.json
@@ -413,9 +400,7 @@ def new_tech_event():
 
 
 @page.route("/techs/rm_event", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
-)
+@require_login_role(*TECH_ADMIN_ROLES, redirect_to_login=False)
 def rm_tech_event():
     """Delete a techs-only event in Eventbrite"""
     data = request.json
@@ -435,9 +420,7 @@ def rm_tech_event():
 
 
 @page.route("/techs/enroll", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
-)
+@require_login_role(*TECH_ADMIN_ROLES, redirect_to_login=False)
 def techs_enroll():
     """Enroll a Neon account in the shop tech program, via email"""
     data = request.json
@@ -552,13 +535,7 @@ def _notify_registration(actor_name, target_name, event_id, action):
 
 
 @page.route("/techs/event", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD,
-    Role.STAFF,
-    Role.EDUCATION_LEAD,
-    Role.SHOP_TECH,
-    redirect_to_login=False,
-)
+@require_login_role(*TECH_ROLES, redirect_to_login=False)
 def techs_event_registration():  # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
     """Register/unregister a shop tech for an event, or admin de-register any attendee"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
@@ -833,13 +810,7 @@ def storage_sub_sock(ws):  # pylint: disable=too-many-locals
 
 
 @page.route("/techs/storage_subscriptions/<sub_id>/note", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD,
-    Role.STAFF,
-    Role.EDUCATION_LEAD,
-    Role.SHOP_TECH,
-    redirect_to_login=False,
-)
+@require_login_role(*TECH_ROLES, redirect_to_login=False)
 def set_sub_note(sub_id):
     """Sets the note on a square subscription"""
     data = request.json
@@ -851,14 +822,7 @@ def set_sub_note(sub_id):
 
 
 @page.route("/techs/door_locks")
-@require_login_role(
-    Role.SHOP_TECH_LEAD,
-    Role.EDUCATION_LEAD,
-    Role.STAFF,
-    Role.SHOP_TECH,
-    Role.BOARD_MEMBER,
-    redirect_to_login=False,
-)
+@require_login_role(*TECH_ROLES, Role.BOARD_MEMBER, redirect_to_login=False)
 def techs_door_locks():
     """Fetches the current state of all door locks"""
     door_states = list(wyze.get_door_states())
@@ -870,9 +834,7 @@ def techs_door_locks():
 
 
 @page.route("/techs/attendance_report", methods=["POST"])
-@require_login_role(
-    Role.SHOP_TECH_LEAD, Role.STAFF, Role.EDUCATION_LEAD, redirect_to_login=False
-)
+@require_login_role(*TECH_ADMIN_ROLES, redirect_to_login=False)
 def run_attendance_report():  # pylint: disable=too-many-locals, too-many-statements
     """Runs a simple attendance report. Counts on-time shifts, callouts, and no-shows"""
     data = request.json
