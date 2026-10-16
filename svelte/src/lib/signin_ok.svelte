@@ -1,7 +1,7 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import {
 		Alert,
-    Icon,
+		Icon,
 		Input,
 		Image,
 		Button,
@@ -20,18 +20,49 @@
 	import { post } from '$lib/api.ts';
 	import FetchError from '$lib/fetch_error.svelte';
 
-	export let on_close;
-	export let on_enroll;
-	export let name;
-	export let guest = false;
-	export let radioGroup;
-	export let announcements;
-	export let violations;
-	export let reservations = [];
-	export let email;
-	export let neon_id = '';
-	export let nfc_token_ids = [];
-  export let enable_nfc_enroll = false;
+	type Announcement = {
+		Title: string;
+		Message: string;
+		Survey?: string;
+		rec_id: string | number;
+		response: string;
+		submitting: boolean;
+		submit_ok: boolean;
+		promise: Promise<unknown>;
+	};
+
+	type Violation = {
+		fields: {
+			Calculation: string;
+			'Section (from Relevant Sections)': string;
+			Notes: string;
+			Evidence?: Array<{ thumbnails: { large: { url: string } } }>;
+		};
+	};
+
+	type Reservation = {
+		id: string | number;
+		is_signed_in_member: boolean;
+		area: string;
+		resource: string;
+		start: string;
+		end: string;
+		name: string;
+	};
+
+	type ReservationGroup = Record<string, Reservation[]>;
+
+	export let on_close: (response: string | null) => void;
+	export let on_enroll: () => void;
+	export let name: string;
+	export let guest: boolean = false;
+	export let radioGroup: string | null = null;
+	export let announcements: Announcement[] = [];
+	export let violations: Violation[] = [];
+	export let reservations: Reservation[] = [];
+	export let email: string | null;
+	export let nfc_token_ids: string[] = [];
+	export let enable_nfc_enroll = false;
 
 	let count = 15;
 	function updateTimer() {
@@ -43,7 +74,7 @@
 	addEventListener('keypress', extendTimer);
 	addEventListener('mousemove', extendTimer);
 
-	function submitAnnouncementResponse(a) {
+	function submitAnnouncementResponse(a: Announcement): Promise<unknown> {
 		a.submitting = true;
 		a.submit_ok = false;
 		announcements = announcements; // Force UI rerender
@@ -61,8 +92,8 @@
 	}
 
 	// Group reservations by owner and area
-	$: groupedReservations = (() => {
-		const grouped = [{}, {}];
+	$: groupedReservations = ((): [ReservationGroup, ReservationGroup] => {
+		const grouped: [ReservationGroup, ReservationGroup] = [{}, {}];
 		for (const r of reservations) {
 			const k = r.is_signed_in_member ? 0 : 1;
 			if (!grouped[k][r.area]) {
@@ -84,7 +115,9 @@
 	<Row class="text-center my-3">
 		{#if !guest}
 			<h2>Welcome, {name}!</h2>
-			{#if announcements.length == 0 && violations.length == 0 && nfc_token_ids.length > 0}<p>You're all set!</p>{/if}
+			{#if announcements.length == 0 && violations.length == 0 && nfc_token_ids.length > 0}<p>
+					You're all set!
+				</p>{/if}
 		{:else}
 			<h2>Welcome guest!</h2>
 			<p>You're all set! But if you have a moment, we'd appreciate your feedback...</p>
@@ -93,9 +126,7 @@
 
 	{#if !guest && nfc_token_ids.length === 0 && enable_nfc_enroll}
 		<Alert color="info" class="text-center">
-			<h4 class="my-2">
-        Want to sign in faster?
-			</h4>
+			<h4 class="my-2">Want to sign in faster?</h4>
 			<p class="mb-3">Enroll an NFC tag to sign in with just a tap.</p>
 			<Row class="justify-content-center mb-2">
 				<Col sm={{ size: 'auto' }}>
@@ -107,7 +138,7 @@
 							on_enroll();
 						}}
 					>
-            <Icon name="circle-square" />
+						<Icon name="circle-square" />
 						Enroll NFC Tag
 					</Button>
 				</Col>
@@ -183,7 +214,7 @@
 						>
 						{#await a.promise}
 							<Spinner />
-						{:then arep}
+						{:then}
 							{#if a.submit_ok}
 								<em>Thanks for your response!</em>
 							{/if}

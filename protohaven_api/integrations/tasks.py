@@ -150,7 +150,7 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
     cfg = get_config("asana")[project]
     section_map = {v: k for k, v in (cfg.get("section_gids") or {}).items()}
 
-    def _build(name, completed, section_gids, modified_at):
+    def _build(name, completed, section_gids, modified_at, gid=None):
         if exclude_complete and completed:
             return None
         if exclude_on_hold and section_gids and cfg["on_hold_section"] in section_gids:
@@ -158,12 +158,15 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
         if isinstance(modified_at, str):
             modified_at = safe_parse_datetime(modified_at)
         section_gids = [section_map.get(g) or g for g in section_gids]
-        return {
+        result = {
             "name": name,
             "completed": completed,
             "sections": section_gids,
             "modified_at": modified_at,
         }
+        if gid is not None:
+            result["gid"] = gid
+        return result
 
     if _use_db():
         for t in airtable_base.get_all_records("tasks", project):
@@ -172,6 +175,7 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
                 t["fields"]["Completed"],
                 [t["fields"]["Section GID"]],
                 t["fields"]["Modified"],
+                t.get("id"),
             )
             if b:
                 yield b
@@ -189,7 +193,11 @@ def get_with_onhold_section(project, exclude_on_hold=False, exclude_complete=Fal
             m.get("section", {}).get("gid") for m in req.get("memberships", [])
         ]
         b = _build(
-            req.get("name"), req.get("completed"), section_gids, req.get("modified_at")
+            req.get("name"),
+            req.get("completed"),
+            section_gids,
+            req.get("modified_at"),
+            req.get("gid"),
         )
         if b:
             yield b

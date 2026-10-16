@@ -143,7 +143,7 @@
 			SIGNING</strong
 		>
 		<Col class="d-flex justify-content-center py-3">
-			<Button sm={{ size: 'auto' }} color="primary" on:click={on_submit} disabled={checking}>
+			<Button color="primary" on:click={on_submit} disabled={checking}>
 				I have read and understand this agreement and agree to be bound by its requirements.</Button
 			>
 			{#if checking}

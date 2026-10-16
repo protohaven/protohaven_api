@@ -1,4 +1,5 @@
-"""Site for tech leads to manage shop techs"""  # pylint: disable=too-many-lines
+# pylint: disable=too-many-lines
+"""Site for tech leads to manage shop techs"""
 
 import datetime
 import json
@@ -20,6 +21,7 @@ from protohaven_api.config import get_config, safe_parse_datetime, tz, tznow
 from protohaven_api.integrations import (
     airtable,
     comms,
+    eventbrite,
     neon,
     neon_base,
     sales,
@@ -619,7 +621,7 @@ def tech_update():
     Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
 def new_tech_event():
-    """Create a new techs-only event in Neon"""
+    """Create a new techs-only event in Eventbrite"""
     data = request.json
     log.info(f"new_event with data {data}")
     if str(data["name"]).strip() == "":
@@ -639,17 +641,15 @@ def new_tech_event():
     if capacity < 0 or capacity > 100:
         return Response("capacity field invalid", status=401)
     log.info(f"Creating event with data {data}")
-    return neon_base.create_event(
+    event_id = eventbrite.create_event(
         name=f"{TECH_ONLY_PREFIX} {data['name']}",
-        desc="Tech-only event; created via api.protohaven.org/techs dashboard",
-        start=d,
-        end=d + datetime.timedelta(hours=hours),
+        sessions=[(d, d + datetime.timedelta(hours=hours))],
+        summary="Tech-only event; created via api.protohaven.org/techs dashboard",
         max_attendees=capacity,
-        dry_run=False,
-        published=False,  # Do NOT show this in the regular event browser
-        registration=True,
-        free=True,  # Do not apply pricing
+        published=False,  # Do NOT list this in the regular event browser
     )
+    eventbrite.assign_pricing(event_id, 0, capacity, clear_existing=True)
+    return eventbrite.set_event_scheduled_state(event_id, scheduled=True)
 
 
 @page.route("/techs/rm_event", methods=["POST"])
@@ -657,7 +657,7 @@ def new_tech_event():
     Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
 def rm_tech_event():
-    """Delete a techs-only event in Neon"""
+    """Delete a techs-only event in Eventbrite"""
     data = request.json
     eid = str(data["eid"])
     if eid.strip() == "":
@@ -704,6 +704,7 @@ def techs_backfill_events():
     for_techs = []
     now = tznow()
     is_admin = am_lead_role()
+    is_generic_shop_tech = am_neon_id(get_config("general/shop_tech_neon_id"))
 
     def _keep(evt):
         if evt.in_blocklist():
@@ -731,33 +732,29 @@ def techs_backfill_events():
         # attendee_count requires attendee data to have been fetched,
         # so we have to additionally check here
         if evt.name.startswith(TECH_ONLY_PREFIX) or evt.attendee_count > 0:
-            # Get attendee details for admins
+            # Get attendee details for admins. Eventbrite attendees don't have
+            # Neon account IDs, so de-registration moves to email.
             attendee_details = []
             for attendee in evt.attendees:
                 if attendee.valid:
-                    attendee_info = {
-                        "neon_id": attendee.neon_id,
-                        "name": attendee.name,
-                        "email": attendee.email,
-                        "is_volunteer": False,
-                    }
-                    # Try to get phone number from member account
-                    if attendee.neon_id:
-                        try:
-                            member = neon_base.fetch_account(attendee.neon_id)
-                            if member and hasattr(member, "phone") and member.phone:
-                                attendee_info["phone"] = member.phone
-                            attendee_info["is_volunteer"] = member.is_volunteer()
-                        except RuntimeError:
-                            pass  # Silently fail if we can't fetch member data
-                    attendee_details.append(attendee_info)
+                    attendee_details.append(
+                        {
+                            "name": attendee.name,
+                            "email": attendee.email,
+                            "phone": attendee.phone,
+                        }
+                    )
 
             for_techs.append(
                 {
                     "id": evt.event_id,
                     "ticket_id": evt.single_registration_ticket_id,
                     "name": evt.name,
-                    "attendees": [a["neon_id"] for a in attendee_details],
+                    "attendees": [],
+                    "attendee_emails": [
+                        a["email"] for a in attendee_details if a.get("email")
+                    ],
+                    "attendee_count": len(attendee_details),
                     "attendee_details": attendee_details if is_admin else [],
                     "capacity": evt.capacity,
                     "start": evt.start_date.isoformat(),
@@ -767,7 +764,8 @@ def techs_backfill_events():
 
     return {
         "events": for_techs,
-        "can_register": am_role(Role.SHOP_TECH) or am_lead_role(),
+        "can_register": (am_role(Role.SHOP_TECH) or am_lead_role())
+        and not is_generic_shop_tech,
         "can_edit": am_lead_role()
         or am_role(Role.EDUCATION_LEAD)
         or am_role(Role.STAFF),
@@ -775,21 +773,15 @@ def techs_backfill_events():
     }
 
 
-def _notify_registration(account_id, attendee_neon_id, event_id, action):
+def _notify_registration(actor_name, target_name, event_id, action):
     """Sends notification of state of class to the techs and instructors channels
     when a tech (un)registers to backfill a class."""
-    acc = neon_base.fetch_account(account_id, required=True)
-    target = (
-        acc
-        if account_id == attendee_neon_id
-        else neon_base.fetch_account(attendee_neon_id, required=True)
-    )
     evt = eauto.fetch_event(event_id, attendees=True)
     verb = "registered"
     if action != "register":
         verb = "unregistered"
     msg = (
-        f"{acc.name} {verb} {target.name} via [/techs](https://api.protohaven.org/techs#events): "
+        f"{actor_name} {verb} {target_name} via [/techs](https://api.protohaven.org/techs#events): "
         f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
         f"; {evt.capacity - evt.attendee_count} seat(s) remain"
     )
@@ -807,7 +799,7 @@ def _notify_registration(account_id, attendee_neon_id, event_id, action):
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-def techs_event_registration():  # pylint: disable=too-many-return-statements
+def techs_event_registration():  # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
     """Register/unregister a shop tech for an event, or admin de-register any attendee"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
@@ -822,12 +814,7 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
     event_id = data.get("event_id")
     ticket_id = data.get("ticket_id")
     action = data.get("action")
-    attendee_neon_id_raw = data.get("attendee_neon_id")
-    attendee_neon_id = (
-        str(attendee_neon_id_raw).strip()
-        if attendee_neon_id_raw is not None
-        else account_id
-    )
+    attendee_email = data.get("attendee_email")
 
     log.info(f"Attempt to (un)register for event: {account_id} {data}")
     if not account_id:
@@ -841,19 +828,100 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements
         # if not ticket_id and action == "register":
         #    return Response("ticket_id required for register action", status=400)
 
+        if action == "unregister" and attendee_email is not None:
+            # Admin de-registration by email. Eventbrite attendees do not have
+            # Neon IDs, so resolve the email back to a Neon account and verify
+            # it belongs to a tech before allowing a lead/admin to remove them.
+            if not am_lead_role():
+                return Response(
+                    "Admin privileges required for admin unregister action", status=403
+                )
+            target_email = str(attendee_email).strip().lower()
+            if not target_email:
+                return Response("attendee_email required", status=400)
+            target = next(
+                (
+                    m
+                    for m in neon.search_members_by_email(target_email)
+                    if m.is_volunteer()
+                ),
+                None,
+            )
+            if target is None:
+                return Response(
+                    f"No tech account found for email {target_email}",
+                    status=400,
+                )
+
+            ret = eventbrite.cancel_attendee_order(event_id, target_email)
+            if ret is None:
+                return Response(
+                    f"Registration not found for email {target_email} "
+                    f"in event {event_id}",
+                    status=404,
+                )
+            actor = neon_base.fetch_account(account_id, required=True)
+            _notify_registration(actor.name, target.name, event_id, action)
+            return ret
+
+        # Self-service register/unregister (and legacy admin register by Neon ID)
+        attendee_neon_id_raw = data.get("attendee_neon_id")
+        attendee_neon_id = (
+            str(attendee_neon_id_raw).strip()
+            if attendee_neon_id_raw is not None
+            else account_id
+        )
         if attendee_neon_id != account_id and not am_lead_role():
             return Response(
                 "Admin privileges required for admin unregister action", status=403
             )
 
+        member = neon_base.fetch_account(attendee_neon_id, required=True)
         if action == "register":
-            ret = neon.register_for_event(attendee_neon_id, event_id, ticket_id)
+            evt = eauto.fetch_event(event_id, tickets=True)
+            eb_ticket_id = ticket_id or evt.single_registration_ticket_id
+            if not eb_ticket_id:
+                return Response(
+                    "No Eventbrite ticket class found for registration",
+                    status=400,
+                )
+            ticket = next(
+                (t for t in evt.ticket_options if str(t["id"]) == str(eb_ticket_id)),
+                None,
+            )
+            if ticket is None:
+                return Response(
+                    f"Ticket class {eb_ticket_id} not found for event {event_id}",
+                    status=400,
+                )
+            discount_code = None
+            if ticket["price"] > 0:
+                discount_code = eventbrite.generate_discount_code(
+                    event_id, percent_off=100
+                )
+            ret = eventbrite.register_attendee(
+                event_id,
+                eb_ticket_id,
+                member.fname,
+                member.lname,
+                member.email,
+                discount_code=discount_code,
+            )
         else:
-            ret = neon.delete_single_ticket_registration(
-                attendee_neon_id, event_id
-            ) or {"status": "ok"}
+            ret = eventbrite.cancel_attendee_order(event_id, member.email)
+            if ret is None:
+                return Response(
+                    f"Registration not found for account {attendee_neon_id} "
+                    f"in event {event_id}",
+                    status=404,
+                )
         if ret:
-            _notify_registration(account_id, attendee_neon_id, event_id, action)
+            actor_name = (
+                member.name
+                if attendee_neon_id == account_id
+                else neon_base.fetch_account(account_id, required=True).name
+            )
+            _notify_registration(actor_name, member.name, event_id, action)
             return ret
     else:
         return Response(
@@ -946,7 +1014,7 @@ def storage_sub_sock(ws):  # pylint: disable=too-many-locals
         )
     log.info("Fetching and looping through subscriptions")
     for sub in sales.get_subscriptions():
-        unpaid = [i for i in sub["invoice_ids"] if i in unpaid_invoices]
+        unpaid = [i for i in (sub.get("invoice_ids") or []) if i in unpaid_invoices]
 
         # Include not only active subscriptions, but cancelled subs
         # that haven't been fully paid out.

@@ -1,32 +1,38 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script lang="ts">
 	import {
 		Table,
 		Badge,
 		Popover,
 		Card,
-		CardHeader,
 		CardTitle,
-		CardText,
 		CardBody,
-		Spinner,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem
+		Spinner
 	} from '@sveltestrap/sveltestrap';
-	import FetchError from '../fetch_error.svelte';
 	import { open_ws } from '../api';
 
-	export let visible;
+	interface OpsItem {
+		category: string;
+		label: string;
+		total?: number;
+		index?: number;
+		error?: string;
+		color?: string;
+		value?: string | number;
+		target?: string | number;
+		url?: string;
+		source?: string;
+		timescale?: string;
+	}
+
+	export let visible: boolean = false;
 
 	let loaded = false;
 	let loading = false;
 	let total = 0;
 	let index = 0;
 
-	let categories = [];
-	let categorized = {};
+	let categories: string[] = [];
+	let categorized: Record<string, OpsItem[]> = {};
 	function refresh() {
 		categories = ['Errors'];
 		categorized = { Errors: [] };
@@ -34,25 +40,24 @@
 		const socket = open_ws('/staff/ops_summary');
 		socket.onmessage = (m) => {
 			console.log(m);
-			let item = JSON.parse(m.data);
-			total = item.total;
-			index = item.index;
+			const item = JSON.parse(m.data) as OpsItem;
+			total = item.total ?? 0;
+			index = item.index ?? 0;
 			if (!categorized[item.category]) {
 				categorized[item.category] = [];
 				categories.push(item.category);
 				categories.sort();
-				categories = categories;
 			}
 			categorized[item.category].push(item);
-			categorized = categorized;
 		};
-		socket.onerror = (error) => {
+		socket.onerror = (error: Event) => {
 			// Ignore normal closure errors
-			if (!error.message) {
+			const message = (error as Event & { message?: string }).message;
+			if (!message) {
 				return;
 			}
 			console.error('WebSocket error:', error);
-			alert(`WebSocket error: ${error.message || 'Connection failed'}`);
+			alert(`WebSocket error: ${message || 'Connection failed'}`);
 		};
 		socket.onclose = () => {
 			loading = false;

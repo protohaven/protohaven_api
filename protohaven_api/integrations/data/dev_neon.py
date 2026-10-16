@@ -3,12 +3,10 @@
 import json
 import logging
 from dataclasses import dataclass
-from random import random
 from urllib.parse import urlparse
 
 from flask import Flask, Response, request
 
-from protohaven_api.config import safe_parse_datetime
 from protohaven_api.integrations import airtable_base
 from protohaven_api.integrations.data.neon import CustomField
 
@@ -179,138 +177,6 @@ def _neon_dev_search_filter(  # pylint: disable=too-many-return-statements, too-
     )
 
 
-@app.route("/v2/events/search", methods=["POST"])
-def search_event():
-    """Crude search mocker for events - does not respect output fields"""
-    data = request.json
-    from_date = None
-    until_date = None
-    for f in data["searchFields"]:
-        if f["field"] == "Event Start Date":
-            if f["operator"] == "GREATER_AND_EQUAL":
-                from_date = safe_parse_datetime(f["value"])
-            elif f["operator"] == "LESS_AND_EQUAL":
-                until_date = safe_parse_datetime(f["value"])
-            else:
-                raise RuntimeError(
-                    f"Unhandled operator {f['operator']} for field {f['field']}"
-                )
-
-    assert from_date and until_date
-    output_map = {
-        "Event ID": "id",
-        "Event Name": "name",
-        "Event Capacity": "capacity",
-        "Event Start Date": "startDate",
-        "Event Start Time": "startTime",
-    }
-    result = []
-    for row in get_all_rows("events"):
-        row = row["fields"]["data"]
-        if not row:
-            continue
-        assert isinstance(row, dict)
-        d = safe_parse_datetime(f"{row['startDate']} {row['startTime']}")
-        if from_date <= d <= until_date:
-            result.append({name: row[field] for name, field in output_map.items()})
-            result[-1][
-                "Event Registration Attendee Count"
-            ] = 1  # Need to actually handle this eventually
-            result[-1]["Event Web Publish"] = "Yes" if row["publishEvent"] else "No"
-            result[-1]["Event Web Register"] = (
-                "Yes" if row["enableEventRegistrationForm"] else "No"
-            )
-    return {
-        "searchResults": result,
-        "pagination": {"totalResults": len(result), "totalPages": 1},
-    }
-
-
-@app.route("/v2/events/<event_id>", methods=["GET", "PATCH", "DELETE"])
-def get_event(event_id):
-    """Mock event endpoint for Neon"""
-    # Note that fetching an event directly returns structured data,
-    # while searching for events returns a flattened and reduced set of data
-    for row in get_all_rows("events"):
-        if str(row["fields"]["eventId"]) == str(event_id):
-            if request.method == "GET":
-                return row["fields"]["fetch_data"]
-            if request.method == "DELETE":
-                _, content = airtable_base.delete_record(
-                    "fake_neon", "events", row["id"]
-                )
-                return content
-            raise NotImplementedError(
-                f"method {request.method} not implemented for /v2/events/*"
-            )
-    return Response("Event not found", status=404)
-
-
-@app.route("/v2/events", methods=["GET", "POST"])
-def get_events():
-    """Mock events endpoint for Neon"""
-    # Need to implement filtering here
-    if request.method == "GET":
-        evts = [
-            row["fields"]["data"]
-            for row in get_all_rows("events")
-            if row["fields"]["data"]
-        ]
-        return {
-            "events": evts,
-            "pagination": {"totalPages": 1},
-        }
-
-    # POST
-    new_id = int(random() * 100000)
-    airtable_base.insert_records(
-        [
-            {
-                "eventId": new_id,
-                "data": json.dumps(request.json),
-            }
-        ],
-        "fake_neon",
-        "events",
-    )
-    return {"id": new_id}
-
-
-@app.route("/v2/events/<event_id>/tickets")
-def get_event_tickets(event_id):
-    """Mock event tickets endpoint for Neon"""
-    for row in get_all_rows("tickets"):
-        if not row["fields"]["data"]:
-            continue
-        if str(row["fields"]["eventId"]) == str(event_id):
-            # Weird that Neon doesn't paginate these results, but a lot of their
-            # API is inconsistent with itself, so ¯\_(ツ)_/¯
-            return row["fields"]["data"]
-    return []
-
-
-@app.route("/v2/events/<event_id>/eventRegistrations")
-def get_event_registrations(event_id):
-    """Mock event registrations endpoint for Neon"""
-    raise NotImplementedError("TODO")
-
-
-@app.route("/v2/events/<event_id>/attendees")
-def get_attendees(event_id):
-    """Mock event attendees endpoint for Neon"""
-    result = []
-    for row in get_all_rows("attendees"):
-        if not row["fields"]["data"]:
-            continue
-        if str(row["fields"]["eventId"]) == str(event_id):
-            result += row["fields"]["data"]
-            break
-    return {
-        "attendees": result,
-        "pagination": {"totalResults": len(result), "totalPages": 1},
-    }
-
-
 @app.route("/v2/accounts/search", methods=["POST"])
 def search_accounts():
     """Mock account search endpoint for Neon"""
@@ -396,32 +262,6 @@ def get_account_memberships(account_id):
             "totalResults": len(m),
         },
     }
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login_handler():
-    """Dummy login page handler for user impersonation"""
-    if request.method == "GET":
-        return '<head><meta name="csrf-token" content="test_csrf_token"/></head>'
-    return "OK - Log Out"
-
-
-@app.route("/np/ssoAuth")
-def sso_auth_handler():
-    """Dummy SSO authentication handler for user impersonation"""
-    return "Mission Control Dashboard"
-
-
-@app.route("/event/newPackage.do")
-def new_ticket_package():
-    """Dummy handler for ticket group editing"""
-    return "Event Price"
-
-
-@app.route("/event/savePackage.do")
-def save_ticket_package():
-    """Dummy handler for ticket group editing"""
-    return Response("Creatin'", status=302)
 
 
 client = app.test_client()

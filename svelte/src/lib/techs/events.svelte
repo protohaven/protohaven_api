@@ -1,5 +1,4 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script type="typescript" lang="ts">
 	import {
 		Row,
 		Col,
@@ -20,21 +19,60 @@
 	import FetchError from '../fetch_error.svelte';
 	import { post, get } from '$lib/api.ts';
 
-	export let visible;
+	interface UserInfo {
+		neon_id?: string | number;
+		email?: string;
+		fullname?: string;
+	}
+
+	interface EventAttendee {
+		name?: string;
+		email?: string;
+		phone?: string;
+		is_volunteer?: boolean;
+		neon_id?: string | number;
+	}
+
+	interface EventItem {
+		id: string | number;
+		name: string;
+		start: string;
+		capacity: number;
+		attendee_count?: number;
+		attendees: (string | number)[];
+		attendee_emails?: string[];
+		attendee_details?: EventAttendee[];
+		ticket_id?: string | number | null;
+	}
+
+	interface EventsData {
+		events: EventItem[];
+		can_register: boolean;
+		can_edit: boolean;
+		is_admin: boolean;
+	}
+
+	interface NewEventForm {
+		name: string;
+		capacity: number;
+		start: string;
+		hours: number;
+	}
+
+	export let visible: boolean;
 	let loaded = false;
-	export let user;
-	let loading = false;
-	let promise = new Promise((r, _) => {
-		r([]);
+	export let user: UserInfo | null = null;
+	let promise: Promise<EventsData> = Promise.resolve({
+		events: [],
+		can_register: false,
+		can_edit: false,
+		is_admin: false
 	});
 	function reload() {
-		loading = true;
-		promise = get('/techs/events')
-			.then((data) => {
-				loaded = true;
-				return data;
-			})
-			.finally(() => (loading = false));
+		promise = get('/techs/events').then((data) => {
+			loaded = true;
+			return data;
+		});
 	}
 	$: {
 		if (visible && !loaded) {
@@ -43,12 +81,22 @@
 	}
 
 	let submitting = false;
-	let submission = new Promise((r, _) => r(null));
-	function action(event_id, ticket_id, action, attendee_neon_id = null) {
+	let submission: Promise<unknown> = new Promise((r) => r(null));
+	function action(
+		event_id: string | number | null,
+		ticket_id: string | number | null | undefined,
+		action: 'register' | 'unregister',
+		attendee_email: string | null = null
+	) {
 		submitting = true;
-		const data = { event_id, ticket_id, action };
-		if (attendee_neon_id !== null) {
-			data.attendee_neon_id = attendee_neon_id;
+		const data: {
+			event_id: string | number | null;
+			ticket_id: string | number | null | undefined;
+			action: string;
+			attendee_email?: string | null;
+		} = { event_id, ticket_id, action };
+		if (attendee_email !== null) {
+			data.attendee_email = attendee_email;
 		}
 		submission = post('/techs/event', data)
 			.then((result) => console.log(result))
@@ -58,25 +106,34 @@
 			});
 	}
 
-	let new_event_form = {
-		name: null,
+	function is_registered(r: EventItem): boolean {
+		const neon_id = user?.neon_id;
+		const email = (user?.email || '').toLowerCase();
+		return (
+			(neon_id !== undefined && (r.attendees || []).indexOf(neon_id) !== -1) ||
+			(r.attendee_emails || []).indexOf(email) !== -1
+		);
+	}
+
+	let new_event_form: NewEventForm = {
+		name: '',
 		capacity: 6,
-		start: null,
+		start: '',
 		hours: 3
 	};
 	function new_tech_event() {
-		if (!new_event_form.name || !new_event_form.name.trim().length) {
+		if (!new_event_form.name.trim().length) {
 			alert('Please name your tech class');
 			return;
 		}
 		let d = new Date(new_event_form.start);
-		if (d < new Date()) {
+		if (isNaN(d.getTime()) || d < new Date()) {
 			alert('Start date must be set, and in the future');
 			return;
 		}
 		console.log('Date parsed as', d);
 		console.log(new_event_form);
-		if (d.getHours() < 10 || d.getHours() + parseInt(new_event_form.hours, 10) > 22) {
+		if (d.getHours() < 10 || d.getHours() + new_event_form.hours > 22) {
 			alert(
 				'Event must start and end within shop hours (10AM-10PM); please check date and hours form values'
 			);
@@ -94,7 +151,7 @@
 			});
 	}
 
-	function delete_event(eid) {
+	function delete_event(eid: string | number) {
 		submitting = true;
 		submission = post('/techs/rm_event', { eid })
 			.then((result) => {
@@ -131,7 +188,7 @@
 				{:catch error}
 					<FetchError {error} />
 				{/await}
-				{#if p.length === 0}
+				{#if p.events.length === 0}
 					<em>No event available for backfill - please check back later.</em>
 				{:else if !user || !p.can_register}
 					<p>
@@ -154,9 +211,9 @@
 								On {new Date(r.start).toLocaleString('en-US', { timeZone: 'America/New_York' })}
 							</div>
 							<div>
-								<a href={`https://protohaven.org/e/${r.id}`} target="_blank">Event Details</a>
+								<a href={`https://www.eventbrite.com/e/${r.id}/`} target="_blank">Event Details</a>
 							</div>
-							<div>{r.capacity - r.attendees.length} seat(s) left</div>
+							<div>{r.capacity - (r.attendee_count ?? r.attendees.length)} seat(s) left</div>
 
 							{#if r.attendee_details && r.attendee_details.length > 0}
 								<div class="mt-3">
@@ -171,7 +228,7 @@
 												{#if attendee.phone}
 													<div>Phone: {attendee.phone}</div>
 												{/if}
-												{#if attendee.is_volunteer}
+												{#if p.is_admin}
 													<div class="mt-1">
 														<Button
 															color="danger"
@@ -182,7 +239,7 @@
 																		`Are you sure you want to de-register ${attendee.name} from this event?`
 																	)
 																) {
-																	action(r.id, null, 'unregister', attendee.neon_id);
+																	action(r.id, null, 'unregister', attendee.email);
 																}
 															}}
 															disabled={submitting}
@@ -199,14 +256,14 @@
 
 							{#if user && p.can_register}
 								<div>
-									{#if r.attendees.indexOf(user.neon_id) !== -1}
+									{#if is_registered(r)}
 										<strong>You are registered!</strong>
 										<Button
 											color="secondary"
 											on:click={() => action(r.id, r.ticket_id, 'unregister')}
 											disabled={submitting}>Unregister</Button
 										>
-									{:else if r.capacity - r.attendees.length > 0}
+									{:else if r.capacity - (r.attendee_count ?? r.attendees.length) > 0}
 										<Button
 											color="primary"
 											on:click={() => action(r.id, r.ticket_id, 'register')}

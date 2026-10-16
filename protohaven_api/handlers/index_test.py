@@ -9,6 +9,7 @@ from protohaven_api.app import configure_app
 from protohaven_api.config import get_config
 from protohaven_api.handlers import index
 from protohaven_api.integrations import neon
+from protohaven_api.integrations.models import Role
 from protohaven_api.rbac import set_rbac
 from protohaven_api.testing import MatchStr, d, fixture_client, setup_session
 
@@ -47,6 +48,75 @@ def test_whoami_no_roles(client):
         "event_discount_pct": 0,
         "roles": [],
     }
+
+
+def test_event_ticker_empty_when_no_advertised_events(mocker, client):
+    """Event ticker shows no classes rather than fabricating sample classes."""
+    mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=[])
+
+    rep = client.get("/event_ticker")
+
+    assert rep.status_code == 200
+    assert json.loads(rep.data.decode("utf8")) == []
+
+
+def test_event_ticker_shows_advertised_events(mocker, client):
+    """Event ticker filters to advertised events and returns formatted data"""
+    mocker.patch.object(index, "tznow", return_value=d(0))
+
+    def make_event(
+        start,
+        name,
+        *,
+        registration=True,
+        attendee_count=2,
+        capacity=10,
+    ):
+        evt = mocker.MagicMock(
+            start_date=start,
+            registration=registration,
+            attendee_count=attendee_count,
+            capacity=capacity,
+            url=f"https://example.com/{name.lower().replace(' ', '-')}",
+        )
+        evt.name = name
+        return evt
+
+    events = [
+        make_event(d(1, 10), "First Advertised"),
+        make_event(d(2, 11), "Second Advertised"),
+        make_event(d(40), "Too Far Out"),
+        make_event(d(-1), "Past Event"),
+        make_event(d(3, 9), "Not Registered", registration=False),
+        make_event(d(4, 9), "No Attendees", attendee_count=0),
+        make_event(d(5, 9), "Full Class", attendee_count=10, capacity=10),
+        make_event(d(6, 9), "Third Advertised"),
+    ]
+    mocker.patch.object(index.eauto, "fetch_upcoming_events", return_value=events)
+
+    rep = client.get("/event_ticker")
+
+    assert rep.status_code == 200
+    assert json.loads(rep.data.decode("utf8")) == [
+        {
+            "url": "https://example.com/first-advertised",
+            "name": "First Advertised",
+            "date": d(1, 10).strftime("%b %-d, %-I%p"),
+            "seats_left": 8,
+        },
+        {
+            "url": "https://example.com/second-advertised",
+            "name": "Second Advertised",
+            "date": d(2, 11).strftime("%b %-d, %-I%p"),
+            "seats_left": 8,
+        },
+        {
+            "url": "https://example.com/third-advertised",
+            "name": "Third Advertised",
+            "date": d(6, 9).strftime("%b %-d, %-I%p"),
+            "seats_left": 8,
+        },
+    ]
 
 
 def test_class_listing(mocker, client):
@@ -245,7 +315,13 @@ def test_event_ticket_info_no_id(mocker, client):
     assert rep.status != 200
 
 
-def test_neon_lookup(mocker, client):
+@pytest.fixture()
+def lead_client(client):
+    setup_session(client, [Role.SHOP_TECH_LEAD])
+    return client
+
+
+def test_neon_lookup(mocker, lead_client):
     """Test neon_lookup returns structured data"""
     mock_member = mocker.MagicMock()
     mock_member.neon_id = "123"
@@ -255,7 +331,7 @@ def test_neon_lookup(mocker, client):
 
     mocker.patch.object(index.neon.cache, "find_best_match", return_value=[mock_member])
 
-    response = client.post("/neon_lookup", data={"search": "John"})
+    response = lead_client.post("/neon_lookup", data={"search": "John"})
     assert response.status_code == 200
     result = json.loads(response.data.decode("utf8"))
     assert result == [
@@ -379,6 +455,48 @@ def test_get_event_reservations(mocker, client):
     unknown_res = next(r for r in result if r["resource"] == "Unknown Tool")
     assert unknown_res["area"] == "Unknown Area"
     assert unknown_res["name"] == "Bob Jones"
+
+
+def test_events_dashboard_attendee_count(mocker, client):
+    """Attendee count endpoint returns the count for the requested event"""
+    mock_evt = mocker.MagicMock(attendee_count=7)
+    fetch = mocker.patch.object(index.eauto, "fetch_event", return_value=mock_evt)
+
+    rep = client.get("/events/attendees?id=123")
+
+    assert rep.status_code == 200
+    assert rep.data.decode("utf8") == "7"
+    fetch.assert_called_once_with("123", attendees=True)
+
+
+def test_events_dashboard_attendee_count_missing_event(mocker, client):
+    """Attendee count endpoint returns 0 when the event is not found"""
+    mocker.patch.object(index.eauto, "fetch_event", return_value=None)
+
+    rep = client.get("/events/attendees?id=missing")
+
+    assert rep.status_code == 200
+    assert rep.data.decode("utf8") == "0"
+
+
+def test_get_shop_events(mocker, client):
+    """Shop events endpoint returns named events sorted by start time"""
+    mocker.patch.object(
+        index,
+        "fetch_shop_events",
+        return_value={
+            "Tour": [["2025-01-03T10:00:00", "2025-01-03T11:00:00"]],
+            "Open Hours": [[d(1, 9), d(1, 12)]],
+        },
+    )
+
+    rep = client.get("/events/shop")
+
+    assert rep.status_code == 200
+    result = json.loads(rep.data.decode("utf8"))
+    assert [e["name"] for e in result] == ["Open Hours", "Tour"]
+    assert result[0]["start"].startswith("Thu, 02 Jan 2025")
+    assert result[1]["start"].startswith("Fri, 03 Jan 2025")
 
 
 def test_humanize_sessions(mocker):

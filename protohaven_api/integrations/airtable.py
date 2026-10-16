@@ -1,14 +1,17 @@
 """Airtable integration (classes, tool state etc)"""  # pylint: disable=too-many-lines
 
 import datetime
+import io
 import json
 import logging
 import re
+import tarfile
 import traceback
 import urllib.parse
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from functools import lru_cache
+from os.path import getsize
 from typing import Any, Iterable
 
 from dateutil import parser as dateparser
@@ -18,6 +21,7 @@ from protohaven_api.integrations.airtable_base import (
     _idref,
     _refid,
     delete_record,
+    get_airtable_schema,
     get_all_records,
     get_all_records_after,
     get_all_records_between,
@@ -109,7 +113,6 @@ class Class:  # pylint: disable=too-many-instance-attributes
 class ScheduledClass:  # pylint: disable=too-many-instance-attributes
     """Represents a class template with scheduling information applied"""
 
-    use_eventbrite: bool
     schedule_id: RecordID  # Record ID for the Schedule table
     class_id: RecordID  # Record ID for the Class Templates table
     event_id: EventID  # Neon or Eventbrite published ID
@@ -194,7 +197,6 @@ class ScheduledClass:  # pylint: disable=too-many-instance-attributes
                     "Age Requirement",
                 )
             },
-            use_eventbrite=_unwrap(f, "Eventbrite (from Class)") or False,
         )
 
     def form_fmt_hours(self, h: float) -> str:
@@ -866,59 +868,6 @@ def create_fees(fees, batch_size=10):
     return rep
 
 
-def create_coupon(code, amount, use_by, expires):
-    """Create fees for each violation and fee amount in the map"""
-    data = [
-        {
-            "Code": code,
-            "Amount": amount,
-            "Use By": use_by.strftime("%Y-%m-%d"),
-            "Created": tznow().isoformat(),
-            "Expires": expires.strftime("%Y-%m-%d"),
-        }
-    ]
-    return insert_records(data, "class_automation", "discounts")
-
-
-def get_num_valid_unassigned_coupons(use_by):
-    """Counts the number of coupons that can be assigned, with
-    a 'Use By' date of at least `use_by`."""
-    num = 0
-    for row in get_all_records_after(
-        "class_automation", "discounts", use_by, field="Use By"
-    ):
-        if not row["fields"].get("Assigned"):
-            num += 1
-    return num
-
-
-def get_next_available_coupon(use_by=None):
-    """Gets all logged targets that were sent after a specific date,
-    including their date of ontification"""
-    if not use_by:
-        use_by = tznow() + datetime.timedelta(days=30)
-    for row in get_all_records_after(
-        "class_automation", "discounts", use_by, field="Use By"
-    ):
-        if row["fields"].get("Assigned"):
-            continue
-        return row
-
-
-def mark_coupon_assigned(rec, assignee):
-    """Marks the coupon as assigned to a particular assignee"""
-    _, content = update_record(
-        {
-            "Assigned": tznow().isoformat(),
-            "Assignee": assignee,
-        },
-        "class_automation",
-        "discounts",
-        rec,
-    )
-    return content
-
-
 def pay_fee(fee_id):
     """Mark fee as paid"""
     raise NotImplementedError()
@@ -1153,3 +1102,31 @@ def get_all_instructor_capabilities_formatted():
 
         bios.append(bio)
     return bios
+
+
+def fetch_airtable_backup(dest: str) -> int:
+    """Writes a tarball of all data in every configured Airtable table.
+
+    Args:
+        dest: the output location for the tarball
+    Returns:
+        File size
+    """
+    with tarfile.open(dest, "w:gz") as tar:
+        for base, tables in get_config("airtable/data").items():
+            schema = get_airtable_schema(base)
+            schema_content = json.dumps(schema, indent=2).encode("utf-8")
+            schema_info = tarfile.TarInfo(name=f"{base}/_schema.json")
+            schema_info.size = len(schema_content)
+            tar.addfile(tarinfo=schema_info, fileobj=io.BytesIO(schema_content))
+
+            for table_name, _ in tables.items():
+                if table_name in ("token", "base_id"):
+                    continue
+                records = list(get_all_records(base, table_name))
+                content = json.dumps(records, indent=2).encode("utf-8")
+                data_stream = io.BytesIO(content)
+                info = tarfile.TarInfo(name=f"{base}/{table_name}.json")
+                info.size = len(content)
+                tar.addfile(tarinfo=info, fileobj=data_stream)
+    return getsize(dest)

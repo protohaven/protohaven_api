@@ -18,19 +18,19 @@ function get_test_ph_events() {
 			"date": "Oct 15, 6PM",
 			"name": "Textiles 102: CNC Testing Clearance",
 			"seats_left": 4,
-			"url": "https://protohaven.org/e/17881"
+			"url": "https://www.eventbrite.com/e/17881/"
 		},
 		{
 			"date": "Oct 18, 6PM",
 			"name": "Wood 102: Test Clearance",
 			"seats_left": 2,
-			"url": "https://protohaven.org/e/17880"
+			"url": "https://www.eventbrite.com/e/17880/"
 		},
 		{
 			"date": "Oct 18, 6PM",
 			"name": "Graphics 110: Vinyl Cut Signs (Vinyl Cutter Clearance)",
 			"seats_left": 1,
-			"url": "https://protohaven.org/e/17882"
+			"url": "https://www.eventbrite.com/e/17882/"
 		},
 	]));
 }

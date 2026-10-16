@@ -2,6 +2,7 @@
 import datetime
 import json
 import re
+import tarfile
 from collections import namedtuple
 
 import pytest
@@ -208,117 +209,6 @@ def test_get_storage_violations():
     assert len(violations) == 1
     assert violations[0]["fields"]["Violation"] == "Excessive storage"
     assert "Closure" not in violations[0]["fields"]
-
-
-def test_create_coupon(mocker):
-    mocker.patch.object(a, "tznow", return_value=d(0))
-    mock_insert = mocker.patch.object(a, "insert_records")
-    mock_insert.return_value = (200, {"records": [{"id": "rec123"}]})
-    result = a.create_coupon(
-        "SUMMER25",
-        25,
-        d(1),
-        d(2),
-    )
-    expected_fields = {
-        "Code": "SUMMER25",
-        "Amount": 25,
-        "Use By": d(1).strftime("%Y-%m-%d"),
-        "Created": d(0).isoformat(),
-        "Expires": d(2).strftime("%Y-%m-%d"),
-    }
-    mock_insert.assert_called_once_with(
-        [expected_fields], "class_automation", "discounts"
-    )
-
-
-Tc = namedtuple("TC", "desc,records,use_by,expected_count")
-
-
-@pytest.mark.parametrize(
-    "tc",
-    [
-        Tc("No coupons", [], "2025-01-01", 0),
-        Tc(
-            "All valid unassigned",
-            [{"fields": {"Use By": "2025-02-01", "Assigned": None}}],
-            "2025-01-01",
-            1,
-        ),
-        Tc(
-            "Some assigned",
-            [
-                {"fields": {"Use By": "2025-02-01", "Assigned": None}},
-                {"fields": {"Use By": "2025-02-01", "Assigned": "2024-01-01"}},
-            ],
-            "2025-01-01",
-            1,
-        ),
-    ],
-    ids=idfn,
-)
-def test_get_num_valid_unassigned_coupons(mocker, tc):
-    mock_get = mocker.patch.object(a, "get_all_records_after")
-    mock_get.return_value = tc.records
-
-    count = a.get_num_valid_unassigned_coupons(safe_parse_datetime(tc.use_by))
-    assert count == tc.expected_count
-
-
-Tc = namedtuple("TC", "desc,records,use_by,expected_result")
-
-
-@pytest.mark.parametrize(
-    "tc",
-    [
-        Tc("No available coupons", [], "2025-01-01", None),
-        Tc(
-            "Returns first unassigned",
-            [
-                {"fields": {"Use By": "2025-02-01", "Assigned": None}, "id": "rec1"},
-                {"fields": {"Use By": "2025-03-01", "Assigned": None}, "id": "rec2"},
-            ],
-            "2025-01-01",
-            {"id": "rec1", "fields": {"Use By": "2025-02-01", "Assigned": None}},
-        ),
-        Tc(
-            "Skips assigned",
-            [
-                {
-                    "fields": {"Use By": "2025-02-01", "Assigned": "2024-01-01"},
-                    "id": "rec1",
-                },
-                {"fields": {"Use By": "2025-03-01", "Assigned": None}, "id": "rec2"},
-            ],
-            "2025-01-01",
-            {"id": "rec2", "fields": {"Use By": "2025-03-01", "Assigned": None}},
-        ),
-    ],
-    ids=idfn,
-)
-def test_get_next_available_coupon(mocker, tc):
-    mock_get = mocker.patch.object(a, "get_all_records_after")
-    mock_get.return_value = tc.records
-
-    result = a.get_next_available_coupon(safe_parse_datetime(tc.use_by))
-    assert result == tc.expected_result
-
-
-def test_mark_coupon_assigned(mocker):
-    mock_update = mocker.patch.object(a, "update_record")
-    mock_update.return_value = (200, {"id": "rec123"})
-    test_time = d(0)  # 2025-01-01
-    mocker.patch.object(a, "tznow", return_value=test_time)
-
-    result = a.mark_coupon_assigned("rec123", "user@example.com")
-
-    mock_update.assert_called_once_with(
-        {"Assigned": test_time.isoformat(), "Assignee": "user@example.com"},
-        "class_automation",
-        "discounts",
-        "rec123",
-    )
-    assert result == {"id": "rec123"}
 
 
 def test_create_fees_batched(mocker):
@@ -1176,3 +1066,65 @@ def test_get_all_instructor_capabilities_formatted(mocker):
     assert got[0]["id"] == "inst1"
     assert got[0]["profile_pic"] == "http://nocodb/p.jpg"
     assert got[0]["classes"] == {"c1": "Wood"}
+
+
+def test_fetch_airtable_backup(mocker, tmp_path):
+    """Airtable backup tar contains one JSON dump per configured table"""
+    mocker.patch.object(
+        a,
+        "get_config",
+        return_value={
+            "base1": {
+                "token": "tok1",
+                "base_id": "app1",
+                "tbl1": "tbl1_id",
+                "tbl2": "tbl2_id",
+            },
+            "base2": {
+                "token": "tok2",
+                "base_id": "app2",
+                "tbl3": "tbl3_id",
+            },
+        },
+    )
+
+    def fake_get_all_records(base, tbl, params=None):
+        del base, tbl, params
+        return [{"id": "rec1", "fields": {"Name": "foo"}}]
+
+    mocker.patch.object(a, "get_all_records", side_effect=fake_get_all_records)
+    mocker.patch.object(
+        a,
+        "get_airtable_schema",
+        side_effect=lambda base: {
+            "tables": [
+                {
+                    "name": f"{base}_schema",
+                    "fields": [
+                        {
+                            "name": "Name",
+                            "type": "singleLineText",
+                            "description": "A name",
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    dest = str(tmp_path / "airtable_backup.tar.gz")
+    assert a.fetch_airtable_backup(dest) > 0
+
+    with tarfile.open(dest, "r:gz") as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "base1/_schema.json",
+            "base1/tbl1.json",
+            "base1/tbl2.json",
+            "base2/_schema.json",
+            "base2/tbl3.json",
+        ]
+        content = json.loads(tar.extractfile("base1/tbl1.json").read())
+        assert content == [{"id": "rec1", "fields": {"Name": "foo"}}]
+        schema = json.loads(tar.extractfile("base1/_schema.json").read())
+        assert schema["tables"][0]["fields"][0]["type"] == "singleLineText"

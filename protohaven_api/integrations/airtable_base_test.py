@@ -1,8 +1,21 @@
 # pylint: skip-file
 import json
 
+import pytest
+
 from protohaven_api.integrations import airtable_base as a
 from protohaven_api.testing import d
+
+
+def test_get_airtable_schema(mocker):
+    mocker.patch.object(a, "get_connector")
+    a.get_connector().airtable_meta_request.return_value = (
+        200,
+        {"tables": [{"id": "tbl1", "fields": []}]},
+    )
+    assert a.get_airtable_schema("test_base") == {
+        "tables": [{"id": "tbl1", "fields": []}]
+    }
 
 
 def test_get_all_records_airtable(mocker):
@@ -24,6 +37,30 @@ def test_get_all_records_airtable(mocker):
 
     _, args, kwargs = a.get_connector().db_request.mock_calls[1]
     assert kwargs["params"]["a"] == "test_param"
+
+
+def test_get_all_records_airtable_has_no_page_limit(mocker):
+    """Airtable pagination is followed beyond the previous 100-request cap"""
+    mocker.patch.object(a, "get_connector")
+    a.get_connector().db_format.return_value = "airtable"
+    a.get_connector().db_request.side_effect = [
+        (200, {"records": [f"rec{i}"], "offset": f"off{i + 1}"}) for i in range(101)
+    ] + [
+        (200, {"records": ["rec101"]}),
+    ]
+    assert len(a.get_all_records("test_base", "test_tbl")) == 102
+
+
+def test_get_all_records_airtable_repeated_offset_raises(mocker):
+    """A non-advancing offset stops pagination instead of looping forever"""
+    mocker.patch.object(a, "get_connector")
+    a.get_connector().db_format.return_value = "airtable"
+    a.get_connector().db_request.side_effect = [
+        (200, {"records": ["foo"], "offset": "same"}),
+        (200, {"records": ["bar"], "offset": "same"}),
+    ]
+    with pytest.raises(RuntimeError, match="did not advance"):
+        a.get_all_records("test_base", "test_tbl")
 
 
 def test_get_all_records_between_airtable(mocker):

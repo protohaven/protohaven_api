@@ -15,6 +15,15 @@ def fixture_cli(capsys):
     return mkcli(capsys, F)
 
 
+def test_filter_by_gid():
+    """--filter_gid restricts Asana task processing by GID."""
+    items = [{"gid": "1", "name": "a"}, {"gid": "2", "name": "b"}]
+    assert F._filter_by_gid(items, "1") == [  # pylint: disable=protected-access
+        {"gid": "1", "name": "a"}
+    ]
+    assert F._filter_by_gid(items, None) == items  # pylint: disable=protected-access
+
+
 Tc = namedtuple("TC", "desc,now,signins,want")
 
 

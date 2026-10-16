@@ -6,9 +6,11 @@ see https://myaccount.google.com/u/3/lesssecureapps
 
 import logging
 import re
+import time
 import traceback
 from dataclasses import dataclass, field
 from functools import lru_cache
+from os import getenv
 from typing import Any, List, Tuple
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
@@ -109,7 +111,14 @@ class Msg:  # pylint: disable=too-many-instance-attributes
 
 
 def send_email(subject, body, recipients, html):
-    """Sends an email via GMail API"""
+    """Sends an email via GMail API.
+
+    Honors the ``EMAIL_OVERRIDE`` environment variable used by QA to redirect
+    all email to a safe internal address.
+    """
+    email_ovr = getenv("EMAIL_OVERRIDE")
+    if email_ovr:
+        recipients = [email_ovr]
     return get_connector().email(subject, body, recipients, html)
 
 
@@ -117,17 +126,57 @@ def send_email(subject, body, recipients, html):
 DISCORD_CHAR_LIMIT = 1950
 
 
+DISCORD_RETRYABLE_STATUSES = (429, 500, 502, 503, 504)
+DISCORD_MAX_ATTEMPTS = 3
+
+
+def _discord_webhook_with_retry(channel, content):
+    """POST to a Discord webhook, retrying transient HTTP failures.
+
+    Discord occasionally returns 429/5xx during QA and production runs.
+    Returning the final response preserves the caller's raise_for_status
+    behavior so permanent failures still propagate.
+    """
+    result = None
+    for attempt in range(DISCORD_MAX_ATTEMPTS):
+        result = get_connector().discord_webhook(channel, content)
+        if result.status_code not in DISCORD_RETRYABLE_STATUSES:
+            return result
+        if attempt < DISCORD_MAX_ATTEMPTS - 1:
+            delay = 2**attempt
+            log.warning(
+                f"Discord webhook returned {result.status_code}; "
+                f"retrying in {delay}s (attempt {attempt + 1}/{DISCORD_MAX_ATTEMPTS})"
+            )
+            time.sleep(delay)
+    return result
+
+
+def resolve_discord_target(channel=None) -> str:
+    """Return the display target for a Discord message after applying overrides."""
+    chan_ovr = getenv("CHAN_OVERRIDE")
+    dm_ovr = getenv("DM_OVERRIDE")
+    if channel is None:
+        return "#techs-live"
+    if channel.startswith("@"):  # Send to a user
+        return dm_ovr or channel
+    if channel.startswith("#"):  # Send to a channel
+        return chan_ovr or channel
+    raise RuntimeError(f"Unknown channel '{channel}' for discord message")
+
+
 def send_discord_message(content, channel=None, blocking=True):
     """Sends a message to the techs-live channel"""
     cfg = get_config("comms")
-    if channel is None:
-        channel = cfg["webhooks"]["techs-live"]
-    elif channel.startswith("@"):  # Send to a user
-        return get_connector().discord_bot_fn("send_dm", channel[1:], content)
-    elif channel.startswith("#"):  # Send to a channel
-        channel = cfg["webhooks"][channel[1:]]
+    target = resolve_discord_target(channel)
+    if target.startswith("@"):
+        result = get_connector().discord_bot_fn("send_dm", target[1:], content)
+        log.info("Sent to Discord %s:", target)
+        return result
+    if target.startswith("#"):
+        channel = cfg["webhooks"][target[1:]]
     else:
-        raise RuntimeError(f"Unknown channel '{channel}' for discord message")
+        raise RuntimeError(f"Unknown channel '{target}' for discord message")
 
     # For convenience, any recognizable @role mentions are converted
     # See https://discord.com/developers/docs/reference#message-formatting
@@ -198,9 +247,10 @@ def send_discord_message(content, channel=None, blocking=True):
     for i in range(0, len(content), DISCORD_CHAR_LIMIT):
         chunk = content[i : i + DISCORD_CHAR_LIMIT]
         log.info(f"Sending msg ({len(chunk)}/{len(content)} chars)")
-        result = get_connector().discord_webhook(channel, chunk)
+        result = _discord_webhook_with_retry(channel, chunk)
         if blocking:
             result.raise_for_status()
+    log.info("Sent to Discord %s:", target)
     return result
 
 

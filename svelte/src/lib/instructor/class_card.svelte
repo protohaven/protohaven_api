@@ -1,10 +1,6 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script lang="ts">
 	import {
-		Button,
-		Row,
 		Tooltip,
-		Col,
 		Card,
 		CardHeader,
 		CardTitle,
@@ -12,37 +8,55 @@
 		CardText,
 		CardFooter,
 		CardBody,
-		Input,
 		Spinner,
-		FormGroup,
 		Dropdown,
 		DropdownMenu,
 		DropdownItem,
 		DropdownToggle,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
 		Alert
 	} from '@sveltestrap/sveltestrap';
 	import { get, post } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
 
-	export let schedule_id;
-	export let submissions;
+	interface ClassData {
+		event_id?: string | null;
+		name: string;
+		rejected?: boolean;
+		sessions: Array<[string, string]>;
+		capacity?: number;
+		supply_state?: string;
+		volunteer?: boolean;
+		confirmed?: string;
+		clearances: string[];
+		schedule_id?: string;
+		prefill?: string;
+	}
 
-	export let c_init;
-	let meta_promise = Promise.resolve(c_init);
+	interface Attendee {
+		name: string;
+		email: string;
+		registration_status?: string;
+		registration_date?: string;
+	}
 
-	let attendees = [];
-	let neon_state = null;
+	interface EventState {
+		publishEvent?: boolean;
+		archived?: boolean;
+	}
 
-	function fetch_neon_state(data) {
+	export let schedule_id: string;
+	export let submissions: Record<string, string[]> | Error | null = null;
+
+	export let c_init: ClassData;
+	let meta_promise: Promise<ClassData> = Promise.resolve(c_init);
+
+	let attendees: Attendee[] = [];
+
+	function fetch_event_state(data: ClassData): Promise<EventState> | null {
 		if (data.event_id) {
 			console.log('Fetching state for', data.event_id);
 			return get('/instructor/class/neon_state?id=' + encodeURIComponent(data.event_id)).then(
 				(data) => {
-					neon_state = data;
 					return data;
 				}
 			);
@@ -51,7 +65,7 @@
 	}
 
 	// Get submission timestamps for this class
-	function getSubmissionTimestamps(classData) {
+	function getSubmissionTimestamps(classData: ClassData): string[] {
 		if (!submissions || submissions instanceof Error) return [];
 		if (!classData.event_id || !(classData.event_id in submissions)) {
 			console.log('No submission for', classData.event_id);
@@ -60,7 +74,7 @@
 		return submissions[classData.event_id];
 	}
 
-	function fetch_attendees(data) {
+	function fetch_attendees(data: ClassData): Promise<Attendee[]> | Attendee[] {
 		if (data.event_id) {
 			console.log('Fetching attendees for', data.event_id);
 			return get('/instructor/class/attendees?id=' + encodeURIComponent(data.event_id)).then(
@@ -72,58 +86,58 @@
 		}
 		return [];
 	}
-	let promise = meta_promise.then(fetch_attendees);
-	let state_promise = meta_promise.then(fetch_neon_state);
+	let promise: Promise<Attendee[]> = meta_promise.then(fetch_attendees);
+	let event_state_promise: Promise<EventState | null> =
+		meta_promise.then(fetch_event_state);
 
-	function refresh(event_id) {
+	function refresh(event_id: string | null | undefined): Promise<Attendee[]> {
 		if (event_id) {
 			promise = get('/instructor/class/attendees?id=' + encodeURIComponent(event_id));
 		}
 		return promise;
 	}
-	//onMount(refresh);
 
-	function confirm(pub) {
+	function confirm(pub: boolean) {
 		meta_promise = post('/instructor/class/update', { eid: schedule_id, pub });
 		promise = meta_promise.then(fetch_attendees);
-		state_promise = meta_promise.then(fetch_neon_state);
+		event_state_promise = meta_promise.then(fetch_event_state);
 	}
 
-	function submit_log(url) {
-		let attendees_for_log = [];
-		for (let d of attendees) {
+	function submit_log(url: string | undefined) {
+		let attendees_for_log: string[] = [];
+		for (const d of attendees) {
 			attendees_for_log.push(`${d.name} (${d.email})`);
 		}
 		console.log('Attendees:', attendees_for_log);
-		url = url.replace('ATTENDEE_NAMES', encodeURIComponent(attendees_for_log.join(', ')));
+		url = (url ?? '').replace('ATTENDEE_NAMES', encodeURIComponent(attendees_for_log.join(', ')));
 		console.log('Opening log url', url);
 		window.open(url, '_blank');
 	}
 
-	function supply(ok) {
+	function supply(ok: boolean) {
 		meta_promise = post('/instructor/class/supply_req', { eid: schedule_id, missing: !ok });
 		promise = meta_promise.then(fetch_attendees);
-		state_promise = meta_promise.then(fetch_neon_state);
+		event_state_promise = meta_promise.then(fetch_event_state);
 	}
 
-	function volunteer(v) {
+	function volunteer(v: boolean) {
 		meta_promise = post('/instructor/class/volunteer', { eid: schedule_id, volunteer: v });
 		promise = meta_promise.then(fetch_attendees);
-		state_promise = meta_promise.then(fetch_neon_state);
+		event_state_promise = meta_promise.then(fetch_event_state);
 	}
 
-	function cancel(class_id) {
+	function cancel(class_id: string | undefined) {
 		// Note: class_id here is the scheduled class ID
 		meta_promise = post('/instructor/class/cancel', { class_id });
 		promise = meta_promise.then(fetch_attendees);
-		state_promise = meta_promise.then(fetch_neon_state);
+		event_state_promise = meta_promise.then(fetch_event_state);
 	}
 </script>
 
 {#await meta_promise}
 	<Spinner />
 {:then c}
-	<Card class="my-3" size={'lg'}>
+	<Card class="my-3">
 		<CardHeader style={c.event_id ? 'background-color: rgb(230, 225, 249)' : ''}>
 			<CardTitle id={schedule_id}>
 				{#if c.event_id}
@@ -150,12 +164,12 @@
 			{#if !c.event_id}
 				<Tooltip target={schedule_id} placement="right">
 					Proposed classes are not guaranteed to run; they aren't yet available for people to
-					register in Neon. Click the ? icon for more details.
+					register on Eventbrite. Click the ? icon for more details.
 				</Tooltip>
 			{/if}
 		</CardHeader>
 		<CardBody>
-			{#await state_promise}
+			{#await event_state_promise}
 				<Spinner />
 			{:then p}
 				{#if p && (!p.publishEvent || p.archived)}
@@ -163,7 +177,7 @@
 				{/if}
 			{:catch error}
 				<Alert color="warning" class="mx-3"
-					>Error fetching state from Neon: {error.message.substr(0, 128)}</Alert
+					>Error fetching state from Eventbrite: {error.message.substr(0, 128)}</Alert
 				>
 			{/await}
 
@@ -242,8 +256,8 @@
 				{#if c.event_id}
 					<div>Log submissions:</div>
 					<ul>
-						{#if getSubmissionTimestamps(c)}
-							{#each getSubmissionTimestamps(c) as timestamp, i}
+						{#if getSubmissionTimestamps(c).length > 0}
+							{#each getSubmissionTimestamps(c) as timestamp}
 								<li>
 									Submitted: {new Date(timestamp).toLocaleString('en-US', {
 										timeZone: 'America/New_York'
@@ -274,7 +288,7 @@
 			<Dropdown autoClose={true}>
 				<DropdownToggle caret>Actions</DropdownToggle>
 				<DropdownMenu>
-					<DropdownItem on:click={refresh(c.event_id)}>Refresh Attendees</DropdownItem>
+					<DropdownItem on:click={() => refresh(c.event_id)}>Refresh Attendees</DropdownItem>
 
 					{#if c.supply_state != 'Supplies Requested'}
 						<DropdownItem on:click={() => supply(false)}>Supplies needed</DropdownItem>
@@ -308,7 +322,7 @@
 						>
 					{:else}
 						<DropdownItem divider />
-						<DropdownItem on:click={() => cancel(c.schedule_id)}
+						<DropdownItem on:click={() => cancel(schedule_id)}
 							>Cancel class (requires no attendees)</DropdownItem
 						>
 					{/if}

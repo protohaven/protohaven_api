@@ -1,10 +1,15 @@
 """Facilitates fetching event information from Eventbrite"""
 
 import datetime
+import json
 import logging
+import tarfile
+import time
 import uuid
+from collections import defaultdict
 from io import BytesIO
-from typing import Any, Iterable
+from os.path import getsize
+from typing import Any, Iterable, cast
 
 import requests
 
@@ -56,13 +61,39 @@ def fetch_events(
             for e in ee:
                 e.set_attendee_data(list(fetch_attendees(e.event_id, raw=True)))
         if batching:
-            yield [Event.from_eventbrite_search(data) for data in rep["events"]]
+            yield ee
         else:
-            for data in rep["events"]:
-                yield Event.from_eventbrite_search(data)
+            yield from ee
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]
+
+
+def events_backup(output_filename: str) -> int:
+    """Fetch all Eventbrite events and write them as a gzipped tar archive.
+
+    Each archived event includes its Eventbrite search/ticketing data and
+    attendee data. Returns the archive size in bytes.
+    """
+    results = []
+    for e in fetch_events(
+        include_ticketing=True,
+        status=None,
+        attendees=True,
+    ):
+        assert isinstance(e, Event)
+        results.append(
+            {
+                "eventbrite_data": e.eventbrite_data,
+                "eventbrite_attendee_data": e.eventbrite_attendee_data,
+            }
+        )
+    content = json.dumps(results, indent=2).encode("utf-8")
+    with tarfile.open(output_filename, "w:gz") as tar:
+        info = tarfile.TarInfo(name="events.json")
+        info.size = len(content)
+        tar.addfile(tarinfo=info, fileobj=BytesIO(content))
+    return getsize(output_filename)
 
 
 def fetch_event(evt_id: EventbriteID, include_ticketing=False) -> Event:
@@ -98,28 +129,30 @@ def generate_discount_code(
     now = tznow()
     code = str(uuid.uuid4()).replace("-", "")
     log.info(f"Generating eventbrite discount code for event {evt_id}: {code}")
-    params = {
-        "discount": {
-            "type": "coded",
-            "code": code,
-            "percent_off": str(percent_off),
-            "quantity_available": 1,
-            # Note: these must be in Naive Local ISO8601 format
-            # That's YYYY-MM-DDTHH:MM:SS in the time zone of the event.
-            # Note that we schedule our events in UTC, so this is UTC time
-            # without the "Z"
-            "end_date": _eb_naive_local_utc_timestr(
-                now + datetime.timedelta(hours=expiration_hours)
-            ),
-        }
+    discount = {
+        "type": "coded",
+        "code": code,
+        "quantity_available": 1,
+        # Note: these must be in Naive Local ISO8601 format
+        # That's YYYY-MM-DDTHH:MM:SS in the time zone of the event.
+        # Note that we schedule our events in UTC, so this is UTC time
+        # without the "Z"
+        "end_date": _eb_naive_local_utc_timestr(
+            now + datetime.timedelta(hours=expiration_hours)
+        ),
     }
+    if percent_off is not None:
+        discount["percent_off"] = str(percent_off)
+    if amount_off is not None:
+        discount["amount_off"] = f"{amount_off:.2f}"
+    params = {"discount": discount}
     if evt_id is not None:
         params["discount"]["event_id"] = int(evt_id)
 
     org_id = get_config("eventbrite/organization_id")
     url = f"/organizations/{org_id}/discounts/"
     response = get_connector().eventbrite_request("POST", url, json=params)
-    if not response["code"]:
+    if not response.get("code"):
         raise RuntimeError(f"Failed to create eventbrite discount code: {response}")
     return response["code"]
 
@@ -286,7 +319,7 @@ def assign_pricing(
     }
     url = f"/events/{event_id}/ticket_classes/"
     response = get_connector().eventbrite_request("POST", url, json=params)
-    if not response["resource_uri"]:
+    if not response.get("resource_uri"):
         raise RuntimeError(f"Failed to create eventbrite ticket class: {response}")
     return response["resource_uri"]
 
@@ -314,7 +347,16 @@ def set_event_scheduled_state(event_id: EventbriteID, scheduled: bool = True):
 
     # Deschedule/unpublish option
     url = f"/events/{event_id}/unpublish/"
-    response = get_connector().eventbrite_request("POST", url)
+    try:
+        response = get_connector().eventbrite_request("POST", url)
+    except RuntimeError as exc:
+        # Eventbrite rejects unpublishing an event that is already
+        # unpublished. Treat that as success so newly-created, unlisted
+        # events can be processed without reverting them.
+        if "NOT_PUBLISHED" in str(exc):
+            log.info(f"Event {event_id} is already unpublished")
+            return {}
+        raise
     if not response.get("unpublished"):
         raise RuntimeError(f"Failed to unpublish event {event_id}: {response}")
     return response
@@ -336,19 +378,41 @@ def upload_logo_image(image_url: str):
         "GET", "/media/upload/?type=image-event-logo"
     )
 
-    # Second request to upload the image (probably Amazon S3)
-    response = requests.post(
-        prep["upload_url"],
-        data=prep["upload_data"],
-        files={
-            prep["file_parameter_name"]: (
-                f"image.{file_extension}",
-                BytesIO(img.content),
-                content_type,
-            ),
-        },
-        timeout=get_config("connector/timeout"),
-    )
+    # Second request to upload the image (probably Amazon S3). Eventbrite
+    # occasionally rate-limits this upload, so retry transient failures with
+    # exponential backoff. A fresh BytesIO is created per attempt because a
+    # failed request may leave the file pointer at the end of the stream.
+    attempts = int(get_config("connector/num_attempts") or 3)
+    max_delay = float(get_config("connector/max_retry_delay_sec") or 3.0)
+    retryable_statuses = (429, 500, 502, 503, 504)
+    response = None
+    for attempt in range(attempts):
+        response = requests.post(
+            prep["upload_url"],
+            data=prep["upload_data"],
+            files={
+                prep["file_parameter_name"]: (
+                    f"image.{file_extension}",
+                    BytesIO(img.content),
+                    content_type,
+                ),
+            },
+            timeout=get_config("connector/timeout"),
+        )
+        if response.status_code not in retryable_statuses:
+            break
+        if attempt < attempts - 1:
+            delay = min(max_delay, 2**attempt)
+            log.warning(
+                "Eventbrite image upload returned %s; retrying in %.1fs "
+                "(attempt %d/%d)",
+                response.status_code,
+                delay,
+                attempt + 1,
+                attempts,
+            )
+            time.sleep(delay)
+    assert response is not None
     response.raise_for_status()
 
     # Final request to notify successful save
@@ -377,3 +441,93 @@ def fetch_attendees(event_id: EventbriteID, raw: bool = False) -> Iterable[Atten
         if not rep["pagination"]["has_more_items"]:
             break
         params["continuation"] = rep["pagination"]["continuation"]
+
+
+def register_attendee(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    event_id: EventbriteID,
+    ticket_class_id: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    discount_code: DiscountCode | None = None,
+):
+    """Create a zero-cost Eventbrite order for `email`.
+
+    Eventbrite does not expose a direct "create attendee" endpoint. Instead,
+    attendees are registered by creating an order. Free orders are fulfilled
+    immediately; for paid ticket classes, pass a 100%-off discount code.
+    """
+    if not email or not first_name or not last_name:
+        raise RuntimeError(
+            "first_name, last_name, and email are required to register an "
+            "Eventbrite attendee"
+        )
+
+    order = {
+        "email": email,
+        "first_name": first_name,
+        "last_name": last_name,
+        "event_id": event_id,
+        "attendees": [
+            {
+                "ticket_class_id": ticket_class_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+            }
+        ],
+    }
+    if discount_code:
+        order["discount_code"] = discount_code
+
+    response = get_connector().eventbrite_request(
+        "POST", "/orders/", json={"order": order}
+    )
+    if not response.get("id"):
+        raise RuntimeError(
+            f"Failed to register attendee for eventbrite event {event_id}: {response}"
+        )
+    return response
+
+
+def cancel_order(order_id: str):
+    """Cancel a free Eventbrite order by ID."""
+    return get_connector().eventbrite_request("POST", f"/orders/{order_id}/cancel/")
+
+
+def cancel_attendee_order(event_id: EventbriteID, email: str):
+    """Cancel the free Eventbrite order for `email` on `event_id`.
+
+    Returns the cancellation response, or None when no matching attendee can be
+    found. Raises RuntimeError when the matching attendee belongs to an order
+    with more than one attendee, since cancelling it would affect other people.
+    """
+    target = (email or "").strip().lower()
+    if not target:
+        return None
+
+    matches = []
+    order_attendee_counts: dict[str, int] = defaultdict(int)
+    for a in fetch_attendees(event_id, raw=True):
+        raw_attendee = cast(dict[str, Any], a)
+        if raw_attendee.get("cancelled") or raw_attendee.get("refunded"):
+            continue
+        order_id = raw_attendee.get("order_id")
+        if order_id:
+            order_attendee_counts[order_id] += 1
+        if (
+            raw_attendee.get("profile", {}).get("email") or ""
+        ).strip().lower() == target:
+            matches.append(raw_attendee)
+
+    if not matches:
+        return None
+
+    order_id = matches[0].get("order_id")
+    if not order_id:
+        return None
+    if order_attendee_counts.get(order_id, 0) != 1:
+        raise RuntimeError(
+            f"Cannot cancel Eventbrite order {order_id}; it contains multiple attendees"
+        )
+    return cancel_order(order_id)

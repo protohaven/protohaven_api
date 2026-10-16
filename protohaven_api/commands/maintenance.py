@@ -12,7 +12,17 @@ from protohaven_api.automation.maintenance import manager
 from protohaven_api.automation.techs import techs as forecast
 from protohaven_api.commands.decorator import arg, command, print_yaml
 from protohaven_api.config import tznow
-from protohaven_api.integrations import comms, drive, neon, sheets, tasks, wiki, wyze
+from protohaven_api.integrations import (
+    airtable,
+    comms,
+    drive,
+    eventbrite,
+    neon,
+    sheets,
+    tasks,
+    wiki,
+    wyze,
+)
 from protohaven_api.integrations.comms import Msg
 
 log = logging.getLogger("cli.maintenance")
@@ -86,6 +96,12 @@ class Commands:
             type=int,
             default=4,
         ),
+        arg(
+            "--filter",
+            help="CSV of maintenance task IDs to restrict scheduling to",
+            type=str,
+            default=None,
+        ),
     )
     def gen_maintenance_tasks(self, args, _):
         """Check recurring tasks list in Airtable, add new tasks to asana
@@ -96,7 +112,10 @@ class Commands:
             log.warning("===========================================")
 
         assert args.num > 0
+        filt = {f.strip() for f in args.filter.split(",")} if args.filter else None
         tt = manager.get_maintenance_needed_tasks()
+        if filt:
+            tt = [t for t in tt if str(t.get("id")) in filt]
         log.info(f"Found {len(tt)} needed maintenance tasks")
         tt.sort(key=lambda t: t["next_schedule"])
         errs = []
@@ -311,7 +330,7 @@ class Commands:
         arg(
             "--category",
             help="Which category of data to back up",
-            choices=["accounts", "events"],
+            choices=["accounts"],
             type=str,
             required=True,
         ),
@@ -325,7 +344,6 @@ class Commands:
         with tempfile.TemporaryDirectory() as d:
             fn = {
                 "accounts": neon.accounts_backup,
-                "events": neon.events_backup,
             }[args.category]
             stats.append(
                 self._do_backup(
@@ -340,6 +358,47 @@ class Commands:
             Msg.tmpl(
                 "neon_backup_summary",
                 category=args.category,
+                parent_id=args.parent_id,
+                stats=stats,
+                target="#membership-automation",
+            )
+        )
+        log.info("Done")
+
+    @command(
+        arg(
+            "--parent_id",
+            help="destination folder ID",
+            type=str,
+            required=True,
+        ),
+        arg(
+            "--apply",
+            help="actually create the backup",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+    )
+    def backup_eventbrite(self, args, _):
+        """Fetch and back up Eventbrite data to google drive"""
+        now = tznow()
+
+        # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
+        stats = []
+        with tempfile.TemporaryDirectory() as d:
+            stats.append(
+                self._do_backup(
+                    eventbrite.events_backup,
+                    Path(d) / "eventbrite_events_backup.tar.gz",
+                    f"eventbrite_events_backup_{now.isoformat()}.tar.gz",
+                    args.parent_id,
+                    apply=args.apply,
+                )
+            )
+        print_yaml(
+            Msg.tmpl(
+                "eventbrite_backup_summary",
+                category="events",
                 parent_id=args.parent_id,
                 stats=stats,
                 target="#membership-automation",
@@ -436,6 +495,49 @@ class Commands:
         print_yaml(
             Msg.tmpl(
                 "sheets_backup_summary",
+                parent_id=args.parent_id,
+                stats=stats,
+                target="#docs-automation",
+            )
+        )
+        log.info("Done")
+
+    @command(
+        arg(
+            "--parent_id",
+            help="destination folder ID",
+            type=str,
+            required=True,
+        ),
+        arg(
+            "--apply",
+            help="actually create the backup",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+        ),
+    )
+    def backup_airtable(self, args, pct):
+        """Fetch and back up Airtable data to google drive"""
+        pct.set_stages(1)
+        now = tznow()
+
+        # Note: dest drive must be shared with protohaven-cli@protohaven-api.iam.gserviceaccount.com
+        stats = []
+        with tempfile.TemporaryDirectory() as d:
+            stats.append(
+                self._do_backup(
+                    airtable.fetch_airtable_backup,
+                    Path(d) / "airtable_backup.tar.gz",
+                    f"airtable_backup_{now.isoformat()}.tar.gz",
+                    args.parent_id,
+                    apply=args.apply,
+                )
+            )
+            pct[0] = 1.0
+
+        print_yaml(
+            Msg.tmpl(
+                "airtable_backup_summary",
                 parent_id=args.parent_id,
                 stats=stats,
                 target="#docs-automation",

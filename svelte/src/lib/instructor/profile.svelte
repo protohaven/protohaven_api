@@ -1,7 +1,5 @@
-<script type="typescript">
+<script lang="ts">
 	import {
-		Button,
-		Icon,
 		Image,
 		Card,
 		CardHeader,
@@ -9,35 +7,32 @@
 		CardSubtitle,
 		CardText,
 		CardBody,
-		CardFooter,
 		Spinner,
 		ListGroup,
 		ListGroupItem,
 		Alert
 	} from '@sveltestrap/sveltestrap';
-	import { onMount } from 'svelte';
-	import { get, post } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
+	import { is_instructor_onboarded } from './types';
 
-	export let email;
-	export let on_scheduler;
-	export let profile; // Async fetch from parent
-
-	function li_color(v) {
-		v = v.toLowerCase();
-		let has_ok = v.indexOf('ok') !== -1;
-		if (has_ok) {
-			return 'light';
-		}
-		return 'warning';
+	interface ProfileData {
+		fullname?: string;
+		profile_img?: string;
+		bio?: string;
+		email_status?: string;
+		active_membership?: string;
+		capabilities_listed?: string;
+		paperwork?: string;
+		discord_user?: string;
+		[key: string]: unknown;
 	}
-	function onboarded(p) {
-		for (let k of ['active_membership', 'capabilities_listed', 'paperwork', 'discord_user']) {
-			if (li_color(p[k]) == 'warning') {
-				return false;
-			}
-		}
-		return true;
+
+	export let profile: Promise<ProfileData | null> | null = null; // Async fetch from parent
+
+	function li_color(v: string | undefined): string {
+		const value = (v ?? '').toLowerCase();
+		const has_ok = value.indexOf('ok') !== -1;
+		return has_ok ? 'light' : 'warning';
 	}
 </script>
 
@@ -48,7 +43,7 @@
 		</CardHeader>
 		<CardBody><Spinner></Spinner></CardBody>
 	{:then p}
-		{#if p !== undefined}
+		{#if p}
 			<CardHeader>
 				<CardTitle>
 					<div>{p.fullname}</div>
@@ -81,7 +76,7 @@
 						>Discord: {#if p.discord_user == 'missing'}Missing{:else}OK{/if}</ListGroupItem
 					>
 				</ListGroup>
-				{#if !onboarded(p)}
+				{#if !is_instructor_onboarded(p)}
 					<Alert color="warning" class="m-3">
 						<strong
 							>Your status is incomplete. Click <a

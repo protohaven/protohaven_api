@@ -21,8 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc git curl ba
 
 COPY requirements.txt requirements.txt
 RUN pip install  -r requirements.txt
-RUN pip install flask-sock playwright
-RUN playwright install --with-deps --only-shell firefox
 
 # EXPOSE 5000
 COPY . .

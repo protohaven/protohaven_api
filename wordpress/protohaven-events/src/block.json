@@ -6,17 +6,13 @@
 	"title": "Protohaven Events",
 	"category": "widgets",
 	"attributes": {
-		"token": {
-			"type": "string",
-			"default": "d819576d3cbb9e4fabee8dd6e2a921e4"
-		},
 		"imgSize": {
 				"type": "string",
 				"default": "207px"
 		}
 	},
 	"icon": "fluent:person-wrench-20-regular",
-	"description": "List Neon Events",
+	"description": "List Eventbrite Events",
 	"example": {},
 	"supports": {
     "color": {

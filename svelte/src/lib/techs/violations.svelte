@@ -22,15 +22,64 @@
 	import { get, post, as_datetimelocal, isodate } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
 
-	export let visible;
-	export let user = null;
+	interface WhoAmI {
+		fullname?: string;
+		email?: string;
+		[key: string]: unknown;
+	}
+
+	interface MemberSearchResult {
+		neon_id: string | number;
+		name: string;
+		email: string;
+	}
+
+	interface Section {
+		id: string;
+		name: string;
+	}
+
+	interface Violation {
+		id: string;
+		instance?: string | number;
+		tag_number?: string;
+		reporter?: string;
+		suspect_name?: string;
+		suspect_email?: string;
+		onset: string;
+		sections: string[];
+		notes?: string;
+		evidence: string[];
+		daily_fee?: number | null;
+		accrued?: number | null;
+		unpaid_fees?: number | null;
+		closed: boolean;
+		close_date?: string | null;
+	}
+
+	interface ToastMessage {
+		color: string;
+		title: string;
+		msg: string;
+	}
+
+	interface CloseState {
+		open: boolean;
+		closer: string;
+		close_date: string;
+		notes: string;
+		fees_outstanding: boolean;
+	}
+
+	export let visible: boolean = false;
+	export let user: WhoAmI | null = null;
 
 	const WIKI_FEES_URL =
 		'https://wiki.protohaven.org/books/policies/page/storage-policy#bkmrk-violations';
 
 	let loaded = false;
-	let violations_promise = Promise.resolve([]);
-	let sections_promise = Promise.resolve([]);
+	let violations_promise: Promise<Violation[]> = Promise.resolve([]);
+	let sections_promise: Promise<Section[]> = Promise.resolve([]);
 
 	let reporter = '';
 	let reporter_initialized = false;
@@ -41,15 +90,15 @@
 
 	let search_term = '';
 	let searching = false;
-	let search_results = [];
-	let selected_member = null;
+	let search_results: MemberSearchResult[] = [];
+	let selected_member: MemberSearchResult | null = null;
 
 	let tag_number = '';
 	let onset = as_datetimelocal(new Date());
 	let notes = '';
 	let evidence = '';
 	let custom_fee = '';
-	let selected_sections = {};
+	let selected_sections: Record<string, boolean> = {};
 	let fee_presets = [
 		{ label: 'Cart / parking / board / sheet', amount: 5, selected: false },
 		{ label: 'Table / locker / cage / rack', amount: 10, selected: false },
@@ -57,8 +106,8 @@
 	];
 
 	let submitting = false;
-	let close_state = {};
-	let toast_msg = null;
+	let close_state: Record<string, CloseState> = {};
+	let toast_msg: ToastMessage | null = null;
 
 	function refresh() {
 		violations_promise = get('/techs/violations').then((data) => {
@@ -76,14 +125,14 @@
 		refresh_sections();
 	}
 
-	function show_toast(color, title, msg) {
+	function show_toast(color: string, title: string, msg: string) {
 		toast_msg = { color, title, msg };
 	}
 
 	function search_member() {
 		searching = true;
 		search_results = [];
-		post(`/neon_lookup?search=${encodeURIComponent(search_term)}`)
+		post(`/neon_lookup?search=${encodeURIComponent(search_term)}`, {})
 			.then((data) => {
 				search_results = data || [];
 				if (!search_results.length) {
@@ -94,7 +143,7 @@
 			.finally(() => (searching = false));
 	}
 
-	function select_member(m) {
+	function select_member(m: MemberSearchResult) {
 		selected_member = { neon_id: m.neon_id, name: m.name, email: m.email };
 		search_results = [];
 		search_term = `${m.name} <${m.email}>`;
@@ -140,7 +189,7 @@
 			.finally(() => (submitting = false));
 	}
 
-	function begin_close(v) {
+	function begin_close(v: Violation) {
 		close_state = {
 			...close_state,
 			[v.id]: {
@@ -153,7 +202,7 @@
 		};
 	}
 
-	function submit_close(v) {
+	function submit_close(v: Violation) {
 		const c = close_state[v.id];
 		post(`/techs/violations/${v.id}/close`, {
 			closer: c.closer,
@@ -337,7 +386,7 @@
 					<p>No violations found.</p>
 				{/if}
 				{#each violations as v}
-					<Card class="my-2" color={v.closed ? null : 'warning'}>
+					<Card class="my-2" color={v.closed ? undefined : 'warning'}>
 						<CardHeader>
 							<div class="d-flex justify-content-between align-items-start">
 								<div>
@@ -424,10 +473,10 @@
 		class="me-1"
 		style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
 		autohide
-		isOpen={toast_msg}
+		isOpen={toast_msg !== null}
 		on:close={() => (toast_msg = null)}
 	>
-		<ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-		<ToastBody>{toast_msg.msg}</ToastBody>
+		<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>
+		<ToastBody>{toast_msg?.msg}</ToastBody>
 	</Toast>
 {/if}

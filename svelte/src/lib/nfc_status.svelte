@@ -19,8 +19,10 @@
 
 	// Inlined tooltip derivation — avoid function call so Svelte 4
 	// properly tracks all reactive dependencies in $$.update.
+	$: heartbeat_age_sec = nfc_heartbeat_age_sec ?? 0;
+
 	$: tooltip_lines = all_ok
-		? [`NFC tap system online; last contact ${Math.round(nfc_heartbeat_age_sec)}s`]
+		? [`NFC tap system online; last contact ${Math.round(heartbeat_age_sec)}s`]
 		: [
 				...(!client_ws_connected ? ['Browser WebSocket disconnected from server'] : []),
 				...(!server_mqtt_connected ? ['Server cannot connect to MQTT broker'] : []),
@@ -29,7 +31,7 @@
 						? ['NFC device heartbeat never received']
 						: [
 								`NFC device heartbeat stale (${Math.round(
-									nfc_heartbeat_age_sec
+									heartbeat_age_sec
 								)}s ago, limit ${NFC_HEARTBEAT_TIMEOUT_SEC}s)`
 							]
 					: [])
@@ -64,36 +66,5 @@
 
 	.nfc-indicator.offline {
 		background: rgba(255, 240, 240, 0.95);
-	}
-
-	.nfc-icon {
-		width: 22px;
-		height: 22px;
-		opacity: 0.7;
-	}
-
-	.offline .nfc-icon {
-		color: #c44;
-	}
-
-	.online .nfc-icon {
-		color: #494;
-	}
-
-	.status-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-
-	.status-dot.online {
-		background: #4a4;
-		box-shadow: 0 0 6px rgba(68, 170, 68, 0.5);
-	}
-
-	.status-dot.offline {
-		background: #c44;
-		box-shadow: 0 0 6px rgba(204, 68, 68, 0.4);
 	}
 </style>

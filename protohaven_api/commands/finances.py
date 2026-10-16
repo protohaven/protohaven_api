@@ -15,7 +15,6 @@ from protohaven_api.config import (  # pylint: disable=import-error
     tznow,
 )
 from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
     neon,
     sales,
 )
@@ -55,6 +54,10 @@ class Commands:
             status = sub["status"]
             n += 1
 
+            if "invoice_ids" not in sub:
+                log.warning(f"Sub missing invoice_ids, ignoring - {sub}")
+                continue
+
             sub_id = sub["id"]
             square_base = get_config(
                 "general/external_urls/square_dashboard",
@@ -85,7 +88,7 @@ class Commands:
 
             unpaid_urls = [
                 f"[{unpaid_invoices[i]}](<https://app.squareup.com/dashboard/invoices/{i}>)"
-                for i in sub["invoice_ids"]
+                for i in sub.get("invoice_ids") or []
                 if i in unpaid_invoices
             ]
 
@@ -183,13 +186,29 @@ class Commands:
             help="Space-separated list of Neon IDs to validate",
             type=str,
         ),
+        arg(
+            "--ignore_membership_types",
+            help="CSV string of membership types to ignore",
+            type=str,
+        ),
     )
     def validate_memberships(self, args, pct):
         """Loops through all accounts and verifies that memberships are correctly set"""
         if args.member_ids is not None:
             args.member_ids = [m.strip() for m in args.member_ids.split(",")]
             log.warning(f"Filtering to member IDs: {args.member_ids}")
-        problems = list(self._validate_memberships_internal(args.member_ids, pct))
+        if args.ignore_membership_types:
+            args.ignore_membership_types = {
+                m.strip() for m in args.ignore_membership_types.split(",") if m.strip()
+            }
+            log.warning(f"Ignoring membership types: {args.ignore_membership_types}")
+        problems = list(
+            self._validate_memberships_internal(
+                args.member_ids, pct, args.ignore_membership_types
+            )
+        )
+        for problem in problems:
+            log.info(problem)
         if len(problems) > 0:
             print_yaml(
                 Msg.tmpl(
@@ -203,7 +222,7 @@ class Commands:
         log.info(f"Done ({len(problems)} validation problems found)")
 
     def _validate_memberships_internal(
-        self, member_ids=None, pct=None
+        self, member_ids=None, pct=None, ignore_membership_types=None
     ):  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """Implementation of validate_memberships, callable internally"""
         household_paying_member_count: defaultdict[str, int] = defaultdict(int)
@@ -275,6 +294,7 @@ class Commands:
                 acct,
                 household_paying_member_count.get(acct.household_id, 0),
                 company_member_count.get(acct.company_id, 0),
+                ignore_membership_types=ignore_membership_types,
             ):
                 yield {
                     "name": acct.name,
@@ -283,7 +303,12 @@ class Commands:
                 }
 
     def _validate_membership_singleton(
-        self, acct, household_paying_member_count, company_member_count, now=None
+        self,
+        acct,
+        household_paying_member_count,
+        company_member_count,
+        now=None,
+        ignore_membership_types=None,
     ):  # pylint: disable=too-many-branches
         """Validate membership of a single member"""
         if now is None:
@@ -313,7 +338,9 @@ class Commands:
                     log.info(
                         f"Abnormal zero-cost: {acct.neon_id} - active membership {am.neon_id}"
                     )
-            if am.end_date is None or am.end_date == datetime.datetime.max:
+            if am.end_date is None or (
+                am.end_date.replace(tzinfo=None) == datetime.datetime.max
+            ):
                 yield f"Membership {am.level} with no end date (infinite duration)"
                 log.info(
                     f"Infinite duration: {acct.neon_id} - active membership {am.neon_id}"
@@ -325,12 +352,13 @@ class Commands:
 
         if am.level in (
             "General Membership",
+            "Weekday Membership",
             "Weekend Membership",
             "Weeknight Membership",
             "Founding Member",
             "Primary Family Membership",
             "Youth Program",
-        ):
+        ) or am.level in (ignore_membership_types or ()):
             return  # Ignore remaining validations
 
         if "AMP" in am.level:
@@ -617,94 +645,3 @@ class Commands:
                 )
             )
         print_yaml(result)
-
-    @command(
-        arg(
-            "--apply",
-            help="When true, actually create coupons",
-            action=argparse.BooleanOptionalAction,
-            default=False,
-        ),
-        arg(
-            "--coupon_amount",
-            help="Create coupons with this price",
-            type=int,
-            default=memauto.DEFAULT_COUPON_AMOUNT,
-        ),
-        arg(
-            "--remaining_days_valid",
-            help="Coupons expiring fewer than this many days from now are considered unusable",
-            type=int,
-            default=30,
-        ),
-        arg(
-            "--expiration_days",
-            help="Number of days until created coupons expire",
-            type=int,
-            default=90,
-        ),
-        arg(
-            "--limit",
-            help="Max number of coupons to create in this invocation",
-            type=int,
-            default=5,
-        ),
-        arg(
-            "--target_qty",
-            help="Number of coupons to have stockpiled",
-            type=int,
-            default=50,
-        ),
-    )
-    def restock_discounts(self, args, _):
-        """Create a batch of coupons for staging in the Discounts table of
-        Airtable. We fetch coupons from this table rather than directly
-        from Neon as the Neon process for creating a coupon is much more
-        brittle and likely to fail in the moment."""
-        now = tznow()
-        use_by = now + datetime.timedelta(args.remaining_days_valid)
-        cur_qty = airtable.get_num_valid_unassigned_coupons(use_by)
-        log.info(f"{cur_qty}/{args.target_qty} available coupons in Airtable")
-        if args.target_qty - cur_qty < args.limit:
-            log.info("Missing coupons less than --limit, cancelling")
-            print_yaml([])
-            return
-
-        to_add = [
-            memauto.generate_coupon_id()
-            for _ in range(min(args.limit, args.target_qty - cur_qty))
-        ]
-        log.info(f"Creating the following coupons: {to_add}")
-
-        expiry = now + datetime.timedelta(days=args.expiration_days)
-
-        log.info(f"Creating codes {to_add}...")
-        if args.apply:
-            to_add = list(
-                neon.create_coupon_codes(list(to_add), args.coupon_amount, now, expiry)
-            )
-            log.info(f"Created: {to_add}")
-        for cid in to_add:
-            status_code, content = airtable.create_coupon(
-                cid,
-                args.coupon_amount,
-                expiry - datetime.timedelta(args.remaining_days_valid),
-                expiry,
-            )
-            if status_code != 200:
-                log.warning(f"Failed to push coupon to airtable: {content}")
-            else:
-                log.info("...and pushed to airtable")
-
-        print_yaml(
-            [
-                Msg.tmpl(
-                    "discount_creation_summary",
-                    num=len(to_add),
-                    cur_qty=cur_qty,
-                    target_qty=args.target_qty,
-                    use_by=use_by.strftime("%Y-%m-%d"),
-                    target="#finance-automation",
-                )
-            ]
-        )

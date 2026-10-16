@@ -1,0 +1,345 @@
+"""QA tests for additive Cronicle jobs."""
+
+# pylint: disable=missing-function-docstring,too-many-lines
+
+import datetime
+import functools
+import logging
+import re
+import shlex
+
+from googleapiclient.errors import HttpError
+
+from protohaven_api.config import tznow
+from protohaven_api.integrations import (
+    airtable,
+    airtable_base,
+    booked,
+    drive,
+    eventbrite,
+    neon,
+)
+from protohaven_api.integrations.models import Role
+from protohaven_api.qa.base import (
+    QAContext,
+    assert_log_contains,
+    assert_no_comms_sent,
+    assert_sent_discord,
+    assert_sent_email,
+)
+from protohaven_api.qa.fixtures import airtable as airtable_fixture
+from protohaven_api.qa.fixtures import booked as booked_fixture
+from protohaven_api.qa.fixtures import neon as neon_fixture
+
+log = logging.getLogger("qa.additive")
+
+BACKUP_EVENTS = {
+    "backup_wiki": "em4u369ldgl",
+    "backup_neon_accounts": "emssampvlg3",
+    "backup_eventbrite_events": "emssb5u1vg9",
+    "backup_sheets": "emss9yewlg0",
+    "backup_cronicle": "emv84g76j9k",
+}
+
+
+def _require_drive_folder(ctx: QAContext):
+    if not ctx.drive_folder_id:
+        raise RuntimeError("QA Drive folder ID is required for backup jobs")
+
+
+def _register_uploaded_files_from_log(ctx: QAContext, text: str):
+    for file_id in re.findall(r"Uploaded, id ([\w-]+)", text):
+        ctx.cleanup.register(
+            f"delete Drive file {file_id}",
+            functools.partial(_delete_drive_file, file_id),
+        )
+
+
+def _delete_drive_file(file_id: str):
+    try:
+        drive.delete_file(file_id)
+    except HttpError as e:
+        if getattr(e, "resp", None) is not None and e.resp.status == 404:
+            log.warning("Drive file %s already deleted; skipping cleanup", file_id)
+            return
+        raise
+
+
+def _test_backup_job(ctx: QAContext, name: str):
+    _require_drive_folder(ctx)
+    args = f"--apply --parent_id={ctx.drive_folder_id}"
+    if name == "backup_neon_accounts":
+        args += " --category=accounts"
+    if name == "backup_cronicle":
+        # The Cronicle backup event may carry secrets/API keys in its
+        # configured ARGS; preserve them and append only QA overrides.
+        event_args = ctx.event_args(BACKUP_EVENTS[name]).strip()
+        args = f"{event_args} {args}".strip()
+    result = ctx.run(
+        name,
+        BACKUP_EVENTS[name],
+        args,
+        send_comms=True,
+    )
+    _register_uploaded_files_from_log(ctx, result.text)
+    if name == "backup_neon_accounts" and result.code != 0:
+        log.warning("backup_neon_accounts failed; retrying once")
+        result = ctx.run(
+            name,
+            BACKUP_EVENTS[name],
+            args,
+            send_comms=True,
+        )
+        _register_uploaded_files_from_log(ctx, result.text)
+    assert result.code == 0
+    assert_log_contains(result.text, ["Uploaded, id"])
+    assert_sent_discord(result)
+
+
+def test_backup_wiki(ctx: QAContext):
+    _test_backup_job(ctx, "backup_wiki")
+
+
+def test_backup_neon_accounts(ctx: QAContext):
+    _test_backup_job(ctx, "backup_neon_accounts")
+
+
+def test_backup_eventbrite_events(ctx: QAContext):
+    _test_backup_job(ctx, "backup_eventbrite_events")
+
+
+def test_backup_sheets(ctx: QAContext):
+    _test_backup_job(ctx, "backup_sheets")
+
+
+def test_backup_cronicle(ctx: QAContext):
+    _test_backup_job(ctx, "backup_cronicle")
+
+
+def test_sync_booked_members(ctx: QAContext):
+    acct = neon_fixture.create_mock_account(ctx, "sync-booked-members")
+    start = tznow()
+    end = start + datetime.timedelta(days=30)
+    neon.create_zero_cost_membership(acct.neon_id, start, end)
+
+    result = ctx.run(
+        "sync_booked_members",
+        "em5ahun5604",
+        f"--include={acct.email} --apply",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_sent_discord(result)
+    assert_log_contains(result.text, [f"associated with neon #{acct.neon_id}"])
+
+    for user in booked.get_all_users():
+        if user.email.lower() == acct.email.lower():
+            ctx.cleanup.register(
+                f"delete Booked user {user.id}",
+                functools.partial(booked.delete_user, user.id),
+            )
+            break
+
+
+def _area_and_exclusions():
+    air_areas = {
+        a["fields"]["Name"] for a in airtable.get_areas() if a["fields"].get("Name")
+    }
+    booked_groups = {k.replace("&amp;", "&") for k in booked.get_resource_group_map()}
+    common = air_areas & booked_groups
+    assert common, "No shared Airtable/Booked area available"
+    area = next(iter(common))
+    # Exclude every area except the shared one from BOTH sources. The prod sync
+    # requires the remaining Airtable areas and Booked groups to match exactly,
+    # so leaving an extra Booked-only group in scope would fail the preflight.
+    exclusions = (air_areas | booked_groups) - {area}
+    return area, ",".join(sorted(exclusions))
+
+
+def test_sync_tools(ctx: QAContext):
+    area, exclusions = _area_and_exclusions()
+    exclusions_arg = shlex.quote(exclusions)
+    preflight = ctx.run(
+        "sync_reservable_tools",
+        "elvv9mdlx2j",
+        f"--no-apply --filter=qa-no-such-tool --exclude_areas={exclusions_arg}",
+        send_comms=False,
+    )
+    assert preflight.code == 0
+
+    tool_code = f"QA-{ctx.run_id.upper()[:8]}"
+    resource = booked_fixture.create_resource(ctx, f"QA tool {ctx.run_id}")
+    airtable_fixture.create_tool_record(
+        ctx,
+        tool_code=tool_code,
+        tool_name=f"QA tool {ctx.run_id}",
+        area=area,
+        booked_resource_id=resource,
+    )
+
+    dry = ctx.run(
+        "sync_reservable_tools",
+        "elvv9mdlx2j",
+        f"--no-apply --filter={tool_code} --exclude_areas={exclusions_arg}",
+        send_comms=False,
+    )
+    assert dry.code == 0
+    assert_log_contains(dry.text, ["Changed custom attributes"])
+
+    applied = ctx.run(
+        "sync_reservable_tools",
+        "elvv9mdlx2j",
+        f"--apply --filter={tool_code} --exclude_areas={exclusions_arg}",
+        send_comms=True,
+    )
+    assert applied.code == 0
+    assert_log_contains(applied.text, ["Changed custom attributes"])
+    assert_sent_discord(applied)
+
+
+def _copyable_eventbrite_row():
+    for row in airtable.get_class_automation_schedule_raw():
+        f = row["fields"]
+        if (
+            f.get("Class")
+            and f.get("Instructor")
+            and f.get("Email")
+            and f.get("Sessions")
+            and f.get("Eventbrite (from Class)")
+        ):
+            return row
+    raise AssertionError("No Eventbrite-enabled class schedule row to copy")
+
+
+def test_post_classes(ctx: QAContext):
+    raw = _copyable_eventbrite_row()
+    start = (tznow() + datetime.timedelta(days=30)).replace(
+        hour=18, minute=0, second=0, microsecond=0
+    )
+    # Airtable rejects writes to computed/lookup fields (e.g. "Days (from
+    # Class)"), so insert only the writable schedule fields and let Airtable
+    # populate the lookups from the linked class template.
+    src_fields = raw["fields"]
+    fields = {
+        "Class": src_fields.get("Class"),
+        "Instructor": src_fields.get("Instructor"),
+        "Instructor ID": src_fields.get("Instructor ID"),
+        "Email": src_fields.get("Email"),
+        "Sessions": start.isoformat(),
+        "Confirmed": tznow().isoformat(),
+    }
+    rec_id = airtable_fixture.create_schedule_row(ctx, fields)
+
+    result = ctx.run(
+        "post_classes",
+        "elzk399t7ph",
+        (
+            f"--apply --ovr={rec_id} --no-publish --no-registration "
+            "--no-reserve --no-discounts"
+        ),
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_log_contains(result.text, ["Event #", "created"])
+    match = re.search(r"Event #([\w]+) created", result.text)
+    assert match, "Could not identify created Eventbrite event ID"
+    eventbrite_id = match.group(1)
+    ctx.cleanup.register(
+        f"delete Eventbrite event {eventbrite_id}",
+        lambda: eventbrite.delete_event_unsafe(eventbrite_id),
+    )
+    row = airtable.get_scheduled_class(rec_id)
+    assert str(row.event_id) == str(eventbrite_id)
+    assert_sent_email(result)
+    assert_sent_discord(result)
+
+
+def test_refresh_volunteer_memberships(ctx: QAContext):
+    acct = neon_fixture.create_mock_account(ctx, "refresh-volunteer-memberships")
+    neon.patch_member_role(acct.neon_id, Role.SHOP_TECH, True)
+    now = tznow()
+    neon_fixture.create_membership(
+        acct.neon_id,
+        now,
+        now + datetime.timedelta(days=1),
+        level={"id": 19, "name": "Shop Tech"},
+        term={"id": 61, "name": "Shop Tech"},
+    )
+
+    result = ctx.run(
+        "refresh_volunteer_memberships",
+        "em8x5gxfp4t",
+        f"--apply --filter={acct.neon_id} --limit=1",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_sent_discord(result)
+    assert_log_contains(result.text, ["1 volunteer membership(s) refreshed:"])
+
+
+def test_policy_enforcement(ctx: QAContext):
+    acct = neon_fixture.create_mock_account(ctx, "policy-enforcement")
+    before_fees = {
+        r["id"] for r in airtable.get_policy_fees() if r["fields"].get("Created")
+    }
+    new_violation_id = airtable_fixture.create_violation(
+        ctx,
+        acct.neon_id,
+        daily_fee=5,
+        onset=tznow() - datetime.timedelta(hours=2),
+    )
+    fee_violation_id = airtable_fixture.create_violation(
+        ctx,
+        acct.neon_id,
+        daily_fee=5,
+        onset=tznow() - datetime.timedelta(days=2),
+    )
+    result = ctx.run(
+        "enforce_policies",
+        "elzd1jx39n8",
+        f"--apply --filter={new_violation_id},{fee_violation_id}",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_sent_email(result)
+    assert_sent_discord(result)
+    assert_log_contains(
+        result.text,
+        [
+            "new Protohaven violation issued",
+            "ongoing Protohaven violation has accrued",
+            "Violations and Actions Summary",
+        ],
+    )
+    after_fees = {
+        r["id"] for r in airtable.get_policy_fees() if r["fields"].get("Created")
+    }
+    for rec in airtable.get_policy_fees():
+        rec_id = rec["id"]
+        if rec_id in before_fees or rec_id not in after_fees:
+            continue
+        violation_links = rec["fields"].get("Violation") or []
+        if isinstance(violation_links, str):
+            violation_links = [violation_links]
+        if fee_violation_id not in violation_links:
+            continue
+        ctx.cleanup.register(
+            f"delete policy_enforcement/fees record {rec_id}",
+            functools.partial(
+                airtable_base.delete_record,
+                "policy_enforcement",
+                "fees",
+                rec_id,
+            ),
+        )
+
+
+def test_sync_clearances(ctx: QAContext):
+    result = ctx.run(
+        "sync_clearances",
+        "em8x5c0o24r",
+        "--no-apply --filter_users=hello+qa-testing@protohaven.org",
+        send_comms=True,
+    )
+    assert result.code == 0
+    assert_no_comms_sent(result)

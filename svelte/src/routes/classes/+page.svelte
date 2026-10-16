@@ -1,25 +1,32 @@
-<script type="typescript">
+<script lang="ts">
 	import '../../app.scss';
-	import { get, post } from '$lib/api.ts';
-	import { Row, Col, Card, Container, Spinner } from '@sveltestrap/sveltestrap';
+	import { get } from '$lib/api.ts';
+	import { Row, Col, Container, Spinner } from '@sveltestrap/sveltestrap';
 	import { onMount } from 'svelte';
 	import ClassCard from '$lib/classes/class_card.svelte';
 
-	let base_url = 'http://localhost:5000';
-	let promise = Promise.resolve(null);
+	interface ClassListingItem {
+		id?: string | number;
+		name?: string;
+		day?: string;
+		time?: string;
+		timestamp?: string | number;
+		description?: string;
+		airtable_data?: {
+			fields?: Record<string, unknown>;
+		};
+	}
+
+	let promise: Promise<ClassListingItem[]> = Promise.resolve([]);
 	onMount(() => {
-		if (window.location.href.indexOf('localhost') === -1) {
-			base_url = 'https://api.protohaven.org';
-		}
-		promise = get('/class_listing').then((data) => {
+		promise = get('/class_listing').then((data: ClassListingItem[]) => {
 			console.log(data);
-			let date_bounded = [];
-			let day = null;
-			let acc = [];
-			for (let c of data) {
+			const acc: ClassListingItem[] = [];
+			for (const c of data) {
+				const name = String(c['name'] ?? '');
 				if (
-					c['name'].indexOf('New Member Orientation') !== -1 ||
-					c['name'].indexOf('Private Instruction') !== -1
+					name.indexOf('New Member Orientation') !== -1 ||
+					name.indexOf('Private Instruction') !== -1
 				) {
 					continue;
 				}

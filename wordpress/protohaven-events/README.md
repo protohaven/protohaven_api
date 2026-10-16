@@ -2,7 +2,7 @@
 
 This is a wordpress plugin intended for the [Protohaven Wordpress site](https://protohaven.org), specifically the [classes page](https://www.protohaven.org/classes).
 
-It fetches upcoming events directly from Neon, reformats the data normally displayed in the original [event list](https://protohaven.app.neoncrm.com/np/clients/protohaven/eventList.jsp) (hosted and controlled by Neon) and renders it in a filterable grid.
+It fetches upcoming events from the Protohaven API (`/events/upcoming`), which sources events from Eventbrite, and renders them in a filterable grid.
 
 Notably improved from the old Neon page: the number of remaining seats as well as the discount price for members is displayed.
 

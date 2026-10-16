@@ -30,6 +30,28 @@ def test_airtable_read_retry(mocker, c):
     con.time.sleep.assert_called()
 
 
+def test_airtable_read_retries_invalid_json(mocker, c):
+    """A transient non-JSON DB response retries and recovers on GET"""
+    con.requests.request.side_effect = [
+        mocker.MagicMock(status_code=502, content=b"<html>Bad Gateway</html>"),
+        mocker.MagicMock(status_code=200, content=json.dumps({"records": []})),
+    ]
+    status, content = c.db_request("GET", "tools_and_equipment", "tools")
+    assert status == 200
+    assert content == {"records": []}
+    con.time.sleep.assert_called()
+
+
+def test_airtable_read_returns_raw_content_on_invalid_json(mocker, c):
+    """After retries, invalid non-JSON is returned for a clearer caller error"""
+    con.requests.request.side_effect = [
+        mocker.MagicMock(status_code=502, content=b"<html>Bad Gateway</html>")
+    ] * 3
+    status, content = c.db_request("GET", "tools_and_equipment", "tools")
+    assert status == 502
+    assert content == b"<html>Bad Gateway</html>"
+
+
 def test_airtable_read_max_retries(c):
     """Too many retries eventually causes a failure"""
     con.requests.request.side_effect = [
@@ -41,24 +63,38 @@ def test_airtable_read_max_retries(c):
         c.db_request("GET", "tools_and_equipment", "tools")
 
 
-def test_neon_request_attendees_endpoint(mocker, c):
-    """Ensure /attendees is ratelimited via cache_server_request"""
+def test_airtable_meta_request(mocker, c):
+    """Airtable schema metadata is fetched from the meta endpoint"""
+    mocker.patch.object(
+        con,
+        "get_config",
+        return_value={
+            "requests": {"url": "https://api.airtable.com/v0/"},
+            "data": {
+                "class_automation": {
+                    "token": "tok",  # pragma: allowlist secret
+                    "base_id": "app123",
+                }
+            },
+        },
+    )
+    con.requests.request.return_value = mocker.Mock(
+        status_code=200, content=b'{"tables": []}'
+    )
+
+    assert c.airtable_meta_request("class_automation") == (200, {"tables": []})
+    assert con.requests.request.call_args.args[1].endswith(  # pylint: disable=no-member
+        "/meta/bases/app123/tables"
+    )
+
+
+def test_neon_request_ok(mocker, c):
+    """A successful Neon request is returned directly"""
     con.requests.request.return_value = mocker.Mock(
         status_code=200, json=lambda: {"key": "value"}
     )
     mock_cs = mocker.patch.object(c, "cache_server_request")
-    assert c.neon_request("api_key", "/attendees") == {"key": "value"}
-    con.requests.request.assert_called_once()  # pylint: disable=no-member
-    mock_cs.assert_called_once_with("/neon_ratelimit_ok", {})
-
-
-def test_neon_request_non_attendees_endpoint(mocker, c):
-    """Test endpoint without ratelimiting"""
-    con.requests.request.return_value = mocker.Mock(
-        status_code=200, json=lambda: {"key": "value"}
-    )
-    mock_cs = mocker.patch.object(c, "cache_server_request")
-    assert c.neon_request("api_key", "/other_endpoint") == {"key": "value"}
+    assert c.neon_request("api_key", "/accounts/1") == {"key": "value"}
     con.requests.request.assert_called_once()  # pylint: disable=no-member
     mock_cs.assert_not_called()
 

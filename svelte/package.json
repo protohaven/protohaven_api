@@ -8,7 +8,10 @@
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"test": "vitest",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:component": "cypress run --component",
+		"test:component:open": "cypress open --component",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write ."
 	},

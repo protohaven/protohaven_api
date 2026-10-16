@@ -1,0 +1,141 @@
+"""Neon QA fixture helpers."""
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+
+import datetime
+from dataclasses import dataclass
+from typing import Any
+
+from protohaven_api.integrations import neon, neon_base
+
+QA_EMAIL_PREFIX = "qa-testing+qa-cronicle-"
+
+
+def qa_email(job: str, run_id: str) -> str:
+    """Build a unique, searchable QA Neon email address."""
+    return f"{QA_EMAIL_PREFIX}{job}-{run_id}@protohaven.org"
+
+
+def qa_name(job: str, run_id: str) -> str:
+    """Build a unique, searchable QA Neon account name."""
+    return f"QA Cronicle {job} {run_id}"
+
+
+def search_qa_accounts():
+    """Return all Neon accounts matching the QA email prefix."""
+    return list(neon.search_members_by_email(QA_EMAIL_PREFIX, operator="CONTAIN"))
+
+
+def anonymize_mock_account(account_id: str, run_id: str) -> None:
+    """Rename a QA-created Neon account so it no longer matches the QA search.
+
+    Neon's V2 API does not expose account deletion. This keeps the account
+    from leaking into future QA runs while leaving an auditable record.
+    """
+    neon_base.patch_account(
+        account_id,
+        {
+            "primaryContact": {
+                "email1": f"qa-deleted-{run_id}-{account_id}@protohaven.org",
+                "firstName": "QA Deleted",
+                "lastName": f"{run_id}-{account_id}",
+            },
+            "accountCustomFields": [
+                {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
+                {"id": str(neon.CustomField.BOOKED_USER_ID), "value": ""},
+            ],
+        },
+    )
+
+
+def anonymize_legacy_qa_accounts() -> None:
+    """Anonymize any QA-prefixed accounts left by previous failed runs."""
+    for acct in search_qa_accounts():
+        account_id = getattr(acct, "neon_id", None)
+        if account_id:
+            anonymize_mock_account(account_id, f"legacy-{account_id}")
+
+
+@dataclass
+class MockNeonAccount:
+    """Handle for a QA-created Neon account."""
+
+    neon_id: str
+    email: str
+    name: str
+
+
+def create_mock_account(ctx: Any, job: str) -> MockNeonAccount:
+    """Create a uniquely identifiable Neon account and register cleanup.
+
+    Follows the plan convention: first name is ``QA Cronicle`` and last name
+    is ``<Job> <run_id>``.
+    """
+    email = qa_email(job, ctx.run_id)
+    name = qa_name(job, ctx.run_id)
+    neon_id = neon.create_member("QA Cronicle", email, last_name=f"{job} {ctx.run_id}")
+    ctx.cleanup.register(
+        f"anonymize Neon account {neon_id}",
+        lambda: anonymize_mock_account(neon_id, ctx.run_id),
+    )
+    return MockNeonAccount(neon_id=neon_id, email=email, name=name)
+
+
+def create_membership(
+    account_id: str,
+    start: datetime.datetime,
+    end: datetime.datetime | None,
+    level: dict[str, Any] | None = None,
+    term: dict[str, Any] | None = None,
+    fee: int = 0,
+    status: str = "SUCCEEDED",
+    term_unit: str = "MONTH",
+) -> dict[str, Any]:
+    """Create a membership for a mock Neon account.
+
+    ``end`` may be ``None`` to deliberately create an active membership with
+    no end date. Neon V2 only permits omitting ``termEndDate`` for term units
+    that have no fixed duration (e.g. ``LIFE``), so callers should pass the
+    matching ``term_unit`` when requesting an open-ended membership.
+    """
+    payload: dict[str, Any] = {
+        "accountId": account_id,
+        "membershipLevel": level or {"id": 1, "name": "General Membership"},
+        "membershipTerm": term or {"id": 1, "name": "General - $115/mo (Join)"},
+        "termStartDate": start.strftime("%Y-%m-%d"),
+        "termUnit": term_unit,
+        "transactionDate": start.strftime("%Y-%m-%d"),
+        "autoRenewal": False,
+        "enrollType": "JOIN",
+        "fee": fee,
+        "totalCharge": fee,
+        "status": status,
+    }
+    if end is not None:
+        payload["termEndDate"] = end.strftime("%Y-%m-%d")
+    if fee > 0:
+        # Neon requires at least one payment when creating a paid membership.
+        payload["payments"] = [
+            {
+                "amount": fee,
+                "paymentStatus": "Succeeded",
+                "note": "",
+                "tenderType": 3,  # Check
+                "receivedDate": None,
+                "creditCardOnline": None,
+                "creditCardOffline": None,
+                "ach": None,
+                "check": {
+                    "institution": "",
+                    "routingNumber": "",
+                    "accountNumber": None,
+                    "accountOwner": "QA Cronicle",
+                    "checkNumber": "",
+                    "accountType": "Checking",
+                },
+                "wire": None,
+                "inKind": None,
+                "dafpay": None,
+            }
+        ]
+    return neon_base.post("api_key2", "/memberships", payload)

@@ -58,3 +58,32 @@ export interface ClassTemplate {
 	'name (from area)': string;
 	'image link': string;
 }
+
+export interface InstructorReadiness {
+	active_membership?: string;
+	capabilities_listed?: string;
+	paperwork?: string;
+	discord_user?: string;
+	[key: string]: unknown;
+}
+
+export function is_instructor_onboarded(p: InstructorReadiness | null | undefined): boolean {
+	if (!p) {
+		return false;
+	}
+	for (const k of [
+		'active_membership',
+		'capabilities_listed',
+		'paperwork',
+		'discord_user'
+	] as const) {
+		if (
+			String(p[k] ?? '')
+				.toLowerCase()
+				.indexOf('ok') === -1
+		) {
+			return false;
+		}
+	}
+	return true;
+}

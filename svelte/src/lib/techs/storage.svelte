@@ -1,4 +1,4 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import {
 		Badge,
 		Toast,
@@ -21,13 +21,37 @@
 	import { post, open_ws } from '$lib/api.ts';
 	import EditCell from './editable_td.svelte';
 
-	export let visible;
+	export let visible: boolean;
 	let loaded = false;
 	let fetching = false;
-	let toast_msg = null;
-	let subs = [];
+
+	interface ToastMessage {
+		color: string;
+		title: string;
+		msg: string;
+	}
+
+	let toast_msg: ToastMessage | null = null;
+
+	interface Sub {
+		customer: string;
+		plan: string;
+		membership_status: string;
+		start_date: string;
+		storage_type: string;
+		storage_id: string;
+		storage_detail: string;
+		id: string | number;
+		email?: string;
+		unpaid: unknown[];
+		status?: string;
+		editable?: boolean;
+		note?: string;
+	}
+
+	let subs: Sub[] = [];
 	let includes_email = false;
-	let subs_sorted = [];
+	let subs_sorted: Sub[] = [];
 	let sort_type = 'name';
 	$: {
 		if (sort_type === 'name') {
@@ -80,7 +104,7 @@
 				return;
 			}
 			includes_email = includes_email || Boolean(d.email);
-			let parsed = {};
+			let parsed: Record<string, unknown> = {};
 			try {
 				parsed = JSON.parse(d['note']) || {};
 				console.log('Parsed', parsed);
@@ -100,7 +124,7 @@
 		});
 	}
 
-	function handle_storage_type_select(evt, sub, typ) {
+	function handle_storage_type_select(evt: Event, sub: Sub, typ: string) {
 		// Do async to allow the dropdown time to close
 		setTimeout(() => {
 			console.log(evt, sub);
@@ -111,11 +135,11 @@
 	}
 
 	let sub_note_editing = false;
-	function update_sub_note(sub) {
+	function update_sub_note(sub: Sub) {
 		sub.note = JSON.stringify({
-			storage_type: sub['storage_type'].trim(),
-			storage_id: sub['storage_id'].trim(),
-			storage_detail: sub['storage_detail'].trim()
+			storage_type: sub.storage_type.trim(),
+			storage_id: sub.storage_id.trim(),
+			storage_detail: sub.storage_detail.trim()
 		});
 		console.log(`Setting sub ${sub.id} note: ${sub.note}`);
 		sub_note_editing = true;
@@ -169,11 +193,11 @@
 				class="me-1"
 				style="z-index: 10000; position:fixed; bottom: 2vh; right: 2vh;"
 				autohide
-				isOpen={toast_msg}
+				isOpen={toast_msg !== null}
 				on:close={() => (toast_msg = null)}
 			>
-				<ToastHeader icon={toast_msg.color}>{toast_msg.title}</ToastHeader>
-				<ToastBody>{toast_msg.msg}</ToastBody>
+				<ToastHeader icon={toast_msg?.color}>{toast_msg?.title}</ToastHeader>
+				<ToastBody>{toast_msg?.msg}</ToastBody>
 			</Toast>
 			<Dropdown>
 				<DropdownToggle color="secondary" caret>Sort</DropdownToggle>
@@ -253,14 +277,14 @@
 							</td>
 							<td>
 								<EditCell
-									enabled={sub.editable && !sub_note_editing}
+									enabled={Boolean(sub.editable && !sub_note_editing)}
 									on_change={() => update_sub_note(sub)}
 									bind:value={sub.storage_id}
 								/>
 							</td>
 							<td>
 								<EditCell
-									enabled={sub.editable && !sub_note_editing}
+									enabled={Boolean(sub.editable && !sub_note_editing)}
 									on_change={() => update_sub_note(sub)}
 									bind:value={sub.storage_detail}
 								/>

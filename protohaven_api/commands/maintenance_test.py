@@ -72,6 +72,45 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     m.comms.send_discord_message.assert_called_once()  # pylint: disable=no-member
 
 
+def test_gen_maintenance_tasks_filter(mocker, cli):
+    """--filter restricts scheduling to the named maintenance record IDs."""
+    mocker.patch.object(m.forecast, "generate", return_value={})
+    mocker.patch.object(
+        m.neon, "search_members_with_discord_association", return_value={}
+    )
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec1",
+                "section": "foo",
+                "name": "task one",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(1),
+            },
+            {
+                "id": "rec2",
+                "section": "foo",
+                "name": "task two",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(2),
+            },
+        ],
+    )
+    add_task = mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+
+    cli("gen_maintenance_tasks", ["--apply", "--filter=rec1", "--num=1"])
+    add_task.assert_called_once_with(
+        "task one", "details", "rec1", "tech_ready", section="foo"
+    )
+
+
 def test_tech_discord_mapping(mocker, cli):
     """Test that tech discord handles are correctly mapped from forecast data"""
     t1 = mocker.MagicMock(discord_user="tech1")
@@ -215,6 +254,21 @@ def test_check_cameras(mocker, cli):
         assert expected in got[0]["body"]
 
 
+def test_backup_eventbrite(mocker, cli):
+    """Test backing up Eventbrite events"""
+    mocker.patch.object(m, "tznow", return_value=d(0))
+    events_backup = mocker.patch.object(
+        m.eventbrite, "events_backup", return_value=1024
+    )
+    mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
+
+    got = cli("backup_eventbrite", ["--parent_id=test_parent_id", "--apply"])
+
+    events_backup.assert_called_once()
+    assert mock_do_backup.call_count == 1
+    assert "test_parent_id" in got[0]["body"]
+
+
 def test_backup_wiki(mocker, cli):
     """Test backing up with mocked actions"""
     mocker.patch.object(m, "tznow", return_value=d(0))
@@ -235,24 +289,12 @@ def test_backup_neon(mocker, cli):
     """Test backing up neon stuff"""
     mocker.patch.object(m, "tznow", return_value=d(0))
     acc_backup = mocker.patch.object(m.neon, "accounts_backup", return_value=1024)
-    evt_backup = mocker.patch.object(m.neon, "events_backup", return_value=1024)
     mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
 
     got = cli(
         "backup_neon", ["--parent_id=test_parent_id", "--category=accounts", "--apply"]
     )
     acc_backup.assert_called_once()
-    evt_backup.assert_not_called()
-    assert mock_do_backup.call_count == 1
-    assert "test_parent_id" in got[0]["body"]
-
-    acc_backup.reset_mock()
-    mock_do_backup.reset_mock()
-    got = cli(
-        "backup_neon", ["--parent_id=test_parent_id", "--category=events", "--apply"]
-    )
-    acc_backup.assert_not_called()
-    evt_backup.assert_called_once()
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]
 
@@ -267,5 +309,19 @@ def test_backup_sheets(mocker, cli):
 
     got = cli("backup_sheets", ["--parent_id=test_parent_id", "--apply"])
     sheets_backup.assert_called_once()
+    assert mock_do_backup.call_count == 1
+    assert "test_parent_id" in got[0]["body"]
+
+
+def test_backup_airtable(mocker, cli):
+    """Test backing up Airtable data"""
+    mocker.patch.object(m, "tznow", return_value=d(0))
+    airtable_backup = mocker.patch.object(
+        m.airtable, "fetch_airtable_backup", return_value=1024
+    )
+    mock_do_backup = mocker.patch.object(m.drive, "upload_file", return_value="fileid")
+
+    got = cli("backup_airtable", ["--parent_id=test_parent_id", "--apply"])
+    airtable_backup.assert_called_once()
     assert mock_do_backup.call_count == 1
     assert "test_parent_id" in got[0]["body"]

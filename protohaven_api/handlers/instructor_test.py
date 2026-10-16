@@ -119,7 +119,7 @@ def test_dashboard_schedule(mocker):
 def test_instructor_class_attendees(inst_client, mocker):
     # Create a mock Attendee object
     mock_attendee = mocker.MagicMock()
-    mock_attendee.neon_id = 123
+    mock_attendee.user_id = 123
     mock_attendee.email = "attendee@example.com"
     mock_attendee.fname = "John"
     mock_attendee.name = "John Doe"
@@ -140,7 +140,7 @@ def test_instructor_class_attendees(inst_client, mocker):
     rep = json.loads(result.data.decode("utf8"))
     # Check the structure matches what the handler returns
     assert len(rep) == 1
-    assert rep[0]["neon_id"] == 123
+    assert rep[0]["user_id"] == 123
     assert rep[0]["email"] == "attendee@example.com"
     assert rep[0]["member_email"] == "member@example.com"
     assert rep[0]["registration_status"] == "SUCCEEDED"
@@ -191,6 +191,48 @@ def test_class_details_both_email_and_session(mocker, inst_client):
 
     rep = inst_client.get("/instructor/class_details?email=foo@bar.com")
     assert rep.status == "200 OK"
+
+
+def test_cancel_class_deletes_auto_reservations(mocker, inst_client):
+    """Cancelling a class deletes its auto-reservations."""
+    c = mocker.MagicMock()
+    c.instructor_email = "foo@bar.com"
+    c.neon_id = "12345"
+    c.areas = ["Area1"]
+    c.sessions = [
+        (
+            datetime.datetime(2025, 1, 15, 18, 0),
+            datetime.datetime(2025, 1, 15, 21, 0),
+        )
+    ]
+    c.as_response.return_value = {"event_id": "12345", "name": "Test Class"}
+
+    mocker.patch.object(instructor.airtable, "get_scheduled_class", return_value=c)
+    mocker.patch.object(instructor.eauto, "fetch_attendees", return_value=[])
+    mocker.patch.object(
+        instructor.eauto, "set_event_scheduled_state", return_value=True
+    )
+    get_reservations = mocker.patch.object(
+        instructor.booked,
+        "get_reservations_for_areas",
+        return_value=[
+            {
+                "referenceNumber": "res-1",
+                "resourceId": "resource-1",
+                "bufferedStartDate": "2025-01-15",
+            }
+        ],
+    )
+    delete_reservation = mocker.patch.object(
+        instructor.booked, "delete_reservation", return_value=True
+    )
+
+    rep = inst_client.post("/instructor/class/cancel", json={"class_id": "sched-1"})
+
+    assert rep.status_code == 200
+    assert rep.json == {"event_id": "12345", "name": "Test Class"}
+    get_reservations.assert_called_once_with(c.sessions[0], c.areas)
+    delete_reservation.assert_called_once_with("res-1")
 
 
 def test_get_instructor_readiness_all_bad(mocker):
@@ -614,3 +656,139 @@ def test_resolve_id_and_email_ovr_ok(mocker):
     )
     assert instructor.resolve_id_and_email("c@d.com") == ("c@d.com", "456", None)
     m1.assert_called_with("c@d.com", fields=[])
+
+
+def test_instructor_class_update_mark_unavailable(inst_client, mocker):
+    """The instructor can mark a not-yet-posted class as unavailable."""
+    msched = mocker.MagicMock()
+    msched.as_response.return_value = {"event_id": "111", "rejected": True}
+    mocker.patch.object(
+        instructor.airtable, "respond_class_automation_schedule", return_value=msched
+    )
+
+    rep = inst_client.post(
+        "/instructor/class/update", json={"eid": "sched-1", "pub": False}
+    )
+
+    assert rep.status_code == 200
+    assert rep.json == {"event_id": "111", "rejected": True}
+    instructor.airtable.respond_class_automation_schedule.assert_called_once_with(
+        "sched-1", False
+    )
+
+
+def test_instructor_class_volunteer(inst_client, mocker):
+    """Instructors can switch a class between volunteer and paid states."""
+    msched = mocker.MagicMock()
+    msched.as_response.return_value = "ok"
+    mark = mocker.patch.object(
+        instructor.airtable, "mark_schedule_volunteer", return_value=msched
+    )
+
+    for v in (True, False):
+        rep = inst_client.post(
+            "/instructor/class/volunteer", json={"eid": "sched-1", "volunteer": v}
+        )
+        assert rep.status_code == 200
+
+    assert mark.call_args_list == [
+        mocker.call("sched-1", True),
+        mocker.call("sched-1", False),
+    ]
+
+
+def test_instructor_class_supply_req_confirmed(inst_client, mocker):
+    """The missing=False branch marks supplies as confirmed."""
+    mcls = mocker.MagicMock(instructor_name="Instructor Name", start_time=d(0))
+    mcls.name = "Class Name"
+
+    mocker.patch.object(instructor.airtable, "get_scheduled_class", return_value=mcls)
+    msched = mocker.MagicMock()
+    msched.as_response.return_value = "Foo"
+    mark = mocker.patch.object(
+        instructor.airtable, "mark_schedule_supply_request", return_value=msched
+    )
+    send = mocker.patch.object(instructor.comms, "send_discord_message")
+
+    response = inst_client.post(
+        "/instructor/class/supply_req", json={"eid": "class123", "missing": False}
+    )
+
+    assert response.status_code == 200
+    mark.assert_called_once_with("class123", "Supplies Confirmed")
+    send.assert_called_once()
+
+
+def test_instructor_enroll_disenroll(client, mocker):
+    """Instructor disenrollment (enroll=False) hits the Neon role API."""
+    from protohaven_api.integrations.models import Role
+    from protohaven_api.testing import setup_session
+
+    setup_session(client, [Role.EDUCATION_LEAD])
+    mocker.patch.object(instructor.neon, "patch_member_role", return_value={"ok": True})
+
+    rep = client.post("/instructor/enroll", json={"neon_id": "123", "enroll": False})
+
+    assert rep.status_code == 200
+    instructor.neon.patch_member_role.assert_called_with(
+        "123", instructor.Role.INSTRUCTOR, False
+    )
+
+
+def test_push_class_rejects_validation_errors_without_override(inst_client, mocker):
+    """Validation errors block a push unless the instructor opts into an override."""
+    mocker.patch.object(
+        instructor, "resolve_id_and_email", return_value=(None, "abc", None)
+    )
+    mocker.patch.object(instructor.scheduler, "validate", return_value=["err1"])
+    mocker.patch.object(
+        instructor.neon_base, "fetch_account", return_value=mocker.MagicMock()
+    )
+    push = mocker.patch.object(instructor.scheduler, "push_class_to_schedule")
+
+    rep = inst_client.post(
+        "/instructor/push_class",
+        json={
+            "cls_id": "123",
+            "sessions": [("2026-01-05", "18:00", 3)],
+        },
+    )
+
+    assert rep.status_code == 200
+    assert rep.json == {"valid": False, "errors": ["err1"]}
+    push.assert_not_called()
+
+
+def test_push_class_override_alerts_education_leads(inst_client, mocker):
+    """A validation override sends a blocking alert to #education-leads."""
+    mocker.patch.object(
+        instructor, "resolve_id_and_email", return_value=(None, "abc", None)
+    )
+    mocker.patch.object(instructor.scheduler, "validate", return_value=["err1"])
+    mocker.patch.object(
+        instructor.neon_base,
+        "fetch_account",
+        return_value=mocker.MagicMock(name="Test Instructor", email="a@b.com"),
+    )
+    c = mocker.MagicMock()
+    c.name = "Class Name"
+    c.price = 5
+    c.capacity = 6
+    mocker.patch.object(instructor.airtable, "get_class_template", return_value=c)
+    push = mocker.patch.object(instructor.scheduler, "push_class_to_schedule")
+    send = mocker.patch.object(instructor.comms, "send_discord_message")
+
+    rep = inst_client.post(
+        "/instructor/push_class",
+        json={
+            "cls_id": "123",
+            "sessions": [("2026-01-05", "18:00", 3)],
+            "skip_validation": True,
+        },
+    )
+
+    assert rep.status_code == 200
+    assert rep.json == {"valid": True, "errors": [], "success": True}
+    push.assert_called_once()
+    assert send.call_args[0][1] == "#education-leads"
+    assert send.call_args[1]["blocking"] is True

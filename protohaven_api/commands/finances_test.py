@@ -94,6 +94,100 @@ def test_validate_memberships_empty(mocker):
     assert not got
 
 
+def test_validate_memberships_ignore_membership_types_cli(mocker, cli):
+    """CSV ignore list is parsed and passed through to validation"""
+    mock = mocker.patch.object(
+        f.Commands, "_validate_memberships_internal", return_value=iter([])
+    )
+    got = cli("validate_memberships", ["--ignore_membership_types", "Foo, Bar"])
+    assert not got
+    assert mock.call_args.args[0] is None
+    assert mock.call_args.args[2] == {"Foo", "Bar"}
+
+
+@pytest.mark.parametrize(
+    "level",
+    [
+        "General Membership",
+        "Weekday Membership",
+        "Weekend Membership",
+        "Weeknight Membership",
+        "Founding Member",
+        "Primary Family Membership",
+        "Youth Program",
+    ],
+)
+def test_validate_membership_unrestricted_levels_ok(mocker, level):
+    """Unrestricted membership levels should skip type-specific validation"""
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=level,
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=level,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
+    )
+    assert not got
+
+
+def test_validate_membership_ignored_types_ok(mocker):
+    """CLI-provided membership types should skip type-specific validation"""
+    level = "Some New Membership Type"
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=level,
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=level,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+            ignore_membership_types={level},
+        )
+    )
+    assert not got
+
+    got = list(
+        f.Commands()._validate_membership_singleton(
+            mocker.MagicMock(
+                level=level,
+                memberships=lambda active_only: [
+                    mocker.Mock(
+                        fee=1,
+                        level=level,
+                        start_date=d(0),
+                        end_date=d(5),
+                        status="SUCCEEDED",
+                    ),
+                ],
+            ),
+            0,
+            0,
+            d(0),
+        )
+    )
+    assert got == [f"Unhandled membership: '{level}'"]
+
+
 def test_validate_membership_amp_ok(mocker):
     """Amp member should pass validation if they are marked appropriately for their term"""
     mem = mocker.Mock(
@@ -479,10 +573,14 @@ def test_init_new_memberships_e2e(mocker, cli):
         "update_account_automation_run_status",
         return_value=mocker.MagicMock(status_code=200),
     )
-    mocker.patch.object(f.memauto, "get_config", return_value=None)
+    mocker.patch.object(
+        f.memauto,
+        "get_config",
+        side_effect=lambda k: {}.get(k),
+    )
     mocker.patch.object(f.memauto, "get_sample_classes", return_value=[])
     got = cli("init_new_memberships", ["--apply"])
-    m1.assert_called_with(75, "a@b.com", True, coupon_type=f.memauto.CouponType.NEON)
+    m1.assert_called_with(75)
     m2.assert_called_with(456, mocker.ANY, mocker.ANY)
     m3.assert_called_with(123, "deferred")
 

@@ -12,7 +12,12 @@
 	import { get } from '$lib/api';
 	import FetchError from '../fetch_error.svelte';
 
-	let promise = new Promise(() => {});
+	interface GcalEvent {
+		start: string | number | Date;
+		name: string;
+	}
+
+	let promise: Promise<GcalEvent[]> = new Promise<GcalEvent[]>(() => {});
 	onMount(() => {
 		promise = get('/events/shop');
 	});

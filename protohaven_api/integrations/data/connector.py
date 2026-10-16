@@ -38,6 +38,7 @@ class Connector:  # pylint: disable=too-many-public-methods
 
     def __init__(self):
         self.timeout = get_config("connector/timeout")
+        self.backup_timeout = get_config("connector/backup_timeout")
         self.max_attempts = get_config("connector/num_attempts")
         self.max_retry_delay_sec = get_config("connector/max_retry_delay_sec")
 
@@ -46,17 +47,7 @@ class Connector:  # pylint: disable=too-many-public-methods
         auth = (get_config("neon/domain"), api_key)
         # log.info(f"{auth} {args} {kwargs}")
 
-        # Attendee endpoint is often called repeatedly; runs into
-        # neon request ratelimit. Here we globally synchronize and
-        # include a sleep timer to prevent us from overrunning
-        # Note that 4 QPS is reasonable, but as of
-        # 2026-06-23 we're running two workers which use the same
-        # API quota.
         for i in range(self.max_attempts):
-            if "/attendees" in args[0]:
-                # Centralized rate limiting via cache server to prevent
-                # multiple gunicorn workers from overwhelming Neon CRM.
-                self.cache_server_request("/neon_ratelimit_ok", {})
             r = requests.request(*args, **kwargs, auth=auth, timeout=self.timeout)
 
             # It's real weird that Neon returns 222 which is not an official RFC 9110 code
@@ -128,13 +119,66 @@ class Connector:  # pylint: disable=too-many-public-methods
                 rep = requests.request(
                     mode, url, headers=headers, timeout=self.timeout, data=data
                 )
-                return rep.status_code, json.loads(rep.content) if rep.content else None
+                try:
+                    content = json.loads(rep.content) if rep.content else None
+                except json.JSONDecodeError:
+                    # NocoDB/Airtable occasionally returns HTML or an empty body
+                    # through an intermediary. Surface that as a retryable DB
+                    # fetch failure instead of leaking a JSONDecodeError.
+                    if mode != "GET" or i == self.max_attempts - 1:
+                        log.error(
+                            f"Invalid JSON on DB request {mode} {base} {tbl} "
+                            f"{rec} {params}; status {rep.status_code}; "
+                            f"content: {_fmt_content(rep.content)}"
+                        )
+                        return rep.status_code, rep.content
+                    log.warning(
+                        f"Invalid JSON on DB request {mode} {base} {tbl} "
+                        f"{rec} {params}; status {rep.status_code}; retry #{i+1}"
+                    )
+                    time.sleep(int(random.random() * self.max_retry_delay_sec))
+                    continue
+                if mode == "GET" and rep.status_code in (429, 500, 502, 503, 504):
+                    if i == self.max_attempts - 1:
+                        return rep.status_code, content
+                    log.warning(
+                        f"status code {rep.status_code} on DB request {mode} "
+                        f"{base} {tbl} {rec} {params}; retry #{i+1}"
+                    )
+                    time.sleep(int(random.random() * self.max_retry_delay_sec))
+                    continue
+                return rep.status_code, content
             except requests.exceptions.ReadTimeout as rt:
                 if mode != "GET" or i == self.max_attempts - 1:
                     raise rt
                 log.warning(
                     f"ReadTimeout on airtable request {mode} {base} {tbl} "
                     f"{rec} {params}, retry #{i+1}"
+                )
+                time.sleep(int(random.random() * self.max_retry_delay_sec))
+        return None, None
+
+    def airtable_meta_request(self, base):
+        """Fetch schema metadata (tables and fields) for an Airtable base."""
+        cfg = get_config("airtable")
+        path = f"meta/bases/{cfg['data'][base]['base_id']}/tables"
+        url = urljoin(cfg["requests"]["url"], path)
+        headers = {
+            "Authorization": f"Bearer {cfg['data'][base]['token']}",
+            "Content-Type": "application/json",
+        }
+        for i in range(self.max_attempts):
+            try:
+                rep = requests.request(
+                    "GET", url, headers=headers, timeout=self.timeout
+                )
+                return rep.status_code, json.loads(rep.content) if rep.content else None
+            except requests.exceptions.ReadTimeout as rt:
+                if i == self.max_attempts - 1:
+                    raise rt
+                log.warning(
+                    f"ReadTimeout on Airtable metadata request for base {base}, "
+                    f"retry #{i+1}"
                 )
                 time.sleep(int(random.random() * self.max_retry_delay_sec))
         return None, None
@@ -257,7 +301,7 @@ class Connector:  # pylint: disable=too-many-public-methods
             "X-Protohaven-Bookstack-API-Key": get_config("bookstack/api_key"),
         }
         response = requests.get(
-            url, headers=headers, timeout=self.timeout * 5, stream=True
+            url, headers=headers, timeout=self.backup_timeout, stream=True
         )
         response.raise_for_status()
 

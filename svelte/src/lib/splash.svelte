@@ -1,12 +1,18 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import { Button, Row, Col, Card, Input, Progress, FormGroup } from '@sveltestrap/sveltestrap';
 	import { onMount, onDestroy } from 'svelte';
-	export let on_member;
-	export let on_guest;
-	export let feedback;
-	export let email;
-	export let progress;
-	export let dependent_info;
+
+	type ProgressState = {
+		pct: number;
+		msg: string;
+	} | null;
+
+	export let on_member: () => void;
+	export let on_guest: () => void;
+	export let feedback: string | null;
+	export let email: string | null;
+	export let progress: ProgressState;
+	export let dependent_info: string;
 	let has_dependents = false;
 
 	async function reset() {
@@ -21,21 +27,21 @@
 		email && email.trim() != '' && !progress && !(has_dependents && dependent_info == '');
 
 	// Shortcut for members; only if valid form state
-	function check_enter_key_submit(e) {
+	function check_enter_key_submit(e: KeyboardEvent) {
 		if (e.key == 'Enter' && submit_enabled) {
 			on_member();
 		}
 	}
 
 	// Inactivity timer - reset for the next person
-	let count;
-	let interval = null;
+	let count: number | null = null;
+	let interval: ReturnType<typeof setInterval> | undefined;
 	function updateTimer() {
-		count = count - 1;
+		count = (count ?? 0) - 1;
 		// console.log(count);
 	}
 	function extendTimer() {
-		if (interval === null) {
+		if (interval === undefined) {
 			interval = setInterval(updateTimer, 1000);
 		}
 		count = 60;
@@ -46,12 +52,14 @@
 		addEventListener('mousemove', extendTimer);
 	});
 	onDestroy(() => {
-		if (interval) clearInterval(interval);
+		if (interval !== undefined) clearInterval(interval);
 	});
 
 	$: if (count === 0) {
-		clearInterval(interval);
-		interval = null;
+		if (interval !== undefined) {
+			clearInterval(interval);
+			interval = undefined;
+		}
 		reset();
 	}
 </script>
@@ -70,11 +78,11 @@
 				<Input
 					type="email"
 					autofocus
-					disabled={progress}
+					disabled={progress !== null}
 					placeholder="Your email address here"
 					bind:value={email}
 					invalid={feedback !== null}
-					{feedback}
+					feedback={feedback ?? undefined}
 					on:keydown={check_enter_key_submit}
 				/>
 			</FormGroup>
@@ -90,12 +98,12 @@
 				bind:checked={has_dependents}
 				type="checkbox"
 				label="I am signing in one or more children under age 18"
-				tabindex="-1"
+				tabindex={-1}
 			/>
 			{#if has_dependents}
 				<Input
 					type="email"
-					disabled={progress}
+					disabled={progress !== null}
 					placeholder="Enter child name(s) here"
 					bind:value={dependent_info}
 				/>
