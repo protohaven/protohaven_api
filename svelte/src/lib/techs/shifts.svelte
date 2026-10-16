@@ -122,11 +122,14 @@
 		}
 		refresh();
 	}
-	$: {
-		if (visible && !loaded) {
-			refresh();
-		}
-	}
+
+  onMount(() => {
+    $: {
+      if (visible && !loaded) {
+        refresh();
+      }
+    }
+  });
 
 	let edit: ForecastEdit | null = null;
 	const shift_periods: ('AM' | 'PM')[] = ['AM', 'PM'];
