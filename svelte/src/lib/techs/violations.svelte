@@ -110,14 +110,14 @@
 	let toast_msg: ToastMessage | null = null;
 
 	function refresh() {
-		violations_promise = get('/techs/violations').then((data) => {
+		violations_promise = get('/violations').then((data) => {
 			loaded = true;
 			return data;
 		});
 	}
 
 	function refresh_sections() {
-		sections_promise = get('/techs/violations/sections');
+		sections_promise = get('/violations/sections');
 	}
 
 	$: if (visible && !loaded) {
@@ -160,7 +160,7 @@
 
 	function submit_violation() {
 		submitting = true;
-		post('/techs/violations/open', {
+		post('/violations/open', {
 			reporter: reporter || (user ? `${user.fullname} <${user.email}>` : ''),
 			neon_id: selected_member ? selected_member.neon_id : null,
 			tag_number,
@@ -204,7 +204,7 @@
 
 	function submit_close(v: Violation) {
 		const c = close_state[v.id];
-		post(`/techs/violations/${v.id}/close`, {
+		post(`/violations/${v.id}/close`, {
 			closer: c.closer,
 			close_date: c.close_date,
 			notes: c.notes,
