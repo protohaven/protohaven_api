@@ -5,7 +5,7 @@ import { useEffect, useState } from '@wordpress/element';
 export function App( { imgSize, initialData } ) {
 	if (!initialData) {
 		console.error("initialData is", initialData);
-		return <div style={{textAlign: "center", fontWeight: "bold"}}>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohave.norg">hello@protohaven.org</a></div>;
+		return <div style={{textAlign: "center", fontWeight: "bold"}}>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohaven.org">hello@protohaven.org</a>.<br/><br/>You can also find our events on <a href="https://www.eventbrite.com/o/49411897933" target="_blank">Eventbrite</a>.</div>;
 	}
 
 	const API_BASE_URL = (location.hostname === "localhost") ? "http://localhost:5173" : "https://api.protohaven.org";
@@ -113,7 +113,7 @@ export function App( { imgSize, initialData } ) {
 				(<a href={API_BASE_URL + "/logout"}>Logout</a>)</em></div>
 		}
 		{(!user || !user.fullname) &&
-				<div><em><a href={API_BASE_URL + "/member"} target="_blank">Log in</a> to receive member discounts!</em></div>}
+				<div><h4><em><a href={API_BASE_URL + "/member"} target="_blank">Log in</a> to receive member discounts!</em></h4></div>}
 		<div className="ph-filters">
 			<select onChange={(e) => {
 				setFilters({...filters, area: e.target.value});
@@ -167,7 +167,7 @@ export function App( { imgSize, initialData } ) {
 				<div>Loading classes...</div>
 		</div>}
 		{!any_visible && !retrying && fetchFailed && <div className="status-message">
-				<div>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohaven.org">hello@protohaven.org</a></div>
+				<div>We're having some trouble fetching classes and events - if this persists, please contact <a href="mailto:hello@protohaven.org">hello@protohaven.org</a>.<br/><br/>You can also find our events on <a href="https://www.eventbrite.com/o/49411897933" target="_blank">Eventbrite</a>.</div>
 		</div>}
 		{!any_visible && !retrying && !fetchFailed && <div className="status-message">
 				<div>No classes are available for your search.</div>

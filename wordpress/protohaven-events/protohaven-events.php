@@ -133,7 +133,7 @@ function ph_events_get_events() {
 	global $ERR_PREFIX;
 	$baseurl = get_option($PH_PROTOHAVEN_API_URL_OPTION_ID);
 	$url = $baseurl."/events/upcoming";
-	$response = wp_remote_get($url);
+	$response = wp_remote_get($url, array('timeout' => 10));
 	if (is_wp_error($response)) {
 		error_log( $ERR_PREFIX . "Error fetching /events/upcoming: " . $response->get_error_message() );
 		return array("events" => array());
