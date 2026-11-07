@@ -85,21 +85,34 @@
 	function action(
 		event_id: string | number | null,
 		ticket_id: string | number | null | undefined,
-		action: 'register' | 'unregister',
-		attendee_email: string | null = null
+		action: 'register'
 	) {
 		submitting = true;
 		const data: {
 			event_id: string | number | null;
 			ticket_id: string | number | null | undefined;
 			action: string;
-			attendee_email?: string | null;
 		} = { event_id, ticket_id, action };
-		if (attendee_email !== null) {
-			data.attendee_email = attendee_email;
-		}
+		// Open the tab synchronously so popup blockers allow it; we point it at
+		// Eventbrite after the backend has generated any short-lived discount code.
+		const newTab = window.open('', '_blank');
 		submission = post('/techs/event', data)
-			.then((result) => console.log(result))
+			.then((result) => {
+				console.log(result);
+				if (newTab) {
+					if (result && result.redirect_url) {
+						newTab.location.href = result.redirect_url;
+					} else {
+						newTab.close();
+					}
+				}
+			})
+			.catch((error) => {
+				if (newTab) {
+					newTab.close();
+				}
+				throw error;
+			})
 			.finally(() => {
 				reload();
 				submitting = false;
@@ -113,6 +126,10 @@
 			(neon_id !== undefined && (r.attendees || []).indexOf(neon_id) !== -1) ||
 			(r.attendee_emails || []).indexOf(email) !== -1
 		);
+	}
+
+	function is_eventbrite_id(id: string | number): boolean {
+		return Number(id) >= 375402919237;
 	}
 
 	let new_event_form: NewEventForm = {
@@ -176,6 +193,11 @@
 				You can pay at the front desk via Square - select "Walk-In (3 Hr Class / add price)", set to
 				the cost listed above, charge as normal.
 			</p>
+			<p>
+				Clicking <strong>Register</strong> below will open Eventbrite in a new tab. A 100%
+				discount coupon will be applied automatically for paid classes. Complete the Eventbrite
+				registration using the <strong>same email address you use to sign in at the front desk</strong>.
+			</p>
 			{#await promise}
 				<Spinner />loading...
 			{:then p}
@@ -228,29 +250,17 @@
 												{#if attendee.phone}
 													<div>Phone: {attendee.phone}</div>
 												{/if}
-												{#if p.is_admin}
-													<div class="mt-1">
-														<Button
-															color="danger"
-															size="sm"
-															on:click={() => {
-																if (
-																	confirm(
-																		`Are you sure you want to de-register ${attendee.name} from this event?`
-																	)
-																) {
-																	action(r.id, null, 'unregister', attendee.email);
-																}
-															}}
-															disabled={submitting}
-														>
-															De-register
-														</Button>
-													</div>
-												{/if}
 											</li>
 										{/each}
 									</ul>
+								</div>
+							{/if}
+
+							{#if p.is_admin && is_eventbrite_id(r.id)}
+								<div class="mt-2">
+									<a href={`https://www.eventbrite.com/myevent?eid=${r.id}`} target="_blank">
+										Manage Eventbrite attendees
+									</a>
 								</div>
 							{/if}
 
@@ -258,11 +268,6 @@
 								<div>
 									{#if is_registered(r)}
 										<strong>You are registered!</strong>
-										<Button
-											color="secondary"
-											on:click={() => action(r.id, r.ticket_id, 'unregister')}
-											disabled={submitting}>Unregister</Button
-										>
 									{:else if r.capacity - (r.attendee_count ?? r.attendees.length) > 0}
 										<Button
 											color="primary"

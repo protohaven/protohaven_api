@@ -1,7 +1,7 @@
 import Events from './events.svelte';
 
 const adminEvent = {
-	id: '111',
+	id: '375402919237',
 	name: '(SHOP TECH ONLY) Lathe Basics',
 	start: '2025-01-15T18:00:00-05:00',
 	capacity: 6,
@@ -96,21 +96,11 @@ describe('techs events', () => {
 		cy.contains('button', 'Unregister').should('not.exist');
 	});
 
-	it('allows admins to de-register an attendee by email', () => {
-		cy.intercept('POST', '**/techs/event', {
-			body: { status: 'ok' }
-		}).as('eventPost');
-		cy.stub(window, 'confirm').returns(true);
-
+	it('shows the Eventbrite attendee management link to admins', () => {
 		mountEvents();
 
-		cy.contains('button', 'De-register').click();
-		cy.wait('@eventPost').then((interception) => {
-			expect(interception.request.body).to.deep.include({
-				event_id: '111',
-				action: 'unregister',
-				attendee_email: 'ada@example.com'
-			});
-		});
+		cy.contains('a', 'Manage Eventbrite attendees')
+			.should('be.visible')
+			.and('have.attr', 'href', 'https://www.eventbrite.com/myevent?eid=375402919237');
 	});
 });

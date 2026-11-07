@@ -21,7 +21,6 @@ from protohaven_api.integrations import (
     comms,
     eventbrite,
     neon,
-    neon_base,
     sales,
     wiki,
     wyze,
@@ -533,24 +532,6 @@ def techs_backfill_events():
     }
 
 
-def _notify_registration(actor_name, target_name, event_id, action):
-    """Sends notification of state of class to the techs and instructors channels
-    when a tech (un)registers to backfill a class."""
-    evt = eauto.fetch_event(event_id, attendees=True)
-    verb = "registered"
-    if action != "register":
-        verb = "unregistered"
-    msg = (
-        f"{actor_name} {verb} {target_name} via [/techs](https://api.protohaven.org/techs#events): "
-        f"{evt.name} on {evt.start_date.strftime('%a %b %d %-I:%M %p')} "
-        f"; {evt.capacity - evt.attendee_count} seat(s) remain"
-    )
-    # Tech-only classes shouldn't bother instructors
-    if not evt.name.startswith(TECH_ONLY_PREFIX):
-        comms.send_discord_message(msg, "#instructors", blocking=False)
-    comms.send_discord_message(msg, "#techs", blocking=False)
-
-
 @page.route("/techs/event", methods=["POST"])
 @require_login_role(
     Role.SHOP_TECH_LEAD,
@@ -559,8 +540,8 @@ def _notify_registration(actor_name, target_name, event_id, action):
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-def techs_event_registration():  # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
-    """Register/unregister a shop tech for an event, or admin de-register any attendee"""
+def techs_event_registration():  # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals,too-many-statements
+    """Register a shop tech for an event"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
         return Response(
@@ -574,122 +555,41 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements,to
     event_id = data.get("event_id")
     ticket_id = data.get("ticket_id")
     action = data.get("action")
-    attendee_email = data.get("attendee_email")
 
-    log.info(f"Attempt to (un)register for event: {account_id} {data}")
+    log.info(f"Attempt to register for event: {account_id} {data}")
     if not account_id:
         return Response("Not logged in", status=401)
     if not event_id:
         return Response("event_id required", status=400)
+    if action != "register":
+        return Response("action must be 'register'", status=400)
 
-    # Handle regular register/unregister actions
-    if action in ("register", "unregister"):
-        # Note: free classes have no ticket ID
-        # if not ticket_id and action == "register":
-        #    return Response("ticket_id required for register action", status=400)
+    if not eventbrite.is_valid_id(event_id):
+        return Response("Only Eventbrite events can be registered for", status=400)
 
-        if action == "unregister" and attendee_email is not None:
-            # Admin de-registration by email. Eventbrite attendees do not have
-            # Neon IDs, so resolve the email back to a Neon account and verify
-            # it belongs to a tech before allowing a lead/admin to remove them.
-            if not am_lead_role():
-                return Response(
-                    "Admin privileges required for admin unregister action", status=403
-                )
-            target_email = str(attendee_email).strip().lower()
-            if not target_email:
-                return Response("attendee_email required", status=400)
-            target = next(
-                (
-                    m
-                    for m in neon.search_members_by_email(target_email)
-                    if m.is_volunteer()
-                ),
-                None,
-            )
-            if target is None:
-                return Response(
-                    f"No tech account found for email {target_email}",
-                    status=400,
-                )
-
-            ret = eventbrite.cancel_attendee_order(event_id, target_email)
-            if ret is None:
-                return Response(
-                    f"Registration not found for email {target_email} "
-                    f"in event {event_id}",
-                    status=404,
-                )
-            actor = neon_base.fetch_account(account_id, required=True)
-            _notify_registration(actor.name, target.name, event_id, action)
-            return ret
-
-        # Self-service register/unregister (and legacy admin register by Neon ID)
-        attendee_neon_id_raw = data.get("attendee_neon_id")
-        attendee_neon_id = (
-            str(attendee_neon_id_raw).strip()
-            if attendee_neon_id_raw is not None
-            else account_id
-        )
-        if attendee_neon_id != account_id and not am_lead_role():
-            return Response(
-                "Admin privileges required for admin unregister action", status=403
-            )
-
-        member = neon_base.fetch_account(attendee_neon_id, required=True)
-        if action == "register":
-            evt = eauto.fetch_event(event_id, tickets=True)
-            eb_ticket_id = ticket_id or evt.single_registration_ticket_id
-            if not eb_ticket_id:
-                return Response(
-                    "No Eventbrite ticket class found for registration",
-                    status=400,
-                )
-            ticket = next(
-                (t for t in evt.ticket_options if str(t["id"]) == str(eb_ticket_id)),
-                None,
-            )
-            if ticket is None:
-                return Response(
-                    f"Ticket class {eb_ticket_id} not found for event {event_id}",
-                    status=400,
-                )
-            discount_code = None
-            if ticket["price"] > 0:
-                discount_code = eventbrite.generate_discount_code(
-                    event_id, percent_off=100
-                )
-            ret = eventbrite.register_attendee(
-                event_id,
-                eb_ticket_id,
-                member.fname,
-                member.lname,
-                member.email,
-                discount_code=discount_code,
-            )
-        else:
-            ret = eventbrite.cancel_attendee_order(event_id, member.email)
-            if ret is None:
-                return Response(
-                    f"Registration not found for account {attendee_neon_id} "
-                    f"in event {event_id}",
-                    status=404,
-                )
-        if ret:
-            actor_name = (
-                member.name
-                if attendee_neon_id == account_id
-                else neon_base.fetch_account(account_id, required=True).name
-            )
-            _notify_registration(actor_name, member.name, event_id, action)
-            return ret
-    else:
+    evt = eauto.fetch_event(event_id, tickets=True)
+    eb_ticket_id = ticket_id or evt.single_registration_ticket_id
+    if not eb_ticket_id:
         return Response(
-            "action must be one of 'register', 'unregister'",
+            "No Eventbrite ticket class found for registration",
             status=400,
         )
-
-    raise RuntimeError("Unknown error handling event registration state")
+    ticket = next(
+        (t for t in evt.ticket_options if str(t["id"]) == str(eb_ticket_id)),
+        None,
+    )
+    if ticket is None:
+        return Response(
+            f"Ticket class {eb_ticket_id} not found for event {event_id}",
+            status=400,
+        )
+    redirect_url = f"https://www.eventbrite.com/e/{event_id}/"
+    if ticket["price"] > 0:
+        discount_code = eventbrite.generate_discount_code(
+            event_id, percent_off=100, expiration_hours=4
+        )
+        redirect_url += f"?discount={discount_code}"
+    return {"redirect_url": redirect_url}
 
 
 def setup_sock_routes(app):
