@@ -123,7 +123,7 @@ def test_neon_new_membership_callback(mocker, client, field_value, does_init):
             email="a@b.com",
             fname="John",
             account_automation_ran=field_value,
-            memberships=lambda: [{"membershipId": 1}],
+            memberships=lambda: ({"membershipId": 1} for _ in range(1)),
         ),
     )
     mock_init_membership = mocker.patch.object(

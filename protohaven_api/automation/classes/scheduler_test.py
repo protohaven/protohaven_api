@@ -124,3 +124,31 @@ def test_get_reserved_area_occupancy(mocker):
         "https://reserve.protohaven.org/Web/reservation/?rn=789"
     )
     assert "Wood" not in got
+
+
+def test_validate_sessions_more_than_10_days_apart(mocker):
+    """Sessions spaced more than 10 days apart fail scheduling validation."""
+    from protohaven_api.automation.classes import validation as val
+
+    inst_id = "abc"
+    cls_id = "20"
+    c = mocker.MagicMock()
+    c.approved = True
+    c.schedulable = True
+    c.days = 2
+    c.approved_instructors = [inst_id]
+    c.hours = [3, 3]
+    c.areas = []
+    c.class_id = cls_id
+
+    mocker.patch.object(s.airtable, "get_class_template", return_value=c)
+    mocker.patch.object(
+        s, "gen_class_and_area_stats", return_value=val.ClassAreaEnv.with_defaults()
+    )
+    mocker.patch.object(val, "tznow", return_value=d(0, 12))
+
+    sessions = [(d(5, 10), d(5, 13)), (d(16, 10), d(16, 13))]
+    errors = s.validate(inst_id, cls_id, sessions)
+
+    assert len(errors) == 1
+    assert "More than 10 days between sessions" in errors[0]

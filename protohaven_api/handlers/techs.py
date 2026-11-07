@@ -21,7 +21,6 @@ from protohaven_api.integrations import (
     comms,
     eventbrite,
     neon,
-    neon_base,
     sales,
     wiki,
     wyze,
@@ -381,7 +380,7 @@ def tech_update():
     Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
 def new_tech_event():
-    """Create a new techs-only event in Neon"""
+    """Create a new techs-only event in Eventbrite"""
     data = request.json
     log.info(f"new_event with data {data}")
     if str(data["name"]).strip() == "":
@@ -401,17 +400,15 @@ def new_tech_event():
     if capacity < 0 or capacity > 100:
         return Response("capacity field invalid", status=401)
     log.info(f"Creating event with data {data}")
-    return neon_base.create_event(
+    event_id = eventbrite.create_event(
         name=f"{TECH_ONLY_PREFIX} {data['name']}",
-        desc="Tech-only event; created via api.protohaven.org/techs dashboard",
-        start=d,
-        end=d + datetime.timedelta(hours=hours),
+        sessions=[(d, d + datetime.timedelta(hours=hours))],
+        summary="Tech-only event; created via api.protohaven.org/techs dashboard",
         max_attendees=capacity,
-        dry_run=False,
-        published=False,  # Do NOT show this in the regular event browser
-        registration=True,
-        free=True,  # Do not apply pricing
+        published=False,  # Do NOT list this in the regular event browser
     )
+    eventbrite.assign_pricing(event_id, 0, capacity, clear_existing=True)
+    return eventbrite.set_event_scheduled_state(event_id, scheduled=True)
 
 
 @page.route("/techs/rm_event", methods=["POST"])
@@ -419,7 +416,7 @@ def new_tech_event():
     Role.SHOP_TECH_LEAD, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
 def rm_tech_event():
-    """Delete a techs-only event in Neon"""
+    """Delete a techs-only event in Eventbrite"""
     data = request.json
     eid = str(data["eid"])
     if eid.strip() == "":
@@ -466,6 +463,7 @@ def techs_backfill_events():
     for_techs = []
     now = tznow()
     is_admin = am_lead_role()
+    is_generic_shop_tech = am_neon_id(get_config("general/shop_tech_neon_id"))
 
     def _keep(evt):
         if evt.in_blocklist():
@@ -493,38 +491,25 @@ def techs_backfill_events():
         # attendee_count requires attendee data to have been fetched,
         # so we have to additionally check here
         if evt.name.startswith(TECH_ONLY_PREFIX) or evt.attendee_count > 0:
-            is_eventbrite = eventbrite.is_valid_id(evt.event_id)
-
-            # Eventbrite attendees don't have Neon account IDs, so admin
-            # de-registration moves to email. Legacy Neon events retain their
-            # attendee IDs so self-service registration state still resolves.
+            # Get attendee details for admins. Eventbrite attendees don't have
+            # Neon account IDs, so de-registration moves to email.
             attendee_details = []
-            attendee_ids = []
             for attendee in evt.attendees:
                 if attendee.valid:
-                    attendee_info = {
-                        "name": attendee.name,
-                        "email": attendee.email,
-                    }
-                    if not is_eventbrite:
-                        if attendee.neon_id is not None:
-                            attendee_ids.append(attendee.neon_id)
-                        # Try to get phone number from member account
-                        if is_admin and attendee.neon_id:
-                            try:
-                                member = neon_base.fetch_account(attendee.neon_id)
-                                if member and hasattr(member, "phone") and member.phone:
-                                    attendee_info["phone"] = member.phone
-                            except RuntimeError:
-                                pass  # Silently fail if we can't fetch member data
-                    attendee_details.append(attendee_info)
+                    attendee_details.append(
+                        {
+                            "name": attendee.name,
+                            "email": attendee.email,
+                            "phone": attendee.phone,
+                        }
+                    )
 
             for_techs.append(
                 {
                     "id": evt.event_id,
                     "ticket_id": evt.single_registration_ticket_id,
                     "name": evt.name,
-                    "attendees": attendee_ids,
+                    "attendees": [],
                     "attendee_emails": [
                         a["email"] for a in attendee_details if a.get("email")
                     ],
@@ -538,7 +523,8 @@ def techs_backfill_events():
 
     return {
         "events": for_techs,
-        "can_register": am_role(Role.SHOP_TECH) or am_lead_role(),
+        "can_register": (am_role(Role.SHOP_TECH) or am_lead_role())
+        and not is_generic_shop_tech,
         "can_edit": am_lead_role()
         or am_role(Role.EDUCATION_LEAD)
         or am_role(Role.STAFF),
@@ -578,36 +564,32 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements,to
     if action != "register":
         return Response("action must be 'register'", status=400)
 
-    if eventbrite.is_valid_id(event_id):
-        evt = eauto.fetch_event(event_id, tickets=True)
-        eb_ticket_id = ticket_id or evt.single_registration_ticket_id
-        if not eb_ticket_id:
-            return Response(
-                "No Eventbrite ticket class found for registration",
-                status=400,
-            )
-        ticket = next(
-            (t for t in evt.ticket_options if str(t["id"]) == str(eb_ticket_id)),
-            None,
+    if not eventbrite.is_valid_id(event_id):
+        return Response("Only Eventbrite events can be registered for", status=400)
+
+    evt = eauto.fetch_event(event_id, tickets=True)
+    eb_ticket_id = ticket_id or evt.single_registration_ticket_id
+    if not eb_ticket_id:
+        return Response(
+            "No Eventbrite ticket class found for registration",
+            status=400,
         )
-        if ticket is None:
-            return Response(
-                f"Ticket class {eb_ticket_id} not found for event {event_id}",
-                status=400,
-            )
-        redirect_url = f"https://www.eventbrite.com/e/{event_id}/"
-        if ticket["price"] > 0:
-            discount_code = eventbrite.generate_discount_code(
-                event_id, percent_off=100, expiration_hours=4
-            )
-            redirect_url += f"?discount={discount_code}"
-        return {"redirect_url": redirect_url}
-
-    ret = neon.register_for_event(account_id, event_id, ticket_id)
-    if ret:
-        return ret
-
-    raise RuntimeError("Unknown error handling event registration state")
+    ticket = next(
+        (t for t in evt.ticket_options if str(t["id"]) == str(eb_ticket_id)),
+        None,
+    )
+    if ticket is None:
+        return Response(
+            f"Ticket class {eb_ticket_id} not found for event {event_id}",
+            status=400,
+        )
+    redirect_url = f"https://www.eventbrite.com/e/{event_id}/"
+    if ticket["price"] > 0:
+        discount_code = eventbrite.generate_discount_code(
+            event_id, percent_off=100, expiration_hours=4
+        )
+        redirect_url += f"?discount={discount_code}"
+    return {"redirect_url": redirect_url}
 
 
 def setup_sock_routes(app):

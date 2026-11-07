@@ -1,6 +1,8 @@
 """Test methods for comms-oriented CLI commands"""
 
 # pylint: skip-file
+import logging
+import os
 from collections import namedtuple
 from unittest.mock import call
 
@@ -20,6 +22,23 @@ Tc = namedtuple(
 def fixture_cli(capsys):
     """Create CLI fixture"""
     return mkcli(capsys, c)
+
+
+def test_handle_discord_forbidden_logs_resolved_channel(mocker, caplog):
+    mocker.patch.dict(os.environ, {"CHAN_OVERRIDE": "#qa-automation"}, clear=False)
+    mocker.patch.object(
+        c.comms,
+        "send_discord_message",
+        side_effect=c.ForbiddenError(mocker.Mock(), "forbidden"),
+    )
+    cmd = c.Commands()
+    with caplog.at_level(logging.WARNING, logger="cli.comms"):
+        got = cmd._handle_discord(
+            {"target": "#class-automation", "subject": "subj", "body": "body"},
+            True,
+        )
+    assert got == ["#class-automation"]
+    assert "Failed to send to #qa-automation (forbidden)" in caplog.text
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,7 @@
 """Testing comms integration methods"""
 
 import hashlib
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -39,6 +40,129 @@ def test_send_discord_message_with_user_embed_error(mocker):
     c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
         mocker.ANY, "Hello @displayname"
     )
+
+
+def test_resolve_discord_target_applies_overrides(mocker):
+    """Resolved targets reflect QA channel and DM overrides."""
+    mocker.patch.dict(
+        "os.environ",
+        {
+            "CHAN_OVERRIDE": "#qa-automation",
+            "DM_OVERRIDE": "@qa_user",
+        },
+        clear=False,
+    )
+    assert c.resolve_discord_target("#class-automation") == "#qa-automation"
+    assert c.resolve_discord_target("@workshop_protohaven") == "@qa_user"
+    assert c.resolve_discord_target() == "#techs-live"
+
+
+def test_send_discord_message_logs_resolved_target(mocker, caplog):
+    """Discord sends log the resolved target after overrides."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={"webhooks": {"qa-automation": "https://qa_webhook"}},
+    )
+    mocker.patch.dict(
+        "os.environ",
+        {"CHAN_OVERRIDE": "#qa-automation"},
+        clear=False,
+    )
+    conn = mocker.patch.object(c, "get_connector").return_value
+    conn.discord_webhook.return_value = mocker.Mock(status_code=204)
+
+    with caplog.at_level(logging.INFO, logger="integrations.comms"):
+        c.send_discord_message("Test content", "#class-automation")
+
+    assert "Sent to Discord #qa-automation:" in caplog.text
+
+
+def test_send_discord_message_channel_override(mocker):
+    """#channel targets honor CHAN_OVERRIDE."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={
+            "webhooks": {
+                "original": "https://original_webhook",
+                "override": "https://override_webhook",
+            }
+        },
+    )
+    mocker.patch.dict(
+        "os.environ",
+        {"CHAN_OVERRIDE": "#override"},
+        clear=False,
+    )
+    mocker.patch.object(c, "get_connector")
+    c.send_discord_message("Test content", "#original")
+    c.get_connector().discord_webhook.assert_called_with(  # pylint: disable=no-member
+        "https://override_webhook", mocker.ANY
+    )
+
+
+def test_send_discord_message_retries_transient_webhook_errors(mocker):
+    """Transient Discord 5xx/429 responses are retried."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={"webhooks": {"test_channel": "https://test_webhook"}},
+    )
+    conn = mocker.patch.object(c, "get_connector").return_value
+    conn.discord_webhook.side_effect = [
+        mocker.Mock(status_code=503),
+        mocker.Mock(status_code=204),
+    ]
+    c.send_discord_message("Test content", "#test_channel")
+    assert conn.discord_webhook.call_count == 2
+
+
+def test_send_discord_message_retry_returns_last_failure(mocker):
+    """If all Discord webhook attempts fail, the last response is returned."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={"webhooks": {"test_channel": "https://test_webhook"}},
+    )
+    conn = mocker.patch.object(c, "get_connector").return_value
+    conn.discord_webhook.return_value = mocker.Mock(status_code=503)
+    result = c.send_discord_message("Test content", "#test_channel")
+    assert conn.discord_webhook.call_count == 3
+    assert result.status_code == 503
+
+
+def test_send_email_honors_email_override(mocker):
+    """Recipients are redirected when EMAIL_OVERRIDE is set."""
+    mocker.patch.dict(
+        "os.environ",
+        {"EMAIL_OVERRIDE": "qa-testing@protohaven.org"},
+        clear=False,
+    )
+    mock_email = mocker.patch.object(c, "get_connector").return_value.email
+    c.send_email("subj", "body", ["member@example.com"], False)
+    mock_email.assert_called_once_with(
+        "subj", "body", ["qa-testing@protohaven.org"], False
+    )
+
+
+def test_send_discord_message_dm_honors_dm_override(mocker):
+    """@user targets are redirected when DM_OVERRIDE is set."""
+    mocker.patch.object(
+        c,
+        "get_config",
+        return_value={
+            "webhooks": {"test_channel": "https://test_channel_webhook"},
+        },
+    )
+    mocker.patch.dict(
+        "os.environ",
+        {"DM_OVERRIDE": "@workshop_protohaven"},
+        clear=False,
+    )
+    mock_bot = mocker.patch.object(c, "get_connector").return_value.discord_bot_fn
+    c.send_discord_message("Test content", "@testuser")
+    mock_bot.assert_called_once_with("send_dm", "workshop_protohaven", "Test content")
 
 
 def test_send_discord_message_dm(mocker):
@@ -100,6 +224,15 @@ TESTED_TEMPLATES = [
     ("test_template", {"val": "test_body"}),
     ("test_html_template", {"val": "test_body"}),
     (
+        "airtable_backup_summary",
+        {
+            "stats": [
+                {"name": "airtable.tar.gz", "drive_id": "CDE", "size_kb": 123},
+            ],
+            "parent_id": "PAR",
+        },
+    ),
+    (
         "class_automation_summary",
         {
             "events": {
@@ -112,6 +245,15 @@ TESTED_TEMPLATES = [
         },
     ),
     ("booked_member_sync_summary", {"n": 5, "changes": [1, 2, 3]}),
+    (
+        "cronicle_backup_summary",
+        {
+            "stats": [
+                {"name": "cronicle_backup.tar.gz", "drive_id": "CDE", "size_kb": 123},
+            ],
+            "parent_id": "PAR",
+        },
+    ),
     (
         "class_scheduled",
         {
@@ -232,8 +374,20 @@ TESTED_TEMPLATES = [
             "coupon_code": "ASDF",
             "coupon_amount": 5,
             "sample_classes": [
-                {"date": d(0), "name": "class1", "remaining": 3, "id": 1},
-                {"date": d(1), "name": "class2", "remaining": 2, "id": 2},
+                {
+                    "date": d(0),
+                    "name": "class1",
+                    "remaining": 3,
+                    "id": 1,
+                    "url": "https://www.eventbrite.com/e/1/",
+                },
+                {
+                    "date": d(1),
+                    "name": "class2",
+                    "remaining": 2,
+                    "id": 2,
+                    "url": "https://www.eventbrite.com/e/2/",
+                },
             ],
         },
     ),
@@ -309,6 +463,16 @@ TESTED_TEMPLATES = [
             "problems": [
                 {"name": "Test Name", "account_id": "123", "result": "Problem 1"}
             ]
+        },
+    ),
+    (
+        "eventbrite_backup_summary",
+        {
+            "stats": [
+                {"name": "events.ext", "drive_id": "CDE", "size_kb": 123},
+            ],
+            "category": "events",
+            "parent_id": "PAR",
         },
     ),
     (
@@ -458,7 +622,9 @@ TESTED_TEMPLATES = [
 HASHES = {
     "test_template": "b8a27190aa3ed922",  # pragma: allowlist secret
     "test_html_template": "77606b5538c73e78",  # pragma: allowlist secret
+    "airtable_backup_summary": "db777ac0512e916a",  # pragma: allowlist secret
     "booked_member_sync_summary": "cc0dd6700111fd41",  # pragma: allowlist secret
+    "cronicle_backup_summary": "51a003048c57c7c8",  # pragma: allowlist secret
     "class_automation_summary": "866427c2de1c186f",  # pragma: allowlist secret
     "class_scheduled": "b57307cca2f8262c",  # pragma: allowlist secret
     "clearance_change_summary": "98410280f08a0823",  # pragma: allowlist secret
@@ -476,7 +642,7 @@ HASHES = {
     "camera_check_warnings": "76c49eadc52a688d",  # pragma: allowlist secret
     "class_supply_requests": "3e12f3737ad31808",  # pragma: allowlist secret
     "enforcement_summary": "18d1792e7afc0c24",  # pragma: allowlist secret
-    "init_membership": "c7d1c2cd9a12411e",  # pragma: allowlist secret
+    "init_membership": "b0f17b07b5d6dbf2",  # pragma: allowlist secret
     "instruction_requests": "64096a3f590a8f43",  # pragma: allowlist secret
     "instructor_applications": "500fced2472831c6",  # pragma: allowlist secret
     "instructor_check_supplies": "73815da04e9f47cc",  # pragma: allowlist secret
@@ -490,6 +656,7 @@ HASHES = {
     "membership_activated": "8a27b2ff8900b48b",  # pragma: allowlist secret
     "membership_init_summary": "586bb53336cbac1f",  # pragma: allowlist secret
     "membership_validation_problems": "07e7e586afd0dd5e",  # pragma: allowlist secret
+    "eventbrite_backup_summary": "3816e0a7060e8bec",  # pragma: allowlist secret
     "neon_backup_summary": "33e2ac11fce96ebd",  # pragma: allowlist secret
     "new_project_request": "4cffeae1816d93a2",  # pragma: allowlist secret
     "not_associated": "4368092931234979",  # pragma: allowlist secret

@@ -6,7 +6,7 @@ It's designed to headline pages with a list of upcoming classes, in an attempt t
 
 ## Technical Details
 
-This plugin relies on the /event_ticker route (see protohaven_api/handlers/index.php) to fetch upcoming classes. This route is hosted on an IONOS VPS (as of Oct 2024) and targeted by https://api.protohaven.org/class_ticker.
+This plugin relies on the Eventbrite-backed /event_ticker route (see protohaven_api/handlers/index.py) to fetch upcoming classes. This route is hosted on an IONOS VPS (as of Oct 2024) and targeted by https://api.protohaven.org/event_ticker.
 
 ## Development
 

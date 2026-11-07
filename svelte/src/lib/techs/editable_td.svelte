@@ -1,7 +1,7 @@
 <script type="typescript" lang="ts">
-	import { Col, Row, Icon, Input, Button } from '@sveltestrap/sveltestrap';
+	import { Row, Icon, Input, Button } from '@sveltestrap/sveltestrap';
 
-	export let title: string = null;
+	export let title: string | null = null;
 	export let value: string;
 	export let enabled: boolean;
 	export let on_change: (value: string) => void;
@@ -40,15 +40,19 @@
 		<div class="d-flex flex-row justify-content-between">
 			{#if title}<strong>{title}</strong>{/if}
 			<Input
-				text
+				type="text"
 				bind:value={new_value}
 				bind:inner={input_elem}
 				on:keypress={check_for_submit}
 				aria-label={`Edit ${title}`}
 			/>
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div class="mx-2" on:click={edit_ok} aria-label="Save changes">
 				<Icon name="check2-square" />
 			</div>
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div class="mx-2" on:click={edit_cancel} aria-label="Cancel editing">
 				<Icon name="x-square" />
 			</div>

@@ -5,7 +5,6 @@ import logging
 import re
 import sys
 from collections import defaultdict
-from os import getenv
 from typing import Any
 
 import yaml
@@ -28,26 +27,24 @@ class Commands:  # pylint: disable=too-few-public-methods
     Note that this does perform side effects e.g. cancelling a class
     """
 
-    def _handle_discord(self, e: dict, apply: bool, chan_ovr, dm_ovr):
+    def _handle_discord(self, e: dict, apply: bool):
         t = e["target"].strip()
-        t = chan_ovr if chan_ovr and t.startswith("#") else t
-        t = dm_ovr if dm_ovr and t.startswith("@") else t
+        resolved = comms.resolve_discord_target(t)
         content = f"{e['subject']}\n\n{e['body']}"
         if not apply:
-            log.info(f"DRY RUN to discord {t}")
+            log.info(f"DRY RUN to discord {resolved}")
             log.info(content)
             return None
         try:
             comms.send_discord_message(content, t)
-            log.info(f"Sent to Discord {t}: {e['subject']}")
             return [t]
         except ForbiddenError:
             # If a user has blocked our comms, that's on them. Consider it a
             # success from our end.
-            log.warning(f"Failed to send to {t} (forbidden): {e['subject']}")
+            log.warning(f"Failed to send to {resolved} (forbidden): {e['subject']}")
             return [t]
 
-    def _handle_email(self, e, apply, email_ovr):
+    def _handle_email(self, e, apply):
         email_validate_pattern = r"\S+@\S+\.\S+"
         emails = re.findall(
             email_validate_pattern,
@@ -57,8 +54,6 @@ class Commands:  # pylint: disable=too-few-public-methods
             e.replace("(", "").replace(")", "").replace('"', "").replace("'", "")
             for e in emails
         ]
-        if len(emails) > 0 and email_ovr:
-            emails = [email_ovr]
 
         if not apply:
             log.info(f"\nDRY RUN to {', '.join(emails)}")
@@ -78,11 +73,9 @@ class Commands:  # pylint: disable=too-few-public-methods
     def _handle_comms_event(self, e, apply):
         """Handle a single entry in a comms YAML file"""
         if e["target"][0] in ("#", "@"):  # channels or users
-            target = self._handle_discord(
-                e, apply, getenv("CHAN_OVERRIDE"), getenv("DM_OVERRIDE")
-            )
+            target = self._handle_discord(e, apply)
         else:
-            target = self._handle_email(e, apply, getenv("EMAIL_OVERRIDE"))
+            target = self._handle_email(e, apply)
 
         if (
             not target

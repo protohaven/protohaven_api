@@ -49,10 +49,37 @@ def whoami():
     }
 
 
+def _is_advertised_event(evt, now, until):
+    """Return True when an event should be shown in the event ticker."""
+    return bool(
+        evt.start_date
+        and now <= evt.start_date <= until
+        and evt.registration
+        and evt.attendee_count
+        and evt.capacity > evt.attendee_count
+    )
+
+
 @page.route("/event_ticker")
 def event_ticker():
     """Get upcoming events for advertisement purposes"""
-    return neon.get_sample_classes(int(time.time()) // 3600, until=30)
+    now = tznow()
+    until = now + datetime.timedelta(days=30)
+    result = []
+    for evt in eauto.fetch_upcoming_events(back_days=0, published=True, tickets=True):
+        if not _is_advertised_event(evt, now, until):
+            continue
+        result.append(
+            {
+                "url": evt.url,
+                "name": evt.name,
+                "date": evt.start_date.strftime("%b %-d, %-I%p"),
+                "seats_left": evt.capacity - evt.attendee_count,
+            }
+        )
+        if len(result) >= 3:
+            break
+    return result
 
 
 @page.route("/welcome/_app/immutable/<typ>/<path>")

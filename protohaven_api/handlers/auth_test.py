@@ -80,6 +80,21 @@ def test_logout(mocker):
     assert session["neon_account"] is None
 
 
+def test_logout_route(client):
+    """GET /logout clears the session and returns a confirmation message"""
+    with client.session_transaction() as session:
+        session["neon_id"] = "123"
+        session["neon_account"] = {"individualAccount": {"accountId": 123}}
+
+    rep = client.get("/logout")
+
+    assert rep.status_code == 200
+    assert rep.data.decode() == "You've been logged out"
+    with client.session_transaction() as session:
+        assert session["neon_id"] is None
+        assert session["neon_account"] is None
+
+
 def test_login_with_neon_id(mocker):
     """login_with_neon_id stores the account fetch result in session"""
     session = {}

@@ -1,23 +1,29 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		Card,
-		CardBody,
-		CardHeader,
-		CardTitle,
-		Table,
-		Spinner,
-		ListGroup,
-		ListGroupItem
-	} from '@sveltestrap/sveltestrap';
+	import { Card, CardBody, CardHeader, CardTitle, Table, Spinner } from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api';
-	import FetchError from '../fetch_error.svelte';
 
-	let promise = new Promise(() => {});
+	interface UpcomingEvent {
+		id: string | number;
+		name?: string;
+		instructor?: string;
+		start: Date;
+		end: Date;
+		attendees: Promise<unknown>;
+		capacity?: string | number;
+		registration?: boolean;
+	}
+
+	interface UpcomingData {
+		now: string;
+		events: UpcomingEvent[];
+	}
+
+	let promise: Promise<UpcomingData> = new Promise<UpcomingData>(() => {});
 	onMount(() => {
-		promise = get('/events/upcoming').then((data) => {
-			for (let e of data.events) {
-				e.attendees = get(`/events/attendees?id=${encodeURIComponent(e.id)}`);
+		promise = get('/events/upcoming').then((data: UpcomingData) => {
+			for (const e of data.events) {
+				e.attendees = get(`/events/attendees?id=${encodeURIComponent(String(e.id))}`);
 				e.start = new Date(e.start);
 				e.end = new Date(e.end);
 			}
@@ -58,7 +64,7 @@
 				</thead>
 				<tbody>
 					{#each p.events as event}
-						<tr id={event['id']}>
+						<tr id={String(event['id'])}>
 							<td>{event['name']}</td>
 							<td>{event['instructor']}</td>
 							<td style="text-align: right">{event.start.toLocaleDateString()}</td>

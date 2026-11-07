@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function base_ws() {
 	// Use ws:// if http://, or wss:// if https://
 	return window.location.origin.replace('http', 'ws');
 }
 
-function _trunc(body) {
+function _trunc(body: string) {
 	if (!body) {
 		return 'null';
 	}
@@ -14,7 +15,12 @@ function _trunc(body) {
 	return msg;
 }
 
-function json_req(url, data, method, signal = null) {
+function json_req(
+	url: string,
+	data: unknown,
+	method: string,
+	signal: AbortSignal | null = null
+): Promise<any> {
 	return fetch(url, {
 		method,
 		headers: {
@@ -41,23 +47,23 @@ function json_req(url, data, method, signal = null) {
 		});
 }
 
-export function post(url, data, signal = null) {
-	return json_req(url, data, 'POST', (signal = signal));
+export function post(url: string, data: unknown, signal: AbortSignal | null = null): Promise<any> {
+	return json_req(url, data, 'POST', signal);
 }
 
-export function patch(url, data) {
+export function patch(url: string, data: unknown): Promise<any> {
 	return json_req(url, data, 'PATCH');
 }
 
-export function put(url, data) {
+export function put(url: string, data: unknown): Promise<any> {
 	return json_req(url, data, 'PUT');
 }
 
-export function del(url, data) {
+export function del(url: string, data: unknown): Promise<any> {
 	return json_req(url, data, 'DELETE');
 }
 
-export function get(url, signal) {
+export function get(url: string, signal?: AbortSignal | null): Promise<any> {
 	return fetch(url, { method: 'get', signal })
 		.then((rep) => rep.text())
 		.then((body) => {
@@ -69,11 +75,11 @@ export function get(url, signal) {
 		});
 }
 
-export function open_ws(url) {
+export function open_ws(url: string) {
 	return new WebSocket(base_ws() + url);
 }
 
-export function isodate(d) {
+export function isodate(d: string | Date) {
 	// Note: this was d.toJSON().slice(0,10)
 	// but that approach converts to UTC before
 	// formatting, so e.g. 2026-03-26 8pm => 2026-03-27.
@@ -87,23 +93,23 @@ export function isodate(d) {
 	return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-export function isodatetime(d) {
+export function isodatetime(d: string | Date) {
 	// ISO 8601 datetime string without milliseconds
 	// This is explicitly in UTC.
 	return new Date(d).toISOString().slice(0, -5) + 'Z';
 }
 
-export function localtime(d) {
+export function localtime(d: string | Date) {
 	return new Date(d).toLocaleTimeString('en-US', { timeStyle: 'short' });
 }
 
-export function as_datetimelocal(d) {
+export function as_datetimelocal(d: string | Date) {
 	d = new Date(d);
 	d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
 	return d.toISOString().slice(0, 16);
 }
 
-export function parse_8601_basic(input) {
+export function parse_8601_basic(input: string) {
 	// https://stackoverflow.com/questions/43898263/parse-iso-8601-basic-datetime-format-in-javascript
 	// ISO 8601 dates allow removal of punctuation - this is done in RRULE strings as it messes with
 	// parsing of the rest of the string.

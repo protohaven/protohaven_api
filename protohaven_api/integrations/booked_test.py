@@ -16,6 +16,21 @@ def test_get_resource_map(mocker):
     assert booked.get_resource_map() == {"ABC": 123}
 
 
+def test_get_resource_area_map_unescapes_html(mocker):
+    """Booked HTML-escapes area names; the map should match Airtable names."""
+    mocker.patch.object(booked, "get_connector")
+    booked.get_connector().booked_request.return_value = {
+        "resources": [
+            {
+                "customAttributes": [{"id": 2, "value": "Metal &amp; Wood"}],
+                "resourceId": 123,
+            }
+        ]
+    }
+    mocker.patch.object(booked, "get_config", return_value=2)
+    assert booked.get_resource_area_map() == {"Metal & Wood": [123]}
+
+
 def test_get_resource_singleton(mocker):
     """Basic test of get_resource() to fetch a Booked resource"""
     mocker.patch.object(booked, "get_connector")

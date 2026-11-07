@@ -1,43 +1,23 @@
-<script type="typescript">
-	import { onMount } from 'svelte';
+<script type="typescript" lang="ts">
 	import {
-		Table,
 		Dropdown,
 		DropdownToggle,
 		DropdownItem,
 		DropdownMenu,
-		Button,
-		Row,
-		Col,
 		Card,
 		CardHeader,
 		Badge,
 		CardTitle,
-		Alert,
-		Popover,
-		Modal,
 		CardSubtitle,
-		CardText,
-		Icon,
-		Tooltip,
 		CardFooter,
 		CardBody,
-		Input,
-		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem,
-		Toast,
-		ToastBody,
-		ToastHeader
+		Spinner
 	} from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api.ts';
 
-	export let visible;
+	export let visible: boolean;
 	let loaded = false;
-	let promise = new Promise((resolve) => {});
+	let promise: Promise<unknown> = new Promise(() => {});
 
 	const URGENCY = [
 		'Unknown',
@@ -47,18 +27,51 @@
 		'Green (fully operational)'
 	];
 
-	let tool_state = null;
-	let tools_sorted = {};
-	let areas = new Set();
-	let area_filter = null;
-	let sort_type = 'urgency';
-	let sort_name = {
+	type SortType = 'state_age_asc' | 'state_age_desc' | 'urgency' | 'name';
+
+	interface DocPage {
+		url: string;
+		approved_revision: boolean;
+		thresh: number;
+		approvals: Record<string, unknown>;
+	}
+
+	interface DocsByCategory {
+		[category: string]: DocPage[] | string | undefined;
+	}
+
+	interface DocState {
+		status: string;
+		color: string;
+		url?: string;
+	}
+
+	interface ToolStateItem {
+		name: string;
+		code: string;
+		status: string;
+		message: string;
+		date: string;
+		modified: number;
+		area: string[];
+		docs_err?: boolean;
+		clearance_doc?: DocState;
+		tutorial_doc?: DocState;
+	}
+
+	let tool_state: ToolStateItem[] | null = null;
+	let tools_sorted: ToolStateItem[] = [];
+	let areas: Set<string> = new Set();
+	let area_filter: string | null = null;
+	let sort_type: SortType = 'urgency';
+	let sort_name: Record<SortType, string> = {
 		state_age_asc: 'Longest time in State',
 		state_age_desc: 'Shortest time in State',
 		urgency: 'Urgency (red/yellow/blue/green)',
 		name: 'By Name'
 	};
-	function filter_by_area(a) {
+	let sort_keys: SortType[] = Object.keys(sort_name) as SortType[];
+	function filter_by_area(a: ToolStateItem) {
 		return !area_filter || a.area.indexOf(area_filter) !== -1;
 	}
 	$: {
@@ -86,17 +99,24 @@
 		}
 	}
 
-	function resolve_docs_category(docs, cat) {
-		let url = docs[`${cat}_not_found_url`];
+	function resolve_docs_category(docs: DocsByCategory, cat: string): DocState {
+		let url =
+			typeof docs[`${cat}_not_found_url`] === 'string'
+				? (docs[`${cat}_not_found_url`] as string)
+				: undefined;
 		if (!docs || !docs[cat]) {
 			return { status: 'missing', color: 'warning', url };
 		}
-		url = docs[cat][0]['url'];
-		if (docs[cat].length != 1) {
-			return { status: `expecting exactly 1 page, got ${docs[cat].length}`, color: 'warning', url };
+		const pages = docs[cat];
+		if (!Array.isArray(pages)) {
+			return { status: 'missing', color: 'warning', url };
 		}
-		if (!docs[cat][0]['approved_revision']) {
-			const needed = docs[cat][0]['thresh'] - Object.keys(docs[cat][0]['approvals']).length;
+		url = pages[0]['url'];
+		if (pages.length != 1) {
+			return { status: `expecting exactly 1 page, got ${pages.length}`, color: 'warning', url };
+		}
+		if (!pages[0]['approved_revision']) {
+			const needed = pages[0]['thresh'] - Object.keys(pages[0]['approvals']).length;
 			return { status: `page missing ${needed} approval(s)`, color: 'warning', url };
 		}
 		return { status: 'approved', color: 'success', url };
@@ -113,7 +133,7 @@
 			tool_state = [];
 			let docs_state = data[1];
 			areas = new Set();
-			for (let tool of data[0]) {
+			for (let tool of data[0] as ToolStateItem[]) {
 				if (tool.status === 'Grey (N/A)') {
 					continue;
 				}
@@ -132,7 +152,7 @@
 			loaded = true;
 		});
 	}
-	function get_color(status) {
+	function get_color(status: string) {
 		if (status.startsWith('Blue')) {
 			return 'info';
 		} else if (status.startsWith('Yellow')) {
@@ -161,14 +181,14 @@
 		<CardBody>
 			{#await promise}
 				<Spinner />
-			{:then p}
+			{:then}
 				{#if tools_sorted}
 					<Dropdown>
 						<DropdownToggle color="light" caret>
 							Sort by {sort_name[sort_type]}
 						</DropdownToggle>
 						<DropdownMenu>
-							{#each Object.keys(sort_name) as sn}
+							{#each sort_keys as sn}
 								<DropdownItem on:click={() => (sort_type = sn)}>{sort_name[sn]}</DropdownItem>
 							{/each}
 						</DropdownMenu>
@@ -202,16 +222,16 @@
 								{:else}
 									<div>
 										Clearance doc: <Badge
-											color={tool.clearance_doc.color}
-											href={tool.clearance_doc.url}
-											target="_blank">{tool.clearance_doc.status}</Badge
+											color={tool.clearance_doc?.color}
+											href={tool.clearance_doc?.url}
+											target="_blank">{tool.clearance_doc?.status}</Badge
 										>
 									</div>
 									<div>
 										Tutorial doc: <Badge
-											color={tool.tutorial_doc.color}
-											href={tool.tutorial_doc.url}
-											target="_blank">{tool.tutorial_doc.status}</Badge
+											color={tool.tutorial_doc?.color}
+											href={tool.tutorial_doc?.url}
+											target="_blank">{tool.tutorial_doc?.status}</Badge
 										>
 									</div>
 								{/if}
@@ -230,9 +250,8 @@
 		<CardFooter>
 			Looking for a task? Check the <a
 				href="https://app.asana.com/0/1202469740885594/1204138662113052"
-				target="_blank"
-				>Shop & Maintenance Tasks<a /> Asana project.
-			</a></CardFooter
+				target="_blank">Shop & Maintenance Tasks Asana project.</a
+			></CardFooter
 		>
 	</Card>
 {/if}

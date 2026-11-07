@@ -164,17 +164,17 @@ def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
         attendee_dict = {
             "registration_date": a.registration_date,
             "registration_status": a.registration_status,
-            "neon_id": a.neon_id,
+            "user_id": a.user_id,
             "email": a.email,
             "fname": a.fname,
             "name": a.name,
             "valid": a.valid,
         }
-        # Try to get member email from Neon if we have a neon_id
+        # Try to get member email from Neon if we have a user_id
         # and it's not from eventbrite
-        if a.neon_id and not eventbrite.is_valid_id(event_id):
+        if a.user_id and not eventbrite.is_valid_id(event_id):
             try:
-                m = neon_base.fetch_account(a.neon_id)
+                m = neon_base.fetch_account(a.user_id)
                 if m is not None:
                     attendee_dict["member_email"] = m.email
             except RuntimeError:
@@ -513,7 +513,7 @@ def cancel_class():
                 )
                 log.info(str(booked.delete_reservation(res["referenceNumber"])))
 
-    return {"success": True}
+    return c.as_response()
 
 
 @page.route("/instructor/submissions", methods=["GET"])

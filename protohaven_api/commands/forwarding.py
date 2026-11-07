@@ -19,6 +19,17 @@ completion_re = re.compile("Deadline for Project Completion:\n(.*?)\n", re.MULTI
 description_re = re.compile("Project Description:\n(.*?)Materials Budget", re.MULTILINE)
 
 
+def _filter_by_gid(items, filter_gid):
+    """Restrict Asana task results to a specific task GID.
+
+    `items` is a list of dicts that must contain a `gid` key. This is used
+    by Cronicle QA to avoid acting on unrelated pending tasks.
+    """
+    if not filter_gid:
+        return items
+    return [i for i in items if str(i.get("gid")) == str(filter_gid)]
+
+
 class Commands:
     """Commands for managing classes"""
 
@@ -30,6 +41,12 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
+        arg(
+            "--filter_gid",
+            help="Only process the Asana task with this GID",
+            type=str,
+            default=None,
+        ),
     )
     def project_requests(self, args, _):
         """Send alerts when new project requests fall into Asana"""
@@ -40,7 +57,7 @@ class Commands:
             )
         num = 0
         results = []
-        for req in tasks.get_project_requests():
+        for req in _filter_by_gid(tasks.get_project_requests(), args.filter_gid):
             if req.get("completed"):
                 continue
             req["notes"] = req["notes"].replace("\\n", "\n")
@@ -70,13 +87,21 @@ class Commands:
 
         print_yaml(results)
 
-    @command()
-    def shop_tech_applications(self, _1, _2):
+    @command(
+        arg(
+            "--filter_gid",
+            help="Only process the Asana task with this GID",
+            type=str,
+            default=None,
+        ),
+    )
+    def shop_tech_applications(self, args, _):
         """Send reminders to check shop tech applicants"""
         num = 0
         open_applicants = []
-        for req in tasks.get_shop_tech_applicants(
-            exclude_complete=True, exclude_on_hold=True
+        for req in _filter_by_gid(
+            tasks.get_shop_tech_applicants(exclude_complete=True, exclude_on_hold=True),
+            args.filter_gid,
         ):
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
@@ -93,13 +118,23 @@ class Commands:
         else:
             print_yaml([])
 
-    @command()
-    def instructor_applications(self, _1, _2):
+    @command(
+        arg(
+            "--filter_gid",
+            help="Only process the Asana task with this GID",
+            type=str,
+            default=None,
+        ),
+    )
+    def instructor_applications(self, args, _):
         """Send reminders to check for instructor applications"""
         num = 0
         open_applicants = []
-        for req in tasks.get_instructor_applicants(
-            exclude_on_hold=True, exclude_complete=True
+        for req in _filter_by_gid(
+            tasks.get_instructor_applicants(
+                exclude_on_hold=True, exclude_complete=True
+            ),
+            args.filter_gid,
         ):
             open_applicants.append("- " + req["name"].split(",")[0])
             num += 1
@@ -117,12 +152,21 @@ class Commands:
         else:
             print_yaml([])
 
-    @command()
-    def donation_requests(self, _1, _2):
+    @command(
+        arg(
+            "--filter_gid",
+            help="Only process the Asana task with this GID",
+            type=str,
+            default=None,
+        ),
+    )
+    def donation_requests(self, args, _):
         """Send reminders to triage donation requests"""
         num = 0
         open_requests = []
-        for req in tasks.get_donation_requests(exclude_complete=True):
+        for req in _filter_by_gid(
+            tasks.get_donation_requests(exclude_complete=True), args.filter_gid
+        ):
             open_requests.append("- " + req["name"].split(",")[0])
             num += 1
         log.info(f"Found {num} open donation requests:")
@@ -229,6 +273,12 @@ class Commands:
             type=int,
             default=300,
         ),
+        arg(
+            "--filter_gid",
+            help="Only process the Asana task with this GID",
+            type=str,
+            default=None,
+        ),
     )
     def private_instruction(self, args, _):  # pylint: disable=
         """Generate reminders to take action on private instruction.
@@ -238,7 +288,9 @@ class Commands:
         formatted_past_day = []
         num = 0
         now = tznow()
-        for req in tasks.get_private_instruction_requests():
+        for req in _filter_by_gid(
+            tasks.get_private_instruction_requests(), args.filter_gid
+        ):
             if req.get("completed"):
                 continue
             dt, fmt = self._format_private_instruction_request_task(
@@ -292,6 +344,12 @@ class Commands:
             action=argparse.BooleanOptionalAction,
             default=False,
         ),
+        arg(
+            "--filter_gid",
+            help="Only process the Asana task with this GID",
+            type=str,
+            default=None,
+        ),
     )
     def phone_messages(self, args, _):
         """Check on phone messages and forward to email"""
@@ -302,7 +360,7 @@ class Commands:
             )
         num = 0
         results = []
-        for req in tasks.get_phone_messages():
+        for req in _filter_by_gid(tasks.get_phone_messages(), args.filter_gid):
             if req.get("completed"):
                 continue
             side_effect = {"complete_asana_task": req["gid"]} if args.apply else {}

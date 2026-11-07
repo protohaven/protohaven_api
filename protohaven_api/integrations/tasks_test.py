@@ -18,16 +18,19 @@ def test_get_with_onhold_section(mocker):
     mt = mocker.patch.object(t, "_tasks")
     mt().get_tasks_for_project.return_value = [
         {
+            "gid": "task1",
             "completed": False,
             "memberships": [{"section": {"gid": "456"}}],
             "modified_at": d(0),
         },
         {
+            "gid": "task2",
             "completed": False,
             "memberships": [{"section": {"gid": "789"}}],
             "modified_at": d(1),
         },
         {
+            "gid": "task3",
             "completed": True,
             "memberships": [{"section": {"gid": "456"}}],
             "modified_at": d(2),
@@ -57,6 +60,9 @@ def test_get_with_onhold_section(mocker):
     # Test not excluding any tasks
     tasks = list(t.get_with_onhold_section("test_project"))
     assert len(tasks) == 3  # All tasks returned
+    assert tasks[0]["gid"] == "task1"
+    assert tasks[1]["gid"] == "task2"
+    assert tasks[2]["gid"] == "task3"
     assert "456" in tasks[0]["sections"]
     assert "789" in tasks[1]["sections"]
     assert "456" in tasks[2]["sections"]

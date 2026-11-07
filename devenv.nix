@@ -46,6 +46,17 @@
       ''
         docker compose watch
       '';
+
+    "test:svelte".exec =
+      /*
+      sh
+      */
+      ''
+        pushd svelte
+        pnpm test
+        pnpm test:component
+        popd
+      '';
   };
 
   tasks = {
@@ -107,7 +118,8 @@
       python -m pytest -v
 
       pushd svelte
-      pnpm cypress run --component
+      pnpm test
+      pnpm test:component
       popd
     '';
 }

@@ -123,7 +123,7 @@ function getFeatures(doc) {
     sections.forEach(strong => {
         const sectionTitle = strong.textContent.trim();
         const sectionContent = [];
-        let node = strong.parentElement.nextElementSibling; // <p className="neonBody"><strong>Header</strong></p>
+        let node = strong.parentElement.nextElementSibling; // <p><strong>Header</strong></p>
 	if (node) {
         	features[sectionTitle] = node.innerText;
 	}

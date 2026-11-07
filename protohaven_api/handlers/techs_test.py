@@ -173,49 +173,46 @@ def test_techs_forecast_as_tech(mocker, tech_client):
     }
 
 
-def test_techs_event_registration_success_register(tech_client, mocker):
-    """Test successful registration"""
-    mocker.patch.object(tl.neon, "register_for_event", return_value={"key": "value"})
-    mocker.patch.object(tl.comms, "send_discord_message")
-
-    assert tech_client.post(
-        "/techs/event",
-        json={
-            "event_id": "test_event",
-            "ticket_id": "test_ticket",
-            "action": "register",
-        },
-    ).json == {"key": "value"}
-    tl.neon.register_for_event.assert_called_with(1234, "test_event", "test_ticket")
-    tl.comms.send_discord_message.assert_not_called()
-
-
-def test_techs_event_registration_rejects_unregister(tech_client, mocker):
-    """Unregister is no longer supported"""
-    mock_register = mocker.patch.object(tl.neon, "register_for_event")
-    mock_delete = mocker.patch.object(tl.neon, "delete_single_ticket_registration")
-    mock_cancel = mocker.patch.object(tl.eventbrite, "cancel_attendee_order")
+def test_techs_event_registration_rejects_non_eventbrite(tech_client, mocker):
+    """Only Eventbrite events can be registered through /techs/event"""
+    mock_generate = mocker.patch.object(tl.eventbrite, "generate_discount_code")
 
     rep = tech_client.post(
         "/techs/event",
         json={
             "event_id": "test_event",
             "ticket_id": "test_ticket",
+            "action": "register",
+        },
+    )
+
+    assert rep.status_code == 400
+    assert rep.data.decode() == "Only Eventbrite events can be registered for"
+    mock_generate.assert_not_called()
+
+
+def test_techs_event_registration_rejects_unregister(tech_client, mocker):
+    """Unregister is no longer supported"""
+    mock_generate = mocker.patch.object(tl.eventbrite, "generate_discount_code")
+
+    rep = tech_client.post(
+        "/techs/event",
+        json={
+            "event_id": "375402919237",
+            "ticket_id": "test_ticket",
             "action": "unregister",
         },
     )
 
     assert rep.status_code == 400
-    mock_register.assert_not_called()
-    mock_delete.assert_not_called()
-    mock_cancel.assert_not_called()
+    mock_generate.assert_not_called()
 
 
 def test_techs_event_registration_missing_args(tech_client, mocker):
     """Test registration with missing arguments"""
-    mocker.patch.object(tl.neon, "register_for_event")
+    mock_generate = mocker.patch.object(tl.eventbrite, "generate_discount_code")
     assert tech_client.post("/techs/event", json={}).status_code == 400
-    tl.neon.register_for_event.assert_not_called()
+    mock_generate.assert_not_called()
 
 
 def test_techs_forecast_override_post(mocker, tech_client):
@@ -305,7 +302,6 @@ def test_techs_backfill_events(mocker, tech_client):
             capacity=10,
             start_date=d(0),
             supply_cost=0,
-            neon_attendee_data=True,
         )
         m.name = name
         for k, v in ovr.items():
@@ -314,7 +310,9 @@ def test_techs_backfill_events(mocker, tech_client):
         m.attendees = []
         for _ in range(m.attendee_count):
             m.attendees.append(
-                mocker.MagicMock(valid=True, neon_id=123, name="Foo", email="a@b.com")
+                mocker.MagicMock(
+                    valid=True, neon_id=123, name="Foo", email="a@b.com", phone=None
+                )
             )
         events.append(m)
 
@@ -330,7 +328,7 @@ def test_techs_backfill_events(mocker, tech_client):
     assert response.status_code == 200
     assert response.json["events"] == [
         {
-            "attendees": [123],
+            "attendees": [],
             "attendee_count": 1,
             "attendee_details": [],
             "attendee_emails": ["a@b.com"],
@@ -359,7 +357,7 @@ def test_techs_backfill_events(mocker, tech_client):
 def test_techs_backfill_events_admin_attendee_details(mocker, lead_client):
     """Admins receive Eventbrite attendee name/email without Neon IDs"""
     m = mocker.MagicMock(
-        event_id="375402919237",
+        event_id="123",
         in_blocklist=lambda: False,
         single_registration_ticket_id="t1",
         published=True,
@@ -373,6 +371,7 @@ def test_techs_backfill_events_admin_attendee_details(mocker, lead_client):
     attendee = mocker.MagicMock(valid=True)
     attendee.name = "Foo Bar"
     attendee.email = "a@b.com"
+    attendee.phone = "(412) 555-0100"
     m.attendees = [attendee]
 
     mocker.patch.object(tl.eauto, "fetch_upcoming_events", return_value=[m])
@@ -382,21 +381,51 @@ def test_techs_backfill_events_admin_attendee_details(mocker, lead_client):
     response = lead_client.get("/techs/events")
     assert response.status_code == 200
     assert response.json["events"][0]["attendee_details"] == [
-        {"name": "Foo Bar", "email": "a@b.com"}
+        {"name": "Foo Bar", "email": "a@b.com", "phone": "(412) 555-0100"}
     ]
     assert response.json["events"][0]["attendees"] == []
     assert response.json["events"][0]["attendee_emails"] == ["a@b.com"]
 
 
-def test_techs_event_registration_register(mocker, tech_client):
-    """Test techs_event_registration for registering"""
-    mocker.patch.object(tl.neon, "register_for_event", return_value={"status": "ok"})
+def test_techs_backfill_events_generic_shop_tech_cannot_register(mocker, client):
+    """The generic shop tech login cannot self-register for tech backfill events."""
+    m = mocker.MagicMock(
+        event_id="123",
+        in_blocklist=lambda: False,
+        single_registration_ticket_id="t1",
+        published=True,
+        registration=True,
+        attendee_count=0,
+        capacity=10,
+        start_date=d(0),
+        supply_cost=0,
+    )
+    m.name = "Event A"
+    m.attendees = []
+
+    mocker.patch.object(tl.eauto, "fetch_upcoming_events", return_value=[m])
+    mocker.patch.object(tl, "tznow", return_value=d(-1, 10))
+    mocker.patch.object(tl, "am_lead_role", return_value=False)
+    mocker.patch.object(tl, "am_role", return_value=True)
+    mocker.patch.object(tl, "am_neon_id", return_value=True)
+
+    response = client.get("/techs/events")
+    assert response.status_code == 200
+    assert response.json["can_register"] is False
+
+
+def test_techs_event_registration_generic_shop_tech_rejected(mocker, tech_client):
+    """The generic shop tech login cannot register for events."""
+    mocker.patch.object(tl, "am_neon_id", return_value=True)
+    mock_generate = mocker.patch.object(tl.eventbrite, "generate_discount_code")
 
     rep = tech_client.post(
-        "/techs/event", json={"event_id": 123, "ticket_id": 456, "action": "register"}
+        "/techs/event",
+        json={"event_id": "375402919237", "ticket_id": None, "action": "register"},
     )
-    assert rep.json == {"status": "ok"}
-    tl.neon.register_for_event.assert_called_once_with(1234, 123, 456)
+
+    assert rep.status_code == 400
+    mock_generate.assert_not_called()
 
 
 def test_techs_event_registration_eventbrite_free(mocker, tech_client):
@@ -516,7 +545,11 @@ def test_new_tech_event(mocker, lead_client):
     """Test new tech-only event creation"""
     mocker.patch.object(tl, "tznow", return_value=d(0))
     mock_create_event = mocker.patch.object(
-        tl.neon_base, "create_event", return_value={}
+        tl.eventbrite, "create_event", return_value="123"
+    )
+    mock_assign_pricing = mocker.patch.object(tl.eventbrite, "assign_pricing")
+    mock_publish = mocker.patch.object(
+        tl.eventbrite, "set_event_scheduled_state", return_value={"published": True}
     )
 
     # Test valid event creation
@@ -532,15 +565,13 @@ def test_new_tech_event(mocker, lead_client):
     assert response.status_code == 200
     mock_create_event.assert_called_once_with(
         name=f"{tl.TECH_ONLY_PREFIX} Test Event",
-        desc="Tech-only event; created via api.protohaven.org/techs dashboard",
-        start=d(1, 14),
-        end=d(1, 16),
+        sessions=[(d(1, 14), d(1, 16))],
+        summary="Tech-only event; created via api.protohaven.org/techs dashboard",
         max_attendees=10,
-        dry_run=False,
         published=False,
-        registration=True,
-        free=True,
     )
+    mock_assign_pricing.assert_called_once_with("123", 0, 10, clear_existing=True)
+    mock_publish.assert_called_once_with("123", scheduled=True)
 
     # Test empty name
     response = lead_client.post(
@@ -615,7 +646,7 @@ def test_rm_tech_event_missing_eid(mocker, lead_client):
 def test_rm_tech_event_not_found(mocker, lead_client):
     """Test deleting a non-existent techs-only event"""
     eid = "12345"
-    mocker.patch.object(tl.neon, "fetch_event", return_value=None)
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=None)
 
     response = lead_client.post("/techs/rm_event", json={"eid": eid})
     assert response.status_code == 404
@@ -628,7 +659,7 @@ def test_rm_tech_event_non_tech_only(mocker, lead_client):
     mock_event = mocker.MagicMock(neon_id=eid)
     mock_event.name = "Test Event"
 
-    mocker.patch.object(tl.neon, "fetch_event", return_value=mock_event)
+    mocker.patch.object(tl.eauto, "fetch_event", return_value=mock_event)
 
     response = lead_client.post("/techs/rm_event", json={"eid": eid})
     assert response.status_code == 400
@@ -873,3 +904,319 @@ def test_techs_door_locks_unauthorized(client, mocker):
 
     # Check that the response indicates login is required
     assert b"login" in response.data.lower() or b"unauthorized" in response.data.lower()
+
+
+def test_techs_list_unauthenticated(mocker, client):
+    """Unauthenticated callers only receive the tech's first name"""
+    mocker.patch.object(
+        tl.neon,
+        "search_members_with_role",
+        return_value=[Member.from_neon_search({"First Name": "Test"})],
+    )
+    mocker.patch.object(tl.airtable, "get_all_tech_bios", return_value=[])
+
+    response = client.get("/techs/list")
+    assert response.status_code == 200
+    assert response.json == {
+        "tech_lead": False,
+        "techs": [
+            {
+                "area_lead": [],
+                "clearances": [],
+                "email": None,
+                "expertise": None,
+                "neon_id": None,
+                "interest": None,
+                "name": "Test",
+                "shop_tech_first_day": None,
+                "shop_tech_last_day": None,
+                "shop_tech_shift": [None, None],
+                "volunteer_bio": None,
+                "volunteer_picture": None,
+            }
+        ],
+    }
+
+
+def test_techs_enroll_create_account(mocker, lead_client):
+    """Enrollment can create a Neon account before adding the shop tech role"""
+    mocker.patch.object(tl.neon, "create_member", return_value="new-neon-id")
+    mocker.patch.object(
+        tl.neon, "patch_member_role", return_value=(mocker.MagicMock(), None)
+    )
+
+    response = lead_client.post(
+        "/techs/enroll",
+        json={
+            "create_account": True,
+            "name": "New Person",
+            "email": "new@example.com",
+            "enroll": True,
+        },
+    )
+    assert response.status_code == 200
+    tl.neon.create_member.assert_called_once_with("New Person", "new@example.com")
+    tl.neon.patch_member_role.assert_called_once_with(
+        "new-neon-id", Role.SHOP_TECH, True
+    )
+
+
+def test_techs_enroll_disenroll(mocker, lead_client):
+    """Enrollment endpoint can also remove the shop tech role"""
+    mocker.patch.object(
+        tl.neon, "patch_member_role", return_value=(mocker.MagicMock(), None)
+    )
+
+    response = lead_client.post(
+        "/techs/enroll", json={"neon_id": "123", "enroll": False}
+    )
+    assert response.status_code == 200
+    tl.neon.patch_member_role.assert_called_once_with("123", Role.SHOP_TECH, False)
+
+
+def test_techs_forecast_override_generic_shop_tech_rejected(mocker, tech_client):
+    """The generic shop tech login cannot modify shift overrides"""
+    mocker.patch.object(tl, "am_neon_id", return_value=True)
+    set_override = mocker.patch.object(tl.airtable, "set_forecast_override")
+
+    response = tech_client.post(
+        "/techs/forecast/override",
+        json={
+            "id": "123",
+            "fullname": "Generic Shop Tech",
+            "date": "2025-01-01",
+            "ap": "AM",
+            "techs": ["Tech1"],
+            "orig": [],
+            "email": "shop@example.com",
+        },
+    )
+
+    assert response.status_code == 400
+    set_override.assert_not_called()
+
+
+def test_techs_storage_subscriptions_as_shop_tech(mocker):
+    """Shop techs can load subscriptions but get no emails or unpaid invoices"""
+    mocker.patch.object(tl, "am_lead_role", return_value=False)
+    mocker.patch.object(tl, "am_role", return_value=True)
+    mocker.patch.object(
+        tl.sales,
+        "get_subscription_plan_map",
+        return_value={"PLAN_VAR_ID": ("Test Plan", 5000)},
+    )
+    mocker.patch.object(
+        tl.sales,
+        "get_customer_name_map",
+        return_value={"TEST_CUST": ("Test Name", "a@b.com")},
+    )
+    mocker.patch.object(tl.airtable, "get_storage_agreements", return_value=[])
+    mocker.patch.object(
+        tl.sales,
+        "get_subscriptions",
+        return_value=[
+            {
+                "id": "111",
+                "invoice_ids": ["001"],
+                "customer_id": "TEST_CUST",
+                "start_date": "2025-01-29",
+                "charged_through_date": "2025-08-29",
+                "status": "ACTIVE",
+                "created_at": "2025-01-29T15:18:13-05:00",
+                "note": "L12 locker",
+                "monthly_billing_anchor_date": 29,
+                "plan_variation_id": "PLAN_VAR_ID",
+            }
+        ],
+    )
+    mocker.patch.object(
+        tl.sales, "get_unpaid_invoices_by_id", return_value=[("001", "asdf")]
+    )
+    mocker.patch.object(
+        tl.neon.cache,
+        "get",
+        return_value={
+            "a@b.com": mocker.MagicMock(
+                neon_id=123,
+                company_id=None,
+                account_current_membership_status="Active",
+            )
+        },
+    )
+
+    ws = mocker.MagicMock()
+    tl.storage_sub_sock(ws)
+    resp = [json.loads(c.args[0]) for c in ws.send.mock_calls]
+    resp = [r for r in resp if "log_info" not in r]
+    assert resp == [
+        {
+            "id": "111",
+            "status": "ACTIVE",
+            "charged_through_date": "2025-08-29",
+            "created_at": "2025-01-29T15:18:13-05:00",
+            "customer": "Test Name",
+            "email": None,
+            "monthly_billing_anchor_date": 29,
+            "note": "L12 locker",
+            "plan": "Test Plan",
+            "price": 5000,
+            "start_date": "2025-01-29",
+            "membership_status": "Active",
+            "unpaid": [],
+        }
+    ]
+
+
+def test_techs_storage_subscriptions_airtable_agreement(mocker):
+    """Airtable-based storage agreements are serialized for the UI"""
+    mocker.patch.object(tl, "am_lead_role", return_value=True)
+    mocker.patch.object(tl.sales, "get_subscription_plan_map", return_value={})
+    mocker.patch.object(tl.sales, "get_customer_name_map", return_value={})
+    mocker.patch.object(tl.sales, "get_unpaid_invoices_by_id", return_value=[])
+    mocker.patch.object(tl.sales, "get_subscriptions", return_value=[])
+    mocker.patch.object(
+        tl.airtable,
+        "get_storage_agreements",
+        return_value=[
+            {
+                "id": "ag1",
+                "Start Date": d(0),
+                "End Date": d(30),
+                "Name": "Storage Agreement",
+                "Email": "sa@example.com",
+                "Storage ID": "S1",
+                "Type": "Cage",
+                "Details": "top row",
+            }
+        ],
+    )
+
+    ws = mocker.MagicMock()
+    tl.storage_sub_sock(ws)
+    resp = [json.loads(c.args[0]) for c in ws.send.mock_calls]
+    resp = [r for r in resp if "log_info" not in r]
+    assert resp == [
+        {
+            "id": "ag1",
+            "status": "ACTIVE",
+            "created_at": d(0).isoformat(),
+            "start_date": d(0).strftime("%Y-%m-%d"),
+            "charged_through_date": d(30).strftime("%Y-%m-%d"),
+            "monthly_billing_anchor_date": "unknown",
+            "customer": "Storage Agreement",
+            "email": "sa@example.com",
+            "plan": "Non-Square Agreement",
+            "price": 0,
+            "membership_status": "N/A",
+            "note": json.dumps(
+                {
+                    "storage_id": "S1",
+                    "storage_type": "Cage",
+                    "storage_detail": "top row",
+                }
+            ),
+            "unpaid": [],
+        }
+    ]
+
+
+def test_techs_storage_subscriptions_unauthorized(mocker):
+    """The storage subscriptions websocket rejects logged-out users"""
+    mocker.patch.object(tl, "am_lead_role", return_value=False)
+    mocker.patch.object(tl, "am_role", return_value=False)
+
+    ws = mocker.MagicMock()
+    tl.storage_sub_sock(ws)
+    ws.send.assert_called_once_with(json.dumps({"error": "permission denied"}))
+    ws.close.assert_called_once_with()
+
+
+def test_set_sub_note(mocker, tech_client):
+    """Subscription notes can be saved"""
+    mocker.patch.object(
+        tl.sales, "set_subscription_note", return_value=(mocker.MagicMock(), None)
+    )
+
+    response = tech_client.post(
+        "/techs/storage_subscriptions/123/note",
+        json={"note": "  L12 locker  "},
+    )
+    assert response.status_code == 200
+    tl.sales.set_subscription_note.assert_called_once_with("123", "L12 locker")
+
+
+def test_set_sub_note_requires_note(mocker, tech_client):
+    """Subscription notes cannot be blank"""
+    set_note = mocker.patch.object(tl.sales, "set_subscription_note")
+
+    response = tech_client.post(
+        "/techs/storage_subscriptions/123/note", json={"note": "  "}
+    )
+    assert response.status_code == 400
+    set_note.assert_not_called()
+
+
+def test_set_sub_note_unauthorized(client, mocker):
+    """Subscription note updates require a logged-in tech"""
+    set_note = mocker.patch.object(tl.sales, "set_subscription_note")
+
+    response = client.post(
+        "/techs/storage_subscriptions/123/note", json={"note": "L12 locker"}
+    )
+    assert response.status_code == 401
+    set_note.assert_not_called()
+
+
+def test_techs_attendance_report(mocker, lead_client):
+    """The attendance report counts on-time, late, absent, and callout shifts"""
+    person = Member.from_neon_search({"First Name": "Ada", "Last Name": "Lovelace"})
+    mocker.patch.object(
+        tl.tauto,
+        "generate",
+        return_value={
+            "calendar_view": [
+                {
+                    "date": "2025-01-01",
+                    "AM": {"people": [person], "ovr": {"orig": []}},
+                    "PM": {"people": [], "ovr": {"orig": []}},
+                }
+            ]
+        },
+    )
+    mocker.patch.object(
+        tl.airtable,
+        "get_signins_between",
+        return_value=[mocker.MagicMock(email="ada@example.com", created=d(0, 9))],
+    )
+    mocker.patch.object(
+        tl.neon,
+        "search_members_with_role",
+        return_value=[
+            Member.from_neon_search(
+                {
+                    "Email 1": "ada@example.com",
+                    "First Name": "Ada",
+                    "Last Name": "Lovelace",
+                }
+            )
+        ],
+    )
+
+    response = lead_client.post(
+        "/techs/attendance_report",
+        json={"start_date": "2025-01-01", "end_date": "2025-01-01"},
+    )
+    assert response.status_code == 200
+    assert response.json["rows"] == [
+        [
+            "2025-01-01",
+            "AM",
+            "ada lovelace",
+            "ada@example.com",
+            "2025-01-01 9:00 AM",
+            True,
+            False,
+            False,
+            False,
+        ]
+    ]

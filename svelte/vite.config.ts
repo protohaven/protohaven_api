@@ -1,5 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import type { ProxyOptions } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 // Base URL of the flask backend server
@@ -34,11 +34,11 @@ const WS_PROXY_PATHS = [
 	'/staff/ops_summary',
 	'/techs/storage_subscriptions'
 ];
-let proxy = {};
-for (let p of PROXY_PATHS) {
+const proxy: Record<string, string | ProxyOptions> = {};
+for (const p of PROXY_PATHS) {
 	proxy[p] = SERVER_BASE;
 }
-for (let p of WS_PROXY_PATHS) {
+for (const p of WS_PROXY_PATHS) {
 	proxy[p] = {
 		target: WS_SERVER_BASE,
 		changeOrigin: true,

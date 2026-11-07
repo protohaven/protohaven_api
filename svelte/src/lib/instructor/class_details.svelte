@@ -1,37 +1,28 @@
-<script type="typescript" lang="ts">
-	import { onMount } from 'svelte';
-	import {
-		Table,
-		Button,
-		Row,
-		Col,
-		Card,
-		CardHeader,
-		Alert,
-		CardTitle,
-		CardSubtitle,
-		CardText,
-		Icon,
-		CardFooter,
-		CardBody,
-		Input,
-		Spinner,
-		FormGroup,
-		Navbar,
-		NavbarBrand,
-		Nav,
-		NavItem
-	} from '@sveltestrap/sveltestrap';
+<script lang="ts">
+	import { Alert, Spinner } from '@sveltestrap/sveltestrap';
 	import ClassCard from './class_card.svelte';
-	import { get, post } from '$lib/api.ts';
+	import { get } from '$lib/api.ts';
 	import FetchError from '../fetch_error.svelte';
 
-	let readiness = {};
-	export let email;
-	export let scheduler_open; // Watched to trigger refresh
+	interface ClassScheduleItem {
+		schedule_id: string;
+		name: string;
+		sessions: Array<[string, string]>;
+		clearances: string[];
+		Rejected?: boolean | string;
+		event_id?: string | null;
+		capacity?: number;
+		supply_state?: string;
+		volunteer?: boolean;
+		confirmed?: string;
+		prefill?: string;
+	}
 
-	let promise;
-	let submissions = null;
+	export let email: string = '';
+	export let scheduler_open: boolean = false; // Watched to trigger refresh
+
+	let promise: Promise<ClassScheduleItem[]> = Promise.resolve([]);
+	let submissions: Record<string, string[]> | Error | null = null;
 
 	async function refresh() {
 		get('/instructor/submissions?email=' + encodeURIComponent(email))

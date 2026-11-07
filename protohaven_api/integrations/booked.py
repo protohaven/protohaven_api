@@ -1,6 +1,7 @@
 """Functions for handling the status and reservations of tools & equipment via Booked scheduler"""
 
 import datetime
+import html
 import logging
 import secrets
 from collections import defaultdict
@@ -51,7 +52,7 @@ def get_resource_area_map() -> dict[AreaID, list[ResourceID]]:
     for d in get_resources():
         for attr in d["customAttributes"]:
             if attr["id"] == area_id and attr["value"]:
-                result[attr["value"]].append(d["resourceId"])
+                result[html.unescape(attr["value"])].append(d["resourceId"])
                 break
     return result
 
@@ -332,6 +333,16 @@ def get_all_users() -> list[BookedUser]:
 def get_user(user_id):
     """Fetches an individual user from Booked"""
     return get_connector().booked_request("GET", f"/Users/{user_id}")
+
+
+def delete_user(user_id):
+    """Deletes an individual user from Booked."""
+    return get_connector().booked_request("DELETE", f"/Users/{user_id}")
+
+
+def delete_resource(resource_id):
+    """Deletes an individual resource from Booked."""
+    return get_connector().booked_request("DELETE", f"/Resources/{resource_id}")
 
 
 def update_user(user_id, data):

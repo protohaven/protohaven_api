@@ -4,7 +4,7 @@
 	export let name;
 </script>
 
-<Alert color="danger" fade={false} open={true}>
+<Alert color="danger" fade={false}>
 	<Row class="text-center justify-content-center">
 		<h1>{name}, please see a tech on duty.</h1>
 		<h3>Your membership is not listed as active.</h3>

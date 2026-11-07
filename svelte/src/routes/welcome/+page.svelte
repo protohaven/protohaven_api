@@ -1,8 +1,8 @@
-<script type="typescript">
+<script type="typescript" lang="ts">
 	import '../../app.scss';
 	import { onMount } from 'svelte';
-	import { base_ws, get, post, open_ws } from '$lib/api.ts';
-	import { Row, Card, Container, Toast, ToastHeader, ToastBody } from '@sveltestrap/sveltestrap';
+	import { base_ws, post, open_ws } from '$lib/api.ts';
+	import { Row, Toast, ToastHeader, ToastBody } from '@sveltestrap/sveltestrap';
 	import Splash from '$lib/splash.svelte';
 	import SigninOk from '$lib/signin_ok.svelte';
 	import MembershipExpired from '$lib/membership_expired.svelte';
@@ -11,6 +11,62 @@
 	import MemberAgreement from '$lib/member_agreement.svelte';
 	import NfcStatus from '$lib/nfc_status.svelte';
 	import NfcEnroll from '$lib/nfc_enroll.svelte';
+
+	type ToastMsg = {
+		color: string;
+		title: string;
+		msg: string;
+	} | null;
+
+	type ProgressState = {
+		pct: number;
+		msg: string;
+	} | null;
+
+	type Announcement = {
+		Title: string;
+		Message: string;
+		Survey?: string;
+		rec_id: string | number;
+		response: string;
+		submitting: boolean;
+		submit_ok: boolean;
+		promise: Promise<unknown>;
+	};
+
+	type Violation = {
+		fields: {
+			Calculation: string;
+			'Section (from Relevant Sections)': string;
+			Notes: string;
+			Evidence?: Array<{ thumbnails: { large: { url: string } } }>;
+		};
+	};
+
+	type Reservation = {
+		id: string | number;
+		is_signed_in_member: boolean;
+		area: string;
+		resource: string;
+		start: string;
+		end: string;
+		name: string;
+	};
+
+	type WelcomeResponse = {
+		notfound: boolean;
+		firstname: string;
+		neon_id: string;
+		nfc_token_ids: string[];
+		announcements: Announcement[];
+		violations: Violation[];
+		reservations: Reservation[];
+		waiver_signed: boolean;
+		member_agreement_accepted: boolean;
+		wrong_time: boolean;
+		wrong_time_window: string;
+		status: string;
+	};
 
 	const state_titles = {
 		splash: 'Sign In',
@@ -21,42 +77,40 @@
 		enrolling_nfc: 'NFC Enrollment'
 	};
 
-	let state = 'splash';
-	// @ts-ignore - state is constrained to the keys of state_titles
-	$: page_title = `Sign-in Kiosk: ${state_titles[state] || 'Sign In'}`;
+	let state: string = 'splash';
+	$: page_title = `Sign-in Kiosk: ${(state_titles as Record<string, string>)[state] || 'Sign In'}`;
 	let name = 'member';
-	let email = null;
+	let email: string | null = null;
 	let person = 'member';
 	let checking = false;
-	let progress = null;
+	let progress: ProgressState = null;
 	let waiver_ack = false;
 	let member_agreement_accepted = false;
 	let dependent_info = '';
-	let feedback = null;
+	let feedback: string | null = null;
 	let referrer = '';
 	let testing = false;
 	let neon_id = '';
-	let nfc_token_ids = [];
+	let nfc_token_ids: string[] = [];
 
-	let announcements = [];
-	let violations = [];
-	let reservations = [];
+	let announcements: Announcement[] = [];
+	let violations: Violation[] = [];
+	let reservations: Reservation[] = [];
 	let waiver_signed = false;
 	let member_agreement_signed = false;
 	let wrong_time = false;
 	let wrong_time_acknowledged = false;
 	let wrong_time_window = '';
 
-	let neon_ws = null;
+	let neon_ws: WebSocket | null = null;
 	let neon_ws_connected = false;
 	let server_mqtt_connected = false;
-	/** @type {number | null} */
-	let nfc_heartbeat_age_sec = null;
-	let toast_msg = null;
-	let toast_timer = null;
+	let nfc_heartbeat_age_sec: number | null = null;
+	let toast_msg: ToastMsg = null;
+	let toast_timer: ReturnType<typeof setTimeout> | undefined;
 	let enable_nfc = false;
 	let enable_nfc_enroll = false;
-	let nfc_enroll_ref = null;
+	let nfc_enroll_ref: InstanceType<typeof NfcEnroll> | null = null;
 
 	onMount(() => {
 		console.log('Base WS:', base_ws());
@@ -126,20 +180,20 @@
 		};
 	}
 
-	function show_toast(color, title, body) {
+	function show_toast(color: string, title: string, body: string) {
 		// Clear any existing toast timer
-		if (toast_timer) {
+		if (toast_timer !== undefined) {
 			clearTimeout(toast_timer);
 		}
 		toast_msg = { color, title, msg: body };
 		// Auto-dismiss after 5 seconds
 		toast_timer = setTimeout(() => {
 			toast_msg = null;
-			toast_timer = null;
+			toast_timer = undefined;
 		}, 5000);
 	}
 
-	async function on_splash_submit(p) {
+	async function on_splash_submit(p: string) {
 		person = p;
 		return await submit();
 	}
@@ -154,7 +208,7 @@
 		return await submit();
 	}
 
-	function do_post(silent = false) {
+	function do_post(silent = false): Promise<WelcomeResponse | null> {
 		// We capture the data at the time of invocation to prevent data from getting cleared asynchronously
 		let capture = JSON.stringify({
 			email,
@@ -165,9 +219,9 @@
 			referrer,
 			testing
 		});
-		return new Promise((resolve, reject) => {
+		return new Promise<WelcomeResponse | null>((resolve) => {
 			const socket = open_ws('/welcome/ws');
-			socket.addEventListener('open', (event) => {
+			socket.addEventListener('open', () => {
 				socket.send(capture);
 			});
 			if (silent) {
@@ -179,7 +233,7 @@
 						progress = data;
 					} else {
 						progress = null;
-						resolve(data);
+						resolve(data as WelcomeResponse);
 					}
 				});
 			}
@@ -207,7 +261,7 @@
 		nfc_enroll_ref = null;
 	}
 
-	function on_signin_return(survey_response) {
+	function on_signin_return(survey_response?: string | null) {
 		if (survey_response) {
 			referrer = survey_response;
 		} else {
@@ -227,7 +281,7 @@
 
 	async function submit() {
 		checking = true;
-		let result = await do_post();
+		let result = (await do_post()) as WelcomeResponse;
 		checking = false;
 		if (result.notfound) {
 			feedback =
@@ -303,9 +357,9 @@
 				isOpen={toast_msg !== null}
 				on:close={() => {
 					toast_msg = null;
-					if (toast_timer) {
+					if (toast_timer !== undefined) {
 						clearTimeout(toast_timer);
-						toast_timer = null;
+						toast_timer = undefined;
 					}
 				}}
 			>
@@ -328,7 +382,7 @@
 				on_guest={() => on_splash_submit('guest')}
 			/>
 		{:else if state == 'waiver'}
-			<Waiver {name} on_submit={waiver_agreed} {checking} />
+			<Waiver on_submit={waiver_agreed} {checking} />
 		{:else if state == 'member_agreement'}
 			<MemberAgreement on_submit={member_agreement_agreed} {checking} />
 		{:else if state == 'wrong_time'}
@@ -344,7 +398,6 @@
 			<SigninOk
 				{name}
 				{email}
-				{neon_id}
 				{nfc_token_ids}
 				guest={person == 'guest'}
 				{announcements}
@@ -355,7 +408,12 @@
 				on_enroll={on_start_nfc_enroll}
 			/>
 		{:else if state == 'enrolling_nfc'}
-			<NfcEnroll {neon_id} {email} on_close={on_nfc_enrollment_cancel} bind:this={nfc_enroll_ref} />
+			<NfcEnroll
+				{neon_id}
+				email={email ?? ''}
+				on_close={on_nfc_enrollment_cancel}
+				bind:this={nfc_enroll_ref}
+			/>
 		{/if}
 	</Row>
 </main>

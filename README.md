@@ -97,17 +97,30 @@ the `direnv` utility to be installed.
 
 # These commands are close copies of the ones run by GitHub workflows as pre-submission checks
 
-Unit tests:
+Python unit tests:
 
 ```
 python -m pytest -v
 ```
 
-Browser component tests:
+Svelte unit tests:
+
 ```
 cd svelte
-npx cypress run --component
+pnpm install --frozen-lockfile
+pnpm test
 ```
+
+Svelte browser component tests:
+
+```
+cd svelte
+pnpm test:component
+```
+
+On a headless Debian machine, use `xvfb-run -a pnpm test:component`.
+With Nix/direnv loaded, the same commands run against the Nix-provided Cypress
+binary; `devenv test` runs Python plus both Svelte test suites.
 
 Linter check, all files:
 
