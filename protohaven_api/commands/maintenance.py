@@ -241,7 +241,7 @@ class Commands:
             if not d.get("is_online"):
                 warnings.append(
                     f"Door {d['name']} offline; check battery and/or "
-                    + "[Wyze Sense Hub](https://www.wyze.com/products/wyze-hms-bundle)"
+                    + "[Wyze Sense Hub](<https://www.wyze.com/products/wyze-hms-bundle>)"
                 )
             elif d.get("open_close_state"):
                 warnings.append(f"**IMPORTANT**: Door {d['name']} is open")
