@@ -1,6 +1,8 @@
 """Tests for QA fixture helpers."""
 
-# pylint: disable=duplicate-code,missing-function-docstring
+# pylint: disable=duplicate-code,missing-function-docstring,protected-access
+
+import pytest
 
 from protohaven_api.qa.fixtures import airtable as airtable_fixture
 from protohaven_api.qa.fixtures import neon as neon_fixture
@@ -50,16 +52,65 @@ def test_search_qa_accounts_uses_contains(mocker):
 
 
 def test_search_deleted_qa_accounts_uses_contains(mocker):
-    mock_search = mocker.patch.object(neon_fixture.neon, "search_members_by_email")
+    mock_search = mocker.patch.object(
+        neon_fixture.neon, "search_members_by_email", return_value=[]
+    )
     neon_fixture.search_deleted_qa_accounts()
     mock_search.assert_called_once_with(
         neon_fixture.QA_DELETED_EMAIL_PREFIX, operator="CONTAIN"
     )
 
 
+def test_search_deleted_qa_accounts_rejects_member_agreement(mocker):
+    mocker.patch.object(
+        neon_fixture.neon,
+        "search_members_by_email",
+        return_value=[
+            mocker.Mock(neon_id="3590", member_agreement_accepted=("v1", d(0)))
+        ],
+    )
+    with pytest.raises(RuntimeError, match="member agreement is signed"):
+        neon_fixture.search_deleted_qa_accounts()
+
+
+def test_search_deleted_qa_accounts_accepts_unsigned_accounts(mocker):
+    acct = mocker.Mock(neon_id="3590", member_agreement_accepted=(None, None))
+    mocker.patch.object(
+        neon_fixture.neon, "search_members_by_email", return_value=[acct]
+    )
+    assert neon_fixture.search_deleted_qa_accounts() == [acct]
+
+
+def test_clear_account_cart_deletes_active_cart_orders(mocker):
+    fetch = mocker.patch.object(
+        neon_fixture.neon_base,
+        "paginated_fetch",
+        return_value=[
+            {"id": "1", "status": "Pending"},
+            {"id": "2", "status": "Succeeded"},
+            {"id": "3", "status": "Processing"},
+        ],
+    )
+    delete = mocker.patch.object(neon_fixture.neon_base, "delete")
+
+    neon_fixture._clear_account_cart("3590")
+
+    fetch.assert_called_once_with("api_key2", "/accounts/3590/orders")
+    assert delete.call_args_list == [
+        mocker.call("api_key2", "/orders/1"),
+        mocker.call("api_key2", "/orders/3"),
+    ]
+
+
 def test_reuse_deleted_account_patches_primary_contact(mocker):
+    clear_cart = mocker.patch.object(neon_fixture, "_clear_account_cart")
     patch = mocker.patch.object(neon_fixture.neon_base, "patch_account")
-    neon_fixture.reuse_deleted_account("3590", "sync-booked-members", "abc123")
+    neon_fixture.reuse_deleted_account(
+        "3590",
+        "qa-testing+qa-cronicle-sync-booked-members-abc123@protohaven.org",
+        "QA Cronicle sync-booked-members abc123",
+    )
+    clear_cart.assert_called_once_with("3590")
     patch.assert_called_once_with(
         "3590",
         {
@@ -88,7 +139,11 @@ def test_create_mock_account_reuses_deleted_account(mocker):
 
     acct = neon_fixture.create_mock_account(ctx, "sync-booked-members")
 
-    reuse.assert_called_once_with("3590", "sync-booked-members", "abc123")
+    reuse.assert_called_once_with(
+        "3590",
+        "qa-testing+qa-cronicle-sync-booked-members-abc123@protohaven.org",
+        "QA Cronicle sync-booked-members abc123",
+    )
     create.assert_not_called()
     assert acct == neon_fixture.MockNeonAccount(
         neon_id="3590",
@@ -110,7 +165,11 @@ def test_create_mock_account_skips_deleted_accounts_without_ids(mocker):
 
     neon_fixture.create_mock_account(ctx, "sync-booked-members")
 
-    reuse.assert_called_once_with("3590", "sync-booked-members", "abc123")
+    reuse.assert_called_once_with(
+        "3590",
+        "qa-testing+qa-cronicle-sync-booked-members-abc123@protohaven.org",
+        "QA Cronicle sync-booked-members abc123",
+    )
     create.assert_not_called()
 
 

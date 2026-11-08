@@ -10,6 +10,9 @@ from protohaven_api.integrations import neon, neon_base
 
 QA_EMAIL_PREFIX = "qa-testing+qa-cronicle-"
 QA_DELETED_EMAIL_PREFIX = "qa-deleted-"
+QA_FIRST_NAME = "QA Cronicle"
+QA_DELETED_FIRST_NAME = "QA Deleted"
+_CART_ORDER_STATUSES = {"Pending", "Processing"}
 
 
 def qa_email(job: str, run_id: str) -> str:
@@ -19,7 +22,7 @@ def qa_email(job: str, run_id: str) -> str:
 
 def qa_name(job: str, run_id: str) -> str:
     """Build a unique, searchable QA Neon account name."""
-    return f"QA Cronicle {job} {run_id}"
+    return f"{QA_FIRST_NAME} {job} {run_id}"
 
 
 def deleted_qa_email(run_id: str, account_id: str) -> str:
@@ -33,10 +36,24 @@ def search_qa_accounts():
 
 
 def search_deleted_qa_accounts():
-    """Return all anonymized QA Neon accounts available for reuse."""
-    return list(
+    """Return all anonymized QA Neon accounts available for reuse.
+
+    The email prefix is the first safeguard against treating a real member
+    as QA test data. A signed member agreement is a strong additional signal
+    that an account is a real member, so refuse to reuse any matching account
+    that has one.
+    """
+    accts = list(
         neon.search_members_by_email(QA_DELETED_EMAIL_PREFIX, operator="CONTAIN")
     )
+    for acct in accts:
+        version, _ = acct.member_agreement_accepted
+        if version is not None:
+            raise RuntimeError(
+                f"Refusing to reuse QA-deleted Neon account "
+                f"{getattr(acct, 'neon_id', '?')}: member agreement is signed"
+            )
+    return accts
 
 
 def anonymize_mock_account(account_id: str, run_id: str) -> None:
@@ -50,7 +67,7 @@ def anonymize_mock_account(account_id: str, run_id: str) -> None:
         {
             "primaryContact": {
                 "email1": deleted_qa_email(run_id, account_id),
-                "firstName": "QA Deleted",
+                "firstName": QA_DELETED_FIRST_NAME,
                 "lastName": f"{run_id}-{account_id}",
             },
             "accountCustomFields": [
@@ -61,15 +78,30 @@ def anonymize_mock_account(account_id: str, run_id: str) -> None:
     )
 
 
-def reuse_deleted_account(account_id: str, job: str, run_id: str) -> None:
+def _clear_account_cart(account_id: str) -> None:
+    """Delete active Neon cart/order items attached to a QA account.
+
+    These otherwise leave the account "dirty" and can block manual deletion
+    from the Neon admin UI.
+    """
+    for order in neon_base.paginated_fetch(
+        "api_key2", f"/accounts/{account_id}/orders"
+    ):
+        order_id = order.get("id")
+        if order_id and order.get("status") in _CART_ORDER_STATUSES:
+            neon_base.delete("api_key2", f"/orders/{order_id}")
+
+
+def reuse_deleted_account(account_id: str, email: str, name: str) -> None:
     """Point a QA-deleted Neon account at a fresh QA identity."""
+    _clear_account_cart(account_id)
     neon_base.patch_account(
         account_id,
         {
             "primaryContact": {
-                "email1": qa_email(job, run_id),
-                "firstName": "QA Cronicle",
-                "lastName": f"{job} {run_id}",
+                "email1": email,
+                "firstName": QA_FIRST_NAME,
+                "lastName": name.removeprefix(f"{QA_FIRST_NAME} "),
             },
             "accountCustomFields": [
                 {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
@@ -112,11 +144,11 @@ def create_mock_account(ctx: Any, job: str) -> MockNeonAccount:
     for acct in search_deleted_qa_accounts():
         neon_id = getattr(acct, "neon_id", None)
         if neon_id:
-            reuse_deleted_account(neon_id, job, ctx.run_id)
+            reuse_deleted_account(neon_id, email, name)
             break
     else:
         neon_id = neon.create_member(
-            "QA Cronicle", email, last_name=f"{job} {ctx.run_id}"
+            QA_FIRST_NAME, email, last_name=f"{job} {ctx.run_id}"
         )
 
     ctx.cleanup.register(
