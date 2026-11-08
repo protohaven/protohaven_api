@@ -87,7 +87,7 @@ export const LEVELS = [
 	[110, "Beginner Project"],
 	[100, "Beginner Skills"],
 ];
-function extraFromName(name) {
+export function extraFromName(name) {
 	// Regex captures area, level, name, and optional paren suffix e.g.
 	// Graphics 111: Printed Mugs (Dye Sublimation Clearance)
 	// -> ["Graphics ", "111", "Printed Mugs ", "Dye Sublimation Clearance"]
@@ -103,7 +103,7 @@ function extraFromName(name) {
 		return {area: "Special Event", level: null, title: name};
 	}
 
-	const level = m[2] && parseInt(m[2]);
+	const level = m[2] ? parseInt(m[2]) : null;
 	let levelDesc = "";
 	if (level) {
 		for (let l of LEVELS) {
