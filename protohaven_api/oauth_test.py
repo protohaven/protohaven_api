@@ -12,6 +12,14 @@ def test_prep_request(mocker):
     assert "redirect_uri=http%3A%2F%2F127.0.0.1%2Fcallback" in got
 
 
+def test_logout_uri(mocker):
+    """logout_uri builds the Neon SSO logout URL from the configured app URL"""
+    mocker.patch.object(
+        oauth, "get_config", return_value="https://protohaven.app.neoncrm.com/"
+    )
+    assert oauth.logout_uri() == "https://protohaven.app.neoncrm.com/nx/logout"
+
+
 def test_retrieve_token(mocker):
     """retrieve_token posts the authorization code and returns JSON"""
     mocker.patch.object(

@@ -20,6 +20,12 @@ def prep_request(redirect_uri):
     return result
 
 
+def logout_uri():
+    """Return the Neon CRM SSO logout URL"""
+    app_url = get_config("neon/app_url", "https://protohaven.app.neoncrm.com/")
+    return f"{app_url.rstrip('/')}/nx/logout"
+
+
 def retrieve_token(redirect_uri, authorization_code):
     """Get the user token (i.e. the user's account_id) after a successful OAuth"""
     rep = requests.post(
