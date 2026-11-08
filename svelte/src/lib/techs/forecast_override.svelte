@@ -23,6 +23,7 @@
 		editor?: string;
 		fullname?: string;
 		email?: string;
+		received_at?: string;
 		[key: string]: unknown;
 	}
 

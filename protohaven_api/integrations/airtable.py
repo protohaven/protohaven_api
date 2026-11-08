@@ -825,13 +825,18 @@ def _day_trunc(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _forecast_override_key(shift_start) -> str:
+    """Return the calendar key (YYYY-MM-DD AM/PM) for a shift override record"""
+    d = safe_parse_datetime(shift_start)
+    ap = "AM" if d.hour < 12 else "PM"
+    return f"{d.strftime('%Y-%m-%d')} {ap}"
+
+
 def get_forecast_overrides(include_pii) -> Iterable[tuple[str, ForecastOverride]]:
     """Gets all overrides for the shop tech shift forecast"""
     for r in get_all_records("people", "shop_tech_forecast_overrides"):
         if r["fields"].get("Shift Start", None) is None:
             continue
-        d = safe_parse_datetime(r["fields"]["Shift Start"])
-        ap = "AM" if d.hour < 12 else "PM"
         techs = r["fields"].get("Override", "").split("\n")
         last_modified = (
             f"{r['fields'].get('Last Modified By', 'Unknown')} "
@@ -841,11 +846,24 @@ def get_forecast_overrides(include_pii) -> Iterable[tuple[str, ForecastOverride]
         if not include_pii:  # "First name" only if no PII allowed
             techs = [t.split(" ")[0] for t in techs]
             last_modified = r["fields"]["Last Modified"]
-        yield f"{d.strftime('%Y-%m-%d')} {ap}", (
+        yield _forecast_override_key(r["fields"]["Shift Start"]), (
             r["id"],
             techs if techs != [""] else [],
             last_modified,
         )
+
+
+def get_forecast_override(date, ap) -> tuple[str, str] | None:
+    """Get the current record id and Last Modified timestamp for a shift override.
+
+    Returns None when no override exists for the given shift."""
+    target = f"{safe_parse_datetime(date).strftime('%Y-%m-%d')} {ap.upper()}"
+    for r in get_all_records("people", "shop_tech_forecast_overrides"):
+        if r["fields"].get("Shift Start", None) is None:
+            continue
+        if _forecast_override_key(r["fields"]["Shift Start"]) == target:
+            return r["id"], r["fields"].get("Last Modified")
+    return None
 
 
 def delete_forecast_override(rec):

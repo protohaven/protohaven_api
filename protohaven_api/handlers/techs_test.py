@@ -201,6 +201,11 @@ def test_techs_forecast_override_post(mocker, tech_client):
     mocker.patch.object(
         tl.airtable, "set_forecast_override", return_value=(200, "Success")
     )
+    mocker.patch.object(
+        tl.airtable,
+        "get_forecast_override",
+        return_value=("123", "2023-10-01T00:00:00.000Z"),
+    )
     mocker.patch.object(tl.comms, "send_discord_message")
     response = tech_client.post(
         "/techs/forecast/override",
@@ -212,6 +217,7 @@ def test_techs_forecast_override_post(mocker, tech_client):
             "techs": ["Tech1", "Tech2"],
             "orig": ["Tech1"],
             "email": "john.doe@example.com",
+            "received_at": "2023-10-01T12:00:00.000Z",
         },
     )
     assert response.status_code == 200
@@ -232,6 +238,11 @@ def test_techs_forecast_override_post(mocker, tech_client):
 
 def test_techs_forecast_override_delete(mocker, tech_client):
     mocker.patch.object(tl.airtable, "delete_forecast_override", return_value="Deleted")
+    mocker.patch.object(
+        tl.airtable,
+        "get_forecast_override",
+        return_value=("123", "2023-10-01T00:00:00.000Z"),
+    )
     mocker.patch.object(tl.comms, "send_discord_message")
     response = tech_client.delete(
         "/techs/forecast/override",
@@ -242,6 +253,7 @@ def test_techs_forecast_override_delete(mocker, tech_client):
             "ap": "AM",
             "techs": ["Tech3"],
             "orig": ["Tech1", "Tech2"],
+            "received_at": "2023-10-01T12:00:00.000Z",
         },
     )
     assert response.status_code == 200
@@ -249,6 +261,102 @@ def test_techs_forecast_override_delete(mocker, tech_client):
     tl.comms.send_discord_message.assert_called_once_with(
         MatchStr("Tech1, Tech2"), "#techs", blocking=False
     )
+
+
+def test_techs_forecast_override_post_rejects_stale_edit(mocker, tech_client):
+    """Submitting an override fails if the shift was edited after the client loaded it"""
+    mocker.patch.object(
+        tl.airtable,
+        "get_forecast_override",
+        return_value=("123", "2023-10-01T13:00:00.000Z"),
+    )
+    set_override = mocker.patch.object(tl.airtable, "set_forecast_override")
+
+    response = tech_client.post(
+        "/techs/forecast/override",
+        json={
+            "id": "123",
+            "fullname": "John Doe",
+            "date": "2023-10-01",
+            "ap": "AM",
+            "techs": ["Tech1"],
+            "orig": [],
+            "email": "john.doe@example.com",
+            "received_at": "2023-10-01T12:00:00.000Z",
+        },
+    )
+
+    assert response.status_code == 409
+    set_override.assert_not_called()
+
+
+def test_techs_forecast_override_post_rejects_new_override_created_after_load(
+    mocker, tech_client
+):
+    """A new override created while the modal was open must block the stale save"""
+    mocker.patch.object(
+        tl.airtable,
+        "get_forecast_override",
+        return_value=("new", "2023-10-01T12:30:00.000Z"),
+    )
+    set_override = mocker.patch.object(tl.airtable, "set_forecast_override")
+
+    response = tech_client.post(
+        "/techs/forecast/override",
+        json={
+            "fullname": "John Doe",
+            "date": "2023-10-01",
+            "ap": "AM",
+            "techs": ["Tech1"],
+            "orig": [],
+            "email": "john.doe@example.com",
+            "received_at": "2023-10-01T12:00:00.000Z",
+        },
+    )
+
+    assert response.status_code == 409
+    set_override.assert_not_called()
+
+
+def test_techs_forecast_override_delete_rejects_deleted_override(mocker, tech_client):
+    """Reverting an override fails if it was deleted while the modal was open"""
+    mocker.patch.object(tl.airtable, "get_forecast_override", return_value=None)
+    delete_override = mocker.patch.object(tl.airtable, "delete_forecast_override")
+
+    response = tech_client.delete(
+        "/techs/forecast/override",
+        json={
+            "id": "123",
+            "fullname": "John Doe",
+            "date": "2023-10-01",
+            "ap": "AM",
+            "orig": ["Tech1"],
+            "received_at": "2023-10-01T12:00:00.000Z",
+        },
+    )
+
+    assert response.status_code == 409
+    delete_override.assert_not_called()
+
+
+def test_techs_forecast_override_requires_received_at(mocker, tech_client):
+    """Submitting an override without the client receive timestamp is rejected"""
+    set_override = mocker.patch.object(tl.airtable, "set_forecast_override")
+
+    response = tech_client.post(
+        "/techs/forecast/override",
+        json={
+            "fullname": "John Doe",
+            "date": "2023-10-01",
+            "ap": "AM",
+            "techs": ["Tech1"],
+            "orig": [],
+            "email": "john.doe@example.com",
+        },
+    )
+
+    assert response.status_code == 400
+    set_override.assert_not_called()
 
 
 def test_techs_backfill_events(mocker, tech_client):
