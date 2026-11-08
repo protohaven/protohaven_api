@@ -115,17 +115,7 @@ def test_get_recert_data_no_config_for_tool(mocker, memclient):
 def test_goto_class_non_eventbrite_url(mocker, memclient):
     """Redirects directly for non-Eventbrite URLs"""
     mocker.patch.object(neon, "search_member_by_neon_id")
-    mocker.patch.object(eventbrite, "is_valid_id")
     url = "https://example.com/class"
-    response = memclient.get(f"/member/goto_class?url={url}")
-    assert response.status_code == 302
-    assert response.location == url
-
-
-def test_goto_class_invalid_eventbrite_id(mocker, memclient):
-    """Redirects directly when Eventbrite ID is invalid"""
-    mocker.patch.object(eventbrite, "is_valid_id", return_value=False)
-    url = "https://www.eventbrite.com/e/123456789"
     response = memclient.get(f"/member/goto_class?url={url}")
     assert response.status_code == 302
     assert response.location == url
@@ -133,7 +123,6 @@ def test_goto_class_invalid_eventbrite_id(mocker, memclient):
 
 def test_goto_class_member_not_found(mocker, memclient):
     """Returns 400 when member not found in Neon"""
-    mocker.patch.object(eventbrite, "is_valid_id", return_value=True)
     mocker.patch.object(neon, "search_member_by_neon_id", return_value=None)
     mocker.patch.object(member, "_fetch_neon_id", return_value="12345")
     url = "https://www.eventbrite.com/e/123456789"
@@ -144,7 +133,6 @@ def test_goto_class_member_not_found(mocker, memclient):
 
 def test_goto_class_no_discount_eligible(mocker, memclient):
     """Redirects without discount code when member has 0% discount"""
-    mocker.patch.object(eventbrite, "is_valid_id", return_value=True)
     mock_member = mocker.MagicMock()
     mock_member.event_discount_pct.return_value = 0
     mocker.patch.object(neon, "search_member_by_neon_id", return_value=mock_member)
@@ -157,7 +145,6 @@ def test_goto_class_no_discount_eligible(mocker, memclient):
 
 def test_goto_class_with_discount(mocker, memclient):
     """Redirects with discount code when member has positive discount"""
-    mocker.patch.object(eventbrite, "is_valid_id", return_value=True)
     mock_member = mocker.MagicMock()
     mock_member.event_discount_pct.return_value = 25
     mocker.patch.object(neon, "search_member_by_neon_id", return_value=mock_member)

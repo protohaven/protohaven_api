@@ -8,16 +8,11 @@ import re
 import threading
 from collections import defaultdict
 from enum import Enum
-from functools import lru_cache
 from typing import Any, Iterator
 
 from protohaven_api.automation.classes import events as eauto
 from protohaven_api.config import tz, tznow  # pylint: disable=import-error
-from protohaven_api.integrations import (  # pylint: disable=import-error
-    airtable,
-    eventbrite,
-    neon_base,
-)
+from protohaven_api.integrations import airtable  # pylint: disable=import-error
 from protohaven_api.integrations.airtable import ScheduledClass
 from protohaven_api.integrations.comms import Msg
 from protohaven_api.integrations.models import Email, EventID, NeonID
@@ -25,15 +20,6 @@ from protohaven_api.integrations.models import Email, EventID, NeonID
 log = logging.getLogger("class_automation.builder")
 
 LOCALE_LOCK = threading.Lock()
-
-
-@lru_cache(maxsize=30)
-def get_account_email(account_id: NeonID) -> Email:
-    """Gets the matching email for a Neon account, by ID"""
-    a = neon_base.fetch_account(account_id)
-    if a:
-        return a.email
-    raise RuntimeError(f"Failed to resolve email for attendee: {account_id}")
 
 
 def get_unscheduled_instructors(
@@ -198,12 +184,8 @@ class ClassEmailBuilder:  # pylint: disable=too-many-instance-attributes
                 ).items()
             }
             for a in evt.attendees:
-                if a.valid:
-                    e = a.email
-                    if not e and not eventbrite.is_valid_id(evt.event_id):
-                        e = get_account_email(a.user_id)
-                    if e is not None:
-                        self.attendee_emails[a.user_id] = e
+                if a.valid and a.email is not None:
+                    self.attendee_emails[a.user_id] = a.email
             self.log.debug(f"Annotated {evt.event_id}")
         self.log.info(f"Fetched and annotated {len(self.events)} event(s) fron Neon")
 

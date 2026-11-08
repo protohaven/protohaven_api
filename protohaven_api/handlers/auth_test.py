@@ -72,27 +72,35 @@ def test_login_defaults_to_root(mocker, client):
 
 
 def test_logout(mocker):
-    """logout clears Neon identity from the session"""
-    session = {"neon_id": "123", "neon_account": {"x": 1}}
+    """logout clears the session and redirects to Neon SSO logout"""
+    session = {"neon_id": "123", "neon_account": {"x": 1}, "other": "value"}
     mocker.patch.object(auth, "session", session)
-    assert auth.logout() == "You've been logged out"
-    assert session["neon_id"] is None
-    assert session["neon_account"] is None
+    mocker.patch.object(
+        auth.oauth, "logout_uri", return_value="https://neon.example/logout"
+    )
+
+    rep = auth.logout()
+
+    assert rep.location == "https://neon.example/logout"
+    assert not session
 
 
-def test_logout_route(client):
-    """GET /logout clears the session and returns a confirmation message"""
+def test_logout_route(mocker, client):
+    """GET /logout clears the session and redirects to Neon SSO logout"""
+    mocker.patch.object(
+        auth.oauth, "logout_uri", return_value="https://neon.example/logout"
+    )
     with client.session_transaction() as session:
         session["neon_id"] = "123"
         session["neon_account"] = {"individualAccount": {"accountId": 123}}
 
     rep = client.get("/logout")
 
-    assert rep.status_code == 200
-    assert rep.data.decode() == "You've been logged out"
+    assert rep.status_code == 302
+    assert rep.location == "https://neon.example/logout"
     with client.session_transaction() as session:
-        assert session["neon_id"] is None
-        assert session["neon_account"] is None
+        assert "neon_id" not in session
+        assert "neon_account" not in session
 
 
 def test_login_with_neon_id(mocker):

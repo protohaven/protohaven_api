@@ -15,17 +15,6 @@ from protohaven_api.integrations.models import Attendee, Event
 from protohaven_api.testing import d, t
 
 
-def test_is_valid_id():
-    """Test Eventbrite ID validation"""
-    # Valid Eventbrite IDs
-    assert e.is_valid_id("375402919237") is True
-    assert e.is_valid_id("999999999999") is True
-
-    # Invalid Eventbrite IDs (below threshold)
-    assert e.is_valid_id("375402919236") is False
-    assert e.is_valid_id("1") is False
-
-
 def test_fetch_events(mocker):
     """Test fetching events from Eventbrite with pagination"""
     mock_conn = mocker.patch.object(e, "get_connector")

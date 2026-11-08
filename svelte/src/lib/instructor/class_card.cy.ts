@@ -191,18 +191,28 @@ describe('instructor class card', () => {
 		});
 	});
 
-	it('renders attendee names, emails, and registration dates', () => {
+	it('renders attendee names, emails, membership statuses, and registration dates', () => {
 		mountClassCard({}, [
 			{
 				name: 'John Doe',
 				email: 'john@example.com',
 				registration_status: 'SUCCEEDED',
-				registration_date: '2025-01-15'
+				registration_date: '2025-01-15',
+				membership_status: 'active'
+			},
+			{
+				name: 'Jane Guest',
+				email: 'jane@example.com',
+				registration_status: 'SUCCEEDED',
+				registration_date: '2025-01-16',
+				membership_status: 'guest'
 			}
 		]);
 
 		cy.contains('John Doe (john@example.com)').should('be.visible');
 		cy.contains('registered 2025-01-15').should('be.visible');
+		cy.contains('span.badge.bg-success', 'active').should('be.visible');
+		cy.contains('span.badge.bg-info', 'guest').should('be.visible');
 	});
 
 	it('opens the pre-filled log form with attendee names and clearances', () => {
