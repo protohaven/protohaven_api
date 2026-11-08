@@ -33,6 +33,12 @@ repos:
           "--generated-members=client.tasks,client.projects",
           "--disable=logging-fstring-interpolation,import-error",
         ]
+    - id: bookstack-php-tests
+      name: bookstack PHP unit tests
+      entry: php bookstack/theme/run_tests.php
+      language: system
+      pass_filenames: false
+      files: '^bookstack/theme/.*\.php$'
 - repo: https://github.com/pre-commit/mirrors-mypy
   rev: v1.13.0
   hooks:
