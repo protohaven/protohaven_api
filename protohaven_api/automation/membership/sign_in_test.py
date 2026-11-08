@@ -850,6 +850,62 @@ def test_as_member_duplicates(mocker):
     )
 
 
+def test_duplicate_account_selection_prefers_active_with_clearances(mocker):
+    """When duplicate active accounts share an email, prefer the one with clearances"""
+    mocker.patch.object(s, "notify_async")
+    clear = mocker.MagicMock(
+        neon_id="clear",
+        company_id="other",
+        account_current_membership_status="Active",
+        clearances=["Clearance A"],
+        account_automation_ran="",
+    )
+    no_clear = mocker.MagicMock(
+        neon_id="no_clear",
+        company_id="other",
+        account_current_membership_status="Active",
+        clearances=[],
+        account_automation_ran="",
+    )
+    mocker.patch.object(
+        s.neon, "cached_get", return_value={"clear": clear, "no_clear": no_clear}
+    )
+
+    got, deferred = s.get_member_and_activation_state("a@b.com")
+
+    assert got == clear
+    assert deferred is False
+
+
+def test_duplicate_account_selection_prefers_active_over_inactive_with_clearances(
+    mocker,
+):
+    """Active membership status is more important than clearances on an old account"""
+    mocker.patch.object(s, "notify_async")
+    active = mocker.MagicMock(
+        neon_id="active",
+        company_id="other",
+        account_current_membership_status="Active",
+        clearances=[],
+        account_automation_ran="",
+    )
+    inactive = mocker.MagicMock(
+        neon_id="inactive",
+        company_id="other",
+        account_current_membership_status="Inactive",
+        clearances=["Clearance A"],
+        account_automation_ran="",
+    )
+    mocker.patch.object(
+        s.neon, "cached_get", return_value={"active": active, "inactive": inactive}
+    )
+
+    got, deferred = s.get_member_and_activation_state("a@b.com")
+
+    assert got == active
+    assert deferred is False
+
+
 def test_as_member_announcements_ok(mocker):
     """Test that form submission triggers and announcements are returned when OK member logs in"""
     m = mocker.patch.object(s, "_apply_async")

@@ -250,6 +250,26 @@ def log_sign_in(data, result, meta):
     _apply_async(submit_google_form, args=(form_data,))
 
 
+def _member_sort_key(m):
+    """Rank duplicate Neon accounts so the most likely current member is used.
+
+    Active accounts beat Future accounts beat everything else. Within the same
+    status tier, prefer accounts with clearances and a Booked user link, since
+    those are stronger signals that the account is the one used for shop access.
+    """
+    status = (m.account_current_membership_status or "").upper()
+    status_rank = 2 if status == "ACTIVE" else 1 if status == "FUTURE" else 0
+    try:
+        clearance_count = len(m.clearances or [])
+    except Exception:  # pylint: disable=broad-exception-caught
+        clearance_count = 0
+    try:
+        has_booked_id = bool(m.booked_id)
+    except Exception:  # pylint: disable=broad-exception-caught
+        has_booked_id = False
+    return (status_rank, clearance_count, has_booked_id)
+
+
 def get_member_and_activation_state(email):
     """Fetch the candidate account from Neon, preferring active memberships.
     Returns (member info, is_deferred)
@@ -278,10 +298,13 @@ def get_member_and_activation_state(email):
             "page/membership-validation)"
         )
         log.info("Notified of multiple accounts")
+        mm.sort(key=_member_sort_key, reverse=True)
 
     m = None
+    fallback = None
     # Deferred memberships are returned first, followed by active membership accounts
-    # and then inactive ones.
+    # and then inactive ones. Duplicate accounts are sorted above so the most
+    # likely current member is considered first.
     for m in mm:
         unverified_amp = "AMP" in (m.membership_level or "") and not m.income_based_rate
         if is_membership_deferred(m):
@@ -294,11 +317,13 @@ def get_member_and_activation_state(email):
                     f"they can use the shop."
                 )
                 log.info("Notified of unverified AMP status")
-            else:
-                return m, True
+                continue
+            return m, True
         if (m.account_current_membership_status or "").upper() == "ACTIVE":
             return m, False
-    return m, False
+        if fallback is None:
+            fallback = m
+    return (fallback if fallback is not None else m), False
 
 
 def handle_notify_board_and_staff(notify_str, fname, email, url):
