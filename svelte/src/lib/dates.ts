@@ -41,6 +41,12 @@ function formatLocalDate(date: Date): string {
 	return `${date.getFullYear()}-${mm}-${dd}`;
 }
 
+/**
+ * Pads a list of date-only strings out to complete Sunday-Saturday weeks.
+ *
+ * Dates before the first Sunday and after the last Saturday are returned as
+ * filler days, while the original dates are preserved in their input order.
+ */
 export function pad_calendar_dates(dates: string[]): { date: string; filler?: boolean }[] {
 	if (dates.length === 0) {
 		return [];
