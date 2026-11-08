@@ -9,6 +9,7 @@ from typing import Any
 from protohaven_api.integrations import neon, neon_base
 
 QA_EMAIL_PREFIX = "qa-testing+qa-cronicle-"
+QA_DELETED_EMAIL_PREFIX = "qa-deleted-"
 
 
 def qa_email(job: str, run_id: str) -> str:
@@ -21,9 +22,21 @@ def qa_name(job: str, run_id: str) -> str:
     return f"QA Cronicle {job} {run_id}"
 
 
+def deleted_qa_email(run_id: str, account_id: str) -> str:
+    """Build the email address used for anonymized QA Neon accounts."""
+    return f"{QA_DELETED_EMAIL_PREFIX}{run_id}-{account_id}@protohaven.org"
+
+
 def search_qa_accounts():
     """Return all Neon accounts matching the QA email prefix."""
     return list(neon.search_members_by_email(QA_EMAIL_PREFIX, operator="CONTAIN"))
+
+
+def search_deleted_qa_accounts():
+    """Return all anonymized QA Neon accounts available for reuse."""
+    return list(
+        neon.search_members_by_email(QA_DELETED_EMAIL_PREFIX, operator="CONTAIN")
+    )
 
 
 def anonymize_mock_account(account_id: str, run_id: str) -> None:
@@ -36,9 +49,27 @@ def anonymize_mock_account(account_id: str, run_id: str) -> None:
         account_id,
         {
             "primaryContact": {
-                "email1": f"qa-deleted-{run_id}-{account_id}@protohaven.org",
+                "email1": deleted_qa_email(run_id, account_id),
                 "firstName": "QA Deleted",
                 "lastName": f"{run_id}-{account_id}",
+            },
+            "accountCustomFields": [
+                {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
+                {"id": str(neon.CustomField.BOOKED_USER_ID), "value": ""},
+            ],
+        },
+    )
+
+
+def reuse_deleted_account(account_id: str, job: str, run_id: str) -> None:
+    """Point a QA-deleted Neon account at a fresh QA identity."""
+    neon_base.patch_account(
+        account_id,
+        {
+            "primaryContact": {
+                "email1": qa_email(job, run_id),
+                "firstName": "QA Cronicle",
+                "lastName": f"{job} {run_id}",
             },
             "accountCustomFields": [
                 {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
@@ -66,14 +97,28 @@ class MockNeonAccount:
 
 
 def create_mock_account(ctx: Any, job: str) -> MockNeonAccount:
-    """Create a uniquely identifiable Neon account and register cleanup.
+    """Return a uniquely identifiable Neon account and register cleanup.
 
     Follows the plan convention: first name is ``QA Cronicle`` and last name
     is ``<Job> <run_id>``.
+
+    Neon's V2 API does not expose account deletion, so QA-deleted accounts are
+    recycled when possible. A new account is created only when the deleted
+    account pool has been exhausted.
     """
     email = qa_email(job, ctx.run_id)
     name = qa_name(job, ctx.run_id)
-    neon_id = neon.create_member("QA Cronicle", email, last_name=f"{job} {ctx.run_id}")
+
+    for acct in search_deleted_qa_accounts():
+        neon_id = getattr(acct, "neon_id", None)
+        if neon_id:
+            reuse_deleted_account(neon_id, job, ctx.run_id)
+            break
+    else:
+        neon_id = neon.create_member(
+            "QA Cronicle", email, last_name=f"{job} {ctx.run_id}"
+        )
+
     ctx.cleanup.register(
         f"anonymize Neon account {neon_id}",
         lambda: anonymize_mock_account(neon_id, ctx.run_id),
