@@ -243,6 +243,41 @@ def _notify_override(name, shift, techs):
     comms.send_discord_message(msg, "#techs", blocking=False)
 
 
+def _override_conflict(  # pylint: disable=too-many-return-statements
+    date, ap, expected_id, received_at
+):
+    """Return a 409 response if the shift override changed since the client loaded it."""
+    current = airtable.get_forecast_override(date, ap)
+    if current is None:
+        if expected_id is not None:
+            return Response(
+                "This shift override was changed by someone else. Please refresh and try again.",
+                status=409,
+            )
+        return None
+
+    current_id, current_modified = current
+    if expected_id is None or current_id != expected_id:
+        return Response(
+            "This shift override was changed by someone else. Please refresh and try again.",
+            status=409,
+        )
+
+    if not current_modified or not received_at:
+        return None
+    try:
+        current_time = safe_parse_datetime(current_modified)
+        received_time = safe_parse_datetime(received_at)
+    except (TypeError, ValueError):
+        return Response("Invalid modification timestamp", status=400)
+    if current_time > received_time:
+        return Response(
+            "This shift override was changed by someone else. Please refresh and try again.",
+            status=409,
+        )
+    return None
+
+
 @page.route("/techs/forecast/override", methods=["POST", "DELETE"])
 @require_login_role(
     Role.SHOP_TECH_LEAD,
@@ -251,7 +286,7 @@ def _notify_override(name, shift, techs):
     Role.SHOP_TECH,
     redirect_to_login=False,
 )
-def techs_forecast_override():
+def techs_forecast_override():  # pylint: disable=too-many-return-statements
     """Update/remove forecast overrides on shop tech forecast"""
     # We want to know who's modifying the schedule, not just the generic shop tech user
     if am_neon_id(get_config("general/shop_tech_neon_id")):
@@ -268,6 +303,14 @@ def techs_forecast_override():
     ap = data.get("ap")
     techs = data.get("techs")
     orig = data.get("orig")
+    received_at = data.get("received_at")
+    if not received_at:
+        return Response("Missing received_at timestamp", status=400)
+
+    conflict = _override_conflict(date, ap, _id, received_at)
+    if conflict:
+        return conflict
+
     if request.method == "POST":
         status, content = airtable.set_forecast_override(
             _id,

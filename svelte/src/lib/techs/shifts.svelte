@@ -52,6 +52,7 @@
 		editor?: string;
 		fullname?: string;
 		email?: string;
+		received_at?: string;
 		[key: string]: unknown;
 	}
 
@@ -73,10 +74,12 @@
 	}
 
 	let loaded = false;
+	let forecast_received_at = '';
 	let promise: Promise<CalendarDay[]> = new Promise(() => {});
 	function refresh() {
 		const diff_days = days_between(start_date, end_date) + 1; // Inclusive
 		promise = get(`/techs/forecast?date=${isodate(start_date)}&days=${diff_days}`).then((data) => {
+			forecast_received_at = new Date().toISOString();
 			loaded = true;
 
 			// Pad data out to full Sunday-Saturday weeks
@@ -136,7 +139,13 @@
 
 	function start_edit(s: CalendarDay, ap: 'AM' | 'PM') {
 		console.log(s, ap);
-		let e: ForecastEdit = { ap: ap, date: s.date, techs: s[ap].people, ...(user ?? {}) };
+		let e: ForecastEdit = {
+			ap: ap,
+			date: s.date,
+			techs: s[ap].people,
+			...(user ?? {}),
+			received_at: forecast_received_at
+		};
 		if (s[ap].ovr) {
 			e = { ...e, id: s[ap].ovr.id, orig: s[ap].ovr.orig, editor: s[ap].ovr.editor };
 		} else {

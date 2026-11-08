@@ -267,6 +267,34 @@ def test_get_forecast_overrides(mocker):
     ]
 
 
+def test_get_forecast_override(mocker):
+    """Forecast override lookup returns the current record id and Last Modified"""
+    mocker.patch.object(
+        a,
+        "get_all_records",
+        return_value=[
+            {
+                "id": "rec1",
+                "fields": {
+                    "Shift Start": d(0, h=10).isoformat(),
+                    "Last Modified": "2025-01-01",
+                },
+            },
+            {
+                "id": "rec2",
+                "fields": {
+                    "Shift Start": d(1, h=16).isoformat(),
+                    "Last Modified": "2025-01-02",
+                },
+            },
+        ],
+    )
+
+    assert a.get_forecast_override("2025-01-01", "AM") == ("rec1", "2025-01-01")
+    assert a.get_forecast_override("2025-01-02", "PM") == ("rec2", "2025-01-02")
+    assert a.get_forecast_override("2025-01-01", "PM") is None
+
+
 def test_fetch_instructor_teachable_classes(mocker):
     """Test fetching teachable classes from airtable"""
     mock_records = [
