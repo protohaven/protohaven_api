@@ -16,7 +16,6 @@ from protohaven_api.integrations import (
     airtable,
     booked,
     comms,
-    eventbrite,
     neon,
     neon_base,
     sheets,
@@ -143,12 +142,34 @@ def instructor_class_templates():
     return result
 
 
+def _membership_status_for_attendee(attendee: Any) -> str:
+    """Return guest, active, or inactive for an attendee based on Neon data."""
+    if attendee.email:
+        try:
+            accounts = neon.cached_get(attendee.email) or {}
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Membership lookups are best-effort; don't hide the attendee list
+            # if Neon or the cache server is unavailable.
+            log.warning(f"Failed to fetch Neon membership for {attendee.email}")
+            accounts = {}
+        if accounts:
+            statuses = [
+                (m.account_current_membership_status or "").lower()
+                for m in accounts.values()
+            ]
+            if any(s in ("active", "future") for s in statuses):
+                return "active"
+            return "inactive"
+
+    return "guest"
+
+
 @page.route("/instructor/class/attendees")
 @require_login_role(
     Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
 def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
-    """Gets the attendees for a given class, by its neon ID"""
+    """Gets the attendees for a given class, by its Eventbrite ID"""
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
@@ -169,16 +190,8 @@ def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
             "fname": a.fname,
             "name": a.name,
             "valid": a.valid,
+            "membership_status": _membership_status_for_attendee(a),
         }
-        # Try to get member email from Neon if we have a user_id
-        # and it's not from eventbrite
-        if a.user_id and not eventbrite.is_valid_id(event_id):
-            try:
-                m = neon_base.fetch_account(a.user_id)
-                if m is not None:
-                    attendee_dict["member_email"] = m.email
-            except RuntimeError:
-                pass
         result.append(attendee_dict)
 
     return result

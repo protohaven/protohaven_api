@@ -132,18 +132,13 @@ def goto_class():
     orig_url = request.args.get("url")
     log.info(f"goto_class {orig_url}")
 
-    # If not eventbrite, then it's a Neon event which uses logged-in session to apply discounts
+    # Only Eventbrite URLs past this point; anything else redirects unchanged.
     evt_match = re.search(r"^https://www.eventbrite.com/e/(\d+).*", orig_url)
     if not evt_match or not evt_match.group(1):
         return redirect(orig_url)
     evt_id = evt_match.group(1)
 
     log.info(f"Parsed event ID from url param: {evt_id}")
-    if not eventbrite.is_valid_id(evt_id):
-        # Redirect to original url if parsing fails, as a backup
-        return redirect(orig_url)
-
-    # PRECONDITION: Only valid eventbrite IDs past this point
     neon_id = _fetch_neon_id()
     if isinstance(neon_id, Response):
         return neon_id

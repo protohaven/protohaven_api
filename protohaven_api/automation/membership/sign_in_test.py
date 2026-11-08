@@ -122,7 +122,58 @@ def test_log_sign_in(mocker):
     m = mocker.patch.object(s, "_apply_async")
 
     s.log_sign_in(data, result, {})
-    m.assert_called_once()
+    assert m.call_count == 2
+    assert m.call_args_list[0].args[0] == s.submit_airtable_signin
+    assert m.call_args_list[1].args[0] == s.submit_google_form
+    assert m.call_args_list[0].kwargs["args"] == m.call_args_list[1].kwargs["args"]
+
+
+def test_submit_airtable_signin_success(mocker):
+    """Airtable insertion success does not send a failure notification"""
+    evt = SignInEvent(
+        email="a@b.com",
+        dependent_info="none",
+        waiver_ack=True,
+        member_agreement_accepted=False,
+        referrer=None,
+        purpose="I'm a member, just signing in!",
+        am_member=True,
+        full_name="First Last",
+        clearances=[],
+        violations=[],
+        status="Active",
+    )
+    insert = mocker.patch.object(s.airtable, "insert_signin", return_value=(200, "ok"))
+    notify = mocker.patch.object(s, "notify_async")
+
+    s.submit_airtable_signin(evt)
+
+    insert.assert_called_once_with(evt.to_airtable())
+    notify.assert_not_called()
+
+
+def test_submit_airtable_signin_failure_notifies_and_raises(mocker):
+    """Airtable insertion failure raises and notifies staff"""
+    evt = SignInEvent(
+        email="a@b.com",
+        dependent_info="none",
+        waiver_ack=True,
+        member_agreement_accepted=False,
+        referrer=None,
+        purpose="I'm a member, just signing in!",
+        am_member=True,
+        full_name="First Last",
+        clearances=[],
+        violations=[],
+        status="Active",
+    )
+    mocker.patch.object(s.airtable, "insert_signin", return_value=(500, "boom"))
+    notify = mocker.patch.object(s, "notify_async")
+
+    with pytest.raises(RuntimeError, match="status 500"):
+        s.submit_airtable_signin(evt)
+
+    notify.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -799,6 +850,62 @@ def test_as_member_duplicates(mocker):
     )
 
 
+def test_duplicate_account_selection_prefers_active_with_clearances(mocker):
+    """When duplicate active accounts share an email, prefer the one with clearances"""
+    mocker.patch.object(s, "notify_async")
+    clear = mocker.MagicMock(
+        neon_id="clear",
+        company_id="other",
+        account_current_membership_status="Active",
+        clearances=["Clearance A"],
+        account_automation_ran="",
+    )
+    no_clear = mocker.MagicMock(
+        neon_id="no_clear",
+        company_id="other",
+        account_current_membership_status="Active",
+        clearances=[],
+        account_automation_ran="",
+    )
+    mocker.patch.object(
+        s.neon, "cached_get", return_value={"clear": clear, "no_clear": no_clear}
+    )
+
+    got, deferred = s.get_member_and_activation_state("a@b.com")
+
+    assert got == clear
+    assert deferred is False
+
+
+def test_duplicate_account_selection_prefers_active_over_inactive_with_clearances(
+    mocker,
+):
+    """Active membership status is more important than clearances on an old account"""
+    mocker.patch.object(s, "notify_async")
+    active = mocker.MagicMock(
+        neon_id="active",
+        company_id="other",
+        account_current_membership_status="Active",
+        clearances=[],
+        account_automation_ran="",
+    )
+    inactive = mocker.MagicMock(
+        neon_id="inactive",
+        company_id="other",
+        account_current_membership_status="Inactive",
+        clearances=["Clearance A"],
+        account_automation_ran="",
+    )
+    mocker.patch.object(
+        s.neon, "cached_get", return_value={"active": active, "inactive": inactive}
+    )
+
+    got, deferred = s.get_member_and_activation_state("a@b.com")
+
+    assert got == active
+    assert deferred is False
+
+
 def test_as_member_announcements_ok(mocker):
     """Test that form submission triggers and announcements are returned when OK member logs in"""
     m = mocker.patch.object(s, "_apply_async")
@@ -853,29 +960,26 @@ def test_as_member_announcements_ok(mocker):
             "Title": "test Announcement",
         }
     ]
-    m.assert_called_with(
-        s.submit_forms,
-        args=(
-            SignInEvent(
-                email="a@b.com",
-                dependent_info="DEP_INFO",
-                waiver_ack=True,
-                member_agreement_accepted=False,
-                referrer=None,
-                purpose="I'm a member, just signing in!",
-                am_member=True,
-                full_name="First Last",
-                clearances=["Clearance A", "Clearance B"],
-                violations=[],
-                status="Active",
-            ),
-        ),
+    expected = SignInEvent(
+        email="a@b.com",
+        dependent_info="DEP_INFO",
+        waiver_ack=True,
+        member_agreement_accepted=False,
+        referrer=None,
+        purpose="I'm a member, just signing in!",
+        am_member=True,
+        full_name="First Last",
+        clearances=["Clearance A", "Clearance B"],
+        violations=[],
+        status="Active",
     )
+    m.assert_any_call(s.submit_google_form, args=(expected,))
+    m.assert_any_call(s.submit_airtable_signin, args=(expected,))
 
 
 def test_as_member_announcements_exception(mocker):
-    """Test that form submission triggers even if announcement gathering
-    raises an exception"""
+    """Test that form submission triggers and retains clearances even if
+    announcement gathering raises an exception"""
     m = mocker.patch.object(s, "_apply_async")
     mocker.patch.object(s, "notify_async")
     mocker.patch.object(s, "tznow", return_value=d(0))
@@ -889,7 +993,8 @@ def test_as_member_announcements_exception(mocker):
                     account_current_membership_status="Active",
                     roles=[{"name": "Shop Tech"}],
                     fname="First",
-                    clearances=[],
+                    lname="Last",
+                    clearances=["Clearance A"],
                     account_automation_ran="",
                     waiver_accepted=(None, None),
                     member_agreement_accepted=(None, None),
@@ -913,7 +1018,21 @@ def test_as_member_announcements_exception(mocker):
     )
     assert rep["status"] == "Active"
     assert rep["announcements"] == []
-    m.assert_called_with(s.submit_forms, args=mocker.ANY)
+    expected = SignInEvent(
+        email="a@b.com",
+        dependent_info="DEP_INFO",
+        waiver_ack=True,
+        member_agreement_accepted=False,
+        referrer=None,
+        purpose="I'm a member, just signing in!",
+        am_member=True,
+        full_name="First Last",
+        clearances=["Clearance A"],
+        violations=[],
+        status="Active",
+    )
+    m.assert_any_call(s.submit_google_form, args=(expected,))
+    m.assert_any_call(s.submit_airtable_signin, args=(expected,))
 
 
 def test_as_member_company_id(mocker):

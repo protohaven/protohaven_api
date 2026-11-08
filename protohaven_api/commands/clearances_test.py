@@ -55,6 +55,37 @@ def test_sync_clearances_e2e(mocker, cli):
     assert "test@example.com: added TOOL: Tool Clearance" in got[0]["body"]
 
 
+def test_sync_clearances_sends_errors_without_changes(mocker, cli):
+    """Errors should reach Discord even when no clearances were changed"""
+    mocker.patch.object(
+        C.neon,
+        "resolve_clearance_code_full",
+        return_value="TOOL: Tool Clearance",
+    )
+    mocker.patch.object(C, "tznow", return_value=d(0))
+    mocker.patch.object(
+        C.sheets,
+        "get_passing_student_clearances",
+        return_value=[
+            (
+                "test@example.com",
+                ["tool1"],
+                d(0),
+            )
+        ],
+    )
+    mocker.patch.object(
+        C.clearances,
+        "update",
+        side_effect=KeyError("Member test@example.com not found"),
+    )
+
+    got = cli("sync_clearances", [])
+
+    assert len(got) == 1
+    assert "Member test@example.com not found" in got[0]["body"]
+
+
 def test_recertification_no_work(mocker, cli):
     """Test recertification command when no work needs to be done"""
     mocker.patch.object(C.clearances, "build_recert_env")
