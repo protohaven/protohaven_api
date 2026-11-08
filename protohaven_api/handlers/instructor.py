@@ -143,6 +143,39 @@ def instructor_class_templates():
     return result
 
 
+def _membership_status_for_attendee(
+    attendee: Any, event_id: str, member: Any = None
+) -> str:
+    """Return guest, active, or inactive for an attendee based on Neon data."""
+    if attendee.email:
+        try:
+            accounts = neon.cached_get(attendee.email) or {}
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Membership lookups are best-effort; don't hide the attendee list
+            # if Neon or the cache server is unavailable.
+            log.warning(f"Failed to fetch Neon membership for {attendee.email}")
+            accounts = {}
+        if accounts:
+            statuses = [
+                (m.account_current_membership_status or "").lower()
+                for m in accounts.values()
+            ]
+            if any(s in ("active", "future") for s in statuses):
+                return "active"
+            return "inactive"
+
+    if member is None and attendee.user_id and not eventbrite.is_valid_id(event_id):
+        try:
+            member = neon_base.fetch_account(attendee.user_id)
+        except RuntimeError:
+            member = None
+    if member is not None:
+        status = (member.account_current_membership_status or "").lower()
+        return "active" if status in ("active", "future") else "inactive"
+
+    return "guest"
+
+
 @page.route("/instructor/class/attendees")
 @require_login_role(
     Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
@@ -161,6 +194,15 @@ def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
     # Convert Attendee objects to dictionaries
     result = []
     for a in attendees:
+        member = None
+        # Try to get the Neon account if we have a user_id
+        # and it's not from eventbrite.
+        if a.user_id and not eventbrite.is_valid_id(event_id):
+            try:
+                member = neon_base.fetch_account(a.user_id)
+            except RuntimeError:
+                member = None
+
         attendee_dict = {
             "registration_date": a.registration_date,
             "registration_status": a.registration_status,
@@ -169,16 +211,10 @@ def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
             "fname": a.fname,
             "name": a.name,
             "valid": a.valid,
+            "membership_status": _membership_status_for_attendee(a, event_id, member),
         }
-        # Try to get member email from Neon if we have a user_id
-        # and it's not from eventbrite
-        if a.user_id and not eventbrite.is_valid_id(event_id):
-            try:
-                m = neon_base.fetch_account(a.user_id)
-                if m is not None:
-                    attendee_dict["member_email"] = m.email
-            except RuntimeError:
-                pass
+        if member is not None:
+            attendee_dict["member_email"] = member.email
         result.append(attendee_dict)
 
     return result
