@@ -31,6 +31,12 @@ from protohaven_api.integrations.models import (
 
 log = logging.getLogger("integrations.neon")
 
+# Characters that are valid in an email address per
+# https://ladedu.com/valid-characters-for-email-addresses-the-complete-list/
+# Neon's email search returns a 500 when forbidden characters are included,
+# so reject those lookups before making a request.
+_EMAIL_FORBIDDEN_CHAR_RE = re.compile(r"[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]")
+
 
 def resolve_clearance_code_full(
     t: ToolCode | ClearanceCodeShort,
@@ -540,6 +546,16 @@ class AccountCache(WarmDict):
 
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
+            if _EMAIL_FORBIDDEN_CHAR_RE.search(str(k)):
+                # Neon's email search returns a 500 when the search value
+                # contains characters that are invalid in email addresses.
+                # Treat it as a cache miss instead of making a request that
+                # is guaranteed to fail.
+                log.warning(
+                    "Skipping Neon search for invalid email key: %r",
+                    k,
+                )
+                return v
             aa = list(
                 search_members_by_email(k, fields=self.FIELDS, fetch_memberships=False)
             )
