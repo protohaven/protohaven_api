@@ -200,16 +200,38 @@ def activate_membership(m):
         return
 
 
-def submit_forms(form_data):
-    """Submits sign in forms to log the event"""
+def submit_google_form(form_data):
+    """Submits the sign-in event to Google Forms."""
     rep = forms.submit_google_form("signin", form_data.to_google_form())
     log.info(f"Google form submitted, response {rep}")
-    rep = airtable.insert_signin(form_data.to_airtable())
-    log.info(f"Airtable log submitted, response {rep}")
+
+
+def submit_airtable_signin(form_data):
+    """Submits the sign-in event to Airtable, raising on failure."""
+    try:
+        rep = airtable.insert_signin(form_data.to_airtable())
+        if isinstance(rep, tuple):
+            status, content = rep
+            if status != 200:
+                raise RuntimeError(
+                    f"Airtable sign-in insert failed with status {status}: {content}"
+                )
+        log.info(f"Airtable log submitted, response {rep}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        log.exception("Failed to insert sign-in record in Airtable")
+        try:
+            notify_async(
+                f"@Staff: Failed to record sign-in in Airtable for "
+                f"{form_data.email}: {e}"
+            )
+        except Exception:  # pylint: disable=broad-exception-caught
+            log.exception("Failed to notify staff of Airtable sign-in failure")
+        raise
 
 
 def log_sign_in(data, result, meta):
-    """Logs a sign-in based on form data. Sends both to Airtable and Google Forms"""
+    """Logs a sign-in based on form data. Sends to Airtable and Google Forms
+    independently so one failing does not block the other."""
     # Note: setting `purpose` this way tricks the form into not requiring other fields
     form_data = SignInEvent(
         email=data["email"],
@@ -224,7 +246,8 @@ def log_sign_in(data, result, meta):
         violations=meta.get("violations") or [],
         status=result.get("status") or "UNKNOWN",
     )
-    _apply_async(submit_forms, args=(form_data,))
+    _apply_async(submit_airtable_signin, args=(form_data,))
+    _apply_async(submit_google_form, args=(form_data,))
 
 
 def get_member_and_activation_state(email):
@@ -455,10 +478,10 @@ def as_member(data, send):  # pylint: disable=too-many-statements,too-many-local
         )
 
     meta: dict[str, Any] = {"full_name": f"{m.fname} {m.lname}"}
+    meta["clearances"] = m.clearances
 
     try:
         send("Fetching announcements...", 55)
-        meta["clearances"] = m.clearances
         result["announcements"] = handle_announcements(
             last_ack=m.announcements_acknowledged,
             roles=[r["name"] for r in (m.roles or [])],
