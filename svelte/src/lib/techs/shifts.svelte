@@ -14,7 +14,7 @@
 	import Editor from './forecast_override.svelte';
 	import FetchError from '../fetch_error.svelte';
 	import { get, isodate } from '$lib/api.ts';
-	import { days_between, isToday } from '$lib/dates';
+	import { days_between, isToday, pad_calendar_dates, parseLocalDate } from '$lib/dates';
 
 	interface UserInfo {
 		fullname?: string;
@@ -79,29 +79,32 @@
 		promise = get(`/techs/forecast?date=${isodate(start_date)}&days=${diff_days}`).then((data) => {
 			loaded = true;
 
-			// Left pad data until we hit a Sunday
+			// Pad data out to full Sunday-Saturday weeks
 			if (!data.calendar_view) {
-				return [];
+				return [] as CalendarDay[];
 			}
-			const cal = data.calendar_view;
-			let d = new Date(cal[0].date);
-			while (d.getUTCDay() !== 0) {
-				d.setDate(d.getDate() - 1);
-				cal.unshift({ date: isodate(d), filler: true, AM: { people: [] }, PM: { people: [] } });
-			}
-			d = new Date(cal[cal.length - 1].date);
-			while (d.getUTCDay() !== 6) {
-				d.setDate(d.getDate() + 1);
-				cal.push({ date: isodate(d), filler: true, AM: { people: [] }, PM: { people: [] } });
-			}
-			return cal;
+			const cal: CalendarDay[] = data.calendar_view;
+			const cal_by_date = new Map<string, CalendarDay>(cal.map((c) => [c.date, c]));
+			return pad_calendar_dates(cal.map((c) => c.date)).map(({ date, filler }) => {
+				const existing = cal_by_date.get(date);
+				if (existing) {
+					return existing;
+				}
+				const filler_day: CalendarDay = {
+					date,
+					filler,
+					AM: { people: [] },
+					PM: { people: [] }
+				};
+				return filler_day;
+			});
 		});
 	}
 	function date_changed(was_start: boolean) {
 		console.log('date_changed');
 		let fix: number | null = null;
-		let start = new Date(start_date);
-		let end = new Date(end_date);
+		let start = parseLocalDate(start_date);
+		let end = parseLocalDate(end_date);
 		if (!end || end < start) {
 			fix = DEFAULT_DURATION;
 		} else if (days_between(start_date, end_date) > 60) {
@@ -111,11 +114,11 @@
 		if (fix) {
 			console.log('fix', fix);
 			if (was_start) {
-				const d = new Date(start_date);
+				const d = parseLocalDate(start_date);
 				d.setDate(d.getDate() + fix);
 				end_date = isodate(d);
 			} else {
-				const d = new Date(end_date);
+				const d = parseLocalDate(end_date);
 				d.setDate(d.getDate() - fix);
 				start_date = isodate(d);
 			}
