@@ -92,7 +92,7 @@ class Approval {
         }
         if (count($revs_approval[$m['rev']]) >= $thresh && (is_null($latest_approved) || $m['rev'] > $latest_approved)) {
           $latest_approved = $m['rev'];
-          $approval_timestamp = $c["timestamp"];
+          $approval_timestamp = $c["timestamp"] ?? null;
         }
       }
     }

@@ -33,6 +33,24 @@ repos:
           "--generated-members=client.tasks,client.projects",
           "--disable=logging-fstring-interpolation,import-error",
         ]
+    - id: bookstack-php-tests
+      name: bookstack PHP unit tests
+      entry: php bookstack/theme/run_tests.php
+      language: system
+      pass_filenames: false
+      files: '^bookstack/theme/.*\.php$'
+    - id: wordpress-php-tests
+      name: wordpress PHP unit tests
+      entry: php wordpress/run_php_tests.php
+      language: system
+      pass_filenames: false
+      files: '^wordpress/(run_php_tests\.php|protohaven-[^/]+/(protohaven-[^/]+\.php|protohaven-[^/]+_test\.php))$'
+    - id: wordpress-js-tests
+      name: wordpress JS unit tests
+      entry: bash wordpress/run_js_tests.sh
+      language: system
+      pass_filenames: false
+      files: '^wordpress/(jest\.setup\.js|run_js_tests\.sh|protohaven-[^/]+/(package\.json|pnpm-lock\.yaml|src/.*\.js))$'
 - repo: https://github.com/pre-commit/mirrors-mypy
   rev: v1.13.0
   hooks:
