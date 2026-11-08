@@ -37,6 +37,7 @@
 		email: string;
 		registration_status?: string;
 		registration_date?: string;
+		membership_status?: 'guest' | 'active' | 'inactive';
 	}
 
 	interface EventState {
@@ -87,8 +88,7 @@
 		return [];
 	}
 	let promise: Promise<Attendee[]> = meta_promise.then(fetch_attendees);
-	let event_state_promise: Promise<EventState | null> =
-		meta_promise.then(fetch_event_state);
+	let event_state_promise: Promise<EventState | null> = meta_promise.then(fetch_event_state);
 
 	function refresh(event_id: string | null | undefined): Promise<Attendee[]> {
 		if (event_id) {
@@ -214,6 +214,15 @@
 										<strong>{a.registration_status}</strong> -
 									{/if}
 									{a.name} ({a.email})
+									{#if a.membership_status}
+										<span
+											class="badge ms-2 {a.membership_status === 'active'
+												? 'bg-success'
+												: a.membership_status === 'inactive'
+													? 'bg-warning'
+													: 'bg-info'}">{a.membership_status}</span
+										>
+									{/if}
 									{#if a.registration_date}
 										registered {a.registration_date}
 									{/if}

@@ -131,9 +131,11 @@ def test_instructor_class_attendees(inst_client, mocker):
         instructor.eauto, "fetch_attendees", return_value=[mock_attendee]
     )
     mocker.patch.object(
-        instructor.neon.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(email="member@example.com"),
+        instructor.neon,
+        "cached_get",
+        return_value={
+            "123": mocker.MagicMock(account_current_membership_status="Active")
+        },
     )
     result = inst_client.get("/instructor/class/attendees?id=12345")
     assert result.status_code == 200
@@ -142,9 +144,50 @@ def test_instructor_class_attendees(inst_client, mocker):
     assert len(rep) == 1
     assert rep[0]["user_id"] == 123
     assert rep[0]["email"] == "attendee@example.com"
-    assert rep[0]["member_email"] == "member@example.com"
+    assert rep[0]["membership_status"] == "active"
     assert rep[0]["registration_status"] == "SUCCEEDED"
     assert rep[0]["registration_date"] == "YYYY-MM-DD"
+
+
+def test_instructor_class_attendees_membership_statuses(mocker, inst_client):
+    """Membership status resolves to guest, active, or inactive."""
+
+    def attendee(email, user_id):
+        a = mocker.MagicMock()
+        a.email = email
+        a.user_id = user_id
+        a.fname = "First"
+        a.name = "First Last"
+        a.valid = True
+        a.registration_status = "SUCCEEDED"
+        a.registration_date = "YYYY-MM-DD"
+        return a
+
+    mocker.patch.object(
+        instructor.eauto,
+        "fetch_attendees",
+        return_value=[
+            attendee("active@example.com", 111),
+            attendee("inactive@example.com", 222),
+            attendee("guest@example.com", 333),
+        ],
+    )
+
+    def cached_get(email, **kwargs):
+        if email == "active@example.com":
+            return {"111": mocker.MagicMock(account_current_membership_status="Active")}
+        if email == "inactive@example.com":
+            return {
+                "222": mocker.MagicMock(account_current_membership_status="Inactive")
+            }
+        return {}
+
+    mocker.patch.object(instructor.neon, "cached_get", side_effect=cached_get)
+
+    result = inst_client.get("/instructor/class/attendees?id=375402919237")
+    assert result.status_code == 200
+    rep = json.loads(result.data.decode("utf8"))
+    assert [a["membership_status"] for a in rep] == ["active", "inactive", "guest"]
 
 
 def test_instructor_about_from_session(inst_client, mocker):

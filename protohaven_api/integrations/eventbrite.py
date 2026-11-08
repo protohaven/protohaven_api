@@ -28,15 +28,6 @@ def _eb_naive_local_utc_timestr(d: datetime.datetime) -> str:
     return d.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def is_valid_id(evt_id: EventbriteID) -> bool:
-    """Eventbrite IDs are massive versus Neon IDs; we can use this to determine whether
-    an arbitrary event ID is from Eventbrite"""
-    try:
-        return int(evt_id) >= 375402919237
-    except (ValueError, TypeError):
-        return False
-
-
 def fetch_events(
     include_ticketing=True,
     status="live",
