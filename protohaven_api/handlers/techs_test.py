@@ -680,6 +680,18 @@ def test_techs_members(mocker, tech_client):
     )
     m.name = "Test User"
     mocker.patch.object(tl.airtable, "get_signins_between", return_value=[m])
+    mocker.patch.object(
+        tl.neon,
+        "search_members_by_email",
+        return_value=[
+            mocker.MagicMock(
+                neon_id="123",
+                company_id="456",
+                clearances=["Wood Shop"],
+                account_current_membership_status="Active",
+            )
+        ],
+    )
     mocker.patch.object(tl, "tznow", return_value=d(0, 14))
 
     def safe_parse_datetime_side_effect(date_str):
@@ -702,6 +714,15 @@ def test_techs_members(mocker, tech_client):
     got = rep.json
     assert len(got) == 1
     assert got[0]["name"] == m.name
+    assert got[0]["clearances"] == ["Wood Shop"]
+    tl.neon.search_members_by_email.assert_called_once_with(
+        "bar",
+        fields=[
+            tl.neon.CustomField.CLEARANCES,
+            "Company ID",
+            "Account Current Membership Status",
+        ],
+    )
 
     # Test with end date specified
     rep = tech_client.get("/techs/members?start=2024-01-01&end=2024-01-05")
@@ -723,7 +744,29 @@ def test_techs_members(mocker, tech_client):
     )
     got = rep.json
     assert len(got) == 1
-    assert got[0]["name"] == m.name
+
+
+def test_techs_members_falls_back_to_signin_clearances(mocker, tech_client):
+    """Historical sign-in clearances are used when Neon has no live match"""
+    m = mocker.MagicMock(
+        status="foo",
+        email="bar",
+        member=True,
+        clearances=["Legacy Clearance"],
+        violations=[],
+        created=d(0),
+    )
+    m.name = "Test User"
+    mocker.patch.object(tl.airtable, "get_signins_between", return_value=[m])
+    mocker.patch.object(
+        tl.neon,
+        "search_members_by_email",
+        return_value=[],
+    )
+    mocker.patch.object(tl, "tznow", return_value=d(0, 14))
+
+    rep = tech_client.get("/techs/members")
+    assert rep.json[0]["clearances"] == ["Legacy Clearance"]
 
 
 def test_techs_tool_state(mocker, client):

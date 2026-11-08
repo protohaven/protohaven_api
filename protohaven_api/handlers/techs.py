@@ -118,6 +118,39 @@ def techs_docs_state():
     return wiki.get_tool_docs_summary()
 
 
+def _current_clearances(email: str) -> list[str] | None:
+    """Return current clearances for an individual Neon account by email.
+
+    Returns None when no individual account can be resolved so callers can
+    fall back to the clearances captured when the member signed in.
+    """
+    try:
+        members = list(
+            neon.search_members_by_email(
+                email,
+                fields=[
+                    neon.CustomField.CLEARANCES,
+                    "Company ID",
+                    "Account Current Membership Status",
+                ],
+            )
+        )
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.exception(f"Failed to fetch current clearances for {email}")
+        return None
+
+    individuals = [m for m in members if m.neon_id != m.company_id]
+    if not individuals:
+        return None
+
+    # Duplicate accounts sharing an email are rare, but prefer the active
+    # individual account when one exists.
+    for m in individuals:
+        if (m.account_current_membership_status or "").upper() == "ACTIVE":
+            return m.clearances
+    return individuals[0].clearances
+
+
 @page.route("/techs/members")
 @require_login_role(
     Role.SHOP_TECH_LEAD,
@@ -142,21 +175,34 @@ def techs_members():
         end = start.replace(hour=23, minute=59, second=59)
 
     log.info(f"Fetching signins from {start} to {end}")
-    return [
-        {
-            k: getattr(s, k)
-            for k in (
-                "name",
-                "status",
-                "email",
-                "member",
-                "clearances",
-                "violations",
-                "created",
+    signins = list(airtable.get_signins_between(start, end))
+    emails = sorted(
+        {s.email for s in signins if s.member and s.email and s.email != "UNKNOWN"}
+    )
+    clearances_by_email: dict[str, list[str] | None] = {}
+    if emails:
+        with futures.ThreadPoolExecutor(max_workers=5) as executor:
+            clearances_by_email = dict(
+                zip(emails, executor.map(_current_clearances, emails))
             )
-        }
-        for s in airtable.get_signins_between(start, end)
-    ]
+
+    result = []
+    for s in signins:
+        live_clearances = clearances_by_email.get(s.email)
+        result.append(
+            {
+                "name": s.name,
+                "status": s.status,
+                "email": s.email,
+                "member": s.member,
+                "clearances": (
+                    live_clearances if live_clearances is not None else s.clearances
+                ),
+                "violations": s.violations,
+                "created": s.created,
+            }
+        )
+    return result
 
 
 @lru_cache(maxsize=1)
