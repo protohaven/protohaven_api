@@ -195,6 +195,21 @@ def test_account_cache_miss_inactive(mocker):
     assert c["asdf"][123].account_current_membership_status == "Active"
 
 
+def test_account_cache_get_backslash_skips_neon_search(mocker):
+    """Trailing backslashes cause Neon search 500s, so treat them as misses."""
+    search = mocker.patch.object(
+        n,
+        "search_members_by_email",
+        side_effect=AssertionError("Neon search should not be called"),
+    )
+    c = n.AccountCache()
+
+    assert c.get("hello+testmember@protohaven.org\\", {}) == {}
+    with pytest.raises(KeyError):
+        c["hello+testmember@protohaven.org\\"]
+    search.assert_not_called()
+
+
 def test_account_update_causes_cache_hit(mocker):
     """Confirm that a call to update() fills the cache and does not require
     a Neon lookup upon fetch"""

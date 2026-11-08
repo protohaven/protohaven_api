@@ -540,6 +540,15 @@ class AccountCache(WarmDict):
 
     def _handle_inactive_or_notfound(self, k, v):
         if not v or not self._value_has_active_membership(v):
+            if "\\" in str(k):
+                # Neon's email search returns a 500 when the search value ends
+                # with a backslash. Treat it as a cache miss instead of making
+                # a request that is guaranteed to fail.
+                log.warning(
+                    "Skipping Neon search for invalid email key containing backslash: %r",
+                    k,
+                )
+                return v
             aa = list(
                 search_members_by_email(k, fields=self.FIELDS, fetch_memberships=False)
             )

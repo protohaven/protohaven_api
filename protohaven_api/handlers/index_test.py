@@ -644,6 +644,24 @@ def test_store_nfc_write_info_member_not_found(mocker):
     assert tokens == [["2024-06-01T12:00:00Z", "abc123"]]
 
 
+def test_welcome_sock_sends_notfound_on_signin_error(mocker):
+    """Sign-in exceptions must not leave the kiosk waiting for a response."""
+    ws = mocker.MagicMock()
+    ws.receive.return_value = json.dumps(
+        {"person": "member", "email": "hello+testmember@protohaven.org\\"}
+    )
+    mocker.patch.object(
+        index.sign_in,
+        "as_member",
+        side_effect=RuntimeError("Neon search failed"),
+    )
+
+    got = index.welcome_sock(ws)
+
+    assert got["notfound"] is True
+    assert json.loads(ws.send.call_args.args[0])["notfound"] is True
+
+
 def test_welcome_neon_ws_no_mqtt(mocker):
     """welcome_neon_ws returns 500 when the MQTT client is unavailable"""
     ws = mocker.MagicMock()

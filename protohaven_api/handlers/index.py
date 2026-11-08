@@ -96,20 +96,39 @@ def welcome_logo():
 
 def welcome_sock(ws):
     """Websocket for handling front desk sign-in process. Status is reported back periodically"""
-    data = json.loads(ws.receive())
+
+    def _send_error_result():
+        """Send a terminal response so the kiosk doesn't wait forever."""
+        result = sign_in.result_base()
+        result["notfound"] = True
+        try:
+            ws.send(json.dumps(result))
+        except Exception:  # pylint: disable=broad-exception-caught
+            log.exception("Failed to send welcome sign-in error response")
+        return result
+
+    try:
+        data = json.loads(ws.receive())
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.exception("Failed to parse welcome sign-in request")
+        return _send_error_result()
 
     def _send(msg, pct):
         ws.send(json.dumps({"msg": msg, "pct": pct}))
 
-    if data["person"] == "member":
-        result = sign_in.as_member(data, _send)
-    else:  # if data["person"] == "guest":
-        result = sign_in.as_guest(data)
+    try:
+        if data["person"] == "member":
+            result = sign_in.as_member(data, _send)
+        else:  # if data["person"] == "guest":
+            result = sign_in.as_guest(data)
 
-    if result.get("status") == "Active":
-        mqtt.notify_member_signed_in(result.get("neon_id"))
-    ws.send(json.dumps(result))
-    return result
+        if result.get("status") == "Active":
+            mqtt.notify_member_signed_in(result.get("neon_id"))
+        ws.send(json.dumps(result))
+        return result
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.exception("Error processing welcome sign-in")
+        return _send_error_result()
 
 
 def welcome_neon_ws(ws):  # pylint: disable=too-many-statements
