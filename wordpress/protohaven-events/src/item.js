@@ -1,4 +1,4 @@
-import { useEffect, useState } from '@wordpress/element';
+import { useState } from '@wordpress/element';
 
 function genURL(url, user, base_url){
 	if (user && user.neon_id) {
@@ -34,7 +34,15 @@ function FmtTimes( { times, expanded, onExpand, user, base_url } ) {
 			}
 		}
 		expand.push(<div key={evt_id}>
-			<a href={genURL(dd.url, user, base_url)} target="_blank">{dateStr(dd.d0)}</a>
+			<a
+				href={genURL(dd.url, user, base_url)}
+				target="_blank"
+				rel="noopener noreferrer"
+				onClick={(e) => {
+					e.preventDefault();
+					gotoURL(dd.url, user, base_url);
+				}}
+			>{dateStr(dd.d0)}</a>
 			&nbsp;{left}
 		</div>);
 		if (!expanded && expand.length >= EXPAND_THRESH) {
@@ -93,7 +101,15 @@ export function Item( {title, area, desc, levelDesc, age, features, img, times, 
 			{imgElem}
 			<h3 className="ph-title">{title}</h3>
 
-			<div className="ph-desc">{desc}... (<a href={link} target="_blank">more</a>)</div>
+			<div className="ph-desc">{desc}... (<a
+				href={genURL(link, user, base_url)}
+				target="_blank"
+				rel="noopener noreferrer"
+				onClick={(e) => {
+					e.preventDefault();
+					gotoURL(link, user, base_url);
+				}}
+			>more</a>)</div>
 		</div>
 		<div className="ph-fold">
 			<div className="ph-features">
