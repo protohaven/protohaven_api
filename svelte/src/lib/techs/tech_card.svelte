@@ -8,9 +8,9 @@
 		Row,
 		Col,
 		Button,
-		Modal
+		Modal,
+		Input
 	} from '@sveltestrap/sveltestrap';
-	import EditCell from './editable_td.svelte';
 	import type { DisplayTech } from './types';
 
 	export let tech: DisplayTech;
@@ -20,23 +20,81 @@
 	export let onDisenroll: (tech: DisplayTech) => void;
 	export let modalOpen: boolean = false;
 	export let onToggleModal: () => void;
+
+	let editing = false;
+	let draft = {
+		shop_tech_shift: '',
+		shop_tech_first_day: '',
+		shop_tech_last_day: '',
+		area_lead: '',
+		interest: '',
+		expertise: ''
+	};
+
+	$: can_edit = isTechLead || isCurrentUser;
+
+	function start_edit() {
+		draft = {
+			shop_tech_shift: tech.shop_tech_shift,
+			shop_tech_first_day: tech.shop_tech_first_day,
+			shop_tech_last_day: tech.shop_tech_last_day,
+			area_lead: tech.area_lead,
+			interest: tech.interest,
+			expertise: tech.expertise
+		};
+		editing = true;
+	}
+
+	function cancel_edit() {
+		editing = false;
+	}
+
+	function save_edit() {
+		tech.shop_tech_shift = draft.shop_tech_shift;
+		tech.shop_tech_first_day = draft.shop_tech_first_day;
+		tech.shop_tech_last_day = draft.shop_tech_last_day;
+		tech.area_lead = draft.area_lead;
+		tech.interest = draft.interest;
+		tech.expertise = draft.expertise;
+		editing = false;
+		onUpdate(tech);
+	}
 </script>
 
 <Card class="my-2">
 	<CardHeader>
 		<div class="d-flex justify-content-between align-items-center">
 			<CardTitle>{tech.name} ({tech.email})</CardTitle>
-			{#if isTechLead}
-				<Button
-					color="danger"
-					size="sm"
-					on:click={() => onDisenroll(tech)}
-					title="Disenroll {tech.name}"
-					aria-label="Disenroll {tech.name}"
-				>
-					Disenroll
-				</Button>
-			{/if}
+			<div class="d-flex align-items-center gap-1">
+				{#if editing}
+					<Button color="primary" size="sm" on:click={save_edit} aria-label="Save {tech.name}">
+						Save
+					</Button>
+					<Button
+						color="secondary"
+						size="sm"
+						on:click={cancel_edit}
+						aria-label="Cancel editing {tech.name}"
+					>
+						Cancel
+					</Button>
+				{:else if can_edit}
+					<Button color="primary" size="sm" on:click={start_edit} aria-label="Edit {tech.name}">
+						Edit
+					</Button>
+				{/if}
+				{#if isTechLead}
+					<Button
+						color="danger"
+						size="sm"
+						on:click={() => onDisenroll(tech)}
+						title="Disenroll {tech.name}"
+						aria-label="Disenroll {tech.name}"
+					>
+						Disenroll
+					</Button>
+				{/if}
+			</div>
 		</div>
 	</CardHeader>
 	<CardBody>
@@ -61,42 +119,54 @@
 					</Row>
 				</Col>
 				<Col>
-					<EditCell
-						title="Shift"
-						enabled={isTechLead}
-						on_change={() => onUpdate(tech)}
-						bind:value={tech.shop_tech_shift}
-					/>
-					<EditCell
-						title="First Day"
-						enabled={isTechLead}
-						on_change={() => onUpdate(tech)}
-						bind:value={tech.shop_tech_first_day}
-					/>
-					<EditCell
-						title="Last Day"
-						enabled={isTechLead}
-						on_change={() => onUpdate(tech)}
-						bind:value={tech.shop_tech_last_day}
-					/>
-					<EditCell
-						title="Area Lead"
-						enabled={isTechLead}
-						on_change={() => onUpdate(tech)}
-						bind:value={tech.area_lead}
-					/>
-					<EditCell
-						title="Interest"
-						enabled={isTechLead || isCurrentUser}
-						on_change={() => onUpdate(tech)}
-						bind:value={tech.interest}
-					/>
-					<EditCell
-						title="Expertise"
-						enabled={isTechLead || isCurrentUser}
-						on_change={() => onUpdate(tech)}
-						bind:value={tech.expertise}
-					/>
+					<div class="d-flex justify-content-between align-items-center my-1">
+						<strong>Shift</strong>
+						{#if editing && isTechLead}
+							<Input type="text" bind:value={draft.shop_tech_shift} aria-label="Shift" />
+						{:else}
+							<div class="mx-3">{tech.shop_tech_shift || ''}</div>
+						{/if}
+					</div>
+					<div class="d-flex justify-content-between align-items-center my-1">
+						<strong>First Day</strong>
+						{#if editing && isTechLead}
+							<Input type="text" bind:value={draft.shop_tech_first_day} aria-label="First Day" />
+						{:else}
+							<div class="mx-3">{tech.shop_tech_first_day || ''}</div>
+						{/if}
+					</div>
+					<div class="d-flex justify-content-between align-items-center my-1">
+						<strong>Last Day</strong>
+						{#if editing && isTechLead}
+							<Input type="text" bind:value={draft.shop_tech_last_day} aria-label="Last Day" />
+						{:else}
+							<div class="mx-3">{tech.shop_tech_last_day || ''}</div>
+						{/if}
+					</div>
+					<div class="d-flex justify-content-between align-items-center my-1">
+						<strong>Area Lead</strong>
+						{#if editing && isTechLead}
+							<Input type="text" bind:value={draft.area_lead} aria-label="Area Lead" />
+						{:else}
+							<div class="mx-3">{tech.area_lead || ''}</div>
+						{/if}
+					</div>
+					<div class="d-flex justify-content-between align-items-center my-1">
+						<strong>Interest</strong>
+						{#if editing && (isTechLead || isCurrentUser)}
+							<Input type="text" bind:value={draft.interest} aria-label="Interest" />
+						{:else}
+							<div class="mx-3">{tech.interest || ''}</div>
+						{/if}
+					</div>
+					<div class="d-flex justify-content-between align-items-center my-1">
+						<strong>Expertise</strong>
+						{#if editing && (isTechLead || isCurrentUser)}
+							<Input type="text" bind:value={draft.expertise} aria-label="Expertise" />
+						{:else}
+							<div class="mx-3">{tech.expertise || ''}</div>
+						{/if}
+					</div>
 					<Col>
 						<Button
 							outline

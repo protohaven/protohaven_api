@@ -24,7 +24,6 @@
 
 	import FetchError from '../fetch_error.svelte';
 	import { post, open_ws } from '$lib/api.ts';
-	import EditCell from './editable_td.svelte';
 
 	export let visible: boolean;
 	let loaded = false;
@@ -146,17 +145,43 @@
 		});
 	}
 
-	function handle_storage_type_select(evt: Event, sub: Sub, typ: string) {
-		// Do async to allow the dropdown time to close
-		setTimeout(() => {
-			console.log(evt, sub);
-			sub.storage_type = typ;
-			subs_sorted = subs_sorted; // Trigger repaint
-			update_sub_note(sub);
-		}, 0);
+	let sub_note_editing = false;
+	let editing_sub_id: string | number | null = null;
+	let draft_storage_type = 'Unknown';
+	let draft_storage_id = 'Unknown';
+	let draft_storage_detail = '';
+
+	function start_edit(sub: Sub) {
+		draft_storage_type = sub.storage_type;
+		draft_storage_id = sub.storage_id;
+		draft_storage_detail = sub.storage_detail;
+		editing_sub_id = sub.id;
 	}
 
-	let sub_note_editing = false;
+	function cancel_edit() {
+		editing_sub_id = null;
+	}
+
+	function set_draft_type(typ: string) {
+		draft_storage_type = typ;
+	}
+
+	function save_edit() {
+		if (editing_sub_id === null) {
+			return;
+		}
+		const sub = subs.find((s) => s.id === editing_sub_id);
+		if (!sub) {
+			cancel_edit();
+			return;
+		}
+		sub.storage_type = draft_storage_type;
+		sub.storage_id = draft_storage_id;
+		sub.storage_detail = draft_storage_detail;
+		subs_sorted = subs_sorted; // Trigger repaint
+		editing_sub_id = null;
+		update_sub_note(sub);
+	}
 	function update_sub_note(sub: Sub) {
 		sub.note = JSON.stringify({
 			storage_type: sub.storage_type.trim(),
@@ -293,6 +318,7 @@
 					<th>Type</th>
 					<th>ID</th>
 					<th>Detail</th>
+					<th>Actions</th>
 				</thead>
 				<tbody>
 					{#each subs_sorted as sub, i}
@@ -330,32 +356,70 @@
 							<td>{sub.membership_status}</td>
 							<td>{sub.start_date}</td>
 							<td>
-								<Dropdown autoClose={true}>
-									<DropdownToggle color="light" caret>{sub.storage_type}</DropdownToggle>
-									<DropdownMenu>
-										{#each ['Cart', 'Table', 'Parking space', 'Board/bar', 'Sheet', 'Locker', 'Cage', 'Rack', 'Other', 'Unknown'] as typ}
-											<DropdownItem
-												disabled={!sub.editable || sub_note_editing}
-												on:click={(e) => handle_storage_type_select(e, sub, typ)}
-												>{typ}</DropdownItem
-											>
-										{/each}
-									</DropdownMenu>
-								</Dropdown>
+								{#if editing_sub_id === sub.id}
+									<Dropdown autoClose={true}>
+										<DropdownToggle color="light" caret>{draft_storage_type}</DropdownToggle>
+										<DropdownMenu>
+											{#each ['Cart', 'Table', 'Parking space', 'Board/bar', 'Sheet', 'Locker', 'Cage', 'Rack', 'Other', 'Unknown'] as typ}
+												<DropdownItem on:click={() => set_draft_type(typ)}>{typ}</DropdownItem>
+											{/each}
+										</DropdownMenu>
+									</Dropdown>
+								{:else}
+									{sub.storage_type}
+								{/if}
 							</td>
 							<td>
-								<EditCell
-									enabled={Boolean(sub.editable && !sub_note_editing)}
-									on_change={() => update_sub_note(sub)}
-									bind:value={sub.storage_id}
-								/>
+								{#if editing_sub_id === sub.id}
+									<Input type="text" bind:value={draft_storage_id} aria-label="Storage ID" />
+								{:else}
+									{sub.storage_id}
+								{/if}
 							</td>
 							<td>
-								<EditCell
-									enabled={Boolean(sub.editable && !sub_note_editing)}
-									on_change={() => update_sub_note(sub)}
-									bind:value={sub.storage_detail}
-								/>
+								{#if editing_sub_id === sub.id}
+									<Input
+										type="text"
+										bind:value={draft_storage_detail}
+										aria-label="Storage Detail"
+									/>
+								{:else}
+									{sub.storage_detail}
+								{/if}
+							</td>
+							<td>
+								{#if editing_sub_id === sub.id}
+									<Button
+										color="primary"
+										size="sm"
+										on:click={save_edit}
+										disabled={sub_note_editing}
+										aria-label={`Save ${sub.customer}`}
+									>
+										Save
+									</Button>
+									<Button
+										color="secondary"
+										size="sm"
+										on:click={cancel_edit}
+										disabled={sub_note_editing}
+										aria-label={`Cancel editing ${sub.customer}`}
+									>
+										Cancel
+									</Button>
+								{:else}
+									<Button
+										color="primary"
+										size="sm"
+										on:click={() => start_edit(sub)}
+										disabled={!sub.editable ||
+											sub_note_editing ||
+											(editing_sub_id !== null && editing_sub_id !== sub.id)}
+										aria-label={`Edit ${sub.customer}`}
+									>
+										Edit
+									</Button>
+								{/if}
 							</td>
 						</tr>
 					{/each}
