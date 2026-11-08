@@ -45,16 +45,6 @@ def _upcoming_event(mocker):
     return m
 
 
-def test_get_account_email(mocker):
-    """Test email extraction"""
-    mocker.patch.object(
-        builder.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(email="foo@bar.com"),
-    )
-    assert builder.get_account_email("1234") == "foo@bar.com"
-
-
 def test_get_unscheduled_instructors(mocker):
     """Test calendar reminder generation. This mostly replicates an equivalent test of the comms
     module but I'm including it here anyways."""
@@ -110,17 +100,11 @@ def _mock_builder(  # pylint: disable=too-many-arguments
     mocker,
     upcoming_events=None,
     notifications_after_fn=lambda _neon_id, _date: {},
-    get_account_email_fn=lambda _id: "test@attendee.com",
 ):
     mocker.patch.object(
         builder.eauto,
         "fetch_upcoming_events",
         return_value=upcoming_events,
-    )
-    mocker.patch.object(
-        builder,
-        "get_account_email",
-        side_effect=get_account_email_fn,
     )
     mocker.patch.object(
         builder.airtable,
@@ -157,11 +141,6 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
-                    "subject": "Test Event: Please share feedback",
-                },
-                {
-                    "id": "1234",
-                    "target": "Noemail Alwayshidden (test@attendee.com)",
                     "subject": "Test Event: Please share feedback",
                 },
                 {
@@ -221,11 +200,6 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
                 {
-                    "id": "1234",
-                    "target": "Noemail Alwayshidden (test@attendee.com)",
-                    "subject": "Your class 'Test Event' is on for January 31!",
-                },
-                {
                     "id": "N/A",
                     "target": "#class-automation",
                     "subject": "Automation notification summary",
@@ -245,11 +219,6 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
-                    "subject": "Your class 'Test Event' is on for January 31!",
-                },
-                {
-                    "id": "1234",
-                    "target": "Noemail Alwayshidden (test@attendee.com)",
                     "subject": "Your class 'Test Event' is on for January 31!",
                 },
                 {
@@ -277,11 +246,6 @@ Tc = namedtuple("Tc", "desc,now,evt_ovr,want")
                 {
                     "id": "1234",
                     "target": "Test Attendee (test@attendee.com)",
-                    "subject": "Your class 'Test Event' was canceled",
-                },
-                {
-                    "id": "1234",
-                    "target": "Noemail Alwayshidden (test@attendee.com)",
                     "subject": "Your class 'Test Event' was canceled",
                 },
                 {

@@ -173,24 +173,6 @@ def test_techs_forecast_as_tech(mocker, tech_client):
     }
 
 
-def test_techs_event_registration_rejects_non_eventbrite(tech_client, mocker):
-    """Only Eventbrite events can be registered through /techs/event"""
-    mock_generate = mocker.patch.object(tl.eventbrite, "generate_discount_code")
-
-    rep = tech_client.post(
-        "/techs/event",
-        json={
-            "event_id": "test_event",
-            "ticket_id": "test_ticket",
-            "action": "register",
-        },
-    )
-
-    assert rep.status_code == 400
-    assert rep.data.decode() == "Only Eventbrite events can be registered for"
-    mock_generate.assert_not_called()
-
-
 def test_techs_event_registration_rejects_unregister(tech_client, mocker):
     """Unregister is no longer supported"""
     mock_generate = mocker.patch.object(tl.eventbrite, "generate_discount_code")

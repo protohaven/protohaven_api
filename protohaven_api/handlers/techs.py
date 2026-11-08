@@ -564,9 +564,6 @@ def techs_event_registration():  # pylint: disable=too-many-return-statements,to
     if action != "register":
         return Response("action must be 'register'", status=400)
 
-    if not eventbrite.is_valid_id(event_id):
-        return Response("Only Eventbrite events can be registered for", status=400)
-
     evt = eauto.fetch_event(event_id, tickets=True)
     eb_ticket_id = ticket_id or evt.single_registration_ticket_id
     if not eb_ticket_id:

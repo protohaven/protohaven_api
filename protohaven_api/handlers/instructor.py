@@ -16,7 +16,6 @@ from protohaven_api.integrations import (
     airtable,
     booked,
     comms,
-    eventbrite,
     neon,
     neon_base,
     sheets,
@@ -143,9 +142,7 @@ def instructor_class_templates():
     return result
 
 
-def _membership_status_for_attendee(
-    attendee: Any, event_id: str, member: Any = None
-) -> str:
+def _membership_status_for_attendee(attendee: Any) -> str:
     """Return guest, active, or inactive for an attendee based on Neon data."""
     if attendee.email:
         try:
@@ -164,15 +161,6 @@ def _membership_status_for_attendee(
                 return "active"
             return "inactive"
 
-    if member is None and attendee.user_id and not eventbrite.is_valid_id(event_id):
-        try:
-            member = neon_base.fetch_account(attendee.user_id)
-        except RuntimeError:
-            member = None
-    if member is not None:
-        status = (member.account_current_membership_status or "").lower()
-        return "active" if status in ("active", "future") else "inactive"
-
     return "guest"
 
 
@@ -181,7 +169,7 @@ def _membership_status_for_attendee(
     Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
 )
 def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
-    """Gets the attendees for a given class, by its neon ID"""
+    """Gets the attendees for a given class, by its Eventbrite ID"""
     event_id = request.args.get("id")
     if event_id is None:
         return Response("Requires URL parameter 'id'", status=400)
@@ -194,15 +182,6 @@ def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
     # Convert Attendee objects to dictionaries
     result = []
     for a in attendees:
-        member = None
-        # Try to get the Neon account if we have a user_id
-        # and it's not from eventbrite.
-        if a.user_id and not eventbrite.is_valid_id(event_id):
-            try:
-                member = neon_base.fetch_account(a.user_id)
-            except RuntimeError:
-                member = None
-
         attendee_dict = {
             "registration_date": a.registration_date,
             "registration_status": a.registration_status,
@@ -211,10 +190,8 @@ def instructor_class_attendees() -> Union[Response, list[dict[str, Any]]]:
             "fname": a.fname,
             "name": a.name,
             "valid": a.valid,
-            "membership_status": _membership_status_for_attendee(a, event_id, member),
+            "membership_status": _membership_status_for_attendee(a),
         }
-        if member is not None:
-            attendee_dict["member_email"] = member.email
         result.append(attendee_dict)
 
     return result

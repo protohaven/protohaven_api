@@ -137,13 +137,6 @@ def test_instructor_class_attendees(inst_client, mocker):
             "123": mocker.MagicMock(account_current_membership_status="Active")
         },
     )
-    mocker.patch.object(
-        instructor.neon.neon_base,
-        "fetch_account",
-        return_value=mocker.MagicMock(
-            email="member@example.com", account_current_membership_status="Active"
-        ),
-    )
     result = inst_client.get("/instructor/class/attendees?id=12345")
     assert result.status_code == 200
     rep = json.loads(result.data.decode("utf8"))
@@ -151,7 +144,6 @@ def test_instructor_class_attendees(inst_client, mocker):
     assert len(rep) == 1
     assert rep[0]["user_id"] == 123
     assert rep[0]["email"] == "attendee@example.com"
-    assert rep[0]["member_email"] == "member@example.com"
     assert rep[0]["membership_status"] == "active"
     assert rep[0]["registration_status"] == "SUCCEEDED"
     assert rep[0]["registration_date"] == "YYYY-MM-DD"
@@ -191,7 +183,6 @@ def test_instructor_class_attendees_membership_statuses(mocker, inst_client):
         return {}
 
     mocker.patch.object(instructor.neon, "cached_get", side_effect=cached_get)
-    mocker.patch.object(instructor.eventbrite, "is_valid_id", return_value=True)
 
     result = inst_client.get("/instructor/class/attendees?id=375402919237")
     assert result.status_code == 200
