@@ -128,7 +128,7 @@ class Commands:  # pylint: disable=too-few-public-methods
                 + ", ".join(invalids)
             )
 
-        if len(changes) > 0:
+        if len(changes) > 0 or len(errors) > 0:
             print_yaml(
                 [
                     Msg.tmpl(

@@ -200,16 +200,38 @@ def activate_membership(m):
         return
 
 
-def submit_forms(form_data):
-    """Submits sign in forms to log the event"""
+def submit_google_form(form_data):
+    """Submits the sign-in event to Google Forms."""
     rep = forms.submit_google_form("signin", form_data.to_google_form())
     log.info(f"Google form submitted, response {rep}")
-    rep = airtable.insert_signin(form_data.to_airtable())
-    log.info(f"Airtable log submitted, response {rep}")
+
+
+def submit_airtable_signin(form_data):
+    """Submits the sign-in event to Airtable, raising on failure."""
+    try:
+        rep = airtable.insert_signin(form_data.to_airtable())
+        if isinstance(rep, tuple):
+            status, content = rep
+            if status != 200:
+                raise RuntimeError(
+                    f"Airtable sign-in insert failed with status {status}: {content}"
+                )
+        log.info(f"Airtable log submitted, response {rep}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        log.exception("Failed to insert sign-in record in Airtable")
+        try:
+            notify_async(
+                f"@Staff: Failed to record sign-in in Airtable for "
+                f"{form_data.email}: {e}"
+            )
+        except Exception:  # pylint: disable=broad-exception-caught
+            log.exception("Failed to notify staff of Airtable sign-in failure")
+        raise
 
 
 def log_sign_in(data, result, meta):
-    """Logs a sign-in based on form data. Sends both to Airtable and Google Forms"""
+    """Logs a sign-in based on form data. Sends to Airtable and Google Forms
+    independently so one failing does not block the other."""
     # Note: setting `purpose` this way tricks the form into not requiring other fields
     form_data = SignInEvent(
         email=data["email"],
@@ -224,7 +246,28 @@ def log_sign_in(data, result, meta):
         violations=meta.get("violations") or [],
         status=result.get("status") or "UNKNOWN",
     )
-    _apply_async(submit_forms, args=(form_data,))
+    _apply_async(submit_airtable_signin, args=(form_data,))
+    _apply_async(submit_google_form, args=(form_data,))
+
+
+def _member_sort_key(m):
+    """Rank duplicate Neon accounts so the most likely current member is used.
+
+    Active accounts beat Future accounts beat everything else. Within the same
+    status tier, prefer accounts with clearances and a Booked user link, since
+    those are stronger signals that the account is the one used for shop access.
+    """
+    status = (m.account_current_membership_status or "").upper()
+    status_rank = 2 if status == "ACTIVE" else 1 if status == "FUTURE" else 0
+    try:
+        clearance_count = len(m.clearances or [])
+    except Exception:  # pylint: disable=broad-exception-caught
+        clearance_count = 0
+    try:
+        has_booked_id = bool(m.booked_id)
+    except Exception:  # pylint: disable=broad-exception-caught
+        has_booked_id = False
+    return (status_rank, clearance_count, has_booked_id)
 
 
 def get_member_and_activation_state(email):
@@ -255,10 +298,13 @@ def get_member_and_activation_state(email):
             "page/membership-validation)"
         )
         log.info("Notified of multiple accounts")
+        mm.sort(key=_member_sort_key, reverse=True)
 
     m = None
+    fallback = None
     # Deferred memberships are returned first, followed by active membership accounts
-    # and then inactive ones.
+    # and then inactive ones. Duplicate accounts are sorted above so the most
+    # likely current member is considered first.
     for m in mm:
         unverified_amp = "AMP" in (m.membership_level or "") and not m.income_based_rate
         if is_membership_deferred(m):
@@ -271,11 +317,13 @@ def get_member_and_activation_state(email):
                     f"they can use the shop."
                 )
                 log.info("Notified of unverified AMP status")
-            else:
-                return m, True
+                continue
+            return m, True
         if (m.account_current_membership_status or "").upper() == "ACTIVE":
             return m, False
-    return m, False
+        if fallback is None:
+            fallback = m
+    return (fallback if fallback is not None else m), False
 
 
 def handle_notify_board_and_staff(notify_str, fname, email, url):
@@ -455,10 +503,10 @@ def as_member(data, send):  # pylint: disable=too-many-statements,too-many-local
         )
 
     meta: dict[str, Any] = {"full_name": f"{m.fname} {m.lname}"}
+    meta["clearances"] = m.clearances
 
     try:
         send("Fetching announcements...", 55)
-        meta["clearances"] = m.clearances
         result["announcements"] = handle_announcements(
             last_ack=m.announcements_acknowledged,
             roles=[r["name"] for r in (m.roles or [])],
