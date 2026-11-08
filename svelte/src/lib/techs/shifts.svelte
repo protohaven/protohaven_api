@@ -15,6 +15,13 @@
 	import FetchError from '../fetch_error.svelte';
 	import { get, isodate } from '$lib/api.ts';
 	import { days_between, isToday, pad_calendar_dates, parseLocalDate } from '$lib/dates';
+	import {
+		CALENDAR_DEFAULT_DURATION_DAYS,
+		CALENDAR_MAX_DAYS,
+		calendar_range_from_url_search,
+		calendar_url_search_with_range,
+		default_calendar_range
+	} from './calendar_range';
 
 	interface UserInfo {
 		fullname?: string;
@@ -59,19 +66,11 @@
 	export let user: UserInfo | null = null;
 	export let visible: boolean;
 
-	const DEFAULT_DURATION = 14;
-	const DEFAULT_TRAIL = 3;
-
-	let start_date: string;
-	let end_date: string;
-	{
-		const start = new Date();
-		const end = new Date(start);
-		start.setDate(start.getDate() - DEFAULT_TRAIL);
-		end.setDate(end.getDate() + DEFAULT_DURATION);
-		start_date = isodate(start);
-		end_date = isodate(end);
-	}
+	const initial_range =
+		(typeof window !== 'undefined' && calendar_range_from_url_search(window.location.search)) ||
+		default_calendar_range();
+	let start_date = initial_range.start_date;
+	let end_date = initial_range.end_date;
 
 	let loaded = false;
 	let forecast_received_at = '';
@@ -103,15 +102,30 @@
 			});
 		});
 	}
+	function persist_range() {
+		if (typeof window === 'undefined') {
+			return;
+		}
+		const search = calendar_url_search_with_range(window.location.search, start_date, end_date);
+		if (!calendar_range_from_url_search(`?${search}`)) {
+			return;
+		}
+		window.history.replaceState(
+			null,
+			'',
+			`${window.location.pathname}?${search}${window.location.hash}`
+		);
+	}
+
 	function date_changed(was_start: boolean) {
 		console.log('date_changed');
 		let fix: number | null = null;
 		let start = parseLocalDate(start_date);
 		let end = parseLocalDate(end_date);
 		if (!end || end < start) {
-			fix = DEFAULT_DURATION;
-		} else if (days_between(start_date, end_date) > 60) {
-			fix = 60;
+			fix = CALENDAR_DEFAULT_DURATION_DAYS;
+		} else if (days_between(start_date, end_date) > CALENDAR_MAX_DAYS) {
+			fix = CALENDAR_MAX_DAYS;
 		}
 
 		if (fix) {
@@ -126,6 +140,7 @@
 				start_date = isodate(d);
 			}
 		}
+		persist_range();
 		refresh();
 	}
 	$: {

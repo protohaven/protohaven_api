@@ -36,9 +36,13 @@
 	let admin = false;
 	let user: WhoAmI | null = null;
 	let activeTab = 'cal';
+	let login_href = 'http://api.protohaven.org/login?referrer=/techs';
 	$: page_title = `Techs Dashboard: ${tab_titles[activeTab] || 'Cal'}`;
 	onMount(() => {
 		activeTab = (window.location.hash || '#cal').substring(1).trim();
+		login_href = `http://api.protohaven.org/login?referrer=${encodeURIComponent(
+			'/techs' + window.location.search + window.location.hash
+		)}`;
 		const urlParams = new URLSearchParams(window.location.search);
 		let e = urlParams.get('email');
 		if (!e) {
@@ -92,7 +96,7 @@
 				<Spinner />
 			{:then}
 				{#if !user || !user.fullname}
-					<NavLink href="http://api.protohaven.org/login?referrer=/techs">Login</NavLink>
+					<NavLink href={login_href}>Login</NavLink>
 				{:else}
 					<NavLink href="/logout">{user.fullname} (Logout)</NavLink>
 				{/if}
