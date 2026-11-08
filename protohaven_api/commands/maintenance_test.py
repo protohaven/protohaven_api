@@ -232,7 +232,8 @@ def test_check_door_sensors_with_warnings(mocker, cli):
         in got[0]["body"]
     )
     assert (
-        "Door Front Door offline; check battery and/or [Wyze Sense Hub]"
+        "Door Front Door offline; check battery and/or "
+        "[Wyze Sense Hub](<https://www.wyze.com/products/wyze-hms-bundle>)"
         in got[0]["body"]
     )
     assert "**IMPORTANT**: Door Back Door is open" in got[0]["body"]
