@@ -110,6 +110,36 @@ describe('techs roster', () => {
 		});
 	});
 
+	it('edits all roster fields for a tech and saves them together', () => {
+		cy.intercept('POST', '**/techs/update', { body: { status: 'ok' } }).as('update');
+		mountTechsList({ tech_lead: true });
+
+		cy.contains('.card', 'Ada Lovelace').within(() => {
+			cy.get('button[aria-label="Edit Ada Lovelace"]').click();
+			cy.get('input[aria-label="Shift"]').clear().type('Tue PM');
+			cy.get('input[aria-label="First Day"]').clear().type('2024-06-01');
+			cy.get('input[aria-label="Last Day"]').clear().type('2025-06-01');
+			cy.get('input[aria-label="Area Lead"]').clear().type('Metal Shop');
+			cy.get('input[aria-label="Interest"]').clear().type('Lathe');
+			cy.get('input[aria-label="Expertise"]').clear().type('Painting');
+			cy.get('button[aria-label="Save Ada Lovelace"]').click();
+		});
+
+		cy.wait('@update').then((interception) => {
+			expect(interception.request.body).to.deep.include({
+				neon_id: '1',
+				name: 'Ada Lovelace',
+				email: 'ada@example.com',
+				shop_tech_shift: ['Tue', 'PM'],
+				shop_tech_first_day: '2024-06-01',
+				shop_tech_last_day: '2025-06-01',
+				area_lead: 'Metal Shop',
+				interest: 'Lathe',
+				expertise: 'Painting'
+			});
+		});
+	});
+
 	it('enrolls a tech found via Neon search', () => {
 		cy.intercept('POST', '**/neon_lookup*', {
 			body: [{ neon_id: '99', name: 'Alan Turing', email: 'alan@example.com' }]

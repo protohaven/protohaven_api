@@ -122,7 +122,7 @@ describe('techs storage', () => {
 		);
 	});
 
-	it('edits subscription type, id, and note and saves changes', () => {
+	it('edits subscription type, id, and detail and saves changes together', () => {
 		cy.intercept('POST', '**/techs/storage_subscriptions/111/note', {
 			body: { status: 'ok' }
 		}).as('note');
@@ -134,19 +134,24 @@ describe('techs storage', () => {
 			socket.close();
 		});
 
-		// Change the storage type using the dropdown.
+		cy.get('tbody tr').first().find('button[aria-label="Edit Ada Lovelace"]').click();
+
+		// Change all three editable fields before saving.
 		cy.contains('button', 'Cart').click();
 		cy.contains('Locker').click();
-		cy.wait('@note').then((interception) => {
-			expect(interception.request.body.note).to.contain('"storage_type":"Locker"');
-		});
+		cy.get('tbody tr').first().find('input[aria-label="Storage ID"]').clear().type('L13');
+		cy.get('tbody tr')
+			.first()
+			.find('input[aria-label="Storage Detail"]')
+			.clear()
+			.type('by the door');
+		cy.get('tbody tr').first().find('button[aria-label="Save Ada Lovelace"]').click();
 
-		// Edit the storage ID through the editable cell.
-		cy.get('tbody tr').first().find('button[aria-label="Edit null"]').first().click();
-		cy.get('tbody tr').first().find('input[aria-label="Edit null"]').first().clear().type('L13');
-		cy.get('tbody tr').first().find('[aria-label="Save changes"]').filter(':visible').click();
 		cy.wait('@note').then((interception) => {
-			expect(interception.request.body.note).to.contain('"storage_id":"L13"');
+			const note = interception.request.body.note;
+			expect(note).to.contain('"storage_type":"Locker"');
+			expect(note).to.contain('"storage_id":"L13"');
+			expect(note).to.contain('"storage_detail":"by the door"');
 		});
 	});
 
@@ -176,8 +181,7 @@ describe('techs storage', () => {
 		cy.get('a[href*="airtable.com/appZIwlIgaq1Ps28Y"]')
 			.should('have.attr', 'target', '_blank')
 			.and('be.visible');
-		// Airtable agreements are edited on Airtable, so their dropdown items are disabled.
-		cy.contains('button', 'Cage').click();
-		cy.contains('Locker').should('have.class', 'disabled');
+		// Airtable agreements are edited on Airtable, so the row edit button is disabled.
+		cy.get('tbody tr').first().find('button[aria-label="Edit Ada Lovelace"]').should('be.disabled');
 	});
 });
