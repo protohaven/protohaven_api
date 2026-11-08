@@ -195,8 +195,21 @@ def test_account_cache_miss_inactive(mocker):
     assert c["asdf"][123].account_current_membership_status == "Active"
 
 
-def test_account_cache_get_backslash_skips_neon_search(mocker):
-    """Trailing backslashes cause Neon search 500s, so treat them as misses."""
+@pytest.mark.parametrize(
+    "email",
+    [
+        "hello+testmember@protohaven.org\\",
+        'hello"testmember@protohaven.org',
+        "hello testmember@protohaven.org",
+        "hello,testmember@protohaven.org",
+        "hello(testmember)@protohaven.org",
+        "hello[testmember]@protohaven.org",
+        "hello<testmember>@protohaven.org",
+        "hello:testmember@protohaven.org",
+    ],
+)
+def test_account_cache_get_forbidden_chars_skip_neon_search(mocker, email):
+    """Invalid email characters cause Neon search 500s, so treat them as misses."""
     search = mocker.patch.object(
         n,
         "search_members_by_email",
@@ -204,10 +217,29 @@ def test_account_cache_get_backslash_skips_neon_search(mocker):
     )
     c = n.AccountCache()
 
-    assert c.get("hello+testmember@protohaven.org\\", {}) == {}
+    assert c.get(email, {}) == {}
     with pytest.raises(KeyError):
-        c["hello+testmember@protohaven.org\\"]
+        c[email]
     search.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "email",
+    [
+        "foo_bar@example.com",
+        "first.last+tag@example.com",
+        "user@sub.example.com",
+        "O'Brien@example.com",
+        "foo!bar@example.com",
+    ],
+)
+def test_account_cache_get_valid_email_search(mocker, email):
+    """Valid email characters should still reach the Neon search fallback."""
+    search = mocker.patch.object(n, "search_members_by_email", return_value=[])
+    c = n.AccountCache()
+
+    assert c.get(email, {}) == {}
+    search.assert_called_once_with(email, fields=c.FIELDS, fetch_memberships=False)
 
 
 def test_account_update_causes_cache_hit(mocker):
