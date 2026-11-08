@@ -61,10 +61,9 @@ def login_user_neon_oauth():
 
 @page.route("/logout")
 def logout():
-    """Log out the current user and destroy the session data"""
-    session["neon_id"] = None
-    session["neon_account"] = None
-    return "You've been logged out"
+    """Log out the current user, destroy the session, and log out of Neon SSO"""
+    session.clear()
+    return redirect(oauth.logout_uri())
 
 
 def login_with_neon_id(neon_id):
