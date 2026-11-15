@@ -180,9 +180,17 @@ class Member:  # pylint:disable=too-many-public-methods
         "Additional Family Membership",
         "Company Membership",
         "Corporate Membership",
+        "Weekday Membership",
         "Weekend Membership",
         "Weeknight Membership",
         "Non-profit Membership",
+        "Nonprofit Membership Seat (independent)",
+        "BikePGH Membership",
+        "PSA Membership",
+        "CWE Membership",
+        "AAP Membership",
+        "Shop Tech",
+        "Staff",
     ]
 
     @classmethod

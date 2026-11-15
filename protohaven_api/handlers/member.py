@@ -160,7 +160,7 @@ def goto_class():
         log.info(
             f"Generating {percent_off}% discount for member #{neon_id} for eventbrite #{evt_id}"
         )
-        code = eventbrite.generate_discount_code(evt_id, percent_off)
+        code = eventbrite.generate_discount_code(None, percent_off)
         url += f"?discount={code}"
         log.info(f"Generated code {code}; redirecting to {url}")
         # https://intercom.help/eventbrite-marketing/en/articles/7239804-create-a-code-that-gives-a-discount-or-reveals-hidden-tickets
