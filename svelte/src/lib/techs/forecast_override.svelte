@@ -45,7 +45,7 @@
 	});
 	export let on_update: () => void;
 
-	const EDIT_ROLES = ['Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'];
+	const EDIT_ROLES = ['Shop Tech Lead', 'Education Lead', 'Admin', 'Staff', 'Shop Tech'];
 	$: can_edit =
 		edit !== null &&
 		Array.isArray(edit.roles) &&
@@ -151,9 +151,17 @@
 	<ModalFooter>
 		<div style="width: 100%">
 			{#if !can_edit}
-				<Alert color="warning"
-					>You must be <a href="https://api.protohaven.org/login">logged in</a> to modify the shift schedule</Alert
-				>
+				{#if edit?.fullname}
+					<Alert color="warning"
+						>You are logged in as {edit.fullname}, but your account does not have permission to
+						modify the shift schedule.</Alert
+					>
+				{:else}
+					<Alert color="warning"
+						>You must be <a href="https://api.protohaven.org/login">logged in</a> to modify the shift
+						schedule</Alert
+					>
+				{/if}
 			{/if}
 			{#if edit?.id}
 				Original:

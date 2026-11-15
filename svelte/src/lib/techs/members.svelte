@@ -61,7 +61,7 @@
 	$: can_view =
 		user !== null &&
 		(user.roles || []).some((role: string) =>
-			['Shop Tech', 'Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'].includes(role)
+			['Shop Tech', 'Shop Tech Lead', 'Education Lead', 'Admin', 'Staff'].includes(role)
 		);
 	let search_term = '';
 	let search_results: SearchResult[] = [];
@@ -211,7 +211,8 @@
 		<CardBody>
 			{#if !can_view}
 				<Alert color="warning"
-					>Access denied. You must be logged in as a Shop Tech or Tech Lead to view members.</Alert
+					>Access denied. You must be logged in as a Shop Tech, Shop Tech Lead, Education Lead,
+					Staff, or Admin to view members.</Alert
 				>
 			{:else}
 				<div class="row">
