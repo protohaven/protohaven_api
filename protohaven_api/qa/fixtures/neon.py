@@ -177,26 +177,25 @@ def create_mock_account(ctx: Any, job: str) -> MockNeonAccount:
 def create_membership(
     account_id: str,
     start: datetime.datetime,
-    end: datetime.datetime | None,
+    end: datetime.datetime,
     level: dict[str, Any] | None = None,
     term: dict[str, Any] | None = None,
     fee: int = 0,
     status: str = "SUCCEEDED",
-    term_unit: str = "MONTH",
 ) -> dict[str, Any]:
-    """Create a membership for a mock Neon account.
+    """Create a finite, monthly membership for a mock Neon account.
 
-    ``end`` may be ``None`` to deliberately create an active membership with
-    no end date. Neon V2 only permits omitting ``termEndDate`` for term units
-    that have no fixed duration (e.g. ``LIFE``), so callers should pass the
-    matching ``term_unit`` when requesting an open-ended membership.
+    QA memberships must never use a lifetime term. Lifetime memberships reject
+    ``termEndDate`` updates, which breaks new-member init and sign-in activation
+    flows that set placeholder/current membership dates.
     """
     payload: dict[str, Any] = {
         "accountId": account_id,
         "membershipLevel": level or {"id": 1, "name": "General Membership"},
         "membershipTerm": term or {"id": 1, "name": "General - $115/mo (Join)"},
         "termStartDate": start.strftime("%Y-%m-%d"),
-        "termUnit": term_unit,
+        "termEndDate": end.strftime("%Y-%m-%d"),
+        "termUnit": "MONTH",
         "transactionDate": start.strftime("%Y-%m-%d"),
         "autoRenewal": False,
         "enrollType": "JOIN",
@@ -204,8 +203,6 @@ def create_membership(
         "totalCharge": fee,
         "status": status,
     }
-    if end is not None:
-        payload["termEndDate"] = end.strftime("%Y-%m-%d")
     if fee > 0:
         # Neon requires at least one payment when creating a paid membership.
         payload["payments"] = [

@@ -21,17 +21,7 @@ def test_deleted_qa_email_is_unique_and_searchable():
     assert email.startswith(neon_fixture.QA_DELETED_EMAIL_PREFIX)
 
 
-def test_create_membership_omits_term_end_for_life_unit(mocker):
-    post = mocker.patch.object(neon_fixture.neon_base, "post")
-    neon_fixture.create_membership(
-        "123", neon_fixture.datetime.datetime(2026, 10, 8), None, term_unit="LIFE"
-    )
-    payload = post.call_args.args[2]
-    assert "termEndDate" not in payload
-    assert payload["termUnit"] == "LIFE"
-
-
-def test_create_membership_includes_term_end_for_dated_membership(mocker):
+def test_create_membership_is_always_finite_monthly(mocker):
     post = mocker.patch.object(neon_fixture.neon_base, "post")
     neon_fixture.create_membership(
         "123",
