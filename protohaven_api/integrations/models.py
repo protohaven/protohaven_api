@@ -184,6 +184,12 @@ class Member:  # pylint:disable=too-many-public-methods
         "Weekend Membership",
         "Weeknight Membership",
         "Non-profit Membership",
+        "Nonprofit Membership Seat (independent)",
+        "BikePGH Membership",
+        "PSA Membership",
+        "CWE Membership",
+        "AAP Membership",
+        "Staff",
     ]
 
     @classmethod
