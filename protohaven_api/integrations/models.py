@@ -180,6 +180,7 @@ class Member:  # pylint:disable=too-many-public-methods
         "Additional Family Membership",
         "Company Membership",
         "Corporate Membership",
+        "Weekday Membership",
         "Weekend Membership",
         "Weeknight Membership",
         "Non-profit Membership",
@@ -445,6 +446,8 @@ class Member:  # pylint:disable=too-many-public-methods
                 return 20  # WARNING: read this method's header
             if level in self.MEMBERSHIP_DISCOUNT_LEVELS:
                 return 20  # WARNING: read this method's header
+            if self.membership_term == "Shop Tech":
+                return 20
         except Exception:  # pylint: disable=broad-exception-caught
             # This is used in /whoami lookups and would be very bad
             # to fail (most sites unusable).

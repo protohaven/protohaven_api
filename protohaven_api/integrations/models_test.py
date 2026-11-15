@@ -828,6 +828,13 @@ def test_event_discount_pct():
         obj.membership_level = level
         assert obj.event_discount_pct() == 20
 
+    # Test Shop Tech membership term returns 20
+    obj.income_based_rate = None
+    obj.membership_level = "Some Other Level"
+    obj.neon_search_data = {"Membership Term": "Shop Tech"}
+    assert obj.event_discount_pct() == 20
+    obj.neon_search_data = {}
+
     # Test non-eligible membership level returns 0
     obj.membership_level = "Some Other Level"
     assert obj.event_discount_pct() == 0

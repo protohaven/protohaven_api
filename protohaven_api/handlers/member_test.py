@@ -147,9 +147,11 @@ def test_goto_class_with_discount(mocker, memclient):
     """Redirects with discount code when member has positive discount"""
     mock_member = mocker.MagicMock()
     mock_member.event_discount_pct.return_value = 25
-    mocker.patch.object(neon, "search_member_by_neon_id", return_value=mock_member)
+    mock_search = mocker.patch.object(
+        neon, "search_member_by_neon_id", return_value=mock_member
+    )
     mocker.patch.object(member, "_fetch_neon_id", return_value="12345")
-    mocker.patch.object(
+    mock_generate = mocker.patch.object(
         eventbrite,
         "generate_discount_code",
         return_value="DISCOUNT25",
@@ -159,6 +161,11 @@ def test_goto_class_with_discount(mocker, memclient):
     assert response.status_code == 302
     expected_url = "https://www.eventbrite.com/e/123456789/?discount=DISCOUNT25"
     assert response.location == expected_url
+    assert "Membership Term" in mock_search.call_args.kwargs["fields"]
+    assert (
+        neon.CustomField.API_SERVER_ROLE not in mock_search.call_args.kwargs["fields"]
+    )
+    mock_generate.assert_called_once_with(None, 25)
 
 
 def test_set_discord_success(mocker, memclient):
