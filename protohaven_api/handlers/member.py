@@ -148,7 +148,6 @@ def goto_class():
             "Account Current Membership Status",
             "Membership Level",
             neon.CustomField.INCOME_BASED_RATE,
-            "Membership Term",
         ],
     )
     if not neon_member:

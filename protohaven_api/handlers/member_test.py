@@ -161,10 +161,11 @@ def test_goto_class_with_discount(mocker, memclient):
     assert response.status_code == 302
     expected_url = "https://www.eventbrite.com/e/123456789/?discount=DISCOUNT25"
     assert response.location == expected_url
-    assert "Membership Term" in mock_search.call_args.kwargs["fields"]
-    assert (
-        neon.CustomField.API_SERVER_ROLE not in mock_search.call_args.kwargs["fields"]
-    )
+    assert mock_search.call_args.kwargs["fields"] == [
+        "Account Current Membership Status",
+        "Membership Level",
+        neon.CustomField.INCOME_BASED_RATE,
+    ]
     mock_generate.assert_called_once_with(None, 25)
 
 
