@@ -215,8 +215,8 @@
 				{:else if !user || !p.can_register}
 					<p>
 						<strong
-							>You must <a href="http://api.protohaven.org/login">login</a> as a Shop Tech or Tech Lead
-							to register for events.</strong
+							>You must <a href="http://api.protohaven.org/login">login</a> as a Shop Tech or Shop Tech
+							Lead to register for events.</strong
 						>
 					</p>
 				{:else}
@@ -291,8 +291,8 @@
 					<p>
 						Note: this event is unlisted and will not appear on the <a
 							href="protohaven.org/classes/">Classes and Events</a
-						> page. Event creation is only visible to logged-in users with the Tech Leads role set in
-						Neon CRM.
+						> page. Event creation is only visible to logged-in users with the Shop Tech Lead role set
+						in Neon CRM.
 					</p>
 
 					<Form>

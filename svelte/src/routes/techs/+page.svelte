@@ -45,7 +45,7 @@
 			promise = get('/whoami')
 				.then((d) => {
 					admin = (d.roles || []).some((role: string) =>
-						['Tech Lead', 'Education Lead', 'Admin', 'Board Member', 'Staff'].includes(role)
+						['Shop Tech Lead', 'Education Lead', 'Admin', 'Staff'].includes(role)
 					);
 					user = d;
 				})

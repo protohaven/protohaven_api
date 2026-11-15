@@ -21,7 +21,7 @@ function mountShifts(calendarView: Record<string, unknown>[]) {
 			user: {
 				fullname: 'Ada Lovelace',
 				email: 'ada@example.com',
-				roles: ['Tech Lead']
+				roles: ['Shop Tech Lead']
 			}
 		}
 	});
