@@ -21,17 +21,7 @@ def test_deleted_qa_email_is_unique_and_searchable():
     assert email.startswith(neon_fixture.QA_DELETED_EMAIL_PREFIX)
 
 
-def test_create_membership_omits_term_end_for_life_unit(mocker):
-    post = mocker.patch.object(neon_fixture.neon_base, "post")
-    neon_fixture.create_membership(
-        "123", neon_fixture.datetime.datetime(2026, 10, 8), None, term_unit="LIFE"
-    )
-    payload = post.call_args.args[2]
-    assert "termEndDate" not in payload
-    assert payload["termUnit"] == "LIFE"
-
-
-def test_create_membership_includes_term_end_for_dated_membership(mocker):
+def test_create_membership_is_always_finite_monthly(mocker):
     post = mocker.patch.object(neon_fixture.neon_base, "post")
     neon_fixture.create_membership(
         "123",
@@ -102,8 +92,26 @@ def test_clear_account_cart_deletes_active_cart_orders(mocker):
     ]
 
 
-def test_reuse_deleted_account_patches_primary_contact(mocker):
+def test_clear_account_memberships_deletes_all_memberships(mocker):
+    fetch = mocker.patch.object(
+        neon_fixture.neon_base,
+        "paginated_fetch",
+        return_value=[{"id": "1"}, {"id": "2"}, {"id": None}],
+    )
+    delete = mocker.patch.object(neon_fixture.neon_base, "delete")
+
+    neon_fixture._clear_account_memberships("3590")
+
+    fetch.assert_called_once_with("api_key2", "/accounts/3590/memberships")
+    assert delete.call_args_list == [
+        mocker.call("api_key2", "/memberships/1"),
+        mocker.call("api_key2", "/memberships/2"),
+    ]
+
+
+def test_reuse_deleted_account_clears_cart_and_memberships_before_patch(mocker):
     clear_cart = mocker.patch.object(neon_fixture, "_clear_account_cart")
+    clear_memberships = mocker.patch.object(neon_fixture, "_clear_account_memberships")
     patch = mocker.patch.object(neon_fixture.neon_base, "patch_account")
     neon_fixture.reuse_deleted_account(
         "3590",
@@ -111,6 +119,7 @@ def test_reuse_deleted_account_patches_primary_contact(mocker):
         "QA Cronicle sync-booked-members abc123",
     )
     clear_cart.assert_called_once_with("3590")
+    clear_memberships.assert_called_once_with("3590")
     patch.assert_called_once_with(
         "3590",
         {

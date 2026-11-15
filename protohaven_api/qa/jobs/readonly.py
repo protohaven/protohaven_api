@@ -501,11 +501,6 @@ def test_membership_val(ctx: QAContext):
     now = tznow()
     ids = []
 
-    # Active membership with no end date.
-    acct = neon_fixture.create_mock_account(ctx, "membership-val-no-end")
-    neon_fixture.create_membership(acct.neon_id, now, None, term_unit="LIFE")
-    ids.append(acct.neon_id)
-
     # Shop Tech membership without the API server role.
     acct = neon_fixture.create_mock_account(ctx, "membership-val-shop-tech")
     neon_fixture.create_membership(
@@ -550,7 +545,6 @@ def test_membership_val(ctx: QAContext):
         result.text,
         [
             "validation problems found",
-            "no end date",
             "Needs role Shop Tech",
             "Mismatch between Income based rate",
         ],

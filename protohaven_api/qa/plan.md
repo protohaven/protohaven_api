@@ -339,7 +339,6 @@ creates a temporary unpublished event and Airtable schedule row.
 #### `membership_val` (`elxbtcrmq3d`) — `validate_memberships`
 
 - **Setup:** create mock Neon accounts with deliberately invalid states:
-  - active membership with no end date
   - Shop Tech membership without the Shop Tech API server role
   - AMP membership whose income-based rate does not match the term
 - **Run:** `--member_ids=<csv of mock ids>`, overrides, send_comms on.
