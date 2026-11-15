@@ -92,9 +92,25 @@ def _clear_account_cart(account_id: str) -> None:
             neon_base.delete("api_key2", f"/orders/{order_id}")
 
 
+def _clear_account_memberships(account_id: str) -> None:
+    """Delete Neon memberships attached to a QA account.
+
+    QA-deleted accounts may still carry memberships from the previous QA run.
+    Leaving them in place makes the recycled account look active before the
+    job under test has created its own membership.
+    """
+    for membership in neon_base.paginated_fetch(
+        "api_key2", f"/accounts/{account_id}/memberships"
+    ):
+        membership_id = membership.get("id")
+        if membership_id:
+            neon_base.delete("api_key2", f"/memberships/{membership_id}")
+
+
 def reuse_deleted_account(account_id: str, email: str, name: str) -> None:
     """Point a QA-deleted Neon account at a fresh QA identity."""
     _clear_account_cart(account_id)
+    _clear_account_memberships(account_id)
     neon_base.patch_account(
         account_id,
         {
