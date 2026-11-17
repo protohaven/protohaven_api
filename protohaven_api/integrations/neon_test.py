@@ -264,6 +264,26 @@ def test_account_update_causes_cache_hit(mocker):
     assert c[want.email] == {123: want}
 
 
+def test_cached_get_fetch_if_missing_disabled(mocker):
+    """cached_get with fetch_if_missing=False must not fall back to Neon"""
+    mocker.patch.object(n, "get_config", return_value=False)
+    cache = mocker.patch.object(n, "cache")
+    cache.get.return_value = {}
+
+    assert n.cached_get("a@b.com", fetch_if_missing=False) == {}
+    cache.get.assert_called_once_with("a@b.com", {}, fetch_if_missing=False)
+
+
+def test_cached_get_fetch_if_missing_enabled(mocker):
+    """cached_get with fetch_if_missing=True uses the cache miss fallback"""
+    mocker.patch.object(n, "get_config", return_value=False)
+    cache = mocker.patch.object(n, "cache")
+    cache.get.return_value = {"123": "member"}
+
+    assert n.cached_get("a@b.com", fetch_if_missing=True) == {"123": "member"}
+    cache.get.assert_called_once_with("a@b.com", {})
+
+
 def test_account_cache_miss_keyerror(mocker):
     """Confirm that __getitem__ exceptions are suppressed if direct lookup
     succeeds, are thrown if direct lookup also fails"""
