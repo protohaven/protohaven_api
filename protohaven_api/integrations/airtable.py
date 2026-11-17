@@ -720,13 +720,28 @@ def get_all_tech_bios():
     return list(get_all_records("people", "volunteers_staff"))
 
 
+SIGNIN_FIELDS = (
+    "Created",
+    "Email",
+    "Full Name",
+    "Am Member",
+    "Status",
+    "Clearances",
+    "Violations",
+)
+
+
 def get_signins_between(start, end) -> Iterable[SignInEvent | None]:
     """Fetches all sign-in data between two dates; or after `start` if `end` is None"""
     if not end:
-        for rec in get_all_records_after("people", "sign_ins", start):
+        for rec in get_all_records_after(
+            "people", "sign_ins", start, fields=SIGNIN_FIELDS
+        ):
             yield SignInEvent.from_airtable(rec)
     else:
-        for rec in get_all_records_between("people", "sign_ins", start, end):
+        for rec in get_all_records_between(
+            "people", "sign_ins", start, end, fields=SIGNIN_FIELDS
+        ):
             yield SignInEvent.from_airtable(rec)
 
 

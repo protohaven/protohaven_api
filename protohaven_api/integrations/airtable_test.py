@@ -871,8 +871,10 @@ def test_get_signins_between(mocker):
     )
     assert list(a.get_signins_between(d(0), None)) == ["after"]
     assert list(a.get_signins_between(d(0), d(1))) == ["between"]
-    after.assert_called_once_with("people", "sign_ins", d(0))
-    between.assert_called_once_with("people", "sign_ins", d(0), d(1))
+    after.assert_called_once_with("people", "sign_ins", d(0), fields=a.SIGNIN_FIELDS)
+    between.assert_called_once_with(
+        "people", "sign_ins", d(0), d(1), fields=a.SIGNIN_FIELDS
+    )
 
 
 def test_insert_signin_and_survey_response(mocker):
