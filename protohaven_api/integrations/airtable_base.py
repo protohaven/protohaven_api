@@ -55,6 +55,24 @@ def get_airtable_schema(base):
     return content
 
 
+NOCODB_PAGE_SIZE = 1000
+
+
+def _apply_fields_param(params: dict, fields: Iterable[str] | None):
+    """Apply field projection to a list-records query.
+
+    NocoDB takes `fields` as a comma-separated string; Airtable expects
+    repeated `fields[]` query parameters.
+    """
+    if not fields:
+        return
+    fields = list(fields)
+    if get_connector().db_format() == "nocodb":
+        params["fields"] = ",".join(fields)
+    else:
+        params["fields[]"] = fields
+
+
 def get_all_records(
     base: str, tbl: str, params: dict = None
 ) -> Iterable[dict[str, Any]]:
@@ -63,13 +81,20 @@ def get_all_records(
     Airtable pagination uses the `offset` query parameter and has no
     documented total-record cap, so this loops until the API stops returning
     an offset. NocoDB uses `next` URLs for the same purpose.
+
+    NocoDB's default page size is very small, so request a larger page up
+    front to avoid a request per handful of records.
     """
     records: list[dict[str, Any]] = []
     s = ""
-    params = params or {}
+    params = dict(params or {})
+    if get_connector().db_format() == "nocodb":
+        params.setdefault("pageSize", NOCODB_PAGE_SIZE)
     prev_page = None
     while True:
-        status, content = get_connector().db_request("GET", base, tbl, params=params)
+        status, content = get_connector().db_request(
+            "GET", base, tbl, params=dict(params)
+        )
         if status == 404:
             raise TableNotFoundError(
                 f"Airtable fetch {base} {tbl} {s}",
@@ -115,13 +140,21 @@ def get_all_records(
     return records
 
 
-def get_all_records_between(base, tbl, start_date, end_date, field="Created"):
+def get_all_records_between(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    base,
+    tbl,
+    start_date,
+    end_date,
+    field="Created",
+    fields: Iterable[str] | None = None,
+):
     """Returns a list of all records in the table with the
     Created field timestamp after a certain date"""
-    params = {}
+    params: dict[str, Any] = {}
     if not end_date:
-        return get_all_records_after(base, tbl, start_date, field)
+        return get_all_records_after(base, tbl, start_date, field, fields)
 
+    _apply_fields_param(params, fields)
     if get_connector().db_format() == "nocodb":
         params["where"] = (
             f"({field},le,exactDate,{end_date.isoformat()})~and({field},ge,exactDate,{start_date.isoformat()})"  # pylint: disable=line-too-long
@@ -134,10 +167,13 @@ def get_all_records_between(base, tbl, start_date, end_date, field="Created"):
     return get_all_records(base, tbl, params)
 
 
-def get_all_records_after(base, tbl, after_date, field="Created"):
+def get_all_records_after(
+    base, tbl, after_date, field="Created", fields: Iterable[str] | None = None
+):
     """Returns a list of all records in the table with the
     Created field timestamp after a certain date"""
-    params = {}
+    params: dict[str, Any] = {}
+    _apply_fields_param(params, fields)
     if get_connector().db_format() == "nocodb":
         params["where"] = f"({field},ge,exactDate,{after_date.isoformat()})"
     else:

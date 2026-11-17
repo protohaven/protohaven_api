@@ -23,6 +23,7 @@
 	import FetchError from '../fetch_error.svelte';
 	import { get, isodate, post } from '$lib/api.ts';
 	import { calculate_day_of_week_stats, DAY_NAMES } from './signin_stats';
+	import type { DayTimeRange } from './signin_stats';
 
 	type SearchResult = {
 		name: string;
@@ -81,7 +82,20 @@
 		Friday: 0,
 		Saturday: 0
 	};
+	let day_of_week_time_ranges: Record<string, DayTimeRange | null> = {};
 	let total_signins = 0;
+
+	function format_time(d: Date) {
+		return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+	}
+
+	function format_time_range(day: string) {
+		const range = day_of_week_time_ranges[day];
+		if (!range) {
+			return 'No sign-ins';
+		}
+		return `${format_time(range.earliest)} - ${format_time(range.latest)}`;
+	}
 
 	// Debounce function for search
 	function debounce(func: (...args: unknown[]) => void, wait: number) {
@@ -160,8 +174,10 @@
 	}
 
 	function calculateDayOfWeekStats(memberSignins: SigninRecord[]) {
-		const { stats, total_signins: total } = calculate_day_of_week_stats(memberSignins);
+		const { stats, total_signins: total, time_ranges } =
+			calculate_day_of_week_stats(memberSignins);
 		day_of_week_stats = stats;
+		day_of_week_time_ranges = time_ranges;
 		total_signins = total;
 	}
 
@@ -175,6 +191,7 @@
 			Friday: 0,
 			Saturday: 0
 		};
+		day_of_week_time_ranges = {};
 		total_signins = 0;
 	}
 
@@ -304,6 +321,7 @@
 									<tr>
 										<th>Day of Week</th>
 										<th>Distinct Days Signed In</th>
+										<th>Sign-in Time Range</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -315,6 +333,13 @@
 													<strong>{count}</strong>
 												{:else}
 													<span class="text-muted">0</span>
+												{/if}
+											</td>
+											<td>
+												{#if day_of_week_time_ranges[day]}
+													{format_time_range(day)}
+												{:else}
+													<span class="text-muted">No sign-ins</span>
 												{/if}
 											</td>
 										</tr>

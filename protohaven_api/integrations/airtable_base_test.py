@@ -69,7 +69,9 @@ def test_get_all_records_between_airtable(mocker):
     a.get_connector().db_request.side_effect = [
         (200, {"records": ["foo", "bar", "baz"]}),
     ]
-    assert a.get_all_records_between("test_base", "test_tbl", d(0), d(1)) == [
+    assert a.get_all_records_between(
+        "test_base", "test_tbl", d(0), d(1), fields=["Created", "Email"]
+    ) == [
         "foo",
         "bar",
         "baz",
@@ -77,6 +79,7 @@ def test_get_all_records_between_airtable(mocker):
     _, args, kwargs = a.get_connector().db_request.mock_calls[0]
     assert d(0).isoformat() in kwargs["params"]["filterByFormula"]
     assert d(1).isoformat() in kwargs["params"]["filterByFormula"]
+    assert kwargs["params"]["fields[]"] == ["Created", "Email"]
 
 
 def test_get_all_records_nocodb(mocker):
@@ -102,12 +105,13 @@ def test_get_all_records_nocodb(mocker):
         rec
     ]
     _, args, kwargs = a.get_connector().db_request.mock_calls[0]
-    print(kwargs)
     assert kwargs["params"]["a"] == "test_param"
+    assert kwargs["params"]["pageSize"] == a.NOCODB_PAGE_SIZE
 
     _, args, kwargs = a.get_connector().db_request.mock_calls[1]
-    print(kwargs)
     assert kwargs["params"]["a"] == "test_param"
+    assert kwargs["params"]["page"] == "1"
+    assert kwargs["params"]["pageSize"] == "5"
 
 
 def test_get_all_records_between_nocodb(mocker):
@@ -122,7 +126,11 @@ def test_get_all_records_between_nocodb(mocker):
             },
         ),
     ]
-    assert a.get_all_records_between("test_base", "test_tbl", d(0), d(1)) == [rec]
+    assert a.get_all_records_between(
+        "test_base", "test_tbl", d(0), d(1), fields=["Created", "Email"]
+    ) == [rec]
     _, args, kwargs = a.get_connector().db_request.mock_calls[0]
     assert d(0).isoformat() in kwargs["params"]["where"]
     assert d(1).isoformat() in kwargs["params"]["where"]
+    assert kwargs["params"]["pageSize"] == a.NOCODB_PAGE_SIZE
+    assert kwargs["params"]["fields"] == "Created,Email"

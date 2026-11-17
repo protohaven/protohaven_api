@@ -82,7 +82,7 @@ class Connector:  # pylint: disable=too-many-public-methods
             cfg = get_config("airtable")
             path = f"{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}"
             path += f"/{rec}" if rec else ""
-            path += ("?" + urlencode(params)) if params else ""
+            path += ("?" + urlencode(params, doseq=True)) if params else ""
             headers = {
                 "Authorization": f"Bearer {cfg['data'][base]['token']}",
                 "Content-Type": "application/json",
@@ -92,7 +92,7 @@ class Connector:  # pylint: disable=too-many-public-methods
             cfg = get_config("nocodb")
             path = f"/api/v3/data/{cfg['data'][base]['base_id']}/{cfg['data'][base][tbl]}/records"
             path += f"/{rec}" if rec else ""
-            path += ("?" + urlencode(params)) if params else ""
+            path += ("?" + urlencode(params, doseq=True)) if params else ""
             headers = {
                 "xc-token": cfg["requests"]["token"],
                 "Content-Type": "application/json",
