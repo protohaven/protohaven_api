@@ -402,7 +402,7 @@ def _format_violation_for_discord(violation):
 
     lines = [f"**{title}**"]
     if calculation and calculation != title:
-        lines.append(f"- Calculation: {calculation}")
+        lines.append(f"- Details: {calculation}")
 
     notes = fields.get("Notes")
     if notes:
