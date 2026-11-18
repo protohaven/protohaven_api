@@ -326,6 +326,30 @@ def get_member_and_activation_state(email):
     return (fallback if fallback is not None else m), False
 
 
+def _guest_clearances(email):
+    """Return clearances for `email` from cached Neon accounts.
+
+    Guest sign-in intentionally reads only the account cache (no Neon API
+    fallback) so front-desk sign-ins stay fast even when the email is unknown
+    or belongs to an inactive account. Company accounts are ignored because
+    they do not represent an individual signing in.
+    """
+    try:
+        accounts = neon.cached_get(email, fetch_if_missing=False) or {}
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.exception("Error fetching cached clearances for guest %s", email)
+        return []
+
+    result = []
+    for m in accounts.values():
+        if m.neon_id == m.company_id:
+            continue
+        for c in m.clearances or []:
+            if c and c not in result:
+                result.append(c)
+    return result
+
+
 def handle_notify_board_and_staff(notify_str, fname, email, url):
     """Some accounts are marked as requiring notification when they sign in"""
     if "On Sign In" in notify_str:
@@ -619,6 +643,7 @@ def as_guest(data):
 
     result["waiver_signed"] = data.get("waiver_ack", False)
     result["firstname"] = "Guest"
+    meta = {"clearances": _guest_clearances(data["email"])}
     if data.get("referrer"):  # i.e. the survey was completed or passed
-        log_sign_in(data, result, {})
+        log_sign_in(data, result, meta)
     return result

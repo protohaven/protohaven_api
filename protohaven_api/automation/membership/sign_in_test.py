@@ -567,14 +567,17 @@ def test_handle_waiver_checks_expiration(mocker):
 def test_as_guest_no_referrer(mocker):
     """Guest data with no referrer is omitted from form submission"""
     m = mocker.patch.object(s, "_apply_async")
+    cached_get = mocker.patch.object(s.neon, "cached_get", return_value={})
     got = s.as_guest({"person": "guest", "email": "a@b.com", "waiver_ack": True})
     assert got["waiver_signed"] == True
+    cached_get.assert_called_once_with("a@b.com", fetch_if_missing=False)
     m.assert_not_called()
 
 
 def test_as_guest_referrer(mocker):
     """Guest sign in with referrer data is submitted"""
     m = mocker.patch.object(s, "_apply_async")
+    mocker.patch.object(s.neon, "cached_get", return_value={})
     s.as_guest(
         {
             "person": "guest",
@@ -585,6 +588,47 @@ def test_as_guest_referrer(mocker):
         }
     )
     m.assert_called()
+
+
+def test_as_guest_referrer_logs_cached_clearances(mocker):
+    """Guest sign-in clearances from the accounts cache are recorded"""
+    mocker.patch.object(
+        s.neon,
+        "cached_get",
+        return_value={
+            "123": mocker.MagicMock(
+                neon_id="123", company_id="456", clearances=["Woodshop"]
+            )
+        },
+    )
+    log = mocker.patch.object(s, "log_sign_in")
+    data = {
+        "person": "guest",
+        "waiver_ack": True,
+        "referrer": "TEST",
+        "email": "a@b.com",
+        "dependent_info": "DEP_INFO",
+    }
+    s.as_guest(data)
+    log.assert_called_once_with(data, mocker.ANY, {"clearances": ["Woodshop"]})
+
+
+def test_guest_clearances_dedupes_and_skips_companies(mocker):
+    """Guest clearances are collected from individual accounts only"""
+    individual = mocker.MagicMock(
+        neon_id="123", company_id="456", clearances=["Woodshop", "Woodshop", ""]
+    )
+    company = mocker.MagicMock(neon_id="789", company_id="789", clearances=["Laser"])
+    mocker.patch.object(
+        s.neon, "cached_get", return_value={"123": individual, "789": company}
+    )
+    assert s._guest_clearances("a@b.com") == ["Woodshop"]
+
+
+def test_guest_clearances_cache_lookup_failure(mocker):
+    """Guest clearances are optional and must not block sign-in"""
+    mocker.patch.object(s.neon, "cached_get", side_effect=RuntimeError("boom"))
+    assert s._guest_clearances("a@b.com") == []
 
 
 def test_as_member_notfound(mocker):

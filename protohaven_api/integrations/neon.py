@@ -722,7 +722,9 @@ def cached_get(email: str, fetch_if_missing: bool = True) -> dict[str, Member]:
     """
     if not get_config("cache_server/enabled", False, as_bool=True):
         # Use positional args compatible with both dict.get and AccountCache.get
-        return cache.get(email, {}) if fetch_if_missing else (cache.get(email) or {})
+        if fetch_if_missing:
+            return cache.get(email, {})
+        return cache.get(email, {}, fetch_if_missing=False) or {}
 
     params: dict = {"key": email}
     if not fetch_if_missing:
