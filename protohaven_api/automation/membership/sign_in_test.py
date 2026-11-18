@@ -467,7 +467,7 @@ def test_format_violation_for_discord(mocker):
     }
     assert s._format_violation_for_discord(violation) == (
         "**storage being used without paying for it**\n"
-        "- Details: Tag #8 opened 2026-11-16 22:17 UTC (ID #137)\n"
+        "- Details: Tag #8 opened 2026-11-16 17:17 ET (ID #137)\n"
         "- Fees: $10/day · $0 accrued\n"
         "- Evidence: [kWhUgB7.jpeg](https://example.com/evidence.jpeg)"
     )

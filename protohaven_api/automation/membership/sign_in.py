@@ -354,12 +354,17 @@ def handle_notify_inactive(status_str, fname, email, url):
 
 
 def _humanize_calculation(value):
-    """Replace Airtable ISO timestamps in calculation strings with compact UTC text."""
+    """Replace Airtable ISO timestamps in calculation strings with compact ET text."""
     if not isinstance(value, str):
         return value
+
+    def format_timestamp(match):
+        dt = safe_parse_datetime(match.group())
+        return dt.strftime("%Y-%m-%d %H:%M ET")
+
     return re.sub(
-        r"\b(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}\.\d+Z\b",
-        r"\1 \2 UTC",
+        r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\b",
+        format_timestamp,
         value,
     )
 
