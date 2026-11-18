@@ -3,6 +3,7 @@
 import datetime
 import logging
 import multiprocessing.pool as mp_pool
+import re
 import traceback
 from typing import Any
 
@@ -352,12 +353,91 @@ def handle_notify_inactive(status_str, fname, email, url):
         log.info("Notified of non-active member sign in")
 
 
+def _humanize_calculation(value):
+    """Replace Airtable ISO timestamps in calculation strings with compact UTC text."""
+    if not isinstance(value, str):
+        return value
+    return re.sub(
+        r"\b(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}\.\d+Z\b",
+        r"\1 \2 UTC",
+        value,
+    )
+
+
+def _as_list(value):
+    """Normalize Airtable field values (scalar or list) to a list."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [value]
+
+
+def _evidence_link(evidence):
+    """Return a Discord markdown link for an Airtable attachment, if possible."""
+    if not isinstance(evidence, dict):
+        return None
+    url = evidence.get("url")
+    if not url:
+        thumbnails = evidence.get("thumbnails") or {}
+        large = thumbnails.get("large") or {}
+        url = large.get("url")
+    if not url:
+        return None
+    filename = evidence.get("filename") or "evidence"
+    return f"[{filename}]({url})"
+
+
+def _format_violation_for_discord(violation):
+    """Render a single policy violation as readable Discord markdown."""
+    if not isinstance(violation, dict):
+        return str(violation)
+
+    fields = violation.get("fields") or {}
+    section = " / ".join(
+        str(s) for s in _as_list(fields.get("Section (from Relevant Sections)")) if s
+    )
+    calculation = _humanize_calculation(fields.get("Calculation"))
+    title = section or calculation or "Policy violation"
+
+    lines = [f"**{title}**"]
+    if calculation and calculation != title:
+        lines.append(f"- Calculation: {calculation}")
+
+    notes = fields.get("Notes")
+    if notes:
+        lines.append(f"- Notes: {notes}")
+
+    fee_parts = []
+    daily_fee = fields.get("Daily Fee")
+    if daily_fee is not None and daily_fee != "":
+        fee_parts.append(f"${daily_fee}/day")
+    accrued = fields.get("Accrued")
+    if accrued is not None and accrued != "":
+        fee_parts.append(f"${accrued} accrued")
+    if fee_parts:
+        lines.append("- Fees: " + " · ".join(fee_parts))
+
+    evidence_links = [
+        link
+        for link in (_evidence_link(e) for e in _as_list(fields.get("Evidence")))
+        if link
+    ]
+    if evidence_links:
+        lines.append("- Evidence: " + ", ".join(evidence_links))
+
+    return "\n".join(lines)
+
+
 def handle_notify_violations(violations, fname, email, url):
     """Send async alert when member signs in with active violations"""
     if len(violations) > 0:
+        count = len(violations)
+        block = "\n\n".join(_format_violation_for_discord(v) for v in violations)
         notify_async(
             f"[{fname} ({email})]({url}) just signed in "
-            f"at the front desk with violations: `{violations}` "
+            f"at the front desk with {count} active policy "
+            f"violation{'s' if count != 1 else ''}:\n{block}\n"
             "([wiki](https://wiki.protohaven.org/books/it-maintenance/"
             "page/membership-validation))\n"
         )
