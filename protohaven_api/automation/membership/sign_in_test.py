@@ -436,7 +436,41 @@ def test_handle_notify_violations(mocker):
     s.handle_notify_violations(
         ["Overdue fees"], "Dana", "dana@example.com", "http://example.com"
     )
-    mock_notify_async.assert_called_once_with(MatchStr("Overdue fees"))
+    mock_notify_async.assert_called_once_with(
+        MatchStr("with 1 active policy violation")
+    )
+
+
+def test_format_violation_for_discord(mocker):
+    """Violations render as readable markdown, not raw Airtable records"""
+    violation = {
+        "id": "recCnEcYSYH0JhLeV",
+        "createdTime": "2026-11-16T22:30:27.000Z",
+        "fields": {
+            "Neon ID": 2252,
+            "Tag Number": 8,
+            "Accrued": 0,
+            "Daily Fee": 10,
+            "Relevant Sections": ["recdPZZG0EOeN8s81"],
+            "Evidence": [
+                {
+                    "url": "https://example.com/evidence.jpeg",
+                    "filename": "kWhUgB7.jpeg",
+                }
+            ],
+            "Instance #": 137,
+            "Calculation": "Tag #8 opened 2026-11-16T22:17:15.714Z (ID #137)",
+            "Section (from Relevant Sections)": [
+                "storage being used without paying for it"
+            ],
+        },
+    }
+    assert s._format_violation_for_discord(violation) == (
+        "**storage being used without paying for it**\n"
+        "- Details: Tag #8 opened 2026-11-16 17:17 ET (ID #137)\n"
+        "- Fees: $10/day · $0 accrued\n"
+        "- Evidence: [kWhUgB7.jpeg](https://example.com/evidence.jpeg)"
+    )
 
 
 def test_handle_announcements_recent_last_ack(mocker):
@@ -796,7 +830,9 @@ def test_as_member_violations(mocker):
         {"fields": {"Neon ID": "12345", "Notes": "This one is shown"}}
     ]
     s.notify_async.assert_called_with(
-        "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with violations: `[{'fields': {'Neon ID': '12345', 'Notes': 'This one is shown'}}]` ([wiki](https://wiki.protohaven.org/books/it-maintenance/"
+        "[First (a@b.com)](https://protohaven.app.neoncrm.com/admin/accounts/12345) just signed in at the front desk with 1 active policy violation:\n"
+        "**Policy violation**\n- Notes: This one is shown\n"
+        "([wiki](https://wiki.protohaven.org/books/it-maintenance/"
         "page/membership-validation))\n"
     )
 
