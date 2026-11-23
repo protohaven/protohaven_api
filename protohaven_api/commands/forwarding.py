@@ -17,6 +17,7 @@ log = logging.getLogger("cli.forwarding")
 
 completion_re = re.compile("Deadline for Project Completion:\n(.*?)\n", re.MULTILINE)
 description_re = re.compile("Project Description:\n(.*?)Materials Budget", re.MULTILINE)
+deadline_range_re = re.compile(r"\s*[–—]\s*|\s+-\s+")
 
 
 def _filter_by_gid(items, filter_gid):
@@ -28,6 +29,19 @@ def _filter_by_gid(items, filter_gid):
     if not filter_gid:
         return items
     return [i for i in items if str(i.get("gid")) == str(filter_gid)]
+
+
+def _parse_deadline(deadline_str):
+    """Parse a project deadline, handling date ranges.
+
+    Asana may surface the deadline as a date range (e.g.
+    ``Nov 3, 2026 at 11:00pm – Nov 6, 2026 at 10:40am``). The
+    latest date in the range is the effective completion deadline.
+    """
+    parts = [p.strip() for p in deadline_range_re.split(deadline_str) if p.strip()]
+    if len(parts) > 1:
+        return max(safe_parse_datetime(p) for p in parts)
+    return safe_parse_datetime(deadline_str)
 
 
 class Commands:
@@ -66,7 +80,7 @@ class Commands:
                 raise RuntimeError(
                     "Failed to extract deadline from request by " + req["name"]
                 )
-            deadline = safe_parse_datetime(deadline_match[1])
+            deadline = _parse_deadline(deadline_match[1])
             if deadline < tznow():
                 log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"
