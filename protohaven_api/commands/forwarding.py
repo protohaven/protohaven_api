@@ -80,7 +80,14 @@ class Commands:
                 raise RuntimeError(
                     "Failed to extract deadline from request by " + req["name"]
                 )
-            deadline = _parse_deadline(deadline_match[1])
+            try:
+                deadline = _parse_deadline(deadline_match[1])
+            except ValueError as e:
+                log.warning(
+                    f"Skipping project request by {req['name']} with "
+                    f"unparseable deadline {deadline_match[1]!r}: {e}"
+                )
+                continue
             if deadline < tznow():
                 log.info(
                     f"Skipping expired project request by {req['name']} (expired {deadline})"

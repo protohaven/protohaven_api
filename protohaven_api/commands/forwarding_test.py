@@ -263,6 +263,42 @@ def test_project_requests_date_range_deadline(mocker, cli):
     ]
 
 
+def test_project_requests_invalid_deadline_continues(mocker, cli):
+    """A bad deadline on one request should not prevent other requests from processing"""
+    mocker.patch.object(
+        F.tasks,
+        "get_project_requests",
+        return_value=[
+            {
+                "gid": "bad",
+                "name": "Bad",
+                "notes": (
+                    f"Project Description:\\nBad Desc\\nMaterials Budget: $5\\n"
+                    "Deadline for Project Completion:\\nnot a date\\n"
+                ),
+            },
+            {
+                "gid": "123",
+                "name": "Good",
+                "notes": (
+                    f"Project Description:\\nGood Desc\\nMaterials Budget: $5\\n"
+                    f"Deadline for Project Completion:\\n{d(1).isoformat()}\\n"
+                ),
+            },
+        ],
+    )
+    mocker.patch.object(F, "tznow", return_value=d(0))
+    got = cli("project_requests", ["--apply"])
+    assert got == [
+        {
+            "body": MatchStr("Good Desc"),
+            "subject": MatchStr("Project Request"),
+            "target": "#help-wanted",
+            "side_effect": {"complete_asana_task": "123"},
+        }
+    ]
+
+
 def test_shop_tech_applications(mocker, cli):
     """Test `shop_tech_applications` cmd"""
     mocker.patch.object(
