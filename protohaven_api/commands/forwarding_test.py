@@ -242,7 +242,7 @@ def test_project_requests_date_range_deadline(mocker, cli):
                 "gid": "123",
                 "name": "Foo",
                 "notes": (
-                    f"Project Description:\\nTest Desc\\nMaterials Budget: $5\\n"
+                    "Project Description:\\nTest Desc\\nMaterials Budget: $5\\n"
                     "Deadline for Project Completion:\\n"
                     "Jan 2, 2025 at 11:00pm \u2013 Jan 4, 2025 at 10:40am\\n"
                 ),
@@ -273,7 +273,7 @@ def test_project_requests_invalid_deadline_continues(mocker, cli):
                 "gid": "bad",
                 "name": "Bad",
                 "notes": (
-                    f"Project Description:\\nBad Desc\\nMaterials Budget: $5\\n"
+                    "Project Description:\\nBad Desc\\nMaterials Budget: $5\\n"
                     "Deadline for Project Completion:\\nnot a date\\n"
                 ),
             },
