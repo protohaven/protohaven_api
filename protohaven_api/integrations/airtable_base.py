@@ -182,9 +182,12 @@ def get_all_records_after(
     return get_all_records(base, tbl, params)
 
 
-def insert_records(records, base, tbl):
+def insert_records(records, base, tbl, retry_timeouts=False):
     """Inserts one or more records into a named table. the "fields" structure is
     automatically applied.
+
+    retry_timeouts is opt-in because a timeout may occur after the remote DB
+    has already committed the write, so a retry can create a duplicate record.
     """
     # Max of 10 records allowed for insertion, see
     # https://airtable.com/developers/web/api/create-records
@@ -193,7 +196,9 @@ def insert_records(records, base, tbl):
     post_data: Any = [{"fields": d} for d in records]
     if get_connector().db_format() != "nocodb":
         post_data = {"records": post_data}
-    return get_connector().db_request("POST", base, tbl, data=post_data)
+    return get_connector().db_request(
+        "POST", base, tbl, data=post_data, retry_timeouts=retry_timeouts
+    )
 
 
 def update_record(data, base, tbl, rec):

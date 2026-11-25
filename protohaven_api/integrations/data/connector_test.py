@@ -63,6 +63,33 @@ def test_airtable_read_max_retries(c):
         c.db_request("GET", "tools_and_equipment", "tools")
 
 
+def test_airtable_write_read_timeout_retries_when_requested(mocker, c):
+    """Write requests retry read timeouts only when explicitly requested"""
+    con.requests.request.side_effect = [
+        con.requests.exceptions.ReadTimeout("Whoopsie"),
+        mocker.MagicMock(status_code=200, content=json.dumps({"id": "rec1"})),
+    ]
+    status, content = c.db_request(
+        "POST",
+        "people",
+        "sign_ins",
+        data={"records": []},
+        retry_timeouts=True,
+    )
+    assert status == 200
+    assert content == {"id": "rec1"}
+    con.time.sleep.assert_called_once()
+
+
+def test_airtable_write_read_timeout_raises_by_default(c):
+    """Write requests do not retry read timeouts without an explicit opt-in"""
+    con.requests.request.side_effect = [con.requests.exceptions.ReadTimeout("Whoopsie")]
+    with pytest.raises(con.requests.exceptions.ReadTimeout):
+        c.db_request("POST", "people", "sign_ins", data={"records": []})
+    assert con.requests.request.call_count == 1  # pylint: disable=no-member
+    con.time.sleep.assert_not_called()
+
+
 def test_airtable_meta_request(mocker, c):
     """Airtable schema metadata is fetched from the meta endpoint"""
     mocker.patch.object(

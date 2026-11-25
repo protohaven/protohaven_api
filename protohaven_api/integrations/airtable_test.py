@@ -883,6 +883,12 @@ def test_insert_signin_and_survey_response(mocker):
     a.insert_signin({"Email": "a@x.com"})
     a.insert_simple_survey_response("ann", "a@x.com", "123", "Yes")
     assert insert.call_count == 2
+    assert insert.call_args_list[0].args == (
+        [{"Email": "a@x.com"}],
+        "people",
+        "sign_ins",
+    )
+    assert insert.call_args_list[0].kwargs == {"retry_timeouts": True}
     assert insert.call_args_list[1].args[0][0]["Response"] == "Yes"
 
 

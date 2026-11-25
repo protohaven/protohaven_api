@@ -106,9 +106,15 @@ class Connector:  # pylint: disable=too-many-public-methods
         return get_config("general/db_mode") or "nocodb"
 
     def db_request(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-        self, mode, base, tbl, rec=None, params=None, data=None
+        self, mode, base, tbl, rec=None, params=None, data=None, retry_timeouts=False
     ):
-        """Make an airtable request using the requests module"""
+        """Make a DB request using the requests module.
+
+        Read timeouts are retried for GET requests because reads are
+        idempotent. Writes are only retried on timeout when explicitly
+        requested by a caller that has decided duplicate records are
+        preferable to dropping the write (e.g. sign-in logging).
+        """
         url, headers = self._construct_db_request_url_and_headers(
             base, tbl, rec, params
         )
@@ -149,10 +155,10 @@ class Connector:  # pylint: disable=too-many-public-methods
                     continue
                 return rep.status_code, content
             except requests.exceptions.ReadTimeout as rt:
-                if mode != "GET" or i == self.max_attempts - 1:
+                if (mode != "GET" and not retry_timeouts) or i == self.max_attempts - 1:
                     raise rt
                 log.warning(
-                    f"ReadTimeout on airtable request {mode} {base} {tbl} "
+                    f"ReadTimeout on DB request {mode} {base} {tbl} "
                     f"{rec} {params}, retry #{i+1}"
                 )
                 time.sleep(int(random.random() * self.max_retry_delay_sec))

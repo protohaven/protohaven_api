@@ -706,8 +706,14 @@ def get_tool_id_and_name(tool_code: str):
 
 
 def insert_signin(evt):
-    """Insert sign-in event into Airtable"""
-    return insert_records([evt], "people", "sign_ins")
+    """Insert sign-in event into Airtable.
+
+    Sign-ins are append-only log records, so on read timeout we opt into a
+    retry even though the first attempt may have committed and produced a
+    duplicate. A duplicate sign-in record is easier for staff to reconcile
+    than a missing one.
+    """
+    return insert_records([evt], "people", "sign_ins", retry_timeouts=True)
 
 
 def get_all_announcements():
