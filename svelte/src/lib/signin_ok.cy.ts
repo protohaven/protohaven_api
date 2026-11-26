@@ -49,4 +49,31 @@ describe('signin_ok', () => {
 		cy.contains('Planer (9:00 AM)').should('be.visible');
 		cy.contains('Mill (8:00 AM)').should('be.visible');
 	});
+
+	it('preserves newlines in announcement messages', () => {
+		cy.mount(SigninOk, {
+			props: {
+				on_close: cy.stub().as('on_close'),
+				on_enroll: cy.stub().as('on_enroll'),
+				name: 'Ada Lovelace',
+				email: 'ada@example.com',
+				announcements: [
+					{
+						Title: 'Notice',
+						Message: 'First line\nSecond line',
+						rec_id: 'a1',
+						response: '',
+						submitting: false,
+						submit_ok: false,
+						promise: Promise.resolve()
+					}
+				]
+			}
+		});
+
+		cy.contains('Notice').should('be.visible');
+		cy.get('.announcement-message')
+			.should('have.css', 'white-space', 'pre-line')
+			.and('contain.text', 'First line\nSecond line');
+	});
 });

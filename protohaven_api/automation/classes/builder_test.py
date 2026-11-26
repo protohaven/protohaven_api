@@ -317,6 +317,23 @@ def test_post_run_survey_override_forces_survey(mocker, evt):
     assert "Test Event: Please submit instructor log" in subjects
 
 
+def test_post_run_survey_waits_until_after_last_session(mocker, evt):
+    """POST_RUN_SURVEY is only sent after the last session of a multi-session class."""
+    evt.start_date = d(0, 18)
+    evt.end_date = d(10, 21)
+    _mock_builder(mocker, upcoming_events=[evt])
+
+    eb = builder.ClassEmailBuilder()
+    got = eb.build(d(10, 20))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "Test Event: Please share feedback" not in subjects
+
+    eb = builder.ClassEmailBuilder()
+    got = eb.build(d(10, 22))
+    subjects = [dict(d)["subject"] for d in got]
+    assert "Test Event: Please share feedback" in subjects
+
+
 def test_builder_notified(mocker):
     """Tests that `notified` correctly returns True when comms have already been recently
     sent to a target"""

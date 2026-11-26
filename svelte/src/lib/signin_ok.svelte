@@ -195,7 +195,7 @@
 					</CardTitle></CardHeader
 				>
 				<CardBody>
-					{a.Message}
+					<div class="announcement-message">{a.Message}</div>
 					{#if a.Survey == 'Text'}
 						<Input
 							type="text"
@@ -294,3 +294,9 @@
 		</Col>
 	</Row>
 </Card>
+
+<style>
+	.announcement-message {
+		white-space: pre-line;
+	}
+</style>

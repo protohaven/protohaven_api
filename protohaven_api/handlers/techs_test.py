@@ -684,7 +684,7 @@ def test_new_tech_event(mocker, lead_client):
     assert response.status_code == 401
     assert response.data.decode() == MatchStr("must be set to a valid date")
 
-    # Test invalid start time (outside business hours)
+    # Test start time outside business hours is allowed
     response = lead_client.post(
         "/techs/new_event",
         json={
@@ -694,8 +694,15 @@ def test_new_tech_event(mocker, lead_client):
             "capacity": 10,
         },
     )
-    assert response.status_code == 401
-    assert response.data.decode() == MatchStr("must be set to a valid date")
+    assert response.status_code == 200
+    assert mock_create_event.call_count == 2
+    mock_create_event.assert_called_with(
+        name=f"{tl.TECH_ONLY_PREFIX} Test Event",
+        sessions=[(d(0, 8), d(0, 10))],
+        summary="Tech-only event; created via api.protohaven.org/techs dashboard",
+        max_attendees=10,
+        published=False,
+    )
     # Test invalid capacity (negative)
     response = lead_client.post(
         "/techs/new_event",
