@@ -3,8 +3,8 @@
 import datetime
 import logging
 
-from protohaven_api.config import get_config, tznow
-from protohaven_api.integrations import comms, tasks, wiki
+from protohaven_api.config import get_config, safe_parse_datetime, tznow
+from protohaven_api.integrations import airtable, comms, tasks, wiki
 
 log = logging.getLogger("maintenance.manager")
 
@@ -117,3 +117,49 @@ def get_maintenance_needed_tasks(now=None):
         else:
             log.debug(f"Skip (too early)\t{c}")
     return needed
+
+
+def get_recent_tool_status_changes(now=None, hours=24):
+    """Return tools whose red/yellow/green status changed within `hours`.
+
+    Status changes are identified by the Airtable tools table's
+    ``Status last modified`` timestamp. Returns a dict with:
+      - ``changed``: list of ``{"name": ..., "status": ...}`` dicts
+      - ``counts``: aggregate counts keyed by ``red``, ``yellow``, ``green``
+    """
+    if not now:
+        now = tznow()
+
+    cutoff = now - datetime.timedelta(hours=hours)
+    counts = {"red": 0, "yellow": 0, "green": 0}
+    changed = []
+
+    for tool in airtable.get_tools():
+        fields = tool.get("fields", {})
+        status = (fields.get("Current Status") or "").strip()
+        color = status.split()[0].lower() if status else ""
+        if color not in counts:
+            continue
+
+        modified = fields.get("Status last modified")
+        if not modified:
+            continue
+        try:
+            modified_at = safe_parse_datetime(modified)
+        except (ValueError, TypeError, OverflowError) as e:
+            log.warning(
+                f"Skipping tool status change with bad timestamp {modified!r}: {e}"
+            )
+            continue
+        if modified_at < cutoff:
+            continue
+
+        name = (fields.get("Tool Name") or "").strip() or tool.get("id", "Unknown tool")
+        code = (fields.get("Tool Code") or "").strip()
+        if code:
+            name = f"{name} ({code})"
+        changed.append({"name": name, "status": color})
+        counts[color] += 1
+
+    changed.sort(key=lambda c: (c["status"], c["name"]))
+    return {"changed": changed, "counts": counts}

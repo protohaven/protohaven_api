@@ -147,3 +147,87 @@ def test_invalid_freq_skips_task_and_notifies_tech_automation(mocker):
     send.assert_called_once()
     assert send.call_args.args[1] == "#tech-automation"
     assert "maint_freq_days" in send.call_args.args[0]
+
+
+def test_get_recent_tool_status_changes(mocker):
+    """Tool status changes are limited to the last 24h and red/yellow/green states."""
+    mocker.patch.object(
+        m.airtable,
+        "get_tools",
+        return_value=[
+            {
+                "id": "rec1",
+                "fields": {
+                    "Tool Name": "SawStop",
+                    "Tool Code": "SAW",
+                    "Current Status": "Red (needs repair)",
+                    "Status last modified": d(0, h=11).isoformat(),
+                },
+            },
+            {
+                "id": "rec2",
+                "fields": {
+                    "Tool Name": "Laser Cutter",
+                    "Tool Code": "LAS",
+                    "Current Status": "Yellow",
+                    "Status last modified": d(0, h=10).isoformat(),
+                },
+            },
+            {
+                "id": "rec3",
+                "fields": {
+                    "Tool Name": "Planer",
+                    "Tool Code": "PLN",
+                    "Current Status": "Green (fully operational)",
+                    "Status last modified": d(-2).isoformat(),
+                },
+            },
+            {
+                "id": "rec4",
+                "fields": {
+                    "Tool Name": "Drill Press",
+                    "Tool Code": "DRL",
+                    "Current Status": "Blue",
+                    "Status last modified": d(0, h=10).isoformat(),
+                },
+            },
+            {
+                "id": "rec5",
+                "fields": {
+                    "Tool Name": "Band Saw",
+                    "Tool Code": "BND",
+                    "Current Status": "Green",
+                },
+            },
+        ],
+    )
+
+    got = m.get_recent_tool_status_changes(now=d(0, h=12), hours=24)
+
+    assert got["counts"] == {"red": 1, "yellow": 1, "green": 0}
+    assert got["changed"] == [
+        {"name": "SawStop (SAW)", "status": "red"},
+        {"name": "Laser Cutter (LAS)", "status": "yellow"},
+    ]
+
+
+def test_get_recent_tool_status_changes_bad_timestamp_skipped(mocker):
+    """Tools with unparseable status timestamps are skipped, not fatal."""
+    mocker.patch.object(
+        m.airtable,
+        "get_tools",
+        return_value=[
+            {
+                "id": "rec1",
+                "fields": {
+                    "Tool Name": "SawStop",
+                    "Current Status": "Red",
+                    "Status last modified": "not-a-date",
+                },
+            }
+        ],
+    )
+
+    got = m.get_recent_tool_status_changes(now=d(0, h=12), hours=24)
+
+    assert got == {"changed": [], "counts": {"red": 0, "yellow": 0, "green": 0}}
