@@ -5,6 +5,7 @@ import logging
 from typing import Any, Optional, Union
 
 from dateutil import parser as dateparser
+from dateutil.relativedelta import relativedelta
 from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.automation.classes import events as eauto
@@ -614,12 +615,16 @@ def instructor_logged_hours():
 
     email = email.strip().lower()
     log.info(f"Lookup logged hours with instructor email {email}")
+    cutoff = tznow() - relativedelta(months=6)
     logs: list[dict[str, Any]] = []
     for sub in sheets.get_instructor_submissions_raw(from_row=2):
         if "Email Address" not in sub:
             continue
         sub_email = sub["Email Address"].strip().lower()
         if sub_email != email:
+            continue
+        timestamp = sub.get("Timestamp")
+        if timestamp is None or timestamp < cutoff:
             continue
 
         logs.append(

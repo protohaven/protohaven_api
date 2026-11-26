@@ -50,9 +50,9 @@
 	</CardHeader>
 	<CardBody>
 		<Alert color="info">
-			This is a read-only view of your submitted instructor hours and clearance logs. To submit a
-			new log, use the <strong>Submit Log</strong> button on the scheduled class in the Classes tab,
-			or use the
+			This is a read-only view of your instructor hours and clearance logs submitted in the last 6
+			months. To submit a new log, use the <strong>Submit Log</strong> button on the scheduled class
+			in the Classes tab, or use the
 			<a
 				href="https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform"
 				target="_blank">Log Form (Blank)</a

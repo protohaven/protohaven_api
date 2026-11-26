@@ -512,8 +512,17 @@ def test_instructor_logged_hours(mocker, inst_client):
     """Test the instructor logged hours handler"""
     mock_sheets = mocker.patch.object(instructor, "sheets")
 
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(tz=tz)
     mock_submissions = [
+        {
+            "Timestamp": now - datetime.timedelta(days=300),
+            "Email Address": "foo@bar.com",
+            "Class Name (Please type out full name of class)": "Ancient Woodworking",
+            "Class Date": "2024-11-01",
+            "Scheduled Class Hours": "2",
+            instructor.PASS_HDR: "N/A",
+            "Neon Event ID (please ignore)": "EVENT_OLD",
+        },
         {
             "Timestamp": now,
             "Email Address": "foo@bar.com",
@@ -552,6 +561,7 @@ def test_instructor_logged_hours(mocker, inst_client):
 
     data = json.loads(response.data)
     assert len(data["logs"]) == 2
+    assert all(row["class_name"] != "Ancient Woodworking" for row in data["logs"])
     mock_sheets.get_instructor_submissions_raw.assert_called_once_with(from_row=2)
 
     latest, older = data["logs"]

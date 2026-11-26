@@ -64,7 +64,7 @@ describe('instructor dashboard', () => {
 		cy.wait('@loggedHours');
 
 		cy.contains(
-			'This is a read-only view of your submitted instructor hours and clearance logs.'
+			'This is a read-only view of your instructor hours and clearance logs submitted in the last 6 months.'
 		).should('be.visible');
 		cy.contains('Metalworking 101').should('be.visible');
 		cy.contains('Metal Chopsaw').should('be.visible');
