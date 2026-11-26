@@ -15,6 +15,7 @@
 		Spinner
 	} from '@sveltestrap/sveltestrap';
 	import ClassDetails from '$lib/instructor/class_details.svelte';
+	import LoggedHours from '$lib/instructor/logged_hours.svelte';
 	import Profile from '$lib/instructor/profile.svelte';
 	import Scheduler from '$lib/instructor/scheduler.svelte';
 	import InstructorList from '$lib/instructor/instructor_list.svelte';
@@ -60,6 +61,7 @@
 	const tab_titles: Record<string, string> = {
 		classes: 'Classes',
 		profile: 'Profile',
+		logged_hours: 'Logged Hours',
 		roster: 'Roster',
 		templates: 'Class Templates'
 	};
@@ -202,6 +204,7 @@
 			{/await}
 		</NavLink></NavItem
 	>
+	<NavItem><NavLink href="#logged_hours" on:click={on_tab}>Logged Hours</NavLink></NavItem>
 	{#if admin}
 		<NavItem><NavLink href="#roster" on:click={on_tab}>Roster</NavLink></NavItem>
 		<NavItem><NavLink href="#templates" on:click={on_tab}>Class Templates</NavLink></NavItem>
@@ -239,6 +242,11 @@
 					>
 
 					<ClassDetails email={p.email} {scheduler_open} />
+				{/if}
+
+				<!-- Logged Hours Tab -->
+				{#if activeTab === 'logged_hours'}
+					<LoggedHours email={p.email ?? ''} />
 				{/if}
 
 				<!-- Roster Tab (Admin only) -->

@@ -5,6 +5,7 @@ import logging
 from typing import Any, Optional, Union
 
 from dateutil import parser as dateparser
+from dateutil.relativedelta import relativedelta
 from flask import Blueprint, Response, current_app, redirect, request
 
 from protohaven_api.automation.classes import events as eauto
@@ -21,6 +22,11 @@ from protohaven_api.integrations import (
     sheets,
 )
 from protohaven_api.integrations.models import Role
+from protohaven_api.integrations.sheets import (
+    CLEARANCE_HDR,
+    PASS_HDR,
+    TOOLS_HDR,
+)
 from protohaven_api.rbac import am_lead_role, am_role, require_login_role
 
 log = logging.getLogger("handlers.instructor")
@@ -529,6 +535,39 @@ def cancel_class():
     return c.as_response()
 
 
+def _resolve_submissions_email() -> tuple[Optional[str], Optional[Response]]:
+    """Resolve the instructor email whose submissions should be returned."""
+    target_email = request.args.get("email")
+    if target_email is not None:
+        ue = user_email()
+        if ue != target_email and not am_role(
+            Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF
+        ):
+            return None, Response(
+                "Access Denied for admin parameter `email`", status=401
+            )
+        email = target_email
+    else:
+        email = user_email()
+        if not email:
+            return None, Response("You are not logged in.", status=401)
+
+    return email.strip().lower(), None
+
+
+def _sub_value(sub: dict, *keys: str) -> Any:
+    """Return the first present, non-empty value for the given sheet headers."""
+    for key in keys:
+        if key not in sub:
+            continue
+        value = sub[key]
+        if isinstance(value, str):
+            value = value.strip()
+        if value not in (None, ""):
+            return value
+    return ""
+
+
 @page.route("/instructor/submissions", methods=["GET"])
 @require_login_role(
     Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
@@ -537,18 +576,9 @@ def recent_instructor_submissions():
     """Returns instructor submissions for the logged in instructor.
     Note that not all submission through time are guaranteed to be returned
     """
-    target_email = request.args.get("email")
-    if target_email is not None:
-        ue = user_email()
-        if ue != target_email and not am_role(
-            Role.ADMIN, Role.EDUCATION_LEAD, Role.STAFF
-        ):
-            return Response("Access Denied for admin parameter `email`", status=401)
-        email = target_email
-    else:
-        email = user_email()
-        if not email:
-            return Response("You are not logged in.", status=401)
+    email, err = _resolve_submissions_email()
+    if err:
+        return err
 
     email = email.strip().lower()
     log.info(f"Lookup submissions with instructor email {email}")
@@ -569,6 +599,54 @@ def recent_instructor_submissions():
             result[event_id] = []
         result[event_id].append(sub.get("Timestamp"))
     return result
+
+
+@page.route("/instructor/logged_hours", methods=["GET"])
+@require_login_role(
+    Role.INSTRUCTOR, Role.EDUCATION_LEAD, Role.STAFF, redirect_to_login=False
+)
+def instructor_logged_hours():
+    """Returns a read-only history of the logged-in instructor's submitted
+    hours and clearance logs.
+    """
+    email, err = _resolve_submissions_email()
+    if err:
+        return err
+
+    email = email.strip().lower()
+    log.info(f"Lookup logged hours with instructor email {email}")
+    cutoff = tznow() - relativedelta(months=6)
+    logs: list[dict[str, Any]] = []
+    for sub in sheets.get_instructor_submissions_raw(from_row=2):
+        if "Email Address" not in sub:
+            continue
+        sub_email = sub["Email Address"].strip().lower()
+        if sub_email != email:
+            continue
+        timestamp = sub.get("Timestamp")
+        if timestamp is None or timestamp < cutoff:
+            continue
+
+        logs.append(
+            {
+                "timestamp": sub.get("Timestamp"),
+                "class_name": _sub_value(
+                    sub,
+                    "Class Name (Please type out full name of class)",
+                    "Class Name",
+                ),
+                "class_date": _sub_value(sub, "Class Date"),
+                "hours": _sub_value(sub, "Scheduled Class Hours"),
+                "clearances": _sub_value(sub, CLEARANCE_HDR),
+                "tools": _sub_value(sub, TOOLS_HDR),
+                "students_passed": _sub_value(sub, PASS_HDR),
+                "volunteer": _sub_value(sub, "Do you wish to donate your time?"),
+                "event_id": _sub_value(sub, "Neon Event ID (please ignore)"),
+            }
+        )
+
+    logs.sort(key=lambda row: row["timestamp"] or datetime.datetime.min, reverse=True)
+    return {"logs": logs}
 
 
 @page.route("/instructor/clearance_quiz", methods=["POST"])
