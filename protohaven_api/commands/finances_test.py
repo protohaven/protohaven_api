@@ -500,7 +500,7 @@ def test_validate_membership_addl_family_no_fullprice_bad(mocker, paying_member_
     )
     if paying_member_count == 0:
         assert got == [
-            "Missing required non-additional paid member in household [#1234](https://protohaven.app.neoncrm.com/np/admin/account/householdDetails.do?householdId=1234)"
+            "Missing required non-additional paid member in household [#1234](https://protohaven.app.neoncrm.com/admin/households/detail/1234)"
         ]
     else:
         assert not got

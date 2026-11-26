@@ -133,12 +133,11 @@ class Commands:
         self, household_id: str, household_paying_member_count: int
     ) -> Generator[str, None, None]:
         if household_paying_member_count <= 0:
-            base = get_config(
-                "neon/admin_url", "https://protohaven.app.neoncrm.com/np/admin/"
-            )
+            base = get_config("neon/app_url", "https://protohaven.app.neoncrm.com/")
+            url = f"{base}admin/households/detail/{household_id}"
             yield (
                 "Missing required non-additional paid member in household "
-                + f"[#{household_id}]({base}account/householdDetails.do?householdId={household_id})"
+                + f"[#{household_id}]({url})"
             )
             log.info(
                 f"Missing paid family member: #{household_id} has {household_paying_member_count}"
