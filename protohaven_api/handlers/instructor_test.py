@@ -508,6 +508,76 @@ def test_instructor_submissions(mocker, inst_client):
     assert isinstance(data["EVENT789"][0], str)
 
 
+def test_instructor_logged_hours(mocker, inst_client):
+    """Test the instructor logged hours handler"""
+    mock_sheets = mocker.patch.object(instructor, "sheets")
+
+    now = datetime.datetime.now()
+    mock_submissions = [
+        {
+            "Timestamp": now,
+            "Email Address": "foo@bar.com",
+            "Class Name (Please type out full name of class)": "Woodworking 101",
+            "Class Date": "2025-01-02",
+            "Scheduled Class Hours": "3",
+            instructor.CLEARANCE_HDR: "Woodshop",
+            instructor.TOOLS_HDR: "Table Saw",
+            instructor.PASS_HDR: "student@example.com",
+            "Neon Event ID (please ignore)": "EVENT123",
+        },
+        {
+            "Timestamp": now + datetime.timedelta(hours=1),
+            "Email Address": "foo@bar.com",
+            "Class Name": "Metalworking 101",
+            "Class Date": "2025-01-03",
+            "Scheduled Class Hours": "4",
+            instructor.TOOLS_HDR: "Metal Chopsaw",
+            instructor.PASS_HDR: "N/A",
+            # No Neon Event ID should still be included in logged-hours view.
+        },
+        {
+            "Timestamp": now + datetime.timedelta(hours=2),
+            "Email Address": "other@bar.com",
+            "Class Name (Please type out full name of class)": "Ceramics 101",
+            "Scheduled Class Hours": "2",
+            instructor.TOOLS_HDR: "Kiln",
+            instructor.PASS_HDR: "student2@example.com",
+            "Neon Event ID (please ignore)": "EVENT789",
+        },
+    ]
+    mock_sheets.get_instructor_submissions_raw.return_value = mock_submissions
+
+    response = inst_client.get("/instructor/logged_hours")
+    assert response.status_code == 200
+
+    data = json.loads(response.data)
+    assert len(data["logs"]) == 2
+    mock_sheets.get_instructor_submissions_raw.assert_called_once_with(from_row=2)
+
+    latest, older = data["logs"]
+    assert latest["class_name"] == "Metalworking 101"
+    assert latest["hours"] == "4"
+    assert latest["tools"] == "Metal Chopsaw"
+    assert latest["students_passed"] == "N/A"
+    assert latest["event_id"] == ""
+
+    assert older["class_name"] == "Woodworking 101"
+    assert older["class_date"] == "2025-01-02"
+    assert older["hours"] == "3"
+    assert older["clearances"] == "Woodshop"
+    assert older["tools"] == "Table Saw"
+    assert older["students_passed"] == "student@example.com"
+    assert older["event_id"] == "EVENT123"
+
+    # Admins may request another instructor's log history.
+    mocker.patch.object(rbac, "get_roles", return_value=[rbac.Role.ADMIN["name"]])
+    response = inst_client.get("/instructor/logged_hours?email=other@bar.com")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert len(data["logs"]) == 1
+    assert data["logs"][0]["class_name"] == "Ceramics 101"
+
+
 def test_instructor_list(mocker, lead_client):
     """Test instructor list endpoint"""
     from protohaven_api.integrations.models import Member
