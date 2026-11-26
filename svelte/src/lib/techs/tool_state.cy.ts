@@ -72,6 +72,23 @@ function toolHeaders() {
 }
 
 describe('techs tool state', () => {
+	it('shows stacked completion charts for tools and docs', () => {
+		mountToolState();
+
+		cy.get('.tool-state-charts').should('be.visible');
+		cy.get('[aria-label="Tool states stacked bar chart"] [title="Red: 1"]').should('exist');
+		cy.get('[aria-label="Tool states stacked bar chart"] [title="Green: 1"]').should('exist');
+		cy.get(
+			'[aria-label="Tool documentation states stacked bar chart"] [title="Missing: 2"]'
+		).should('exist');
+		cy.get(
+			'[aria-label="Tool documentation states stacked bar chart"] [title="No approval: 1"]'
+		).should('exist');
+		cy.get(
+			'[aria-label="Tool documentation states stacked bar chart"] [title="Approved: 1"]'
+		).should('exist');
+	});
+
 	it('loads tool state and shows a history link for each tool', () => {
 		mountToolState();
 
