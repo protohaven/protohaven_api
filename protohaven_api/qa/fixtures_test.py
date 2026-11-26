@@ -131,6 +131,10 @@ def test_reuse_deleted_account_clears_cart_and_memberships_before_patch(mocker):
             "accountCustomFields": [
                 {"id": str(neon_fixture.neon.CustomField.DISCORD_USER), "value": ""},
                 {"id": str(neon_fixture.neon.CustomField.BOOKED_USER_ID), "value": ""},
+                {
+                    "id": str(neon_fixture.neon.CustomField.ACCOUNT_AUTOMATION_RAN),
+                    "value": "",
+                },
             ],
         },
     )
@@ -218,6 +222,10 @@ def test_anonymize_mock_account_patches_primary_contact(mocker):
             "accountCustomFields": [
                 {"id": str(neon_fixture.neon.CustomField.DISCORD_USER), "value": ""},
                 {"id": str(neon_fixture.neon.CustomField.BOOKED_USER_ID), "value": ""},
+                {
+                    "id": str(neon_fixture.neon.CustomField.ACCOUNT_AUTOMATION_RAN),
+                    "value": "",
+                },
             ],
         },
     )
