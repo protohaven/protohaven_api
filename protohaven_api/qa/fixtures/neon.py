@@ -73,6 +73,10 @@ def anonymize_mock_account(account_id: str, run_id: str) -> None:
             "accountCustomFields": [
                 {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
                 {"id": str(neon.CustomField.BOOKED_USER_ID), "value": ""},
+                {
+                    "id": str(neon.CustomField.ACCOUNT_AUTOMATION_RAN),
+                    "value": "",
+                },
             ],
         },
     )
@@ -122,6 +126,10 @@ def reuse_deleted_account(account_id: str, email: str, name: str) -> None:
             "accountCustomFields": [
                 {"id": str(neon.CustomField.DISCORD_USER), "value": ""},
                 {"id": str(neon.CustomField.BOOKED_USER_ID), "value": ""},
+                {
+                    "id": str(neon.CustomField.ACCOUNT_AUTOMATION_RAN),
+                    "value": "",
+                },
             ],
         },
     )

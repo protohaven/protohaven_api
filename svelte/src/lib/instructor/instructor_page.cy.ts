@@ -70,4 +70,21 @@ describe('instructor dashboard', () => {
 		cy.contains('Metal Chopsaw').should('be.visible');
 		cy.contains('student@example.com').should('be.visible');
 	});
+
+	it('shows a standalone link to submit a private instruction log', () => {
+		mountInstructorPage({
+			active_membership: 'OK',
+			capabilities_listed: 'OK',
+			paperwork: 'OK',
+			discord_user: 'OK'
+		});
+
+		cy.contains('a', 'Private Instruction Log')
+			.should('have.attr', 'href')
+			.and(
+				'include',
+				'entry.654625226=Private+Instruction&entry.362496408=Nope,+just+a+single+session+class'
+			);
+		cy.contains('a', 'Private Instruction Log').should('have.attr', 'target', '_blank');
+	});
 });

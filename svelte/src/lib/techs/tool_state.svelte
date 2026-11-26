@@ -14,6 +14,7 @@
 		Spinner
 	} from '@sveltestrap/sveltestrap';
 	import { get } from '$lib/api.ts';
+	import ToolStateChart from './tool_state_chart.svelte';
 
 	export let visible: boolean;
 	let loaded = false;
@@ -183,6 +184,7 @@
 				<Spinner />
 			{:then}
 				{#if tools_sorted}
+					<ToolStateChart {tool_state} />
 					<Dropdown>
 						<DropdownToggle color="light" caret>
 							Sort by {sort_name[sort_type]}

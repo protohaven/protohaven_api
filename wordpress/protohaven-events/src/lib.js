@@ -44,6 +44,18 @@ export function get_event_tickets(event_id) {
 	});
 }
 
+export function dateFromInputValue(value) {
+	if (!value) {
+		return null;
+	}
+	// `<input type="date">` returns `yyyy-mm-dd`. Parsing that directly
+	// as an ISO date can produce UTC midnight, which shifts a day in
+	// timezones behind UTC. Parsing it with slash separators makes JS
+	// treat it as local midnight instead. Safari/JSC is also stricter
+	// than V8 about mixed separators, so replace every `-` with `/`.
+	return new Date(value.replace(/-/g, '/'));
+}
+
 async function fetchEventsOnce() {
 	let url = `/?rest_route=/protohaven-events-plugin-api/v1/events`;
 	if (typeof window !== 'undefined' && window.location.search.includes('nocache=1')) {

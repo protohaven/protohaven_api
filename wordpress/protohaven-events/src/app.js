@@ -1,4 +1,4 @@
-import { get_event_tickets, process, fetch_events, LEVELS } from './lib';
+import { get_event_tickets, process, fetch_events, LEVELS, dateFromInputValue } from './lib';
 import {Item} from './item';
 import { useEffect, useState } from '@wordpress/element';
 
@@ -142,18 +142,12 @@ export function App( { imgSize, initialData } ) {
 			</select>
 			<div>
 				<input type="date" id="ph-start" onChange={(e) => {
-					// When JS parses a date like 2024-10-24, it creates
-					// `Date Wed Oct 23 2024 20:00:00 GMT-0400 (Eastern Daylight Time)`
-					// But when it parses 2024/10/24, it creates
-					// `Date Thu Oct 24 2024 00:00:00 GMT-0400 (Eastern Daylight Time)`
-					// We must convert to "slash" notation so as not to accidentally include
-					// random dates the day before the from-date
-					const from_date = (e.target.value) ? new Date(e.target.value.replace("-", "/")) : null;
+					const from_date = dateFromInputValue(e.target.value);
 					setFilters({...filters, from_date});
 				}}/>
 				&nbsp;to&nbsp;
 				<input type="date" id="ph-end" onChange={(e) => {
-					let to_date = (e.target.value) ? new Date(e.target.value.replace("-", "/")) : null;
+					let to_date = dateFromInputValue(e.target.value);
 					if (to_date) {
 						to_date.setHours(23, 59, 59, 999); // Inclusive
 					}

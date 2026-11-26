@@ -1,6 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import type { ProxyOptions } from 'vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 
 // Base URL of the flask backend server
 const SERVER_BASE = 'http://flask:5000';

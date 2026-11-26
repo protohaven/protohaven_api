@@ -1,4 +1,4 @@
-import { extraFromName, fetch_events, LEVELS } from './lib';
+import { dateFromInputValue, extraFromName, fetch_events, LEVELS } from './lib';
 
 describe('extraFromName', () => {
 	test('parses area, level, title, and parenthetical suffix', () => {
@@ -35,6 +35,22 @@ describe('LEVELS', () => {
 			[110, 'Beginner Project'],
 			[100, 'Beginner Skills'],
 		]);
+	});
+});
+
+describe('dateFromInputValue', () => {
+	test('returns null for an empty value', () => {
+		expect(dateFromInputValue('')).toBeNull();
+		expect(dateFromInputValue(null)).toBeNull();
+	});
+
+	test('parses yyyy-mm-dd as local midnight', () => {
+		const d = dateFromInputValue('2024-10-24');
+		expect(d.getFullYear()).toBe(2024);
+		expect(d.getMonth()).toBe(9); // October is zero-indexed
+		expect(d.getDate()).toBe(24);
+		expect(d.getHours()).toBe(0);
+		expect(d.getMinutes()).toBe(0);
 	});
 });
 
