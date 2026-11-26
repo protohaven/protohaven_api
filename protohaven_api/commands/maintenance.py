@@ -105,7 +105,8 @@ class Commands:
     )
     def gen_maintenance_tasks(self, args, _):
         """Check recurring tasks list in Airtable, add new tasks to asana
-        And notify techs about new and stale tasks that are tech_ready."""
+        and notify techs about new/stale tech_ready tasks plus recent tool
+        status changes."""
         if not args.apply:
             log.warning("===========================================")
             log.warning("--no-apply is set; no tasks will be created")
@@ -197,6 +198,18 @@ class Commands:
                     blocking=False,
                 )
 
+        try:
+            tool_status = manager.get_recent_tool_status_changes()
+        except Exception:  # pylint: disable=broad-exception-caught
+            comms.send_discord_message(
+                "Error loading recent tool status changes in `gen_maintenance_tasks`:\n"
+                + traceback.format_exc()
+                + "\nCheck Cronicle logs for details",
+                "#tech-automation",
+                blocking=False,
+            )
+            tool_status = {"changed": [], "counts": {"red": 0, "yellow": 0, "green": 0}}
+
         print_yaml(
             Msg.tmpl(
                 "tech_daily_tasks",
@@ -208,6 +221,8 @@ class Commands:
                 target="#techs-live",
                 am_tech_discord=am_tech_discord,
                 pm_tech_discord=pm_tech_discord,
+                tool_status_changes=tool_status["changed"],
+                tool_status_counts=tool_status["counts"],
             )
         )
 

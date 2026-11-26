@@ -12,12 +12,25 @@ def fixture_cli(capsys):
     return mkcli(capsys, m)
 
 
+def _patch_tool_status(mocker, changed=None, counts=None):
+    """Avoid live Airtable calls in gen_maintenance_tasks tests."""
+    return mocker.patch.object(
+        m.manager,
+        "get_recent_tool_status_changes",
+        return_value={
+            "changed": changed or [],
+            "counts": counts or {"red": 0, "yellow": 0, "green": 0},
+        },
+    )
+
+
 def test_gen_maintenance_tasks(mocker, cli):
     """Confirm generation of maintenance tasks summary"""
     mocker.patch.object(m.forecast, "generate", return_value={})
     mocker.patch.object(
         m.neon, "search_members_with_discord_association", return_value={}
     )
+    _patch_tool_status(mocker)
     mocker.patch.object(
         m.manager,
         "get_maintenance_needed_tasks",
@@ -48,6 +61,7 @@ def test_gen_maintenance_tasks_corrupted(mocker, cli):
     mocker.patch.object(
         m.neon, "search_members_with_discord_association", return_value={}
     )
+    _patch_tool_status(mocker)
     mocker.patch.object(
         m.manager,
         "get_maintenance_needed_tasks",
@@ -78,6 +92,7 @@ def test_gen_maintenance_tasks_filter(mocker, cli):
     mocker.patch.object(
         m.neon, "search_members_with_discord_association", return_value={}
     )
+    _patch_tool_status(mocker)
     mocker.patch.object(
         m.manager,
         "get_maintenance_needed_tasks",
@@ -113,6 +128,7 @@ def test_gen_maintenance_tasks_filter(mocker, cli):
 
 def test_tech_discord_mapping(mocker, cli):
     """Test that tech discord handles are correctly mapped from forecast data"""
+    _patch_tool_status(mocker)
     t1 = mocker.MagicMock(discord_user="tech1")
     t1.name = "Tech One"
     t2 = mocker.MagicMock(discord_user="tech2")
@@ -165,6 +181,7 @@ def test_tech_discord_mapping(mocker, cli):
 
 def test_tech_discord_exception(mocker, cli):
     """Test that tech discord handles are correctly mapped from forecast data"""
+    _patch_tool_status(mocker)
     mocker.patch.object(
         m.forecast,
         "generate",
@@ -197,6 +214,83 @@ def test_tech_discord_exception(mocker, cli):
     # Run command
     got = cli("gen_maintenance_tasks", ["--apply"])
     assert got
+
+
+def test_gen_maintenance_tasks_lists_few_status_changes(mocker, cli):
+    """One or two tool status changes are listed by name in the daily message."""
+    mocker.patch.object(m.forecast, "generate", return_value={})
+    mocker.patch.object(
+        m.neon, "search_members_with_discord_association", return_value={}
+    )
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec345",
+                "section": "foo",
+                "name": "test task",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(1),
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+    _patch_tool_status(
+        mocker,
+        changed=[
+            {"name": "SawStop (SAW)", "status": "red", "previous": "green"},
+            {"name": "Laser Cutter (LAS)", "status": "yellow", "previous": "red"},
+        ],
+    )
+
+    got = cli("gen_maintenance_tasks", ["--apply"])
+    assert "SawStop (SAW): green -> red" in got[0]["body"]
+    assert "Laser Cutter (LAS): red -> yellow" in got[0]["body"]
+    assert "See #maintenance for details." in got[0]["body"]
+
+
+def test_gen_maintenance_tasks_aggregates_many_status_changes(mocker, cli):
+    """More than two tool status changes are summarized with aggregate counts."""
+    mocker.patch.object(m.forecast, "generate", return_value={})
+    mocker.patch.object(
+        m.neon, "search_members_with_discord_association", return_value={}
+    )
+    mocker.patch.object(
+        m.manager,
+        "get_maintenance_needed_tasks",
+        return_value=[
+            {
+                "id": "rec345",
+                "section": "foo",
+                "name": "test task",
+                "detail": "details",
+                "level": "tech_ready",
+                "next_schedule": d(1),
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.tasks, "add_maintenance_task_if_not_exists", return_value="123"
+    )
+    mocker.patch.object(m.comms, "send_discord_message")
+    _patch_tool_status(
+        mocker,
+        changed=[
+            {"name": "SawStop (SAW)", "status": "red", "previous": "green"},
+            {"name": "Laser Cutter (LAS)", "status": "yellow", "previous": "red"},
+            {"name": "Planer (PLN)", "status": "green", "previous": "yellow"},
+        ],
+        counts={"red": 1, "yellow": 1, "green": 1},
+    )
+
+    got = cli("gen_maintenance_tasks", ["--apply"])
+    assert "3 tools (Red: 1, Yellow: 1, Green: 1)" in got[0]["body"]
+    assert "See #maintenance for details." in got[0]["body"]
 
 
 def test_check_door_sensors(mocker, cli):
