@@ -164,6 +164,12 @@
 			>
 		</NavItem>
 		<NavItem>
+			<NavLink
+				href="https://docs.google.com/forms/d/e/1FAIpQLScX3HbZJ1-Fm_XPufidvleu6iLWvMCASZ4rc8rPYcwu_G33gg/viewform?usp=pp_url&entry.654625226=Private+Instruction&entry.362496408=Nope,+just+a+single+session+class"
+				target="_blank">Private Instruction Log</NavLink
+			>
+		</NavItem>
+		<NavItem>
 			<NavLink href="https://wiki.protohaven.org/books/instructors-handbook" target="_blank"
 				>Wiki/Help</NavLink
 			>
