@@ -150,12 +150,6 @@
 		}
 		console.log('Date parsed as', d);
 		console.log(new_event_form);
-		if (d.getHours() < 10 || d.getHours() + new_event_form.hours > 22) {
-			alert(
-				'Event must start and end within shop hours (10AM-10PM); please check date and hours form values'
-			);
-			return;
-		}
 		console.log('Create event', new_event_form);
 		submitting = true;
 		submission = post('/techs/new_event', new_event_form)

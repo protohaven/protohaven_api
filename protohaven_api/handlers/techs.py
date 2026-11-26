@@ -433,9 +433,9 @@ def new_tech_event():
     d = safe_parse_datetime(data["start"]).replace(tzinfo=tz)
     hours = int(data["hours"])
     log.info(f"Parsed {d}, hours {hours}")
-    if not d or d < tznow() or d.hour < 10 or d.hour + hours > 22:
+    if not d or d < tznow():
         return Response(
-            "start must be set to a valid date in the future and within business hours (10AM-10PM)",
+            "start must be set to a valid date in the future",
             status=401,
         )
     log.info("checking capacity")

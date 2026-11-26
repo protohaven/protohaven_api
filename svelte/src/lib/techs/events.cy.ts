@@ -103,4 +103,20 @@ describe('techs events', () => {
 			.should('be.visible')
 			.and('have.attr', 'href', 'https://www.eventbrite.com/myevent?eid=375402919237');
 	});
+
+	it('allows creating tech events outside business hours', () => {
+		mountEvents();
+		cy.intercept('POST', '**/techs/new_event', { status: 'ok' }).as('newEvent');
+
+		cy.get('#class_name').type('Lathe Basics');
+		cy.get('#start').type('2099-01-01T08:00');
+		cy.contains('button', 'Submit').click();
+
+		cy.wait('@newEvent').its('request.body').should('deep.equal', {
+			name: 'Lathe Basics',
+			capacity: 6,
+			start: '2099-01-01T08:00',
+			hours: 3
+		});
+	});
 });
