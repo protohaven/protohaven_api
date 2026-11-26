@@ -9,7 +9,7 @@ We're caught up on scheduling new tasks, but we still have work to do:
 {% if sc|length > 2 %}
 Tools that changed status in the last 24h: {{ sc|length }} tools (Red: {{ tool_status_counts.red }}, Yellow: {{ tool_status_counts.yellow }}, Green: {{ tool_status_counts.green }}). See #maintenance for details.
 {% elif sc %}
-Tools that changed status in the last 24h:{% for c in sc %} {{ c.name }} -> {{ c.status }}{% if not loop.last %};{% endif %}{% endfor %}. See #maintenance for details.
+Tools that changed status in the last 24h:{% for c in sc %} {{ c.name }}: {{ c.previous|default('unknown') }} -> {{ c.status }}{% if not loop.last %};{% endif %}{% endfor %}. See #maintenance for details.
 {% endif %}
 {% for t in new_tasks %}
 - [{{ t['name'] }}](https://app.asana.com/0/1202469740885594/{{ t['gid'] }})

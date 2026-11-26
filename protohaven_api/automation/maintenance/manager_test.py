@@ -199,16 +199,97 @@ def test_get_recent_tool_status_changes(mocker):
                     "Current Status": "Green",
                 },
             },
+            {
+                "id": "rec1",
+                "fields": {
+                    "Tool Name": "SawStop",
+                    "Tool Code": "SAW",
+                    "Current Status": "Red (needs repair)",
+                    "Status last modified": d(0, h=11).isoformat(),
+                },
+            },
         ],
+    )
+
+    def reports(tool_id, back_days=90):
+        assert back_days == 90
+        if tool_id == "rec1":
+            return [
+                {"t": d(0, h=9), "state": "Green (fully operational)"},
+                {"t": d(0, h=11), "state": "Red (needs repair)"},
+            ]
+        if tool_id == "rec2":
+            return [
+                {"t": d(0, h=8), "state": "Red"},
+                {"t": d(0, h=10), "state": "Yellow"},
+            ]
+        return []
+
+    report_fn = mocker.patch.object(
+        m.airtable, "get_reports_for_tool", side_effect=reports
     )
 
     got = m.get_recent_tool_status_changes(now=d(0, h=12), hours=24)
 
+    assert report_fn.call_count == 2  # rec1 is deduplicated
     assert got["counts"] == {"red": 1, "yellow": 1, "green": 0}
     assert got["changed"] == [
-        {"name": "SawStop (SAW)", "status": "red"},
-        {"name": "Laser Cutter (LAS)", "status": "yellow"},
+        {"name": "SawStop (SAW)", "status": "red", "previous": "green"},
+        {"name": "Laser Cutter (LAS)", "status": "yellow", "previous": "red"},
     ]
+
+
+def test_get_recent_tool_status_changes_skips_unchanged(mocker):
+    """A tool is skipped when its latest report history shows no color change."""
+    mocker.patch.object(
+        m.airtable,
+        "get_tools",
+        return_value=[
+            {
+                "id": "rec1",
+                "fields": {
+                    "Tool Name": "SawStop",
+                    "Current Status": "Red",
+                    "Status last modified": d(0, h=11).isoformat(),
+                },
+            }
+        ],
+    )
+    mocker.patch.object(
+        m.airtable,
+        "get_reports_for_tool",
+        return_value=[{"t": d(0, h=10), "state": "Red"}],
+    )
+
+    got = m.get_recent_tool_status_changes(now=d(0, h=12), hours=24)
+
+    assert got == {"changed": [], "counts": {"red": 0, "yellow": 0, "green": 0}}
+
+
+def test_get_recent_tool_status_changes_unknown_previous(mocker):
+    """A tool with no prior report history is shown with an unknown previous status."""
+    mocker.patch.object(
+        m.airtable,
+        "get_tools",
+        return_value=[
+            {
+                "id": "rec1",
+                "fields": {
+                    "Tool Name": "SawStop",
+                    "Current Status": "Red",
+                    "Status last modified": d(0, h=11).isoformat(),
+                },
+            }
+        ],
+    )
+    mocker.patch.object(m.airtable, "get_reports_for_tool", return_value=[])
+
+    got = m.get_recent_tool_status_changes(now=d(0, h=12), hours=24)
+
+    assert got == {
+        "changed": [{"name": "SawStop", "status": "red", "previous": "unknown"}],
+        "counts": {"red": 1, "yellow": 0, "green": 0},
+    }
 
 
 def test_get_recent_tool_status_changes_bad_timestamp_skipped(mocker):

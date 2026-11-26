@@ -119,12 +119,22 @@ def get_maintenance_needed_tasks(now=None):
     return needed
 
 
-def get_recent_tool_status_changes(now=None, hours=24):
+def _status_color(status):
+    """Normalize an Airtable status string to red, yellow, or green."""
+    return (status or "").strip().split()[0].lower()
+
+
+def get_recent_tool_status_changes(  # pylint: disable=too-many-locals
+    now=None, hours=24
+):
     """Return tools whose red/yellow/green status changed within `hours`.
 
     Status changes are identified by the Airtable tools table's
-    ``Status last modified`` timestamp. Returns a dict with:
-      - ``changed``: list of ``{"name": ..., "status": ...}`` dicts
+    ``Status last modified`` timestamp. Tool report history is used to
+    determine the status immediately before each tool's latest change.
+
+    Returns a dict with:
+      - ``changed``: list of ``{"name", "status", "previous"}`` dicts
       - ``counts``: aggregate counts keyed by ``red``, ``yellow``, ``green``
     """
     if not now:
@@ -133,11 +143,16 @@ def get_recent_tool_status_changes(now=None, hours=24):
     cutoff = now - datetime.timedelta(hours=hours)
     counts = {"red": 0, "yellow": 0, "green": 0}
     changed = []
+    seen = set()
 
     for tool in airtable.get_tools():
+        tool_id = tool.get("id")
+        if tool_id in seen:
+            continue
+        seen.add(tool_id)
+
         fields = tool.get("fields", {})
-        status = (fields.get("Current Status") or "").strip()
-        color = status.split()[0].lower() if status else ""
+        color = _status_color(fields.get("Current Status"))
         if color not in counts:
             continue
 
@@ -153,13 +168,42 @@ def get_recent_tool_status_changes(now=None, hours=24):
             continue
         if modified_at < cutoff:
             continue
+        if modified_at > now:
+            continue
 
-        name = (fields.get("Tool Name") or "").strip() or tool.get("id", "Unknown tool")
+        previous = _previous_status(tool_id, modified_at, counts)
+        if previous == color:
+            continue
+
+        name = (fields.get("Tool Name") or "").strip() or tool_id or "Unknown tool"
         code = (fields.get("Tool Code") or "").strip()
         if code:
             name = f"{name} ({code})"
-        changed.append({"name": name, "status": color})
+        changed.append(
+            {"name": name, "status": color, "previous": previous or "unknown"}
+        )
         counts[color] += 1
 
     changed.sort(key=lambda c: (c["status"], c["name"]))
     return {"changed": changed, "counts": counts}
+
+
+def _previous_status(tool_id, modified_at, counts):
+    """Return the most recent red/yellow/green report status before `modified_at`."""
+    previous = None
+    try:
+        reports = [
+            r
+            for r in airtable.get_reports_for_tool(tool_id, back_days=90)
+            if r.get("t") is not None
+        ]
+        reports.sort(key=lambda r: r["t"])
+        for report in reports:
+            if report["t"] >= modified_at:
+                break
+            color = _status_color(report.get("state"))
+            if color in counts:
+                previous = color
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        log.warning(f"Could not load report history for tool {tool_id}: {e}")
+    return previous

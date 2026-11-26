@@ -243,14 +243,14 @@ def test_gen_maintenance_tasks_lists_few_status_changes(mocker, cli):
     _patch_tool_status(
         mocker,
         changed=[
-            {"name": "SawStop (SAW)", "status": "red"},
-            {"name": "Laser Cutter (LAS)", "status": "yellow"},
+            {"name": "SawStop (SAW)", "status": "red", "previous": "green"},
+            {"name": "Laser Cutter (LAS)", "status": "yellow", "previous": "red"},
         ],
     )
 
     got = cli("gen_maintenance_tasks", ["--apply"])
-    assert "SawStop (SAW) -> red" in got[0]["body"]
-    assert "Laser Cutter (LAS) -> yellow" in got[0]["body"]
+    assert "SawStop (SAW): green -> red" in got[0]["body"]
+    assert "Laser Cutter (LAS): red -> yellow" in got[0]["body"]
     assert "See #maintenance for details." in got[0]["body"]
 
 
@@ -281,9 +281,9 @@ def test_gen_maintenance_tasks_aggregates_many_status_changes(mocker, cli):
     _patch_tool_status(
         mocker,
         changed=[
-            {"name": "SawStop (SAW)", "status": "red"},
-            {"name": "Laser Cutter (LAS)", "status": "yellow"},
-            {"name": "Planer (PLN)", "status": "green"},
+            {"name": "SawStop (SAW)", "status": "red", "previous": "green"},
+            {"name": "Laser Cutter (LAS)", "status": "yellow", "previous": "red"},
+            {"name": "Planer (PLN)", "status": "green", "previous": "yellow"},
         ],
         counts={"red": 1, "yellow": 1, "green": 1},
     )
