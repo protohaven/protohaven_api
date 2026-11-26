@@ -129,7 +129,10 @@ class Action(Enum):
 
     def needed_for(self, evt, now):
         """Checkif action is needed for `evt` at time `now`"""
-        date = evt.start_date
+        # Pre-class actions key off the first session. Post-class actions
+        # must wait until the end of the last session, which Eventbrite
+        # exposes as `end_date`.
+        date = evt.end_date if self == Action.POST_RUN_SURVEY else evt.start_date
         # Only applies within the specific time band
         if date - datetime.timedelta(
             days=self.day_offset
