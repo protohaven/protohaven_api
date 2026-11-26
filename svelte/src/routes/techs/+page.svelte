@@ -89,6 +89,12 @@
 			<NavLink href="https://protohaven.org/injury" target="_blank">Injury Report</NavLink>
 		</NavItem>
 		<NavItem>
+			<NavLink
+				href="https://form.asana.com/?k=syF2O04JfU-Z82q6NcEJKg&d=1199692158232291"
+				target="_blank">Purchase Requests</NavLink
+			>
+		</NavItem>
+		<NavItem>
 			<NavLink href="https://wiki.protohaven.org/shelves/shop-techs" target="_blank">Wiki</NavLink>
 		</NavItem>
 		<NavItem>
